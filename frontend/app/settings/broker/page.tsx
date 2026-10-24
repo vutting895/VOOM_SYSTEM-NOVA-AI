@@ -67,8 +67,19 @@ export default function BrokerSettingsPage() {
       else setAccount(null);
     });
     const status = new URLSearchParams(window.location.search).get("alpaca");
-    if (status === "connected") setNotice("Alpaca Paper เชื่อมต่อผ่าน OAuth แล้ว กำลังอ่านข้อมูลบัญชี");
-    else if (status) setError(`การเชื่อมต่อ Alpaca ไม่สำเร็จ: ${status}`);
+    if (status === "connected") {
+      setNotice("Alpaca Paper เชื่อมต่อผ่าน OAuth แล้ว กำลังอ่านข้อมูลบัญชี");
+    } else if (status === "token_exchange_failed_401") {
+      setError("Alpaca ปฏิเสธ OAuth client (HTTP 401): ตรวจว่า ALPACA_CLIENT_ID และ ALPACA_CLIENT_SECRET เป็นคู่จาก OAuth App เดียวกัน ไม่ใช่ API Key/Secret และตรวจว่าแอปยัง Active อยู่");
+    } else if (status === "token_exchange_failed_400") {
+      setError("Alpaca ปฏิเสธรหัสอนุญาต (HTTP 400): ขอเชื่อมต่อใหม่ แล้วตรวจว่า Redirect URI ใน Alpaca ตรงกับ https://voom-alpaca-oauth.suwapat787.workers.dev/api/alpaca/callback ทุกตัวอักษร");
+    } else if (status?.startsWith("token_exchange_failed_")) {
+      setError(`แลก OAuth token ไม่สำเร็จ (${status.replace("token_exchange_failed_", "HTTP ")}). ตรวจสถานะ OAuth App และลองเชื่อมใหม่`);
+    } else if (status === "invalid_state") {
+      setError("คำขอ OAuth หมดอายุหรือไม่ตรงกัน กรุณาเริ่มเชื่อมต่อ Alpaca ใหม่จาก VOOM");
+    } else if (status) {
+      setError(`การเชื่อมต่อ Alpaca ไม่สำเร็จ: ${status}`);
+    }
     return () => listener.subscription.unsubscribe();
   }, [loadAccount]);
 
