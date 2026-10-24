@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../lib/supabase-browser";
 
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  async function sendMagicLink(event: FormEvent<HTMLFormElement>) {
+  async function sendMagicLink(event) {
     event.preventDefault();
     setBusy(true);
     setNotice("");
