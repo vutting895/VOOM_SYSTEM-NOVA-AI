@@ -19,11 +19,11 @@ export default function HomePage() {
         <nav className="navigation" aria-label="Main navigation">
           <a className="nav-link active" href="/">◈ <span>Overview</span></a>
           <a className="nav-link" href="#market">⌁ <span>Market data</span></a>
-          <a className="nav-link" href="#research">✳ <span>Gen AI research</span></a>
+          <a className="nav-link" href="/gen-ai">✳ <span>Gen AI research</span></a>
           <a className="nav-link" href="#backtest">▥ <span>Backtesting</span></a>
           <a className="nav-link" href="#risk">◉ <span>Risk & portfolio</span></a>
           <a className="nav-link" href="/settings/broker">⇄ <span>Broker connection</span></a>
-          <a className="nav-link" href="#marketplace">▦ <span>Marketplace</span></a>
+          <a className="nav-link" href="/marketplace">▦ <span>Marketplace</span></a>
         </nav>
         <div className="sidebar-bottom">
           <span className="status-dot" /> Research environment
@@ -63,6 +63,9 @@ export default function HomePage() {
                 <div className="module-top"><span className="module-number">{module.number}</span><span className="arrow">↗</span></div>
                 <h3>{module.title}</h3><p>{module.detail}</p>
                 <div className="module-status"><span className="tiny-dot" />{module.status}</div>
+                {module.title === "AI Research" ? <a className="module-action" href="/gen-ai">Open Strategy Lab ↗</a> : null}
+                {module.title === "Marketplace" ? <a className="module-action" href="/marketplace">Browse strategies ↗</a> : null}
+                {module.title === "Broker Connection" ? <a className="module-action" href="/settings/broker">Configure broker ↗</a> : null}
               </article>
             ))}
           </div>
