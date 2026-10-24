@@ -1,0 +1,11 @@
+name = "voom-alpaca-oauth"
+main = "src/index.ts"
+compatibility_date = "2026-10-24"
+
+[vars]
+ALPACA_ENV = "paper"
+# Set FRONTEND_ORIGIN to the exact deployed frontend origin in Cloudflare variables.
+# Never put secrets in this file.
+
+[observability]
+enabled = true
