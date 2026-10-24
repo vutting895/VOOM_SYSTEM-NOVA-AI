@@ -1,0 +1,1 @@
+{"text":"[Reading 6 lines from start (total: 6 lines, 0 remaining)]\n\nFROM python:3.11-slim\nWORKDIR /app\nCOPY mcp-server/requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY mcp-server/ .\nCMD [\"python\", \"server.py\"]\n\n[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]"}
