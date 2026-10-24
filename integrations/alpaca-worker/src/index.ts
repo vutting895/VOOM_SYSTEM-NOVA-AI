@@ -120,8 +120,8 @@ export default {
         });
         const authorize = new URL("https://app.alpaca.markets/oauth/authorize");
         authorize.searchParams.set("response_type", "code");
-        authorize.searchParams.set("client_id", env.ALPACA_CLIENT_ID);
-        authorize.searchParams.set("redirect_uri", env.ALPACA_REDIRECT_URI);
+        authorize.searchParams.set("client_id", env.ALPACA_CLIENT_ID.trim());
+        authorize.searchParams.set("redirect_uri", env.ALPACA_REDIRECT_URI.trim());
         authorize.searchParams.set("state", state);
         authorize.searchParams.set("scope", "trading data");
         authorize.searchParams.set("env", "paper");
@@ -148,14 +148,15 @@ export default {
           body: new URLSearchParams({
             grant_type: "authorization_code",
             code,
-            client_id: env.ALPACA_CLIENT_ID,
-            client_secret: env.ALPACA_CLIENT_SECRET,
-            redirect_uri: env.ALPACA_REDIRECT_URI,
+            client_id: env.ALPACA_CLIENT_ID.trim(),
+            client_secret: env.ALPACA_CLIENT_SECRET.trim(),
+            redirect_uri: env.ALPACA_REDIRECT_URI.trim(),
           }),
         });
         if (!tokenResponse.ok) {
-          // Do not log the authorization code, secret, or token response.
-          return redirect(safeFrontendUrl(env, "token_exchange_failed"));
+          // Return only the HTTP status for safe diagnosis; never expose the response body,
+          // authorization code, client secret, or token in the redirect or logs.
+          return redirect(safeFrontendUrl(env, `token_exchange_failed_${tokenResponse.status}`));
         }
         const grant = await tokenResponse.json() as { access_token?: string; scope?: string; token_type?: string };
         if (!grant.access_token) return redirect(safeFrontendUrl(env, "token_missing"));
