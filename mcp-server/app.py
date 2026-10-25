@@ -61,5 +61,32 @@ def validate_paper_risk(allocation_pct: float, daily_loss_pct: float, drawdown_p
                               drawdown_pct=drawdown_pct,leverage=leverage,
                               data_age_seconds=data_age_seconds,paper_mode=True)
 
+@mcp.tool()
+def smc_wave_component_status() -> dict:
+    """Report readiness of preserved Elliott Wave, Harmonic Patterns and Liquidity Sweeps sources."""
+    import sys
+    component_dir = ROOT / "workers" / "feature" / "smc_wave"
+    sys.path.insert(0, str(component_dir))
+    from adapter import component_status
+    return component_status()
+
+@mcp.tool()
+def validate_smc_wave_ohlcv(candles: list[dict]) -> dict:
+    """Validate OHLC candle structure for future SMC/Wave analysis; does not create signals or orders."""
+    import sys
+    component_dir = ROOT / "workers" / "feature" / "smc_wave"
+    sys.path.insert(0, str(component_dir))
+    from adapter import analyze_ohlcv
+    return analyze_ohlcv(candles)
+
+@mcp.tool()
+def analyze_smc_wave_candidates(candles: list[dict], lookback: int = 20) -> dict:
+    """Run research-only Elliott swing, harmonic-ready and liquidity-sweep candidate analysis; never submits orders."""
+    import sys
+    component_dir = ROOT / "workers" / "feature" / "smc_wave"
+    sys.path.insert(0, str(component_dir))
+    from adapter import analyze_smc_wave
+    return analyze_smc_wave(candles, lookback=lookback)
+
 if __name__=="__main__":
     mcp.run()

@@ -1,0 +1,65 @@
+{
+  "project": "VOOM_SYSTEM-NOVA-AI",
+  "purpose": "SMC/Wave components for MCP integration",
+  "created_utc": "2026-10-25T18:21:21.662237+00:00",
+  "source_root": "G:\\ไดรฟ์ของฉัน\\Colab Notebooks",
+  "source_files": [
+    {
+      "source": "Elliott Wave.ipynb",
+      "copied_to": "workers\\feature\\smc_wave\\source_notebooks\\elliott_wave_source.ipynb",
+      "size_bytes": 5361,
+      "sha256": "3cd342ac505a90e747786e2f5cd5a620d79e44277d79cb5168ee0b876662cb0e",
+      "cell_count": 11,
+      "code_cells": 10,
+      "status": "copied"
+    },
+    {
+      "source": "hamonic pattren.ipynb",
+      "copied_to": "workers\\feature\\smc_wave\\source_notebooks\\harmonic_patterns_source.ipynb",
+      "size_bytes": 22478,
+      "sha256": "abb9b5e2a49300406bc6394b4b8634c7fa04b3c8bde0918b000868979273441b",
+      "cell_count": 54,
+      "code_cells": 52,
+      "status": "copied"
+    },
+    {
+      "source": "Liquidity Sweeps.ipynb",
+      "copied_to": "workers\\feature\\smc_wave\\source_notebooks\\liquidity_sweeps_source.ipynb",
+      "size_bytes": 246,
+      "sha256": "9c46040977f9ff27880dd7421c1bd5f6f6423ee6a6d952bca39ec9ab80c130bc",
+      "cell_count": 0,
+      "code_cells": 0,
+      "status": "copied"
+    }
+  ],
+  "safety": {
+    "live_trading_enabled": false,
+    "orders_submitted": false,
+    "source_notebooks_modified": false,
+    "core_notebook_from_github_found": false,
+    "note": "AI_SNIPER_SMC_WAVE_FULL.ipynb was not found in the searched GitHub repositories/default branches. The generated master notebook is an integration scaffold, not a copy of that missing original."
+  },
+  "generated_files": [
+    "AI_SNIPER_SMC_WAVE_FULL.ipynb",
+    "workers/feature/smc_wave/README.md",
+    "workers/feature/smc_wave/adapter.py",
+    "workers/feature/smc_wave/elliott_wave.py",
+    "workers/feature/smc_wave/harmonic_patterns.py",
+    "workers/feature/smc_wave/liquidity_sweeps.py",
+    "mcp-server/app.py",
+    "tests/test_smc_wave_adapter.py"
+  ],
+  "verification": {
+    "unit_tests_passed": 10,
+    "full_project_tests_passed": 15,
+    "mcp_import_ok": true,
+    "mcp_tool_count": 8,
+    "mcp_smc_tools": [
+      "smc_wave_component_status",
+      "validate_smc_wave_ohlcv",
+      "analyze_smc_wave_candidates"
+    ],
+    "live_trading_enabled": false,
+    "orders_submitted": false
+  }
+}
