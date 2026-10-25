@@ -140,7 +140,7 @@ export default function BrokerSettingsPage() {
 
   return (
     <main className="alpaca-page">
-      <style jsx>{`
+      <style>{`
         .alpaca-page{max-width:850px;margin:0 auto;padding:38px 20px 70px;min-height:100vh;background:#090b12;color:#eef3fa;font-family:Inter,system-ui,sans-serif}
         .back{color:#c9f36a;text-decoration:none;font-size:13px}.eyebrow{display:block;color:#a99aff;font-size:10px;letter-spacing:2px;font-weight:800;margin-top:34px}
         h1{font-size:clamp(30px,5vw,42px);letter-spacing:-1.2px;margin:10px 0}.intro{color:#a1adbf;line-height:1.8;font-size:14px}
