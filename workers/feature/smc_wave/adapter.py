@@ -46,5 +46,3 @@ def analyze_smc_wave(candles: list[dict[str, Any]], lookback: int = 20) -> dict[
             "harmonic_patterns": {"available": True, "usage": "pass five confirmed pivots to detect_xabcd(points)"},
             "signal": None, "live_trading_enabled": False, "orders_submitted": False,
             "warning": "These are research candidates, not trade signals or validated strategy outputs."}
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
