@@ -28,5 +28,3 @@ Run the server using the configured MCP client command and project environment; 
 
 ## Safety / limitations
 Live trading and order submission remain disabled. The components are research candidates, not financial advice or validated strategy signals. Run domain review, leakage-safe walk-forward backtests, fees/slippage modelling, and out-of-sample tests before considering any signal use.
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
