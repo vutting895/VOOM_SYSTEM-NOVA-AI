@@ -33,5 +33,3 @@ def detect_liquidity_sweeps(candles: list[dict[str, Any]], lookback: int = 20) -
                            "extreme": low, "close": close,
                            "note": "price swept prior lows and closed back above"})
     return events
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
