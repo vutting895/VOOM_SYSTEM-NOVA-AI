@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "../../lib/supabase-browser";
 
-const PRODUCTION_CALLBACK = "https://voomsystem.vercel.app/auth/callback";
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,7 +23,7 @@ export default function LoginPage() {
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: PRODUCTION_CALLBACK,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           shouldCreateUser: true,
         },
       });
@@ -52,7 +50,7 @@ export default function LoginPage() {
         </form>
         {notice && <p role="status" style={{marginTop:16,padding:12,borderRadius:10,background:"#10271f",border:"1px solid #2c6d54",color:"#9ce9c7",fontSize:13,lineHeight:1.7}}>{notice}</p>}
         {error && <p role="alert" style={{marginTop:16,padding:12,borderRadius:10,background:"#2b171b",border:"1px solid #7a353f",color:"#ffb5bf",fontSize:13,lineHeight:1.7}}>{error}</p>}
-        <p style={{marginTop:22,color:"#7f8ba4",fontSize:11,lineHeight:1.8}}>การซื้อขายจริงยังปิดอยู่ · ลิงก์ยืนยันจะกลับไปยังเว็บไซต์ VOOM ที่ใช้งานจริง</p>
+        <p style={{marginTop:22,color:"#7f8ba4",fontSize:11,lineHeight:1.8}}>การซื้อขายจริงยังปิดอยู่ · ลิงก์ยืนยันจะกลับมายังเว็บไซต์ NOVA ที่กำลังเปิดอยู่</p>
       </section>
     </main>
   );
