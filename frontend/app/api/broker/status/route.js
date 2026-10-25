@@ -80,10 +80,10 @@ async function accountAuthRequired(broker, detail) {
 
 export async function GET(request) {
   const broker = new URL(request.url).searchParams.get('broker');
-  const supported = ['mt5', 'binance', 'bybit', 'okx', 'coinbase', 'kraken', 'bitget'];
+  const supported = ['binance', 'bybit', 'okx', 'coinbase', 'kraken', 'bitget'];
   if (!broker || !supported.includes(broker)) {
     return NextResponse.json({
-      error: 'Unsupported broker. Use mt5, binance, bybit, okx, coinbase, kraken, or bitget.',
+      error: 'Unsupported broker. Use binance, bybit, okx, coinbase, kraken, or bitget.',
       tradingEnabled: false,
     }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -94,9 +94,7 @@ export async function GET(request) {
     });
   }
 
-  const detail = broker === 'mt5'
-    ? 'Private MT5 bridge checks are disabled until customer authentication, tenant isolation and per-customer bridge authorization are implemented.'
-    : 'Private account checks are disabled until customer authentication, tenant isolation and per-customer credential storage are implemented. No credentials were read and no orders were sent.';
+  const detail = 'Private account checks are disabled until customer authentication, tenant isolation and per-customer credential storage are implemented. No credentials were read and no orders were sent.';
   return NextResponse.json(await accountAuthRequired(broker, detail), {
     headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
   });
