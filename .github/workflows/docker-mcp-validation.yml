@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - test/docker-engine-mcp-validation
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -26,5 +29,5 @@ jobs:
         run: docker compose -f infra/docker-compose.yml config
       - name: Build MCP container
         run: docker compose -f infra/docker-compose.yml build mcp-server
-      - name: Run MCP protocol and tool smoke test through container stdio
+      - name: Run MCP protocol and tool smoke test through Docker stdio
         run: python tests/docker_mcp_smoke.py
