@@ -1,7 +1,8 @@
 services:
   mcp-server:
     build:
-      context: ../mcp-server
+      context: ..
+      dockerfile: mcp-server/Dockerfile
     container_name: voom-system-nova-mcp
     stdin_open: true
     tty: true

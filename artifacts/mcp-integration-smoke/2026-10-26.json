@@ -1,0 +1,56 @@
+{
+  "report_type": "live_mcp_market_integration_smoke",
+  "observed_at_utc": "2026-10-25T17:39:00Z",
+  "project": "VOOM_SYSTEM",
+  "entrypoint": "mcp-server/app.py",
+  "protocol": "MCP stdio",
+  "result": "PASS",
+  "checks": {
+    "mcp_handshake": "PASS",
+    "tool_count": 11,
+    "required_tools": 11,
+    "mock_strategy_generation_excluded": true,
+    "live_order_path": "disabled",
+    "public_market_data": {
+      "result": "PASS",
+      "provider": "Binance public REST API",
+      "symbol": "BTCUSDT",
+      "interval": "1h",
+      "candles": 100,
+      "first_candle_utc": "2026-10-21T14:00:00+00:00",
+      "last_candle_utc": "2026-10-25T17:00:00+00:00"
+    },
+    "feature_calculation": {
+      "result": "PASS",
+      "features": ["EMA12", "EMA26", "RSI14_simple", "ATR14_simple"],
+      "latest_close": 80812.01,
+      "RSI14_simple": 48.729,
+      "signal": null
+    },
+    "historical_backtest": {
+      "result": "PASS",
+      "strategy": "EMA crossover",
+      "candles": 100,
+      "trades": 2,
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "total_return_pct": -1.9747,
+      "max_drawdown_pct": 2.5101,
+      "profit_factor": 0.0,
+      "execution_enabled": false
+    },
+    "unit_tests": {"result": "PASS", "passed": 15, "failed": 0},
+    "protocol_smoke": {"result": "PASS", "exit_code": 0},
+    "docker_build": {
+      "result": "NOT_RUN",
+      "reason": "Docker CLI is not installed or not available on the test machine PATH"
+    }
+  },
+  "limitations": [
+    "This is a single 100-candle smoke backtest, not a statistically meaningful validation or profitability claim.",
+    "Public market candles can change between test runs; reproduce by rerunning tests/mcp_market_integration_smoke.py.",
+    "RSI and ATR use simple rolling averages; the MCP tool reports this explicitly.",
+    "SMC/Wave modules remain research-only and do not return trade signals.",
+    "No broker connection was authenticated and no real orders were sent."
+  ]
+}
