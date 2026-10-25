@@ -7,5 +7,3 @@ COPY mcp-server/app.py ./app.py
 COPY mcp-server/tools ./tools
 COPY workers/ /workspace/workers/
 CMD ["python", "app.py"]
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
