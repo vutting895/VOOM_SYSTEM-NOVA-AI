@@ -6,7 +6,9 @@ from mcp.client.stdio import stdio_client
 
 
 def parse_result(result, name):
-    assert not result.isError, f"{name} returned an MCP error"
+    if result.isError:
+        details = [item.text for item in result.content if hasattr(item, "text")]
+        raise AssertionError(f"{name} returned an MCP error: {details[:1]}")
     structured = getattr(result, "structuredContent", None)
     if structured is not None:
         if isinstance(structured, dict) and set(structured) == {"result"}:
