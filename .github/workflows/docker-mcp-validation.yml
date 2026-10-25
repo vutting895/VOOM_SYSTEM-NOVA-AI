@@ -1,0 +1,30 @@
+name: Docker MCP validation
+
+on:
+  push:
+    branches:
+      - test/docker-engine-mcp-validation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install MCP client for integration test
+        run: python -m pip install --upgrade pip && pip install -r mcp-server/requirements.txt
+      - name: Validate Compose configuration
+        run: docker compose -f infra/docker-compose.yml config
+      - name: Build MCP container
+        run: docker compose -f infra/docker-compose.yml build mcp-server
+      - name: Run MCP protocol and tool smoke test through container stdio
+        run: python tests/docker_mcp_smoke.py
