@@ -25,7 +25,5 @@ services:
       BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
       BYBIT_API_KEY: ${BYBIT_API_KEY:-}
       BYBIT_API_SECRET: ${BYBIT_API_SECRET:-}
-      MT5_BRIDGE_HEALTH_URL: ${MT5_BRIDGE_HEALTH_URL:-}
-      MT5_BRIDGE_TOKEN: ${MT5_BRIDGE_TOKEN:-}
 volumes:
   nova_frontend_node_modules:
