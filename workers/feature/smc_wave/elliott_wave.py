@@ -42,5 +42,3 @@ def five_swing_candidate(pivots: list[dict[str, Any]]) -> dict[str, Any]:
     return {"candidate": True, "direction": "bullish_candidate" if bullish else "bearish_candidate",
             "swing_prices": prices, "pivots": tail,
             "warning": "heuristic six-pivot sequence only; Elliott Wave rules and degree are not fully validated"}
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
