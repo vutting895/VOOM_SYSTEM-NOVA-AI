@@ -51,5 +51,3 @@ def detect_xabcd(points: list[dict[str, Any]]) -> dict[str, Any]:
     return {"ok": True, "pattern": found[0] if found else None, "candidates": found,
             "direction": direction if found else None, "ratios": {k: round(v, 6) for k, v in ratios.items()},
             "reason": "ratio match only; pivots and pattern context require confirmation" if found else "no supported ratio combination"}
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
