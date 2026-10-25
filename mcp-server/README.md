@@ -26,5 +26,3 @@
 - The previous FastAPI `server.py` contained randomized mock backtest/tuning values. It has been preserved as `server_legacy_mock.py` for audit and is not the canonical MCP runtime.
 - Random/mock strategy generation and randomized tuning are intentionally not exposed as working production tools.
 - No real buy/sell orders are sent.
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
