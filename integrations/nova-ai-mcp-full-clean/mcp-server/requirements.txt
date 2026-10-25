@@ -1,1 +1,0 @@
-{"text":"[Reading 11 lines from start (total: 11 lines, 0 remaining)]\n\nfastapi==0.110.0\nuvicorn==0.27.1\npydantic==2.6.0\nccxt==4.1.0\npandas==2.2.0\nnumpy==1.26.0\noptuna==3.5.0\ntorch==2.2.0\nredis==5.0.0\npsycopg2-binary==2.9.9\npython-dotenv==1.0.0\n\n[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]"}
