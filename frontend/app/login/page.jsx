@@ -4,14 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 const brokers = [
-  { id: 'mt5', name: 'MetaTrader 4 / 5', type: 'Forex · CFD', mark: 'MT', color: '#5be0b3', detail: 'ต้องใช้ MT5 terminal หรือ broker bridge ที่ตั้งค่าฝั่งเซิร์ฟเวอร์' },
   { id: 'binance', name: 'Binance', type: 'Crypto exchange', mark: 'B', color: '#f0c76b', detail: 'เริ่มจาก API แบบ read-only และปิดสิทธิ์ถอนเงิน' },
   { id: 'bybit', name: 'Bybit', type: 'Crypto exchange', mark: 'By', color: '#a99aff', detail: 'ต้องตั้งค่า API/OAuth และ callback ฝั่งเซิร์ฟเวอร์ก่อน' },
 ];
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
-  const [broker, setBroker] = useState('mt5');
+  const [broker, setBroker] = useState('binance');
   const [notice, setNotice] = useState('');
   const selected = brokers.find((item) => item.id === broker);
 
