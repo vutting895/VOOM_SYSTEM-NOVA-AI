@@ -205,5 +205,3 @@ def mcp_capability_audit() -> dict:
 
 if __name__ == "__main__":
     mcp.run()
-
-[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]
