@@ -7,12 +7,21 @@ from mcp.client.stdio import stdio_client
 
 def parse_result(result, name):
     assert not result.isError, f"{name} returned an MCP error"
+    structured = getattr(result, "structuredContent", None)
+    if structured is not None:
+        if isinstance(structured, dict) and set(structured) == {"result"}:
+            return structured["result"]
+        return structured
+
     texts = [item.text for item in result.content if hasattr(item, "text")]
     assert texts, f"{name} returned no text content"
     try:
-        return json.loads(texts[0])
+        value = json.loads(texts[0])
     except json.JSONDecodeError as exc:
         raise AssertionError(f"{name} did not return JSON: {texts[0][:200]}") from exc
+    if isinstance(value, dict) and set(value) == {"result"}:
+        return value["result"]
+    return value
 
 
 async def main():
@@ -39,7 +48,7 @@ async def main():
             status = parse_result(await session.call_tool("system_status", {}), "system_status")
             assert status["live_trading_enabled"] is False
             workers = parse_result(await session.call_tool("list_workers", {}), "list_workers")
-            assert isinstance(workers, list)
+            assert isinstance(workers, list), f"Unexpected list_workers result type: {type(workers).__name__}"
 
             # These three integration checks use the public Binance API only.
             market = parse_result(
