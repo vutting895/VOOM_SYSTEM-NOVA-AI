@@ -6,6 +6,7 @@ import { getSupabaseBrowserClient } from '../../lib/supabase-client';
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
 
@@ -14,11 +15,25 @@ export default function ProfilePage() {
     let supabase;
     try {
       supabase = getSupabaseBrowserClient();
-      supabase.auth.getUser().then(({ data, error }) => {
+      supabase.auth.getUser().then(async ({ data, error }) => {
         if (!active) return;
         if (error) setNotice(error.message);
-        setUser(data?.user || null);
-        setLoading(false);
+        const currentUser = data?.user || null;
+        setUser(currentUser);
+        if (currentUser) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('customer_profiles')
+            .select('display_name, account_status, created_at')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+          if (!active) return;
+          if (profileError) {
+            setNotice('เข้าสู่ระบบแล้ว แต่ยังอ่านโปรไฟล์จากฐานข้อมูลไม่ได้ กรุณาตรวจ Data API และ RLS policy');
+          } else {
+            setProfile(profileData || null);
+          }
+        }
+        if (active) setLoading(false);
       }).catch(error => {
         if (!active) return;
         setNotice(error?.message || 'ตรวจสอบ session ไม่สำเร็จ');
@@ -56,9 +71,11 @@ export default function ProfilePage() {
       {loading ? <p style={{color:'#a2adc4'}}>กำลังตรวจสอบ session…</p> : user ? <>
         <p style={{color:'#7be8d1'}}>● ยืนยันตัวตนแล้ว</p>
         <dl style={{lineHeight:2.2,fontSize:14}}>
+          <dt style={{color:'#9ba6bf'}}>ชื่อที่แสดง</dt><dd style={{margin:'0 0 12px'}}>{profile?.display_name || 'ยังไม่ได้ตั้งชื่อแสดงผล'}</dd>
           <dt style={{color:'#9ba6bf'}}>อีเมล</dt><dd style={{margin:'0 0 12px',overflowWrap:'anywhere'}}>{user.email || 'ไม่มีอีเมลใน session'}</dd>
+          <dt style={{color:'#9ba6bf'}}>สถานะบัญชี</dt><dd style={{margin:'0 0 12px'}}>{profile?.account_status || 'ยังตรวจสอบไม่ได้'}</dd>
           <dt style={{color:'#9ba6bf'}}>สถานะอีเมล</dt><dd style={{margin:'0 0 12px'}}>{user.email_confirmed_at ? 'ยืนยันแล้ว' : 'ยังไม่ยืนยัน'}</dd>
-          <dt style={{color:'#9ba6bf'}}>สร้างบัญชี</dt><dd style={{margin:'0 0 12px'}}>{user.created_at ? new Date(user.created_at).toLocaleString('th-TH') : '—'}</dd>
+          <dt style={{color:'#9ba6bf'}}>สร้างบัญชี</dt><dd style={{margin:'0 0 12px'}}>{profile?.created_at ? new Date(profile.created_at).toLocaleString('th-TH') : (user.created_at ? new Date(user.created_at).toLocaleString('th-TH') : '—')}</dd>
         </dl>
         <button onClick={signOut} style={{padding:'12px 16px',borderRadius:10,border:'1px solid #74474e',background:'#2a171d',color:'#ffb8c0',fontWeight:700,cursor:'pointer'}}>ออกจากระบบ</button>
       </> : <>
