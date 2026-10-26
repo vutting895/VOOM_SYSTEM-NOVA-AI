@@ -56,6 +56,14 @@ class TestSMCStrategy(unittest.TestCase):
         self.assertFalse(result["live_trading_enabled"])
         self.assertIn("fee_rate_per_side", result["cost_assumptions"])
 
+    def test_full_history_option_preserves_all_swing_points_and_events(self):
+        bars = sample_bars() * 5
+        recent = analyze_smc(bars)
+        complete = analyze_smc(bars, include_full_history=True)
+        self.assertLessEqual(len(recent["swing_points"]), 30)
+        self.assertGreater(len(complete["swing_points"]), len(recent["swing_points"]))
+        self.assertGreaterEqual(len(complete["structure_events"]), len(recent["structure_events"]))
+
     def test_backtest_rejects_invalid_reward_risk(self):
         with self.assertRaises(ValueError):
             run_smc_backtest(sample_bars(), reward_risk=0)
