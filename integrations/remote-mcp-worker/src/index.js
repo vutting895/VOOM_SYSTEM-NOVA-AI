@@ -29,15 +29,15 @@ function analyzeSmcCandles(candles,left=2,right=2) {
   }
   pivots.sort((a,b)=>a.index-b.index||a.kind.localeCompare(b.kind));
   const events=[], broken=new Set();
-  let lastHigh=null,lastLow=null;
+  let lastHigh=null,lastLow=null,structureDirection=null;
   for(let i=0;i<candles.length;i++){
     for(const p of pivots.filter(p=>p.confirmed_at===i)){if(p.kind==="high")lastHigh=p;else lastLow=p;}
     const close=Number(candles[i].close);
     if(lastHigh&&i>lastHigh.confirmed_at&&close>lastHigh.price&&!broken.has("high:"+lastHigh.index)){
-      events.push({index:i,type:events.some(e=>e.direction==="bearish")?"CHoCH":"BOS",direction:"bullish",level:lastHigh.price,broken_pivot_index:lastHigh.index});broken.add("high:"+lastHigh.index);
+      events.push({index:i,type:structureDirection==="bearish"?"CHoCH":"BOS",direction:"bullish",level:lastHigh.price,broken_pivot_index:lastHigh.index});structureDirection="bullish";broken.add("high:"+lastHigh.index);
     }
     if(lastLow&&i>lastLow.confirmed_at&&close<lastLow.price&&!broken.has("low:"+lastLow.index)){
-      events.push({index:i,type:events.some(e=>e.direction==="bullish")?"CHoCH":"BOS",direction:"bearish",level:lastLow.price,broken_pivot_index:lastLow.index});broken.add("low:"+lastLow.index);
+      events.push({index:i,type:structureDirection==="bullish"?"CHoCH":"BOS",direction:"bearish",level:lastLow.price,broken_pivot_index:lastLow.index});structureDirection="bearish";broken.add("low:"+lastLow.index);
     }
   }
   const fvgs=[];
