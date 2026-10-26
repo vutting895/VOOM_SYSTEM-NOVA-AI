@@ -72,14 +72,14 @@ export default function ExnessSettingsPage() {
         {!workerUrl && <p style={{ color: "#e7d19b", fontSize: 13 }}>ยังไม่มี NEXT_PUBLIC_EXNESS_WORKER_URL ใน Vercel Preview/Production</p>}
         <button type="button" disabled={busy} onClick={() => void refreshStatus()} style={{ border: 0, borderRadius: 9, background: "#c9f36a", color: "#10150a", padding: "11px 15px", fontWeight: 800, cursor: "pointer" }}>{busy ? "กำลังตรวจสอบ…" : "ตรวจสถานะ API"}</button>
         {status && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10, marginTop: 18 }}>
-          {[
+          {([
             ["โหมด", status.mode || "—"],
             ["สิทธิ์ API", status.apiAccess || "ยังไม่ตรวจสอบ"],
             ["ตั้งค่า Credential", status.credentialsConfigured ? "มีค่าใน Worker" : "ยังไม่ได้ตั้งค่า"],
             ["ตั้งค่า API Host", status.apiHostConfigured ? "มีค่าใน Worker" : "ยังไม่ได้ตั้งค่า"],
             ["ยืนยันการเชื่อมต่อ", status.connectionVerified ? "ยืนยันแล้ว" : "ยังไม่ยืนยัน"],
             ["อ่านข้อมูลบัญชี", status.accountDataAvailable ? "พร้อมใช้งาน" : "ยังไม่พร้อม"],
-          ].map(([label, value]) => <div key={label} style={{ border: "1px solid #2a3342", borderRadius: 10, padding: 12 }}><span style={{ display: "block", color: "#9aa6b8", fontSize: 11 }}>{label}</span><strong style={{ display: "block", marginTop: 7, fontSize: 14 }}>{value}</strong></div>)}
+          ] as Array<[string, string]>).map(([label, value]) => <div key={label} style={{ border: "1px solid #2a3342", borderRadius: 10, padding: 12 }}><span style={{ display: "block", color: "#9aa6b8", fontSize: 11 }}>{label}</span><strong style={{ display: "block", marginTop: 7, fontSize: 14 }}>{value}</strong></div>)}
         </div>}
         {notice && <p role="status" style={{ color: "#a8e5bd" }}>{notice}</p>}
         {error && <p role="alert" style={{ color: "#ffb8bd", lineHeight: 1.7 }}>{error}</p>}
