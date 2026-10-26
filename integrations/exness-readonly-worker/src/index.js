@@ -75,8 +75,8 @@ export default {
       const user = await authenticate(request, env);
       if (!user) return json({ error: "unauthorized", message: "Sign in to VOOM_SYSTEM first." }, 401, headers);
 
-      const credentialsConfigured = Boolean(env.EXNESS_API_KEY && env.EXNESS_API_SECRET);
-      const apiHostConfigured = Boolean(env.EXNESS_API_BASE_URL);
+      const credentialsConfigured = Boolean(env.EXN_API_KEY && env.EXN_PRIVATE_KEY && env.EXN_ACCOUNT_ID);
+      const apiHostConfigured = Boolean(env.EXN_API_BASE_URL);
       return json({
         ok: true,
         broker: "Exness",
