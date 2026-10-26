@@ -39,17 +39,9 @@ def _pivots(candles: list[dict[str, Any]], left: int, right: int) -> list[dict[s
         if lo == min(lows) and lows.count(lo) == 1:
             pivots.append({"index": i, "confirmed_at": i + right, "kind": "low", "price": lo})
     pivots.sort(key=lambda p: (p["index"], p["kind"]))
-    # Compress consecutive same-kind pivots to the more extreme one.
-    compressed = []
-    for p in pivots:
-        if compressed and compressed[-1]["kind"] == p["kind"]:
-            prev = compressed[-1]
-            more_extreme = p["price"] > prev["price"] if p["kind"] == "high" else p["price"] < prev["price"]
-            if more_extreme:
-                compressed[-1] = p
-        else:
-            compressed.append(p)
-    return compressed
+    # Keep every pivot. Global compression lets a later extreme erase a swing
+    # that was valid information at an earlier point in a historical backtest.
+    return pivots
 
 
 def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
