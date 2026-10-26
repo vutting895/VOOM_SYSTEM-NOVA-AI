@@ -17,7 +17,7 @@ export function classifyStructureEvent(previousBias,direction) {
   if (direction !== "bullish" && direction !== "bearish") throw new Error("direction must be bullish or bearish");
   return previousBias && previousBias !== direction ? "CHoCH" : "BOS";
 }
-function analyzeSmcCandles(candles,left=2,right=2) {
+function analyzeSmcCandles(candles,left=2,right=2,includeFullHistory=false) {
   if(!Array.isArray(candles)||candles.length<10) throw new Error("SMC requires at least 10 candles");
   if(!Number.isInteger(left)||left<1||left>5||!Number.isInteger(right)||right<1||right>5) throw new Error("swing_left/right must be integers from 1 to 5");
   for(const [i,c] of candles.entries()) {
@@ -50,8 +50,45 @@ function analyzeSmcCandles(candles,left=2,right=2) {
     if(Number(c.low)>Number(a.high))fvgs.push({index:i,direction:"bullish",low:Number(a.high),high:Number(c.low)});
     if(Number(c.high)<Number(a.low))fvgs.push({index:i,direction:"bearish",low:Number(c.high),high:Number(a.low)});
   }
-  return {ok:true,strategy:"SMC",version:"research-1.0",bars:candles.length,swing_points:pivots.slice(-30),structure_events:events.slice(-30),fair_value_gaps:fvgs.slice(-30),signal:null,orders_submitted:false,live_trading_enabled:false,limitations:["Heuristic SMC labels; not independently validated","Research-only output; no order execution","Historical OHLC bars do not model intrabar path"]};
+  return {ok:true,strategy:"SMC",version:"research-1.0",bars:candles.length,swing_points:includeFullHistory?pivots:pivots.slice(-30),structure_events:includeFullHistory?events:events.slice(-30),fair_value_gaps:includeFullHistory?fvgs:fvgs.slice(-30),signal:null,orders_submitted:false,live_trading_enabled:false,limitations:["Heuristic SMC labels; not independently validated","Research-only output; no order execution","Historical OHLC bars do not model intrabar path"]};
 }
+
+export function runSmcBacktest(candles, options={}) {
+  const left=Number(options.swingLeft??2), right=Number(options.swingRight??2);
+  const rewardRisk=Number(options.rewardRisk??2), feeRate=Number(options.feeRate??0.001);
+  const slippageRate=Number(options.slippageRate??0.0005), initialEquity=Number(options.initialEquity??10000);
+  if(!Number.isFinite(rewardRisk)||rewardRisk<0.5||rewardRisk>5) throw new Error("reward_risk must be between 0.5 and 5");
+  if(!Number.isFinite(feeRate)||feeRate<0||feeRate>=0.05||!Number.isFinite(slippageRate)||slippageRate<0||slippageRate>=0.05) throw new Error("fee_rate and slippage_rate must be in [0, 0.05)");
+  if(!Number.isFinite(initialEquity)||initialEquity<=0) throw new Error("initial_equity must be positive and finite");
+  const analysis=analyzeSmcCandles(candles,left,right,true), pivots=analysis.swing_points, events=analysis.structure_events;
+  const trades=[]; let busyUntil=-1, equity=initialEquity, peak=initialEquity, maxDrawdown=0;
+  for(const event of events) {
+    const i=event.index, entryIndex=i+1;
+    if(entryIndex>=candles.length||entryIndex<=busyUntil) continue;
+    const bullish=event.direction==="bullish", kind=bullish?"low":"high";
+    let relevant=null;
+    for(const pivot of pivots) if(pivot.index<i&&pivot.confirmed_at<i&&pivot.kind===kind) relevant=pivot;
+    if(!relevant) continue;
+    const stop=relevant.price, entry=Number(candles[entryIndex].open), risk=bullish?entry-stop:stop-entry;
+    if(!Number.isFinite(risk)||risk<=0) continue;
+    const target=bullish?entry+risk*rewardRisk:entry-risk*rewardRisk;
+    let exitIndex=candles.length-1, exitPrice=Number(candles[candles.length-1].close), exitReason="end_of_data";
+    for(let j=entryIndex;j<candles.length;j++) {
+      const stopHit=bullish?Number(candles[j].low)<=stop:Number(candles[j].high)>=stop;
+      const targetHit=bullish?Number(candles[j].high)>=target:Number(candles[j].low)<=target;
+      if(stopHit){exitIndex=j;exitPrice=stop;exitReason="stop_loss";break}
+      if(targetHit){exitIndex=j;exitPrice=target;exitReason="take_profit";break}
+    }
+    const gross=bullish?exitPrice-entry:entry-exitPrice;
+    const costs=(Math.abs(entry)+Math.abs(exitPrice))*(feeRate+slippageRate), net=gross-costs, rMultiple=net/risk;
+    equity+=net; peak=Math.max(peak,equity); if(peak>0)maxDrawdown=Math.max(maxDrawdown,(peak-equity)/peak);
+    trades.push({direction:bullish?"long":"short",structure_event:event.type,signal_index:i,entry_index:entryIndex,entry_price:entry,stop_swing_index:relevant.index,stop_price:stop,target_price:target,exit_index:exitIndex,exit_price:exitPrice,exit_reason:exitReason,gross_pnl_per_unit:gross,estimated_cost_per_unit:costs,net_pnl_per_unit:net,r_multiple:rMultiple});
+    busyUntil=exitIndex;
+  }
+  const wins=trades.filter(t=>t.net_pnl_per_unit>0).length;
+  return {ok:true,strategy:"SMC_structure_break_baseline",mode:"research_backtest_only",bars_analyzed:candles.length,trade_count:trades.length,win_rate_pct:trades.length?wins/trades.length*100:0,total_net_pnl_per_unit:trades.reduce((sum,t)=>sum+t.net_pnl_per_unit,0),mean_r_multiple:trades.length?trades.reduce((sum,t)=>sum+t.r_multiple,0)/trades.length:0,max_drawdown_pct:maxDrawdown*100,initial_equity_reference:initialEquity,cost_assumptions:{fee_rate_per_side:feeRate,slippage_rate_per_side:slippageRate},fill_assumptions:["signal only after structure-break candle closes","entry at next candle open","if stop and target both touched, stop is assumed first"],trades,orders_submitted:false,live_trading_enabled:false,warning:"Research baseline only; per-unit PnL is not portfolio sizing. Validate spread, contract sizing, funding/swap, and out-of-sample performance."};
+}
+
 async function callTool(name,args,request,env,user) {
   if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",liveTradingEnabled:false,executionEnabled:false,userId:user.id};
   if(name==="list_workers") return {workers:["data-ingestion","feature","gen-ai","backtest","tuning","risk","portfolio","execution"].map(worker=>({worker,status:worker==="execution"?"disabled": "prototype_or_local_module",liveExecutionEnabled:false})),note:"Python worker modules are not individually deployed as Cloudflare Workers."};
@@ -60,7 +97,7 @@ async function callTool(name,args,request,env,user) {
     if(!r.ok) throw new Error("Supabase read denied; verify table and RLS permissions");
     const strategies=await r.json(); return {count:strategies.length,strategies};
   }
-  if(name==="analyze_smc_strategy") {
+  if(name==="analyze_smc_strategy" || name==="run_smc_backtest") {
     const symbol=String(args.symbol||"BTCUSDT").toUpperCase();
     if(!/^[A-Z0-9]{5,20}$/.test(symbol)) throw new Error("Invalid symbol");
     const interval=String(args.interval||"1h");
@@ -69,7 +106,8 @@ async function callTool(name,args,request,env,user) {
     const res=await fetch("https://api.binance.com/api/v3/klines?symbol="+encodeURIComponent(symbol)+"&interval="+interval+"&limit="+limit);
     if(!res.ok) throw new Error("Public market data provider unavailable ("+res.status+")");
     const raw=await res.json(), candles=raw.map(k=>({time:k[0],open:Number(k[1]),high:Number(k[2]),low:Number(k[3]),close:Number(k[4]),volume:Number(k[5])}));
-    return {...analyzeSmcCandles(candles,Number(args.swing_left)||2,Number(args.swing_right)||2),source:"Binance public market data",symbol,interval};
+    if(name==="analyze_smc_strategy") return {...analyzeSmcCandles(candles,Number(args.swing_left)||2,Number(args.swing_right)||2),source:"Binance public market data",symbol,interval};
+    return {...runSmcBacktest(candles,{swingLeft:Number(args.swing_left)||2,swingRight:Number(args.swing_right)||2,rewardRisk:Number(args.reward_risk??2),feeRate:Number(args.fee_rate??0.001),slippageRate:Number(args.slippage_rate??0.0005),initialEquity:Number(args.initial_equity??10000)}),source:"Binance public market data",symbol,interval};
   }
   if(name==="read_market_candles" || name==="run_ema_backtest") {
     const symbol=String(args.symbol||"BTCUSDT").toUpperCase();
@@ -111,6 +149,7 @@ const tools=[
  {name:"list_strategy_registry",description:"Read strategy registry rows visible to this signed-in user under Supabase RLS.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"read_market_candles",description:"Read public Binance OHLCV candles. Research only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"}},additionalProperties:false}},
  {name:"analyze_smc_strategy",description:"Analyze confirmed swing structure, BOS/CHoCH and fair value gaps on public Binance candles. Research only; never sends orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},swing_left:{type:"integer"},swing_right:{type:"integer"}},additionalProperties:false}},
+ {name:"run_smc_backtest",description:"Run a conservative SMC structure-break historical backtest with next-bar entry, confirmed swing stops, fixed reward/risk and configurable costs. Research only; never sends orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},swing_left:{type:"integer"},swing_right:{type:"integer"},reward_risk:{type:"number"},fee_rate:{type:"number"},slippage_rate:{type:"number"},initial_equity:{type:"number"}},additionalProperties:false}},
  {name:"run_ema_backtest",description:"Run a simplified long-only EMA crossover research backtest on public candle data. Not investment advice; no orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},fast_period:{type:"integer"},slow_period:{type:"integer"}},additionalProperties:false}},
  {name:"validate_paper_risk",description:"Fail-closed paper risk checks. Cannot authorize live trading.",inputSchema:{type:"object",properties:{allocation_pct:{type:"number"},daily_loss_pct:{type:"number"},drawdown_pct:{type:"number"},leverage:{type:"number"},data_age_seconds:{type:"number"}},required:["allocation_pct","daily_loss_pct","drawdown_pct"],additionalProperties:false}}
 ];
