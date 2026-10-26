@@ -39,22 +39,14 @@ def _pivots(candles: list[dict[str, Any]], left: int, right: int) -> list[dict[s
         if lo == min(lows) and lows.count(lo) == 1:
             pivots.append({"index": i, "confirmed_at": i + right, "kind": "low", "price": lo})
     pivots.sort(key=lambda p: (p["index"], p["kind"]))
-    # Compress consecutive same-kind pivots to the more extreme one.
-    compressed = []
-    for p in pivots:
-        if compressed and compressed[-1]["kind"] == p["kind"]:
-            prev = compressed[-1]
-            more_extreme = p["price"] > prev["price"] if p["kind"] == "high" else p["price"] < prev["price"]
-            if more_extreme:
-                compressed[-1] = p
-        else:
-            compressed.append(p)
-    return compressed
+    # Keep every pivot. Global compression lets a later extreme erase a swing
+    # that was valid information at an earlier point in a historical backtest.
+    return pivots
 
 
 def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
                 swing_right: int = 2, displacement_atr_multiple: float = 1.0,
-                ob_search_bars: int = 8) -> dict[str, Any]:
+                ob_search_bars: int = 8, include_full_history: bool = False) -> dict[str, Any]:
     """Return auditable BOS/CHoCH, FVG, order-block and liquidity-sweep candidates."""
     _validate(candles)
     if not (1 <= swing_left <= 10 and 1 <= swing_right <= 10):
@@ -82,16 +74,20 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
     last_broken: set[tuple[str, int]] = set()
     latest_structure = None
 
-    # Process bars in chronological order, only using pivots already confirmed at that bar.
+    # Pivots are sorted by index and confirmed_at is index + swing_right.
+    # Advance one cursor instead of rescanning the full pivot history on every bar.
+    pivot_cursor = 0
+    latest_pivot: dict[str, dict[str, Any] | None] = {"high": None, "low": None}
     for i in range(max(swing_left + swing_right + 1, 1), n):
-        available = [p for p in confirmed if p["confirmed_at"] < i]
-        prior_highs = [p for p in available if p["kind"] == "high" and p["index"] < i]
-        prior_lows = [p for p in available if p["kind"] == "low" and p["index"] < i]
+        while pivot_cursor < len(confirmed) and confirmed[pivot_cursor]["confirmed_at"] < i:
+            pivot = confirmed[pivot_cursor]
+            latest_pivot[pivot["kind"]] = pivot
+            pivot_cursor += 1
         close = closes[i]
-        for kind, collection, direction in (("high", prior_highs, "bullish"), ("low", prior_lows, "bearish")):
-            if not collection:
+        for kind, direction in (("high", "bullish"), ("low", "bearish")):
+            level = latest_pivot[kind]
+            if level is None or level["index"] >= i:
                 continue
-            level = collection[-1]
             key = (kind, level["index"])
             broke = close > level["price"] if kind == "high" else close < level["price"]
             if broke and key not in last_broken:
@@ -103,15 +99,28 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
                 structure_bias = direction
                 latest_structure = events[-1]
 
+    # Suffix extrema make future mitigation labels O(1) per zone rather than
+    # scanning every later candle for every FVG/OB candidate.
+    suffix_min = [0.0] * n
+    suffix_max = [0.0] * n
+    suffix_min[-1], suffix_max[-1] = lows[-1], highs[-1]
+    for i in range(n - 2, -1, -1):
+        suffix_min[i] = min(lows[i], suffix_min[i + 1])
+        suffix_max[i] = max(highs[i], suffix_max[i + 1])
+
     fvgs = []
     for i in range(2, n):
         # Three-candle imbalance, detected when the third candle closes.
+        future_min = suffix_min[i + 1] if i + 1 < n else None
+        future_max = suffix_max[i + 1] if i + 1 < n else None
         if lows[i] > highs[i-2]:
             fvgs.append({"type": "bullish_fvg", "index": i, "lower": highs[i-2], "upper": lows[i],
-                         "midpoint": (highs[i-2] + lows[i]) / 2, "mitigated": any(lows[j] <= lows[i] for j in range(i+1, n))})
+                         "midpoint": (highs[i-2] + lows[i]) / 2,
+                         "mitigated": future_min is not None and future_min <= lows[i]})
         if highs[i] < lows[i-2]:
             fvgs.append({"type": "bearish_fvg", "index": i, "lower": highs[i], "upper": lows[i-2],
-                         "midpoint": (highs[i] + lows[i-2]) / 2, "mitigated": any(highs[j] >= highs[i] for j in range(i+1, n))})
+                         "midpoint": (highs[i] + lows[i-2]) / 2,
+                         "mitigated": future_max is not None and future_max >= highs[i]})
 
     order_blocks = []
     for event in events:
@@ -129,18 +138,23 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
         order_blocks.append({"type": "bullish_order_block" if bullish else "bearish_order_block",
                              "index": j, "confirmed_at": i, "lower": lows[j], "upper": highs[j],
                              "structure_event": event["type"], "displacement": displacement,
-                             "atr_at_analysis": atr, "mitigated_after_confirmation": any(
-                                 (lows[k] <= lows[j] if bullish else highs[k] >= highs[j]) for k in range(i+1, n))})
+                             "atr_at_analysis": atr, "mitigated_after_confirmation": (
+                                 suffix_min[i + 1] <= lows[j] if bullish and i + 1 < n else
+                                 suffix_max[i + 1] >= highs[j] if i + 1 < n else False)})
 
     sweeps = []
     # Sweep requires a wick beyond a previously confirmed swing and a close back inside.
+    pivot_cursor = 0
+    latest_pivot = {"high": None, "low": None}
     for i in range(1, n):
-        available = [p for p in confirmed if p["confirmed_at"] < i]
+        while pivot_cursor < len(confirmed) and confirmed[pivot_cursor]["confirmed_at"] < i:
+            pivot = confirmed[pivot_cursor]
+            latest_pivot[pivot["kind"]] = pivot
+            pivot_cursor += 1
         for kind in ("high", "low"):
-            candidates = [p for p in available if p["kind"] == kind]
-            if not candidates:
+            p = latest_pivot[kind]
+            if p is None:
                 continue
-            p = candidates[-1]
             if kind == "high" and highs[i] > p["price"] and closes[i] < p["price"]:
                 sweeps.append({"type": "buy_side_liquidity_sweep", "index": i, "level": p["price"], "swing_index": p["index"]})
             elif kind == "low" and lows[i] < p["price"] and closes[i] > p["price"]:
@@ -166,9 +180,11 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
         "ok": True, "strategy": "SMC", "version": "1.0.0-research",
         "bars_analyzed": n, "last_close": closes[-1], "atr14_simple": atr,
         "structure_bias": structure_bias, "latest_structure_event": latest_structure,
-        "swing_points": confirmed[-30:], "structure_events": events[-30:],
-        "fair_value_gaps": fvgs[-30:], "order_blocks": order_blocks[-30:],
-        "liquidity_sweeps": sweeps[-30:],
+        "swing_points": confirmed if include_full_history else confirmed[-30:],
+        "structure_events": events if include_full_history else events[-30:],
+        "fair_value_gaps": fvgs if include_full_history else fvgs[-30:],
+        "order_blocks": order_blocks if include_full_history else order_blocks[-30:],
+        "liquidity_sweeps": sweeps if include_full_history else sweeps[-30:],
         "latest_unmitigated_fvg": latest_fvg, "latest_unmitigated_order_block": latest_ob,
         "latest_liquidity_sweep": latest_sweep, "confluence_count": confluence,
         "setup_candidate": bool(latest_structure and confluence >= 2),
@@ -190,7 +206,7 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
         raise ValueError("fee_rate and slippage_rate must be in [0, 0.05)")
     if not isfinite(float(initial_equity)) or float(initial_equity) <= 0:
         raise ValueError("initial_equity must be positive and finite")
-    analysis = analyze_smc(candles, swing_left=swing_left, swing_right=swing_right)
+    analysis = analyze_smc(candles, swing_left=swing_left, swing_right=swing_right, include_full_history=True)
     opens = [float(c["open"]) for c in candles]
     highs = [float(c["high"]) for c in candles]
     lows = [float(c["low"]) for c in candles]
@@ -201,16 +217,23 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
     busy_until = -1
     equity = peak = float(initial_equity)
     max_drawdown = 0.0
+    pivot_cursor = 0
+    latest_pivot: dict[str, dict[str, Any] | None] = {"high": None, "low": None}
     for event in events:
         i = int(event["index"])
+        while pivot_cursor < len(pivots) and pivots[pivot_cursor]["index"] < i and pivots[pivot_cursor]["confirmed_at"] < i:
+            pivot = pivots[pivot_cursor]
+            latest_pivot[pivot["kind"]] = pivot
+            pivot_cursor += 1
         entry_i = i + 1
         if entry_i >= len(candles) or entry_i <= busy_until:
             continue
         bullish = event["direction"] == "bullish"
-        relevant = [p for p in pivots if p["index"] < i and p["kind"] == ("low" if bullish else "high")]
-        if not relevant:
+        # A stop may only use a swing that was confirmed before the signal bar.
+        relevant = latest_pivot["low" if bullish else "high"]
+        if relevant is None:
             continue
-        stop = float(relevant[-1]["price"])
+        stop = float(relevant["price"])
         entry = opens[entry_i]
         risk = entry - stop if bullish else stop - entry
         if not isfinite(risk) or risk <= 0:
@@ -241,7 +264,7 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
             max_drawdown = max(max_drawdown, (peak - equity) / peak)
         trades.append({"direction": "long" if bullish else "short", "structure_event": event["type"],
                        "signal_index": i, "entry_index": entry_i, "entry_price": entry,
-                       "stop_price": stop, "target_price": target, "exit_index": exit_i,
+                       "stop_swing_index": relevant["index"], "stop_price": stop, "target_price": target, "exit_index": exit_i,
                        "exit_price": exit_price, "exit_reason": exit_reason,
                        "gross_pnl_per_unit": gross, "estimated_cost_per_unit": costs,
                        "net_pnl_per_unit": net, "r_multiple": r_multiple})

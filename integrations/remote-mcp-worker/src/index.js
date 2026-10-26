@@ -13,6 +13,10 @@ async function getUser(request,env) {
 }
 function rpc(id,result,error){return error?{jsonrpc:"2.0",id,error}:{jsonrpc:"2.0",id,result}}
 function ema(values,period){const k=2/(period+1);let v=values[0];const out=[v];for(let i=1;i<values.length;i++){v=values[i]*k+v*(1-k);out.push(v)}return out}
+export function classifyStructureEvent(previousBias,direction) {
+  if (direction !== "bullish" && direction !== "bearish") throw new Error("direction must be bullish or bearish");
+  return previousBias && previousBias !== direction ? "CHoCH" : "BOS";
+}
 function analyzeSmcCandles(candles,left=2,right=2) {
   if(!Array.isArray(candles)||candles.length<10) throw new Error("SMC requires at least 10 candles");
   if(!Number.isInteger(left)||left<1||left>5||!Number.isInteger(right)||right<1||right>5) throw new Error("swing_left/right must be integers from 1 to 5");
@@ -29,15 +33,15 @@ function analyzeSmcCandles(candles,left=2,right=2) {
   }
   pivots.sort((a,b)=>a.index-b.index||a.kind.localeCompare(b.kind));
   const events=[], broken=new Set();
-  let lastHigh=null,lastLow=null;
+  let lastHigh=null,lastLow=null,structureBias=null;
   for(let i=0;i<candles.length;i++){
     for(const p of pivots.filter(p=>p.confirmed_at===i)){if(p.kind==="high")lastHigh=p;else lastLow=p;}
     const close=Number(candles[i].close);
     if(lastHigh&&i>lastHigh.confirmed_at&&close>lastHigh.price&&!broken.has("high:"+lastHigh.index)){
-      events.push({index:i,type:events.some(e=>e.direction==="bearish")?"CHoCH":"BOS",direction:"bullish",level:lastHigh.price,broken_pivot_index:lastHigh.index});broken.add("high:"+lastHigh.index);
+      events.push({index:i,type:classifyStructureEvent(structureBias,"bullish"),direction:"bullish",level:lastHigh.price,broken_pivot_index:lastHigh.index});structureBias="bullish";broken.add("high:"+lastHigh.index);
     }
     if(lastLow&&i>lastLow.confirmed_at&&close<lastLow.price&&!broken.has("low:"+lastLow.index)){
-      events.push({index:i,type:events.some(e=>e.direction==="bullish")?"CHoCH":"BOS",direction:"bearish",level:lastLow.price,broken_pivot_index:lastLow.index});broken.add("low:"+lastLow.index);
+      events.push({index:i,type:classifyStructureEvent(structureBias,"bearish"),direction:"bearish",level:lastLow.price,broken_pivot_index:lastLow.index});structureBias="bearish";broken.add("low:"+lastLow.index);
     }
   }
   const fvgs=[];
