@@ -209,7 +209,10 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
         if entry_i >= len(candles) or entry_i <= busy_until:
             continue
         bullish = event["direction"] == "bullish"
-        relevant = [p for p in pivots if p["index"] < i and p["kind"] == ("low" if bullish else "high")]
+        # A stop may only use a swing that was confirmed before the signal bar.
+        relevant = [p for p in pivots
+                    if p["index"] < i and p["confirmed_at"] < i
+                    and p["kind"] == ("low" if bullish else "high")]
         if not relevant:
             continue
         stop = float(relevant[-1]["price"])
@@ -243,7 +246,7 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
             max_drawdown = max(max_drawdown, (peak - equity) / peak)
         trades.append({"direction": "long" if bullish else "short", "structure_event": event["type"],
                        "signal_index": i, "entry_index": entry_i, "entry_price": entry,
-                       "stop_price": stop, "target_price": target, "exit_index": exit_i,
+                       "stop_swing_index": relevant[-1]["index"], "stop_price": stop, "target_price": target, "exit_index": exit_i,
                        "exit_price": exit_price, "exit_reason": exit_reason,
                        "gross_pnl_per_unit": gross, "estimated_cost_per_unit": costs,
                        "net_pnl_per_unit": net, "r_multiple": r_multiple})
