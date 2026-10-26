@@ -64,6 +64,22 @@ class TestSMCStrategy(unittest.TestCase):
         self.assertGreater(len(complete["swing_points"]), len(recent["swing_points"]))
         self.assertGreaterEqual(len(complete["structure_events"]), len(recent["structure_events"]))
 
+    def test_backtest_stop_uses_only_pivots_confirmed_before_signal(self):
+        bars = sample_bars() * 5
+        analysis = analyze_smc(bars, include_full_history=True)
+        result = run_smc_backtest(bars)
+        event_by_index = {event["index"]: event for event in analysis["structure_events"]}
+        pivots = analysis["swing_points"]
+        for trade in result["trades"]:
+            signal_index = trade["signal_index"]
+            event = event_by_index[signal_index]
+            expected_kind = "low" if event["direction"] == "bullish" else "high"
+            eligible = [p for p in pivots if p["index"] < signal_index
+                        and p["confirmed_at"] < signal_index and p["kind"] == expected_kind]
+            self.assertTrue(eligible)
+            self.assertEqual(trade["stop_swing_index"], eligible[-1]["index"])
+            self.assertLess(eligible[-1]["confirmed_at"], signal_index)
+
     def test_backtest_rejects_invalid_reward_risk(self):
         with self.assertRaises(ValueError):
             run_smc_backtest(sample_bars(), reward_risk=0)
