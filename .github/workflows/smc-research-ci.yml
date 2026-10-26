@@ -5,12 +5,18 @@ on:
     paths:
       - "workers/feature/smc_wave/**"
       - "tests/test_smc_strategy.py"
+      - "integrations/remote-mcp-worker/src/index.js"
+      - "integrations/remote-mcp-worker/tests/**"
+      - "integrations/remote-mcp-worker/package.json"
       - ".github/workflows/smc-research-ci.yml"
   push:
     branches: [main]
     paths:
       - "workers/feature/smc_wave/**"
       - "tests/test_smc_strategy.py"
+      - "integrations/remote-mcp-worker/src/index.js"
+      - "integrations/remote-mcp-worker/tests/**"
+      - "integrations/remote-mcp-worker/package.json"
       - ".github/workflows/smc-research-ci.yml"
 
 permissions:
@@ -30,3 +36,5 @@ jobs:
         run: python -m py_compile workers/feature/smc_wave/smc_strategy.py
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
+      - name: Run Cloudflare Worker SMC classification tests
+        run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
