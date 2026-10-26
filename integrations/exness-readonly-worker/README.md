@@ -18,7 +18,7 @@ Set these in the Worker environment (never in GitHub, the frontend, or chat):
 - `SUPABASE_PUBLISHABLE_KEY`
 - `EXN_API_BASE_URL` (copy the exact HTTPS host shown by Exness Key Management / DNS host widget; do not guess it)
 - `EXN_API_KEY`
-- `EXN_PRIVATE_KEY` (PKCS#8 PEM Ed25519 private key; current adapter expects this format)
+- `EXN_PRIVATE_KEY` (PKCS#8 PEM Ed25519 private key; current adapter expects this format)\n- `EXN_ACCOUNT_ID` (the trading account selected when creating the key)
 - `ALLOWED_ORIGINS` (optional comma-separated exact origins)
 
 Create an **Info/read-only key** in Key Management, if the UI offers this key type; grant only account-information/read scopes. Do not enable trading, order, or payment/transfer scopes. Copy the exact account-specific API host shown by Exness. Configure these values as Worker secrets/vars only, never in GitHub, Vercel, frontend variables, or chat. If the key setup flow provides an Exness-generated private key in a format other than PKCS#8 PEM, stop and adapt the parser to the official format rather than pasting or converting the secret in chat. Do not put credentials in Vercel `NEXT_PUBLIC_*` variables.
