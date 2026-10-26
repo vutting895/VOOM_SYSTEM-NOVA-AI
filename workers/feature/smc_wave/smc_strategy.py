@@ -54,7 +54,7 @@ def _pivots(candles: list[dict[str, Any]], left: int, right: int) -> list[dict[s
 
 def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
                 swing_right: int = 2, displacement_atr_multiple: float = 1.0,
-                ob_search_bars: int = 8) -> dict[str, Any]:
+                ob_search_bars: int = 8, include_full_history: bool = False) -> dict[str, Any]:
     """Return auditable BOS/CHoCH, FVG, order-block and liquidity-sweep candidates."""
     _validate(candles)
     if not (1 <= swing_left <= 10 and 1 <= swing_right <= 10):
@@ -166,9 +166,11 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
         "ok": True, "strategy": "SMC", "version": "1.0.0-research",
         "bars_analyzed": n, "last_close": closes[-1], "atr14_simple": atr,
         "structure_bias": structure_bias, "latest_structure_event": latest_structure,
-        "swing_points": confirmed[-30:], "structure_events": events[-30:],
-        "fair_value_gaps": fvgs[-30:], "order_blocks": order_blocks[-30:],
-        "liquidity_sweeps": sweeps[-30:],
+        "swing_points": confirmed if include_full_history else confirmed[-30:],
+        "structure_events": events if include_full_history else events[-30:],
+        "fair_value_gaps": fvgs if include_full_history else fvgs[-30:],
+        "order_blocks": order_blocks if include_full_history else order_blocks[-30:],
+        "liquidity_sweeps": sweeps if include_full_history else sweeps[-30:],
         "latest_unmitigated_fvg": latest_fvg, "latest_unmitigated_order_block": latest_ob,
         "latest_liquidity_sweep": latest_sweep, "confluence_count": confluence,
         "setup_candidate": bool(latest_structure and confluence >= 2),
@@ -190,7 +192,7 @@ def run_smc_backtest(candles: list[dict[str, Any]], reward_risk: float = 2.0,
         raise ValueError("fee_rate and slippage_rate must be in [0, 0.05)")
     if not isfinite(float(initial_equity)) or float(initial_equity) <= 0:
         raise ValueError("initial_equity must be positive and finite")
-    analysis = analyze_smc(candles, swing_left=swing_left, swing_right=swing_right)
+    analysis = analyze_smc(candles, swing_left=swing_left, swing_right=swing_right, include_full_history=True)
     opens = [float(c["open"]) for c in candles]
     highs = [float(c["high"]) for c in candles]
     lows = [float(c["low"]) for c in candles]
