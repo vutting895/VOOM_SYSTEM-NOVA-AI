@@ -17,6 +17,27 @@ type ExnessStatus = {
   error?: string;
 };
 
+type ExnessAccountRead = {
+  ok?: boolean;
+  broker?: string;
+  mode?: string;
+  accountDataAvailable?: boolean;
+  account?: {
+    accountId?: string;
+    accountName?: string | null;
+    createdAt?: string | null;
+    currency?: string | null;
+    leverage?: string | null;
+    tradeMode?: string | null;
+    accountStatus?: string | null;
+    executionMode?: string | null;
+  };
+  message?: string;
+  error?: string;
+  upstreamStatus?: number;
+  upstreamCode?: number;
+};
+
 const workerUrl = (process.env.NEXT_PUBLIC_EXNESS_WORKER_URL || "").replace(/\/$/, "");
 const supabase = getSupabaseBrowserClient();
 
@@ -26,6 +47,7 @@ export default function ExnessSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [account, setAccount] = useState<ExnessAccountRead | null>(null);
 
   const refreshStatus = useCallback(async () => {
     setBusy(true);
@@ -45,6 +67,37 @@ export default function ExnessSettingsPage() {
       setStatus(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "ตรวจสถานะ Exness ไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const testReadOnlyAccount = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setAccount(null);
+    try {
+      if (!supabase) throw new Error("Supabase ยังไม่ได้ตั้งค่าใน Vercel");
+      if (!workerUrl) throw new Error("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_EXNESS_WORKER_URL ใน Vercel");
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!data.session?.access_token) throw new Error("กรุณาเข้าสู่ระบบ VOOM_SYSTEM ก่อนทดสอบ");
+      const response = await fetch(`${workerUrl}/api/exness/account`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${data.session.access_token}` },
+        cache: "no-store",
+      });
+      const result = await response.json() as ExnessAccountRead;
+      if (!response.ok || !result.accountDataAvailable) {
+        setAccount(result);
+        throw new Error(result.message || result.error || "การทดสอบอ่านข้อมูลบัญชีไม่สำเร็จ");
+      }
+      setAccount(result);
+      setStatus((previous) => ({ ...previous, connectionVerified: true, accountDataAvailable: true }));
+      setNotice("อ่านข้อมูลบัญชีจาก Exness API สำเร็จแล้ว (Read-only)");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "ทดสอบอ่านข้อมูลบัญชีไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -80,6 +133,20 @@ export default function ExnessSettingsPage() {
             ["ยืนยันการเชื่อมต่อ", status.connectionVerified ? "ยืนยันแล้ว" : "ยังไม่ยืนยัน"],
             ["อ่านข้อมูลบัญชี", status.accountDataAvailable ? "พร้อมใช้งาน" : "ยังไม่พร้อม"],
           ] as Array<[string, string]>).map(([label, value]) => <div key={label} style={{ border: "1px solid #2a3342", borderRadius: 10, padding: 12 }}><span style={{ display: "block", color: "#9aa6b8", fontSize: 11 }}>{label}</span><strong style={{ display: "block", marginTop: 7, fontSize: 14 }}>{value}</strong></div>)}
+        </div>}
+        <button type="button" disabled={busy} onClick={() => void testReadOnlyAccount()} style={{ marginTop: 14, marginLeft: 8, border: "1px solid #64748b", borderRadius: 9, background: "transparent", color: "#edf2fa", padding: "11px 15px", fontWeight: 700, cursor: "pointer" }}>{busy ? "กำลังทดสอบ…" : "ทดสอบอ่านข้อมูลบัญชี (GET เท่านั้น)"}</button>
+        {account?.account && <div style={{ marginTop: 18, border: "1px solid #365344", borderRadius: 12, padding: 16 }}>
+          <h3 style={{ marginTop: 0 }}>ผลการอ่านข้อมูลบัญชี</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 10 }}>
+            {([
+              ["Account ID", account.account.accountId || "—"],
+              ["Account name", account.account.accountName || "—"],
+              ["Currency", account.account.currency || "—"],
+              ["Leverage", account.account.leverage || "—"],
+              ["Trade mode", account.account.tradeMode || "—"],
+              ["Account status", account.account.accountStatus || "—"],
+            ] as Array<[string, string]>).map(([label, value]) => <div key={label} style={{ border: "1px solid #2a3342", borderRadius: 10, padding: 12 }}><span style={{ display: "block", color: "#9aa6b8", fontSize: 11 }}>{label}</span><strong style={{ display: "block", marginTop: 7, fontSize: 14, overflowWrap: "anywhere" }}>{value}</strong></div>)}
+          </div>
         </div>}
         {notice && <p role="status" style={{ color: "#a8e5bd" }}>{notice}</p>}
         {error && <p role="alert" style={{ color: "#ffb8bd", lineHeight: 1.7 }}>{error}</p>}
