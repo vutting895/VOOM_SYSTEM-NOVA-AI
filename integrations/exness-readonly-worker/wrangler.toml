@@ -1,0 +1,8 @@
+name = "voom-exness-readonly"
+main = "src/index.js"
+compatibility_date = "2026-10-27"
+
+[vars]
+# Configure ALLOWED_ORIGINS as an exact comma-separated list of VOOM_SYSTEM origins.
+# Set secrets separately with Wrangler or Cloudflare dashboard:
+# SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, EXN_API_KEY, EXN_PRIVATE_KEY, EXN_ACCOUNT_ID, EXN_API_BASE_URL
