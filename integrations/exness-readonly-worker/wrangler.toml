@@ -1,6 +1,6 @@
 name = "voom-exness-readonly"
 main = "src/index.js"
-compatibility_date = "2026-10-27"
+compatibility_date = "2026-10-26"
 
 [vars]
 # Configure ALLOWED_ORIGINS as an exact comma-separated list of VOOM_SYSTEM origins.
