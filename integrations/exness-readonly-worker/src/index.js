@@ -31,7 +31,7 @@ function corsHeaders(request, env) {
 
 async function authenticate(request, env) {
   const authorization = request.headers.get("Authorization") || "";
-  if (!/^Bearer\\s+\\S+$/i.test(authorization)) return null;
+  if (!/^Bearer\s+\S+$/i.test(authorization)) return null;
   if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return null;
   try {
     const response = await fetch(new URL("/auth/v1/user", env.SUPABASE_URL), {
@@ -48,18 +48,18 @@ async function authenticate(request, env) {
 function base64url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function pemToDer(pem) {
-  const normalized = pem.replace(/\\r/g, "").trim();
+  const normalized = pem.replace(/\r/g, "").trim();
   if (!normalized.startsWith("-----BEGIN PRIVATE KEY-----") || !normalized.endsWith("-----END PRIVATE KEY-----")) {
     throw new Error("EXN_PRIVATE_KEY must be a PKCS#8 PEM Ed25519 private key.");
   }
   const base64 = normalized
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\\s/g, "");
+    .replace(/\s/g, "");
   const binary = atob(base64);
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
@@ -112,7 +112,7 @@ async function getExnessAccount(env) {
   if (!env.EXN_API_KEY || !env.EXN_PRIVATE_KEY || !env.EXN_ACCOUNT_ID) {
     return { ok: false, status: 503, body: { error: "exness_readonly_config_missing", message: "Read-only Exness API configuration is incomplete." } };
   }
-  if (!/^\\d{1,20}$/.test(env.EXN_ACCOUNT_ID)) {
+  if (!/^\d{1,20}$/.test(env.EXN_ACCOUNT_ID)) {
     return { ok: false, status: 503, body: { error: "exness_account_id_invalid", message: "The configured account identifier is invalid." } };
   }
   const path = `/v1/configuration/accounts/${env.EXN_ACCOUNT_ID}/account`;
