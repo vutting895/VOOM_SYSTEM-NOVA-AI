@@ -16,12 +16,12 @@ Set these in the Worker environment (never in GitHub, the frontend, or chat):
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
-- `EXNESS_API_BASE_URL` (only after confirming the official host for this account/API product)
-- `EXNESS_API_KEY`
-- `EXNESS_API_SECRET`
+- `EXN_API_BASE_URL` (only after confirming the official host for this account/API product)
+- `EXN_API_KEY`
+- `EXN_PRIVATE_KEY`
 - `ALLOWED_ORIGINS` (optional comma-separated exact origins)
 
-Do not configure Exness variables until API access is confirmed in the Exness Personal Area. Do not put credentials in Vercel `NEXT_PUBLIC_*` variables.
+Configure these only after confirming the correct Exness API product, Key Management access, account eligibility, and host in the Exness Personal Area. Do not put credentials in Vercel `NEXT_PUBLIC_*` variables.
 
 ## Verification sequence
 
