@@ -13,7 +13,7 @@ async function getUser(request,env) {
 }
 function rpc(id,result,error){return error?{jsonrpc:"2.0",id,error}:{jsonrpc:"2.0",id,result}}
 function ema(values,period){const k=2/(period+1);let v=values[0];const out=[v];for(let i=1;i<values.length;i++){v=values[i]*k+v*(1-k);out.push(v)}return out}
-function analyzeSmcCandles(candles,left=2,right=2) {
+export function analyzeSmcCandles(candles,left=2,right=2) {
   if(!Array.isArray(candles)||candles.length<10) throw new Error("SMC requires at least 10 candles");
   if(!Number.isInteger(left)||left<1||left>5||!Number.isInteger(right)||right<1||right>5) throw new Error("swing_left/right must be integers from 1 to 5");
   for(const [i,c] of candles.entries()) {
