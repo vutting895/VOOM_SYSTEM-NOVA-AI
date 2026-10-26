@@ -158,6 +158,7 @@ export default function BrokerSettingsPage() {
         .foot{font-size:11px;color:#8c99ac;line-height:1.8;margin-top:20px}
       `}</style>
       <a className="back" href="/">← กลับหน้า Dashboard</a>
+      <a className="back" href="/settings/exness" style={{ marginLeft: 16 }}>เชื่อม Exness MT5 (Read-only) →</a>
       <span className="eyebrow">CONNECTIONS / ALPACA</span>
       <h1>เชื่อมต่อบัญชี Alpaca</h1>
       <p className="intro">เชื่อมบัญชี Alpaca ผ่าน OAuth สำหรับ Paper Trading เท่านั้น ระบบไม่ขอรหัสผ่านโบรกเกอร์ และไม่ส่งคำสั่งซื้อขาย</p>
