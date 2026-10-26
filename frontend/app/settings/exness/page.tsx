@@ -88,8 +88,8 @@ export default function ExnessSettingsPage() {
       <section style={{ marginTop: 18, padding: 22, border: "1px solid #293142", borderRadius: 16, background: "#111620" }}>
         <h2 style={{ marginTop: 0 }}>ขั้นตอนถัดไป</h2>
         <ol style={{ color: "#c1cad8", lineHeight: 1.9, paddingLeft: 22 }}>
-          <li>เปิด Exness Personal Area และตรวจว่ามีเมนู API / Developer API สำหรับบัญชีนี้หรือไม่</li>
-          <li>หากมี ให้ตรวจเอกสารและสิทธิ์ API ของบัญชี MT5 ก่อนสร้าง API credentials</li>
+          <li>เปิด Exness Personal Area แล้วตรวจว่ามีเมนู Key Management / API Key สำหรับผลิตภัณฑ์ Trading API หรือไม่</li>
+          <li>หากมี ให้ยืนยันว่าบัญชี MT5 นี้มีสิทธิ์ Trading API และตรวจ host, scopes และวิธีลงนาม Ed25519 ก่อนสร้าง credentials</li>
           <li>เก็บ credentials ใน Cloudflare Worker Secrets เท่านั้น ห้ามใส่ในช่องหน้าเว็บหรือแชต</li>
           <li>ทดสอบอ่านข้อมูลบัญชีอย่างเดียวก่อน แล้วค่อยวางแผน Demo/Paper แยกจากบัญชีจริง</li>
         </ol>
