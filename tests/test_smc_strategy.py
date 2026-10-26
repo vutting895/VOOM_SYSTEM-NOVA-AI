@@ -4,7 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "workers" / "feature" / "smc_wave"))
-from smc_strategy import analyze_smc, run_smc_backtest
+from smc_strategy import _pivots, analyze_smc, run_smc_backtest
 
 
 def sample_bars():
@@ -79,6 +79,17 @@ class TestSMCStrategy(unittest.TestCase):
             self.assertTrue(eligible)
             self.assertEqual(trade["stop_swing_index"], eligible[-1]["index"])
             self.assertLess(eligible[-1]["confirmed_at"], signal_index)
+
+    def test_pivots_are_not_rewritten_by_later_extremes(self):
+        closes = [10, 8, 9, 7, 8, 12, 8, 7, 8, 6, 7, 8]
+        bars = []
+        for i, c in enumerate(closes):
+            bars.append({"open": c, "high": c + (2 if i in (2, 5) else 0.5),
+                         "low": c - (2 if i == 3 else 0.5), "close": c})
+        pivots = _pivots(bars, 1, 1)
+        high_indices = [p["index"] for p in pivots if p["kind"] == "high"]
+        self.assertIn(2, high_indices)
+        self.assertIn(5, high_indices)
 
     def test_backtest_rejects_invalid_reward_risk(self):
         with self.assertRaises(ValueError):
