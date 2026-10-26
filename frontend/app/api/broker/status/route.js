@@ -80,10 +80,14 @@ async function accountAuthRequired(broker, detail) {
 
 export async function GET(request) {
   const broker = new URL(request.url).searchParams.get('broker');
-  const supported = ['mt5', 'binance', 'bybit', 'okx', 'coinbase', 'kraken', 'bitget'];
+  const supported = [
+    'mt5', 'oanda',
+    'binance', 'bybit', 'okx', 'coinbase', 'kraken', 'bitget',
+    'alpaca', 'ibkr', 'schwab', 'settrade',
+  ];
   if (!broker || !supported.includes(broker)) {
     return NextResponse.json({
-      error: 'Unsupported broker. Use mt5, binance, bybit, okx, coinbase, kraken, or bitget.',
+      error: 'Unsupported broker. Choose a provider from the Broker Hub catalog.',
       tradingEnabled: false,
     }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
@@ -95,8 +99,12 @@ export async function GET(request) {
   }
 
   const detail = broker === 'mt5'
-    ? 'Private MT5 bridge checks are disabled until customer authentication, tenant isolation and per-customer bridge authorization are implemented.'
-    : 'Private account checks are disabled until customer authentication, tenant isolation and per-customer credential storage are implemented. No credentials were read and no orders were sent.';
+    ? 'MT5 bridge checks are not enabled until a secured Windows/VPS bridge, authenticated user session and per-user bridge authorization are implemented.'
+    : broker === 'oanda'
+      ? 'OANDA private account status is not checked here. Implement and verify the provider-approved API authorization, user session and per-user credential isolation first.'
+      : broker === 'alpaca'
+        ? 'Alpaca account status is not checked here. Use the existing OAuth integration only after verifying its callback, token encryption, user session and Paper Trading-only constraints.'
+        : 'Private account checks are disabled until provider authorization, authenticated user sessions, tenant isolation and per-user credential storage are implemented. No credentials were read and no orders were sent.';
   return NextResponse.json(await accountAuthRequired(broker, detail), {
     headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
   });
