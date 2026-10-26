@@ -1,0 +1,8 @@
+{
+  "name": "voom-system-remote-mcp-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
