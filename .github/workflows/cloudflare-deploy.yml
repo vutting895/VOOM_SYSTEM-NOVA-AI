@@ -29,19 +29,16 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Verify required deployment configuration without printing secrets
+      - name: Verify deployment configuration without printing values
         shell: bash
         run: |
           missing=()
-          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY; do
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_MT5_READONLY_PROXY_URL; do
             if [ -z "${!key}" ]; then missing+=("$key"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf 'Deployment blocked. Add these repository Actions secrets (values are never printed): %s\\n' "${missing[*]}"
+            printf 'Deployment blocked. Configure these GitHub Actions secrets/variables (values are never printed): %s\n' "${missing[*]}"
             exit 1
-          fi
-          if [ -z "$NEXT_PUBLIC_MT5_READONLY_PROXY_URL" ]; then
-            echo "MT5 read-only proxy URL is not configured yet; broker UI will clearly report that connection is unavailable."
           fi
           echo "Required deployment configuration is present."
 
