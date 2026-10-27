@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 
 const learningModules = [
   'Supervised XGBoost', 'Unsupervised KMeans', 'CNN Vision / MAE', 'GNN Correlation',
@@ -27,16 +28,25 @@ export default function GenAIPage() {
     setStrategy(null);
     setProvider('');
     try {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) throw new Error('ยังไม่ได้ตั้งค่า Supabase สำหรับหน้าเว็บ');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error('ตรวจสอบเซสชันไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่');
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        window.location.assign('/login');
+        return;
+      }
       const response = await fetch('/api/gen-ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ prompt, market, timeframe, risk })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'สร้างร่างกลยุทธ์ไม่สำเร็จ');
       if (!data.strategy) throw new Error('API ไม่ได้ส่งข้อมูล strategy กลับมา');
       setStrategy(data.strategy);
-      setProvider(data.llm?.available ? 'Local LLM' : 'Rule-based fallback');
+      setProvider(data.llm?.provider === 'cloudflare-workers-ai' && data.llm?.available ? 'Cloudflare Workers AI' : 'Rule-based fallback');
     } catch (err) {
       setError(err.message || 'ไม่สามารถเรียกบริการสร้างกลยุทธ์ได้');
     } finally {
@@ -92,7 +102,7 @@ export default function GenAIPage() {
         <section className="nova-panel" aria-live="polite">
           <h2>ผลลัพธ์กลยุทธ์</h2>
           {!strategy ? (
-            <div className="nova-empty">กรอกโจทย์แล้วกดสร้าง ระบบจะแสดงร่างจาก API ที่มีอยู่ใน repo หาก Local LLM ไม่พร้อม API อาจใช้ rule-based fallback</div>
+            <div className="nova-empty">กรอกโจทย์แล้วกดสร้าง ระบบจะเรียก Cloudflare Workers AI ผ่าน NOVA AI Worker หลังตรวจ session หาก AI ไม่พร้อมจะแสดง rule-based fallback พร้อมป้ายกำกับ</div>
           ) : (
             <div>
               <span className="nova-pill">DRAFT · NOT BACKTESTED</span>
@@ -127,7 +137,7 @@ export default function GenAIPage() {
         <div className="nova-notice" style={{ marginBottom: 0 }}><strong>Auto-Learning Loop</strong><p>ควรเปิดวงจรเรียนรู้อัตโนมัติหลังมีข้อมูล Backtest ที่ทำซ้ำได้, guardrails, การประเมิน out-of-sample และการอนุมัติที่ตรวจสอบย้อนกลับได้เท่านั้น</p></div>
       </section>
 
-      <footer className="nova-footer">API: /api/gen-ai/generate · สร้าง Draft เท่านั้น · Live Trading OFF</footer>
+      <footer className="nova-footer">API: /api/gen-ai/generate → Cloudflare Workers AI · Draft only · Live Trading OFF</footer>
     </main>
   );
 }

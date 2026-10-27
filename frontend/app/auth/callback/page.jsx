@@ -20,8 +20,8 @@ export default function AuthCallbackPage() {
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (session?.user) {
-        setMessage("เข้าสู่ระบบสำเร็จ กำลังเปิดหน้าบัญชี…");
-        router.replace("/settings/broker");
+        setMessage("เข้าสู่ระบบสำเร็จ กำลังเปิดหน้าโปรไฟล์…");
+        router.replace("/profile");
       } else if (event === "SIGNED_OUT") {
         setMessage("ไม่พบเซสชัน กรุณาขอลิงก์เข้าสู่ระบบใหม่");
       }
@@ -31,8 +31,8 @@ export default function AuthCallbackPage() {
       if (!active) return;
       if (error) setMessage("ตรวจสอบเซสชันไม่สำเร็จ กรุณาขอลิงก์ใหม่");
       else if (data.session?.user) {
-        setMessage("เข้าสู่ระบบสำเร็จ กำลังเปิดหน้าบัญชี…");
-        router.replace("/settings/broker");
+        setMessage("เข้าสู่ระบบสำเร็จ กำลังเปิดหน้าโปรไฟล์…");
+        router.replace("/profile");
       } else {
         setMessage("ลิงก์หมดอายุหรือใช้ไปแล้ว กรุณากลับไปขอลิงก์เข้าสู่ระบบใหม่");
       }
