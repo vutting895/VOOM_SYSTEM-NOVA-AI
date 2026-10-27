@@ -10,7 +10,7 @@ The account currently has these eight deployed scripts. Their deployed handlers 
 
 | Cloudflare script | Latest deployment observed (UTC) | Observability |
 | --- | --- | --- |
-| `smart-scalping-cloud-ai` | 2026-10-21 03:30 | Enabled |
+| `smart-scalping-cloud-ai` | 2026-10-23 13:58 | Enabled |
 | `voom-ai-private-chat` | 2026-10-23 18:17 | Not reported enabled |
 | `voom-alpaca-oauth` | 2026-10-24 23:51 | Enabled |
 | `voom-customer-portal` | 2026-10-23 21:55 | Enabled |
