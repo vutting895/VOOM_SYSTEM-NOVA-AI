@@ -39,3 +39,7 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Install OpenNext build tooling (without changing the lockfile)
+        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
+      - name: Build Cloudflare Workers artifact (OpenNext)
+        run: npm run cf:build
