@@ -15,7 +15,8 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  // Site keys are public identifiers; keep the configured widget usable even when a deployment variable is absent.
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAFlosj98ci8iYugG';
 
   const resetCaptcha = useCallback(() => {
     setCaptchaToken('');
