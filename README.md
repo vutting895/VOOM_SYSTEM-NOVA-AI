@@ -20,10 +20,12 @@ npm run start
 ```
 
 ## Environment
-Set these values in Vercel/Supabase configuration without committing their values:
+Configure these values in the intended Cloudflare frontend/runtime environment and Supabase project settings. Do not commit their values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_ALPACA_WORKER_URL`
+
+The frontend deployment target is Cloudflare, not Vercel. Confirm that the selected Cloudflare deployment adapter supports the current Next.js app before deploying. Removing Vercel-specific references from this repository does not disconnect an existing Vercel project or GitHub integration; that connection must be disabled separately in Vercel/GitHub settings.
 
 Use read-only broker credentials where possible; never enable withdrawals. Keep MT5 bridge settings isolated until independently secured and tested.
 
