@@ -4,7 +4,7 @@
 Modular market-research and paper-trading platform: market-data ingestion, strategy drafting, historical simulation, tuning, risk validation, portfolio allocation, and broker integration.
 
 ## Current safety state
-- Live order execution remains disabled. Keep Alpaca integration in Paper Trading during validation.
+- Live order execution remains disabled. The active broker target is Exness Demo via MT5 read-only bridge; Alpaca is not part of the active broker workflow.
 - Public market data is read-only. Never commit secrets or real credentials.
 - Gen AI currently uses rule-based strategy templates unless an LLM provider is explicitly configured; it is not a model trained from scratch.
 - Backtests use historical OHLCV and are not tick-accurate or predictive.
@@ -34,10 +34,10 @@ Deployments should be made by the guarded Cloudflare workflow after checks pass.
 Configure these values in the intended Cloudflare build/runtime environment and Supabase project settings. Do not commit their values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (GitHub Actions repository variable; points to the protected Exness MT5 read-only proxy)
+- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (optional GitHub Actions repository variable; points to the protected Exness MT5 read-only proxy when that proxy is ready)
 - GitHub Actions deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
 
-Never print secret values in logs or chat. If a required setting is missing, deployment must fail closed with the missing variable names only.
+Never print secret values in logs or chat. Cloudflare and Supabase deployment secrets are required; the MT5 proxy URL is optional until its authenticated Cloudflare endpoint is implemented and verified. The UI must show unavailable rather than claim a connection when that URL is absent.
 
 ## Current Cloudflare cutover verification
 The Cloudflare account currently contains a Worker named `voom-system-nova-ui`, and its settings endpoint is reachable. However, the deployed Worker settings last inspected did not show the `nodejs_compat` flag present in `frontend/wrangler.jsonc`, and its modification time predates the latest frontend repository changes. Therefore the presence of the Worker is **not proof** that the latest Next.js frontend is deployed or that the live UI works. Run the Cloudflare CI/build/deploy workflow and verify the deployed version and browser routes before marking the cutover complete.
