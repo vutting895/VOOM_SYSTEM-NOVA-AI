@@ -39,3 +39,5 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Build Cloudflare Workers artifact (OpenNext)
+        run: npm run cf:build
