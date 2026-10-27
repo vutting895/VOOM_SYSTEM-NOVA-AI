@@ -32,16 +32,20 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Prevent stale commits from deploying
+        id: freshness
         shell: bash
         run: |
           latest_main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
           if [ "$TARGET_COMMIT_SHA" != "$latest_main_sha" ]; then
             echo "Skipping stale frontend CI commit; main has advanced."
-            exit 1
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "current=true" >> "$GITHUB_OUTPUT"
           echo "Validated commit is still the current main head."
 
       - name: Verify deployment configuration without printing values
+        if: steps.freshness.outputs.current == 'true'
         shell: bash
         run: |
           missing=()
@@ -55,6 +59,7 @@ jobs:
           echo "Required deployment configuration is present."
 
       - name: Set up Node.js
+        if: steps.freshness.outputs.current == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -62,13 +67,16 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
+        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm ci
 
       - name: Install Cloudflare OpenNext tooling
+        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
 
       - name: Build and deploy the Next.js frontend to Cloudflare
+        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm run cf:deploy
