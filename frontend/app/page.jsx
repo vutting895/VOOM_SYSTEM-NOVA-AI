@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getSupabaseBrowserClient } from '../lib/supabase-browser';
 
 const navigation = [
   { label: 'OVERVIEW', href: '/', code: '01' },
@@ -67,7 +68,13 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/broker/status?broker=mt5', { cache: 'no-store' })
+    const supabase = getSupabaseBrowserClient();
+      const requestStatus = async () => {
+        const sessionResult = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+        const token = sessionResult.data?.session?.access_token;
+        return fetch('/api/broker/status?broker=mt5', { cache: 'no-store', headers: token ? { Authorization: 'Bearer ' + token } : {} });
+      };
+      requestStatus()
       .then(async (response) => {
         const data = await response.json();
         if (!active) return;
@@ -122,7 +129,7 @@ export default function Home() {
 
           <section className="hud-panel broker-panel">
             <div className="panel-heading"><span><i className="panel-marker" /> BROKER LINK</span><span className="panel-code">LINK / 004</span></div>
-            <div className="broker-name-row"><div className="broker-monogram">XM</div><div><h2>XM / MetaTrader 5</h2><p>Broker connection monitor</p></div></div>
+            <div className="broker-name-row"><div className="broker-monogram">XM</div><div><h2>Exness / MetaTrader 5 Demo</h2><p>Broker connection monitor</p></div></div>
             <div className="broker-state"><span className="state-ring" /><div><strong>{brokerStatus}</strong><small>{brokerDetail}</small></div></div>
             <div className="read-only-row"><span>ACCESS SCOPE</span><strong>READ-ONLY</strong></div>
             <Link className="panel-text-link" href="/broker">OPEN BROKER HUB <span>→</span></Link>

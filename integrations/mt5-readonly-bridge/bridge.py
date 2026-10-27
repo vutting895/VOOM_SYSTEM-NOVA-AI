@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
+TENANT_ID = os.environ.get("MT5_TENANT_ID", "").strip()
 TERMINAL_PATH = os.environ.get("MT5_TERMINAL_PATH", "").strip() or None
 CORS_ORIGINS = [
     origin.strip()
@@ -39,7 +40,7 @@ app.add_middleware(
     allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-VOOM-TENANT-ID"],
     max_age=600,
 )
 
@@ -59,7 +60,11 @@ async def enforce_read_only(request: Request, call_next):
     return await call_next(request)
 
 
-def require_token(authorization: str | None) -> None:
+def require_token(authorization: str | None, tenant_id: str | None) -> None:
+    if not TENANT_ID:
+        raise HTTPException(status_code=503, detail="Bridge tenant is not configured")
+    if not tenant_id or not hmac.compare_digest(tenant_id, TENANT_ID):
+        raise HTTPException(status_code=403, detail="Bridge tenant mismatch")
     if not BRIDGE_TOKEN:
         raise HTTPException(status_code=503, detail="Bridge is not configured")
     if not authorization or not authorization.startswith("Bearer "):
@@ -105,8 +110,8 @@ def timeframe_value(name: str) -> int:
 
 
 @app.get("/health")
-def health(authorization: str | None = Header(default=None)):
-    require_token(authorization)
+def health(authorization: str | None = Header(default=None), tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID")):
+    require_token(authorization, tenant_id)
     with LOCK:
         terminal, account = get_terminal_and_account()
         return {
@@ -121,8 +126,8 @@ def health(authorization: str | None = Header(default=None)):
 
 
 @app.get("/api/account")
-def account_summary(authorization: str | None = Header(default=None)):
-    require_token(authorization)
+def account_summary(authorization: str | None = Header(default=None), tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID")):
+    require_token(authorization, tenant_id)
     with LOCK:
         terminal, account = get_terminal_and_account()
         return {
@@ -146,8 +151,9 @@ def symbols(
     q: str = Query(default="", max_length=40),
     limit: int = Query(default=100, ge=1, le=500),
     authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
 ):
-    require_token(authorization)
+    require_token(authorization, tenant_id)
     with LOCK:
         get_terminal_and_account()
         found = mt5.symbols_get(group=f"*{q}*" if q else None)
@@ -178,8 +184,9 @@ def quotes(
     timeframe: str = Query(default="M5", max_length=4),
     count: int = Query(default=100, ge=1, le=MAX_BARS),
     authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
 ):
-    require_token(authorization)
+    require_token(authorization, tenant_id)
     with LOCK:
         get_terminal_and_account()
         info = mt5.symbol_info(symbol)
