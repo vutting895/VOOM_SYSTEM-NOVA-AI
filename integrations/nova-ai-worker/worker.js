@@ -66,15 +66,23 @@ export async function authenticateRequest(request, env) {
         Accept: "application/json",
       },
       redirect: "error",
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     });
-  } catch {
+  } catch (error) {
+    // Log only the error class; never log the token, headers, or request body.
+    console.warn("NOVA AI Worker could not reach Supabase Auth", {
+      stage: "request",
+      errorName: error?.name || "Error",
+    });
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
   if (response.status === 401 || response.status === 403) {
     return { ok: false, status: 401, error: "invalid_or_expired_session" };
   }
-  if (!response.ok) return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+  if (!response.ok) {
+    console.warn("NOVA AI Worker Supabase Auth returned non-success", { status: response.status });
+    return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+  }
   try {
     const user = await response.json();
     if (!user || typeof user.id !== "string" || !user.id) {

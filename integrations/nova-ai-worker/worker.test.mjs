@@ -31,13 +31,36 @@ test("direct generation without bearer token is rejected", async () => {
   assert.equal((await response.json()).error, "authentication_required");
 });
 
-test("invalid Supabase session is rejected", async () => {
-  authFetch(401, { message: "invalid token" });
+test("invalid or expired Supabase session is rejected as 401", async () => {
+  authFetch(403, { code: 403, error_code: "bad_jwt" });
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
-    method: "POST", headers: { Authorization: "Bearer bad-token", "Content-Type": "application/json" },
+    method: "POST", headers: { Authorization: "Bearer expired.invalid.token", "Content-Type": "application/json" },
     body: JSON.stringify({ prompt: "EMA and RSI" }),
   }), env);
   assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "invalid_or_expired_session");
+});
+
+test("missing Supabase Auth configuration fails closed with 503", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not be called"); };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI" }),
+  }), {});
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "authentication_not_configured");
+  assert.equal(called, false);
+});
+
+test("Supabase Auth network failures fail closed with 503", async () => {
+  globalThis.fetch = async () => { throw new TypeError("simulated auth timeout"); };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI" }),
+  }), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "authentication_provider_unavailable");
 });
 
 test("valid session can create research fallback but never execution", async () => {
@@ -49,6 +72,7 @@ test("valid session can create research fallback but never execution", async () 
   }), env);
   const body = await response.json();
   assert.equal(response.status, 200);
+  assert.equal(body.strategy.status, "draft");
   assert.equal(body.strategy.source, "rule-based-fallback");
   assert.equal(body.strategy.executionEnabled, false);
   assert.equal(body.strategy.backtestStatus, "not_run");
