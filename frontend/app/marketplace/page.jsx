@@ -1,26 +1,80 @@
 'use client';
+
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
-const items = [
-{id:'trend-follow',name:'Trend Following Starter',category:'Trend',level:'Beginner',market:'Crypto / FX',timeframe:'1h–4h',risk:'Medium',description:'ตามแนวโน้มด้วย EMA และ RSI เป็นตัวกรองโมเมนตัม',workers:['EMATrendWorker','RSIWorker'],tp:2,sl:1,tags:['EMA','Momentum']},
-{id:'mean-revert',name:'Mean Reversion Lab',category:'Mean Reversion',level:'Intermediate',market:'Crypto',timeframe:'15m–1h',risk:'Medium',description:'ใช้ RSI และ Bollinger Bands ค้นหาการเบี่ยงเบนจากค่าเฉลี่ย',workers:['RSIWorker','BollingerBandWorker'],tp:1.2,sl:.8,tags:['RSI','Bollinger']},
-{id:'volume-breakout',name:'Volume Breakout',category:'Breakout',level:'Intermediate',market:'Crypto / FX',timeframe:'15m–4h',risk:'High',description:'ตรวจการทะลุกรอบราคาโดยใช้ volume เป็นตัวกรอง',workers:['VolumeSpikeWorker','DonchianBreakoutWorker'],tp:2.5,sl:1.2,tags:['Volume','Breakout']},
-{id:'volatility-guard',name:'Volatility Guard',category:'Risk Control',level:'Beginner',market:'Multi-market',timeframe:'1h–1d',risk:'Low',description:'ตัวกรองความผันผวนประกอบแนวโน้มเพื่อช่วยจำกัดสัญญาณเสี่ยง',workers:['EMATrendWorker','ATRVolatilityFilter'],tp:1.5,sl:.7,tags:['ATR','Risk']},
-{id:'funding-watch',name:'Funding Rate Watchlist',category:'Research',level:'Advanced',market:'Crypto Perpetual',timeframe:'15m–4h',risk:'High',description:'โครงร่างสำหรับศึกษาค่า funding ร่วมกับโมเมนตัม ไม่เชื่อมข้อมูล funding สด',workers:['FundingRateWorker','RSIWorker'],tp:2,sl:1,tags:['Funding','Research']},
-{id:'correlation-map',name:'Correlation Monitor',category:'Research',level:'Advanced',market:'Multi-asset',timeframe:'4h–1d',risk:'Medium',description:'แม่แบบวิเคราะห์ความสัมพันธ์สินทรัพย์ ยังไม่มี GNN inference ที่รันจริง',workers:['CorrelationFeatureWorker','PortfolioExposureCheck'],tp:1.5,sl:1,tags:['Correlation','Portfolio']}
+const strategies = [
+  { id: 'trend', name: 'Trend Following', category: 'Trend', risk: 'Medium', market: 'Multi-market', description: 'แม่แบบ EMA และตัวกรองโมเมนตัมเพื่อศึกษาแนวโน้ม', workers: ['EMATrendWorker', 'RSIWorker'], tags: ['EMA', 'RSI'] },
+  { id: 'mean', name: 'Mean Reversion', category: 'Mean Reversion', risk: 'Medium–High', market: 'Multi-market', description: 'แม่แบบค้นหาการเบี่ยงเบนจากค่าเฉลี่ย พร้อมข้อควรระวังในตลาดที่มีแนวโน้มแรง', workers: ['RSIWorker', 'BollingerBandWorker'], tags: ['RSI', 'Bollinger'] },
+  { id: 'breakout', name: 'Breakout Research', category: 'Breakout', risk: 'High', market: 'Crypto / Forex', description: 'โครงร่างเพื่อศึกษาการทะลุกรอบ โดยต้องตรวจ false breakout และต้นทุนธุรกรรม', workers: ['VolumeSpikeWorker', 'DonchianBreakoutWorker'], tags: ['Volume', 'Donchian'] },
+  { id: 'volatility', name: 'Volatility Guard', category: 'Risk Control', risk: 'Low–Medium', market: 'Multi-market', description: 'แนวคิดใช้ ATR/ความผันผวนเป็นตัวกรอง ไม่ใช่ระบบรับประกันความเสี่ยง', workers: ['ATRVolatilityFilter', 'PortfolioExposureCheck'], tags: ['ATR', 'Risk'] },
+  { id: 'correlation', name: 'Correlation Monitor', category: 'Research', risk: 'Research', market: 'Multi-asset', description: 'แม่แบบติดตามความสัมพันธ์สินทรัพย์ ยังไม่มีการยืนยันว่า GNN inference ทำงานจริง', workers: ['CorrelationFeatureWorker', 'PortfolioExposureCheck'], tags: ['Correlation', 'Portfolio'] }
 ];
-export default function MarketplacePage(){
- const [query,setQuery]=useState(''),[category,setCategory]=useState('All'),[selected,setSelected]=useState(null),[notice,setNotice]=useState('');
- const filtered=useMemo(()=>items.filter(x=>(category==='All'||x.category===category)&&(x.name+' '+x.description+' '+x.tags.join(' ')).toLowerCase().includes(query.toLowerCase())),[category,query]);
- const panel={background:'#111827',border:'1px solid #29354b',borderRadius:15,padding:18};
- return <main style={{maxWidth:1180,margin:'0 auto',padding:'30px 20px 60px',color:'#eef2ff'}}>
-  <header style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16,flexWrap:'wrap',marginBottom:28}}><div><div style={{color:'#9eabff',fontSize:12,letterSpacing:3,fontWeight:800}}>VOOM SYSTEM / NOVA</div><h1 style={{fontSize:38,margin:'10px 0'}}>Strategy Marketplace</h1><p style={{color:'#9caecb',margin:0}}>แค็ตตาล็อกแม่แบบกลยุทธ์สำหรับสำรวจ ปรับแต่ง และส่งไปทดสอบ</p></div><Link href="/" style={{color:'#b9c4dd'}}>← Dashboard</Link></header>
-  <div style={{border:'1px solid #7b6035',background:'#2b2115',color:'#f4d39a',padding:14,borderRadius:12,marginBottom:20,fontSize:13,lineHeight:1.7}}><b>Starter catalog · ยังไม่มีการซื้อขายหรือการจัดอันดับจากผลจริง</b><br/>รายการด้านล่างเป็นแม่แบบตัวอย่างที่มากับระบบ ไม่ใช่กลยุทธ์จากผู้ขายภายนอก ไม่แสดงผลตอบแทนหรือคะแนนที่ไม่ได้ผ่านการวัดจริง</div>
-  <section style={{...panel,display:'grid',gridTemplateColumns:'minmax(200px,1fr) minmax(180px,240px)',gap:12,marginBottom:18}}><input aria-label="ค้นหากลยุทธ์" placeholder="ค้นหาชื่อ กลยุทธ์ หรือ tag…" value={query} onChange={e=>setQuery(e.target.value)} style={{background:'#0b1220',color:'#eef2ff',border:'1px solid #344155',borderRadius:10,padding:12}}/><select aria-label="ประเภทกลยุทธ์" value={category} onChange={e=>setCategory(e.target.value)} style={{background:'#0b1220',color:'#eef2ff',border:'1px solid #344155',borderRadius:10,padding:12}}>{['All','Trend','Mean Reversion','Breakout','Risk Control','Research'].map(c=><option key={c}>{c}</option>)}</select></section>
-  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14}}>{filtered.map(item=><article key={item.id} style={panel}><div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'center'}}><span style={{fontSize:10,color:'#b9b1ff',letterSpacing:1.2,fontWeight:800}}>{item.category.toUpperCase()}</span><span style={{fontSize:10,color:'#9caecb',border:'1px solid #35425d',borderRadius:20,padding:'4px 8px'}}>{item.level}</span></div><h2 style={{fontSize:19,margin:'15px 0 8px'}}>{item.name}</h2><p style={{fontSize:13,color:'#aab7d0',lineHeight:1.7,minHeight:64}}>{item.description}</p><div style={{display:'flex',gap:6,flexWrap:'wrap',margin:'12px 0'}}>{item.tags.map(t=><span key={t} style={{fontSize:11,background:'#202a40',padding:'5px 8px',borderRadius:7}}>{t}</span>)}</div><div style={{fontSize:12,color:'#9caecb',lineHeight:1.9}}>Market: {item.market}<br/>Timeframe: {item.timeframe}<br/>Risk profile: {item.risk}</div><button onClick={()=>{setSelected(item);setNotice('')}} style={{width:'100%',marginTop:15,padding:11,borderRadius:9,border:'1px solid #59618a',background:'#242447',color:'#efefff',fontWeight:700,cursor:'pointer'}}>ดูรายละเอียด</button></article>)}</div>
-  {!filtered.length&&<p style={{color:'#9caecb',padding:25,textAlign:'center'}}>ไม่พบกลยุทธ์ที่ตรงกับคำค้น</p>}
-  {selected&&<div role="dialog" aria-modal="true" aria-label={selected.name} style={{position:'fixed',inset:0,background:'#030712d9',display:'grid',placeItems:'center',padding:18,zIndex:20}}><section style={{...panel,width:'min(600px,100%)',maxHeight:'85vh',overflow:'auto',boxShadow:'0 20px 80px #0009'}}><div style={{display:'flex',justifyContent:'space-between',gap:12}}><h2>{selected.name}</h2><button onClick={()=>setSelected(null)} aria-label="ปิด" style={{background:'transparent',border:0,color:'#e5e7eb',fontSize:22,cursor:'pointer'}}>×</button></div><p style={{color:'#aab7d0',lineHeight:1.7}}>{selected.description}</p><h3 style={{fontSize:14}}>Workers</h3><p>{selected.workers.join(' · ')}</p><h3 style={{fontSize:14}}>Exit template (ยังไม่ผ่าน backtest)</h3><p>TP {selected.tp}% · SL {selected.sl}%</p><p style={{fontSize:12,color:'#f2d49b'}}>แม่แบบนี้ไม่มีข้อมูลผลตอบแทนที่ผ่านการตรวจสอบ และไม่สามารถส่งคำสั่งซื้อขายได้</p><button onClick={()=>{setNotice('เปิดหน้า Gen AI แล้วเลือกแม่แบบที่เหมาะสมเพื่อสร้าง draft ใหม่ จากนั้นจึงนำไป Backtest');}} style={{padding:11,border:0,borderRadius:9,background:'#8274f7',color:'white',fontWeight:700,cursor:'pointer'}}>ใช้เป็นแนวทางสร้าง Draft</button>{notice&&<p role="status" style={{color:'#c7f9df',fontSize:13}}>{notice} · <Link href="/gen-ai" style={{color:'#b9b1ff'}}>เปิด Gen AI</Link></p>}</section></div>}
-  <p style={{fontSize:12,color:'#7786a2',marginTop:24}}>Catalog count: {filtered.length} · ทุกแม่แบบเป็นตัวอย่างภายใน · Live execution: OFF</p>
- </main>
+
+export default function MarketplacePage() {
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const [selected, setSelected] = useState(null);
+  const categories = ['All', 'Trend', 'Mean Reversion', 'Breakout', 'Risk Control', 'Research'];
+  const filtered = useMemo(() => strategies.filter((item) =>
+    (category === 'All' || item.category === category) &&
+    (item.name + ' ' + item.description + ' ' + item.tags.join(' ')).toLowerCase().includes(query.toLowerCase())
+  ), [category, query]);
+
+  return (
+    <main className="nova-shell">
+      <header className="nova-header">
+        <div>
+          <p className="nova-eyebrow">VOOM SYSTEM / NOVA</p>
+          <h1 className="nova-title">Strategy Marketplace</h1>
+          <p className="nova-subtitle">แค็ตตาล็อกแม่แบบเพื่อสำรวจและต่อยอดเป็น Strategy Draft</p>
+        </div>
+        <Link href="/" className="nova-link-button">← Dashboard</Link>
+      </header>
+
+      <section className="nova-notice">
+        <strong>STARTER CATALOG · RESEARCH ONLY</strong>
+        <p>รายการทั้งหมดเป็นแม่แบบตัวอย่างภายใน ไม่มีผลกำไร, win rate, Sharpe, Profit Factor หรือคะแนนผ่าน Gate ที่คำนวณจากผลจริงในหน้านี้ จึงไม่แสดงตัวเลขดังกล่าวและไม่มีปุ่ม Deploy หรือส่งคำสั่งซื้อขาย</p>
+      </section>
+
+      <section className="nova-panel" style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) minmax(160px, 230px)', gap: 12, marginBottom: 18 }}>
+        <input className="nova-input" aria-label="ค้นหากลยุทธ์" placeholder="ค้นหากลยุทธ์หรือ tag…" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <select className="nova-select" aria-label="ประเภทกลยุทธ์" value={category} onChange={(event) => setCategory(event.target.value)}>
+          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </section>
+
+      <section className="nova-catalogue">
+        {filtered.map((item) => (
+          <article className="nova-card" key={item.id}>
+            <span className="nova-pill">{item.category}</span>
+            <h2 style={{ marginTop: 14 }}>{item.name}</h2>
+            <p>{item.description}</p>
+            <div className="nova-tags">{item.tags.map((tag) => <span className="nova-tag" key={tag}>{tag}</span>)}</div>
+            <div className="nova-divider" />
+            <p className="nova-small">Market: {item.market}<br />Risk profile: {item.risk}</p>
+            <button className="nova-button" type="button" onClick={() => setSelected(item)}>ดูรายละเอียด</button>
+          </article>
+        ))}
+      </section>
+      {!filtered.length && <p className="nova-empty">ไม่พบกลยุทธ์ที่ตรงกับคำค้น</p>}
+
+      {selected && (
+        <div role="dialog" aria-modal="true" aria-label={selected.name} style={{ position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, .85)', display: 'grid', placeItems: 'center', padding: 18, zIndex: 20 }}>
+          <section className="nova-panel" style={{ width: 'min(560px, 100%)', maxHeight: '85vh', overflow: 'auto' }}>
+            <header className="nova-header" style={{ marginBottom: 14 }}>
+              <div><span className="nova-pill">RESEARCH TEMPLATE</span><h2 style={{ marginTop: 12 }}>{selected.name}</h2></div>
+              <button className="nova-button" type="button" onClick={() => setSelected(null)} aria-label="ปิดรายละเอียด">ปิด</button>
+            </header>
+            <p>{selected.description}</p>
+            <p className="nova-small">Workers / concepts: {selected.workers.join(' · ')}</p>
+            <div className="nova-notice"><strong>ยังไม่พร้อม Deploy</strong><p>แม่แบบนี้ยังไม่มีผล Backtest ที่ผ่านการตรวจสอบในหน้านี้ ให้สร้าง Draft แล้วประเมินต้นทุน, out-of-sample และ Risk Engine ก่อนเท่านั้น</p></div>
+            <Link className="nova-link-button nova-button-primary" href="/gen-ai">ไปสร้าง Strategy Draft →</Link>
+          </section>
+        </div>
+      )}
+
+      <footer className="nova-footer">จำนวนแม่แบบที่แสดง: {filtered.length} · ไม่มีข้อมูล performance ที่ยืนยันแล้ว · Live execution: OFF</footer>
+    </main>
+  );
 }
