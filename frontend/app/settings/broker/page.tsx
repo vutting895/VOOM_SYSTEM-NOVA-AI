@@ -18,7 +18,7 @@ type ReadOnlyAccount = {
   error?: string;
 };
 
-const proxyUrl = (process.env.NEXT_PUBLIC_MT5_READONLY_PROXY_URL || "").replace(/\/$/, "");
+const proxyUrl = (process.env.NEXT_PUBLIC_MT5_READONLY_PROXY_URL || "https://voom-mt5-readonly-proxy.suwapat787.workers.dev").replace(/\/$/, "");
 const supabase = getSupabaseBrowserClient();
 
 export default function BrokerSettingsPage() {
@@ -29,37 +29,38 @@ export default function BrokerSettingsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const getToken = useCallback(async () => {
+  const requireSignedInSession = useCallback(async () => {
     if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare");
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     if (!data.session?.access_token) throw new Error("กรุณาเข้าสู่ระบบด้วยอีเมลก่อน");
-    return data.session.access_token;
+    return true;
   }, []);
 
   const loadAccount = useCallback(async () => {
     setError("");
     if (!proxyUrl) {
-      setError("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_MT5_READONLY_PROXY_URL สำหรับ Cloudflare MT5 read-only proxy");
+      setError("ยังไม่ได้ตั้งค่า URL ของ MT5 read-only proxy");
       return;
     }
     setBusy(true);
     try {
-      const token = await getToken();
+      await requireSignedInSession();
       const response = await fetch(`${proxyUrl}/api/mt5/account`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
         cache: "no-store",
       });
       const data = await response.json() as ReadOnlyAccount;
       if (!response.ok) throw new Error(data.error || `อ่านสถานะ Exness MT5 ไม่สำเร็จ (HTTP ${response.status})`);
       setAccount(data);
-      setNotice("อ่านผลตอบกลับจาก MT5 proxy แล้ว; สถานะ connected ต้องอาศัยข้อมูลบัญชีจริงจาก bridge");
+      if (!data.connected) throw new Error("Proxy ตอบกลับแล้ว แต่ MT5 terminal ยังไม่ยืนยันการเชื่อมต่อบัญชี");
+      setNotice("ได้รับข้อมูลบัญชีจาก Exness MT5 ผ่าน proxy ที่ตรวจสิทธิ์ Cloudflare Access แล้ว");
     } catch (e) {
       setError(e instanceof Error ? e.message : "อ่านสถานะบัญชีไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
-  }, [getToken]);
+  }, [requireSignedInSession]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -119,12 +120,13 @@ export default function BrokerSettingsPage() {
       <section className="card">
         <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · Protected Cloudflare Proxy · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
         {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare</p>}
-        {!proxyUrl && <p className="warning">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_MT5_READONLY_PROXY_URL ใน Cloudflare build/runtime environment</p>}
+        <p className="warning">ต้องเข้าสู่ระบบ VOOM ด้วยอีเมล และยืนยัน Cloudflare Access สำหรับ proxy ก่อนอ่านข้อมูลบัญชี</p>
+        <a className="btn" href={`${proxyUrl}/health`} target="_blank" rel="noopener noreferrer">เปิดการยืนยันสิทธิ์ Cloudflare Access</a>
         <p className="warning">การตั้งค่า URL อย่างเดียวไม่ยืนยันว่า proxy เชื่อมกับ MT5 แล้ว ต้องมี authenticated proxy endpoint และ Windows bridge ที่ออนไลน์</p>
         {signedInEmail ? (
           <div>
             <p className="muted" style={{marginTop:18}}>เข้าสู่ระบบแล้ว: {signedInEmail}</p>
-            <button className="btn primary" disabled={busy || !proxyUrl} onClick={loadAccount}>{busy ? "กำลังอ่านข้อมูล…" : "ตรวจสถานะบัญชี (Read-only)"}</button>
+            <button className="btn primary" disabled={busy} onClick={loadAccount}>{busy ? "กำลังอ่านข้อมูล…" : "ตรวจสถานะบัญชี (Read-only)"}</button>
             <button className="btn" disabled={busy} onClick={signOut}>ออกจากระบบ VOOM</button>
             {account && <div className="grid">
               <div className="metric"><span>Broker / Platform</span><strong>{account.broker ?? "Exness"} / {account.platform ?? "MT5"}</strong></div>
