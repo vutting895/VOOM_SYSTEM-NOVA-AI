@@ -28,6 +28,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
       NEXT_PUBLIC_MT5_READONLY_PROXY_URL: "https://example.invalid"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
