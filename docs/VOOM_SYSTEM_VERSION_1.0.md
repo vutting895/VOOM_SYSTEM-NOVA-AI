@@ -55,10 +55,22 @@ Do not assume an existing local bridge is connected or always running; verify it
 - [ ] No secrets in repository history, client bundle, or logs.
 - [ ] Deployment URL and evidence recorded only after successful verification.
 
-## 6. Questions/blockers to resolve
+## 6. Current inspection findings (2026-10-27)
 
-1. Cloudflare frontend: should the public site use Cloudflare Pages or a Cloudflare Worker with Static Assets? If an existing production URL is already selected, provide/confirm that URL.
-2. MT5 bridge: is Exness Demo MT5 installed and logged in on an always-on Windows PC/VPS? If yes, confirm the machine is available for the bridge setup; do not send credentials in chat.
-3. v1.0 data scope: should the first milestone show account connection/status only, or account status plus live market prices/charts? No orders in either option.
+- User confirmed MT5 is installed and logged in on a Windows PC, and requested account status + market prices + charts + AI analysis.
+- Remote Windows device `10_3_6_9` is reachable. A process named `terminal64.exe` was observed at `C:\\MT5\\Sounds\\terminal64.exe`; process presence alone does not prove the expected Exness account is logged in.
+- Local project folder `C:\\Program Files\\voom_system` exists on the connected Windows device, with a dirty working tree on branch `cloudflare-cutover-wip`. Do not overwrite or reset this tree without reviewing and preserving its uncommitted files.
+- `C:\\Program Files\\nova` and `C:\\Program Files\\AI_Bridge` were not found at those exact paths on this device. This does not prove a bridge is absent elsewhere.
+- The checked local TCP ports 8081, 8787, 8000, 3000 and 5173 had no listener at inspection time. This is not a complete port scan.
+- The repository's Broker Hub Worker currently returns a read-only catalog and `/health` status; its registry marks the MT5 bridge as `catalog-only`, and `/health` reports `connectedProviders: 0`. It does not yet implement the MT5 account/quote adapter.
+- Existing `BROKER_SETUP.md` describes `MT5_BRIDGE_HEALTH_URL` and `MT5_BRIDGE_TOKEN` as expected configuration, but explicitly says a broker/terminal-specific bridge is not included. Therefore the web-to-MT5 path still needs implementation and verification.
+- The requested market symbol must be discovered from the actual Exness demo terminal. Previous checks did not find `XAUUSDM`/`XAUUSD`; do not hardcode either until the terminal's available symbols are enumerated.
 
-Until these are confirmed and the acceptance checklist is evidenced, v1.0 is a defined target, not a declaration that the system is already ready or deployed.
+## 7. Remaining questions / blockers
+
+1. Confirm the exact Cloudflare public URL to use as the Version 1.0 frontend. Existing Worker names are not proof that either serves the intended complete frontend.
+2. Implement and secure a read-only Windows MT5 bridge, or verify a suitable existing bridge on this PC. Only return account summary, symbol metadata, quotes/candles and connection freshness; explicitly reject all trade/order actions.
+3. Discover the correct Exness symbol names and available timeframes from the running terminal.
+4. Wire the Cloudflare frontend to the Broker Hub/bridge and actual AI analysis endpoint, then run typecheck/build and end-to-end read-only checks.
+
+Until the acceptance checklist is evidenced, Version 1.0 remains an implementation target, not a declaration that the system is ready or deployed.
