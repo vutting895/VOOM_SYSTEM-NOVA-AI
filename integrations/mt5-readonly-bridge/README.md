@@ -1,19 +1,29 @@
-# VOOM_SYSTEM MT5 Read-only Bridge v1.0
+# VOOM_SYSTEM MT5 Read-only Bridge
 
-This bridge is intended to run on the Windows PC where the Exness Demo MT5 terminal is already installed and logged in. Cloudflare Workers cannot run the Windows MT5 terminal itself.
+This Windows process reads data from the MT5 terminal session already logged in to the intended **Exness Demo** account. Cloudflare Workers cannot run the Windows MT5 terminal itself.
 
-## Safety and scope
+## Safety boundary
 
-- Read-only endpoints only: health, account summary, symbol discovery, quotes/candles.
-- No order, trade, position-modification, transfer, or withdrawal implementation.
-- Requests targeting order/trade/execute/withdraw/transfer routes are explicitly denied.
-- Every API endpoint requires `Authorization: Bearer <MT5_BRIDGE_TOKEN>`.
-- Never commit the token, MT5 credentials, or a credential-bearing environment file.
-- Use only the Exness Demo terminal for v1.0. Keep Live Trading disabled in the terminal and application.
+- Read-only GET endpoints only: health, account summary, symbol discovery and quotes/candles.
+- No order, trade, position-modification, transfer or withdrawal implementation exists.
+- Requests to order/trade/execute/withdraw/transfer paths are denied, and non-GET/OPTIONS methods are rejected.
+- Every protected endpoint requires both `Authorization: Bearer <tenant-specific token>` and `X-VOOM-TENANT-ID: <assigned tenant id>`.
+- Missing tenant configuration returns 503; tenant mismatch returns 403; missing/invalid bearer token returns 401.
+- Never reuse a terminal session or bridge token across customers. Never commit or paste tokens, account IDs, passwords, or credential-bearing environment files.
+- Order execution must remain disabled even if the terminal itself reports trading allowed.
 
-## Install on the Windows PC
+## Per-customer isolation
 
-Use a dedicated virtual environment from this directory:
+The Windows bridge uses two private environment variables:
+
+- `MT5_TENANT_ID`: opaque route ID assigned by the trusted administrator for this one Demo terminal.
+- `MT5_BRIDGE_TOKEN`: unique random bearer token for this tenant. It must be the same token referenced by this tenant's entry in the Cloudflare secret `MT5_TENANT_ROUTES`.
+
+The Cloudflare proxy verifies the caller's Supabase Auth session, selects only that caller's `broker_connections` row under RLS, and routes only to the HTTPS origin mapped to the row's unique `bridge_route_id`. The mapping token and tenant ID must match. A pending customer request has no route and cannot reach the bridge.
+
+## Windows setup
+
+Install requirements inside an isolated Python 3.11 environment in this directory:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -22,23 +32,24 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-The MetaTrader5 Python package must run on the same Windows machine as the installed MT5 terminal. Start the terminal and log in to the Exness Demo account first. This bridge does not accept MT5 login/password credentials; it uses the terminal's existing session.
+Keep the terminal session dedicated to the one tenant. This bridge reads the account already logged in through MT5; it does not accept a customer MT5 password.
 
-## Configure secrets without committing them
+Place private tenant configuration under:
 
-Set a long random token privately in the Windows process/service environment as `MT5_BRIDGE_TOKEN`. Set `MT5_TERMINAL_PATH` only if MT5 is not found automatically. Set `MT5_BRIDGE_CORS_ORIGINS` to the exact Cloudflare frontend origin(s), comma-separated; do not use `*`.
-
-Do not paste the token into chat or source code. Do not expose the bridge port directly to the public internet. Publish it only through a protected Cloudflare Tunnel route and require the bearer token on requests.
-
-## Start for local smoke testing
-
-```powershell
-$env:MT5_BRIDGE_TOKEN = '<set privately in this shell; do not commit>'
-$env:MT5_BRIDGE_CORS_ORIGINS = 'https://your-confirmed-cloudflare-frontend.example'
-python -m uvicorn bridge:app --host 127.0.0.1 --port 8787
+```text
+%LOCALAPPDATA%\VOOM_SYSTEM\secrets\mt5-tenant-id.txt
+%LOCALAPPDATA%\VOOM_SYSTEM\secrets\mt5-bridge-<tenant-id>.token
 ```
 
-The placeholder origin above must be replaced with the exact approved frontend origin before use. Do not put the token in a URL or query string.
+The first file contains only the provisioned tenant ID. The second contains only the corresponding random token. Do not store either value in this repository. Provision matching route details into Cloudflare secret `MT5_TENANT_ROUTES` using a trusted secret-management path; do not send secret values through chat or ticket comments.
+
+Start using the tenant-aware script from the bridge directory:
+
+```powershell
+.\run-bridge.ps1
+```
+
+The script fails closed if the tenant ID or tenant-specific token file is missing or invalid. It binds Uvicorn to `127.0.0.1:8787`; publish it only through the protected Cloudflare Tunnel. Do not expose the local port directly.
 
 ## Endpoints
 
@@ -47,16 +58,16 @@ The placeholder origin above must be replaced with the exact approved frontend o
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 
-Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact Exness symbol names from `/api/symbols`; do not assume `XAUUSDM` or `XAUUSD`.
+Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
-## Integration requirements before use
+## Validation before marking a customer connected
 
-1. Confirm the terminal is the intended Exness Demo account.
-2. Set a strong bridge token privately and configure it as a Cloudflare Worker secret on the API proxy.
-3. Configure a Cloudflare Tunnel route to the local bridge port; do not expose the port directly.
-4. Add/verify authenticated user-session authorization at the Cloudflare API proxy, CORS allowlist, rate limiting, and safe error handling.
-5. Verify the bridge and proxy return JSON and live timestamps.
-6. Verify all trade/order methods remain blocked at the proxy and bridge layers.
-7. Run tests and record evidence before marking the integration ready.
+1. Confirm the chosen MT5 terminal is the intended Exness Demo account, not another broker/account.
+2. Confirm a unique tenant ID and token were provisioned privately and the matching Cloudflare route-map entry exists.
+3. Confirm requests without a bearer token return 401, an invalid token returns 401, a tenant mismatch returns 403 and absent tenant configuration returns 503.
+4. Confirm the proxy checks the Supabase JWT and only returns the authenticated user's own connection row.
+5. Confirm the tunnel routes to the tenant-aware bridge, and health returns a current timestamp with `mode=read-only` and `order_submission_enabled=false`.
+6. Confirm cross-customer connection IDs fail closed.
+7. Confirm no order method exists and every layer keeps order execution disabled.
 
-This source has not been installed, executed, or end-to-end tested by virtue of being added to the repository.
+A passing CI build, healthy Cloudflare tunnel, public market endpoint or an MT5 terminal connection alone does not prove that a specific customer connection has been provisioned. Do not mark a connection as connected until the entire authenticated path is tested.
