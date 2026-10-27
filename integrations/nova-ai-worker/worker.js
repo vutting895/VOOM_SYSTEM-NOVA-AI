@@ -57,17 +57,38 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_not_configured" };
   }
   let response;
+  const authUrl = new URL("/auth/v1/user", env.SUPABASE_URL);
+  const authInit = {
+    method: "GET",
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      Authorization: "Bearer " + match[1],
+      Accept: "application/json",
+    },
+    redirect: "manual",
+    signal: AbortSignal.timeout(15000),
+  };
   try {
-    response = await fetch(new URL("/auth/v1/user", env.SUPABASE_URL), {
-      method: "GET",
-      headers: {
-        apikey: env.SUPABASE_PUBLISHABLE_KEY,
-        Authorization: "Bearer " + match[1],
-        Accept: "application/json",
-      },
-      redirect: "error",
-      signal: AbortSignal.timeout(15000),
-    });
+    response = await fetch(authUrl, authInit);
+    // Only follow a redirect back to the configured HTTPS Supabase origin.
+    // This prevents forwarding the bearer token or publishable key to another host.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      if (!location) return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      let redirectedUrl;
+      try {
+        redirectedUrl = new URL(location, authUrl);
+      } catch {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      if (redirectedUrl.protocol !== "https:" || redirectedUrl.origin !== authUrl.origin) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      response = await fetch(redirectedUrl, authInit);
+      if (response.status >= 300 && response.status < 400) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+    }
   } catch (error) {
     // Log only the error class; never log the token, headers, or request body.
     console.warn("NOVA AI Worker could not reach Supabase Auth", {
