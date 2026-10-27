@@ -53,14 +53,27 @@ test("missing Supabase Auth configuration fails closed with 503", async () => {
   assert.equal(called, false);
 });
 
-test("Supabase Auth network failures fail closed with 503", async () => {
-  globalThis.fetch = async () => { throw new TypeError("simulated auth timeout"); };
-  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
-    method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: "EMA and RSI" }),
-  }), env);
-  assert.equal(response.status, 503);
-  assert.equal((await response.json()).error, "authentication_provider_unavailable");
+test("Supabase Auth network failures fail closed and log sanitized diagnostics", async () => {
+  const lines = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => lines.push(args.map(String).join(" "));
+  globalThis.fetch = async () => {
+    throw new TypeError("fetch failed https://supabase.example/path Bearer secret-token eyJvery.secret.jwt");
+  };
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+      method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "EMA and RSI" }),
+    }), env);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "authentication_provider_unavailable");
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /errorName=TypeError/);
+    assert.doesNotMatch(lines[0], /secret-token|eyJvery|supabase\.example/);
+    assert.match(lines[0], /\[redacted\]|\[url\]/);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test("same-origin Supabase Auth redirect is followed and invalid token maps to 401", async () => {
