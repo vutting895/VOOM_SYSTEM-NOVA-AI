@@ -63,3 +63,7 @@ jobs:
       - name: Build and deploy the Next.js frontend to Cloudflare
         working-directory: frontend
         run: npm run cf:deploy
+
+      - name: Deploy authenticated Exness MT5 read-only proxy
+        working-directory: frontend
+        run: npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars
