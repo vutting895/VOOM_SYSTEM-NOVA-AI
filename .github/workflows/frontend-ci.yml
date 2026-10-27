@@ -7,6 +7,8 @@ on:
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "supabase/migrations/**"
       - "integrations/nova-ai-worker/**"
       - ".github/workflows/ai-worker-deploy.yml"
   push:
@@ -16,6 +18,8 @@ on:
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "supabase/migrations/**"
 
 permissions:
   contents: read
@@ -45,6 +49,9 @@ jobs:
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/worker.test.mjs
+      - name: Syntax-check customer-isolated MT5 bridge
+        working-directory: .
+        run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py
       - name: Type-check
         run: npm run typecheck
       - name: Build

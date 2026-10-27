@@ -51,3 +51,30 @@ jobs:
           npx --yes wrangler deploy --config wrangler.toml --keep-vars \
             --var "SUPABASE_URL:$SUPABASE_URL" \
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Smoke-test live AI Worker security gates without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://voom-system-nova-ai.suwapat787.workers.dev"
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$base/health")"
+          if [ "$code" != "200" ] || ! grep -q '"executionEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
+            echo "AI Worker health/safety smoke test failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST "$base/api/gen-ai/generate" -H 'Content-Type: application/json' --data '{"prompt":"unauthenticated security smoke test"}')"
+          if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
+            echo "AI Worker did not reject unauthenticated generation (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST "$base/api/backtest" -H 'Content-Type: application/json' --data '{"symbol":"XAUUSD"}')"
+          if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
+            echo "AI Worker did not reject unauthenticated backtest (HTTP $code)."
+            exit 1
+          fi
+          echo "Live AI health is OK; unauthenticated generation/backtest are rejected; execution remains disabled."
