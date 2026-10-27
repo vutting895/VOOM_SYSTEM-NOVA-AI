@@ -55,9 +55,9 @@ function safeAuthDiagnostic(error) {
     ? error.name
     : "Error";
   const message = String(error?.message || "unknown")
-    .replace(/Bearer\\s+\\S+/gi, "Bearer [redacted]")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
     .replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted-token]")
-    .replace(/https?:\\/\\/\\S+/gi, "[url]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
     .replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]")
     .slice(0, 160);
   // Emit a single string so the runtime stores useful diagnostics, not a dropped object argument.
