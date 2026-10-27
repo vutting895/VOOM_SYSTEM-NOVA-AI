@@ -50,11 +50,22 @@ export default function BrokerSettingsPage() {
         credentials: "include",
         cache: "no-store",
       });
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Cloudflare Access ยังไม่ได้ยืนยันเซสชันสำหรับ Proxy กรุณากด “เปิดการยืนยันสิทธิ์ Cloudflare Access” แล้วเข้าสู่ระบบก่อนลองอีกครั้ง");
+      }
       const data = await response.json() as ReadOnlyAccount;
-      if (!response.ok) throw new Error(data.error || `อ่านสถานะ Exness MT5 ไม่สำเร็จ (HTTP ${response.status})`);
+      if (!response.ok) {
+        const message = data.error === "access_login_required" || data.error === "invalid_access_assertion"
+          ? "กรุณายืนยัน Cloudflare Access ก่อนอ่านข้อมูลบัญชี"
+          : data.error === "user_not_allowed"
+            ? "อีเมลนี้ไม่มีสิทธิ์เข้าถึงบัญชี Broker"
+            : data.error || `อ่านสถานะ Exness MT5 ไม่สำเร็จ (HTTP ${response.status})`;
+        throw new Error(message);
+      }
+      if (!data.connected) throw new Error("Proxy ติดต่อได้ แต่ MT5 terminal ยังไม่ยืนยันการเชื่อมต่อบัญชี");
       setAccount(data);
-      if (!data.connected) throw new Error("Proxy ตอบกลับแล้ว แต่ MT5 terminal ยังไม่ยืนยันการเชื่อมต่อบัญชี");
-      setNotice("ได้รับข้อมูลบัญชีจาก Exness MT5 ผ่าน proxy ที่ตรวจสิทธิ์ Cloudflare Access แล้ว");
+      setNotice("ได้รับข้อมูลบัญชีจาก Exness MT5 ผ่าน Proxy และตรวจสิทธิ์ผู้ใช้แล้ว");
     } catch (e) {
       setError(e instanceof Error ? e.message : "อ่านสถานะบัญชีไม่สำเร็จ");
     } finally {
@@ -122,7 +133,7 @@ export default function BrokerSettingsPage() {
         {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare</p>}
         <p className="warning">ต้องเข้าสู่ระบบ VOOM ด้วยอีเมล และยืนยัน Cloudflare Access สำหรับ proxy ก่อนอ่านข้อมูลบัญชี</p>
         <a className="btn" href={`${proxyUrl}/health`} target="_blank" rel="noopener noreferrer">เปิดการยืนยันสิทธิ์ Cloudflare Access</a>
-        <p className="warning">การตั้งค่า URL อย่างเดียวไม่ยืนยันว่า proxy เชื่อมกับ MT5 แล้ว ต้องมี authenticated proxy endpoint และ Windows bridge ที่ออนไลน์</p>
+        <p className="warning">Proxy endpoint ถูก Deploy แล้ว แต่สถานะบัญชีจะยืนยันได้เมื่อ Windows MT5 Bridge และบัญชี Exness Demo ออนไลน์</p>
         {signedInEmail ? (
           <div>
             <p className="muted" style={{marginTop:18}}>เข้าสู่ระบบแล้ว: {signedInEmail}</p>
