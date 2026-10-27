@@ -3,33 +3,34 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../../lib/supabase-browser";
 
-type AccountInfo = {
-  connected: boolean;
-  environment?: string;
+type ReadOnlyAccount = {
+  connected?: boolean;
+  broker?: string;
+  platform?: string;
+  mode?: string;
   account?: {
-    status?: string;
+    server?: string;
     currency?: string;
-    cash?: string;
-    portfolio_value?: string;
-    buying_power?: string;
-    equity?: string;
+    balance?: number | string;
+    equity?: number | string;
+    margin_free?: number | string;
   };
   error?: string;
 };
 
-const workerUrl = (process.env.NEXT_PUBLIC_ALPACA_WORKER_URL || "").replace(/\/$/, "");
+const proxyUrl = (process.env.NEXT_PUBLIC_MT5_READONLY_PROXY_URL || "").replace(/\/$/, "");
 const supabase = getSupabaseBrowserClient();
 
 export default function BrokerSettingsPage() {
   const [email, setEmail] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
-  const [account, setAccount] = useState<AccountInfo | null>(null);
+  const [account, setAccount] = useState<ReadOnlyAccount | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
   const getToken = useCallback(async () => {
-    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare runtime settings");
+    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare");
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     if (!data.session?.access_token) throw new Error("กรุณาเข้าสู่ระบบด้วยอีเมลก่อน");
@@ -38,56 +39,43 @@ export default function BrokerSettingsPage() {
 
   const loadAccount = useCallback(async () => {
     setError("");
-    if (!workerUrl) {
-      setError("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_ALPACA_WORKER_URL ให้ชี้ไปยัง Cloudflare Worker");
+    if (!proxyUrl) {
+      setError("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_MT5_READONLY_PROXY_URL สำหรับ Cloudflare MT5 read-only proxy");
       return;
     }
+    setBusy(true);
     try {
       const token = await getToken();
-      const response = await fetch(`${workerUrl}/api/alpaca/account`, {
+      const response = await fetch(`${proxyUrl}/api/mt5/account`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       });
-      const data = await response.json() as AccountInfo;
-      if (!response.ok) throw new Error(data.error || "อ่านสถานะบัญชี Alpaca ไม่สำเร็จ");
+      const data = await response.json() as ReadOnlyAccount;
+      if (!response.ok) throw new Error(data.error || `อ่านสถานะ Exness MT5 ไม่สำเร็จ (HTTP ${response.status})`);
       setAccount(data);
+      setNotice("อ่านผลตอบกลับจาก MT5 proxy แล้ว; สถานะ connected ต้องอาศัยข้อมูลบัญชีจริงจาก bridge");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "เกิดข้อผิดพลาดขณะอ่านบัญชี");
+      setError(e instanceof Error ? e.message : "อ่านสถานะบัญชีไม่สำเร็จ");
+    } finally {
+      setBusy(false);
     }
   }, [getToken]);
 
   useEffect(() => {
     if (!supabase) return;
-    void supabase.auth.getSession().then(({ data }) => {
-      setSignedInEmail(data.session?.user.email || "");
-    });
+    void supabase.auth.getSession().then(({ data }) => setSignedInEmail(data.session?.user.email || ""));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedInEmail(session?.user.email || "");
-      if (session?.access_token) void loadAccount();
-      else setAccount(null);
+      if (!session?.access_token) setAccount(null);
     });
-    const status = new URLSearchParams(window.location.search).get("alpaca");
-    if (status === "connected") {
-      setNotice("Alpaca Paper เชื่อมต่อผ่าน OAuth แล้ว กำลังอ่านข้อมูลบัญชี");
-    } else if (status === "token_exchange_failed_401") {
-      setError("Alpaca ปฏิเสธ OAuth client (HTTP 401): ตรวจว่า ALPACA_CLIENT_ID และ ALPACA_CLIENT_SECRET เป็นคู่จาก OAuth App เดียวกัน ไม่ใช่ API Key/Secret และตรวจว่าแอปยัง Active อยู่");
-    } else if (status === "token_exchange_failed_400") {
-      setError("Alpaca ปฏิเสธรหัสอนุญาต (HTTP 400): ขอเชื่อมต่อใหม่ แล้วตรวจว่า Redirect URI ใน Alpaca ตรงกับ https://voom-alpaca-oauth.suwapat787.workers.dev/api/alpaca/callback ทุกตัวอักษร");
-    } else if (status?.startsWith("token_exchange_failed_")) {
-      setError(`แลก OAuth token ไม่สำเร็จ (${status.replace("token_exchange_failed_", "HTTP ")}). ตรวจสถานะ OAuth App และลองเชื่อมใหม่`);
-    } else if (status === "invalid_state") {
-      setError("คำขอ OAuth หมดอายุหรือไม่ตรงกัน กรุณาเริ่มเชื่อมต่อ Alpaca ใหม่จาก VOOM");
-    } else if (status) {
-      setError(`การเชื่อมต่อ Alpaca ไม่สำเร็จ: ${status}`);
-    }
     return () => listener.subscription.unsubscribe();
-  }, [loadAccount]);
+  }, []);
 
   async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
-      if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare runtime settings");
+      if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare");
       const { error: authError } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: `${window.location.origin}/settings/broker` },
@@ -99,53 +87,20 @@ export default function BrokerSettingsPage() {
     } finally { setBusy(false); }
   }
 
-  async function connect() {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      if (!workerUrl) throw new Error("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_ALPACA_WORKER_URL ใน Cloudflare runtime settings");
-      const token = await getToken();
-      const response = await fetch(`${workerUrl}/api/alpaca/connect`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json() as { authorization_url?: string; error?: string };
-      if (!response.ok || !data.authorization_url) throw new Error(data.error || "เริ่ม OAuth ไม่สำเร็จ ตรวจสอบ Worker และ secrets");
-      window.location.assign(data.authorization_url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "เริ่มเชื่อมต่อไม่สำเร็จ");
-      setBusy(false);
-    }
-  }
-
-  async function disconnect() {
-    setBusy(true); setError(""); setNotice("");
-    try {
-      const token = await getToken();
-      const response = await fetch(`${workerUrl}/api/alpaca/disconnect`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(data.error || "ยกเลิกการเชื่อมต่อไม่สำเร็จ");
-      setAccount({ connected: false, environment: "paper" });
-      setNotice("ลบการเชื่อมต่อ Alpaca จาก VOOM_SYSTEM แล้ว");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "ยกเลิกการเชื่อมต่อไม่สำเร็จ");
-    } finally { setBusy(false); }
-  }
-
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
-    setSignedInEmail(""); setAccount(null); setNotice("ออกจากระบบแล้ว");
+    setSignedInEmail(""); setAccount(null); setNotice("ออกจากระบบ VOOM แล้ว");
   }
 
   return (
-    <main className="alpaca-page">
+    <main className="broker-page">
       <style>{`
-        .alpaca-page{max-width:850px;margin:0 auto;padding:38px 20px 70px;min-height:100vh;background:#090b12;color:#eef3fa;font-family:Inter,system-ui,sans-serif}
+        .broker-page{max-width:850px;margin:0 auto;padding:38px 20px 70px;min-height:100vh;background:#090b12;color:#eef3fa;font-family:Inter,system-ui,sans-serif}
         .back{color:#c9f36a;text-decoration:none;font-size:13px}.eyebrow{display:block;color:#a99aff;font-size:10px;letter-spacing:2px;font-weight:800;margin-top:34px}
         h1{font-size:clamp(30px,5vw,42px);letter-spacing:-1.2px;margin:10px 0}.intro{color:#a1adbf;line-height:1.8;font-size:14px}
         .card{margin-top:22px;border:1px solid #293142;border-radius:17px;padding:22px;background:#111620}
-        .heading{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.mark{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#c9f36a;color:#10150a;font-weight:900;font-size:22px}
+        .heading{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.mark{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#c9f36a;color:#10150a;font-weight:900;font-size:18px}
         h2{font-size:17px;margin:0 0 5px}.muted{font-size:12px;color:#9aa6b8;line-height:1.7;margin:0}
         .pill{margin-left:auto;border:1px solid #4d4932;color:#e9ce83;padding:7px 10px;border-radius:99px;font-size:10px;letter-spacing:1px}
         .btn{border:1px solid #3a4354;background:#1a2230;color:#eef3fa;border-radius:9px;padding:11px 15px;cursor:pointer;font-weight:700;font-size:12px;margin:8px 8px 0 0}
@@ -158,26 +113,27 @@ export default function BrokerSettingsPage() {
         .foot{font-size:11px;color:#8c99ac;line-height:1.8;margin-top:20px}
       `}</style>
       <a className="back" href="/">← กลับหน้า Dashboard</a>
-      <span className="eyebrow">CONNECTIONS / ALPACA</span>
-      <h1>เชื่อมต่อบัญชี Alpaca</h1>
-      <p className="intro">เชื่อมบัญชี Alpaca ผ่าน OAuth สำหรับ Paper Trading เท่านั้น ระบบไม่ขอรหัสผ่านโบรกเกอร์ และไม่ส่งคำสั่งซื้อขาย</p>
-
+      <span className="eyebrow">CONNECTIONS / EXNESS MT5</span>
+      <h1>เชื่อมต่อบัญชี Exness MT5</h1>
+      <p className="intro">ระยะแรกใช้ Exness Demo ผ่าน MT5 บนเครื่อง Windows/VPS และอ่านข้อมูลบัญชีกับตลาดเท่านั้น หน้านี้ไม่รับรหัสผ่าน MT5 และไม่มีคำสั่งซื้อขาย</p>
       <section className="card">
-        <div className="heading"><span className="mark">A</span><div><h2>Alpaca Paper Trading</h2><p className="muted">Cloudflare Worker · Supabase · OAuth</p></div><span className="pill">{account?.connected ? "CONNECTED · PAPER" : "PAPER ONLY"}</span></div>
-        {!supabase && <p className="warning">ยังขาดค่า NEXT_PUBLIC_SUPABASE_URL และ NEXT_PUBLIC_SUPABASE_ANON_KEY ใน Environment Variables ของ Cloudflare</p>}
-        {!workerUrl && <p className="warning">ยังขาด NEXT_PUBLIC_ALPACA_WORKER_URL ซึ่งต้องเป็น URL ของ Cloudflare Worker ที่ deploy แล้ว</p>}
+        <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · Protected Cloudflare Proxy · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
+        {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare</p>}
+        {!proxyUrl && <p className="warning">ยังไม่ได้ตั้งค่า NEXT_PUBLIC_MT5_READONLY_PROXY_URL ใน Cloudflare build/runtime environment</p>}
+        <p className="warning">การตั้งค่า URL อย่างเดียวไม่ยืนยันว่า proxy เชื่อมกับ MT5 แล้ว ต้องมี authenticated proxy endpoint และ Windows bridge ที่ออนไลน์</p>
         {signedInEmail ? (
           <div>
             <p className="muted" style={{marginTop:18}}>เข้าสู่ระบบแล้ว: {signedInEmail}</p>
-            <button className="btn primary" disabled={busy} onClick={connect}>{busy ? "กำลังดำเนินการ…" : "เชื่อมบัญชี Alpaca (Paper)"}</button>
-            <button className="btn" disabled={busy} onClick={loadAccount}>รีเฟรชสถานะบัญชี</button>
+            <button className="btn primary" disabled={busy || !proxyUrl} onClick={loadAccount}>{busy ? "กำลังอ่านข้อมูล…" : "ตรวจสถานะบัญชี (Read-only)"}</button>
             <button className="btn" disabled={busy} onClick={signOut}>ออกจากระบบ VOOM</button>
-            {account?.connected && <><div className="grid">
-              <div className="metric"><span>สถานะบัญชี</span><strong>{account.account?.status ?? "—"}</strong></div>
-              <div className="metric"><span>มูลค่าพอร์ต</span><strong>{account.account?.portfolio_value ?? "—"} {account.account?.currency ?? ""}</strong></div>
-              <div className="metric"><span>เงินสด</span><strong>{account.account?.cash ?? "—"} {account.account?.currency ?? ""}</strong></div>
-              <div className="metric"><span>Buying power</span><strong>{account.account?.buying_power ?? "—"} {account.account?.currency ?? ""}</strong></div>
-            </div><button className="btn" disabled={busy} onClick={disconnect}>ยกเลิกการเชื่อมต่อ Alpaca</button></>}
+            {account && <div className="grid">
+              <div className="metric"><span>Broker / Platform</span><strong>{account.broker ?? "Exness"} / {account.platform ?? "MT5"}</strong></div>
+              <div className="metric"><span>Server</span><strong>{account.account?.server ?? "ยังไม่มีข้อมูล"}</strong></div>
+              <div className="metric"><span>Balance</span><strong>{account.account?.balance ?? "—"} {account.account?.currency ?? ""}</strong></div>
+              <div className="metric"><span>Equity</span><strong>{account.account?.equity ?? "—"} {account.account?.currency ?? ""}</strong></div>
+              <div className="metric"><span>Free margin</span><strong>{account.account?.margin_free ?? "—"} {account.account?.currency ?? ""}</strong></div>
+              <div className="metric"><span>Mode</span><strong>{account.mode ?? "Read-only"}</strong></div>
+            </div>}
           </div>
         ) : (
           <form onSubmit={sendMagicLink} style={{marginTop:22}}>
@@ -187,7 +143,7 @@ export default function BrokerSettingsPage() {
         )}
         {notice && <p className="notice" role="status">{notice}</p>}
         {error && <p className="error" role="alert">{error}</p>}
-        <p className="foot">เพื่อความปลอดภัย โทเคนถูกเข้ารหัสและเก็บฝั่งเซิร์ฟเวอร์เท่านั้น ไม่มีคำสั่งซื้อขายใน integration นี้ และการเชื่อมต่อจะทำงานได้เมื่อ Worker, OAuth callback และ secrets ตั้งค่าครบแล้ว</p>
+        <p className="foot">ความปลอดภัย: ไม่มีการส่งคำสั่งซื้อขาย ปรับสถานะ position หรือโอนเงิน ใช้ Exness Demo เท่านั้นในระยะทดสอบ เก็บ bridge token ไว้ฝั่ง server/Worker secret ห้ามใส่ใน frontend หรือ GitHub</p>
       </section>
     </main>
   );
