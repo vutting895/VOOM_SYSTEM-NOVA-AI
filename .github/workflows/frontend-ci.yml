@@ -16,8 +16,6 @@ on:
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
-      - "integrations/nova-ai-worker/**"
-      - ".github/workflows/ai-worker-deploy.yml"
 
 permissions:
   contents: read
