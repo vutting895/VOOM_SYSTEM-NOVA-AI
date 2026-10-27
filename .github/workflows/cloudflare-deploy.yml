@@ -22,7 +22,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAFlosj98ci8iYugG' }}
       NEXT_PUBLIC_MT5_READONLY_PROXY_URL: ${{ vars.NEXT_PUBLIC_MT5_READONLY_PROXY_URL }}
     steps:
       - name: Checkout exact commit validated by Frontend CI
@@ -38,7 +38,7 @@ jobs:
             if [ -z "${!key}" ]; then missing+=("$key"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "Deployment blocked. Configure these GitHub Actions secrets (values are never printed): ${missing[*]}"
+            echo "Deployment blocked. Configure the listed GitHub Actions secrets/variables (values are never printed): ${missing[*]}"
             exit 1
           fi
           if [ -z "$NEXT_PUBLIC_MT5_READONLY_PROXY_URL" ]; then
