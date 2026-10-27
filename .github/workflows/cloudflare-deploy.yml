@@ -37,7 +37,7 @@ jobs:
             if [ -z "${!key}" ]; then missing+=("$key"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf 'Deployment blocked. Configure these GitHub Actions secrets (values are never printed): %s\\n' "${missing[*]}"
+            echo "Deployment blocked. Configure these GitHub Actions secrets (values are never printed): ${missing[*]}"
             exit 1
           fi
           if [ -z "$NEXT_PUBLIC_MT5_READONLY_PROXY_URL" ]; then
