@@ -8,14 +8,13 @@ type ReadOnlyAccount = {
   broker?: string;
   platform?: string;
   mode?: string;
-  account?: {
-    server?: string;
-    currency?: string;
-    balance?: number | string;
-    equity?: number | string;
-    margin_free?: number | string;
-    free_margin?: number | string;
-  };
+  server?: string;
+  currency?: string;
+  balance?: number | string;
+  equity?: number | string;
+  margin?: number | string;
+  margin_free?: number | string;
+  free_margin?: number | string;
   error?: string;
 };
 
@@ -131,10 +130,10 @@ export default function BrokerSettingsPage() {
             <button className="btn" disabled={busy} onClick={signOut}>ออกจากระบบ VOOM</button>
             {account && <div className="grid">
               <div className="metric"><span>Broker / Platform</span><strong>{account.broker ?? "Exness"} / {account.platform ?? "MT5"}</strong></div>
-              <div className="metric"><span>Server</span><strong>{account.account?.server ?? "ยังไม่มีข้อมูล"}</strong></div>
-              <div className="metric"><span>Balance</span><strong>{account.account?.balance ?? "—"} {account.account?.currency ?? ""}</strong></div>
-              <div className="metric"><span>Equity</span><strong>{account.account?.equity ?? "—"} {account.account?.currency ?? ""}</strong></div>
-              <div className="metric"><span>Free margin</span><strong>{account.account?.free_margin ?? account.account?.margin_free ?? "—"} {account.account?.currency ?? ""}</strong></div>
+              <div className="metric"><span>Server</span><strong>{account.server ?? "ยังไม่มีข้อมูล"}</strong></div>
+              <div className="metric"><span>Balance</span><strong>{account.balance ?? "—"} {account.currency ?? ""}</strong></div>
+              <div className="metric"><span>Equity</span><strong>{account.equity ?? "—"} {account.currency ?? ""}</strong></div>
+              <div className="metric"><span>Free margin</span><strong>{account.free_margin ?? account.margin_free ?? "—"} {account.currency ?? ""}</strong></div>
               <div className="metric"><span>Mode</span><strong>{account.mode ?? "Read-only"}</strong></div>
             </div>}
           </div>
