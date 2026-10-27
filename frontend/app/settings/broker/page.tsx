@@ -14,6 +14,7 @@ type ReadOnlyAccount = {
     balance?: number | string;
     equity?: number | string;
     margin_free?: number | string;
+    free_margin?: number | string;
   };
   error?: string;
 };
@@ -46,7 +47,7 @@ export default function BrokerSettingsPage() {
     setBusy(true);
     try {
       await requireSignedInSession();
-      const response = await fetch(`${proxyUrl}/api/mt5/account`, {
+      const response = await fetch(`${proxyUrl}/api/account`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -133,7 +134,7 @@ export default function BrokerSettingsPage() {
               <div className="metric"><span>Server</span><strong>{account.account?.server ?? "ยังไม่มีข้อมูล"}</strong></div>
               <div className="metric"><span>Balance</span><strong>{account.account?.balance ?? "—"} {account.account?.currency ?? ""}</strong></div>
               <div className="metric"><span>Equity</span><strong>{account.account?.equity ?? "—"} {account.account?.currency ?? ""}</strong></div>
-              <div className="metric"><span>Free margin</span><strong>{account.account?.margin_free ?? "—"} {account.account?.currency ?? ""}</strong></div>
+              <div className="metric"><span>Free margin</span><strong>{account.account?.free_margin ?? account.account?.margin_free ?? "—"} {account.account?.currency ?? ""}</strong></div>
               <div className="metric"><span>Mode</span><strong>{account.mode ?? "Read-only"}</strong></div>
             </div>}
           </div>
