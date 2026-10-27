@@ -50,6 +50,20 @@ export function validateInput(value) {
   if (!RISKS.has(risk)) throw Object.assign(new Error("invalid_risk_profile"), { status: 400 });
   return { prompt, market, timeframe, risk };
 }
+function safeAuthDiagnostic(error) {
+  const errorName = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(error.name)
+    ? error.name
+    : "Error";
+  const message = String(error?.message || "unknown")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted-token]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]")
+    .slice(0, 160);
+  // Emit a single string so the runtime stores useful diagnostics, not a dropped object argument.
+  return "NOVA AI Worker could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
+}
+
 export async function authenticateRequest(request, env) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
@@ -57,23 +71,41 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_not_configured" };
   }
   let response;
+  const authUrl = new URL("/auth/v1/user", env.SUPABASE_URL);
+  const authInit = {
+    method: "GET",
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      Authorization: "Bearer " + match[1],
+      Accept: "application/json",
+    },
+    redirect: "manual",
+    signal: AbortSignal.timeout(15000),
+  };
   try {
-    response = await fetch(new URL("/auth/v1/user", env.SUPABASE_URL), {
-      method: "GET",
-      headers: {
-        apikey: env.SUPABASE_PUBLISHABLE_KEY,
-        Authorization: "Bearer " + match[1],
-        Accept: "application/json",
-      },
-      redirect: "error",
-      signal: AbortSignal.timeout(15000),
-    });
+    response = await fetch(authUrl, authInit);
+    // Only follow a redirect back to the configured HTTPS Supabase origin.
+    // This prevents forwarding the bearer token or publishable key to another host.
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      if (!location) return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      let redirectedUrl;
+      try {
+        redirectedUrl = new URL(location, authUrl);
+      } catch {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      if (redirectedUrl.protocol !== "https:" || redirectedUrl.origin !== authUrl.origin) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      response = await fetch(redirectedUrl, authInit);
+      if (response.status >= 300 && response.status < 400) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+    }
   } catch (error) {
-    // Log only the error class; never log the token, headers, or request body.
-    console.warn("NOVA AI Worker could not reach Supabase Auth", {
-      stage: "request",
-      errorName: error?.name || "Error",
-    });
+    // Log only sanitized diagnostics; never log the token, headers, or request body.
+    console.warn(safeAuthDiagnostic(error));
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
   if (response.status === 401 || response.status === 403) {
