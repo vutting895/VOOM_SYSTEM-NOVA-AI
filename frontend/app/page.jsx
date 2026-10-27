@@ -101,7 +101,7 @@ export default function Home() {
         <div className="sidebar-bottom">
           <div className="side-section-label">SECURITY PROTOCOL</div>
           <div className="security-card"><span className="security-led" /><div><strong>READ-ONLY MODE</strong><small>Order execution locked</small></div><span className="lock-icon">⌑</span></div>
-          <Link className="profile-link" href="/login"><span className="profile-avatar">U</span><span><strong>USER ACCESS</strong><small>Login / Profile</small></span><span className="profile-arrow">↗</span></Link>
+          <Link className="profile-link" href="/profile"><span className="profile-avatar">U</span><span><strong>USER ACCESS</strong><small>Login / Profile</small></span><span className="profile-arrow">↗</span></Link>
         </div>
       </aside>
 
