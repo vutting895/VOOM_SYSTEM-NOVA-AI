@@ -6,12 +6,14 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
+      - "integrations/mt5-readonly-proxy/**"
   push:
     branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
+      - "integrations/mt5-readonly-proxy/**"
 
 permissions:
   contents: read
