@@ -63,13 +63,14 @@ Do not assume an existing local bridge is connected or always running; verify it
 - `C:\\Program Files\\nova` and `C:\\Program Files\\AI_Bridge` were not found at those exact paths on this device. This does not prove a bridge is absent elsewhere.
 - The checked local TCP ports 8081, 8787, 8000, 3000 and 5173 had no listener at inspection time. This is not a complete port scan.
 - The repository's Broker Hub Worker currently returns a read-only catalog and `/health` status; its registry marks the MT5 bridge as `catalog-only`, and `/health` reports `connectedProviders: 0`. It does not yet implement the MT5 account/quote adapter.
-- Existing `BROKER_SETUP.md` describes `MT5_BRIDGE_HEALTH_URL` and `MT5_BRIDGE_TOKEN` as expected configuration, but explicitly says a broker/terminal-specific bridge is not included. Therefore the web-to-MT5 path still needs implementation and verification.
+- A separate bridge starter has now been added on this integration branch at `integrations/mt5-readonly-bridge/` (`bridge.py`, `requirements.txt`, `README.md`). It exposes authenticated read-only health/account/symbol/quote endpoints and denies order/trade-style routes. It has not yet been installed or executed on the Windows PC; its existence is not proof of a working connection.
+- Existing `BROKER_SETUP.md` describes `MT5_BRIDGE_HEALTH_URL` and `MT5_BRIDGE_TOKEN` as expected configuration, but the complete frontend-to-bridge path still needs wiring and verification.
 - The requested market symbol must be discovered from the actual Exness demo terminal. Previous checks did not find `XAUUSDM`/`XAUUSD`; do not hardcode either until the terminal's available symbols are enumerated.
 
 ## 7. Remaining questions / blockers
 
 1. Confirm the exact Cloudflare public URL to use as the Version 1.0 frontend. Existing Worker names are not proof that either serves the intended complete frontend.
-2. Implement and secure a read-only Windows MT5 bridge, or verify a suitable existing bridge on this PC. Only return account summary, symbol metadata, quotes/candles and connection freshness; explicitly reject all trade/order actions.
+2. Install and run the new read-only Windows MT5 bridge on the PC, first on loopback only; configure a private token and validate endpoints locally before connecting a protected Cloudflare Tunnel. Only return account summary, symbol metadata, quotes/candles and connection freshness; explicitly reject all trade/order actions.
 3. Discover the correct Exness symbol names and available timeframes from the running terminal.
 4. Wire the Cloudflare frontend to the Broker Hub/bridge and actual AI analysis endpoint, then run typecheck/build and end-to-end read-only checks.
 
