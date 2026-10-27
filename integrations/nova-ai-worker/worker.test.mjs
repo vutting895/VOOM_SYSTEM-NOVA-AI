@@ -63,6 +63,45 @@ test("Supabase Auth network failures fail closed with 503", async () => {
   assert.equal((await response.json()).error, "authentication_provider_unavailable");
 });
 
+test("same-origin Supabase Auth redirect is followed and invalid token maps to 401", async () => {
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls += 1;
+    assert.equal(init.headers.apikey, "public-test-key");
+    assert.equal(init.headers.Authorization, "Bearer bad-token");
+    if (calls === 1) {
+      assert.equal(String(url), "https://supabase.example/auth/v1/user");
+      return new Response(null, { status: 307, headers: { Location: "/auth/v1/user/" } });
+    }
+    assert.equal(String(url), "https://supabase.example/auth/v1/user/");
+    return new Response(JSON.stringify({ code: 403, error_code: "bad_jwt" }), {
+      status: 403, headers: { "Content-Type": "application/json" },
+    });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST", headers: { Authorization: "Bearer bad-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI" }),
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "invalid_or_expired_session");
+  assert.equal(calls, 2);
+});
+
+test("cross-origin Supabase Auth redirects are blocked without forwarding credentials", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(null, { status: 302, headers: { Location: "https://attacker.example/auth/v1/user" } });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI" }),
+  }), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "authentication_provider_unavailable");
+  assert.equal(calls, 1);
+});
+
 test("valid session can create research fallback but never execution", async () => {
   authFetch();
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
