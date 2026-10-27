@@ -69,9 +69,24 @@ Do not assume an existing local bridge is connected or always running; verify it
 
 ## 7. Remaining questions / blockers
 
-1. Confirm the exact Cloudflare public URL to use as the Version 1.0 frontend. Existing Worker names are not proof that either serves the intended complete frontend.
+1. The intended frontend URL is confirmed as `https://voom-system-nova-ui.suwapat787.workers.dev`. The Worker exists, but the latest frontend build and browser routes still require verification.
 2. Connect the tested loopback-only bridge to the Cloudflare API path through a protected Cloudflare Tunnel route. The Cloudflare proxy must keep its bearer token as a Worker secret, authenticate the signed-in user, rate-limit requests, and block trade/order actions. Do not expose port 8787 directly.
 3. Discover the correct Exness symbol names and available timeframes from the running terminal.
 4. Wire the Cloudflare frontend to the Broker Hub/bridge and actual AI analysis endpoint, then run typecheck/build and end-to-end read-only checks.
 
 Until the acceptance checklist is evidenced, Version 1.0 remains an implementation target, not a declaration that the system is ready or deployed.
+
+
+## 8. Cloudflare frontend cutover inspection (2026-10-27)
+
+- Cloudflare is the canonical frontend target; Vercel is not part of the intended deployment path.
+- Frontend Worker: `voom-system-nova-ui` — `https://voom-system-nova-ui.suwapat787.workers.dev`.
+- API Worker: `voom-system-nova-ai` — `https://voom-system-nova-ai.suwapat787.workers.dev`.
+- GitHub deployment workflow: `.github/workflows/cloudflare-deploy.yml`; CI workflow: `.github/workflows/frontend-ci.yml`.
+- Cloudflare API confirmed both Worker names exist and their settings endpoints respond.
+- The inspected frontend Worker settings showed compatibility date `2026-10-24` with no compatibility flags, while `frontend/wrangler.jsonc` specifies `2026-10-27` and `nodejs_compat`. This indicates the deployed Worker may be older than the current repository configuration.
+- The separate Vercel project's most recent inspected deployments were `CANCELED`; this does not establish Cloudflare frontend health.
+- The live browser check could not be completed through the available inspection path. The latest Cloudflare deployment, route rendering, frontend-to-API calls, and AI Analysis UI remain unverified.
+- See `docs/CLOUDFLARE_FRONTEND_CUTOVER.md` for the evidence and required verification sequence.
+
+Cutover status: **configured as target, not yet verified end-to-end**. Keep Read-only + AI Analysis and Live Trading OFF until checks pass.
