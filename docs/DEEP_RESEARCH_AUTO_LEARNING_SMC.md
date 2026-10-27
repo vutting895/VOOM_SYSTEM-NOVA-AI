@@ -49,7 +49,7 @@ P3. Add leakage-safe walk-forward tests and realistic cost sensitivity analysis.
 P4. Connect Auto-Learning to experiment registry, candidate-vs-baseline evaluation, approval gate, versioning, and rollback.
 P5. Run the full test suite and MCP smoke; record exact command output and test counts.
 P6. Push reviewed changes on a feature branch and open/update a PR; do not merge to main until checks and conflicts are resolved.
-P7. Deploy only after GitHub and Vercel access/build blockers are resolved. Keep Live Trading disabled.
+P7. Deploy only after repository access and Cloudflare build blockers are resolved. Keep Live Trading disabled.
 
 ## References
 - Chen, Wang, Qu (2026), “Recursive Self-Improvement in AI: From Bounded Self-Refinement to Autonomous Research Loops,” arXiv:2607.07663. https://arxiv.org/abs/2607.07663
