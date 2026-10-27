@@ -2,13 +2,33 @@
 
 ## Scope and evidence
 
-Reviewed the `main` branch of `vutting895/VOOM_SYSTEM-NOVA-AI` and the repository files listed below. This is a source-code/configuration audit, **not** a live Cloudflare account inspection or deployment verification.
+Reviewed source files in `vutting895/VOOM_SYSTEM-NOVA-AI` and queried the connected Cloudflare account using read-only API calls on 2026-10-27. This is a configuration/runtime inventory, **not** an end-to-end authenticated UI or MCP smoke test. Direct outbound HTTP checks from this tool were blocked, so public endpoints still require a user/browser or approved runtime test.
 
-## Findings
+## Live Cloudflare inventory
 
-### 1. The eight folders under `workers/` are not eight deployed Cloudflare Workers
+The account currently has these eight deployed scripts. Their deployed handlers are `fetch`; the Cron Trigger schedule API returned an empty schedule list for every script checked.
 
-The repository README labels these as separate modules. Their own READMEs indicate that several are scaffolds or research prototypes:
+| Cloudflare script | Latest deployment observed (UTC) | Observability |
+| --- | --- | --- |
+| `smart-scalping-cloud-ai` | 2026-10-21 03:30 | Enabled |
+| `voom-ai-private-chat` | 2026-10-23 18:17 | Not reported enabled |
+| `voom-alpaca-oauth` | 2026-10-24 23:51 | Enabled |
+| `voom-customer-portal` | 2026-10-23 21:55 | Enabled |
+| `voom-system-api` | 2026-10-23 19:42 | Enabled |
+| `voom-system-mcp` | 2026-10-26 06:26 | Not reported enabled |
+| `voom-system-nova-ai` | 2026-10-24 14:15 | Enabled |
+| `voom-system-nova-ui` | 2026-10-24 14:16 | Enabled |
+
+Important interpretation:
+- These are deployed **service scripts**, not evidence that all eight folders under repository `workers/` are deployed individually.
+- No Cron Triggers were configured on the eight scripts at the time of inspection. They can still respond to HTTP requests, but scheduled/automatic background jobs are not configured through Cron Triggers.
+- `voom-system-mcp` is the primary integrated research endpoint documented by the repository. Its current Cloudflare settings expose binding names `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; no secret values were read or recorded. The latter is a publishable key, not a service-role secret.
+- The API Worker settings include `DASHBOARD_ORIGIN`, a KV binding named `DATA`, and a secret binding named `VOOM_BRIDGE_SHARED_SECRET`. Only binding names were inspected; secret values were not read.
+- UI and API Workers have active deployments; the direct public HTTP check could not be completed from this tool because outbound requests were blocked. Do not label them end-to-end tested based on deployment metadata alone.
+
+## Repository worker folders
+
+The eight folders under `workers/` are not eight deployed Cloudflare Workers. Their own READMEs show that several are scaffolds or research prototypes:
 
 | Folder | Source status | Next action |
 | --- | --- | --- |
@@ -21,7 +41,7 @@ The repository README labels these as separate modules. Their own READMEs indica
 | `portfolio/` | Allocation validator | Add validation and persistence tests |
 | `execution/` | Intentionally disabled | Keep disabled; no live broker/exchange orders |
 
-### 2. Existing Cloudflare Remote MCP Worker is the primary integrated endpoint
+## Existing integrated MCP Worker
 
 Source: `integrations/remote-mcp-worker/src/index.js`; deployment endpoint documented in `integrations/remote-mcp-worker/README.md`.
 
@@ -29,23 +49,20 @@ The source exposes an authenticated MCP endpoint, a health endpoint, public Bina
 
 The README says deployment is managed independently. No Wrangler configuration file was found at the expected paths in this integration directory during this audit, so repository-driven redeployment is not yet reproducible from this directory alone. **Do not deploy from this branch until the active Worker settings/configuration are reconciled.**
 
-### 3. Automation is only partially represented in CI
+## Automation and research validity
 
-`.github/workflows/smc-research-ci.yml` runs Python compilation, focused SMC tests, and Worker SMC classification tests when relevant paths change. This does not establish that all eight worker modules are deployed or run automatically. No general deploy workflow was found by the targeted source search.
-
-Cloudflare Cron Triggers require both a configured trigger and a `scheduled()` handler; simply having a folder or Worker script does not schedule it. See the official [Wrangler configuration documentation](https://developers.cloudflare.com/workers/wrangler/configuration/) and [Cron Triggers documentation](https://developers.cloudflare.com/workers/configuration/cron-triggers/).
-
-### 4. Important research-validity limitation
-
-The archived `integrations/nova-ai-mcp-full-clean` prototype README explicitly warns that its backtest/tuning metrics are random mock data and it is not production-ready. Do not use its generated scores as evidence of strategy performance.
+- Cloudflare reported an empty Cron schedule list for all eight scripts inspected. The scripts therefore do not have Cron Trigger schedules configured at the time of inspection. A fetch handler alone does not make a service run continuously in the background.
+- `.github/workflows/smc-research-ci.yml` runs Python compilation, focused SMC tests, and Worker SMC classification tests when relevant paths change. This does not establish that all eight worker modules are deployed or run automatically.
+- The archived `integrations/nova-ai-mcp-full-clean` prototype README explicitly warns that its backtest/tuning metrics are random mock data and it is not production-ready. Do not use its generated scores as evidence of strategy performance.
+- Cloudflare Cron Triggers require both a configured trigger and a `scheduled()` handler. See the official [Wrangler configuration documentation](https://developers.cloudflare.com/workers/wrangler/configuration/) and [Cron Triggers documentation](https://developers.cloudflare.com/workers/configuration/cron-triggers/).
 
 ## Ordered next steps
 
-1. **Inventory live Cloudflare state (read-only):** compare the existing Worker names, deployed versions, routes, bindings, Cron Triggers, and last invocation/errors against the repository. Do not create duplicate Workers.
-2. **Reconcile configuration:** obtain the active configuration for `voom-system-mcp` and the existing UI/API Workers. Add sanitized Wrangler config to the repo only after matching the live names, entrypoints, bindings, compatibility date, and routes. Keep secret values in Cloudflare Secrets, never in Git.
-3. **Run local/CI checks:** run the existing SMC workflow tests, then add focused tests for MCP authentication, `tools/list`, each read-only tool, malformed market data, stale data, and paper-risk boundary cases.
-4. **Verify endpoints without credentials:** GET the documented `/health` endpoints and confirm JSON/status; do not treat a browser page or a successful HTTP status alone as proof that authenticated MCP works.
-5. **Verify authenticated MCP:** using a signed-in test session only, call `initialize`, `tools/list`, then read-only `tools/call` for status and market candles. Never paste tokens into chat or logs.
+1. **Keep current deployments unchanged** while configuration and endpoint behavior are verified. Do not create duplicate Workers.
+2. **Verify endpoints from a permitted client:** GET the documented `/health` endpoints and confirm HTTP status and JSON response. Direct outbound checks from this tool were blocked.
+3. **Verify authenticated MCP:** using a signed-in test session only, call `initialize`, `tools/list`, then read-only `tools/call` for status and market candles. Never paste tokens into chat or logs.
+4. **Reconcile configuration:** obtain the active configuration for `voom-system-mcp` and existing UI/API Workers. Add sanitized Wrangler config to the repo only after matching live names, entrypoints, bindings, compatibility dates, and routes. Keep secret values in Cloudflare Secrets, never in Git.
+5. **Run and expand CI checks:** run the existing SMC workflow tests, then add focused tests for MCP authentication, `tools/list`, each read-only tool, malformed market data, stale data, and paper-risk boundary cases.
 6. **Automate only proven safe tasks:** after the previous checks pass, add scheduled ingestion/health tasks with bounded frequency, retries, timeouts, and stale-data guards. Do not schedule training, tuning, or execution until resource use and data quality are tested.
 7. **Keep execution disabled:** maintain Read-only + AI Analysis, Paper/Test only, and `executionEnabled=false`. No live trading or order-placement route is authorized by this audit.
 
