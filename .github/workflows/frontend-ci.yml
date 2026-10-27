@@ -5,6 +5,7 @@ on:
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/cloudflare-deploy.yml"
   push:
     branches: [main]
     paths:
