@@ -11,13 +11,15 @@ permissions:
 
 concurrency:
   group: nova-frontend-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -28,6 +30,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Prevent stale commits from deploying
+        shell: bash
+        run: |
+          latest_main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$TARGET_COMMIT_SHA" != "$latest_main_sha" ]; then
+            echo "Skipping stale frontend CI commit; main has advanced."
+            exit 1
+          fi
+          echo "Validated commit is still the current main head."
 
       - name: Verify deployment configuration without printing values
         shell: bash
