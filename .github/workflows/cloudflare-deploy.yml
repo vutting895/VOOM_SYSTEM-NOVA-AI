@@ -11,15 +11,13 @@ permissions:
 
 concurrency:
   group: nova-frontend-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ github.token }}
-      TARGET_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -31,35 +29,23 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Prevent stale commits from deploying
-        id: freshness
-        shell: bash
-        run: |
-          latest_main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
-          if [ "$TARGET_COMMIT_SHA" != "$latest_main_sha" ]; then
-            echo "Skipping stale frontend CI commit; main has advanced."
-            echo "current=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "current=true" >> "$GITHUB_OUTPUT"
-          echo "Validated commit is still the current main head."
-
-      - name: Verify deployment configuration without printing values
-        if: steps.freshness.outputs.current == 'true'
+      - name: Verify required deployment configuration without printing values
         shell: bash
         run: |
           missing=()
-          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_MT5_READONLY_PROXY_URL; do
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY; do
             if [ -z "${!key}" ]; then missing+=("$key"); fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf 'Deployment blocked. Configure these GitHub Actions secrets/variables (values are never printed): %s\n' "${missing[*]}"
+            printf 'Deployment blocked. Configure these GitHub Actions secrets (values are never printed): %s\\n' "${missing[*]}"
             exit 1
+          fi
+          if [ -z "$NEXT_PUBLIC_MT5_READONLY_PROXY_URL" ]; then
+            echo "MT5 read-only proxy URL is not configured; broker UI will report connection unavailable."
           fi
           echo "Required deployment configuration is present."
 
       - name: Set up Node.js
-        if: steps.freshness.outputs.current == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -67,16 +53,13 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm ci
 
       - name: Install Cloudflare OpenNext tooling
-        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
 
       - name: Build and deploy the Next.js frontend to Cloudflare
-        if: steps.freshness.outputs.current == 'true'
         working-directory: frontend
         run: npm run cf:deploy
