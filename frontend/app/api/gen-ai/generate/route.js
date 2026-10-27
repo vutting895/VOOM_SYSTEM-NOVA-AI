@@ -153,9 +153,14 @@ export async function POST(request) {
   try {
     const response = await fetch(`${aiWorkerBase}/api/gen-ai/generate`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: request.headers.get('authorization') || '',
+      },
       body: JSON.stringify(input),
       cache: 'no-store',
+      redirect: 'error',
       signal: AbortSignal.timeout(25000),
     });
     const payload = await response.json();
