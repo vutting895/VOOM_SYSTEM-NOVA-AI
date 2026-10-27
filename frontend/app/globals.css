@@ -8,7 +8,7 @@
   --nova-cyan: #62e6f3;
   --nova-teal: #31cdbd;
   --nova-blue: #5da9ff;
-  --nova-warn: #ffbd9f;
+  --nova-warning: #ffbd9f;
 }
 * { box-sizing: border-box; }
 html { min-height: 100%; background: var(--nova-bg); }
