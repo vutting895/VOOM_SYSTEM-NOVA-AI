@@ -34,7 +34,7 @@ Deployments should be made by the guarded Cloudflare workflow after checks pass.
 Configure these values in the intended Cloudflare build/runtime environment and Supabase project settings. Do not commit their values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_ALPACA_WORKER_URL`
+- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (GitHub Actions repository variable; points to the protected Exness MT5 read-only proxy)
 - GitHub Actions deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
 
 Never print secret values in logs or chat. If a required setting is missing, deployment must fail closed with the missing variable names only.
