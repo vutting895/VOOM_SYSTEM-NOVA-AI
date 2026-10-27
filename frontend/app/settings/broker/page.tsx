@@ -29,7 +29,7 @@ export default function BrokerSettingsPage() {
   const [error, setError] = useState("");
 
   const getToken = useCallback(async () => {
-    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Vercel");
+    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare runtime settings");
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     if (!data.session?.access_token) throw new Error("กรุณาเข้าสู่ระบบด้วยอีเมลก่อน");
@@ -87,7 +87,7 @@ export default function BrokerSettingsPage() {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
-      if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Vercel");
+      if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare runtime settings");
       const { error: authError } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: `${window.location.origin}/settings/broker` },
@@ -102,7 +102,7 @@ export default function BrokerSettingsPage() {
   async function connect() {
     setBusy(true); setError(""); setNotice("");
     try {
-      if (!workerUrl) throw new Error("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_ALPACA_WORKER_URL ใน Vercel");
+      if (!workerUrl) throw new Error("ยังไม่ได้ตั้งค่า NEXT_PUBLIC_ALPACA_WORKER_URL ใน Cloudflare runtime settings");
       const token = await getToken();
       const response = await fetch(`${workerUrl}/api/alpaca/connect`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` },
