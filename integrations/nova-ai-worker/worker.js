@@ -50,6 +50,20 @@ export function validateInput(value) {
   if (!RISKS.has(risk)) throw Object.assign(new Error("invalid_risk_profile"), { status: 400 });
   return { prompt, market, timeframe, risk };
 }
+function safeAuthDiagnostic(error) {
+  const errorName = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(error.name)
+    ? error.name
+    : "Error";
+  const message = String(error?.message || "unknown")
+    .replace(/Bearer\\s+\\S+/gi, "Bearer [redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted-token]")
+    .replace(/https?:\\/\\/\\S+/gi, "[url]")
+    .replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]")
+    .slice(0, 160);
+  // Emit a single string so the runtime stores useful diagnostics, not a dropped object argument.
+  return "NOVA AI Worker could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
+}
+
 export async function authenticateRequest(request, env) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
@@ -90,11 +104,8 @@ export async function authenticateRequest(request, env) {
       }
     }
   } catch (error) {
-    // Log only the error class; never log the token, headers, or request body.
-    console.warn("NOVA AI Worker could not reach Supabase Auth", {
-      stage: "request",
-      errorName: error?.name || "Error",
-    });
+    // Log only sanitized diagnostics; never log the token, headers, or request body.
+    console.warn(safeAuthDiagnostic(error));
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
   if (response.status === 401 || response.status === 403) {
