@@ -164,7 +164,7 @@ export default function BrokerSettingsPage() {
 
       <section className="card">
         <div className="heading"><span className="mark">A</span><div><h2>Alpaca Paper Trading</h2><p className="muted">Cloudflare Worker · Supabase · OAuth</p></div><span className="pill">{account?.connected ? "CONNECTED · PAPER" : "PAPER ONLY"}</span></div>
-        {!supabase && <p className="warning">ยังขาดค่า NEXT_PUBLIC_SUPABASE_URL และ NEXT_PUBLIC_SUPABASE_ANON_KEY ใน Environment Variables ของ Vercel</p>}
+        {!supabase && <p className="warning">ยังขาดค่า NEXT_PUBLIC_SUPABASE_URL และ NEXT_PUBLIC_SUPABASE_ANON_KEY ใน Environment Variables ของ Cloudflare</p>}
         {!workerUrl && <p className="warning">ยังขาด NEXT_PUBLIC_ALPACA_WORKER_URL ซึ่งต้องเป็น URL ของ Cloudflare Worker ที่ deploy แล้ว</p>}
         {signedInEmail ? (
           <div>
