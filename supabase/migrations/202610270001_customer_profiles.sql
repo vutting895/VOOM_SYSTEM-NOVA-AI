@@ -12,7 +12,8 @@ create table if not exists public.customer_profiles (
 alter table public.customer_profiles enable row level security;
 
 revoke all on table public.customer_profiles from anon, authenticated;
-grant select, update on table public.customer_profiles to authenticated;
+grant select on table public.customer_profiles to authenticated;
+grant update (display_name) on table public.customer_profiles to authenticated;
 
 drop policy if exists "Customers can read their own profile" on public.customer_profiles;
 create policy "Customers can read their own profile"
