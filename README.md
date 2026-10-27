@@ -25,7 +25,7 @@ Configure these values in the intended Cloudflare frontend/runtime environment a
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_ALPACA_WORKER_URL`
 
-The frontend deployment target is Cloudflare, not Vercel. Confirm that the selected Cloudflare deployment adapter supports the current Next.js app before deploying. Removing Vercel-specific references from this repository does not disconnect an existing Vercel project or GitHub integration; that connection must be disabled separately in Vercel/GitHub settings.
+The frontend deployment target is Cloudflare. Confirm that the selected Cloudflare deployment adapter supports the current Next.js app before deploying. Repository code changes do not disconnect external deployment-provider or GitHub-app integrations; disable those separately in their respective settings.
 
 Use read-only broker credentials where possible; never enable withdrawals. Keep MT5 bridge settings isolated until independently secured and tested.
 
