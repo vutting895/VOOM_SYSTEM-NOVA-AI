@@ -103,6 +103,7 @@ jobs:
           name: nova-pr38-open-next
           path: frontend/.open-next/**
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 3
 
   deploy-nova-preview:
@@ -151,3 +152,34 @@ jobs:
           fi
           # Name override is intentional: never deploy to the existing production Worker.
           npx wrangler deploy --config wrangler.jsonc --name voom-system-nova-ui-pr38-preview
+      - name: Smoke-test hosted Preview and safety gates
+        env:
+          PREVIEW_URL: "https://voom-system-nova-ui-pr38-preview.suwapat787.workers.dev"
+          AI_WORKER_URL: "https://voom-system-nova-ai.suwapat787.workers.dev"
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+
+          code="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "$PREVIEW_URL/")"
+          if [ "$code" != "200" ] || ! grep -Eiq 'NOVA|VOOM' "$body"; then
+            echo "Preview homepage smoke test failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data '{"messages":[{"role":"user","content":"Preview unauthenticated smoke test"}]}' \
+            "$PREVIEW_URL/api/chat")"
+          if [ "$code" != "401" ] || ! grep -q '"authentication_required"' "$body"; then
+            echo "Preview API did not reject unauthenticated Chat (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$AI_WORKER_URL/health")"
+          if [ "$code" != "200" ] || ! grep -q '"aiBinding":true' "$body" || \
+             ! grep -q '"authConfigured":true' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
+            echo "AI Worker health or research-only safety contract failed (HTTP $code)."
+            exit 1
+          fi
+          echo "Preview page returned HTTP 200, unauthenticated Chat API returned HTTP 401, and AI Worker health reported AI/auth configured with Live Trading disabled."
