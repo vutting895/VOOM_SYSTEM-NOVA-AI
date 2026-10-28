@@ -249,3 +249,159 @@ button:disabled { cursor: wait; opacity: .65; }
   .header-right .system-clock-label { display: none; }
   .watch-row { grid-template-columns: .9fr 50px 1.3fr; }
 }
+
+
+/* Unified NOVA website navigation: one menu is shared by every route. */
+.nova-global-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid rgba(80, 209, 231, .19);
+  background: rgba(3, 12, 20, .94);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .18);
+}
+.nova-global-nav-inner {
+  width: min(1680px, 100%);
+  min-height: 76px;
+  margin: 0 auto;
+  padding: 12px clamp(14px, 2.2vw, 30px);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+}
+.nova-global-brand { display: flex; align-items: center; gap: 10px; min-width: 142px; color: #e5fcff; }
+.nova-global-brand strong { display: block; font-size: 12px; letter-spacing: .12em; white-space: nowrap; }
+.nova-global-brand strong i { color: var(--nova-cyan); font-style: normal; }
+.nova-global-brand small { display: block; margin-top: 4px; color: #648494; font-size: 8px; letter-spacing: .16em; white-space: nowrap; }
+.nova-global-emblem { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--nova-cyan); color: var(--nova-cyan); font-size: 15px; font-weight: 900; transform: rotate(45deg); box-shadow: inset 0 0 12px rgba(98,230,243,.1), 0 0 18px rgba(98,230,243,.1); }
+.nova-global-links { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nova-global-links::-webkit-scrollbar { display: none; }
+.nova-global-link { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; padding: 11px 10px; border: 1px solid transparent; color: #819eac; font-size: 10px; font-weight: 750; white-space: nowrap; transition: .18s ease; }
+.nova-global-link:hover, .nova-global-link.active { border-color: rgba(98,230,243,.2); color: #c9faff; background: linear-gradient(90deg, rgba(25,139,165,.17), rgba(25,139,165,.025)); }
+.nova-global-link.active { box-shadow: inset 0 -2px 0 var(--nova-cyan); }
+.nova-global-code { color: #4f7586; font-size: 8px; }
+.nova-global-link.active .nova-global-code { color: var(--nova-cyan); }
+.nova-global-status { display: flex; align-items: center; gap: 8px; padding-left: 12px; border-left: 1px solid rgba(80,209,231,.15); white-space: nowrap; }
+.nova-global-led { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--nova-teal); box-shadow: 0 0 8px rgba(49,205,189,.7); }
+.nova-global-status strong { display: block; color: #9fece5; font-size: 8px; letter-spacing: .1em; }
+.nova-global-status small { display: block; margin-top: 3px; color: #ffb4a9; font-size: 7px; letter-spacing: .07em; }
+.nova-global-profile { display: grid; place-items: center; width: 30px; height: 30px; margin-left: 5px; border: 1px solid rgba(98,230,243,.3); color: var(--nova-cyan); font-size: 10px; }
+.nova-global-profile.active, .nova-global-profile:hover { background: rgba(98,230,243,.1); border-color: var(--nova-cyan); }
+
+/* Turn former route-specific sidebars into page content under the one shared nav. */
+.jarvis-layout { display: block; min-height: calc(100vh - 76px); grid-template-columns: none; }
+.jarvis-sidebar { display: none !important; }
+.jarvis-main { width: min(1540px, 100%); margin: 0 auto; padding: 30px clamp(15px, 3vw, 44px) 24px; }
+.module-grid { grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); }
+
+/* Premium NOVA Chat surface. */
+.nova-chat-page, .nova-backtest-page { width: min(1450px, 100%); min-height: calc(100vh - 76px); margin: 0 auto; padding: 32px clamp(15px, 3vw, 40px) 28px; }
+.nova-chat-heading, .nova-backtest-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.nova-chat-kicker { display: flex; align-items: center; gap: 9px; color: #6ba5b8; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.nova-chat-kicker > span { display: inline-block; width: 20px; height: 1px; background: var(--nova-cyan); box-shadow: 0 0 8px var(--nova-cyan); }
+.nova-chat-heading h1, .nova-backtest-heading h1 { margin: 12px 0 8px; color: #e8fcff; font-size: clamp(30px, 4vw, 45px); line-height: 1.1; letter-spacing: -.045em; }
+.nova-chat-heading h1 em, .nova-backtest-heading h1 em { color: var(--nova-cyan); font-style: normal; font-weight: 400; }
+.nova-chat-heading p, .nova-backtest-heading p { margin: 0; color: #7899a8; font-size: 12px; line-height: 1.8; }
+.nova-chat-safety { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid rgba(49,205,189,.25); background: rgba(19,121,112,.08); color: #9fece5; font-size: 9px; font-weight: 850; letter-spacing: .07em; white-space: nowrap; }
+.nova-chat-safety > span { width: 6px; height: 6px; border-radius: 50%; background: var(--nova-teal); box-shadow: 0 0 8px rgba(49,205,189,.7); }
+.nova-chat-safety b { color: #ffb4a9; }
+.nova-chat-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 310px); gap: 16px; align-items: stretch; }
+.nova-chat-main, .nova-chat-aside, .nova-backtest-form, .nova-backtest-results { min-width: 0; border: 1px solid rgba(80,209,231,.19); background: linear-gradient(145deg, rgba(9,31,43,.88), rgba(5,17,27,.94)); box-shadow: 0 14px 45px rgba(0,0,0,.12); }
+.nova-chat-main { display: flex; flex-direction: column; min-height: 600px; }
+.nova-chat-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid rgba(80,209,231,.13); }
+.nova-chat-toolbar > div { display: flex; align-items: center; gap: 10px; }
+.nova-chat-toolbar strong { display: block; color: #bdebf0; font-size: 9px; letter-spacing: .12em; }
+.nova-chat-toolbar small { display: block; margin-top: 5px; color: #648997; font-size: 9px; }
+.nova-chat-led { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #63dacc; background: rgba(49,205,189,.4); box-shadow: 0 0 10px rgba(49,205,189,.3); }
+.nova-chat-clear { border: 1px solid rgba(80,209,231,.17); background: transparent; padding: 8px 10px; color: #789eaa; font-size: 9px; }
+.nova-chat-clear:hover:not(:disabled) { border-color: rgba(98,230,243,.45); color: #c9faff; }
+.nova-chat-messages { flex: 1; max-height: 560px; min-height: 280px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 17px; }
+.nova-chat-message { display: flex; align-items: flex-start; gap: 10px; max-width: 92%; }
+.nova-chat-message.user { align-self: flex-end; flex-direction: row-reverse; }
+.nova-chat-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 32px; height: 32px; border: 1px solid rgba(98,230,243,.3); color: var(--nova-cyan); background: rgba(11,55,70,.45); font-size: 8px; font-weight: 900; }
+.nova-chat-message.user .nova-chat-avatar { border-color: rgba(115,157,255,.32); color: #b9c9ff; background: rgba(42,53,96,.34); }
+.nova-chat-bubble { min-width: 0; padding: 12px 14px; border: 1px solid rgba(80,209,231,.13); background: rgba(4,16,26,.78); }
+.nova-chat-message.user .nova-chat-bubble { border-color: rgba(115,157,255,.18); background: rgba(35,43,77,.35); }
+.nova-chat-message-label { margin-bottom: 7px; color: #79b8c7; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.nova-chat-message.user .nova-chat-message-label { color: #a9bbff; text-align: right; }
+.nova-chat-bubble p { margin: 0; color: #d0e7ec; font-size: 12px; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
+.nova-chat-composer { margin: 0 16px 16px; padding: 14px; border: 1px solid rgba(80,209,231,.19); background: rgba(2,12,20,.72); }
+.nova-chat-input-label { display: block; margin-bottom: 9px; color: #6ba5b8; font-size: 8px; font-weight: 900; letter-spacing: .17em; }
+.nova-chat-composer textarea { display: block; width: 100%; border: 1px solid #244455; border-radius: 0; background: #080e1c; color: var(--nova-text); padding: 12px; outline: none; resize: vertical; line-height: 1.7; font-size: 12px; }
+.nova-chat-composer textarea:focus { border-color: var(--nova-cyan); box-shadow: 0 0 0 3px rgba(98,230,243,.09); }
+.nova-chat-compose-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
+.nova-chat-compose-footer > span { color: #557d8d; font-size: 8px; line-height: 1.6; }
+.nova-chat-send, .nova-backtest-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 14px; padding: 11px 15px; border: 1px solid rgba(98,230,243,.3); background: linear-gradient(100deg, rgba(32,185,200,.25), rgba(50,120,199,.22)); color: #b8fbff; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.nova-chat-send:disabled, .nova-backtest-actions button:disabled { opacity: .4; cursor: not-allowed; }
+.nova-chat-aside { padding: 19px; }
+.nova-chat-aside-header { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; color: #bdebf0; }
+.nova-chat-aside-header > span { color: var(--nova-cyan); font-size: 15px; }
+.nova-chat-aside-header strong { font-size: 8px; letter-spacing: .12em; }
+.nova-chat-aside > p { margin: 0 0 13px; color: #718f9c; font-size: 10px; line-height: 1.7; }
+.nova-chat-prompt { display: flex; align-items: flex-start; gap: 9px; width: 100%; margin: 8px 0; padding: 12px 10px; border: 1px solid rgba(80,209,231,.14); background: rgba(4,16,26,.6); color: #b7d7df; text-align: left; font-size: 10px; line-height: 1.7; }
+.nova-chat-prompt > span { color: var(--nova-cyan); }
+.nova-chat-prompt:hover:not(:disabled) { border-color: rgba(98,230,243,.4); }
+.nova-chat-divider { height: 1px; margin: 20px 0; background: rgba(80,209,231,.14); }
+.nova-chat-aside ul { padding-left: 17px; margin: 12px 0 18px; color: #7897a3; font-size: 10px; line-height: 1.9; }
+.nova-chat-secondary-link { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid rgba(80,209,231,.13); color: #8fe9f1; font-size: 9px; font-weight: 900; letter-spacing: .06em; }
+.nova-chat-alert, .nova-chat-info { margin: 12px 0; padding: 12px 14px; border: 1px solid rgba(255,189,159,.27); background: rgba(54,39,18,.44); color: #edc59c; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+.nova-chat-info { border-color: rgba(80,209,231,.19); background: rgba(7,29,40,.55); color: #9cc9d2; }
+.nova-chat-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 13px; border-top: 1px solid rgba(80,209,231,.12); color: #486c7b; font-size: 8px; letter-spacing: .1em; }
+.nova-chat-footer span { color: #678b99; }
+.nova-backtest-warning { margin-bottom: 16px; padding: 15px 17px; border: 1px solid rgba(255,189,159,.3); background: rgba(54,39,18,.4); color: #edc59c; font-size: 11px; line-height: 1.8; }
+.nova-backtest-warning strong { display: block; margin-bottom: 4px; }
+.nova-backtest-warning p { margin: 0; }
+.nova-backtest-form { padding: 18px; }
+.nova-backtest-form label { display: block; margin-bottom: 10px; color: #9cc9d2; font-size: 10px; font-weight: 850; letter-spacing: .07em; }
+.nova-backtest-form textarea { width: 100%; padding: 12px; border: 1px solid #244455; background: #080e1c; color: #cfeaf0; font: 11px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; resize: vertical; outline: none; }
+.nova-backtest-form textarea:focus { border-color: var(--nova-cyan); }
+.nova-backtest-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.nova-backtest-actions > span { color: #678b99; font-size: 9px; line-height: 1.6; }
+.nova-backtest-results { margin-top: 17px; padding: 18px; }
+.nova-backtest-result-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.nova-backtest-result-head > div > span { color: #5e8b9c; font-size: 8px; font-weight: 900; letter-spacing: .16em; }
+.nova-backtest-result-head h2 { margin: 7px 0 0; color: #cfeef4; font-size: 17px; }
+.nova-backtest-tag { padding: 7px 9px; border: 1px solid rgba(255,189,159,.24); color: #e0b79b; font-size: 8px; font-weight: 900; letter-spacing: .09em; white-space: nowrap; }
+.nova-backtest-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+.nova-backtest-metrics article { padding: 14px; border: 1px solid rgba(80,209,231,.13); background: rgba(3,13,21,.5); }
+.nova-backtest-metrics small { display: block; color: #678b99; font-size: 8px; line-height: 1.5; letter-spacing: .1em; }
+.nova-backtest-metrics strong { display: block; margin-top: 10px; color: #bdebf0; font-size: clamp(16px,2vw,22px); overflow-wrap: anywhere; }
+.nova-backtest-results > p { color: #7e9ca7; font-size: 10px; line-height: 1.8; }
+.nova-backtest-links { display: flex; gap: 18px; margin-top: 16px; font-size: 10px; font-weight: 800; }
+
+@media (max-width: 1180px) {
+  .nova-global-nav-inner { grid-template-columns: auto minmax(0,1fr); gap: 12px; }
+  .nova-global-links { grid-column: 1 / -1; grid-row: 2; }
+  .nova-global-status { grid-column: 2; grid-row: 1; justify-self: end; border-left: 0; padding-left: 0; }
+}
+@media (max-width: 760px) {
+  .nova-global-nav-inner { min-height: auto; padding: 10px 12px 8px; }
+  .nova-global-links { gap: 3px; margin: 0 -2px; }
+  .nova-global-link { padding: 9px 9px; font-size: 9px; }
+  .nova-global-code { display: none; }
+  .nova-global-brand { min-width: 0; }
+  .nova-global-emblem { width: 28px; height: 28px; }
+  .nova-global-brand strong { font-size: 10px; }
+  .nova-global-brand small { font-size: 7px; }
+  .nova-global-status { gap: 6px; }
+  .nova-global-status strong { font-size: 7px; }
+  .nova-global-status small { font-size: 6px; }
+  .nova-global-profile { width: 27px; height: 27px; margin-left: 1px; }
+  .jarvis-main { padding: 22px 13px 17px; }
+  .nova-chat-heading, .nova-backtest-heading { flex-direction: column; gap: 12px; }
+  .nova-chat-workspace { grid-template-columns: minmax(0,1fr); }
+  .nova-chat-aside { order: 2; }
+  .nova-chat-main { min-height: 520px; }
+  .nova-chat-messages { padding: 13px; }
+  .nova-chat-message { max-width: 100%; }
+  .nova-chat-compose-footer, .nova-backtest-actions { align-items: flex-start; flex-direction: column; }
+  .nova-chat-send, .nova-backtest-actions button { width: 100%; }
+  .nova-backtest-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .nova-backtest-result-head { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 390px) {
+  .nova-global-status > span:nth-child(2) { display: none; }
+  .nova-global-status { padding-left: 0; }
+}
