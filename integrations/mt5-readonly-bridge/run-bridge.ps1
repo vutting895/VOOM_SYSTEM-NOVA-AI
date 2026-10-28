@@ -23,5 +23,9 @@ if ($env:MT5_BRIDGE_TOKEN.Length -lt 32) {
 $env:MT5_BRIDGE_CORS_ORIGINS = 'https://voom-system-nova-ui.suwapat787.workers.dev'
 
 Set-Location $root
-& 'C:\Users\Administrator\AppData\Local\Programs\Python\Python311\python.exe' -m uvicorn bridge:app --host 127.0.0.1 --port 8787
+$python = Join-Path $root '.venv\Scripts\python.exe'
+if (-not (Test-Path -LiteralPath $python)) {
+    throw 'Bridge virtual environment is missing. Create .venv and install requirements.txt before starting.'
+}
+& $python -m uvicorn bridge:app --host 127.0.0.1 --port 8787
 exit $LASTEXITCODE
