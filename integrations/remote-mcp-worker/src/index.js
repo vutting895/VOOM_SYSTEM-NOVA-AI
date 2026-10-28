@@ -89,7 +89,225 @@ export function runSmcBacktest(candles, options={}) {
   return {ok:true,strategy:"SMC_structure_break_baseline",mode:"research_backtest_only",bars_analyzed:candles.length,trade_count:trades.length,win_rate_pct:trades.length?wins/trades.length*100:0,total_net_pnl_per_unit:trades.reduce((sum,t)=>sum+t.net_pnl_per_unit,0),mean_r_multiple:trades.length?trades.reduce((sum,t)=>sum+t.r_multiple,0)/trades.length:0,max_drawdown_pct:maxDrawdown*100,initial_equity_reference:initialEquity,cost_assumptions:{fee_rate_per_side:feeRate,slippage_rate_per_side:slippageRate},fill_assumptions:["signal only after structure-break candle closes","entry at next candle open","if stop and target both touched, stop is assumed first"],trades,orders_submitted:false,live_trading_enabled:false,warning:"Research baseline only; per-unit PnL is not portfolio sizing. Validate spread, contract sizing, funding/swap, and out-of-sample performance."};
 }
 
+
+const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
+const MT5_TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
+
+export function normalizeMt5Symbol(value) {
+  const symbol = String(value ?? "").trim();
+  if (!/^[A-Za-z0-9._-]{1,40}$/.test(symbol)) throw new Error("symbol must contain 1-40 letters, numbers, dots, underscores or hyphens");
+  return symbol;
+}
+export function normalizeMt5Timeframe(value) {
+  const timeframe = String(value ?? "M5").toUpperCase();
+  if (!MT5_TIMEFRAMES.has(timeframe)) throw new Error("Unsupported MT5 timeframe");
+  return timeframe;
+}
+export function normalizeMt5Count(value, fallback = 100, maximum = 500) {
+  const count = value === undefined || value === null ? fallback : Number(value);
+  if (!Number.isInteger(count) || count < 1 || count > maximum) throw new Error("count is outside the allowed range");
+  return count;
+}
+
+async function loadOwnMt5Connection(request, env, user) {
+  const authorization = request.headers.get("Authorization") || "";
+  if (!/^Bearer\s+\S+$/i.test(authorization)) throw new Error("A signed-in Supabase session is required");
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) throw new Error("Supabase runtime is not configured");
+  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/broker_connections");
+  url.searchParams.set("select", "id,provider,environment,status,account_label,last_verified_at,created_at");
+  url.searchParams.set("provider", "eq.exness_mt5");
+  url.searchParams.set("environment", "eq.demo");
+  url.searchParams.set("user_id", "eq." + user.id);
+  url.searchParams.set("order", "created_at.desc");
+  url.searchParams.set("limit", "1");
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY, Authorization: authorization, Accept: "application/json" },
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(6000)
+  });
+  if (!response.ok) throw new Error("Could not read this user's Exness MT5 Demo connection; check Supabase RLS and grants");
+  const rows = await response.json();
+  return Array.isArray(rows) ? (rows[0] || null) : null;
+}
+
+async function requestMt5DemoConnection(request, env, user) {
+  const existing = await loadOwnMt5Connection(request, env, user);
+  if (existing) {
+    return {
+      broker: "Exness MT5",
+      environment: "demo",
+      status: existing.status === "connected" ? "connected" : existing.status === "pending" ? "pending_provisioning" : "connection_disabled",
+      connectionRequestId: existing.id,
+      message: existing.status === "pending"
+        ? "A request already exists. A dedicated read-only Bridge and tenant route must be provisioned before the account can connect."
+        : existing.status === "connected"
+          ? "A connection record already exists; verify it with mt5_connection_status.",
+          : "This connection is disabled. Ask the administrator to review it.",
+      executionEnabled: false,
+      liveTradingEnabled: false,
+      ordersEnabled: false
+    };
+  }
+
+  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/broker_connections");
+  url.searchParams.set("select", "id,provider,environment,status,account_label,last_verified_at,created_at");
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      Authorization: request.headers.get("Authorization") || "",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({ provider: "exness_mt5", environment: "demo", status: "pending", account_label: "Exness MT5 Demo" }),
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(6000)
+  });
+  if (!response.ok) {
+    if (response.status === 409 || response.status === 23505) {
+      const raced = await loadOwnMt5Connection(request, env, user);
+      if (raced) return {
+        broker: "Exness MT5",
+        environment: "demo",
+        status: raced.status === "pending" ? "pending_provisioning" : raced.status === "connected" ? "connected" : "connection_disabled",
+        connectionRequestId: raced.id,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+        ordersEnabled: false
+      };
+    }
+    throw new Error("Could not create the Exness MT5 Demo connection request; verify the installed migration and INSERT policy");
+  }
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row?.id) throw new Error("Supabase did not return the Exness MT5 Demo request record");
+  return {
+    broker: "Exness MT5",
+    environment: "demo",
+    status: "pending_provisioning",
+    connectionRequestId: row.id,
+    message: "Request created. A trusted administrator must provision the dedicated Bridge route and secret before account data can be read.",
+    executionEnabled: false,
+    liveTradingEnabled: false,
+    ordersEnabled: false
+  };
+}
+
+async function runMt5ReadonlyTool(name, args, request, env, user) {
+  const connection = await loadOwnMt5Connection(request, env, user);
+  const safe = {
+    broker: "Exness MT5",
+    environment: "demo",
+    mode: "read-only",
+    executionEnabled: false,
+    liveTradingEnabled: false,
+    ordersEnabled: false
+  };
+  if (!connection) return {
+    ...safe,
+    status: "not_requested",
+    message: "No Exness MT5 Demo connection request exists. Call request_mt5_demo_connection to create a pending request."
+  };
+  if (connection.status === "pending") return {
+    ...safe,
+    status: "pending_provisioning",
+    connectionRequestId: connection.id,
+    message: "The request exists, but the dedicated Bridge route has not been provisioned."
+  };
+  if (connection.status === "disabled") return {
+    ...safe,
+    status: "connection_disabled",
+    connectionRequestId: connection.id
+  };
+  if (connection.status !== "connected") return {
+    ...safe,
+    status: "connection_not_ready",
+    connectionRequestId: connection.id
+  };
+
+  const paths = {
+    mt5_connection_status: "/health",
+    mt5_account_summary: "/api/account",
+    mt5_symbols: "/api/symbols",
+    mt5_quotes: "/api/quotes"
+  };
+  const base = String(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL).replace(/\/+$/, "");
+  let url;
+  try {
+    url = new URL(paths[name], base);
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid proxy URL");
+  } catch {
+    return { ...safe, status: "proxy_not_configured", connectionRequestId: connection.id };
+  }
+  url.searchParams.set("connection_id", connection.id);
+  if (name === "mt5_symbols") {
+    const q = String(args.q ?? "").trim();
+    if (q.length > 40 || (q && !/^[A-Za-z0-9._-]+$/.test(q))) throw new Error("q must contain at most 40 letters, numbers, dots, underscores or hyphens");
+    const limit = normalizeMt5Count(args.limit, 100, 500);
+    url.searchParams.set("q", q);
+    url.searchParams.set("limit", String(limit));
+  }
+  if (name === "mt5_quotes") {
+    url.searchParams.set("symbol", normalizeMt5Symbol(args.symbol));
+    url.searchParams.set("timeframe", normalizeMt5Timeframe(args.timeframe));
+    url.searchParams.set("count", String(normalizeMt5Count(args.count, 100, 500)));
+  }
+
+  let response;
+  let data;
+  try {
+    response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: request.headers.get("Authorization") || "", Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(9000)
+    });
+    data = await response.json().catch(() => ({}));
+  } catch {
+    return { ...safe, status: "proxy_unavailable", connectionRequestId: connection.id, message: "Could not reach the read-only MT5 proxy." };
+  }
+  if (!response.ok) {
+    const status = response.status === 401 ? "session_rejected"
+      : response.status === 403 ? "tenant_guard_rejected"
+        : response.status === 404 ? "connection_not_found"
+          : response.status === 409 ? "bridge_not_provisioned"
+            : response.status === 503 ? "bridge_or_proxy_unavailable" : "proxy_request_failed";
+    return { ...safe, status, httpStatus: response.status, connectionRequestId: connection.id, error: data.error || "MT5 proxy refused or could not complete the read-only request" };
+  }
+  if (name === "mt5_connection_status") {
+    const connected = data.status === "ok" && data.terminal_connected === true &&
+      data.account_session_available === true && data.mode === "read-only" &&
+      data.order_submission_enabled === false;
+    return {
+      ...safe,
+      status: connected ? "connected" : "bridge_unavailable",
+      connectionRequestId: connection.id,
+      accountLabel: connection.account_label,
+      checkedAt: data.checked_at || null,
+      terminalConnected: data.terminal_connected === true,
+      accountSessionAvailable: data.account_session_available === true,
+      message: connected ? "Exness MT5 Demo is responding through the dedicated read-only Bridge." : "The Bridge did not confirm a ready MT5 account session."
+    };
+  }
+  return {
+    ...safe,
+    status: "ok",
+    connectionRequestId: connection.id,
+    accountLabel: connection.account_label,
+    data
+  };
+}
+
 async function callTool(name,args,request,env,user) {
+  if (name === "request_mt5_demo_connection") return await requestMt5DemoConnection(request, env, user);
+  if (["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"].includes(name)) {
+    return await runMt5ReadonlyTool(name, args, request, env, user);
+  }
   if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",liveTradingEnabled:false,executionEnabled:false,userId:user.id};
   if(name==="list_workers") return {workers:["data-ingestion","feature","gen-ai","backtest","tuning","risk","portfolio","execution"].map(worker=>({worker,status:worker==="execution"?"disabled": "prototype_or_local_module",liveExecutionEnabled:false})),note:"Python worker modules are not individually deployed as Cloudflare Workers."};
   if(name==="list_strategy_registry") {
@@ -143,7 +361,7 @@ async function callTool(name,args,request,env,user) {
   }
   throw new Error("Unknown or unavailable tool");
 }
-const tools=[
+export const tools=[
  {name:"system_status",description:"Read authenticated service status; never sends orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_workers",description:"List NOVA modules and clearly label local prototypes; execution remains disabled.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_strategy_registry",description:"Read strategy registry rows visible to this signed-in user under Supabase RLS.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
@@ -152,6 +370,13 @@ const tools=[
  {name:"run_smc_backtest",description:"Run a conservative SMC structure-break historical backtest with next-bar entry, confirmed swing stops, fixed reward/risk and configurable costs. Research only; never sends orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},swing_left:{type:"integer"},swing_right:{type:"integer"},reward_risk:{type:"number"},fee_rate:{type:"number"},slippage_rate:{type:"number"},initial_equity:{type:"number"}},additionalProperties:false}},
  {name:"run_ema_backtest",description:"Run a simplified long-only EMA crossover research backtest on public candle data. Not investment advice; no orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},fast_period:{type:"integer"},slow_period:{type:"integer"}},additionalProperties:false}},
  {name:"validate_paper_risk",description:"Fail-closed paper risk checks. Cannot authorize live trading.",inputSchema:{type:"object",properties:{allocation_pct:{type:"number"},daily_loss_pct:{type:"number"},drawdown_pct:{type:"number"},leverage:{type:"number"},data_age_seconds:{type:"number"}},required:["allocation_pct","daily_loss_pct","drawdown_pct"],additionalProperties:false}}
+
+ {name:"mt5_connection_status",description:"Check the signed-in user's own Exness MT5 Demo connection and verify that the dedicated Windows Bridge is healthy. Read-only; no orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
+ {name:"request_mt5_demo_connection",description:"Create a pending Exness MT5 Demo connection request for the signed-in user only. A trusted administrator must provision the tenant-isolated Bridge route. Does not connect or place orders by itself.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
+ {name:"mt5_account_summary",description:"Read account summary from the signed-in user's own connected Exness MT5 Demo terminal through the tenant-guarded proxy. Read-only; no orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
+ {name:"mt5_symbols",description:"Read symbol discovery results from the signed-in user's connected Exness MT5 Demo terminal. Optional q substring and limit 1-500. Read-only.",inputSchema:{type:"object",properties:{q:{type:"string"},limit:{type:"integer",minimum:1,maximum:500}},additionalProperties:false}},
+ {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}}
+
 ];
 async function handleMcp(request,env,origin) {
  const user=await getUser(request,env); if(!user?.id)return json({error:"unauthorized"},401,cors(origin));
