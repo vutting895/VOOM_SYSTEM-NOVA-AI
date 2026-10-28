@@ -143,7 +143,7 @@ async function requestMt5DemoConnection(request, env, user) {
       message: existing.status === "pending"
         ? "A request already exists. A dedicated read-only Bridge and tenant route must be provisioned before the account can connect."
         : existing.status === "connected"
-          ? "A connection record already exists; verify it with mt5_connection_status.",
+          ? "A connection record already exists; verify it with mt5_connection_status."
           : "This connection is disabled. Ask the administrator to review it.",
       executionEnabled: false,
       liveTradingEnabled: false,
