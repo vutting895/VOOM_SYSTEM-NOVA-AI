@@ -1,14 +1,22 @@
 # Legacy import inventory
 
-This folder preserves files from the original private repository [vutting895/Voom_system](https://github.com/vutting895/Voom_system), keeping their former paths below `legacy/voom-system/`. It is an archive for comparison, not an instruction to deploy every legacy component.
+This folder preserves the text/code/configuration subset imported from the original private repository [vutting895/Voom_system](https://github.com/vutting895/Voom_system), maintaining the former paths below `legacy/voom-system/`. This is an archive for review and rollback, not an instruction to deploy every old component.
 
-- **277 files** are imported under this archive path.
-- The original repository remains unchanged for rollback.
-- The root `README.md`, `.env.example`, and `.gitignore` were merged into canonical root versions because all three differed from NOVA's versions at initial comparison.
-- Large historical datasets, compressed data, and large export bundles below were not copied, to avoid bloating the runtime repository. They remain in the source repository linked below.
-- No source-repository files have been deleted. Do not delete or archive the source repo until excluded assets and runtime/deployment dependencies are reviewed.
+- **277 files** were imported under `legacy/voom-system/`; the import index itself is an additional file.
+- The original repository remains unchanged.
+- The root `README.md`, `.env.example`, and `.gitignore` were merged into canonical root versions because all three differ from NOVA's corresponding files. Those three files are not duplicated under the legacy archive.
+- The 25 large historical datasets/export bundles listed below were deliberately not copied, to avoid bloating the runtime repository. They remain available in the source repository.
+- No source-repository files have been deleted. Do not delete the source repo until excluded assets and runtime/deployment dependencies have been reviewed.
 
-## Excluded large data and export assets
+## Root files merged manually
+
+| Original path | Why it was not imported at its old root path |
+|---|---|
+| `README.md` | Combined NOVA runtime documentation and legacy migration boundaries |
+| `.env.example` | Combined placeholders while keeping secrets absent and trading disabled |
+| `.gitignore` | Combined secret/runtime ignore rules for the canonical repository |
+
+## Excluded large datasets and export assets (25)
 
 | Original path | Size | Source |
 |---|---:|---|
