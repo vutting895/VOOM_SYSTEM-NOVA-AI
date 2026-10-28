@@ -11,13 +11,11 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - ML examples under \`workers/feature\` are research prototypes, not a production pipeline.
 
 ## Frontend hosting and deployment
-- **Canonical frontend host:** Cloudflare Workers.
-- **Frontend Worker name:** \`voom-system-nova-ui\`.
-- **Frontend URL:** https://voom-system-nova-ui.suwapat787.workers.dev
-- **API Worker URL:** https://voom-system-nova-ai.suwapat787.workers.dev
-- **Source of truth:** this repository, \`vutting895/VOOM_SYSTEM-NOVA-AI\`, branch \`main\`.
-- **Build/deploy workflow:** \`.github/workflows/frontend-ci.yml\` validates the frontend; \`.github/workflows/cloudflare-deploy.yml\` deploys the validated commit to Cloudflare Workers.
-- Vercel is not the intended frontend deployment target. Its project/deployments may still exist separately; changing repository files does not disconnect provider integrations.
+- The current workflow builds the Next.js frontend for **Vercel**. Cloudflare is used for authenticated backend Workers, including the MT5 read-only proxy and Remote MCP endpoint.
+- \`.github/workflows/frontend-ci.yml\` runs frontend checks and worker/bridge safety tests.
+- \`.github/workflows/cloudflare-deploy.yml\` deploys the authenticated Cloudflare backend Workers; it explicitly does **not** deploy the Next.js frontend.
+- The workflow's frontend smoke test currently targets \`https://voomsystem.vercel.app\`. Treat this as a legacy alias until it is confirmed to point at the intended Vercel project. A successful check against this alias alone does not prove the selected Nova frontend deployment is current.
+- A Worker named \`voom-system-nova-ui\` may still exist on Cloudflare from an earlier cutover. Its presence is not proof that the current frontend source is deployed there, and this workflow does not redeploy that frontend Worker.
 
 ### Local frontend checks (optional)
 Run from the repository root:
@@ -26,25 +24,25 @@ Set-Location .\frontend
 npm ci
 npm run typecheck
 npm run build
-npm run cf:build
 \`\`\`
-Deployments should be made by the guarded Cloudflare workflow after checks pass. Do not claim a deployment succeeded unless the Cloudflare deployment/version and live URL have been verified.
+Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
 
 ## Environment
-Configure these values in the intended Cloudflare build/runtime environment and Supabase project settings. Do not commit their values:
+Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
 - \`NEXT_PUBLIC_SUPABASE_URL\`
 - \`NEXT_PUBLIC_SUPABASE_ANON_KEY\`
-- \`NEXT_PUBLIC_MT5_READONLY_PROXY_URL\` (optional GitHub Actions repository variable; points to the protected Exness MT5 read-only proxy when that proxy is ready)
+- \`NEXT_PUBLIC_MT5_READONLY_PROXY_URL\` (optional until its authenticated endpoint is implemented and verified)
 - GitHub Actions deployment secrets: \`CLOUDFLARE_API_TOKEN\` and \`CLOUDFLARE_ACCOUNT_ID\`
 
-Never print secret values in logs or chat. Cloudflare and Supabase deployment secrets are required; the MT5 proxy URL is optional until its authenticated Cloudflare endpoint is implemented and verified. The UI must show unavailable rather than claim a connection when that URL is absent.
+Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the optional MT5 proxy URL is absent.
 
-## Current Cloudflare cutover verification
-The Cloudflare account currently contains a Worker named \`voom-system-nova-ui\`, and its settings endpoint is reachable. However, the deployed Worker settings last inspected did not show the \`nodejs_compat\` flag present in \`frontend/wrangler.jsonc\`, and its modification time predates the latest frontend repository changes. Therefore the presence of the Worker is **not proof** that the latest Next.js frontend is deployed or that the live UI works. Run the Cloudflare CI/build/deploy workflow and verify the deployed version and browser routes before marking the cutover complete.
+## Current deployment verification limits
+A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Vercel project/alias and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
 
 ## Architecture
-- \`frontend/\`: Next.js UI, built for Cloudflare Workers with OpenNext.
+- \`frontend/\`: Next.js UI, currently built for Vercel by the frontend workflow.
 - \`integrations/remote-mcp-worker/\`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
+- \`integrations/mt5-readonly-proxy/\`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
 - \`workers/data-ingestion/\`: public market-data adapter.
 - \`workers/feature/\`: imported ML research prototypes; dependencies and leakage checks required.
 - \`workers/gen-ai/\`: strategy-draft prototype.
