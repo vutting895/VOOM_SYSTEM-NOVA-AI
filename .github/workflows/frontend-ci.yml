@@ -66,3 +66,86 @@ jobs:
         run: npm run typecheck
       - name: Build Next.js frontend for Vercel
         run: npm run build
+
+  build-nova-preview:
+    name: Build NOVA PR #38 Cloudflare preview artifact
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 38 && github.event.pull_request.head.ref == 'feat/nova-unified-frontend-chat-20261028' && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: "https://tlyyxufuiimrbaksoitf.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD"
+      NEXT_PUBLIC_MT5_READONLY_PROXY_URL: "https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build OpenNext Cloudflare artifact
+        run: npm run cf:build
+      - name: Upload OpenNext artifact for isolated Preview deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-pr38-open-next
+          path: frontend/.open-next/**
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy-nova-preview:
+    name: Deploy isolated NOVA PR #38 Preview Worker
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 38 && github.event.pull_request.head.ref == 'feat/nova-unified-frontend-chat-20261028' && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: build-nova-preview
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Download OpenNext artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nova-pr38-open-next
+          path: frontend/.open-next
+      - name: Install Wrangler without changing the lockfile
+        run: npm install --no-save --package-lock=false wrangler
+      - name: Deploy only the isolated Preview Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!key}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Preview deploy blocked. Missing GitHub Actions secrets (names only): ${missing[*]}"
+            exit 1
+          fi
+          # Name override is intentional: never deploy to the existing production Worker.
+          npx wrangler deploy --config wrangler.jsonc --name voom-system-nova-ui-pr38-preview
