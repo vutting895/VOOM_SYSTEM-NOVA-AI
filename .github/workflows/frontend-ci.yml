@@ -132,8 +132,8 @@ jobs:
         with:
           name: nova-pr38-open-next
           path: frontend/.open-next
-      - name: Install Wrangler without changing the lockfile
-        run: npm install --no-save --package-lock=false wrangler
+      - name: Install OpenNext CLI and Wrangler without changing the lockfile
+        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
       - name: Deploy only the isolated Preview Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -150,8 +150,9 @@ jobs:
             echo "Preview deploy blocked. Missing GitHub Actions secrets (names only): ${missing[*]}"
             exit 1
           fi
-          # Name override is intentional: never deploy to the existing production Worker.
-          npx wrangler deploy --config wrangler.jsonc --name voom-system-nova-ui-pr38-preview
+          # Use OpenNext deploy so its remote cache is populated before the Worker starts serving.
+          # Explicit name keeps this isolated from the existing production Worker.
+          npx opennextjs-cloudflare deploy --config wrangler.jsonc --name voom-system-nova-ui-pr38-preview
       - name: Smoke-test hosted Preview and safety gates
         env:
           PREVIEW_URL: "https://voom-system-nova-ui-pr38-preview.suwapat787.workers.dev"
