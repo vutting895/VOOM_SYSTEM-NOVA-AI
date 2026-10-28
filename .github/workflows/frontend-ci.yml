@@ -93,6 +93,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Install OpenNext locally for config resolution without changing the lockfile
+        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
       - name: Build OpenNext Cloudflare artifact
         run: npm run cf:build
       - name: Upload OpenNext artifact for isolated Preview deployment
