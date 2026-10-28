@@ -1,0 +1,55 @@
+name: Windows Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - "tools/windows/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - ".github/workflows/windows-runtime-ci.yml"
+      - "README.md"
+  push:
+    branches: [main]
+    paths:
+      - "tools/windows/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - ".github/workflows/windows-runtime-ci.yml"
+      - "README.md"
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-parse:
+    name: Validate Windows bootstrap and Bridge safety contract
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse PowerShell bootstrap without running it
+        shell: pwsh
+        run: |
+          $path = (Resolve-Path "tools/windows/run-bridge-from-git.ps1").Path
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            throw "PowerShell parser reported $($errors.Count) error(s)."
+          }
+          Write-Host "PowerShell bootstrap syntax is valid."
+
+      - name: Assert Bridge stays read-only
+        shell: pwsh
+        run: |
+          $bridge = Get-Content -Raw "integrations/mt5-readonly-bridge/bridge.py"
+          if ($bridge -notmatch 'allow_methods=\["GET", "OPTIONS"\]') {
+            throw "Bridge CORS method allowlist is not GET/OPTIONS-only."
+          }
+          if ($bridge -match 'mt5\.order_send\s*\(') {
+            throw "Order submission implementation found in the read-only Bridge."
+          }
+          if ($bridge -notmatch 'order_submission_enabled": False') {
+            throw "Bridge read-only safety flag is missing."
+          }
+          Write-Host "Read-only safety contract checks passed."
