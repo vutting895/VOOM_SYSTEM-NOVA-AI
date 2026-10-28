@@ -27,6 +27,14 @@ npm run build
 ```
 Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
 
+## Unified frontend and NOVA Chat
+
+- Frontend direction is documented in [docs/FRONTEND-UNIFIED-EXPERIENCE.md](docs/FRONTEND-UNIFIED-EXPERIENCE.md): one Next.js site, one shared navigation, and Chat integrated into NOVA rather than merging the separate Eve Chat repository.
+- Routes include Dashboard, AI Chat, Markets, AI Analysis, Backtest baseline, Learning Universe 16, Broker Hub, Marketplace, Login and Profile.
+- Chat calls the same-origin authenticated Next.js API, which verifies the Supabase session and forwards the bounded conversation to the NOVA AI Worker. The Worker uses its existing Cloudflare Workers AI binding; if that provider is unavailable, the chat reports an error rather than inventing a response.
+- Chat history is currently page-memory only. It is not persisted across refreshes. Chat is research-only and has no order-submission capability.
+- The current Backtest page reports the present engine's buy-and-hold baseline, not a strategy backtest. Do not describe these baseline metrics as predictive or as evidence that EMA/RSI has been tested.
+
 ## Environment
 Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
 - `NEXT_PUBLIC_SUPABASE_URL`
