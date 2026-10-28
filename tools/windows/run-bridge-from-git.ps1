@@ -9,6 +9,8 @@ $LocalRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM'
 $RuntimeRoot = Join-Path $LocalRoot 'runtime'
 $Checkout = Join-Path $RuntimeRoot 'repo'
 $BridgeRelativePath = 'integrations/mt5-readonly-bridge'
+$WindowsToolsRelativePath = 'tools/windows'
+$PersistentBootstrap = Join-Path $LocalRoot 'run-bridge-from-git.ps1'
 $BridgeRoot = Join-Path $Checkout 'integrations\mt5-readonly-bridge'
 $BridgeLauncher = Join-Path $BridgeRoot 'run-bridge.ps1'
 
@@ -69,10 +71,27 @@ try {
     }
 
     Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'init', '--cone')
-    Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'set', $BridgeRelativePath)
+    Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'set', $BridgeRelativePath $WindowsToolsRelativePath)
 
     if (-not (Test-Path -LiteralPath $BridgeLauncher)) {
         throw "The latest Git checkout does not contain $BridgeRelativePath\run-bridge.ps1; refusing to start an older local copy."
+    }
+
+    # Once the bootstrap is merged to main, keep the persistent local copy in sync too.
+    # This file is the only manually installed launcher; all application code comes from Git.
+    $BootstrapSource = Join-Path $Checkout 'tools\windows\run-bridge-from-git.ps1'
+    if (Test-Path -LiteralPath $BootstrapSource) {
+        $sourceHash = (Get-FileHash -LiteralPath $BootstrapSource -Algorithm SHA256).Hash
+        $currentScript = $MyInvocation.MyCommand.Path
+        $currentHash = if (Test-Path -LiteralPath $currentScript) { (Get-FileHash -LiteralPath $currentScript -Algorithm SHA256).Hash } else { '' }
+        if ($sourceHash -ne $currentHash) {
+            $temporaryBootstrap = $PersistentBootstrap + '.new'
+            Copy-Item -LiteralPath $BootstrapSource -Destination $temporaryBootstrap -Force
+            Move-Item -LiteralPath $temporaryBootstrap -Destination $PersistentBootstrap -Force
+            Write-Host 'Bootstrap updated from main; restarting with the Git version.'
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PersistentBootstrap
+            exit $LASTEXITCODE
+        }
     }
 
     $Requirements = Join-Path $BridgeRoot 'requirements.txt'
