@@ -77,6 +77,12 @@ class TenantGuardContractTests(unittest.TestCase):
                         registered_paths.append(decorator.args[0].value)
         self.assertFalse(any(re.search(r"/(orders?|trades?|execute|withdraw|transfer)(/|$)", p, re.I) for p in registered_paths))
 
+    def test_launcher_uses_the_documented_isolated_virtual_environment(self):
+        launcher = Path(__file__).with_name("run-bridge.ps1").read_text(encoding="utf-8")
+        self.assertIn("'.venv\\Scripts\\python.exe'", launcher)
+        self.assertIn("& $python -m uvicorn bridge:app", launcher)
+        self.assertNotIn("C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe", launcher)
+
 
 if __name__ == "__main__":
     unittest.main()
