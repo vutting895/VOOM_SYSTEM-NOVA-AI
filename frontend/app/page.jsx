@@ -21,6 +21,7 @@ const watchlist = [
 ];
 
 const modules = [
+  { name: 'AI CHAT', detail: 'Conversational research assistant', href: '/chat', icon: '✦' },
   { name: 'AI ANALYSIS', detail: 'Strategy research and explainable insights', href: '/gen-ai', icon: '◈' },
   { name: 'BROKER HUB', detail: 'Connection status and account access', href: '/broker', icon: '⌘' },
   { name: 'LEARNING UNIVERSE 16', detail: 'Learning modules and feedback loop', href: '/learning-universe', icon: '◎' },
@@ -123,13 +124,13 @@ export default function Home() {
         <div className="command-grid">
           <section className="hud-panel ai-core-panel">
             <div className="panel-heading"><span><i className="panel-marker" /> NOVA AI CORE</span><span className="panel-code">CORE / 001</span></div>
-            <div className="ai-core-content"><Orb /><div className="core-copy"><span className="micro-label">INTELLIGENCE ENGINE</span><h2>Ready to <em>analyze.</em></h2><p>Use AI research tools to review strategies and market context. No verified live market feed is displayed here.</p><Link className="hud-button" href="/gen-ai">OPEN AI ANALYSIS <span>↗</span></Link></div></div>
+            <div className="ai-core-content"><Orb /><div className="core-copy"><span className="micro-label">INTELLIGENCE ENGINE</span><h2>Ready to <em>analyze.</em></h2><p>Use AI research tools to review strategies and market context. No verified live market feed is displayed here.</p><Link className="hud-button" href="/chat">OPEN NOVA AI CHAT <span>↗</span></Link></div></div>
             <div className="core-foot"><span><i className="tiny-led" /> UI ONLINE</span><span>AI PROVIDER STATUS REQUIRES CHECK</span></div>
           </section>
 
           <section className="hud-panel broker-panel">
             <div className="panel-heading"><span><i className="panel-marker" /> BROKER LINK</span><span className="panel-code">LINK / 004</span></div>
-            <div className="broker-name-row"><div className="broker-monogram">XM</div><div><h2>Exness / MetaTrader 5 Demo</h2><p>Broker connection monitor</p></div></div>
+            <div className="broker-name-row"><div className="broker-monogram">EX</div><div><h2>Exness / MetaTrader 5 Demo</h2><p>Broker connection monitor</p></div></div>
             <div className="broker-state"><span className="state-ring" /><div><strong>{brokerStatus}</strong><small>{brokerDetail}</small></div></div>
             <div className="read-only-row"><span>ACCESS SCOPE</span><strong>READ-ONLY</strong></div>
             <Link className="panel-text-link" href="/broker">OPEN BROKER HUB <span>→</span></Link>
