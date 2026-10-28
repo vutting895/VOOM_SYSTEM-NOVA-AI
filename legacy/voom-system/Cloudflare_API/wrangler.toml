@@ -1,0 +1,13 @@
+name = "voom-system-api"
+main = "src/index.js"
+compatibility_date = "2026-10-23"
+
+[[kv_namespaces]]
+binding = "DATA"
+id = "8a3ea24dbedc46328af1c66cd4ececbe"
+
+[vars]
+DASHBOARD_ORIGIN = "https://voom-system-dashboard-17042658.base44.app"
+
+[observability]
+enabled = true

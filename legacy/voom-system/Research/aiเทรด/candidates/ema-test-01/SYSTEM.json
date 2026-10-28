@@ -1,0 +1,48 @@
+{
+  "id": "ema-test-01",
+  "name": "VOOM EMA Trend Candidate",
+  "version": "0.1.0",
+  "status": "research",
+  "created_at": "2026-10-23T13:07:30.540231+00:00",
+  "generator": "voom-ai-trading-lab-template-mutator",
+  "strategy_family": "EMA trend crossover with RSI confirmation",
+  "market_data_required": [
+    "timestamp",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "parameters": {
+    "ema_fast": 10,
+    "ema_slow": 40,
+    "rsi_period": 14,
+    "long_rsi_min": 52,
+    "short_rsi_max": 48,
+    "hold_bars_max": 12
+  },
+  "rules": [
+    "Use only closed candles; no look-ahead.",
+    "Long candidate: fast EMA crosses above slow EMA and RSI >= long_rsi_min.",
+    "Short candidate: fast EMA crosses below slow EMA and RSI <= short_rsi_max.",
+    "Close/reverse on opposite signal; enforce hold_bars_max.",
+    "All values are research parameters, not production instructions."
+  ],
+  "risk": {
+    "live_trading_enabled": false,
+    "broker_execution": false,
+    "position_sizing": "not implemented in lab; candidate cannot be deployed directly"
+  },
+  "evidence": {
+    "backtest": "not_run",
+    "out_of_sample": "not_run",
+    "demo_forward": "not_run",
+    "human_approval": "pending"
+  },
+  "limitations": [
+    "Template candidate only; no profitability claim.",
+    "Must validate symbol/timeframe-specific spread, commission, swap and slippage.",
+    "Not connected to MT5 or customer execution."
+  ],
+  "data_sha256": null
+}

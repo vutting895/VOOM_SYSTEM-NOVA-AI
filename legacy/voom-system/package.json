@@ -1,0 +1,22 @@
+{
+  "name": "voom-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "test": "node --test",
+    "check": "node --check backend/app.js && node --check backend/server.js && node --check api/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.4"
+  }
+}

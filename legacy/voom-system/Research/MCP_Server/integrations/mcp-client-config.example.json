@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy mcpServers into the config for your chosen MCP-compatible AI client. This does not connect automatically.",
+  "mcpServers": {
+    "voom-knowledge": {
+      "command": "C:\\Users\\Administrator\\Documents\\Voom_system\\Research\\MCP_Server\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\Administrator\\Documents\\Voom_system\\Research\\MCP_Server\\server.py"]
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "reportType": "Voom_system runtime follow-up",
+  "checkedAtLocalDate": "2026-10-24",
+  "repository": "vutting895/Voom_system",
+  "branch": "main",
+  "runtimeChecks": {
+    "localRelayHealth": "HTTP 200",
+    "cloudflareApiHealth": "HTTP 200",
+    "cloudflareDashboardStatusHttp": "HTTP 200",
+    "cloudflareConnected": false,
+    "telemetryPresentInDashboardResponse": false,
+    "telemetryEndToEndVerified": false,
+    "workerSecretBindingNameExists": true,
+    "workerSecretBindingOperational": true,
+    "diagnosticProbe": {
+      "endpoint": "/api/mt5/telemetry",
+      "http": 400,
+      "result": "secret_accepted_invalid_payload_rejected",
+      "purpose": "invalid schema probe; rejected before KV write",
+      "telemetryWritten": false
+    },
+    "presetFilePresent": true,
+    "presetPaperOnly": true,
+    "presetTelemetryUrlPointsToLocalRelay": true,
+    "presetLoadedInRuntime": "not independently confirmed",
+    "mt5TerminalProcessPresent": true
+  },
+  "safety": {
+    "voomBridgePaperOnly": true,
+    "liveTradingEnabled": false,
+    "orderExecution": "disabled",
+    "syntheticTelemetryWritten": false,
+    "secretOrTokenValuesIncluded": false
+  },
+  "operationalWarning": {
+    "otherEAObservedInPriorLogs": "WikiFXDefense",
+    "brokerServerObservedInPriorTerminalLog": "HFMarketsGlobal-Live18",
+    "automatedTradingEnabledEventObservedInPriorLog": true,
+    "meaning": "VoomSource1Bridge is paper-only, but this does not guarantee other EAs in the same terminal cannot trade. Current check did not disable or alter any EA."
+  },
+  "currentAssessment": "Worker authentication now appears operational: the non-writing invalid-payload probe returned HTTP 400 instead of the prior HTTP 503. The dashboard still reports connected=false and telemetry is absent, so end-to-end MT5 telemetry is not verified.",
+  "nextActions": [
+    "Confirm VoomSource1Bridge EA is attached and the paper preset is loaded in MT5 without enabling live trading.",
+    "Inspect local relay logs and EA Experts/Journal logs to identify why real telemetry is not reaching the dashboard.",
+    "Continue to avoid synthetic telemetry writes to production KV.",
+    "Review other EAs and broker/account state before any live use."
+  ]
+}

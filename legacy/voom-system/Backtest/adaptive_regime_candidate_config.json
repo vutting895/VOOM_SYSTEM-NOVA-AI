@@ -1,0 +1,48 @@
+{
+  "strategy": "VOOM Adaptive Regime + EMA/RSI Divergence",
+  "version": "0.1-candidate",
+  "status": "RESEARCH_ONLY_NOT_APPROVED_FOR_LIVE",
+  "selected_from": "development + validation chronological walk-forward; final OOS evaluated after selection",
+  "data_sha256": "d4705d36d9128268c3785e825623cc1e2750b846d114a6f43e4f39a2d73bd7fb",
+  "parameters": {
+    "h4_ema_regime": 200,
+    "h1_structure_pivot_left": 3,
+    "h1_structure_pivot_right": 3,
+    "m15_ema_fast": 20,
+    "m15_ema_slow": 50,
+    "rsi_period": 14,
+    "atr_period": 14,
+    "divergence_recency_bars": 32,
+    "minimum_score": 80,
+    "stop_min_atr": 1.5,
+    "target_r": 2.0,
+    "risk_fraction_proxy": 0.0025,
+    "cooldown_bars": 3,
+    "slippage_points_per_fill_proxy": 2
+  },
+  "validation": {
+    "development_trades": 41,
+    "development_profit_factor_proxy": 1.0637,
+    "development_return_pct_proxy": 0.1996,
+    "validation_trades": 10,
+    "validation_profit_factor_proxy": 2.4967,
+    "validation_return_pct_proxy": 0.9354,
+    "frozen_oos_trades": 13,
+    "frozen_oos_profit_factor_proxy": 1.998,
+    "frozen_oos_return_pct_proxy": 1.1476,
+    "frozen_oos_max_drawdown_pct_proxy": -0.6049
+  },
+  "execution": {
+    "mt5_connection": false,
+    "send_orders": false,
+    "live_trading_enabled": false,
+    "customer_dashboard_enabled": false
+  },
+  "blocking_gates": [
+    "Obtain sufficient broker-native XAUUSDc history and retest",
+    "Verify contract size, tick value, lot step, minimum volume, account currency conversion",
+    "Model actual commission, swap, spread and slippage",
+    "Run MT5 Strategy Tester with tick data and forward demo verification",
+    "Human risk approval required before any deployment"
+  ]
+}

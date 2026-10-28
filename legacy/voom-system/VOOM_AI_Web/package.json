@@ -1,0 +1,7 @@
+{
+  "name": "voom-ai-private-chat",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/worker.test.js" },
+  "devDependencies": { "wrangler": "^4.148.0" }
+}

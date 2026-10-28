@@ -1,0 +1,6 @@
+divergence_recency_bars,target_R,minimum_score,eligible,selection_score,development_trades,development_PF,development_return_pct,validation_trades,validation_PF,validation_return_pct
+8,2.0,80,False,,18,0.6579,-0.6132,5,4.6187,0.7664
+16,2.0,80,False,,30,0.9817,-0.0462,7,4.0725,0.8498
+24,2.0,80,False,,36,1.1088,0.2992,9,3.8914,1.1594
+32,2.0,80,True,1.9773,41,1.0637,0.1996,10,2.4967,0.9354
+48,2.0,80,True,1.81415,46,1.0656,0.2394,11,2.2283,0.8601

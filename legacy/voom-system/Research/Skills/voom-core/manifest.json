@@ -1,0 +1,8 @@
+{
+  "name": "voom-core",
+  "version": "0.1.0",
+  "license": "proprietary",
+  "billing": "not_enabled",
+  "generated_at": "2026-10-23T10:20:54.770237+00:00",
+  "sources": ["Trading_Institutional/Institutional_Trading_Playbook.md", "Risk_Management/Risk_Controls_Playbook.md", "Coding_Engineering/Engineering_Standards.md", "Web_UI_UX/Dashboard_Design.md", "Research_Findings_2026-10-23.md"]
+}

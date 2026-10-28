@@ -1,0 +1,80 @@
+{
+  "report_type": "Source1 exploratory backtest",
+  "strategy": "Mean Rejection SMC Wave v6.2",
+  "paper_only": true,
+  "live_trading_enabled": false,
+  "orders_sent": false,
+  "source_file": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\data\\XAUUSDc_M15_20231023_20261023.csv",
+  "data_rows": 70678,
+  "data_start_utc": "2023-10-23T20:00:00+00:00",
+  "data_end_utc": "2026-10-23T13:45:00+00:00",
+  "timeframe": "M15 (source filename/data context)",
+  "split_method": "chronological 70/30",
+  "config": {
+    "BEST_CONFIG_APPLIED": true,
+    "CONFLUENCE_MIN": 4,
+    "DL_WEIGHT": 0.25,
+    "DIST_ATR_MULT": 1.8,
+    "Z_SCORE_THRESH": 2.2,
+    "RISK_PCT": 0.01,
+    "RR_TP1": 1.5,
+    "RR_TP2": 3.1,
+    "RR_TP1_CLOSE_PCT": 0.5,
+    "VOLATILITY_ATR_MIN": 0.4,
+    "VOLATILITY_ATR_MAX": 3.5,
+    "SESSION_FILTER": [
+      "London",
+      "NY"
+    ],
+    "MEAN_PERIOD": 50,
+    "SMC_OB_LOOKBACK": 20,
+    "FVG_MIN_SIZE_ATR": 0.3,
+    "PA_CONFIRMATION": true
+  },
+  "spread_point_price_assumption": 0.01,
+  "warnings": [
+    "Dataset coverage is about 1095.74 days; verify it against the MT5 export metadata.",
+    "Source 1 was not edited; simulated UTC session clock is injected into a separate engine instance.",
+    "DL score fixed at 0 because the model is not validated; no fabricated positive score.",
+    "R results are estimates; full broker execution, slippage, commission, swaps and cash P&L are not verified.",
+    "Conservative stop-first rule when SL and TP are both touched in one candle.",
+    "No parameter optimization, auto-approval, order execution, or live trading.",
+    "Risk Guard daily-loss and maximum-drawdown entry blocking is NOT applied in this diagnostic run; equity drawdown is unguarded."
+  ],
+  "in_sample": {
+    "split": "in_sample",
+    "bars_in_period": 49374,
+    "trades": 350,
+    "wins": 109,
+    "losses": 241,
+    "win_rate_pct": 31.14,
+    "profit_factor_r": 0.6065,
+    "net_r_estimate": -101.5421,
+    "max_drawdown_equity_curve_pct": 66.0534,
+    "initial_equity_reference": 10000.0,
+    "final_equity_reference": 3514.87,
+    "cash_pnl_status": "NOT_CALCULATED: contract size, account currency conversion, commissions and precise broker fill model not verified"
+  },
+  "out_of_sample": {
+    "split": "out_of_sample",
+    "bars_in_period": 21204,
+    "trades": 109,
+    "wins": 46,
+    "losses": 63,
+    "win_rate_pct": 42.2,
+    "profit_factor_r": 0.9484,
+    "net_r_estimate": -3.3328,
+    "max_drawdown_equity_curve_pct": 14.5653,
+    "initial_equity_reference": 10000.0,
+    "final_equity_reference": 9578.48,
+    "cash_pnl_status": "NOT_CALCULATED: contract size, account currency conversion, commissions and precise broker fill model not verified"
+  },
+  "gate_status": {
+    "backtest_passed": false,
+    "out_of_sample_passed": false,
+    "demo_passed": false,
+    "risk_review_passed": false,
+    "reason": "Exploratory report only; independent review and complete broker-cost validation required."
+  },
+  "risk_guard_enforced": false
+}

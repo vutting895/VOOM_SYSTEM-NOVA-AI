@@ -1,0 +1,18 @@
+name = "voom-ai-private-chat"
+main = "src/index.js"
+compatibility_date = "2026-10-13"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[observability]
+enabled = true
+
+[vars]
+SUPABASE_URL = "https://tlyyxufuiimrbaksoitf.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD"
+OPENAI_MODEL = "gpt-4.1-mini"
+APP_ORIGIN = "https://voom-ai-private-chat.suwapat787.workers.dev"

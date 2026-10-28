@@ -1,0 +1,42 @@
+{
+  "status": "research-only; no orders sent",
+  "symbol": "GOLD",
+  "timeframe": "M15",
+  "csv_start_utc": "2026-07-20 22:00:00",
+  "csv_end_utc": "2026-10-20 21:45:00",
+  "bars_total": 6062,
+  "development_bars_80pct": 4849,
+  "holdout_bars_20pct": 1213,
+  "holdout_start_utc": "2026-10-01 17:45:00",
+  "holdout_end_utc": "2026-10-20 21:45:00",
+  "initial_cash_normalized": 10000.0,
+  "median_training_spread_points": 40.0,
+  "spread_rate_proxy": 9.216377502822516e-05,
+  "strategy": "EMA20/EMA50 trend + RSI14 band + ATR14 SL/TP; risk fraction 0.25%; integer units proxy",
+  "parameters": {
+    "fast_ema": 20,
+    "slow_ema": 50,
+    "rsi_period": 14,
+    "atr_period": 14,
+    "sl_atr": 2.0,
+    "tp_atr": 2.0,
+    "risk_fraction": 0.0025
+  },
+  "metrics": {
+    "Return [%]": -2.4169170009906886,
+    "Equity Final [$]": 9758.308299900931,
+    "Max. Drawdown [%]": -2.456490527773758,
+    "# Trades": 87.0,
+    "Win Rate [%]": 44.827586206896555,
+    "Profit Factor": 0.677329642555566,
+    "Sharpe Ratio": -7.684801939489873
+  },
+  "trade_rows": 87,
+  "caveats": [
+    "Illustrative EMA/RSI baseline, not the production RandomForest/SMC strategy.",
+    "Backtesting.py uses a fixed spread rate; it does not model each historical spread change.",
+    "Commission, slippage, swap, tick-level stop ordering, MT5 broker volume rules, and daily account-wide P/L guard are not modeled.",
+    "Whole units are only a rough gold exposure proxy and are not equivalent to broker lot sizing.",
+    "No parameter optimization was run on the holdout. Results are not evidence of future profitability."
+  ]
+}

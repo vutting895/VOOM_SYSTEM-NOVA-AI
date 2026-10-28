@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<meta name="robots" content="noindex,nofollow">
+<title>สมัครสมาชิก · VOOM SYSTEM</title>
+<style>
+:root{color-scheme:dark;--bg:#080d19;--panel:#111a2d;--line:#2a3854;--muted:#9ba9c3;--text:#edf2ff;--blue:#6485ff;--green:#86e2b0;--red:#ff9cab}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:24px;display:grid;place-items:center;background:radial-gradient(ellipse at top,#1b2b50 0,#0b1222 48%,var(--bg) 100%);font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text)}
+.card{width:min(100%,470px);padding:clamp(22px,5vw,36px);background:#111a2df5;border:1px solid var(--line);border-radius:20px;box-shadow:0 25px 80px #0007}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:27px}.mark{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:linear-gradient(140deg,#7195ff,#6956dc);font-size:23px;font-weight:800}.brand b,.brand small{display:block;letter-spacing:.12em}.brand b{font-size:14px}.brand small{font-size:9px;color:#8f9fbd;margin-top:3px}
+.eyebrow{color:#91aaff;font-size:10px;font-weight:800;letter-spacing:.16em}h1{font-size:27px;line-height:1.25;letter-spacing:-.03em;margin:8px 0} .intro{color:var(--muted);font-size:12px;margin:0 0 23px}
+form{display:grid;gap:8px}label{font-size:12px;color:#d8e0f1;margin-top:5px}input{width:100%;padding:12px 13px;border:1px solid #34425f;border-radius:10px;background:#091121;color:white;font:inherit;outline:none}input:focus{border-color:var(--blue);box-shadow:0 0 0 3px #6485ff25}.hint{font-size:10px;color:#8f9fbd;margin:-3px 0 3px}
+button{margin-top:10px;border:0;border-radius:10px;padding:13px;background:var(--blue);color:white;font:inherit;font-weight:750;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.message{min-height:22px;margin:8px 0 0;font-size:12px;color:var(--green);overflow-wrap:anywhere}.message.error{color:var(--red)}.foot{border-top:1px solid #293650;margin-top:22px;padding-top:16px;color:#95a4bf;font-size:11px}.foot a{color:#a9bcff;text-decoration:none}.foot a:hover{text-decoration:underline}.privacy{font-size:10px;color:#8392ad;margin-top:14px}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand"><span class="mark">V</span><div><b>VOOM SYSTEM</b><small>MEMBER REGISTRATION</small></div></div>
+  <div class="eyebrow">สร้างบัญชีสมาชิก</div>
+  <h1>สมัครสมาชิก VOOM</h1>
+  <p class="intro">สร้างบัญชีด้วยอีเมลของคุณ บัญชีใหม่จะได้รับสิทธิ์สมาชิกทั่วไปโดยอัตโนมัติ ไม่สามารถสมัครเป็นผู้ดูแลระบบได้</p>
+  <form id="signupForm" autocomplete="on">
+    <label for="displayName">ชื่อที่ใช้แสดง</label>
+    <input id="displayName" name="name" autocomplete="name" maxlength="80" required placeholder="ชื่อของคุณ">
+    <label for="email">อีเมล</label>
+    <input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="254" required placeholder="you@example.com">
+    <label for="password">รหัสผ่าน</label>
+    <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required placeholder="อย่างน้อย 8 ตัวอักษร">
+    <p class="hint">แนะนำให้ใช้รหัสผ่านที่ไม่ซ้ำกับเว็บไซต์อื่น</p>
+    <label for="confirmPassword">ยืนยันรหัสผ่าน</label>
+    <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128" required placeholder="กรอกรหัสผ่านอีกครั้ง">
+    <button id="submitBtn" type="submit">สมัครสมาชิก</button>
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+  </form>
+  <div class="foot">มีบัญชีแล้ว? <a href="./customer-login.html">เข้าสู่ระบบลูกค้า</a></div>
+  <p class="privacy">ข้อมูลบัญชีจัดเก็บผ่าน Supabase Auth อย่างปลอดภัย หน้านี้ไม่ขอข้อมูลบัตรหรือรหัสผ่านของบัญชีอื่น</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  'use strict';
+  const SUPABASE_URL = 'https://tlyyxufuiimrbaksoitf.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD';
+  const form = document.getElementById('signupForm');
+  const button = document.getElementById('submitBtn');
+  const messageEl = document.getElementById('message');
+  const showMessage = (text, error=false) => { messageEl.textContent=text; messageEl.classList.toggle('error',error); };
+  const query = new URLSearchParams(window.location.search);
+  if (query.get('confirmed') === '1') showMessage('ยืนยันอีเมลแล้ว หากบัญชีได้รับการยืนยันเรียบร้อย สามารถเข้าสู่ระบบตามขั้นตอนของ VOOM ได้');
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    showMessage('โหลดบริการสมัครสมาชิกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่', true);
+    button.disabled = true;
+    return;
+  }
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: true }
+  });
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const displayName = document.getElementById('displayName').value.trim();
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    if (!displayName) return showMessage('กรุณากรอกชื่อที่ใช้แสดง', true);
+    if (password !== confirmPassword) return showMessage('รหัสผ่านทั้งสองช่องไม่ตรงกัน', true);
+    if (password.length < 8) return showMessage('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร', true);
+    button.disabled = true; button.textContent = 'กำลังสร้างบัญชี…'; showMessage('');
+    try {
+      const emailRedirectTo = '/customer-login.html?confirmed=1';
+      const { data, error } = await client.auth.signUp({
+        email, password, options: { data: { display_name: displayName }, emailRedirectTo }
+      });
+      if (error) throw error;
+      if (data.session) {
+        showMessage('สร้างบัญชีแล้ว กรุณาตรวจสอบอีเมลหากระบบขอให้ยืนยันก่อนใช้งาน');
+      } else {
+        showMessage('ส่งคำแนะนำยืนยันบัญชีไปยังอีเมลแล้ว หากไม่พบโปรดตรวจสอบโฟลเดอร์สแปม');
+      }
+      form.reset();
+    } catch (error) {
+      const msg = String(error && error.message || '');
+      if (/password/i.test(msg) && /weak|short|length/i.test(msg)) showMessage('รหัสผ่านไม่ผ่านข้อกำหนดความปลอดภัย กรุณาใช้รหัสผ่านที่รัดกุมขึ้น', true);
+      else if (/rate limit|too many requests/i.test(msg)) showMessage('มีคำขอมากเกินไป กรุณารอสักครู่แล้วลองใหม่', true);
+      else showMessage('สมัครสมาชิกไม่สำเร็จ กรุณาตรวจสอบข้อมูลและการตั้งค่าอีเมลยืนยัน แล้วลองอีกครั้ง', true);
+    } finally {
+      button.disabled = false; button.textContent = 'สมัครสมาชิก';
+    }
+  });
+})();
+</script>
+</body>
+</html>

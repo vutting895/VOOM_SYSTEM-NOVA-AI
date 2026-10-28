@@ -1,0 +1,253 @@
+{
+  "status": "research-only; no MT5 connection; no orders sent",
+  "data_sha256": "d4705d36d9128268c3785e825623cc1e2750b846d114a6f43e4f39a2d73bd7fb",
+  "bars": 117843,
+  "source_counts": {
+    "MT5_XAUUSDc_broker_history": 100019,
+    "EV_Trading_Labs_Dukascopy_aggregated_BID_ASK": 17824
+  },
+  "search_grid": {
+    "divergence_recency_bars": [
+      8,
+      16,
+      24,
+      32,
+      48
+    ],
+    "target_R": [
+      2.0
+    ],
+    "minimum_score": [
+      80
+    ],
+    "combinations": 5
+  },
+  "selection_method": "Rank using development and validation only; frozen final 20% never used for tuning. Require >=20 development and >=10 validation trades.",
+  "eligible_candidates": 2,
+  "best_development_validation_candidate": {
+    "divergence_recency_bars": 32,
+    "target_R": 2.0,
+    "minimum_score": 80,
+    "development": {
+      "trades": 41,
+      "net_pnl_proxy": 19.965,
+      "return_on_initial_pct_proxy": 0.1996,
+      "win_rate_pct": 36.585,
+      "profit_factor": 1.0637,
+      "expectancy_R_proxy": 0.0204,
+      "best_trade_proxy": 47.66,
+      "worst_trade_proxy": -25.53
+    },
+    "validation": {
+      "trades": 10,
+      "net_pnl_proxy": 93.545,
+      "return_on_initial_pct_proxy": 0.9354,
+      "win_rate_pct": 60.0,
+      "profit_factor": 2.4967,
+      "expectancy_R_proxy": 0.3738,
+      "best_trade_proxy": 48.63,
+      "worst_trade_proxy": -22.4
+    },
+    "development_max_drawdown_pct_proxy": -0.7986,
+    "validation_max_drawdown_pct_proxy": -0.3469,
+    "eligible": true,
+    "selection_score": 1.9773
+  },
+  "selected_parameters_for_frozen_oos": {
+    "divergence_recency_bars": 32,
+    "target_R": 2.0,
+    "minimum_score": 80,
+    "development": {
+      "trades": 41,
+      "net_pnl_proxy": 19.965,
+      "return_on_initial_pct_proxy": 0.1996,
+      "win_rate_pct": 36.585,
+      "profit_factor": 1.0637,
+      "expectancy_R_proxy": 0.0204,
+      "best_trade_proxy": 47.66,
+      "worst_trade_proxy": -25.53
+    },
+    "validation": {
+      "trades": 10,
+      "net_pnl_proxy": 93.545,
+      "return_on_initial_pct_proxy": 0.9354,
+      "win_rate_pct": 60.0,
+      "profit_factor": 2.4967,
+      "expectancy_R_proxy": 0.3738,
+      "best_trade_proxy": 48.63,
+      "worst_trade_proxy": -22.4
+    },
+    "development_max_drawdown_pct_proxy": -0.7986,
+    "validation_max_drawdown_pct_proxy": -0.3469,
+    "eligible": true,
+    "selection_score": 1.9773
+  },
+  "frozen_oos_metrics": {
+    "trades": 13,
+    "net_pnl_proxy": 114.76,
+    "return_on_initial_pct_proxy": 1.1476,
+    "win_rate_pct": 46.154,
+    "profit_factor": 1.998,
+    "expectancy_R_proxy": 0.3528,
+    "best_trade_proxy": 46.445,
+    "worst_trade_proxy": -24.74
+  },
+  "frozen_oos_return_pct_proxy": 1.1476,
+  "frozen_oos_max_drawdown_pct_proxy": -0.6049,
+  "frozen_oos_trade_count": 13,
+  "all_candidates": [
+    {
+      "divergence_recency_bars": 8,
+      "target_R": 2.0,
+      "minimum_score": 80,
+      "development": {
+        "trades": 18,
+        "net_pnl_proxy": -61.325,
+        "return_on_initial_pct_proxy": -0.6132,
+        "win_rate_pct": 22.222,
+        "profit_factor": 0.6579,
+        "expectancy_R_proxy": -0.1358,
+        "best_trade_proxy": 47.66,
+        "worst_trade_proxy": -25.14
+      },
+      "validation": {
+        "trades": 5,
+        "net_pnl_proxy": 76.645,
+        "return_on_initial_pct_proxy": 0.7664,
+        "win_rate_pct": 80.0,
+        "profit_factor": 4.6187,
+        "expectancy_R_proxy": 0.6124,
+        "best_trade_proxy": 48.63,
+        "worst_trade_proxy": -21.18
+      },
+      "development_max_drawdown_pct_proxy": -1.1147,
+      "validation_max_drawdown_pct_proxy": -0.2118,
+      "eligible": false,
+      "selection_score": null
+    },
+    {
+      "divergence_recency_bars": 16,
+      "target_R": 2.0,
+      "minimum_score": 80,
+      "development": {
+        "trades": 30,
+        "net_pnl_proxy": -4.62,
+        "return_on_initial_pct_proxy": -0.0462,
+        "win_rate_pct": 30.0,
+        "profit_factor": 0.9817,
+        "expectancy_R_proxy": -0.0052,
+        "best_trade_proxy": 47.66,
+        "worst_trade_proxy": -25.14
+      },
+      "validation": {
+        "trades": 7,
+        "net_pnl_proxy": 84.985,
+        "return_on_initial_pct_proxy": 0.8498,
+        "win_rate_pct": 71.429,
+        "profit_factor": 4.0725,
+        "expectancy_R_proxy": 0.4848,
+        "best_trade_proxy": 48.63,
+        "worst_trade_proxy": -21.18
+      },
+      "development_max_drawdown_pct_proxy": -1.2433,
+      "validation_max_drawdown_pct_proxy": -0.2671,
+      "eligible": false,
+      "selection_score": null
+    },
+    {
+      "divergence_recency_bars": 24,
+      "target_R": 2.0,
+      "minimum_score": 80,
+      "development": {
+        "trades": 36,
+        "net_pnl_proxy": 29.925,
+        "return_on_initial_pct_proxy": 0.2992,
+        "win_rate_pct": 36.111,
+        "profit_factor": 1.1088,
+        "expectancy_R_proxy": 0.0341,
+        "best_trade_proxy": 47.66,
+        "worst_trade_proxy": -25.14
+      },
+      "validation": {
+        "trades": 9,
+        "net_pnl_proxy": 115.945,
+        "return_on_initial_pct_proxy": 1.1594,
+        "win_rate_pct": 66.667,
+        "profit_factor": 3.8914,
+        "expectancy_R_proxy": 0.5137,
+        "best_trade_proxy": 48.63,
+        "worst_trade_proxy": -21.18
+      },
+      "development_max_drawdown_pct_proxy": -0.9487,
+      "validation_max_drawdown_pct_proxy": -0.2118,
+      "eligible": false,
+      "selection_score": null
+    },
+    {
+      "divergence_recency_bars": 32,
+      "target_R": 2.0,
+      "minimum_score": 80,
+      "development": {
+        "trades": 41,
+        "net_pnl_proxy": 19.965,
+        "return_on_initial_pct_proxy": 0.1996,
+        "win_rate_pct": 36.585,
+        "profit_factor": 1.0637,
+        "expectancy_R_proxy": 0.0204,
+        "best_trade_proxy": 47.66,
+        "worst_trade_proxy": -25.53
+      },
+      "validation": {
+        "trades": 10,
+        "net_pnl_proxy": 93.545,
+        "return_on_initial_pct_proxy": 0.9354,
+        "win_rate_pct": 60.0,
+        "profit_factor": 2.4967,
+        "expectancy_R_proxy": 0.3738,
+        "best_trade_proxy": 48.63,
+        "worst_trade_proxy": -22.4
+      },
+      "development_max_drawdown_pct_proxy": -0.7986,
+      "validation_max_drawdown_pct_proxy": -0.3469,
+      "eligible": true,
+      "selection_score": 1.9773
+    },
+    {
+      "divergence_recency_bars": 48,
+      "target_R": 2.0,
+      "minimum_score": 80,
+      "development": {
+        "trades": 46,
+        "net_pnl_proxy": 23.945,
+        "return_on_initial_pct_proxy": 0.2394,
+        "win_rate_pct": 36.957,
+        "profit_factor": 1.0656,
+        "expectancy_R_proxy": 0.0217,
+        "best_trade_proxy": 47.66,
+        "worst_trade_proxy": -25.53
+      },
+      "validation": {
+        "trades": 11,
+        "net_pnl_proxy": 86.015,
+        "return_on_initial_pct_proxy": 0.8601,
+        "win_rate_pct": 54.545,
+        "profit_factor": 2.2283,
+        "expectancy_R_proxy": 0.3127,
+        "best_trade_proxy": 48.63,
+        "worst_trade_proxy": -22.4
+      },
+      "development_max_drawdown_pct_proxy": -0.7996,
+      "validation_max_drawdown_pct_proxy": -0.3469,
+      "eligible": true,
+      "selection_score": 1.81415
+    }
+  ],
+  "promotion_decision": "NOT_PROMOTED: requires broker-native cost model, stronger sample size, and demo verification",
+  "limitations": [
+    "Bounded parameter search can still overfit visible splits.",
+    "Final OOS is not used for parameter ranking.",
+    "Hybrid dataset includes external spot XAUUSD, not entirely broker-native XAUUSDc.",
+    "P/L uses abstract units; no verified contract size, commissions, swaps, tick replay, or broker-specific execution.",
+    "No live trading or MT5 orders are enabled."
+  ]
+}

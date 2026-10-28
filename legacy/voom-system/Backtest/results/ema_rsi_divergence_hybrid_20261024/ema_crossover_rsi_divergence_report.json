@@ -1,0 +1,111 @@
+{
+  "status": "research-only; no MT5 connection in backtester; no orders sent",
+  "symbol": "XAUUSDc (hybrid research series; external section is spot XAUUSD, not broker XAUUSDc)",
+  "timeframe": "M15",
+  "requested_start_utc": "2021-10-23T14:28:58.483896+00:00",
+  "requested_end_utc": "2026-10-23T20:28:58.483896+00:00",
+  "actual_start_utc": "2021-10-24T22:00:00+00:00",
+  "actual_end_utc": "2026-10-23T20:15:00+00:00",
+  "actual_coverage_days": 1824.927,
+  "requested_coverage_days": 1826.25,
+  "date_coverage_ratio": 0.99928,
+  "bars": 117843,
+  "initial_cash_normalized": 10000.0,
+  "final_equity_normalized": 9317.2793,
+  "net_pnl_proxy": -682.7207,
+  "return_pct_proxy": -6.8272,
+  "max_drawdown_pct_trade_equity": -19.6637,
+  "trades": 2086,
+  "win_rate_pct": 31.352,
+  "profit_factor": 0.9707,
+  "avg_trade_pnl_proxy": -0.3273,
+  "segments_by_entry_time": {
+    "development": {
+      "start_utc": "2021-10-24 22:00:00+00:00",
+      "end_utc": "2024-10-23 08:45:00+00:00",
+      "metrics": {
+        "trades": 1332,
+        "net_pnl": -1820.6914,
+        "return_pct": -18.2069,
+        "win_rate_pct": 30.03,
+        "profit_factor": 0.8876,
+        "avg_trade_pnl": -1.3669,
+        "best_trade": 540.2,
+        "worst_trade": -26.6189
+      }
+    },
+    "validation": {
+      "start_utc": "2024-10-23 08:45:00+00:00",
+      "end_utc": "2025-10-23 15:30:00+00:00",
+      "metrics": {
+        "trades": 405,
+        "net_pnl": 519.1145,
+        "return_pct": 5.1911,
+        "win_rate_pct": 33.827,
+        "profit_factor": 1.1324,
+        "avg_trade_pnl": 1.2818,
+        "best_trade": 224.275,
+        "worst_trade": -22.0382
+      }
+    },
+    "out_of_sample": {
+      "start_utc": "2025-10-23 15:30:00+00:00",
+      "end_utc": "2026-10-23 20:15:00+00:00",
+      "metrics": {
+        "trades": 349,
+        "net_pnl": 618.8562,
+        "return_pct": 6.1886,
+        "win_rate_pct": 33.524,
+        "profit_factor": 1.1972,
+        "avg_trade_pnl": 1.7732,
+        "best_trade": 143.12,
+        "worst_trade": -22.4722
+      }
+    }
+  },
+  "strategy": {
+    "entry": "EMA fast/slow crossover on completed candle; execute next bar open",
+    "fast_ema": 20,
+    "slow_ema": 50,
+    "tp": "Exit long on confirmed bearish RSI divergence; exit short on confirmed bullish RSI divergence",
+    "divergence": "price swing high/low vs RSI swing high/low; pivots confirmed after right bars to avoid look-ahead",
+    "rsi_period": 14,
+    "pivot_left": 3,
+    "pivot_right": 3,
+    "max_pivot_gap_bars": 60,
+    "protective_sl": "ATR-based stop at 2x ATR (risk control; no fixed take-profit target)",
+    "atr_period": 14,
+    "sl_atr": 2.0,
+    "risk_pct": 0.0025
+  },
+  "costs": {
+    "per_bar_spread": "uses the input spread column; external supplement spread is estimated from ask-open minus bid-open, broker section uses MT5 spread points; non-positive spread replaced with median positive spread (or 30 points if unavailable)",
+    "slippage_points_each_fill": 2.0,
+    "commission": "not modeled",
+    "swap": "not modeled"
+  },
+  "broker_spec_reference": {
+    "digits": 2,
+    "point": 0.01,
+    "trade_tick_size": 0.01,
+    "trade_tick_value": 1.0,
+    "trade_tick_value_profit": 1.0,
+    "trade_tick_value_loss": 1.0,
+    "volume_min": 0.01,
+    "volume_max": 1000.0,
+    "volume_step": 0.01,
+    "contract_size": 1.0,
+    "currency_profit": "USD",
+    "currency_margin": "USD"
+  },
+  "caveats": [
+    "This input may be mixed-source: external XAUUSD spot candles supplement MT5 XAUUSDc broker history. Full date-span coverage does not make the external segment broker-native; see input metadata and source column.",
+    "P/L and position sizing use abstract whole gold units as a research proxy; they are NOT broker lot sizing or reliable account-currency valuation.",
+    "RSI divergence is pivot-based and only recognized after the right-hand confirmation bars; this introduces detection delay by design.",
+    "Bar-level OHLC simulation cannot reconstruct exact tick order; if stop is hit intrabar it is filled at stop price with spread/slippage approximation.",
+    "Commission and swap are omitted; results are not proof of future profitability.",
+    "Out-of-sample period is chronological and was not used to tune parameters.",
+    "No MT5 order APIs, live-trading flags, EA settings or production order path are modified."
+  ],
+  "trades_csv": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\results\\ema_rsi_divergence_hybrid_20261024\\ema_crossover_rsi_divergence_trades.csv"
+}

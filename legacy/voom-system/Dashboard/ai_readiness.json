@@ -1,0 +1,344 @@
+{
+  "schema_version": 1,
+  "project": "Voom_system",
+  "runtime_checks_are_local_only": true,
+  "supabase_deployed_schema_verified": false,
+  "generated_at_utc": "2026-10-24T08:45:20.924066+00:00",
+  "checker": "Python/ai_readiness_check.py",
+  "policy": "Fail closed: missing, stale, or unverified evidence blocks readiness. This report does not enable trading.",
+  "live_trading_enabled": false,
+  "customer_selection_enabled": false,
+  "system_status": "BLOCKED",
+  "system_checks": [
+    {
+      "name": "Marketplace schema exists",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Local migration file is checked; deployed Supabase state is not queried."
+    },
+    {
+      "name": "No automatic live enablement",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Catalog policy must keep Live Trading disabled by default."
+    },
+    {
+      "name": "EA and bridge source files exist",
+      "passed": false,
+      "status": "BLOCKED",
+      "detail": "Checks file presence only, not terminal runtime or order routing."
+    },
+    {
+      "name": "Required test files exist",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Checks that regression test files are present; does not claim they passed."
+    },
+    {
+      "name": "Risk Guard unit tests",
+      "passed": true,
+      "status": "PASS",
+      "detail": "test_daily_loss_blocks_trade (__main__.RiskGuardTests.test_daily_loss_blocks_trade) ... ok\ntest_drawdown_blocks_trade (__main__.RiskGuardTests.test_drawdown_blocks_trade) ... ok\ntest_metrics_reject_nan (__main__.RiskGuardTests.test_metrics_reject_nan) ... ok\ntest_rejects_bad_oos (__main__.RiskGuardTests.test_rejects_bad_oos) ... ok\ntest_rejects_too_few_trades (__main__.RiskGuardTests.test_rejects_too_few_trades) ... ok\ntest_risk_is_clamped (__main__.RiskGuardTests.test_risk_is_clamped) ... ok\ntest_risk_over_limit_blocks_trade (__main__.RiskGuardTests.test_risk_over_limit_blocks_trade) ... ok\ntest_valid_paper_trade_risk_passes (__main__.RiskGuardTests.test_valid_paper_trade_risk_passes) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.001s\n\nOK"
+    },
+    {
+      "name": "Source 1 backtest unit tests",
+      "passed": true,
+      "status": "PASS",
+      "detail": "...\n----------------------------------------------------------------------\nRan 3 tests in 0.093s\n\nOK"
+    },
+    {
+      "name": "Installed bridge safety regression",
+      "passed": true,
+      "status": "PASS",
+      "detail": "{\n  \"daily_loss_over_limit_holds\": {\n    \"ok\": true,\n    \"reply\": \"SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily loss limit: P/L -300.01 USD <= -300.00; new entries blocked\"\n  },\n  \"unverified_pnl_fails_closed\": {\n    \"ok\": true,\n    \"reply\": \"SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily deal history unavailable\"\n  },\n  \"risk_config\": {\n    \"ok\": true,\n    \"daily_loss_usd\": 300.0,\n    \"risk_percent\": 0.25,\n    \"drawdown_stop\": 0.03\n  },\n  \"all_safety_tests_passed\": true\n}\nREPORT=C:\\Users\\Administrator\\Documents\\Voom_system\\Reports\\bridge_safety_regression_report.json"
+    },
+    {
+      "name": "Approval records file available",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Approval records parsed; an empty approvals list is valid and approves nothing."
+    },
+    {
+      "name": "Dashboard and staff API not published by tunnel",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Cloudflare config must not route the private Dashboard (4173) or staff API (8010); only the bridge adapter target may be routed."
+    },
+    {
+      "name": "Backtest report available",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Saved report was parsed successfully."
+    },
+    {
+      "name": "Customer catalog available",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Saved catalog was parsed successfully."
+    },
+    {
+      "name": "MT5 terminal process running",
+      "passed": true,
+      "status": "PASS",
+      "detail": "Checks terminal64.exe process presence only; it does not prove an account is connected."
+    },
+    {
+      "name": "Dashboard localhost:4173",
+      "passed": true,
+      "status": "PASS",
+      "detail": "TCP loopback port 4173 is listening."
+    },
+    {
+      "name": "MT5 Python Bridge localhost:8081",
+      "passed": false,
+      "status": "BLOCKED",
+      "detail": "TCP loopback port 8081 is not listening."
+    },
+    {
+      "name": "Bridge HTTP adapter localhost:8082",
+      "passed": false,
+      "status": "BLOCKED",
+      "detail": "TCP loopback port 8082 is not listening."
+    },
+    {
+      "name": "Source 1 API localhost:8000",
+      "passed": true,
+      "status": "PASS",
+      "detail": "TCP loopback port 8000 is listening."
+    },
+    {
+      "name": "Staff API localhost:8010",
+      "passed": false,
+      "status": "BLOCKED",
+      "detail": "TCP loopback port 8010 is not listening."
+    }
+  ],
+  "test_results": {
+    "risk_guard_unit_tests": {
+      "passed": true,
+      "returncode": 0,
+      "detail": "test_daily_loss_blocks_trade (__main__.RiskGuardTests.test_daily_loss_blocks_trade) ... ok\ntest_drawdown_blocks_trade (__main__.RiskGuardTests.test_drawdown_blocks_trade) ... ok\ntest_metrics_reject_nan (__main__.RiskGuardTests.test_metrics_reject_nan) ... ok\ntest_rejects_bad_oos (__main__.RiskGuardTests.test_rejects_bad_oos) ... ok\ntest_rejects_too_few_trades (__main__.RiskGuardTests.test_rejects_too_few_trades) ... ok\ntest_risk_is_clamped (__main__.RiskGuardTests.test_risk_is_clamped) ... ok\ntest_risk_over_limit_blocks_trade (__main__.RiskGuardTests.test_risk_over_limit_blocks_trade) ... ok\ntest_valid_paper_trade_risk_passes (__main__.RiskGuardTests.test_valid_paper_trade_risk_passes) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.001s\n\nOK"
+    },
+    "source1_backtest_unit_tests": {
+      "passed": true,
+      "returncode": 0,
+      "detail": "...\n----------------------------------------------------------------------\nRan 3 tests in 0.093s\n\nOK"
+    },
+    "installed_bridge_safety_regression": {
+      "passed": true,
+      "returncode": 0,
+      "detail": "{\n  \"daily_loss_over_limit_holds\": {\n    \"ok\": true,\n    \"reply\": \"SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily loss limit: P/L -300.01 USD <= -300.00; new entries blocked\"\n  },\n  \"unverified_pnl_fails_closed\": {\n    \"ok\": true,\n    \"reply\": \"SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily deal history unavailable\"\n  },\n  \"risk_config\": {\n    \"ok\": true,\n    \"daily_loss_usd\": 300.0,\n    \"risk_percent\": 0.25,\n    \"drawdown_stop\": 0.03\n  },\n  \"all_safety_tests_passed\": true\n}\nREPORT=C:\\Users\\Administrator\\Documents\\Voom_system\\Reports\\bridge_safety_regression_report.json"
+    }
+  },
+  "strategies": [
+    {
+      "strategy_key": "source1-mean-rejection-smc-wave-v6-2",
+      "name": "Source 1 Mean Rejection SMC Wave",
+      "version": "6.2-test.1",
+      "lifecycle": "testing",
+      "trading_mode": "paper",
+      "ready_for_service": false,
+      "checks": [
+        {
+          "name": "Backtest with broker costs",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Uses the saved 3-year report; full broker costs are not verified."
+        },
+        {
+          "name": "Out-of-sample validation",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Uses the saved out-of-sample gate in the report."
+        },
+        {
+          "name": "Demo forward test",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires recorded demo-forward evidence."
+        },
+        {
+          "name": "Risk review",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires approved risk review and enforced Risk Guard in the report."
+        },
+        {
+          "name": "Registry lifecycle approved",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Registry lifecycle is testing; testing/research status cannot be approved for customers."
+        },
+        {
+          "name": "Trading mode restricted",
+          "passed": true,
+          "status": "PASS",
+          "detail": "Registered trading mode is paper; live mode requires a separate explicit approval workflow."
+        },
+        {
+          "name": "Human approval evidence",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires an independently reviewed approval record with approver, timestamp, and evidence reference."
+        },
+        {
+          "name": "Execution and integration tests",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires recorded end-to-end EA/Dashboard and customer-isolation evidence."
+        }
+      ],
+      "blocking_reasons": [
+        "Uses the saved 3-year report; full broker costs are not verified.",
+        "Uses the saved out-of-sample gate in the report.",
+        "Requires recorded demo-forward evidence.",
+        "Requires approved risk review and enforced Risk Guard in the report.",
+        "Registry lifecycle is testing; testing/research status cannot be approved for customers.",
+        "Requires an independently reviewed approval record with approver, timestamp, and evidence reference.",
+        "Requires recorded end-to-end EA/Dashboard and customer-isolation evidence."
+      ],
+      "evidence": {
+        "backtest_report": "Reports/source1_backtest_3y/summary.json",
+        "backtest_report_sha256": "80ce7fc748c16fd7b75debf1f4f4e9270fb0eb46a901245b6a78da28b8db7a1c",
+        "registry_present": true,
+        "approval_record_present": false,
+        "approval_record_sha256": "77371a796e38847fda792cc1ecdf9e60af1bbe24264b9c24b43ff4259422bcb5"
+      }
+    },
+    {
+      "strategy_key": "ema-test-01",
+      "name": "VOOM EMA Trend Candidate",
+      "version": "0.1.0",
+      "lifecycle": "research",
+      "trading_mode": "paper",
+      "ready_for_service": false,
+      "checks": [
+        {
+          "name": "Reproducible backtest with costs",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: not_run."
+        },
+        {
+          "name": "Out-of-sample validation",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: not_run."
+        },
+        {
+          "name": "Demo forward validation",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: not_run."
+        },
+        {
+          "name": "Risk review",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: missing."
+        },
+        {
+          "name": "Human approval",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires approved status, approval timestamp, approver reference, and evidence reference."
+        },
+        {
+          "name": "Approved lifecycle",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog lifecycle is research; customer_visible alone cannot authorize service."
+        },
+        {
+          "name": "End-to-end and customer-isolation tests",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires recorded E2E execution-path and cross-customer isolation evidence."
+        }
+      ],
+      "blocking_reasons": [
+        "Catalog evidence: not_run.",
+        "Catalog evidence: not_run.",
+        "Catalog evidence: not_run.",
+        "Catalog evidence: missing.",
+        "Requires approved status, approval timestamp, approver reference, and evidence reference.",
+        "Catalog lifecycle is research; customer_visible alone cannot authorize service.",
+        "Requires recorded E2E execution-path and cross-customer isolation evidence."
+      ],
+      "evidence": {
+        "catalog_file": "Research/aiเทรด/customer_catalog.json"
+      }
+    },
+    {
+      "strategy_key": "trained-97a2ff734e-ema20-60",
+      "name": "VOOM Auto-Optimized EMA Candidate",
+      "version": "0.1.0",
+      "lifecycle": "research",
+      "trading_mode": "paper",
+      "ready_for_service": false,
+      "checks": [
+        {
+          "name": "Reproducible backtest with costs",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: parameter_search_complete."
+        },
+        {
+          "name": "Out-of-sample validation",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: chronological_holdout."
+        },
+        {
+          "name": "Demo forward validation",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: not_run."
+        },
+        {
+          "name": "Risk review",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog evidence: pending."
+        },
+        {
+          "name": "Human approval",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires approved status, approval timestamp, approver reference, and evidence reference."
+        },
+        {
+          "name": "Approved lifecycle",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Catalog lifecycle is research; customer_visible alone cannot authorize service."
+        },
+        {
+          "name": "End-to-end and customer-isolation tests",
+          "passed": false,
+          "status": "BLOCKED",
+          "detail": "Requires recorded E2E execution-path and cross-customer isolation evidence."
+        }
+      ],
+      "blocking_reasons": [
+        "Catalog evidence: parameter_search_complete.",
+        "Catalog evidence: chronological_holdout.",
+        "Catalog evidence: not_run.",
+        "Catalog evidence: pending.",
+        "Requires approved status, approval timestamp, approver reference, and evidence reference.",
+        "Catalog lifecycle is research; customer_visible alone cannot authorize service.",
+        "Requires recorded E2E execution-path and cross-customer isolation evidence."
+      ],
+      "evidence": {
+        "catalog_file": "Research/aiเทรด/customer_catalog.json"
+      }
+    }
+  ],
+  "summary": {
+    "strategies_total": 3,
+    "ready_for_service": 0,
+    "blocked_or_testing": 3,
+    "system_checks_passed": 13,
+    "system_checks_total": 17
+  }
+}

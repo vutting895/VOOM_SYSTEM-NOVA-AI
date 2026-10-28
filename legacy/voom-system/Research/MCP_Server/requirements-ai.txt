@@ -1,0 +1,5 @@
+# Optional AI stack. Install only when needed; PyTorch may be a large download.
+# Core MCP server remains usable without these packages.
+torch>=2.4,<3.0
+transformers>=4.45,<6.0
+scikit-learn>=1.5,<2.0

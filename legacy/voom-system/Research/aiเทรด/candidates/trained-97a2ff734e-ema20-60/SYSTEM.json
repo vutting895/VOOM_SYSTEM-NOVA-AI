@@ -1,0 +1,55 @@
+{
+  "id": "trained-97a2ff734e-ema20-60",
+  "name": "VOOM Auto-Optimized EMA Candidate",
+  "version": "0.1.0",
+  "status": "research",
+  "preliminary_holdout_screen_passed": false,
+  "created_at": "2026-10-23T20:48:19.560384+00:00",
+  "generator": "offline-grid-search",
+  "data_sha256": "97a2ff734ef59604ab8e8314fabfa302d7775cd9058644b55b40171c37010e9d",
+  "parameters": {
+    "ema_fast": 20,
+    "ema_slow": 60,
+    "rsi_period": 14,
+    "long_rsi_min": 52,
+    "short_rsi_max": 48,
+    "hold_bars_max": 12
+  },
+  "train_metrics": {
+    "bars": 82490,
+    "trades": 1347,
+    "win_rate": 0.39420935412026725,
+    "net_return_pct": -51.398759133944694,
+    "max_drawdown_pct": 53.908992377839795,
+    "avg_trade_return_pct": -0.05299000194869934,
+    "ranking_score": -0.9123050341732454,
+    "cost_bps_per_side": 2.0
+  },
+  "out_of_sample_metrics": {
+    "bars": 35353,
+    "trades": 589,
+    "win_rate": 0.41935483870967744,
+    "net_return_pct": -17.20763185520817,
+    "max_drawdown_pct": 21.59296539931754,
+    "avg_trade_return_pct": -0.03090923081323971,
+    "ranking_score": -0.32802355904696323,
+    "cost_bps_per_side": 2.0
+  },
+  "evidence": {
+    "backtest": "parameter_search_complete",
+    "out_of_sample": "chronological_holdout",
+    "demo_forward": "not_run",
+    "risk_review": "pending",
+    "human_approval": "pending"
+  },
+  "customer_visible": false,
+  "live_trading_enabled": false,
+  "limitations": [
+    "close-only signals",
+    "no broker execution",
+    "no leverage or lot sizing",
+    "cost modeled as basis points per side",
+    "not a substitute for tick-level spread/slippage simulation",
+    "Not yet demo validated or approved."
+  ]
+}

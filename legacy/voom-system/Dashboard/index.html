@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020"><meta name="robots" content="noindex,nofollow">
+<title>เข้าสู่ระบบลูกค้า · VOOM SYSTEM</title>
+<style>
+:root{color-scheme:dark;--bg:#080d19;--line:#2a3854;--muted:#9ba9c3;--text:#edf2ff;--blue:#6485ff;--green:#86e2b0;--red:#ff9cab}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:22px;display:grid;place-items:center;background:radial-gradient(ellipse at top,#1b2b50,#0b1222 48%,var(--bg));font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text)}
+main{width:min(100%,440px);padding:clamp(22px,5vw,36px);background:#111a2df5;border:1px solid var(--line);border-radius:20px;box-shadow:0 25px 80px #0007}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}.mark{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:linear-gradient(140deg,#7195ff,#6956dc);font-size:23px;font-weight:800}.brand b,.brand small{display:block;letter-spacing:.12em}.brand small{font-size:9px;color:#8f9fbd;margin-top:3px}
+.eyebrow{color:#91aaff;font-size:10px;font-weight:800;letter-spacing:.16em}h1{font-size:27px;line-height:1.25;margin:8px 0}.intro{color:var(--muted);font-size:12px;margin:0 0 22px}
+form{display:grid;gap:8px}label{font-size:12px;margin-top:5px}input{width:100%;padding:12px 13px;border:1px solid #34425f;border-radius:10px;background:#091121;color:white;font:inherit;outline:none}input:focus{border-color:var(--blue)}
+button{margin-top:10px;border:0;border-radius:10px;padding:13px;background:var(--blue);color:white;font:inherit;font-weight:750;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.message{min-height:22px;margin:8px 0 0;font-size:12px;color:var(--green);overflow-wrap:anywhere}.message.error{color:var(--red)}
+.foot{border-top:1px solid #293650;margin-top:22px;padding-top:16px;color:#95a4bf;font-size:11px}.foot a{color:#a9bcff;text-decoration:none}.foot p{margin:7px 0}.loading{color:#a9bcff;font-size:12px}
+</style>
+</head>
+<body>
+<main>
+ <div class="brand"><span class="mark">V</span><div><b>VOOM SYSTEM</b><small>CUSTOMER PORTAL</small></div></div>
+ <div class="eyebrow">พื้นที่สมาชิก</div><h1>เข้าสู่ระบบลูกค้า</h1>
+ <p class="intro">ใช้บัญชีอีเมลที่ยืนยันแล้วเพื่อเปิดหน้าสมาชิกของคุณ</p>
+ <form id="loginForm">
+  <label for="email">อีเมล</label><input id="email" name="email" type="email" autocomplete="username" inputmode="email" maxlength="254" required placeholder="you@example.com">
+  <label for="password">รหัสผ่าน</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128" placeholder="รหัสผ่านของคุณ">
+  <button id="submitBtn" type="submit" disabled>กำลังเชื่อมต่อระบบ…</button>
+  <p id="message" class="message" role="status" aria-live="polite">กำลังโหลดบริการเข้าสู่ระบบ…</p>
+ </form>
+ <div class="foot"><p>ยังไม่มีบัญชี? <a href="/register.html">สมัครสมาชิก</a></p><p>เจ้าหน้าที่: <a href="/staff.html">เข้าสู่ระบบเจ้าหน้าที่</a></p></div>
+</main>
+<script>
+(()=>{'use strict';
+const SUPABASE_URL='https://tlyyxufuiimrbaksoitf.supabase.co';
+const SUPABASE_KEY='sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD';
+const form=document.getElementById('loginForm'),btn=document.getElementById('submitBtn'),msg=document.getElementById('message');
+const say=(text,bad=false)=>{msg.textContent=text;msg.classList.toggle('error',bad)};
+let client=null;
+function loadSdk(url,timeoutMs=9000){return new Promise((resolve,reject)=>{const s=document.createElement('script');let done=false;const timer=setTimeout(()=>finish(new Error('timeout')),timeoutMs);function finish(err){if(done)return;done=true;clearTimeout(timer);s.onload=s.onerror=null;err?reject(err):resolve()}s.src=url;s.async=true;s.onload=()=>window.supabase?.createClient?finish():finish(new Error('SDK unavailable'));s.onerror=()=>finish(new Error('SDK load failed'));document.head.appendChild(s)})}
+async function init(){
+ let lastError;
+ for(const url of ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js']){
+  try{await loadSdk(url);lastError=null;break}catch(e){lastError=e}
+ }
+ if(lastError||!window.supabase?.createClient){say('โหลดระบบยืนยันตัวตนไม่ได้ เครือข่ายอาจบล็อก CDN กรุณาลองเปลี่ยนเครือข่ายหรือปิดตัวบล็อกสคริปต์แล้วโหลดใหม่',true);btn.disabled=true;btn.textContent='ระบบยังไม่พร้อม';return}
+ client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+ btn.disabled=false;btn.textContent='เข้าสู่ระบบ';say('');
+ try{const {data,error}=await client.auth.getSession();if(error)throw error;if(data.session){await routeCustomer(data.session.user);return}
+ const params=new URLSearchParams(location.search);
+ if(params.has('error_description'))say('ลิงก์ยืนยันอีเมลมีปัญหาหรือหมดอายุ กรุณาขอลิงก์ใหม่',true);
+ else if(params.get('confirmed')==='1')say('ยืนยันอีเมลแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน');
+ else if(params.get('access')==='denied')say('บัญชีนี้ไม่มีสิทธิ์เข้าพื้นที่ลูกค้า',true);
+ }catch(e){say('เชื่อมต่อบริการยืนยันตัวตนไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วโหลดหน้าใหม่',true)}
+}
+async function routeCustomer(user){
+ const {data:profile,error}=await client.from('customer_profiles').select('user_id,display_name,role,account_status').eq('user_id',user.id).maybeSingle();
+ if(error){say('เข้าสู่ระบบแล้ว แต่ตรวจสอบโปรไฟล์ไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแล',true);return false}
+ if(!profile||profile.role!=='customer'){await client.auth.signOut();say('บัญชีนี้ไม่มีสิทธิ์เข้าพื้นที่ลูกค้า',true);return false}
+ if(profile.account_status!=='active'){await client.auth.signOut();say('บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแล',true);return false}
+ location.replace('/customer.html');return true
+}
+form.addEventListener('submit',async e=>{e.preventDefault();if(!client){say('ระบบยืนยันตัวตนยังไม่พร้อม กรุณารอสักครู่แล้วลองใหม่',true);return}
+ btn.disabled=true;btn.textContent='กำลังตรวจสอบ…';say('');
+ try{const {data,error}=await client.auth.signInWithPassword({email:document.getElementById('email').value.trim().toLowerCase(),password:document.getElementById('password').value});if(error)throw error;await routeCustomer(data.user)}
+ catch(e){const m=String(e?.message||'');say(/email not confirmed/i.test(m)?'อีเมลยังไม่ได้ยืนยัน กรุณาเปิดอีเมลยืนยันก่อนเข้าสู่ระบบ':'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน',true)}
+ finally{btn.disabled=false;btn.textContent='เข้าสู่ระบบ'}
+});
+init();
+})();
+</script>
+</body>
+</html>

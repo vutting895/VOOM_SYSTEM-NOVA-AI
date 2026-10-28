@@ -1,0 +1,138 @@
+// @version=5
+// Mean Rejection SMC Wave v6.2 BEST CONFIG — Invite-Only
+// Confluence>=4 | DL 25% | Dist 1.8 | Z 2.2 | Risk 1% | RR 1.5/3.1
+// © System Export Hub — All Rights Reserved
+indicator("Mean Rejection SMC Wave v6.2 BEST [Invite]", overlay=true, max_lines_count=500, max_boxes_count=500, max_labels_count=500)
+
+// === BEST CONFIG INPUTS (LOCKED) ===
+BEST_APPLIED = input.bool(true, "BEST_CONFIG_APPLIED", group="BEST v6.2")
+confluenceMin = input.int(4, "CONFLUENCE_MIN", minval=2, maxval=6, group="BEST v6.2")
+dlWeight = input.float(0.25, "DL_WEIGHT", 0.1, 0.5, 0.05, group="BEST v6.2")
+distMult = input.float(1.8, "DIST_ATR_MULT", 1.0, 3.0, 0.1, group="BEST v6.2")
+zThresh = input.float(2.2, "Z_SCORE", 1.5, 3.0, 0.1, group="BEST v6.2")
+riskPct = input.float(1.0, "Risk %", 0.1, 2.0, 0.1, group="Risk") / 100
+rr1 = input.float(1.5, "RR TP1", group="Risk")
+rr2 = input.float(3.1, "RR TP2", group="Risk")
+
+// === CORE CALC ===
+atr = ta.atr(14)
+mean = ta.sma(close, 50)
+stdev = ta.stdev(close, 50)
+zscore = (close - mean) / stdev
+
+// SMC: Order Block
+isBullOB = low[2] < low[3] and close > open and close > high[1]
+isBearOB = high[2] > high[3] and close < open and close < low[1]
+var box[] obBoxes = array.new_box()
+if isBullOB
+    b = box.new(bar_index[2], low[2], bar_index, high[2], bgcolor=color.new(color.lime, 80), border_color=color.lime)
+    array.push(obBoxes, b)
+if isBearOB
+    b = box.new(bar_index[2], low[2], bar_index, high[2], bgcolor=color.new(color.red, 80), border_color=color.red)
+    array.push(obBoxes, b)
+
+// FVG
+fvgBull = low > high[2] and (low - high[2]) > atr*0.3
+fvgBear = high < low[2] and (low[2] - high) > atr*0.3
+
+// PA: Engulfing + Pinbar
+bullEng = close > open[1] and close[1] < open[1] and close > open
+bearEng = close < open[1] and close[1] > open[1] and close < open
+pinBull = (low < low[1] and close > open and (close - low) > (high - low)*0.6)
+pinBear = (high > high[1] and close < open and (high - close) > (high - low)*0.6)
+
+// Session filter London + NY (UTC)
+isLondon = hour >= 7 and hour <= 16
+isNY = hour >= 12 and hour <= 21
+inSession = isLondon or isNY
+
+// Volatility filter
+atrMA = ta.sma(atr, 50)
+volOk = atr / atrMA >= 0.4 and atr / atrMA <= 3.5
+
+// Distance filter
+distATR = math.abs(close - mean) / atr
+distOk = distATR >= distMult
+
+// === CONFLUENCE SCORING ===
+confluenceLong = 0
+confluenceShort = 0
+
+if zscore < -zThresh
+    confluenceLong += 1
+if zscore > zThresh
+    confluenceShort += 1
+if isBullOB
+    confluenceLong += 1
+if isBearOB
+    confluenceShort += 1
+if fvgBull
+    confluenceLong += 1
+if fvgBear
+    confluenceShort += 1
+if bullEng or pinBull
+    confluenceLong += 1
+if bearEng or pinBear
+    confluenceShort += 1
+if volOk and inSession and distOk
+    confluenceLong += 1
+    confluenceShort += 1
+
+// Simulated DL score (in real, use request.security for external model or webhook)
+dlScore = math.avg(ta.rsi(close,14)/100, ta.ema(close,21)/close)  // placeholder
+
+finalLong = confluenceLong >= confluenceMin
+finalShort = confluenceShort >= confluenceMin
+
+// === PLOT & ALERTS ===
+plot(mean, "Mean 50", color=color.new(color.yellow, 0), linewidth=2)
+plot(mean + stdev*zThresh, "Z+2.2", color=color.new(color.gray, 70))
+plot(mean - stdev*zThresh, "Z-2.2", color=color.new(color.gray, 70))
+
+plotshape(finalLong, style=shape.triangleup, location=location.belowbar, color=color.lime, size=size.small, title="LONG v6.2 BEST")
+plotshape(finalShort, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="SHORT v6.2 BEST")
+
+// RR Boxes
+var line[] slLines = array.new_line()
+if finalLong
+    entry = close
+    sl = entry - atr*1.2
+    tp1 = entry + (entry - sl)*rr1
+    tp2 = entry + (entry - sl)*rr2
+    l1 = line.new(bar_index, sl, bar_index+20, sl, color=color.red, width=2, style=line.style_dashed)
+    l2 = line.new(bar_index, tp1, bar_index+20, tp1, color=color.lime, width=1)
+    l3 = line.new(bar_index, tp2, bar_index+20, tp2, color=color.new(color.lime,0), width=2)
+    array.push(slLines, l1)
+if finalShort
+    entry = close
+    sl = entry + atr*1.2
+    tp1 = entry - (sl - entry)*rr1
+    tp2 = entry - (sl - entry)*rr2
+    l1 = line.new(bar_index, sl, bar_index+20, sl, color=color.red, width=2, style=line.style_dashed)
+    l2 = line.new(bar_index, tp1, bar_index+20, tp1, color=color.lime, width=1)
+    l3 = line.new(bar_index, tp2, bar_index+20, tp2, color=color.new(color.lime,0), width=2)
+    array.push(slLines, l1)
+
+// Alert
+alertcondition(finalLong, "LONG v6.2 BEST", "LONG Confluence={{confluenceLong}} Z={{zscore}} DL={{dlScore}}")
+alertcondition(finalShort, "SHORT v6.2 BEST", "SHORT Confluence={{confluenceShort}} Z={{zscore}} DL={{dlScore}}")
+
+// Table info
+var table t = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 20), border_width=1)
+if barstate.islast
+    table.cell(t, 0, 0, "BEST_CONFIG", text_color=color.yellow)
+    table.cell(t, 1, 0, str.tostring(BEST_APPLIED), text_color=color.white)
+    table.cell(t, 0, 1, "Confluence", text_color=color.white)
+    table.cell(t, 1, 1, str.tostring(confluenceLong) + "/" + str.tostring(confluenceShort), text_color=color.white)
+    table.cell(t, 0, 2, "Z-Score", text_color=color.white)
+    table.cell(t, 1, 2, str.tostring(zscore, "#.##"), text_color=color.white)
+    table.cell(t, 0, 3, "Dist ATR", text_color=color.white)
+    table.cell(t, 1, 3, str.tostring(distATR, "#.##"), text_color=color.white)
+    table.cell(t, 0, 4, "Vol OK", text_color=color.white)
+    table.cell(t, 1, 4, str.tostring(volOk), text_color=volOk?color.lime:color.red)
+    table.cell(t, 0, 5, "Session", text_color=color.white)
+    table.cell(t, 1, 5, str.tostring(inSession), text_color=inSession?color.lime:color.gray)
+    table.cell(t, 0, 6, "Risk", text_color=color.white)
+    table.cell(t, 1, 6, str.tostring(riskPct*100)+"%", text_color=color.white)
+    table.cell(t, 0, 7, "RR", text_color=color.white)
+    table.cell(t, 1, 7, str.tostring(rr1)+"/"+str.tostring(rr2), text_color=color.white)

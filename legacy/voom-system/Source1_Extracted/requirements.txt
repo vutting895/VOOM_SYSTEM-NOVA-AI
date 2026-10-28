@@ -1,0 +1,20 @@
+# Mean Rejection SMC Wave v6.2 BEST — Requirements
+fastapi==0.110.2
+uvicorn[standard]==0.29.0
+pydantic==2.6.4
+torch==2.2.2
+numpy==1.26.4
+pandas==2.2.1
+scikit-learn==1.4.1
+optuna==3.6.0
+APScheduler==3.10.4
+python-dotenv==1.0.1
+ccxt==4.1.77
+websockets==12.0
+ta-lib==0.4.28
+# optional: accelerate inference
+onnx==1.16.0
+onnxruntime==1.18.0
+# utils
+loguru==0.7.2
+orjson==3.10.0

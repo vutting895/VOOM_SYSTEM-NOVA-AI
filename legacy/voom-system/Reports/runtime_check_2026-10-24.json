@@ -1,0 +1,34 @@
+{
+  "reportType": "Voom_system runtime connectivity check",
+  "generatedAtLocal": "2026-10-24T03:30:57+07:00",
+  "repository": "vutting895/Voom_system",
+  "branch": "main",
+  "checks": {
+    "localRelayHealth": "HTTP 200",
+    "cloudflareApiHealth": "HTTP 200",
+    "cloudflareDashboardStatusHttp": "HTTP 200",
+    "cloudflareConnected": false,
+    "telemetryPresentInKV": false,
+    "telemetryEndToEndVerified": false,
+    "paperPresetPresent": true,
+    "paperPresetVerifiedAtPath": "MT5 terminal MQL5/Presets/VoomSystemEA_Telemetry_Paper.set",
+    "presetTokenMatchesLocalApiToken": true,
+    "telemetryTargetIsLocal": true,
+    "paperOnly": true,
+    "eaInputsReloaded": false,
+    "cloudflareSecretEqualityVerified": false
+  },
+  "safety": {
+    "liveTradingEnabled": false,
+    "orderExecution": "disabled",
+    "testTelemetryWritten": false,
+    "secretsIncluded": false
+  },
+  "notes": [
+    "Runtime health endpoints returned HTTP 200 during the latest check.",
+    "HTTP 200 does not mean MT5 telemetry has reached the dashboard.",
+    "Dashboard status currently reports connected=false and telemetry is not present in KV.",
+    "The preset file exists at the MT5 Presets path, but runtime EA inputs have not been confirmed reloaded.",
+    "No synthetic telemetry was written and no secret/token values are included."
+  ]
+}

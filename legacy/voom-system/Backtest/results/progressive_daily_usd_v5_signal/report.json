@@ -1,0 +1,48 @@
+{
+  "title": "VOOM Progressive Daily USD v5.0 structural signal audit",
+  "mode": "signal-count only; no trade/PnL simulation",
+  "dataset": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\data\\XAUUSDc_M15_20211023_20261023_hybrid.csv",
+  "dataset_type": "mixed-source M15 research data; external spot XAUUSD supplement is not broker-native XAUUSDc",
+  "bars": 117843,
+  "start_utc": "2021-10-24T22:00:00+00:00",
+  "end_utc": "2026-10-23T20:15:00+00:00",
+  "source_bar_counts": {
+    "EV_Trading_Labs_Dukascopy_aggregated_BID_ASK": 17824,
+    "MT5_XAUUSDc_broker_history": 100019
+  },
+  "parameters": {
+    "chart_timeframe": "M15",
+    "higher_timeframe": "H1 reconstructed from M15",
+    "ema_period": 200,
+    "sweep_lookback_bars": 20,
+    "minimum_fvg_points": 50.0,
+    "point_size_assumption": 0.01
+  },
+  "component_counts": {
+    "bullish_sweep_bars": 6541,
+    "bearish_sweep_bars": 7455,
+    "bullish_fvg_bars": 8435,
+    "bearish_fvg_bars": 7426,
+    "uptrend_bars_with_ema": 64500,
+    "downtrend_bars_with_ema": 48681,
+    "buy_confluence_same_bar": 0,
+    "sell_confluence_same_bar": 0
+  },
+  "signals": {
+    "total": 0,
+    "buy": 0,
+    "sell": 0,
+    "per_year": {},
+    "by_source_and_direction": {}
+  },
+  "limitations": [
+    "Tick velocity cannot be evaluated from M15 OHLC bars; counts are structural candidates before the tick-event gate.",
+    "No Order Block detector exists in the source; only three-candle FVG is evaluated.",
+    "No entries/exits/SL/TP/daily target/loss guard/spread/slippage/commission are simulated; no P/L, win rate, profit factor or drawdown is claimed.",
+    "H1 EMA is reconstructed from complete groups of four M15 bars, not native H1 history; EMA initialization and bar availability may differ from MT5.",
+    "Dataset mixes broker-native XAUUSDc with an external XAUUSD segment; the external segment is exploratory only.",
+    "This is an independent structural approximation, not a bit-for-bit MT5 replay."
+  ],
+  "orders_sent": false,
+  "live_trading_enabled_or_changed": false
+}

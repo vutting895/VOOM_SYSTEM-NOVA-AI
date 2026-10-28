@@ -69,13 +69,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          frontend="https://voomsystem.vercel.app"
+          frontend="https://voomsystemnova-suwapats-projects.vercel.app"
+          if [[ "$frontend" != https://* ]]; then
+            echo "Deployment blocked: frontend smoke-test URL must use HTTPS."
+            exit 1
+          fi
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
           mcp="https://voom-system-mcp.suwapat787.workers.dev"
           body="$(mktemp)"
           trap 'rm -f "$body"' EXIT
 
-          # Vercel's Git integration deploys main independently; allow up to 3 minutes for its alias to update.
+          # The configured frontend URL must be the verified host for the selected project.
           code="000"
           for attempt in $(seq 1 18); do
             code="$(curl --location --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$frontend/" || true)"

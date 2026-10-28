@@ -1,0 +1,61 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    container_name: v62_api
+    command: uvicorn api_server:app --host 0.0.0.0 --port 8000 --workers 2
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks: [trading]
+
+  bot-fleet-a:
+    build: .
+    container_name: v62_bot_a
+    command: python main_bot_v62_best.py --fleet AI-1,AI-2
+    env_file: .env
+    depends_on: [api]
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    networks: [trading]
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+  bot-fleet-b:
+    build: .
+    container_name: v62_bot_b
+    command: python main_bot_v62_best.py --fleet AI-3,AI-4
+    env_file: .env
+    depends_on: [api]
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    networks: [trading]
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+
+  retrain-worker:
+    build: .
+    container_name: v62_retrain
+    command: python auto_retrain.py
+    env_file: .env
+    volumes:
+      - ./models:/app/models
+      - ./models/best:/app/models/best
+    restart: unless-stopped
+    networks: [trading]
+
+networks:
+  trading:
+    driver: bridge

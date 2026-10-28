@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive"><meta name="theme-color" content="#0b1020">
+<title>VOOM AI · Private Chat</title><link rel="stylesheet" href="/styles.css">
+</head>
+<body><main class="app-shell">
+<section id="login-panel" class="login-card" aria-labelledby="login-title">
+<div class="brand-mark" aria-hidden="true">V</div><p class="eyebrow">PRIVATE AI WORKSPACE</p><h1 id="login-title">VOOM AI</h1>
+<p class="muted">พื้นที่สนทนาส่วนตัวสำหรับงานวิจัยและพัฒนาระบบ</p>
+<form id="login-form"><label for="email">อีเมล</label><input id="email" name="email" type="email" autocomplete="username" required maxlength="254">
+<label for="password">รหัสผ่าน</label><input id="password" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="256">
+<button id="login-button" class="primary-button" type="submit">เข้าสู่ระบบ</button></form>
+<p id="login-status" class="status-line" role="status" aria-live="polite"></p><p class="fine-print">เปิดให้เฉพาะบัญชีที่ได้รับอนุญาตและยืนยันอีเมลแล้วเท่านั้น</p>
+</section>
+<section id="chat-panel" class="chat-layout hidden" aria-label="VOOM AI chat">
+<header class="topbar"><div class="brand-inline"><div class="brand-mark small" aria-hidden="true">V</div><div><strong>VOOM AI</strong><span class="online-label"><i></i> Private chat</span></div></div>
+<div class="account-actions"><span id="account-email" class="account-email"></span><button id="marketplace-toggle" class="quiet-button" type="button" aria-expanded="false">AI Marketplace</button><button id="new-chat" class="quiet-button" type="button">แชตใหม่</button><button id="logout-button" class="quiet-button" type="button">ออกจากระบบ</button></div></header>
+<section id="marketplace-panel" class="marketplace-panel hidden" aria-label="AI Marketplace"><div class="marketplace-heading"><div><p class="eyebrow">AI STRATEGY MARKETPLACE</p><h2>เลือก AI สำหรับบัญชีของคุณ</h2><p class="muted">แสดงเฉพาะกลยุทธ์ที่ผ่านการอนุมัติและพร้อมใช้งานใน Paper/Demo เท่านั้น</p></div><button id="refresh-marketplace" class="quiet-button" type="button">รีเฟรช</button></div><p id="marketplace-status" class="status-line" role="status" aria-live="polite"></p><div id="strategy-list" class="strategy-list"></div><h3 class="subscription-title">AI ที่คุณเปิดใช้งาน</h3><div id="subscription-list" class="strategy-list"></div><p class="fine-print">Paper-only · ไม่ส่งคำสั่งซื้อขายจริง · การเปิดใช้ AI ในหน้านี้ยังไม่เชื่อมต่อ EA</p></section>
+<div class="chat-content"><aside class="welcome-panel"><p class="eyebrow">YOUR PRIVATE AI</p><h2>คิด วางแผน และสร้างไปด้วยกัน</h2><p class="muted">ถามเรื่องการเขียนโค้ด การวิจัย และการพัฒนา VOOM_system ได้</p>
+<div class="suggestions"><button class="suggestion" type="button" data-prompt="ช่วยวางแผนพัฒนา VOOM_system เป็นขั้นตอน โดยเน้นความปลอดภัย">วางแผนพัฒนา VOOM_system</button>
+<button class="suggestion" type="button" data-prompt="ช่วยตรวจสอบแนวทางรักษาความลับ API Key และการออกแบบระบบที่ปลอดภัย">ตรวจสอบความปลอดภัย API Key</button>
+<button class="suggestion" type="button" data-prompt="อธิบายวิธีทดสอบเว็บแชตนี้ก่อนเปิดใช้งานจริง">เตรียมแผนทดสอบระบบ</button></div></aside>
+<section id="messages" class="messages" aria-live="polite" aria-label="ข้อความสนทนา"></section></div>
+<form id="chat-form" class="composer"><div class="composer-inner"><textarea id="prompt" rows="1" maxlength="4000" placeholder="พิมพ์ข้อความถึง VOOM AI..." aria-label="ข้อความถึง VOOM AI" required></textarea>
+<button id="send-button" class="send-button" type="submit" aria-label="ส่งข้อความ"><span>ส่ง</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7"/></svg></button></div>
+<div class="composer-foot"><span>AI อาจตอบผิดพลาด โปรดตรวจสอบข้อมูลสำคัญ</span><span>บทสนทนาไม่ถูกบันทึกถาวรในเวอร์ชันนี้</span></div></form><p id="chat-status" class="status-line chat-status" role="status" aria-live="polite"></p>
+</section></main><script type="module" src="/app.js"></script></body></html>
