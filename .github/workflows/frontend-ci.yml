@@ -162,8 +162,19 @@ jobs:
           trap 'rm -f "$body"' EXIT
 
           code="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "$PREVIEW_URL/")"
+          root_ok=true
           if [ "$code" != "200" ] || ! grep -Eiq 'NOVA|VOOM' "$body"; then
-            echo "Preview homepage smoke test failed (HTTP $code)."
+            root_ok=false
+            echo "Preview homepage smoke test failed (HTTP $code). Response body (first 1200 bytes):"
+            head -c 1200 "$body" | tr '\n' ' ' || true
+            echo
+          fi
+
+          for path in /login /chat /markets /_next/static/css/c17fb60eb35d176c.css; do
+            route_code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$PREVIEW_URL$path")"
+            echo "Preview diagnostic GET $path -> HTTP $route_code"
+          done
+          if [ "$root_ok" != "true" ]; then
             exit 1
           fi
 
