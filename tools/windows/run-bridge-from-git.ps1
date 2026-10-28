@@ -94,6 +94,14 @@ try {
         }
     }
 
+    # Do not launch a duplicate Bridge while a previous instance is serving on port 8787.
+    $ExistingListener = Get-NetTCPConnection -State Listen -LocalPort 8787 -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($ExistingListener) {
+        Write-Host "A service is already listening on local port 8787 (PID $($ExistingListener.OwningProcess))."
+        Write-Host 'Refusing to start a duplicate Bridge. Stop the existing instance before restarting from Git.'
+        exit 0
+    }
+
     $Requirements = Join-Path $BridgeRoot 'requirements.txt'
     $VenvRoot = Join-Path $BridgeRoot '.venv'
     $Python = Join-Path $VenvRoot 'Scripts\python.exe'
