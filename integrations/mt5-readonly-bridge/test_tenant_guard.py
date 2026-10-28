@@ -50,7 +50,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_missing_or_invalid_bearer_is_rejected_before_tenant_mismatch(self):
         guard_start = SOURCE.index("def require_token(")
-        guard_end = SOURCE.index("\\n\\ndef initialize_mt5", guard_start)
+        guard_end = SOURCE.index("def initialize_mt5", guard_start)
         guard_source = SOURCE[guard_start:guard_end]
         self.assertLess(guard_source.index("if not authorization"), guard_source.index("if not tenant_id"))
         self.assertLess(guard_source.index("hmac.compare_digest(supplied, BRIDGE_TOKEN)"), guard_source.index("if not tenant_id"))
