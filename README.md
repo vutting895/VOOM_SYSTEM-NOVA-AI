@@ -1,23 +1,55 @@
-# VOOM_SYSTEM — NOVA
+# VOOM_SYSTEM — NOVA (canonical repository)
 
-## Purpose
-Modular market-research and paper-trading platform: market-data ingestion, strategy drafting, historical simulation, tuning, risk validation, portfolio allocation, and broker integration.
+**Canonical repository:** [vutting895/VOOM_SYSTEM-NOVA-AI](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI)  
+**Production branch:** `main`  
+**Consolidation:** migration branch imports unique material from the former `Voom_system` repository while preserving the original repository unchanged until verification is complete.
 
-## Current safety state
-- Live order execution remains disabled. The active broker target is Exness Demo via MT5 read-only bridge; Alpaca is not part of the active broker workflow.
-- Public market data is read-only. Never commit secrets or real credentials.
-- Gen AI currently uses rule-based strategy templates unless an LLM provider is explicitly configured; it is not a model trained from scratch.
-- Backtests use historical OHLCV and are not tick-accurate or predictive.
-- ML examples under `workers/feature` are research prototypes, not a production pipeline.
+## What is canonical
 
-## Frontend hosting and deployment
-- The current workflow builds the Next.js frontend for **Vercel**. Cloudflare is used for authenticated backend Workers, including the MT5 read-only proxy and Remote MCP endpoint.
-- `.github/workflows/frontend-ci.yml` runs frontend checks and worker/bridge safety tests.
-- `.github/workflows/cloudflare-deploy.yml` deploys the authenticated Cloudflare backend Workers; it explicitly does **not** deploy the Next.js frontend.
-- The workflow's frontend smoke test currently targets `https://voomsystem.vercel.app`. Treat this as a legacy alias until it is confirmed to point at the intended Vercel project. A successful check against this alias alone does not prove the selected Nova frontend deployment is current.
-- A Worker named `voom-system-nova-ui` may still exist on Cloudflare from an earlier cutover. Its presence is not proof that the current frontend source is deployed there, and this workflow does not redeploy that frontend Worker.
+- `frontend/`: canonical Next.js application and its UI routes. The checked-in CI runs typecheck/build from this directory.
+- `integrations/remote-mcp-worker/`: authenticated Remote MCP Worker; do not confuse it with a local stdio knowledge server.
+- `integrations/mt5-readonly-proxy/` and `integrations/mt5-readonly-bridge/`: the intended per-tenant, read-only MT5 path. They must reject unauthenticated private-account requests.
+- `workers/`: market-data and research prototypes. These are not automatically production-grade model pipelines.
+- `supabase/migrations/`: current NOVA migration directory. Historical migrations under `legacy/voom-system/Supabase/migrations/` are archived for comparison and must **not** be applied automatically.
+- `tools/`: supported local bootstrap/runtime tooling.
 
-### Local frontend checks (optional)
+## Links and migration map
+
+- [NOVA target architecture](docs/architecture/nova-target-structure.md)
+- [Repository consolidation and ownership map](MIGRATION_MAP.md)
+- [Imported legacy inventory and deliberately retained external files](legacy/voom-system/IMPORT_INDEX.md)
+- [Legacy integration status](legacy/voom-system/Docs/CURRENT_INTEGRATION_STATUS.md)
+- [Legacy environment/deployment notes](legacy/voom-system/Docs/DEPLOYMENT_AND_ENV.md)
+- [Legacy backtest harness documentation](legacy/voom-system/Backtest/README.md)
+- [Legacy local MCP knowledge server notes](legacy/voom-system/Research/MCP_Server/README.md)
+
+The `legacy/voom-system/` path is a **preserved source archive**, not a second production application. Its Dashboard, API, EA/bridge, Worker, local MCP server, and historical Supabase migrations have not been promoted to active service owners just because they are in this repository. Do not launch/deploy them without a separate reviewed migration.
+
+## Hosting and link correctness
+
+- The current frontend build workflow builds `frontend/`; the Cloudflare deployment workflow deploys backend Workers and does not deploy the Next.js frontend.
+- The former workflow hard-coded `https://voomsystem.vercel.app`, which may be a legacy alias. It is replaced by the GitHub repository variable `VOOM_FRONTEND_URL`. Set that variable only to the verified HTTPS URL for the intended frontend; backend deployment must stop if it is missing or invalid.
+- Do not assume a Cloudflare UI Worker or a responding legacy domain proves the latest NOVA UI is deployed. Verify the Vercel project/alias and authenticated UI/API routes before declaring a cutover complete.
+- Build scripts for Cloudflare frontend cutover are available but do not switch hosting by themselves. Do not change the active host without checking deployment configuration and runtime routes.
+
+## Environment and secret handling
+
+Use the root `.env.example` as a names-only template. It contains placeholders, not credentials. Configure frontend-public variables in the intended frontend hosting project and backend-only secrets in the appropriate server/Worker environment. Never commit `.env`, service-role keys, OAuth client secrets, access tokens, broker credentials, or private tenant files. Never print secret values to chat or logs.
+
+## Trading safety defaults
+
+- Keep `TRADING_MODE=paper`, `LIVE_TRADING_ENABLED=false`, and `VOOM_LIVE_TRADING_ENABLED=false`.
+- The MT5 connection remains read-only; do not send real trade orders during consolidation, CI, or smoke testing.
+- An absent proxy URL or failed authenticated health check must show unavailable, not a connected account.
+- Backtest inputs/results and ML examples are research evidence, not a guarantee of profitability or a production confidence score.
+- Do not combine duplicate source-1 risk logic, local MCP logic, or old EA command paths into production without specific contract/security tests.
+
+## Verification before removing a source/archive
+
+The source repository `vutting895/Voom_system` remains unchanged for rollback and comparison. Only truly duplicate files may be deleted after content/hash, reference, deployment, and test checks pass. At inspection, the three same-path files (`README.md`, `.env.example`, `.gitignore`) differed in content; they were merged manually rather than treated as safe duplicates. Large historical market-data CSVs, compressed datasets, and export bundles are listed in the import index and are not yet copied. Keep the source repository until those exclusions and runtime/deployment dependencies are reviewed.
+
+## Local frontend checks
+
 Run from the repository root:
 ```powershell
 Set-Location .\frontend
@@ -25,42 +57,5 @@ npm ci
 npm run typecheck
 npm run build
 ```
-Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
 
-## Environment
-Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (optional until its authenticated endpoint is implemented and verified)
-- GitHub Actions deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
-
-Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the optional MT5 proxy URL is absent.
-
-## Current deployment verification limits
-A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Vercel project/alias and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
-
-## Architecture
-- `frontend/`: Next.js UI, currently built for Vercel by the frontend workflow.
-- `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
-- `integrations/mt5-readonly-proxy/`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
-- `workers/data-ingestion/`: public market-data adapter.
-- `workers/feature/`: imported ML research prototypes; dependencies and leakage checks required.
-- `workers/gen-ai/`: strategy-draft prototype.
-- `workers/backtest/`: deterministic OHLCV EMA crossover simulation.
-- `workers/tuning/`: bounded parameter-grid prototype.
-- `workers/risk/`: fail-closed paper risk policy.
-- `workers/portfolio/`: allocation validator.
-- `workers/execution/`: intentionally disabled.
-- `shared/`: JSON schemas and feature-store contract.
-- `supabase/migrations/`: database migrations.
-
-## Not production-ready yet
-OAuth end-to-end verification, leaked-password protection, review of SECURITY DEFINER RPC grants, runtime monitoring, broader tests, and historical-data quality/fee modelling remain necessary before considering any live trading.
-
-## Git-first development and Windows runtime
-- **Develop in GitHub, not in the Windows runtime folder.** Use branches and reviewed commits in `vutting895/VOOM_SYSTEM-NOVA-AI`; `main` is the runtime source of truth.
-- Windows is required only for the MT5 terminal and the tenant-guarded, read-only MT5 Bridge. Cloudflare Workers cannot run the Windows MT5 terminal.
-- The tracked bootstrap is `tools/windows/run-bridge-from-git.ps1`. It refreshes a shallow sparse checkout of `integrations/mt5-readonly-bridge/` and `tools/windows/` into `%LOCALAPPDATA%\VOOM_SYSTEM\runtime\repo` before launching the Bridge, so both the Bridge and bootstrap source come from Git.
-- Keep only the small bootstrap copy, runtime checkout and its isolated Python environment, MT5 terminal, and private local tenant files on Windows. Tenant files stay under `%LOCALAPPDATA%\VOOM_SYSTEM\secrets` and must never enter Git.
-- Do not remove the existing development checkout until all its modified and untracked files have been compared with GitHub and any unique work preserved. Build caches may be deleted only after the replacement runtime has been verified.
-- The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
+A local process start, passing CI, or HTTP status by itself is not proof of a broker connection or deployment parity. Keep Read-only + AI Analysis enabled and Live Trading OFF.

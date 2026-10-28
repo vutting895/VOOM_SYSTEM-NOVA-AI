@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "purpose": "Customer-selectable strategies; only approved_for_ai/demo_validated entries may be listed by an authorized product UI.",
+  "customer_selection_enabled": false,
+  "live_trading_enabled": false,
+  "systems": [
+    {
+      "id": "ema-test-01",
+      "name": "VOOM EMA Trend Candidate",
+      "version": "0.1.0",
+      "status": "research",
+      "directory": "candidates/ema-test-01",
+      "customer_visible": false,
+      "evidence": {
+        "backtest": "not_run",
+        "out_of_sample": "not_run",
+        "demo_forward": "not_run",
+        "human_approval": "pending"
+      }
+    },
+    {
+      "id": "trained-97a2ff734e-ema20-60",
+      "name": "VOOM Auto-Optimized EMA Candidate",
+      "version": "0.1.0",
+      "status": "research",
+      "directory": "candidates/trained-97a2ff734e-ema20-60",
+      "customer_visible": false,
+      "evidence": {
+        "backtest": "parameter_search_complete",
+        "out_of_sample": "chronological_holdout",
+        "demo_forward": "not_run",
+        "risk_review": "pending",
+        "human_approval": "pending"
+      }
+    }
+  ],
+  "policy": {
+    "new_candidates_start_as": "research",
+    "required_before_customer_selection": [
+      "reproducible_backtest_with_costs",
+      "out_of_sample_validation",
+      "demo_forward_validation",
+      "risk_review",
+      "human_approval"
+    ],
+    "never_auto_enable_live_trading": true
+  }
+}

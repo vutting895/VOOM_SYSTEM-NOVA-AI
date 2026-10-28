@@ -1,0 +1,128 @@
+{
+  "status": "research-only",
+  "orders_sent": false,
+  "mt5_connection_used_by_backtester": false,
+  "symbol": "XAUUSDc",
+  "timeframe": "M15",
+  "account_currency": "USC",
+  "source": "MT5 copy_rates_range export",
+  "data_start_utc": "2023-10-23 20:00:00+00:00",
+  "data_end_utc": "2026-10-23 13:45:00+00:00",
+  "bars": 70678,
+  "coverage_days": 1095.74,
+  "split": "chronological 60% development / 20% validation / 20% out-of-sample; fixed Source 1-inspired parameters, no test-set tuning",
+  "strategy": "Source 1 Mean Rejection + simplified OB/FVG + volatility/session filters; deterministic DL score=0 because validated historical ensemble is unavailable",
+  "parameters": {
+    "CONFLUENCE_MIN": 4,
+    "DIST_ATR_MULT": 1.8,
+    "Z_SCORE_THRESH": 2.2,
+    "RISK_PCT": 0.01,
+    "RR_TP1": 1.5,
+    "RR_TP2": 3.1,
+    "RR_TP1_CLOSE_PCT": 0.5,
+    "VOLATILITY_ATR_MIN": 0.4,
+    "VOLATILITY_ATR_MAX": 3.5,
+    "MEAN_PERIOD": 50,
+    "SMC_OB_LOOKBACK": 20,
+    "FVG_MIN_SIZE_ATR": 0.3,
+    "PA_CONFIRMATION": true,
+    "SESSION_FILTER": [
+      "London",
+      "NY"
+    ]
+  },
+  "risk_pct": 0.005,
+  "commission_per_lot_side": 0.0,
+  "slippage_points_per_fill": 2.0,
+  "broker_spec": {
+    "digits": 2,
+    "point": 0.01,
+    "trade_tick_size": 0.01,
+    "trade_tick_value": 1.0,
+    "trade_tick_value_profit": 1.0,
+    "trade_tick_value_loss": 1.0,
+    "volume_min": 0.01,
+    "volume_max": 1000.0,
+    "volume_step": 0.01,
+    "contract_size": 1.0,
+    "currency_profit": "USD",
+    "currency_margin": "USD"
+  },
+  "risk_guard": {
+    "max_daily_loss_pct": 3.0,
+    "max_peak_drawdown_pct": 7.0,
+    "behavior": "block new entries after limit; open position remains governed by its SL/TP"
+  },
+  "data_quality": {
+    "zero_or_negative_spread_bars": 32,
+    "fallback_spread_points": 30.0
+  },
+  "cost_model": "per-bar historical spread, adverse slippage assumption, optional commission; not tick replay, swap not modeled",
+  "segments": {
+    "development": {
+      "start_utc": "2023-10-24 12:00:00+00:00",
+      "end_utc": "2025-08-13 04:00:00+00:00",
+      "bars": 42346,
+      "metrics": {
+        "initial_equity": 10000.0,
+        "final_equity": 9428.16,
+        "net_pnl": -571.84,
+        "return_pct": -5.7184,
+        "max_drawdown_pct": -7.4335,
+        "trades": 23,
+        "win_rate_pct": 17.391,
+        "profit_factor": 0.3716,
+        "average_trade_pnl": -24.8627,
+        "sharpe_approx": -1.985692571664754
+      },
+      "trades": 23
+    },
+    "validation": {
+      "start_utc": "2025-08-13 04:00:00+00:00",
+      "end_utc": "2026-03-20 04:00:00+00:00",
+      "bars": 14136,
+      "metrics": {
+        "initial_equity": 10000.0,
+        "final_equity": 9338.61,
+        "net_pnl": -661.39,
+        "return_pct": -6.6139,
+        "max_drawdown_pct": -7.2888,
+        "trades": 24,
+        "win_rate_pct": 25.0,
+        "profit_factor": 0.1995,
+        "average_trade_pnl": -27.5581,
+        "sharpe_approx": -2.316396319606005
+      },
+      "trades": 24
+    },
+    "out_of_sample": {
+      "start_utc": "2026-03-20 04:00:00+00:00",
+      "end_utc": "2026-10-23 13:45:00+00:00",
+      "bars": 14135,
+      "metrics": {
+        "initial_equity": 10000.0,
+        "final_equity": 10069.06,
+        "net_pnl": 69.06,
+        "return_pct": 0.6906,
+        "max_drawdown_pct": -4.8131,
+        "trades": 64,
+        "win_rate_pct": 42.188,
+        "profit_factor": 1.0433,
+        "average_trade_pnl": 1.079,
+        "sharpe_approx": 0.09957215213466301
+      },
+      "trades": 64
+    }
+  },
+  "caveats": [
+    "OHLC spread uses bar-level spread, not historical tick bid/ask sequence.",
+    "If SL and TP are both touched within one candle, SL is assumed first (conservative).",
+    "DL score is fixed at zero; this is not a test of the unvalidated deep-learning ensemble.",
+    "Source 1 OB/FVG checks are simplified bar-based rules, not institutional order-flow truth.",
+    "Commission defaults to zero unless explicitly configured; swap and market impact are not modeled.",
+    "Validate broker tick value/currency, commission, lot rules and results against MT5 Strategy Tester before any strategy promotion.",
+    "No live orders, no model deployment, and no production parameters changed."
+  ],
+  "trade_rows": 111,
+  "trades_csv": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\results\\run_20261024\\XAUUSDc_M15_20231023_20261023_trades.csv"
+}

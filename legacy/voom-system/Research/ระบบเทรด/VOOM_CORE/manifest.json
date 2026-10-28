@@ -1,0 +1,12 @@
+{
+  "id": "voom-core",
+  "name": "VOOM Core — Elliott Wave + Supply/Demand Confirmation",
+  "version": "0.1.0",
+  "status": "research",
+  "license": "proprietary",
+  "ai_access": "internal_read_only",
+  "live_trading_enabled": false,
+  "last_reviewed": "2026-10-23",
+  "source_paths": ["../Trading_Institutional/Institutional_Trading_Playbook.md", "../Risk_Management/Risk_Controls_Playbook.md", "../Retail_Strategies/Strategy_Research_Framework.md", "../Coding_Engineering/Engineering_Standards.md", "../Research_Findings_2026-10-23.md"],
+  "evidence_status": {"source_review": "available", "full_cost_backtest": "not_verified", "walk_forward_validation": "not_verified", "demo_forward_test": "not_verified", "human_approval": "pending"}
+}

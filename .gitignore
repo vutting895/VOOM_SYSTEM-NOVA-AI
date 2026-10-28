@@ -1,24 +1,58 @@
-# Secrets and local runtime
+# Environment files and secrets
 .env
+**/.env
 .env.*
+**/.env.*
 !.env.example
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.coverage
-htmlcov/
-# Node / Next
-frontend/node_modules/
+!**/.env.example
+!**/.env.example.txt
+**/.dev.vars
+**/.wrangler/
+**/*credentials*
+**/*secrets*
+**/*token*
+**/*password*
+**/*.pem
+**/*.pfx
+**/*.key
+**/id_rsa*
+
+# Runtime dependencies, virtual environments, caches
+node_modules/
+**/node_modules/
 frontend/.next/
 frontend/out/
-# Local logs and generated data
+.venv/
+venv/
+**/.venv/
+**/venv/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated local data, runtime outputs, and logs
 *.log
+**/logs/
+Logs/
+Backups/
+*.sqlite
 *.sqlite3
-data/
-# OS/editor
+*.db
+*.pkl
+*.py[cod]
+*.ex5
+*.zip
 .DS_Store
 Thumbs.db
 .vscode/
 frontend/next-env.d.ts
+
+# Preserve source templates and explicitly tracked migration docs
+!**/.env.example
+
+# Export bundle intentionally excluded only when generated at this path
+Source1_Extracted/export-code-system.html

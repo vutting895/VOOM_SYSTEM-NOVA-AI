@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "catalog_name": "VOOM AI SNIPER Trading Systems",
+  "policy": {
+    "default_ai_access": "approved_for_ai",
+    "live_trading_enabled_by_catalog": false,
+    "required_evidence_for_approval": ["source_review", "reproducible_backtest_with_trading_costs", "out_of_sample_or_walk_forward_validation", "risk_review", "human_approval"]
+  },
+  "systems": [
+    {
+      "id": "voom-core",
+      "name": "VOOM Core — Elliott Wave + Supply/Demand Confirmation",
+      "version": "0.1.0",
+      "status": "research",
+      "directory": "VOOM_CORE",
+      "description": "โครงกลยุทธ์หลักสำหรับการวิจัย: Elliott Wave ร่วมกับ Demand/Supply confirmation, market structure, liquidity และ risk controls",
+      "allowed_ai_use": ["read", "analyze", "propose_changes", "design_tests"],
+      "blocked_actions": ["place_live_orders", "change_live_risk_limits", "self_approve"],
+      "evidence": {
+        "source_review": "Research playbooks available",
+        "reproducible_backtest_with_trading_costs": "not_verified",
+        "out_of_sample_or_walk_forward_validation": "not_verified",
+        "risk_review": "general risk playbook exists; strategy-specific signoff pending",
+        "human_approval": "pending"
+      },
+      "limitations": ["ยังไม่ผ่านการรับรองผลกำไร", "ยังไม่ยืนยันผลทดสอบครบ spread, commission, swap และ slippage", "ห้ามเปิด live trading จากสถานะนี้"],
+      "source_paths": ["../Trading_Institutional/Institutional_Trading_Playbook.md", "../Risk_Management/Risk_Controls_Playbook.md", "../Retail_Strategies/Strategy_Research_Framework.md", "../Coding_Engineering/Engineering_Standards.md", "../Research_Findings_2026-10-23.md"],
+      "last_reviewed": "2026-10-23"
+    }
+  ]
+}

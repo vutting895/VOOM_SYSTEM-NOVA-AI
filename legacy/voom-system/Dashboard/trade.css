@@ -1,0 +1,49 @@
+/* Customer trading desk (paper). Mobile-first: every block stacks at narrow widths. */
+.trade-card { grid-column: 1 / -1; }
+.mode-switch { display: flex; gap: 8px; margin: 12px 0 6px; }
+.mode-btn { flex: 1; min-width: 0; padding: 11px 10px; font-size: 13px; font-weight: 700; }
+.mode-btn[aria-pressed="true"] { border-color: var(--blue); background: #24365a; color: #fff; }
+.small { font-size: 11.5px; }
+.acct-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.acct { background: #0e1729; border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.acct span { display: block; color: var(--muted); font-size: 10.5px; }
+.acct strong { display: block; font-size: 17px; margin-top: 4px; overflow-wrap: anywhere; }
+.quote-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.quote { border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: #0e1729; }
+.quote b { display: block; font-size: 12px; letter-spacing: .04em; }
+.quote span { font-size: 11.5px; color: var(--muted); }
+.sim-badge { display: inline-flex; border: 1px solid #5d4b27; background: #211d13; color: var(--amber); border-radius: 999px; padding: 1px 7px; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; vertical-align: middle; }
+.ticket { display: grid; gap: 10px; border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: #0e1729; margin-bottom: 16px; }
+.ticket label { display: grid; gap: 5px; font-size: 11.5px; color: var(--muted); }
+.ticket select, .ticket input { width: 100%; padding: 11px 12px; border: 1px solid #34425f; border-radius: 10px; background: #091121; color: var(--text); font: inherit; }
+.ticket-price { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); }
+.ticket-price strong { color: var(--text); font-size: 18px; }
+.side-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.side-btn { padding: 13px; font-weight: 800; border: 0; border-radius: 11px; color: #04160e; }
+.side-btn.buy { background: var(--green); }
+.side-btn.sell { background: #ff9cab; }
+.side-btn:disabled { opacity: .5; cursor: not-allowed; }
+.sub { font-size: 12.5px; margin: 18px 0 8px; color: #c3d1ea; }
+.pos-list { display: grid; gap: 8px; }
+.pos-row { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; background: #0e1729; }
+.pos-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pos-top b { font-size: 13px; }
+.pos-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11.5px; color: var(--muted); }
+.pos-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pnl.up { color: var(--green); font-weight: 800; }
+.pnl.down { color: #ff9cab; font-weight: 800; }
+.close-btn { padding: 8px 12px; font-size: 12px; }
+.side-badge { display: inline-flex; border-radius: 6px; padding: 1px 7px; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.side-badge.buy { background: #142b25; color: var(--green); border: 1px solid #315744; }
+.side-badge.sell { background: #2b1418; color: #ff9cab; border: 1px solid #5c3138; }
+.empty { color: var(--muted); font-size: 12px; padding: 10px 0; }
+.signal-list { display: grid; gap: 8px; }
+.signal-row { border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; background: #0e1729; display: grid; gap: 5px; }
+.signal-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+@media (max-width: 760px) {
+  .acct-row { grid-template-columns: 1fr 1fr; }
+  .quote-strip { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 420px) {
+  .acct-row { grid-template-columns: 1fr; }
+}

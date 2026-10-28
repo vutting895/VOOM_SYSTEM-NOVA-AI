@@ -1,0 +1,39 @@
+{
+  "source": "MetaTrader5.copy_rates_range",
+  "read_only": true,
+  "orders_sent": false,
+  "symbol": "XAUUSDc",
+  "timeframe": "M15",
+  "account_currency": "USC",
+  "requested_start_utc": "2026-10-05T15:32:47.591106001+00:00",
+  "requested_end_utc": "2026-10-23T21:50:47.591106+00:00",
+  "actual_start_utc": "2026-10-05T15:45:00+00:00",
+  "actual_end_utc": "2026-10-23T21:45:00+00:00",
+  "requested_coverage_days": 18.262,
+  "actual_coverage_days": 18.25,
+  "coverage_ratio": 0.99932,
+  "bars": 1313,
+  "rows_removed_or_deduplicated": 0,
+  "spread_points_min": 34.0,
+  "spread_points_median": 34.0,
+  "spread_points_max": 40.0,
+  "broker_spec": {
+    "digits": 2,
+    "point": 0.01,
+    "trade_tick_size": 0.01,
+    "trade_tick_value": 1.0,
+    "trade_tick_value_profit": 1.0,
+    "trade_tick_value_loss": 1.0,
+    "volume_min": 0.01,
+    "volume_max": 1000.0,
+    "volume_step": 0.01,
+    "contract_size": 1.0,
+    "currency_profit": "USD",
+    "currency_margin": "USD"
+  },
+  "notes": [
+    "Rates and spread are broker-terminal historical data; completeness depends on broker/server history limits.",
+    "Bar spread is used as a historical cost proxy; it is not tick-by-tick bid/ask replay.",
+    "This importer only reads symbol metadata and rates; it does not read account credentials or send orders."
+  ]
+}

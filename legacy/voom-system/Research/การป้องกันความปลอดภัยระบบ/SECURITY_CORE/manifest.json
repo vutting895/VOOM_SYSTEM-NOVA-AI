@@ -1,0 +1,11 @@
+{
+  "id": "security-core",
+  "name": "VOOM Security Core",
+  "version": "0.1.0",
+  "status": "research",
+  "classification": "internal",
+  "default_access": "read_analyze_propose_only",
+  "production_changes_enabled": false,
+  "requires_human_approval_for": ["production_deploy", "identity_or_access_change", "secret_rotation", "network_boundary_change", "data_deletion", "trading_execution_or_risk_change"],
+  "evidence": {"independent_security_review": "pending", "production_validation": "pending"}
+}

@@ -1,0 +1,115 @@
+{
+  "status": "RESEARCH_ONLY_NO_MT5_CONNECTION_NO_ORDERS_SENT",
+  "strategy": "EMA12/EMA26 crossover + RSI14 strict band/slope; completed-bar signals; next-bar-open fills",
+  "data_file": "Backtest\\data\\XAUUSDc_M15_20211023_20261023_hybrid.csv",
+  "data_sha256": "d4705d36d9128268c3785e825623cc1e2750b846d114a6f43e4f39a2d73bd7fb",
+  "data_start_utc": "2021-10-25 01:15:00+00:00",
+  "data_end_utc": "2026-10-23 20:15:00+00:00",
+  "bars_used": 117830,
+  "segments": {
+    "development_bars": 70698,
+    "validation_bars": 23566,
+    "out_of_sample_bars": 23566
+  },
+  "data_source_note": [
+    "Rates and spread are broker-terminal historical data; completeness depends on broker/server history limits.",
+    "Bar spread is used as a historical cost proxy; it is not tick-by-tick bid/ask replay.",
+    "This importer only reads symbol metadata and rates; it does not read account credentials or send orders."
+  ],
+  "data_sources": {
+    "MT5_XAUUSDc_broker_history": 100019,
+    "EV_Trading_Labs_Dukascopy_aggregated_BID_ASK": 17824
+  },
+  "parameters": {
+    "ema_fast": 12,
+    "ema_slow": 26,
+    "rsi_period": 14,
+    "long_rsi": "50 < RSI < 70 and RSI rising vs prior bar",
+    "short_rsi": "30 < RSI < 50 and RSI falling vs prior bar",
+    "stop_atr_multiple": 2.0,
+    "take_profit_R": 2.0,
+    "risk_fraction_proxy": 0.0025,
+    "max_loss_fraction_of_segment_initial_equity": 0.02,
+    "slippage_points_per_fill": 2.0,
+    "point_size_used": 0.01
+  },
+  "results": {
+    "development": {
+      "bars": 70698,
+      "trades": 1933,
+      "initial_equity_proxy": 10000.0,
+      "final_equity_proxy": 7279.183094555759,
+      "net_pnl_proxy": -2720.8169054442405,
+      "return_pct_proxy": -27.20816905444241,
+      "max_drawdown_pct_proxy": -28.76011659768567,
+      "win_rate_pct": 28.349715468184172,
+      "profit_factor": 0.8467939453628411,
+      "avg_trade_pnl_proxy": -1.407561772087036,
+      "avg_r_multiple_proxy": -0.06443319835492299,
+      "exit_reasons": {
+        "close_above_ema26": 585,
+        "close_below_ema26": 519,
+        "stop_loss_atr_or_max_loss": 323,
+        "take_profit_target": 302,
+        "opposite_ema_cross": 118,
+        "rsi_overbought_turn_down": 45,
+        "rsi_oversold_turn_up": 40,
+        "segment_end": 1
+      }
+    },
+    "validation": {
+      "bars": 23566,
+      "trades": 624,
+      "initial_equity_proxy": 10000.0,
+      "final_equity_proxy": 9627.520024776039,
+      "net_pnl_proxy": -372.47997522396145,
+      "return_pct_proxy": -3.724799752239616,
+      "max_drawdown_pct_proxy": -7.021197370187105,
+      "win_rate_pct": 28.365384615384613,
+      "profit_factor": 0.9410867952282473,
+      "avg_trade_pnl_proxy": -0.5969230372178769,
+      "avg_r_multiple_proxy": -0.023061395206600763,
+      "exit_reasons": {
+        "close_below_ema26": 197,
+        "close_above_ema26": 178,
+        "take_profit_target": 100,
+        "stop_loss_atr_or_max_loss": 85,
+        "opposite_ema_cross": 36,
+        "rsi_overbought_turn_down": 15,
+        "rsi_oversold_turn_up": 13
+      }
+    },
+    "out_of_sample": {
+      "bars": 23566,
+      "trades": 599,
+      "initial_equity_proxy": 10000.0,
+      "final_equity_proxy": 9788.213890385261,
+      "net_pnl_proxy": -211.78610961473896,
+      "return_pct_proxy": -2.1178610961473887,
+      "max_drawdown_pct_proxy": -4.549610453162178,
+      "win_rate_pct": 29.549248747913186,
+      "profit_factor": 0.963336223726909,
+      "avg_trade_pnl_proxy": -0.3535661262349488,
+      "avg_r_multiple_proxy": -0.01313276953546312,
+      "exit_reasons": {
+        "close_below_ema26": 198,
+        "close_above_ema26": 194,
+        "take_profit_target": 86,
+        "stop_loss_atr_or_max_loss": 72,
+        "opposite_ema_cross": 24,
+        "rsi_overbought_turn_down": 15,
+        "rsi_oversold_turn_up": 10
+      }
+    }
+  },
+  "trade_rows": 3156,
+  "caveats": [
+    "Mixed-source history includes external XAUUSD candles, not broker-native XAUUSDc for the entire span.",
+    "P&L, units and equity are proxies, not verified USC account P&L or broker lot sizing.",
+    "Historical spread is a per-bar proxy; commissions, swaps, exact bid/ask path and tick replay are omitted.",
+    "If both SL and TP touch in one bar, stop is assumed first; bar-level data cannot determine intrabar sequence.",
+    "Because no target/stop amount was specified by the user, test uses 2R take-profit, 2x ATR stop, 2% segment-initial-equity max-loss exit as explicit research defaults.",
+    "Indicators use only current/past bars; each segment is reset to flat and initial normalized equity.",
+    "This report is not evidence of future profitability and must not be used to enable live trading."
+  ]
+}

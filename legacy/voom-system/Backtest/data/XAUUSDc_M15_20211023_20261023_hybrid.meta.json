@@ -1,0 +1,64 @@
+{
+  "source": "mixed-source research dataset: external historical supplement + MT5 broker history",
+  "read_only": true,
+  "orders_sent": false,
+  "symbol": "XAUUSDc (hybrid research series; external section is spot XAUUSD, not broker XAUUSDc)",
+  "timeframe": "M15",
+  "account_currency": "USC",
+  "requested_start_utc": "2021-10-23T14:28:58.483896+00:00",
+  "requested_end_utc": "2026-10-23T20:28:58.483896+00:00",
+  "actual_start_utc": "2021-10-24T22:00:00+00:00",
+  "actual_end_utc": "2026-10-23T20:15:00+00:00",
+  "requested_coverage_days": 1826.25,
+  "actual_coverage_days": 1824.927,
+  "coverage_ratio": 0.99928,
+  "bars": 117843,
+  "rows_removed_or_deduplicated": 3,
+  "spread_points_min": 0.0,
+  "spread_points_median": 27.0,
+  "spread_points_max": 74.0,
+  "broker_spec": {
+    "digits": 2,
+    "point": 0.01,
+    "trade_tick_size": 0.01,
+    "trade_tick_value": 1.0,
+    "trade_tick_value_profit": 1.0,
+    "trade_tick_value_loss": 1.0,
+    "volume_min": 0.01,
+    "volume_max": 1000.0,
+    "volume_step": 0.01,
+    "contract_size": 1.0,
+    "currency_profit": "USD",
+    "currency_margin": "USD"
+  },
+  "notes": [
+    "Rates and spread are broker-terminal historical data; completeness depends on broker/server history limits.",
+    "Bar spread is used as a historical cost proxy; it is not tick-by-tick bid/ask replay.",
+    "This importer only reads symbol metadata and rates; it does not read account credentials or send orders."
+  ],
+  "sources": {
+    "MT5_XAUUSDc_broker_history": 100019,
+    "EV_Trading_Labs_Dukascopy_aggregated_BID_ASK": 17824
+  },
+  "supplement": {
+    "provider": "EV Trading Labs historical OHLCV catalogue; underlying described by provider as aggregated from Dukascopy bid/ask",
+    "catalogue_url": "https://evtradelabs.com/data",
+    "download_urls": [
+      "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2021.json.gz",
+      "https://evtradelabs.com/api/simulator/data/XAUUSD/M15/2022.json.gz"
+    ],
+    "gap_start_utc": "2021-10-24T22:00:00+00:00",
+    "gap_end_utc": "2022-07-26T13:15:00+00:00",
+    "gap_bars": 17824,
+    "spread_estimation": "ask-open minus bid-open divided by broker point size; not MT5 XAUUSDc spread",
+    "transition_to_broker_history_utc": "2022-07-26T13:30:00+00:00",
+    "price_feed_warning": "External XAUUSD spot candles are not the same instrument/feed as broker XAUUSDc. The combined file is suitable for exploratory research only and must not be represented as five years of broker-native history."
+  },
+  "merged_csv": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\data\\XAUUSDc_M15_20211023_20261023_hybrid.csv",
+  "gap_csv": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\data\\XAUUSD_M15_external_gap_20211023_20220726.csv",
+  "time_delta_minutes": {
+    "median": 15.0,
+    "max": 4710.0,
+    "note": "Large gaps include normal weekends/market closures; endpoint date coverage does not prove every expected trading bar exists."
+  }
+}

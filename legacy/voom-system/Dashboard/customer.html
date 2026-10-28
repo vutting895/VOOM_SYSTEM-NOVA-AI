@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0b1020"><meta name="robots" content="noindex,nofollow"><title>พื้นที่ลูกค้า · VOOM SYSTEM</title>
+<style>
+:root{color-scheme:dark;--bg:#080d19;--panel:#111a2d;--line:#2a3854;--muted:#9ba9c3;--text:#edf2ff;--blue:#6485ff;--green:#86e2b0;--amber:#f6c76b}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#162442,#080d19 52%);color:var(--text);font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}.shell{max-width:1120px;margin:auto;padding:24px}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0 24px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:12px}.mark{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:linear-gradient(140deg,#7195ff,#6956dc);font-size:22px;font-weight:800}.brand b,.brand small{display:block;letter-spacing:.12em}.brand small{font-size:9px;color:var(--muted)}.btn{border:1px solid #3a4b6c;background:#17233b;color:var(--text);padding:10px 14px;border-radius:10px;font:inherit;cursor:pointer}.heading{padding:28px 0 20px}.eyebrow{color:#91aaff;font-size:10px;font-weight:800;letter-spacing:.16em}h1{font-size:clamp(26px,4vw,36px);line-height:1.2;margin:8px 0}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:#111a2df2;border:1px solid var(--line);border-radius:16px;padding:20px;min-width:0}.card h2{font-size:15px;margin:0 0 10px}.value{font-size:22px;font-weight:750;margin:12px 0 4px}.pill{display:inline-flex;border:1px solid #315744;background:#142b25;color:var(--green);padding:4px 9px;border-radius:999px;font-size:11px}.menu{display:flex;flex-wrap:wrap;gap:9px;padding:16px 0;border-bottom:1px solid var(--line)}.menu a{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:1px solid #344563;border-radius:10px;background:#111a2d;color:#dce6ff;text-decoration:none;font-weight:650;font-size:12px}.menu a:focus,.menu a:hover{border-color:var(--blue);background:#1b2b4a}.notice{border:1px solid #5d4b27;background:#211d13;color:#e8d5a6;border-radius:12px;padding:14px 16px;margin:18px 0;font-size:12px}.error{color:#ff9cab}.section{margin-top:16px}.profile-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:12px 0;border-bottom:1px solid #26334b}.profile-row:last-child{border:0}.profile-row span:first-child{color:var(--muted)}.profile-row strong{overflow-wrap:anywhere;text-align:right}footer{padding:28px 0;color:#71819d;font-size:11px}@media(max-width:760px){.shell{padding:16px}.grid{grid-template-columns:1fr}.top{align-items:flex-start}.card{padding:17px}}
+ .menu a[aria-current="page"]{border-color:var(--blue);background:#24365a;color:#fff} [hidden]{display:none!important}.grid .card[hidden]{display:none!important}.section{scroll-margin-top:16px}</style>
+<link rel="stylesheet" href="./trade.css"></head><body><main class="shell"><header class="top"><div class="brand"><span class="mark">V</span><div><b>VOOM SYSTEM</b><small>CUSTOMER PORTAL</small></div></div><button id="signOut" class="btn">ออกจากระบบ</button></header>
+<nav class="menu" aria-label="เมนูลูกค้า"><a href="#overview">⌂ หน้าหลัก</a><a href="#profile">♙ บัญชีของฉัน</a><a href="#trading">↗ การซื้อขาย</a><a href="#signals">≋ สัญญาณและคำสั่ง</a><a href="#support">? ช่วยเหลือ</a></nav>
+<section class="heading" id="overview"><div class="eyebrow">MEMBER AREA</div><h1>ยินดีต้อนรับ <span id="displayName">สมาชิก</span></h1><p class="muted">จัดการข้อมูลบัญชีและติดตามสถานะบริการของคุณ</p></section>
+<div id="notice" class="notice">กำลังตรวจสอบบัญชีและโหลดโปรไฟล์…</div>
+<section class="grid"><article class="card"><div class="eyebrow">ACCOUNT</div><h2>สถานะสมาชิก</h2><div class="value" id="accountStatus">—</div><span class="pill" id="rolePill">กำลังตรวจสอบ</span></article><article class="card trade-card" id="trading"><div class="eyebrow">TRADING</div><h2>ศูนย์การซื้อขาย</h2>
+<div class="mode-switch" role="group" aria-label="เลือกโหมดการใช้งาน"><button class="btn mode-btn" type="button" data-mode="paper" aria-pressed="true">เทรดเงินจำลอง</button><button class="btn mode-btn" type="button" data-mode="signals" aria-pressed="false">ดูสัญญาณ</button></div>
+<p class="muted small" id="modeNote">โหมดเงินจำลอง (Paper) — ราคาเป็นราคาจำลองเพื่อทดสอบ ไม่ใช่ราคาตลาดจริง และไม่มีคำสั่งไปยังโบรกเกอร์</p>
+<div data-mode-panel="paper">
+<div class="acct-row"><div class="acct"><span>ยอดเงิน (จำลอง)</span><strong id="acctBalance">—</strong></div><div class="acct"><span>ส่วนทุนรวม</span><strong id="acctEquity">—</strong></div><div class="acct"><span>กำไรลอยตัว</span><strong id="acctFloating">—</strong></div></div>
+<div class="quote-strip" id="quoteStrip"></div>
+<form class="ticket" id="orderTicket">
+<label>สินค้า<select id="ticketSymbol"><option value="EURUSD">EURUSD</option><option value="XAUUSD">XAUUSD</option><option value="BTCUSD">BTCUSD</option><option value="USDJPY">USDJPY</option></select></label>
+<label>ขนาด (Lot)<input id="ticketLots" type="number" min="0.01" max="10" step="0.01" value="0.10" inputmode="decimal"></label>
+<div class="ticket-price"><span>ราคา Bid / Ask <span class="sim-badge">SIM</span></span><strong id="ticketPrice">—</strong></div>
+<div class="side-buttons"><button class="btn side-btn buy" type="submit" data-side="BUY">ซื้อ / BUY</button><button class="btn side-btn sell" type="submit" data-side="SELL">ขาย / SELL</button></div>
+<p class="muted small" id="ticketNote" role="status" aria-live="polite"></p>
+</form>
+<h3 class="sub">สถานะที่เปิดอยู่</h3><div class="pos-list" id="positionsBody"></div>
+<h3 class="sub">ประวัติที่ปิดแล้ว</h3><div class="pos-list" id="historyBody"></div>
+</div>
+<div data-mode-panel="signals" hidden><div class="signal-list" id="signalsList"></div></div>
+</article><article class="card" id="signals"><div class="eyebrow">ACTIVITY</div><h2>สัญญาณและสถานะคำสั่ง</h2><div class="signal-list" id="signalsCard"></div></article></section>
+<section class="card section" id="profile"><h2>ข้อมูลโปรไฟล์</h2><div class="profile-row"><span>ชื่อที่แสดง</span><strong id="profileName">—</strong></div><div class="profile-row"><span>อีเมล</span><strong id="profileEmail">—</strong></div><div class="profile-row"><span>รหัสสมาชิก</span><strong id="profileId">—</strong></div><div class="profile-row"><span>สิทธิ์</span><strong id="profileRole">—</strong></div><div class="profile-row"><span>สถานะบัญชี</span><strong id="profileStatus">—</strong></div></section>
+<section class="card section" id="support"><h2>ช่วยเหลือ</h2><p class="muted">หากเข้าสู่ระบบได้แต่ข้อมูลไม่แสดง หรือบัญชีไม่ถูกต้อง โปรดติดต่อผู้ดูแล VOOM SYSTEM พร้อมแจ้งอีเมลสมาชิกของคุณ (ไม่ส่งรหัสผ่านหรือรหัสยืนยัน)</p><button class="btn" type="button" id="refreshProfile">ตรวจสอบบัญชีอีกครั้ง</button></section><footer>© 2026 VOOM SYSTEM · พื้นที่สมาชิก · ข้อมูลการเทรดและสัญญาณจะแสดงเมื่อเชื่อมต่อแหล่งข้อมูลจริงแล้ว</footer></main>
+<script>
+(()=>{'use strict';
+const links=[...document.querySelectorAll('.menu a')];
+const heading=document.querySelector('.heading');
+const notice=document.getElementById('notice');
+const grid=document.querySelector('.grid');
+const profile=document.getElementById('profile');
+const support=document.getElementById('support');
+const cards=[...grid.querySelectorAll('.card')];
+const views={
+ overview:{title:'หน้าหลัก',showHeading:true,showNotice:true,showGrid:true,showProfile:false,showSupport:false},
+ profile:{title:'บัญชีของฉัน',showHeading:false,showNotice:true,showGrid:false,showProfile:true,showSupport:false},
+ trading:{title:'การซื้อขาย',showHeading:false,showNotice:true,showGrid:true,showProfile:false,showSupport:false,card:'trading'},
+ signals:{title:'สัญญาณและคำสั่ง',showHeading:false,showNotice:true,showGrid:true,showProfile:false,showSupport:false,card:'signals'},
+ support:{title:'ช่วยเหลือ',showHeading:false,showNotice:false,showGrid:false,showProfile:false,showSupport:true}
+};
+function activate(key,updateHash=true){
+ const v=views[key]||views.overview;
+ heading.hidden=!v.showHeading;notice.hidden=!v.showNotice;grid.hidden=!v.showGrid;profile.hidden=!v.showProfile;support.hidden=!v.showSupport;
+ cards.forEach(card=>card.hidden=!!v.card&&card.id!==v.card);
+ links.forEach(link=>{const active=link.hash==='#'+key;link.setAttribute('aria-current',active?'page':'false')});
+ if(updateHash&&location.hash!=='#'+key)history.replaceState(null,'','#'+key);
+ if(v.showNotice&&notice.textContent.includes('กำลังตรวจสอบ'))notice.scrollIntoView({behavior:'smooth',block:'start'});
+ else window.scrollTo({top:0,behavior:'smooth'});
+}
+links.forEach(link=>link.addEventListener('click',event=>{event.preventDefault();activate(link.hash.slice(1))}));
+
+const initial=location.hash.slice(1);activate(views[initial]?initial:'overview',false);
+})();
+</script>\n<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+(()=>{'use strict';const URL='https://tlyyxufuiimrbaksoitf.supabase.co';const KEY='sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD';const notice=document.getElementById('notice');const say=(t,bad=false)=>{notice.textContent=t;notice.classList.toggle('error',bad)};if(!window.supabase){say('โหลดระบบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต',true);return}const client=window.supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});document.getElementById('signOut').addEventListener('click',async()=>{await client.auth.signOut();location.replace('./customer-login.html')});document.getElementById('refreshProfile').addEventListener('click',()=>init());async function init(){const {data:{session},error}=await client.auth.getSession();if(error||!session){location.replace('./customer-login.html');return}const user=session.user;const {data:p,error:e}=await client.from('customer_profiles').select('user_id,display_name,role,account_status').eq('user_id',user.id).maybeSingle();if(e){say('ไม่สามารถอ่านโปรไฟล์ได้ กรุณาตรวจสอบสิทธิ์อ่าน customer_profiles แล้วลองเข้าสู่ระบบใหม่',true);return}if(!p||p.role!=='customer'){await client.auth.signOut();location.replace('./customer-login.html?access=denied');return}if(p.account_status!=='active'){say('บัญชีนี้ยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแล',true);document.getElementById('accountStatus').textContent=p.account_status||'ไม่ทราบ';return}const name=p.display_name||user.user_metadata?.display_name||'สมาชิก';document.getElementById('displayName').textContent=name;document.getElementById('profileName').textContent=name;document.getElementById('profileEmail').textContent=user.email||'—';document.getElementById('profileId').textContent=user.id;document.getElementById('profileRole').textContent='customer';document.getElementById('profileStatus').textContent='active';document.getElementById('accountStatus').textContent='ใช้งานได้';document.getElementById('rolePill').textContent='CUSTOMER';say('บัญชีได้รับการตรวจสอบแล้ว โปรไฟล์ลูกค้าโหลดสำเร็จ')}init()})();
+</script>
+<script src="./trade.js"></script></body></html>

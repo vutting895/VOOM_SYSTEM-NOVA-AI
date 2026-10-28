@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "project": "VOOM LLM",
+  "default_base_model_candidate": "Qwen/Qwen3-0.6B",
+  "base_model_license_review_required": true,
+  "active_model": null,
+  "model_versions": [],
+  "auto_training_enabled": false,
+  "auto_deploy_enabled": false,
+  "auto_upload_enabled": false,
+  "live_trading_enabled": false,
+  "mt5_order_path_modified": false,
+  "release_policy": "human_review_required"
+}

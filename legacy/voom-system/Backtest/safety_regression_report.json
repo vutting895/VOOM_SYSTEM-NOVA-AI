@@ -1,0 +1,17 @@
+{
+  "daily_loss_over_limit_holds": {
+    "ok": true,
+    "reply": "SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily loss limit: P/L -300.01 USD <= -300.00; new entries blocked"
+  },
+  "unverified_pnl_fails_closed": {
+    "ok": true,
+    "reply": "SIGNAL|dir=HOLD|conf=0.00|lot=0.00|sl=0.00|tp=0.00|reason=Daily deal history unavailable"
+  },
+  "risk_config": {
+    "ok": true,
+    "daily_loss_usd": 300.0,
+    "risk_percent": 0.25,
+    "drawdown_stop": 0.03
+  },
+  "all_safety_tests_passed": true
+}

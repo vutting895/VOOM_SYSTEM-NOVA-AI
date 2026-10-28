@@ -1,0 +1,30 @@
+{
+  "captured_at_utc": "2026-10-23T21:51:06.582301+00:00",
+  "symbol": "XAUUSDc",
+  "timeframe": "M15",
+  "source": "MetaTrader5 read-only terminal snapshot",
+  "connected": true,
+  "orders_sent": false,
+  "live_tick_timestamp_utc": "2026-10-23T23:58:59+00:00",
+  "tick_age_seconds": -7672.42,
+  "tick_freshness": "FRESH",
+  "bid": 3995.48,
+  "ask": 3995.88,
+  "last": 0.0,
+  "spread_price": 0.4,
+  "digits": 2,
+  "point": 0.01,
+  "trade_mode": 4,
+  "bars_saved": 2000,
+  "bar_start_utc": "2026-09-24T07:00:00+00:00",
+  "bar_end_utc": "2026-10-23T23:45:00+00:00",
+  "latest_bar_is_potentially_open": true,
+  "bars_csv": "C:\\Users\\Administrator\\Documents\\Voom_system\\Backtest\\data\\realtime\\XAUUSDc_M15_latest_20261023T215106Z.csv",
+  "bars_sha256": "aeb5674451773a55abb1cf5edc6ecc9baca5b88c6fadefe33d94d1758dc5b3fb",
+  "caveats": [
+    "No orders were sent; account balance and positions were not read.",
+    "A stale tick is not real-time even if the terminal connection succeeds.",
+    "The latest M15 bar may still be forming and must not be used as a confirmed close.",
+    "This snapshot is research data only; it is not automatically added to the strategy's historical dataset."
+  ]
+}

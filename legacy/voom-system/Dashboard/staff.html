@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<meta name="robots" content="noindex,nofollow">
+<title>VOOM System · Private Control Center</title>
+<link rel="stylesheet" href="./app.css">
+</head>
+<body>
+<div class="app-shell" hidden>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#" aria-label="VOOM home"><span class="brand-mark">V</span><span><b>VOOM</b><small>SYSTEM CONTROL</small></span></a>
+    <div class="workspace"><span class="workspace-dot"></span><span><b>Workspace</b><small>Private environment</small></span><span class="chevron">⌄</span></div>
+    <div class="nav-label">WORKSPACE</div>
+    <nav class="nav" aria-label="Main navigation">
+      <button class="nav-item active" data-view="overview"><span class="nav-icon">▦</span>Overview</button>
+      <button class="nav-item" data-view="agents"><span class="nav-icon">◈</span>AI Marketplace</button>
+      <button class="nav-item" data-view="signals"><span class="nav-icon">⌁</span>Signals</button>
+      <button class="nav-item" data-view="positions"><span class="nav-icon">▤</span>Positions</button>
+      <button class="nav-item" data-view="risk"><span class="nav-icon">⛨</span>Risk Guard</button>
+    </nav>
+    <div class="nav-label nav-label-spaced">ADMINISTRATION</div>
+    <nav class="nav">
+      <button class="nav-item" data-view="security"><span class="nav-icon">⬡</span>Security Center</button>
+      <button class="nav-item" data-view="customers"><span class="nav-icon">♙</span>Customer Accounts</button>
+      <button class="nav-item" data-view="activity"><span class="nav-icon">◷</span>Audit Log</button>
+      <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="environment"><span class="pulse"></span><div><b>PRIVATE CONTROL</b><small>Authenticated staff session</small></div></div>
+      <div class="profile"><div class="avatar">V</div><div class="profile-name"><b>Staff</b><small>Authenticated</small></div><button id="signOutBtn" class="signout-btn" type="button" title="Sign out">↪</button></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><button class="mobile-menu" id="mobileMenu" aria-label="Open menu">☰</button><div class="breadcrumb">Voom System <span>/</span> <b id="crumb">Overview</b></div><div class="top-actions"><span class="preview-pill"><i></i> Private · Read-only</span><button class="icon-btn" id="themeBtn" title="Toggle contrast">◐</button><button class="icon-btn" id="noticeBtn" title="Notifications">♧</button><div class="mini-avatar">V</div></div></header>
+    <section class="content">
+      <div class="page-heading"><div><div class="eyebrow">MONITORING / OVERVIEW</div><h1 id="pageTitle">Workspace overview</h1><p id="pageDescription">High-level status for the Voom workspace.</p></div><div class="heading-actions"><span class="last-updated">Last refreshed <b id="lastUpdated">—</b></span><button class="btn btn-primary" id="refreshBtn"><span>↻</span> Refresh view</button></div></div>
+      <div class="preview-notice"><span class="notice-symbol">ⓘ</span><div><b>Backend integration in progress</b><p>Database schema is installed. Live customer, trading, and security feeds are not connected yet. All views are read-only.</p></div><button class="notice-close" id="dismissNotice" aria-label="Dismiss">×</button></div>
+      <section class="stats-grid" aria-label="Workspace summary">
+        <article class="stat-card"><div class="stat-top"><span>AI agents</span><span class="stat-icon purple">◈</span></div><div class="stat-value">—</div><div class="stat-foot">Heartbeat feed not connected</div></article>
+        <article class="stat-card"><div class="stat-top"><span>Signals today</span><span class="stat-icon blue">⌁</span></div><div class="stat-value">—</div><div class="stat-foot">Supabase feed not connected</div></article>
+        <article class="stat-card"><div class="stat-top"><span>Open positions</span><span class="stat-icon teal">▤</span></div><div class="stat-value">—</div><div class="stat-foot">Broker read-only feed not connected</div></article>
+        <article class="stat-card"><div class="stat-top"><span>Security events</span><span class="stat-icon orange">⛨</span></div><div class="stat-value">—</div><div class="stat-foot">Security feed not connected</div></article>
+      </section>
+      <section class="dashboard-grid">
+        <article class="panel performance-panel"><div class="panel-heading"><div><h2>Integration status</h2><p>Verified configuration status</p></div></div><div class="settings-list"><div class="settings-row"><div><b>Supabase Auth</b><p>Sign-in and staff role lookup</p></div><span class="badge badge-blue">Configured</span></div><div class="settings-row"><div><b>Supabase data feeds</b><p>Authenticated backend endpoints still required</p></div><span class="badge badge-amber">Pending</span></div><div class="settings-row"><div><b>Live trading</b><p>Order execution remains disabled</p></div><span class="badge badge-green">Disabled</span></div></div></article>
+        <article class="panel agent-panel"><div class="panel-heading"><div><h2>Quick access</h2><p>Private read-only screens</p></div></div><div class="agent-list"><button class="agent-row quick-link" data-goto="security"><div class="agent-avatar avatar-violet">⬡</div><div class="agent-info"><b>Security Center</b><small>Staff-only event view</small></div><span>→</span></button><button class="agent-row quick-link" data-goto="customers"><div class="agent-avatar avatar-blue">♙</div><div class="agent-info"><b>Customer Accounts</b><small>Protected account directory</small></div><span>→</span></button><button class="agent-row quick-link" data-goto="risk"><div class="agent-avatar avatar-teal">⛨</div><div class="agent-info"><b>Risk Guard</b><small>Read-only decision history</small></div><span>→</span></button></div></article>
+      </section>
+      <div id="viewContent" class="view-content" hidden></div>
+      <footer class="footer"><span>© 2026 VOOM SYSTEM</span><span>Private staff control · Read-only</span><span>Build 0.2.0</span></footer>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./auth.js"></script>
+<script src="./app.js"></script>
+</body></html>

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "vault_id": "voom-system-security",
+  "name": "VOOM System Security Knowledge Vault",
+  "default_policy": "read_analyze_propose_only",
+  "production_changes_enabled": false,
+  "modules": [
+    {
+      "id": "security-core",
+      "name": "VOOM Security Core",
+      "version": "0.1.0",
+      "status": "research",
+      "directory": "SECURITY_CORE",
+      "description": "Security principles, evidence handling and controlled improvement workflow.",
+      "allowed_ai_use": ["read", "analyze", "propose_changes", "design_tests", "create_incident_report"],
+      "blocked_actions": ["exfiltrate_secrets", "disable_security_controls", "modify_production_without_approval", "delete_evidence", "deploy_unreviewed_patch", "change_live_trading_risk", "place_live_orders"],
+      "evidence": {"baseline_documented": true, "independent_security_review": "pending", "production_validation": "pending"},
+      "limitations": ["Not a substitute for professional penetration testing or incident response.", "Knowledge retrieval does not grant execution permissions."]
+    }
+  ]
+}

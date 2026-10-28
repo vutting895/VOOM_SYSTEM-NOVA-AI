@@ -1,0 +1,78 @@
+{
+  "report_type": "Source1 exploratory backtest",
+  "strategy": "Mean Rejection SMC Wave v6.2",
+  "paper_only": true,
+  "live_trading_enabled": false,
+  "orders_sent": false,
+  "source_file": "C:\\Program Files\\AI_Bridge\\GOLD_M15_3mo_20260721_20261021.csv",
+  "data_rows": 6062,
+  "data_start_utc": "2026-07-20T22:00:00+00:00",
+  "data_end_utc": "2026-10-20T21:45:00+00:00",
+  "timeframe": "M15 (source filename/data context)",
+  "split_method": "chronological 70/30",
+  "config": {
+    "BEST_CONFIG_APPLIED": true,
+    "CONFLUENCE_MIN": 4,
+    "DL_WEIGHT": 0.25,
+    "DIST_ATR_MULT": 1.8,
+    "Z_SCORE_THRESH": 2.2,
+    "RISK_PCT": 0.01,
+    "RR_TP1": 1.5,
+    "RR_TP2": 3.1,
+    "RR_TP1_CLOSE_PCT": 0.5,
+    "VOLATILITY_ATR_MIN": 0.4,
+    "VOLATILITY_ATR_MAX": 3.5,
+    "SESSION_FILTER": [
+      "London",
+      "NY"
+    ],
+    "MEAN_PERIOD": 50,
+    "SMC_OB_LOOKBACK": 20,
+    "FVG_MIN_SIZE_ATR": 0.3,
+    "PA_CONFIRMATION": true
+  },
+  "spread_point_price_assumption": 0.01,
+  "warnings": [
+    "This dataset is roughly three months, not three years.",
+    "Source 1 was not edited; simulated UTC session clock is injected into a separate engine instance.",
+    "DL score fixed at 0 because the model is not validated; no fabricated positive score.",
+    "R results are estimates; full broker execution, slippage, commission, swaps and cash P&L are not verified.",
+    "Conservative stop-first rule when SL and TP are both touched in one candle.",
+    "No parameter optimization, auto-approval, order execution, or live trading."
+  ],
+  "in_sample": {
+    "split": "in_sample",
+    "bars_in_period": 4143,
+    "trades": 22,
+    "wins": 10,
+    "losses": 12,
+    "win_rate_pct": 45.45,
+    "profit_factor_r": 0.7404,
+    "net_r_estimate": -3.217,
+    "max_drawdown_equity_curve_pct": 7.0405,
+    "initial_equity_reference": 10000.0,
+    "final_equity_reference": 9669.18,
+    "cash_pnl_status": "NOT_CALCULATED: contract size, account currency conversion, commissions and precise broker fill model not verified"
+  },
+  "out_of_sample": {
+    "split": "out_of_sample",
+    "bars_in_period": 1819,
+    "trades": 1,
+    "wins": 1,
+    "losses": 0,
+    "win_rate_pct": 100.0,
+    "profit_factor_r": "Infinity",
+    "net_r_estimate": 2.2485,
+    "max_drawdown_equity_curve_pct": 0.0,
+    "initial_equity_reference": 10000.0,
+    "final_equity_reference": 10224.85,
+    "cash_pnl_status": "NOT_CALCULATED: contract size, account currency conversion, commissions and precise broker fill model not verified"
+  },
+  "gate_status": {
+    "backtest_passed": false,
+    "out_of_sample_passed": false,
+    "demo_passed": false,
+    "risk_review_passed": false,
+    "reason": "Exploratory report only; independent review and complete broker-cost validation required."
+  }
+}
