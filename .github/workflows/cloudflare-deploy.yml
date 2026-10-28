@@ -69,6 +69,10 @@ jobs:
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars
 
+      - name: Deploy authenticated read-only Remote MCP Worker
+        working-directory: frontend
+        run: npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars
+
       - name: Smoke-test deployed frontend and MT5 Proxy without credentials
         shell: bash
         run: |
@@ -101,4 +105,17 @@ jobs:
             echo "Frontend broker API did not reject unauthenticated MT5 status access (HTTP $code)."
             exit 1
           fi
-          echo "Frontend is live; MT5 proxy health is safe; unauthenticated private MT5 APIs are rejected."
+
+          mcp="https://voom-system-mcp.suwapat787.workers.dev"
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$mcp/health")"
+          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"toolCount":13' "$body"; then
+            echo "Remote MCP health or read-only MT5 tool contract failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' "$mcp/mcp")"
+          if [ "$code" != "401" ] || ! grep -q '"unauthorized"' "$body"; then
+            echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
+            exit 1
+          fi
+          echo "Frontend, MT5 proxy, and Remote MCP safety smoke tests passed."
