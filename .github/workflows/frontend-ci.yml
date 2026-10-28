@@ -8,8 +8,10 @@ on:
       - ".github/workflows/cloudflare-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-readonly-bridge/**"
+      - "integrations/remote-mcp-worker/**"
       - "supabase/migrations/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/remote-mcp-worker/**"
       - ".github/workflows/ai-worker-deploy.yml"
   push:
     branches: [main]
@@ -49,6 +51,9 @@ jobs:
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/worker.test.mjs
+      - name: Test Remote MCP Exness MT5 read-only tools
+        working-directory: .
+        run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
       - name: Syntax-check customer-isolated MT5 bridge
         working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py
