@@ -17,7 +17,13 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 - `list_strategy_registry` — reads visible strategy rows under Supabase RLS.
 - `read_market_candles` — bounded public Binance OHLCV candles.
 - `run_ema_backtest` — simplified long-only EMA crossover research calculation; omits fees, spread, slippage and funding.
+- `analyze_smc_strategy` / `run_smc_backtest` — heuristic SMC research using public Binance candles; no orders.
 - `validate_paper_risk` — fail-closed paper guardrails; never enables live execution.
+- `request_mt5_demo_connection` — creates a pending Exness MT5 Demo request for the authenticated user; it does not provision a Bridge or place trades.
+- `mt5_connection_status` — verifies the user's own connection and the health of its dedicated Bridge.
+- `mt5_account_summary`, `mt5_symbols`, `mt5_quotes` — read account and market data from that user's connected Exness MT5 Demo terminal through the tenant-isolated proxy.
+
+MT5 tools require an authenticated Supabase session and an existing user-owned `broker_connections` row. Reading account data remains unavailable until a trusted administrator provisions the separate Bridge route and the Cloudflare secret `MT5_TENANT_ROUTES`. All MT5 tools are GET/read-only except creating the pending database request; no tool submits, modifies, or closes orders.
 
 ## JSON-RPC smoke test
 Initialize and list tools using a valid signed-in user's Supabase access token:
