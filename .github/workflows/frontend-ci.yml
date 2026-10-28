@@ -6,21 +6,23 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
+      - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
-      - "supabase/migrations/**"
       - "integrations/nova-ai-worker/**"
-      - "integrations/remote-mcp-worker/**"
-      - ".github/workflows/ai-worker-deploy.yml"
+      - "supabase/migrations/**"
   push:
     branches: [main]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
+      - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-readonly-bridge/**"
+      - "integrations/remote-mcp-worker/**"
+      - "integrations/nova-ai-worker/**"
       - "supabase/migrations/**"
 
 permissions:
@@ -62,9 +64,5 @@ jobs:
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
       - name: Type-check
         run: npm run typecheck
-      - name: Build
+      - name: Build Next.js frontend for Vercel
         run: npm run build
-      - name: Install OpenNext build tooling (without changing the lockfile)
-        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
-      - name: Build Cloudflare Workers artifact (OpenNext)
-        run: npm run cf:build
