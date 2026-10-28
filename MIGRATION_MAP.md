@@ -17,7 +17,7 @@
 
 - Canonical repository: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI
 - Original source repository, preserved unchanged: https://github.com/vutting895/Voom_system
-- The frontend URL is not assumed from an old alias. Set repository variable `VOOM_FRONTEND_URL` to the verified HTTPS origin before the Cloudflare backend deploy workflow can run.
+- The Cloudflare backend smoke test uses `https://voomsystemnova-suwapats-projects.vercel.app`, an alias listed on the `READY` main deployment of Vercel project `voom_system_nova`. The project metadata also lists `voomsystem.vercel.app`; the workflow uses the NOVA-specific alias to avoid confusion with the older-named hostname.
 - Only `frontend/` is used for the checked-in Next.js CI build. Historical Vercel/Render/Worker configuration inside `legacy/voom-system/` is not active configuration.
 - Do not expose `legacy/voom-system/Research/MCP_Server/` publicly; it is distinct from the Remote MCP endpoint.
 - No real orders, live trading, or production strategy promotion are part of this consolidation.

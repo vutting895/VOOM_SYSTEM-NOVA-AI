@@ -28,8 +28,8 @@ The `legacy/voom-system/` path is a **preserved source archive**, not a second p
 ## Hosting and link correctness
 
 - The current frontend build workflow builds `frontend/`; the Cloudflare deployment workflow deploys backend Workers and does not deploy the Next.js frontend.
-- The former workflow hard-coded `https://voomsystem.vercel.app`, which may be a legacy alias. It is replaced by the GitHub repository variable `VOOM_FRONTEND_URL`. Set that variable only to the verified HTTPS URL for the intended frontend; backend deployment must stop if it is missing or invalid.
-- Do not assume a Cloudflare UI Worker or a responding legacy domain proves the latest NOVA UI is deployed. Verify the Vercel project/alias and authenticated UI/API routes before declaring a cutover complete.
+- The latest verified `READY` production deployment for `voom_system_nova` lists `https://voomsystemnova-suwapats-projects.vercel.app` as an assigned alias. The Cloudflare backend smoke test uses this NOVA-specific alias rather than the older-named `voomsystem.vercel.app` domain.
+- This is still a link/deployment check, not proof of a live broker connection. Verify the authenticated UI/API routes and current deployment commit before declaring a cutover complete.
 - Build scripts for Cloudflare frontend cutover are available but do not switch hosting by themselves. Do not change the active host without checking deployment configuration and runtime routes.
 
 ## Environment and secret handling
