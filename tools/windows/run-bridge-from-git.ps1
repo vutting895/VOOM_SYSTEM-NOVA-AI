@@ -71,7 +71,7 @@ try {
     }
 
     Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'init', '--cone')
-    Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'set', $BridgeRelativePath $WindowsToolsRelativePath)
+    Invoke-Git @('-C', $Checkout, 'sparse-checkout', 'set', $BridgeRelativePath, $WindowsToolsRelativePath)
 
     if (-not (Test-Path -LiteralPath $BridgeLauncher)) {
         throw "The latest Git checkout does not contain $BridgeRelativePath\run-bridge.ps1; refusing to start an older local copy."
