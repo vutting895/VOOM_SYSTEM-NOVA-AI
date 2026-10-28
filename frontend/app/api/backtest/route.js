@@ -33,8 +33,11 @@ async function authenticate(request) {
 }
 
 export async function POST(request) {
+  let raw;
+  try { raw = await request.text(); } catch { return json({ error: 'invalid_json' }, 400); }
+  if (new TextEncoder().encode(raw).byteLength > 12000) return json({ error: 'request_too_large' }, 413);
   let body;
-  try { body = await request.json(); } catch { return json({ error: 'invalid_json' }, 400); }
+  try { body = JSON.parse(raw); } catch { return json({ error: 'invalid_json' }, 400); }
   if (!body || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.candles)) {
     return json({ error: 'invalid_candle_data' }, 400);
   }
