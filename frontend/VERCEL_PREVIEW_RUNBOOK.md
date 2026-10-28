@@ -1,6 +1,6 @@
 # Vercel Preview verification runbook
 
-This Next.js app lives in `frontend/`. Vercel Preview deployments are for review only; do not promote a Preview to Production as part of this runbook.
+This Next.js app lives in `frontend/`; Vercel project `voom_system_nova` should use **Root Directory = `frontend`**, framework `Next.js`, and Node.js 22.x. Vercel Preview deployments are for review only; do not promote a Preview to Production as part of this runbook.
 
 ## Build contract
 
