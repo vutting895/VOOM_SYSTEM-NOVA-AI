@@ -394,10 +394,10 @@ async function handleMcp(request,env,origin) {
 export default {async fetch(request,env){
  const url=new URL(request.url),origin=request.headers.get("Origin")||"";
  if(request.method==="OPTIONS"){const h=cors(origin);return Object.keys(h).length?new Response(null,{status:204,headers:h}):new Response(null,{status:403})}
- if(url.pathname==="/health"&&request.method==="GET")return json({ok:true,service:"voom-system-mcp",mode:"authenticated-read-only",liveTradingEnabled:false,toolCount:tools.length});
- // MCP Streamable HTTP security: reject an untrusted browser Origin before auth or tool dispatch.
- // No Origin remains valid for non-browser MCP clients; authentication is still required by handleMcp.
+ // MCP Streamable HTTP security: reject an untrusted browser Origin before auth or route dispatch.
+ // No Origin remains valid for non-browser MCP clients; protected routes still require bearer auth.
  if(origin && !isAllowedOrigin(origin)) return json({error:"origin_not_allowed"},403);
+ if(url.pathname==="/health"&&request.method==="GET")return json({ok:true,service:"voom-system-mcp",mode:"authenticated-read-only",liveTradingEnabled:false,toolCount:tools.length});
  if(url.pathname==="/mcp"&&request.method==="POST")return handleMcp(request,env,origin);
  if(url.pathname==="/api/status"&&request.method==="GET"){const user=await getUser(request,env);if(!user?.id)return json({error:"unauthorized"},401,cors(origin));return json({service:"voom-system-mcp",authenticated:true,mode:"read-only",tradingExecution:false},200,cors(origin))}
  return json({error:"not_found"},404);
