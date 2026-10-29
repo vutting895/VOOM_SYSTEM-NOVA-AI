@@ -187,6 +187,11 @@ test("chat returns a model response only when the AI binding succeeds", async ()
   assert.equal(response.status, 200);
   assert.equal(body.message, "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม");
   assert.equal(body.provider, "cloudflare-workers-ai");
+  assert.equal(body.intent.schemaVersion, "nova.intent.v1");
+  assert.equal(body.intent.intent, "explain_indicators");
+  assert.equal(body.intent.component.type, "indicator_guide");
+  assert.equal(body.intent.component.executionEnabled, false);
+  assert.equal(body.intent.component.liveTradingEnabled, false);
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
 });
