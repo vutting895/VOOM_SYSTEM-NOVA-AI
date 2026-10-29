@@ -38,13 +38,13 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
    - `CLOUDFLARE_ACCOUNT_ID`
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (GitHub Actions repository variable)
-2. Run `Frontend CI` on the exact `main` commit and require type-check, Next.js build, and OpenNext build to pass.
-3. Let `Deploy NOVA Frontend to Cloudflare` deploy the exact commit that passed CI.
+   - `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`)
+2. Run `Frontend CI` on the exact `main` commit and require Hub tests, type-check, Next.js build, and Cloudflare OpenNext build to pass.
+3. Let `Deploy VOOM Workers to Cloudflare` deploy changed backend Workers and, when `frontend/**` changed, the `voom-system-nova-ui` frontend from the exact commit that passed CI.
 4. Inspect the new Cloudflare Worker version/deployment and confirm its configuration matches `frontend/wrangler.jsonc`.
 5. Open the frontend URL and verify home, login, markets, learning universe, broker status, and AI analysis routes.
 6. Verify API status and errors without exposing secrets or account identifiers.
-7. Align frontend authentication with the proxy before claiming broker integration works. The current frontend broker page sends a Supabase Bearer token, while the inspected proxy code validates a Cloudflare Access JWT (`Cf-Access-Jwt-Assertion`) and its CORS allow-list does not include the Authorization header. This contract mismatch must be resolved and tested securely.
+7. The Broker Settings page now sends the signed-in Supabase access token to `voom-system-hub`. The Hub validates the session and scopes the connection lookup to the authenticated user before calling the MT5 Proxy. Verify this exact browser path with a real signed-in session; do not bypass Hub auth or use service-role credentials in the browser.
 8. Verify broker integration remains read-only and all order routes stay disabled. Do not submit any live orders.
 
 ## Safety and change boundaries
@@ -55,10 +55,10 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 - Do not report a build, deployment, browser check, or broker connection as successful without observable evidence.
 
 
-## Additional blocker found during inspection
+## Historical blockers and current resolution (updated 2026-10-29)
 
-- The prior Cloudflare deployment workflow failed before build/deploy because `NEXT_PUBLIC_ALPACA_WORKER_URL` was unset. That setting is obsolete for the current Exness MT5 frontend.
-- The workflow was updated to use `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` from GitHub Actions repository variables, and CI now supplies a non-production placeholder for that variable.
-- Configure the public proxy URL as a repository Actions variable named `NEXT_PUBLIC_MT5_READONLY_PROXY_URL`; do not store credentials in it.
-- Authentication contract mismatch: the current frontend sends `Authorization: Bearer <Supabase access token>`, but the deployed `voom-mt5-readonly-proxy` code checks `Cf-Access-Jwt-Assertion` and its CORS response only allows `Content-Type`. The browser request will not work reliably as currently wired. Resolve the contract intentionally (for example, authenticate the Supabase token server-side in the proxy or redesign the request around Cloudflare Access), then validate preflight/CORS and the authorized read-only account endpoint.
-- No live trading or order execution was enabled by these repository changes.
+- The earlier build failure referenced `NEXT_PUBLIC_ALPACA_WORKER_URL`; that variable is obsolete and the legacy Cloudflare Worker `voom-alpaca-oauth` has been retired.
+- Broker Settings now uses `NEXT_PUBLIC_SYSTEM_HUB_URL` and routes authenticated account/quote requests through `voom-system-hub` instead of calling the MT5 Proxy directly.
+- The Cloudflare workflow now detects frontend changes, builds through OpenNext, deploys `voom-system-nova-ui`, and smoke-tests the home and broker settings pages.
+- Live direct Relay tests returned HTTP 200 for the Exness Demo account summary and XAUUSDm M1 quotes. The authenticated per-user browser path must still be verified from a real signed-in Supabase session before claiming full frontend-to-broker success.
+- No live trading or order execution is enabled.
