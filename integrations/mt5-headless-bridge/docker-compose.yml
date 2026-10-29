@@ -2,7 +2,9 @@ name: voom-mt5-headless
 
 services:
   mt5-engine:
-    image: lprett/mt5linux:mt5-installed
+    # Docker Hub manifest digest captured 2026-10-29; linux/amd64.
+    # Keep fixed while validating this legacy preinstalled image; do not float tags.
+    image: lprett/mt5linux@sha256:40480bc9d52eb24496f37131d3cf9162fead58ff3bceee0a102d956a129612d9
     restart: unless-stopped
     environment:
       MT5_HOST: 0.0.0.0
@@ -10,11 +12,11 @@ services:
       NOVNC_HOST: 127.0.0.1
     entrypoint: ["/bin/sh", "-ec"]
     command: |
-      export MT5_LOGIN="$(cat /run/secrets/mt5_login)"
-      export MT5_PASSWORD="$(cat /run/secrets/mt5_password)"
-      export MT5_SERVER="$(cat /run/secrets/mt5_server)"
+      export LOGIN="$(cat /run/secrets/mt5_login)"
+      export PASSWORD="$(cat /run/secrets/mt5_password)"
+      export SERVER="$(cat /run/secrets/mt5_server)"
       export VNC_PASSWORD="$(cat /run/secrets/vnc_password)"
-      exec /app/src/main.sh >/dev/null 2>&1
+      exec ./start.sh >/dev/null 2>&1
     secrets:
       - mt5_login
       - mt5_password
