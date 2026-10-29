@@ -21,6 +21,7 @@ const watchlist = [
 ];
 
 const modules = [
+  { name: 'AI CHAT', detail: 'Conversational research assistant', href: '/chat', icon: '✦' },
   { name: 'AI ANALYSIS', detail: 'Strategy research and explainable insights', href: '/gen-ai', icon: '◈' },
   { name: 'BROKER HUB', detail: 'Connection status and account access', href: '/broker', icon: '⌘' },
   { name: 'LEARNING UNIVERSE 16', detail: 'Learning modules and feedback loop', href: '/learning-universe', icon: '◎' },
@@ -123,7 +124,7 @@ export default function Home() {
         <div className="command-grid">
           <section className="hud-panel ai-core-panel">
             <div className="panel-heading"><span><i className="panel-marker" /> NOVA AI CORE</span><span className="panel-code">CORE / 001</span></div>
-            <div className="ai-core-content"><Orb /><div className="core-copy"><span className="micro-label">INTELLIGENCE ENGINE</span><h2>Ready to <em>analyze.</em></h2><p>Use AI research tools to review strategies and market context. No verified live market feed is displayed here.</p><Link className="hud-button" href="/gen-ai">OPEN AI ANALYSIS <span>↗</span></Link></div></div>
+            <div className="ai-core-content"><Orb /><div className="core-copy"><span className="micro-label">INTELLIGENCE ENGINE</span><h2>Ready to <em>analyze.</em></h2><p>Use AI research tools to review strategies and market context. No verified live market feed is displayed here.</p><Link className="hud-button" href="/chat">OPEN NOVA AI CHAT <span>↗</span></Link></div></div>
             <div className="core-foot"><span><i className="tiny-led" /> UI ONLINE</span><span>AI PROVIDER STATUS REQUIRES CHECK</span></div>
           </section>
 

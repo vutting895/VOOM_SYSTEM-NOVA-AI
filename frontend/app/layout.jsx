@@ -1,4 +1,5 @@
 import "./globals.css";
+import NovaNavigation from "../components/nova-navigation";
 
 export const metadata = {
   title: "VOOM SYSTEM · NOVA",
@@ -13,7 +14,7 @@ export default function RootLayout({ children }) {
           <div className="nova-glow nova-glow-purple" />
           <div className="nova-glow nova-glow-blue" />
         </div>
-        <div className="nova-app">{children}</div>
+        <div className="nova-app"><NovaNavigation />{children}</div>
       </body>
     </html>
   );
