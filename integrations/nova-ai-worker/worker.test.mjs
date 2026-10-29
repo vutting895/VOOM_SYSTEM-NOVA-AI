@@ -119,7 +119,7 @@ test("valid session can create research fallback but never execution", async () 
   authFetch();
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
     method: "POST",
-    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json", Origin: "https://voom-system-nova-ui.suwapat787.workers.dev" },
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json", Origin: "https://voomsystem.netlify.app" },
     body: JSON.stringify({ prompt: "EMA and RSI", market: "XAU/USD", timeframe: "1h", risk: "low" }),
   }), env);
   const body = await response.json();
@@ -129,7 +129,7 @@ test("valid session can create research fallback but never execution", async () 
   assert.equal(body.strategy.executionEnabled, false);
   assert.equal(body.strategy.backtestStatus, "not_run");
   assert.equal(body.liveTradingEnabled, false);
-  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voom-system-nova-ui.suwapat787.workers.dev");
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voomsystem.netlify.app");
 });
 
 test("untrusted browser origin is rejected", async () => {
