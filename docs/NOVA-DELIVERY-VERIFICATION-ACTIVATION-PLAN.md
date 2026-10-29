@@ -199,3 +199,27 @@ This section records changes after the previous evidence snapshot. It distinguis
 - The external Relay remains read-only and order submission remains disabled.
 
 **Non-negotiable:** Exness Demo only; Read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. No broker-write capability, production host cutover, or account/route-map mutation is authorized by this checklist alone.
+
+
+## 9. Netlify Production observation refresh — 2026-10-30
+
+### Deployment evidence
+- Netlify's current published Production deploy is `6ae38a268cef1a5112a095bb`, state `ready`, branch `main`, on commit `1f798f4e976d1516a044b0c53e4ca299f0e742e6` (PR #71's merge commit). The later main commit `f8845887ebf2619e2723727735634246a4a54be9` changes only this delivery plan, not application runtime code.
+- Netlify Observability recorded direct `GET /` with HTTP 200 after this Production deploy; Next.js RSC requests for `/login`, `/profile`, and `/broker` returned HTTP 200, as did the relevant static JS assets. This is evidence of live routes/assets on this deploy, but is not a complete route acceptance test.
+- The unauthenticated `GET /api/broker/status?broker=mt5` returns HTTP 401, which is expected for a protected account endpoint without a Supabase bearer token.
+- No direct request to `/settings/broker` was observed in the reviewed logs window. The old `/auth/callback` HTTP 404 records predate the new callback code and the current Production deploy; no post-deploy direct request has been observed. Therefore those two route checks remain open rather than inferred from build success.
+- The authorized Windows machine could not obtain HTTP status for Netlify URLs, while the System Hub remained reachable and returned 401 for unauthenticated protected reads. Netlify non-production previews require SSO and are not anonymously accessible from this test route.
+
+### Observability items to investigate
+- The last 24-hour window showed 16 `PUT /api/inngest` requests returning HTTP 404. A repository search did not find an `/api/inngest` route or Inngest reference in current source. Do not infer its source or add a handler blindly; identify which provider/plugin/automation sends the requests before deciding whether it is actionable.
+- The only HTTP 500 in the same window was for a static login JavaScript asset on an older Netlify Deploy Preview, not the current Production deploy. It is not evidence that the current production login route is failing.
+- Historical direct requests to the production `/login` and `/auth/callback` paths returned 404 before the current deploy; this is an old observation and must not be treated as the current status. The later `/login?_rsc=...` requests returned 200, but no real OTP click/session was verified.
+
+### Updated closure gates
+1. Verify a direct production GET of `/settings/broker` after the current deploy and retain its exact status/commit evidence.
+2. Complete a real email OTP click in a signed-in browser against `https://voomsystem.netlify.app/auth/callback`; verify session persistence, refresh, logout, and Supabase Redirect URL allowlist.
+3. With two authorized user sessions, prove user A can read only their own Hub/Proxy connection and user A cannot access user B's connection ID.
+4. Resolve PR #60's Netlify frontend/Cloudflare backend repository alignment and inspect/retest the exact branch preview. Do not merge on the basis of an old failed Preview or a different PR's success.
+5. Identify the owner of the recurring `/api/inngest` 404s and classify whether a fix is needed.
+
+**Safety invariant remains:** Exness Demo only; read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. No user session, broker credential, or connection route was fabricated during this observation.
