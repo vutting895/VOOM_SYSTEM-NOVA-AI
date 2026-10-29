@@ -12,6 +12,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
@@ -64,7 +65,7 @@ jobs:
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
-        run: node --test integrations/nova-ai-worker/worker.test.mjs
+        run: node --test integrations/nova-ai-worker/*.test.mjs
       - name: Test NOVA System Integration Hub authorization and tenant boundaries
         working-directory: .
         run: node --test integrations/system-hub/tests/*.test.mjs
