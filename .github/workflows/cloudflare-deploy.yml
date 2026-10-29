@@ -55,9 +55,9 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Wrangler without changing the lockfile
+      - name: Install Wrangler and OpenNext adapter without changing the lockfile
         working-directory: frontend
-        run: npm install --no-save --package-lock=false wrangler
+        run: npm install --no-save --package-lock=false wrangler @opennextjs/cloudflare@1.20.13
 
       - name: Detect changed backend Worker directories in the validated commit
         id: changed
