@@ -41,7 +41,7 @@ Never print secret values in logs or chat. Cloudflare and Supabase runtime confi
 ## Current deployment verification limits
 The repository now defines Netlify as the frontend deployment target and adds a main-branch route smoke test. This configuration alone does not prove that Netlify is connected to the correct repository, that the latest commit is deployed, or that the public routes work. Do not mark the frontend ready until the Netlify smoke test and real authenticated browser checks pass. Cloudflare Worker health is evidence for backend services only.
 ## Architecture
-- `frontend/`: Next.js UI, currently built for Vercel by the frontend workflow.
+- `frontend/`: Next.js UI deployed on Netlify; Cloudflare OpenNext scripts are legacy/alternate configuration only.
 - `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
 - `integrations/mt5-readonly-proxy/`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
 - `workers/data-ingestion/`: public market-data adapter.
