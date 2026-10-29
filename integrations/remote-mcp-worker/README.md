@@ -6,11 +6,10 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 
 ## Transport and Origin policy
 
-- `POST /mcp` is the stateless, tool-call-focused Streamable HTTP endpoint; tool replies are JSON.
-- Current implementation negotiates protocol versions `2025-03-26` and `2024-11-05`. Do not treat this endpoint as fully compatible with `2026-07-28` yet: that revision requires per-request metadata headers and body/header validation in addition to protocol-version support.
-- A supplied `Origin` must match the configured NOVA UI or approved Base44 origins. An unapproved Origin is rejected with HTTP 403 before authentication or tool dispatch.
-- Requests without an Origin are permitted for server-to-server MCP clients, but protected MCP calls still require a valid Supabase bearer token.
-- This Worker does not maintain a protocol session or provide a GET event stream. Current support is the existing stateless JSON tool-call subset; protocol `2026-07-28` compatibility and request-scoped SSE/streaming features remain separate follow-up work.
+- `POST /mcp` is a stateless, tools-only Streamable HTTP endpoint. It supports the tested legacy `2025-03-26` initialize flow and the per-request `2026-07-28` metadata path. It does not claim support for `2024-11-05` HTTP+SSE endpoints.
+- The allowed browser origins include the primary Netlify frontend (`https://voomsystem.netlify.app`) and the Cloudflare UI fallback (`https://voom-system-nova-ui.suwapat787.workers.dev`), plus the documented Base44 origins.
+- An unapproved supplied `Origin` is rejected with HTTP 403 before authentication or tool dispatch. Requests without an Origin are allowed for server-to-server clients, but protected MCP calls still require a valid Supabase bearer token.
+- This Worker is stateless and tools-only. It does not implement resources/prompts, persistent sessions, or server-sent event streams, so it does not claim complete MCP feature coverage.
 
 ## Authentication and safety
 - MCP POST requests require a valid Supabase access token in `Authorization: Bearer <access-token>`.
@@ -48,3 +47,13 @@ Then send `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`.
 
 ## Deployment note
 The Worker deployment is managed independently from the local stdio MCP server in `mcp-server/app.py`. The other Python worker folders are not individually deployed as Cloudflare Workers.
+
+
+## Protocol compatibility
+
+- Legacy stateless JSON-RPC requests use the supported 2025-03-26 initialize flow; 2024-11-05 HTTP+SSE endpoints are not implemented.
+- The 2026-07-28 path is per-request (no initialize handshake/session). Each POST must include MCP-Protocol-Version: 2026-07-28 and a matching params._meta["io.modelcontextprotocol/protocolVersion"]; Mcp-Method must equal the JSON-RPC method, and tools/call must include Mcp-Name matching params.name.
+- Modern requests require per-request clientCapabilities metadata; clientInfo is optional and validated when supplied. Header/body mismatch returns HTTP 400 with JSON-RPC error code -32020; unsupported versions return HTTP 400 with -32022. Modern method-not-found returns HTTP 404 with -32601.
+- server/discover is implemented for modern clients. Modern result objects use resultType: "complete"; discovery and tools/list include ttlMs and cacheScope. Cache scope is private.
+- Origin checks remain independent from protocol checks. A supplied untrusted Origin is rejected with HTTP 403 before authentication or tool dispatch. Requests without Origin remain allowed for non-browser clients, but protected MCP calls still require a valid Supabase bearer token.
+- This is a read-only tools subset. No order placement, close/modify, transfer, withdrawal, or broker mutation method is available. Do not describe this Worker as supporting the entire MCP specification beyond its implemented tools-only scope.
