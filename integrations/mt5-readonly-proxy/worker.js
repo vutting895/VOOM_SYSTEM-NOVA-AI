@@ -24,26 +24,84 @@ function bearer(request) {
   return match ? match[1] : "";
 }
 
+function safeAuthDiagnostic(error) {
+  const errorName = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(error.name)
+    ? error.name
+    : "Error";
+  const message = String(error?.message || "unknown")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted-token]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]")
+    .slice(0, 160);
+  return "MT5 Proxy could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
+}
+
 async function authenticate(request, env) {
   const token = bearer(request);
   if (!token) return { ok: false, status: 401, error: "authentication_required" };
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
     return { ok: false, status: 503, error: "auth_service_not_configured" };
   }
+
+  let authUrl;
   try {
-    const response = await fetch(env.SUPABASE_URL.replace(/\/$/, "") + "/auth/v1/user", {
-      headers: {
-        apikey: env.SUPABASE_ANON_KEY,
-        Authorization: "Bearer " + token,
-        Accept: "application/json"
-      },
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!response.ok) return { ok: false, status: 401, error: "invalid_or_expired_session" };
+    const baseUrl = new URL(env.SUPABASE_URL);
+    if (baseUrl.protocol !== "https:" || baseUrl.username || baseUrl.password) {
+      return { ok: false, status: 503, error: "auth_service_not_configured" };
+    }
+    authUrl = new URL("/auth/v1/user", baseUrl);
+  } catch {
+    return { ok: false, status: 503, error: "auth_service_not_configured" };
+  }
+
+  const authInit = {
+    method: "GET",
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + token,
+      Accept: "application/json"
+    },
+    cache: "no-store",
+    // Inspect redirects explicitly so credentials are never sent to another origin.
+    redirect: "manual",
+    signal: AbortSignal.timeout(15000)
+  };
+  let response;
+  try {
+    response = await fetch(authUrl, authInit);
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      if (!location) return { ok: false, status: 503, error: "auth_service_unavailable" };
+      let redirectedUrl;
+      try {
+        redirectedUrl = new URL(location, authUrl);
+      } catch {
+        return { ok: false, status: 503, error: "auth_service_unavailable" };
+      }
+      if (redirectedUrl.protocol !== "https:" || redirectedUrl.origin !== authUrl.origin) {
+        return { ok: false, status: 503, error: "auth_service_unavailable" };
+      }
+      response = await fetch(redirectedUrl, authInit);
+      if (response.status >= 300 && response.status < 400) {
+        return { ok: false, status: 503, error: "auth_service_unavailable" };
+      }
+    }
+  } catch (error) {
+    console.warn(safeAuthDiagnostic(error));
+    return { ok: false, status: 503, error: "auth_service_unavailable" };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, status: 401, error: "invalid_or_expired_session" };
+  }
+  if (!response.ok) {
+    console.warn("MT5 Proxy Supabase Auth returned non-success; status=" + response.status);
+    return { ok: false, status: 503, error: "auth_service_unavailable" };
+  }
+  try {
     const user = await response.json();
-    return user?.id
+    return user && typeof user.id === "string" && user.id
       ? { ok: true, userId: user.id, token }
       : { ok: false, status: 401, error: "invalid_or_expired_session" };
   } catch {
@@ -68,8 +126,9 @@ async function loadConnection(request, env, user) {
         Accept: "application/json"
       },
       cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(6000)
+      // Do not automatically forward the user's bearer token across redirects.
+      redirect: "manual",
+      signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) return { ok: false, status: 503, error: "connection_lookup_unavailable" };
     const rows = await response.json();
