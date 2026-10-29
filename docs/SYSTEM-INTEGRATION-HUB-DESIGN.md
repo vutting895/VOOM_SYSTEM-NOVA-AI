@@ -4,7 +4,7 @@
 
 Replace the role of the legacy Alpaca OAuth Worker with a clearly named **NOVA System Integration Hub** (voom-system-hub) as the control plane for integration status, connection configuration, tenant routing, and safe read-only operations.
 
-This is a proposed architecture and migration plan. It does not rename or deploy a Cloudflare Worker by itself. The existing integrations/alpaca-worker is an Alpaca-specific OAuth implementation and must not simply be renamed in place: its routes, OAuth callbacks, secrets, database migration, and frontend component are provider-specific. Keep it as a legacy/archive path until dependencies are verified and a separately reviewed migration is complete.
+This proposal does not rename or deploy a Worker by itself. The former `integrations/alpaca-worker` source is being removed from the active repository after review because the current application uses the NOVA System Integration Hub and Exness MT5 read-only adapter instead. This source cleanup does not disable or delete a provider-side Cloudflare Worker and does not drop Supabase tables or stored data. Preserve applied Alpaca SQL migrations as historical schema records; any provider-side decommissioning or data-retention decision requires separate inventory and verification.
 
 ## Product responsibility
 
@@ -116,7 +116,7 @@ Do not add a generic /proxy?url= endpoint. Unknown routes and unsupported capabi
 - Deploy the new Worker under a new name first. Verify health, auth, tenant isolation, and read-only integration end-to-end.
 - Update the frontend to the new Hub URL only after tests pass. Keep the MT5 proxy as a separate least-privilege adapter.
 - Monitor sanitized errors and rollback by restoring the prior frontend URL/configuration if checks fail.
-- Only after repository and Cloudflare consumer inventory is complete may the legacy Alpaca Worker be disabled. Do not delete its migration/table or source until all consumers and retention requirements are reviewed.
+- The legacy source-folder cleanup is separate from disabling a provider-side Cloudflare Worker. Only after current Cloudflare consumer inventory is complete may any provider-side Worker be disabled. Keep applied migrations and existing tables/data unless a separate reviewed retention and database migration plan authorizes changes.
 
 ## Acceptance criteria
 - [ ] Hub name and responsibilities are documented consistently.
