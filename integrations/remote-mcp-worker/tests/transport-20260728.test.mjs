@@ -185,7 +185,7 @@ test("rejects malformed optional clientInfo and missing required clientCapabilit
   assert.equal(malformed.status, 400);
   assert.equal((await malformed.json()).error.code, -32602);
 
-  const missingCapabilities = await responseFor(bearerRequest(makeModernRequest({ clientCapabilities: undefined })));
+  const missingCapabilities = await responseFor(bearerRequest(makeModernRequest({ clientCapabilities: null })));
   assert.equal(missingCapabilities.status, 400);
   assert.equal((await missingCapabilities.json()).error.code, -32602);
 });
