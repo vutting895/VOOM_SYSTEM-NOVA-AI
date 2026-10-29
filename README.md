@@ -25,7 +25,7 @@ npm ci
 npm run typecheck
 npm run build
 ```
-Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
+Netlify is the selected frontend target for the updated architecture. Cloudflare remains the verified fallback until Netlify live routes and Supabase login/session plus owner/tenant isolation tests pass. Do not change DNS/auth redirects or disable Cloudflare deployment rollback before that evidence exists.
 
 ## Unified frontend and NOVA Chat
 
