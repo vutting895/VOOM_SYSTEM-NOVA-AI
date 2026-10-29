@@ -4,6 +4,14 @@ Cloudflare Worker: `voom-system-mcp`
 Endpoint: `https://voom-system-mcp.suwapat787.workers.dev/mcp`  
 Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 
+## Transport and Origin policy
+
+- `POST /mcp` is the stateless, tool-call-focused Streamable HTTP endpoint; tool replies are JSON.
+- Current implementation negotiates protocol versions `2025-03-26` and `2024-11-05`. Do not treat this endpoint as fully compatible with `2026-07-28` yet: that revision requires per-request metadata headers and body/header validation in addition to protocol-version support.
+- A supplied `Origin` must match the configured NOVA UI or approved Base44 origins. An unapproved Origin is rejected with HTTP 403 before authentication or tool dispatch.
+- Requests without an Origin are permitted for server-to-server MCP clients, but protected MCP calls still require a valid Supabase bearer token.
+- This Worker does not maintain a protocol session or provide a GET event stream. Current support is the existing stateless JSON tool-call subset; protocol `2026-07-28` compatibility and request-scoped SSE/streaming features remain separate follow-up work.
+
 ## Authentication and safety
 - MCP POST requests require a valid Supabase access token in `Authorization: Bearer <access-token>`.
 - CORS allows the NOVA UI origin and existing Base44 origins.

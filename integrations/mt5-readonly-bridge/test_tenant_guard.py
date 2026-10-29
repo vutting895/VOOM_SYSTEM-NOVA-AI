@@ -50,6 +50,16 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertRegex(SOURCE, r"status_code\s*=\s*403")
         self.assertRegex(SOURCE, r"status_code\s*=\s*401")
 
+    def test_missing_or_invalid_bearer_is_rejected_before_tenant_mismatch(self):
+        guard_start = SOURCE.index("def require_token(")
+        guard_end = SOURCE.index("def initialize_mt5", guard_start)
+        guard_source = SOURCE[guard_start:guard_end]
+        self.assertLess(guard_source.index("if not authorization"), guard_source.index("if not tenant_id"))
+        self.assertLess(guard_source.index("hmac.compare_digest(supplied, BRIDGE_TOKEN)"), guard_source.index("if not tenant_id"))
+        self.assertIn('status_code=401, detail="Missing bearer token"', guard_source)
+        self.assertIn('status_code=401, detail="Invalid bearer token"', guard_source)
+        self.assertIn('status_code=403, detail="Bridge tenant mismatch"', guard_source)
+
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
         for name in ("health", "account_summary", "symbols", "quotes"):
