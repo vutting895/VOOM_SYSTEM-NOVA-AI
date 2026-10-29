@@ -35,6 +35,16 @@ test("rejects an untrusted Origin before authentication or MCP dispatch", async 
   assert.equal(response.headers.get("access-control-allow-origin"), null);
 });
 
+test("rejects an untrusted Origin on the public health route too", async () => {
+  const response = await worker.fetch(new Request("https://voom-system-mcp.test/health", {
+    method: "GET",
+    headers: { Origin: "https://attacker.invalid" }
+  }), {});
+
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), { error: "origin_not_allowed" });
+});
+
 test("allows non-browser clients without Origin but still requires authentication", async () => {
   const response = await worker.fetch(makeRequest(), {});
 
