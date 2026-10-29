@@ -12,6 +12,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/system-hub/**"
       - "supabase/migrations/**"
   push:
     branches: [main]
@@ -24,6 +25,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/system-hub/**"
       - "supabase/migrations/**"
 
 permissions:
@@ -54,6 +56,9 @@ jobs:
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/worker.test.mjs
+      - name: Test NOVA System Integration Hub authorization and tenant boundaries
+        working-directory: .
+        run: node --test integrations/system-hub/tests/*.test.mjs
       - name: Test Remote MCP Exness MT5 read-only tools
         working-directory: .
         run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
@@ -71,7 +76,10 @@ jobs:
       - name: Validate tenant relay Durable Object configuration
         working-directory: frontend
         run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+      - name: Validate NOVA System Integration Hub Worker bundle
+        working-directory: frontend
+        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
       - name: Type-check
         run: npm run typecheck
-      - name: Build Next.js frontend for Vercel
+      - name: Build Next.js frontend for CI validation (hosting is configured separately)
         run: npm run build
