@@ -1,4 +1,4 @@
-const ALLOWED_PROTOCOLS = new Set(["2025-03-26", "2024-11-05"]);
+const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 function isAllowedOrigin(origin) {
   return origin === UI_ORIGIN || origin === "https://app.base44.com" || Boolean(origin && /^https:\/\/[a-z0-9-]+\.base44\.app$/i.test(origin));
@@ -501,8 +501,14 @@ async function handleLegacyMcp(body, request, env, user, origin) {
   if (body.method.startsWith("notifications/")) return new Response(null, { status: 202, headers: cors(origin) });
   if (body.method === "initialize") {
     const requested = body.params?.protocolVersion;
+    if (!ALLOWED_PROTOCOLS.has(requested)) {
+      return protocolError(body.id, -32022, "Unsupported protocol version", {
+        supported: SUPPORTED_PROTOCOL_VERSIONS,
+        requested: typeof requested === "string" ? requested : null
+      }, 400, origin);
+    }
     return json(rpc(body.id, {
-      protocolVersion: ALLOWED_PROTOCOLS.has(requested) ? requested : "2025-03-26",
+      protocolVersion: requested,
       capabilities: { tools: {} },
       serverInfo: SERVER_INFO
     }), 200, cors(origin));
