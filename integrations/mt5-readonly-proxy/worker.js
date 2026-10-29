@@ -109,7 +109,7 @@ async function loadConnection(request, env, user) {
   }
 }
 
-async function forward(request, route, path) {
+async function forward(request, route, path, origin) {
   const url = new URL(request.url);
   const target = new URL(path, route.url);
   for (const key of ["q", "limit", "symbol", "timeframe", "count"]) {
@@ -133,7 +133,8 @@ async function forward(request, route, path) {
       status: response.status,
       headers: {
         ...BASE,
-        "Content-Type": response.headers.get("Content-Type") || "application/json"
+        "Content-Type": response.headers.get("Content-Type") || "application/json",
+        ...cors(origin)
       }
     });
   } catch {
@@ -142,7 +143,7 @@ async function forward(request, route, path) {
       mode: "read-only",
       order_submission_enabled: false,
       ordersEnabled: false
-    }, 502);
+    }, 502, origin);
   }
 }
 
@@ -188,6 +189,6 @@ export default {
       liveTradingEnabled: false
     }, connection.status, origin);
 
-    return forward(request, connection.route, url.pathname === "/health" ? "/health" : url.pathname);
+    return forward(request, connection.route, url.pathname === "/health" ? "/health" : url.pathname, origin);
   }
 };
