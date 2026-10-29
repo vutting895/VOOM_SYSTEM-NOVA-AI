@@ -219,7 +219,8 @@ test("unsupported protocol versions return supported versions with code -32022",
   assert.equal(response.status, 400);
   const error = (await response.json()).error;
   assert.equal(error.code, -32022);
-  assert.ok(error.data.supported.includes(MODERN));
+  assert.deepEqual(error.data.supported, [MODERN, "2025-03-26"]);
+  assert.equal(error.data.supported.includes("2024-11-05"), false);
 });
 
 test("modern method-not-found is HTTP 404 and retains JSON-RPC code -32601", async () => {
@@ -278,4 +279,22 @@ test("trusted browser preflight allows the required modern MCP request headers",
   assert.ok(allowedHeaders.includes("mcp-protocol-version"));
   assert.ok(allowedHeaders.includes("mcp-method"));
   assert.ok(allowedHeaders.includes("mcp-name"));
+});
+
+test("legacy initialize rejects the unsupported HTTP+SSE protocol rather than silently downgrading", async () => {
+  const request = bearerRequest(new Request(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "initialize",
+      params: { protocolVersion: "2024-11-05" }
+    })
+  }));
+  const response = await responseFor(request);
+  assert.equal(response.status, 400);
+  const error = (await response.json()).error;
+  assert.equal(error.code, -32022);
+  assert.deepEqual(error.data.supported, [MODERN, "2025-03-26"]);
 });
