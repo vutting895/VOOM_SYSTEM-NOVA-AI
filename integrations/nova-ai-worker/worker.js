@@ -1,3 +1,4 @@
+import { classifyResearchIntent } from "./intent-contract.js";
 const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
@@ -252,10 +253,12 @@ async function generateChat(env, messages) {
     if (!trimmed || trimmed.length > 10000) {
       throw new Error("invalid_model_response");
     }
+    const intent = classifyResearchIntent(messages[messages.length - 1].content);
     return {
       message: trimmed,
       provider: "cloudflare-workers-ai",
       model,
+      intent,
       executionEnabled: false,
       liveTradingEnabled: false,
     };
