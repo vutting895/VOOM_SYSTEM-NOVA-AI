@@ -11,10 +11,12 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const WORKFLOW_ENABLED = process.env.NOVA_APPROVALS_ENABLED === "true";
 
 export async function POST(request, context) {
   const auth = await authenticateAgentRequest(request);
   if (!auth.ok) return auth.response;
+  if (!WORKFLOW_ENABLED) return agentApiJson({ error: "approval_workflow_disabled" }, 503);
 
   const params = await context.params;
   const approvalId = params?.approvalId;
