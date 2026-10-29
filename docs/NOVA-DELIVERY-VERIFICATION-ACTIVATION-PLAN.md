@@ -1,6 +1,6 @@
 # NOVA Delivery, Verification, and Activation Plan
 
-**Last reviewed:** 2026-10-28  
+**Last reviewed:** 2026-10-30  
 **Repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Canonical branch:** `main`  
 **Purpose:** A single repeatable sequence for development, verification, and controlled activation. Follow this plan for future work; update it through a reviewed pull request when the sequence or acceptance criteria change.
@@ -21,7 +21,7 @@
 - [ ] Confirm `main` is current and identify active PRs, issue dependencies, and deployment targets.
 - [ ] Review the two-repository consolidation proposal in PR #35 against current NOVA `main`; classify each incoming file as keep, merge, superseded, or defer.
 - [ ] Review the bridge-auth correction in PR #34 and establish whether its tests and security behavior are covered by the current CI.
-- [ ] Record the current state of Frontend CI, backend deployment workflow, Vercel project `voom_system_nova`, Cloudflare Workers, and Supabase migration state.
+- [ ] Record the current state of Frontend CI, backend deployment workflow, Netlify site `voomsystem`, Cloudflare backend Workers, and Supabase migration state.
 - [ ] Preserve unique work and retain a rollback/reference commit before any cleanup.
 
 **Exit gate:** A reviewed file/directory inventory, dependency/overlap list, named target branch, and evidence-backed baseline. No destructive cleanup before this gate.
@@ -61,13 +61,13 @@ Run applicable checks from a clean checkout. Record links to actual workflow run
 
 **Exit gate:** Evidence exists for both allow and deny cases, including unauthenticated, invalid/expired credential, tenant mismatch, and cross-user access attempts. A UI status label alone is insufficient.
 
-### Phase 4 — Provider configuration and Preview validation
+### Phase 4 — Provider configuration and Netlify Preview validation
 
-- [ ] Verify Vercel project `voom_system_nova` uses the intended GitHub repository, frontend root directory, and intended branch.
+- [ ] Verify Netlify site `voomsystem` uses the intended GitHub repository, Next.js frontend under `frontend/`, and intended branch.
 - [ ] Verify required environment-variable **names and presence** without exposing values; never paste secret values in a PR or log.
-- [ ] Confirm Cloudflare workflows deploy backend Workers only and do not inadvertently cut over the frontend host.
+- [ ] Confirm Netlify is the customer-facing frontend target and Cloudflare workflows deploy backend Workers only. Keep the Cloudflare frontend as rollback until Netlify's production routes and auth gates pass.
 - [ ] Confirm expected Supabase Auth URLs/providers, migration state, RLS policies, and API exposure using the provider consoles.
-- [ ] Review the exact Vercel build/deployment failure reason before retrying; do not treat a cancelled Preview or build-rate-limit/403 response as a successful build.
+- [ ] Review the exact Netlify Build Plugin failure before retrying; do not treat a cancelled Preview or build-rate-limit/403 response as a successful build. UI-installed plugins must be fixed/disabled intentionally through Netlify Project configuration > Developer settings > Build plugins.
 - [ ] Deploy only to Preview/staging during this phase. Verify the deployment commit SHA, project, provider status, and the relevant browser/API routes.
 
 **Exit gate:** Correct source commit and intended project are verified; relevant Preview URLs respond as expected; private routes deny unauthenticated access; backend health and auth behavior match the security contract.
@@ -76,7 +76,7 @@ Run applicable checks from a clean checkout. Record links to actual workflow run
 
 - [ ] Keep the broker request pending until a dedicated tenant route exists and passes verification.
 - [ ] Confirm the local MT5 terminal is the intended **Demo** session using sanitized metadata only.
-- [ ] Restore and verify the approved HTTPS tunnel/origin; confirm the route-map binding exists in the trusted secret store.
+- [ ] Verify the Windows Bridge's authenticated outbound WSS connection to the tenant-scoped Cloudflare Relay; confirm the route-map binding exists in the trusted secret store. The old named Tunnel/custom-domain route is not the active path.
 - [ ] Match tenant ID, HTTPS origin, and tenant-specific token exactly without disclosing the token.
 - [ ] Test health, authentication, tenant mismatch, and per-user isolation end to end through the deployed proxy and Windows Bridge.
 - [ ] Mark a broker connection as connected only after an authenticated read-only account check returns verified evidence; a Worker, terminal process, or tunnel alone does not qualify.
@@ -123,14 +123,41 @@ For each implementation item:
 |---|---|---|---|
 | P0 | Review repository consolidation PR #35 | Needs review; not assumed merged | Complete Phase 0 inventory and Phase 1 diff review first |
 | P0 | Review Bridge auth correction PR #34 | Verify PR/CI state | Confirm deny-case tests against current code |
-| P1 | Resolve frontend deployment/Preview blocker | Known blocker in prior deployment records; re-check current provider state | Diagnose exact Vercel status before retrying |
+| P1 | Resolve Netlify deployment/Preview blocker | Blocked: PR #60's Deploy Preview failed in UI-installed `netlify-plugin-checklinks` on `onPostBuild`; `netlify-plugin-fetch-feeds` was also seen in earlier logs | Inspect/disable or correct the intended UI-installed plugin, then rerun Preview and production route smoke checks |
 | P1 | Complete tenant route, Tunnel, and read-only Bridge checks (Issue #33) | Blocked until route/origin prerequisites pass | Follow Phase 5; do not mark connected early |
-| P1 | Validate frontend/backend host split (Issue #30) | Maintain intended Vercel frontend + Cloudflare backend split | Verify commit and live routes per Phase 4 |
+| P1 | Validate frontend/backend host split (Issue #30) | Target is Netlify frontend + Cloudflare backend; cutover remains gated | Verify exact deployed commit and `/`, `/login`, `/settings/broker` route responses per Phase 4 |
 | P2 | Complete Auth/RLS, migration, and full security test coverage | Not complete until evidence is attached | Follow Phase 3 and only then enable the relevant read-only UI path |
 | P2 | Production readiness review | Not ready by default | All applicable release gates must pass |
 
-This queue is a starting snapshot, not proof of current provider status. Re-check GitHub Actions, Vercel, Cloudflare, and Supabase at the point each item is worked.
+This queue is a starting snapshot, not proof of current provider status. Re-check GitHub Actions, Netlify, Cloudflare, and Supabase at the point each item is worked.
 
 ## 6. Definition of done
 
 An item is done only when the code/configuration change is reviewed, relevant automated tests pass, applicable deny-case/security tests pass, provider/runtime evidence is recorded, documentation reflects the actual state, and no secret or unapproved live-trading capability was introduced.
+
+
+## 7. Current evidence and remaining blockers — 2026-10-30
+
+This addendum supersedes older deployment and Bridge snapshots only where it records newer evidence. It does not assert that the user-session Proxy, full Netlify cutover, or production activation has passed.
+
+### Verified in this check
+- PR #64 merged into `main` as `1b6574aec7f7023734694412366210433469f059`; the research document now includes SciSpace-discovered literature and validation gates for backtest selection bias, Deflated Sharpe Ratio, chronological walk-forward evaluation, and explicit research limitations.
+- The authorized Windows device is online. The private tenant configuration was read only in process memory; no token, account identifier, broker balance/equity, or quote price was emitted.
+- Authenticated local Windows MT5 Bridge checks returned HTTP 200 for health, account summary and quotes. Health reported the terminal and account session connected. Account reported connected. Quotes returned 5 XAUUSDm M5 bars. Every successful response reported `mode=read-only` and `order_submission_enabled=false`.
+- Authenticated external Cloudflare Relay GET health, account and quotes returned HTTP 200; relay health reported `relay_ready`, the account response reported connected, and quotes returned 5 XAUUSDm M5 bars. All returned read-only/order-disabled fields.
+- Unauthenticated requests to System Hub `GET /v1/connections`, the dummy connection account/quotes paths, and Relay account/quotes returned HTTP 401. This confirms negative unauthenticated responses, not cross-user authorization behavior.
+
+### Still blocked / not verified
+- PR #60 remains open. Netlify reported that the Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` `onPostBuild` step with `Links checking failed`; an earlier log also mentioned `netlify-plugin-fetch-feeds`. Those plugin settings are not in the reviewed `netlify.toml`. Netlify's build-plugin documentation directs site owners to manage UI-installed plugins from Project configuration > Developer settings > Build plugins. Fix or intentionally disable only the unneeded plugin in the Netlify site UI, then rerun Preview.
+- Netlify's current published deploy is `ready` on commit `fa1aced6bb5559446b72877c39ec7eb5583348bf`. That deployment record does not prove the current `main` commit is serving or that all routes/authenticated paths work. HTTP requests to the public Netlify routes could not obtain an HTTP status in the current Windows check; do not count that as success or as a confirmed 404.
+- The actual Supabase user-session path through System Hub / MT5 Proxy is not yet verified using a real authenticated browser session. A test showing unauthenticated 401 is not a substitute.
+- A valid owner-session read and a foreign connection-ID denial are still required. Do not infer a pass from the Relay's tenant-token success; the Hub/Proxy must also prove owner-scoped access.
+- Do not update the database connection state or route map on the basis of process status, stored status, Relay health alone, or an old timestamp.
+
+### Next executable gates, in order
+1. Resolve the site-level Netlify Build Plugin blocker; ensure the Preview passes, then verify `/`, `/login`, and `/settings/broker` on the production URL and attach exact commit/deploy evidence.
+2. With a valid signed-in Supabase session, test the owner's actual connection read and then a second user's connection ID; require owner success and foreign-ID denial.
+3. Only after those checks, reconcile stored connection metadata with fresh evidence, update tracking issues, and evaluate whether any staging/runtime change is justified.
+4. Keep the Windows Bridge available as rollback until the alternative headless candidate has an approved security review and real staging test. Do not cut over to the Linux/Docker candidate yet.
+
+**Safety invariant:** Exness Demo only; read-only + AI Analysis; order submission disabled; Live Trading OFF. These checks do not authorize broker writes.
