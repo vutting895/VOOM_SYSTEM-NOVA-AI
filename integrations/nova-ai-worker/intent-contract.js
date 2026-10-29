@@ -92,6 +92,8 @@ export function classifyResearchIntent(input) {
 
   if (containsAny(lower, BLOCKED_ACTION_PHRASES)) {
     intent = "blocked_action";
+  } else if (containsAny(lower, DRAFT_PHRASES)) {
+    intent = "draft_strategy";
   } else if (
     containsAny(lower, ["risk", "drawdown", "margin", "position sizing", "stop loss", "ความเสี่ยง", "มาร์จิน", "ขนาดสัญญา", "จุดตัดขาดทุน"])
   ) {
@@ -100,8 +102,6 @@ export function classifyResearchIntent(input) {
     containsAny(lower, ["backtest", "back test", "historical test", "ทดสอบย้อนหลัง", "ผลทดสอบย้อนหลัง"])
   ) {
     intent = "review_backtest";
-  } else if (containsAny(lower, DRAFT_PHRASES)) {
-    intent = "draft_strategy";
   } else if (
     containsAny(lower, ["ema", "rsi", "indicator", "อินดิเคเตอร์", "ค่าเฉลี่ยเคลื่อนที่", "ดัชนีแรงซื้อ"])
   ) {
