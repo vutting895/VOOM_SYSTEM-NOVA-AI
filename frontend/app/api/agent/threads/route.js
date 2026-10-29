@@ -6,12 +6,14 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const WORKFLOW_ENABLED = process.env.NOVA_APPROVALS_ENABLED === "true";
 
 const POLICY_VERSION = "nova-approval.v1";
 
 export async function GET(request) {
   const auth = await authenticateAgentRequest(request);
   if (!auth.ok) return auth.response;
+  if (!WORKFLOW_ENABLED) return agentApiJson({ error: "approval_workflow_disabled" }, 503);
 
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
@@ -35,6 +37,7 @@ export async function GET(request) {
 export async function POST(request) {
   const auth = await authenticateAgentRequest(request);
   if (!auth.ok) return auth.response;
+  if (!WORKFLOW_ENABLED) return agentApiJson({ error: "approval_workflow_disabled" }, 503);
 
   const parsed = await readAgentJson(request, 4000);
   if (!parsed.ok) return parsed.response;
