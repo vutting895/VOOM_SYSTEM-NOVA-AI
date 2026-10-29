@@ -1,4 +1,4 @@
-const UI = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI = "https://voomsystem.netlify.app";
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
 const BASE = {
   "Cache-Control": "no-store",
