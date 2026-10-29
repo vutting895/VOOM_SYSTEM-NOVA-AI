@@ -1,4 +1,4 @@
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voomsystem.netlify.app";
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
