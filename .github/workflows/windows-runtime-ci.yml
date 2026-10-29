@@ -62,6 +62,27 @@ jobs:
           }
           Write-Host "Bootstrap repository identity guard checks passed."
 
+      - name: Assert relay secret helper prefers installed Wrangler and bounds waits
+        shell: pwsh
+        run: |
+          $provisioner = Get-Content -Raw "tools/windows/provision-mt5-relay-route.ps1"
+          if ($provisioner -notmatch 'Get-Command wrangler\.cmd') {
+            throw "Route helper must detect the installed Wrangler command."
+          }
+          if ($provisioner -notmatch "'wrangler'") {
+            throw "Route helper must prefer the installed Wrangler CLI."
+          }
+          if ($provisioner -notmatch 'npx wrangler') {
+            throw "Route helper must retain an npx fallback when Wrangler is not installed globally."
+          }
+          if ($provisioner -notmatch 'WaitForExit\(90000\)') {
+            throw "Route helper must bound the CLI wait."
+          }
+          if ($provisioner -notmatch 'ReadToEndAsync\(\)') {
+            throw "Route helper must drain both process output streams without printing secrets."
+          }
+          Write-Host "Relay secret helper safety checks passed."
+
       - name: Assert Bridge stays read-only
         shell: pwsh
         run: |
