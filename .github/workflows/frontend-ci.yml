@@ -8,6 +8,7 @@ on:
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
@@ -56,12 +57,22 @@ jobs:
       - name: Test Remote MCP Exness MT5 read-only tools
         working-directory: .
         run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
+      - name: Test tenant-isolated MT5 Bridge relay and proxy
+        working-directory: .
+        run: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - name: Syntax-check MT5 Bridge and outbound relay client
+        working-directory: .
+        run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
       - name: Syntax-check customer-isolated MT5 bridge
         working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Install Wrangler for relay config validation
+        run: npm install --no-save --package-lock=false wrangler
+      - name: Validate tenant relay Durable Object configuration
+        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Type-check
         run: npm run typecheck
       - name: Build Next.js frontend for Vercel

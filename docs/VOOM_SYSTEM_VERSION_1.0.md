@@ -69,10 +69,11 @@ Do not assume an existing local bridge is connected or always running; verify it
 
 ## 7. Remaining questions / blockers
 
-1. The intended frontend URL is confirmed as `https://voom-system-nova-ui.suwapat787.workers.dev`. The Worker exists, but the latest frontend build and browser routes still require verification.
-2. Connect the tested loopback-only bridge to the Cloudflare API path through a protected Cloudflare Tunnel route. The Cloudflare proxy must keep its bearer token as a Worker secret, authenticate the signed-in user, rate-limit requests, and block trade/order actions. Do not expose port 8787 directly.
-3. Discover the correct Exness symbol names and available timeframes from the running terminal.
-4. Wire the Cloudflare frontend to the Broker Hub/bridge and actual AI analysis endpoint, then run typecheck/build and end-to-end read-only checks.
+1. The current bridge integration is being moved from a custom-domain/named-Tunnel origin to an authenticated outbound WebSocket relay at `https://voom-mt5-bridge-relay.suwapat787.workers.dev`. The implementation is in a review-only branch until CI and code review pass.
+2. After reviewed merge and deployment, provision the relay Worker secret `MT5_TENANT_ROUTES` privately from the Windows tenant files; do not print or commit the route JSON.
+3. Start the Windows relay client from the same user session as the intended Exness Demo terminal, then verify protected health, authenticated read-only account access, and tenant isolation end to end.
+4. Discover the correct Exness symbol names and available timeframes from the running terminal.
+5. Wire and verify the frontend-to-proxy session contract, including that the user's own pending connection can only become connected after successful tenant-route verification.
 
 Until the acceptance checklist is evidenced, Version 1.0 remains an implementation target, not a declaration that the system is ready or deployed.
 

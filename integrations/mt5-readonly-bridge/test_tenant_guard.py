@@ -10,6 +10,8 @@ from pathlib import Path
 BRIDGE_PATH = Path(__file__).with_name("bridge.py")
 SOURCE = BRIDGE_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE, filename=str(BRIDGE_PATH))
+LAUNCHER = Path(__file__).with_name("run-bridge.ps1").read_text(encoding="utf-8")
+RELAY_CLIENT = Path(__file__).with_name("bridge_relay_client.py").read_text(encoding="utf-8")
 
 
 def called_name(node):
@@ -78,10 +80,20 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertFalse(any(re.search(r"/(orders?|trades?|execute|withdraw|transfer)(/|$)", p, re.I) for p in registered_paths))
 
     def test_launcher_uses_the_documented_isolated_virtual_environment(self):
-        launcher = Path(__file__).with_name("run-bridge.ps1").read_text(encoding="utf-8")
-        self.assertIn("'.venv\\Scripts\\python.exe'", launcher)
-        self.assertIn("& $python -m uvicorn bridge:app", launcher)
-        self.assertNotIn("C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe", launcher)
+        self.assertIn("'.venv\\Scripts\\python.exe'", LAUNCHER)
+        self.assertIn("& $python bridge_relay_client.py", LAUNCHER)
+        self.assertNotIn("cloudflared", LAUNCHER.lower())
+        self.assertNotIn("voom.ai", LAUNCHER.lower())
+        self.assertNotIn("C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe", LAUNCHER)
+
+    def test_outbound_relay_uses_stable_workers_dev_and_no_custom_domain(self):
+        self.assertIn("wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect", RELAY_CLIENT)
+        self.assertNotIn("voom.ai", RELAY_CLIENT.lower())
+        self.assertIn("X-VOOM-TENANT-ID", RELAY_CLIENT)
+        self.assertIn("Authorization", RELAY_CLIENT)
+        self.assertIn('method="GET"', RELAY_CLIENT)
+        self.assertNotIn('"/api/orders"', RELAY_CLIENT)
+        self.assertIn("127.0.0.1:8787", RELAY_CLIENT)
 
 
 if __name__ == "__main__":
