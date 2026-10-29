@@ -20,7 +20,7 @@ CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get(
         "MT5_BRIDGE_CORS_ORIGINS",
-        "https://voom-system-nova-ui.suwapat787.workers.dev",
+        "https://voomsystem.netlify.app",
     ).split(",")
     if origin.strip()
 ]
