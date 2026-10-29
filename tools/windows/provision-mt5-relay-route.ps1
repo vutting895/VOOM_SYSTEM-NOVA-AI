@@ -38,9 +38,19 @@ $routeMap = @{
     }
 } | ConvertTo-Json -Depth 5 -Compress
 
+# Prefer the already-installed Wrangler CLI on disk-constrained Windows hosts.
+# Fall back to npx only when no global wrapper is available.
+$globalWrangler = Get-Command wrangler.cmd -ErrorAction SilentlyContinue
+$wranglerCommand = if ($globalWrangler) {
+    'wrangler'
+}
+else {
+    'npx wrangler'
+}
+
 $startInfo = New-Object System.Diagnostics.ProcessStartInfo
 $startInfo.FileName = $env:ComSpec
-$startInfo.Arguments = '/d /s /c "npx wrangler secret put MT5_TENANT_ROUTES --name voom-mt5-bridge-relay"'
+$startInfo.Arguments = '/d /s /c "' + $wranglerCommand + ' secret put MT5_TENANT_ROUTES --name voom-mt5-bridge-relay"'
 $startInfo.WorkingDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $startInfo.UseShellExecute = $false
 $startInfo.RedirectStandardInput = $true
@@ -59,7 +69,10 @@ $stdoutTask = $process.StandardOutput.ReadToEndAsync()
 $stderrTask = $process.StandardError.ReadToEndAsync()
 $process.StandardInput.WriteLine($routeMap)
 $process.StandardInput.Close()
-$process.WaitForExit()
+if (-not $process.WaitForExit(90000)) {
+    try { $process.Kill() } catch {}
+    throw 'Wrangler timed out. Route contents were not printed; check local CLI authentication and disk space.'
+}
 $null = $stdoutTask.GetAwaiter().GetResult()
 $null = $stderrTask.GetAwaiter().GetResult()
 
