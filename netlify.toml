@@ -1,0 +1,10 @@
+# Netlify build configuration for the NOVA Next.js frontend in this monorepo.
+# Netlify's built-in Next.js adapter handles App Router and route handlers.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
