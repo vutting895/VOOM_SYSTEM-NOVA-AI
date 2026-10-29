@@ -497,3 +497,198 @@ button:disabled { cursor: wait; opacity: .65; }
   .nova-intent-readonly { max-width: 120px; text-align: right; white-space: normal; }
   .nova-intent-fields { grid-template-columns: 1fr; }
 }
+
+
+/* Owner-scoped, research-only proposal review. This UI never authorizes broker actions. */
+.nova-intent-review-action {
+  display: grid;
+  gap: 7px;
+  margin-top: 15px;
+}
+.nova-intent-review-action button,
+.nova-approval-actions button,
+.nova-approval-final-state button,
+.nova-approval-expired button {
+  border: 1px solid rgba(115, 216, 220, .4);
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: rgba(20, 95, 109, .35);
+  color: #eafcff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.nova-intent-review-action button:disabled,
+.nova-approval-actions button:disabled,
+.nova-approval-final-state button:disabled,
+.nova-approval-expired button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+.nova-intent-review-action p {
+  margin: 0;
+  color: #8fabbf;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.nova-approval-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid rgba(105, 203, 194, .3);
+  border-radius: 14px;
+  background: rgba(6, 18, 31, .7);
+  color: #e8f3fa;
+}
+.nova-approval-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.nova-approval-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 25px;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: rgba(88, 177, 150, .2);
+  color: #9ae4c4;
+  font-size: 13px;
+  font-weight: 800;
+}
+.nova-approval-card-head > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.nova-approval-card-head strong {
+  color: #a9dce4;
+  font-size: 9px;
+  letter-spacing: .1em;
+}
+.nova-approval-card-head small {
+  color: #9eb4c7;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.nova-approval-state {
+  margin-left: auto;
+  max-width: 125px;
+  text-align: right;
+  color: #d8e3eb;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.nova-approval-state.is-approved { color: #9ae4c4; }
+.nova-approval-state.is-rejected,
+.nova-approval-state.is-expired { color: #f0b2a8; }
+.nova-approval-state.is-pending { color: #e3d49a; }
+.nova-approval-card h4 {
+  margin: 0;
+  color: #f3f8fc;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.nova-approval-summary {
+  margin: 0;
+  color: #b8cad9;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.nova-approval-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+.nova-approval-fields > div {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(133, 174, 201, .15);
+  border-radius: 8px;
+}
+.nova-approval-fields dt {
+  margin-bottom: 4px;
+  color: #8ea9bd;
+  font-size: 10px;
+}
+.nova-approval-fields dd {
+  margin: 0;
+  color: #edf7fc;
+  font-size: 11px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.nova-approval-note-label,
+.nova-approval-edit label {
+  color: #9eb4c7;
+  font-size: 10px;
+  font-weight: 700;
+}
+.nova-approval-note,
+.nova-approval-edit textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 60px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid rgba(133, 174, 201, .25);
+  border-radius: 9px;
+  background: rgba(3, 12, 23, .78);
+  color: #edf7fc;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.nova-approval-edit {
+  display: grid;
+  gap: 8px;
+}
+.nova-approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.nova-approval-actions .is-danger {
+  border-color: rgba(218, 139, 131, .4);
+  background: rgba(109, 39, 43, .35);
+  color: #ffd7d1;
+}
+.nova-approval-actions .is-secondary {
+  border-color: rgba(133, 174, 201, .22);
+  background: rgba(90, 115, 137, .16);
+  color: #c7d6e1;
+}
+.nova-approval-expiry {
+  margin: 0;
+  color: #8da7bb;
+  font-size: 10px;
+}
+.nova-approval-expired,
+.nova-approval-final-state {
+  display: grid;
+  gap: 8px;
+  color: #bdcdd9;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.nova-approval-expired p,
+.nova-approval-final-state p { margin: 0; }
+.nova-approval-final-state button { justify-self: start; }
+.nova-approval-safety {
+  padding-top: 9px;
+  border-top: 1px solid rgba(133, 174, 201, .14);
+  color: #8ebfae;
+  font-size: 9px;
+  letter-spacing: .02em;
+}
+@media (max-width: 560px) {
+  .nova-approval-card { padding: 12px; }
+  .nova-approval-fields { grid-template-columns: 1fr; }
+  .nova-approval-actions { display: grid; grid-template-columns: 1fr; }
+  .nova-approval-actions button { width: 100%; }
+  .nova-approval-state { max-width: 80px; }
+}
