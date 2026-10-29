@@ -13,6 +13,18 @@ class ComposeContractTests(unittest.TestCase):
         self.assertIn("no-new-privileges:true", source)
         self.assertIn("read_only: true", source)
 
+    def test_upstream_engine_image_is_digest_pinned_and_uses_its_entrypoint(self):
+        source = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "lprett/mt5linux@sha256:40480bc9d52eb24496f37131d3cf9162fead58ff3bceee0a102d956a129612d9",
+            source,
+        )
+        self.assertIn('exec ./start.sh >/dev/null 2>&1', source)
+        self.assertNotIn("/app/src/main.sh", source)
+        self.assertIn('export LOGIN="$(cat /run/secrets/mt5_login)"', source)
+        self.assertIn('export PASSWORD="$(cat /run/secrets/mt5_password)"', source)
+        self.assertIn('export SERVER="$(cat /run/secrets/mt5_server)"', source)
+
     def test_runtime_secrets_are_file_mounted_not_inline(self):
         source = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
         for secret in (
