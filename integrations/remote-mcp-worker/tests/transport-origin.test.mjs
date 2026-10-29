@@ -5,7 +5,7 @@ import worker from "../src/index.js";
 const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const ENDPOINT = "https://voom-system-mcp.test/mcp";
 
-function makeRequest({ origin, token, protocolVersion = "2026-07-28" } = {}) {
+function makeRequest({ origin, token, protocolVersion = "2025-03-26" } = {}) {
   const headers = {
     "Content-Type": "application/json",
     "Accept": "application/json, text/event-stream"
@@ -42,7 +42,7 @@ test("allows non-browser clients without Origin but still requires authenticatio
   assert.deepEqual(await response.json(), { error: "unauthorized" });
 });
 
-test("negotiates Streamable HTTP protocol 2026-07-28 for an authenticated tool client", async () => {
+test("preserves supported protocol 2025-03-26 negotiation for an authenticated client", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input.url);
@@ -66,7 +66,7 @@ test("negotiates Streamable HTTP protocol 2026-07-28 for an authenticated tool c
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("access-control-allow-origin"), UI_ORIGIN);
     const payload = await response.json();
-    assert.equal(payload.result.protocolVersion, "2026-07-28");
+    assert.equal(payload.result.protocolVersion, "2025-03-26");
     assert.deepEqual(payload.result.capabilities, { tools: {} });
   } finally {
     globalThis.fetch = originalFetch;
