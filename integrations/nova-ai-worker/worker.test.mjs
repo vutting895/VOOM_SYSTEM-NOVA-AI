@@ -237,3 +237,16 @@ test("unknown order route cannot execute", async () => {
   }), env);
   assert.equal(response.status, 404);
 });
+
+test("Cloudflare rollback UI origin remains allowed", async () => {
+  const response = await worker.fetch(new Request("https://ai.test/health", {
+    method: "OPTIONS",
+    headers: {
+      Origin: FALLBACK_UI_ORIGIN,
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "authorization,content-type"
+    }
+  }), {});
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
