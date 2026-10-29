@@ -8,7 +8,7 @@ The MT5 terminal runs inside a Linux container under Wine/Xvfb without publishin
 
 This does **not** turn MT5 into a native Exness REST API. It still runs the MetaTrader 5 terminal process inside the container and therefore needs a supported runtime, broker connectivity, and valid Demo credentials. The Compose candidate pins the third-party `lprett/mt5linux:mt5-installed` image to manifest digest `sha256:40480bc9d52eb24496f37131d3cf9162fead58ff3bceee0a102d956a129612d9` (linux/amd64), inspected on 2026-10-29 from [Docker Hub](https://hub.docker.com/layers/lprett/mt5linux/mt5-installed/images/sha256-40480bc9d52eb24496f37131d3cf9162fead58ff3bceee0a102d956a129612d9). Docker Hub shows this image was last pushed about 8 months ago, so digest pinning prevents silent changes but does **not** replace vulnerability review, broker compatibility testing, or an explicit runtime update plan.
 
-The pinned image's documented startup script is `./start.sh` in the image working directory `/mt5linux`. Compose mounts credentials as secret files, exports the legacy image's `LOGIN`, `PASSWORD`, and `SERVER` variables inside the startup shell, and then invokes that script; do not replace it with paths from the newer upstream Dockerfile without validating the exact image.
+The Docker Hub image metadata shows the pinned image's working directory is `/mt5linux` and its startup command is `./start.sh`. Compose mounts credentials as secret files, exports the legacy image's `LOGIN`, `PASSWORD`, and `SERVER` variables inside the startup shell, and then invokes that script; do not replace it with paths from the newer upstream Dockerfile without validating the exact image.
 
 ## Safety properties
 
