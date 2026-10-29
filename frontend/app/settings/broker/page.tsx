@@ -242,7 +242,7 @@ export default function BrokerSettingsPage() {
       <p className="intro">ระยะแรกใช้ Exness Demo ผ่าน MT5 บนเครื่อง Windows/VPS และอ่านข้อมูลบัญชีกับตลาดเท่านั้น หน้านี้ไม่รับรหัสผ่าน MT5 และไม่มีคำสั่งซื้อขาย</p>
       <section className="card">
         <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · NOVA System Integration Hub · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
-        {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare</p>}
+        {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Netlify</p>}
         <p className="warning">หน้านี้เรียกข้อมูลผ่าน NOVA System Integration Hub โดยใช้ Supabase session ของผู้ใช้และ Tenant route เฉพาะบัญชี ไม่มีการส่งคำสั่งซื้อขาย</p>
         {connectionStatus && <p className="warning">สถานะคำขอ: {connectionStatus.recordStatus} · {connectionStatus.readiness} · {connectionStatus.bridgeAllocated ? "จัดสรร Bridge แล้ว" : "ยังไม่มี Bridge เฉพาะบัญชี"}</p>}
         {signedInEmail ? (
