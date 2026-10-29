@@ -33,7 +33,7 @@ Every route should use a shared navigation component from the root layout. Route
 - Supabase session verification is mandatory before private AI calls; missing configuration fails closed.
 - Browser calls go to same-origin Next.js API routes. Those routes forward authenticated requests to Cloudflare server-to-server.
 - Never expose Cloudflare bindings/secrets to client code, commit secret values, or log bearer tokens or chat contents.
-- Keep Vercel as the Next.js frontend host and Cloudflare Workers as backend services. Do not change domains or cut over hosting as part of a UI-only PR.
+- The documented target is Netlify, but it is not yet verified for production. Keep Cloudflare as the verified fallback; do not change DNS or Supabase redirect settings until the exact Netlify commit, routes, Supabase login/session, and owner/cross-user isolation gates pass.
 - Preserve existing routes and domain logic while introducing shared navigation. Do not delete old project files or the separate Eve Chat project.
 - Keep Read-only + AI Analysis active. Live Trading and order submission remain disabled.
 
