@@ -52,7 +52,7 @@ jobs:
         run: npm ci
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
-        run: node --test integrations/nova-ai-worker/worker.test.mjs
+        run: node --test integrations/nova-ai-worker/*.test.mjs
       - name: Test Remote MCP Exness MT5 read-only tools
         working-directory: .
         run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
