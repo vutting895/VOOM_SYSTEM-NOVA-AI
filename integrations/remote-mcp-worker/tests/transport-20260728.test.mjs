@@ -171,7 +171,7 @@ test("rejects Mcp-Name when it does not match tools/call params.name", async () 
 });
 
 test("rejects malformed required client metadata", async () => {
-  const request = bearerRequest(makeModernRequest({ clientInfo: undefined }));
+  const request = bearerRequest(makeModernRequest({ clientInfo: null }));
   const response = await responseFor(request);
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, -32602);
