@@ -418,6 +418,14 @@ function decodeProtocolHeaderValue(value) {
 
 function validateModernTransportHeaders(request, body, origin) {
   const id = body?.id ?? null;
+  const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  const acceptTypes = new Set(String(request.headers.get("Accept") || "").split(",").map((value) => value.split(";")[0].trim().toLowerCase()));
+  if (contentType !== "application/json") {
+    return protocolError(id, -32600, "Invalid transport headers: Content-Type must be application/json", undefined, 400, origin);
+  }
+  if (!acceptTypes.has("application/json") || !acceptTypes.has("text/event-stream")) {
+    return protocolError(id, -32600, "Invalid transport headers: Accept must include application/json and text/event-stream", undefined, 400, origin);
+  }
   const versionHeader = request.headers.get("MCP-Protocol-Version");
   const methodHeader = request.headers.get("Mcp-Method");
   const metadata = body?.params?._meta;
