@@ -14,6 +14,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const WORKFLOW_ENABLED = process.env.NOVA_APPROVALS_ENABLED === "true";
 
 async function getThreadId(context) {
   const params = await context.params;
@@ -23,6 +24,7 @@ async function getThreadId(context) {
 export async function GET(request, context) {
   const auth = await authenticateAgentRequest(request);
   if (!auth.ok) return auth.response;
+  if (!WORKFLOW_ENABLED) return agentApiJson({ error: "approval_workflow_disabled" }, 503);
 
   const threadId = await getThreadId(context);
   if (!isUuid(threadId)) return agentApiJson({ error: "thread_not_found" }, 404);
@@ -55,6 +57,7 @@ export async function GET(request, context) {
 export async function POST(request, context) {
   const auth = await authenticateAgentRequest(request);
   if (!auth.ok) return auth.response;
+  if (!WORKFLOW_ENABLED) return agentApiJson({ error: "approval_workflow_disabled" }, 503);
 
   const threadId = await getThreadId(context);
   if (!isUuid(threadId)) return agentApiJson({ error: "thread_not_found" }, 404);
