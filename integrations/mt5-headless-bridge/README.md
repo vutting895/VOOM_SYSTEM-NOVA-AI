@@ -28,7 +28,7 @@ This does **not** turn MT5 into a native Exness REST API. It still runs the Meta
 
 ## Provision local secret files
 
-Create the following files manually in this directory's secrets/ folder. These paths are ignored by Git. Restrict access to the files and the host running Docker.
+Create the following files manually in this directory's secrets/ folder. These paths are ignored by Git. Restrict access to the files and host running Docker. Set each file to mode 0400 and make it owned by the identity that runs the Docker daemon (root for rootful Docker; the daemon user for rootless Docker). The Python bridge container drops all Linux capabilities and has a read-only filesystem; it runs as container UID 0 only so it can read these restricted file-backed Compose secrets.
 
 | File | Content |
 |---|---|
