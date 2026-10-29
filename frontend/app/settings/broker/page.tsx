@@ -3,22 +3,47 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../../lib/supabase-browser";
 
+type HubConnection = {
+  connectionId: string;
+  provider: string;
+  environment: string;
+  recordStatus: string;
+  accountLabel?: string | null;
+  readiness: string;
+  bridgeAllocated: boolean;
+  dataVerified: boolean;
+};
+
 type ReadOnlyAccount = {
   connected?: boolean;
   broker?: string;
   platform?: string;
   mode?: string;
-  server?: string;
-  currency?: string;
-  balance?: number | string;
-  equity?: number | string;
-  margin?: number | string;
-  margin_free?: number | string;
-  free_margin?: number | string;
-  error?: string;
+  server?: string | null;
+  currency?: string | null;
+  balance?: number | null;
+  equity?: number | null;
+  margin?: number | null;
+  margin_level?: number | null;
+  margin_free?: number | null;
+  free_margin?: number | null;
+  order_submission_enabled?: boolean;
+  as_of?: string | null;
 };
 
-const proxyUrl = (process.env.NEXT_PUBLIC_MT5_READONLY_PROXY_URL || "https://voom-mt5-readonly-proxy.suwapat787.workers.dev").replace(/\/$/, "");
+type ReadOnlyQuote = {
+  symbol: string;
+  timeframe: string;
+  digits?: number | null;
+  tick?: { bid?: number | null; ask?: number | null; time?: string | null } | null;
+  bars?: Array<{ time?: string; open?: number; high?: number; low?: number; close?: number }>;
+  count?: number;
+  mode?: string;
+  order_submission_enabled?: boolean;
+  as_of?: string | null;
+};
+
+const hubUrl = (process.env.NEXT_PUBLIC_SYSTEM_HUB_URL || "https://voom-system-hub.suwapat787.workers.dev").replace(/\/$/, "");
 const supabase = getSupabaseBrowserClient();
 
 export default function BrokerSettingsPage() {
@@ -29,56 +54,156 @@ export default function BrokerSettingsPage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const requireSignedInSession = useCallback(async () => {
-    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare");
+  const [connectionStatus, setConnectionStatus] = useState<HubConnection | null>(null);
+  const [quote, setQuote] = useState<ReadOnlyQuote | null>(null);
+
+  const requireSignedInSession = useCallback(async (): Promise<string> => {
+    if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key");
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
     if (!data.session?.access_token) throw new Error("กรุณาเข้าสู่ระบบด้วยอีเมลก่อน");
-    return true;
+    return data.session.access_token;
   }, []);
+
+  const getOrCreateOwnConnection = useCallback(async (accessToken: string): Promise<HubConnection> => {
+    const headers = { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" };
+    let response = await fetch(\`\${hubUrl}/v1/connections\`, { headers, cache: "no-store" });
+    let payload = await response.json().catch(() => ({})) as {
+      connections?: HubConnection[];
+      connection?: HubConnection;
+      error?: string;
+    };
+    if (!response.ok) {
+      throw new Error(payload.error || \`อ่านรายการการเชื่อมต่อไม่สำเร็จ (HTTP \${response.status})\`);
+    }
+    const existing = payload.connections?.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
+    if (existing) return existing;
+
+    response = await fetch(\`\${hubUrl}/v1/connections\`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    payload = await response.json().catch(() => ({})) as {
+      connections?: HubConnection[];
+      connection?: HubConnection;
+      error?: string;
+    };
+    if (!response.ok || !payload.connection) {
+      throw new Error(payload.error || \`สร้างคำขอ Exness Demo ไม่สำเร็จ (HTTP \${response.status})\`);
+    }
+    return payload.connection;
+  }, []);
+
+  const pendingMessage = (connection: HubConnection) => {
+    if (connection.recordStatus === "disabled") return "การเชื่อมต่อถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ";
+    if (connection.recordStatus !== "connected" || !connection.bridgeAllocated) {
+      return "ระบบรับคำขอแล้ว แต่ยังรอผู้ดูแลจัดสรร Bridge และ Tenant route เฉพาะบัญชีนี้";
+    }
+    return "";
+  };
 
   const loadAccount = useCallback(async () => {
     setError("");
-    if (!proxyUrl) {
-      setError("ยังไม่ได้ตั้งค่า URL ของ MT5 read-only proxy");
-      return;
-    }
     setBusy(true);
     try {
-      await requireSignedInSession();
-      const response = await fetch(`${proxyUrl}/api/account`, {
-        credentials: "include",
+      const accessToken = await requireSignedInSession();
+      const connection = await getOrCreateOwnConnection(accessToken);
+      setConnectionStatus(connection);
+      const pending = pendingMessage(connection);
+      if (pending) {
+        setAccount(null);
+        setNotice(pending);
+        return;
+      }
+
+      const response = await fetch(\`\${hubUrl}/v1/connections/\${encodeURIComponent(connection.connectionId)}/account\`, {
+        headers: { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" },
         cache: "no-store",
       });
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        throw new Error("Cloudflare Access ยังไม่ได้ยืนยันเซสชันสำหรับ Proxy กรุณากด “เปิดการยืนยันสิทธิ์ Cloudflare Access” แล้วเข้าสู่ระบบก่อนลองอีกครั้ง");
-      }
-      const data = await response.json() as ReadOnlyAccount;
+      const payload = await response.json().catch(() => ({})) as {
+        account?: ReadOnlyAccount;
+        state?: string;
+        error?: string;
+        detail?: string;
+        dataVerified?: boolean;
+      };
       if (!response.ok) {
-        const message = data.error === "access_login_required" || data.error === "invalid_access_assertion"
-          ? "กรุณายืนยัน Cloudflare Access ก่อนอ่านข้อมูลบัญชี"
-          : data.error === "user_not_allowed"
-            ? "อีเมลนี้ไม่มีสิทธิ์เข้าถึงบัญชี Broker"
-            : data.error || `อ่านสถานะ Exness MT5 ไม่สำเร็จ (HTTP ${response.status})`;
+        const message = payload.state === "pending_provisioning" || response.status === 409
+          ? "คำขอยังรอการจัดสรร Bridge เฉพาะบัญชี"
+          : payload.state === "tenant_guard_rejected" || response.status === 403
+            ? "คำขอถูกปฏิเสธโดย Tenant Guard: ตรวจสอบการจัดสรรสิทธิ์บัญชี"
+            : payload.error || payload.detail || \`อ่านบัญชีผ่าน System Hub ไม่สำเร็จ (HTTP \${response.status})\`;
         throw new Error(message);
       }
-      if (!data.connected) throw new Error("Proxy ติดต่อได้ แต่ MT5 terminal ยังไม่ยืนยันการเชื่อมต่อบัญชี");
-      setAccount(data);
-      setNotice("ได้รับข้อมูลบัญชีจาก Exness MT5 ผ่าน Proxy และตรวจสิทธิ์ผู้ใช้แล้ว");
+      if (!payload.dataVerified || !payload.account?.connected) {
+        throw new Error("Hub ติดต่อได้ แต่ยังไม่ได้ยืนยันข้อมูลบัญชี MT5 จากการอ่านจริง");
+      }
+      setAccount(payload.account);
+      setNotice("ตรวจยืนยันการอ่านบัญชี Exness Demo ผ่าน NOVA System Integration Hub แล้ว · Read-only");
     } catch (e) {
       setError(e instanceof Error ? e.message : "อ่านสถานะบัญชีไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
-  }, [requireSignedInSession]);
+  }, [getOrCreateOwnConnection, requireSignedInSession]);
+
+  const loadQuote = useCallback(async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const accessToken = await requireSignedInSession();
+      const connection = await getOrCreateOwnConnection(accessToken);
+      setConnectionStatus(connection);
+      const pending = pendingMessage(connection);
+      if (pending) {
+        setQuote(null);
+        setNotice(pending);
+        return;
+      }
+
+      const query = new URLSearchParams({ symbol: "XAUUSDm", timeframe: "M1", count: "3" });
+      const response = await fetch(
+        \`\${hubUrl}/v1/connections/\${encodeURIComponent(connection.connectionId)}/quotes?\${query.toString()}\`,
+        { headers: { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" }, cache: "no-store" }
+      );
+      const payload = await response.json().catch(() => ({})) as {
+        quote?: ReadOnlyQuote;
+        state?: string;
+        error?: string;
+        detail?: string;
+        dataVerified?: boolean;
+      };
+      if (!response.ok) {
+        const message = payload.state === "pending_provisioning" || response.status === 409
+          ? "คำขอยังรอการจัดสรร Bridge เฉพาะบัญชี"
+          : payload.state === "tenant_guard_rejected" || response.status === 403
+            ? "คำขออ่านราคาถูกปฏิเสธโดย Tenant Guard"
+            : payload.error || payload.detail || \`อ่านราคาผ่าน System Hub ไม่สำเร็จ (HTTP \${response.status})\`;
+        throw new Error(message);
+      }
+      if (!payload.dataVerified || !payload.quote) {
+        throw new Error("Hub ยังไม่ได้ยืนยันข้อมูลราคาจาก MT5");
+      }
+      setQuote(payload.quote);
+      setNotice(\`อ่านราคา \${payload.quote.symbol} \${payload.quote.timeframe} ผ่าน NOVA System Integration Hub แล้ว · Read-only\`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "อ่านราคาไม่สำเร็จ");
+    } finally {
+      setBusy(false);
+    }
+  }, [getOrCreateOwnConnection, requireSignedInSession]);
 
   useEffect(() => {
     if (!supabase) return;
     void supabase.auth.getSession().then(({ data }) => setSignedInEmail(data.session?.user.email || ""));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSignedInEmail(session?.user.email || "");
-      if (!session?.access_token) setAccount(null);
+      if (!session?.access_token) {
+        setAccount(null);
+        setQuote(null);
+        setConnectionStatus(null);
+      }
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -102,7 +227,7 @@ export default function BrokerSettingsPage() {
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
-    setSignedInEmail(""); setAccount(null); setNotice("ออกจากระบบ VOOM แล้ว");
+    setSignedInEmail(""); setAccount(null); setQuote(null); setConnectionStatus(null); setNotice("ออกจากระบบ VOOM แล้ว");
   }
 
   return (
@@ -129,15 +254,15 @@ export default function BrokerSettingsPage() {
       <h1>เชื่อมต่อบัญชี Exness MT5</h1>
       <p className="intro">ระยะแรกใช้ Exness Demo ผ่าน MT5 บนเครื่อง Windows/VPS และอ่านข้อมูลบัญชีกับตลาดเท่านั้น หน้านี้ไม่รับรหัสผ่าน MT5 และไม่มีคำสั่งซื้อขาย</p>
       <section className="card">
-        <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · Protected Cloudflare Proxy · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
+        <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · NOVA System Integration Hub · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
         {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare</p>}
-        <p className="warning">ต้องเข้าสู่ระบบ VOOM ด้วยอีเมล และยืนยัน Cloudflare Access สำหรับ proxy ก่อนอ่านข้อมูลบัญชี</p>
-        <a className="btn" href={`${proxyUrl}/health`} target="_blank" rel="noopener noreferrer">เปิดการยืนยันสิทธิ์ Cloudflare Access</a>
-        <p className="warning">Proxy endpoint ถูก Deploy แล้ว แต่สถานะบัญชีจะยืนยันได้เมื่อ Windows MT5 Bridge และบัญชี Exness Demo ออนไลน์</p>
+        <p className="warning">หน้านี้เรียกข้อมูลผ่าน NOVA System Integration Hub โดยใช้ Supabase session ของผู้ใช้และ Tenant route เฉพาะบัญชี ไม่มีการส่งคำสั่งซื้อขาย</p>
+        {connectionStatus && <p className="warning">สถานะคำขอ: {connectionStatus.recordStatus} · {connectionStatus.readiness} · {connectionStatus.bridgeAllocated ? "จัดสรร Bridge แล้ว" : "ยังไม่มี Bridge เฉพาะบัญชี"}</p>}
         {signedInEmail ? (
           <div>
             <p className="muted" style={{marginTop:18}}>เข้าสู่ระบบแล้ว: {signedInEmail}</p>
-            <button className="btn primary" disabled={busy} onClick={loadAccount}>{busy ? "กำลังอ่านข้อมูล…" : "ตรวจสถานะบัญชี (Read-only)"}</button>
+            <button className="btn primary" disabled={busy} onClick={loadAccount}>{busy ? "กำลังอ่านข้อมูล…" : "อ่านบัญชีผ่าน Hub (Read-only)"}</button>
+            <button className="btn" disabled={busy} onClick={loadQuote}>{busy ? "กำลังตรวจราคา…" : "ตรวจราคาทองคำ XAUUSDm"}</button>
             <button className="btn" disabled={busy} onClick={signOut}>ออกจากระบบ VOOM</button>
             {account && <div className="grid">
               <div className="metric"><span>Broker / Platform</span><strong>{account.broker ?? "Exness"} / {account.platform ?? "MT5"}</strong></div>
@@ -146,6 +271,13 @@ export default function BrokerSettingsPage() {
               <div className="metric"><span>Equity</span><strong>{account.equity ?? "—"} {account.currency ?? ""}</strong></div>
               <div className="metric"><span>Free margin</span><strong>{account.free_margin ?? account.margin_free ?? "—"} {account.currency ?? ""}</strong></div>
               <div className="metric"><span>Mode</span><strong>{account.mode ?? "Read-only"}</strong></div>
+            </div>}
+            {quote && <div className="grid">
+              <div className="metric"><span>Symbol / Timeframe</span><strong>{quote.symbol} / {quote.timeframe}</strong></div>
+              <div className="metric"><span>Bid / Ask</span><strong>{quote.tick?.bid ?? "—"} / {quote.tick?.ask ?? "—"}</strong></div>
+              <div className="metric"><span>Last candle close</span><strong>{quote.bars?.[quote.bars.length - 1]?.close ?? "—"}</strong></div>
+              <div className="metric"><span>Quote timestamp</span><strong>{quote.as_of ?? quote.tick?.time ?? "—"}</strong></div>
+              <div className="metric"><span>Execution</span><strong>{quote.order_submission_enabled ? "Disabled check failed" : "Disabled"}</strong></div>
             </div>}
           </div>
         ) : (
