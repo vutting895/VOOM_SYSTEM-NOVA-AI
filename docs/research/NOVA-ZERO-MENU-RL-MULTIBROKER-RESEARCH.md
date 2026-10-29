@@ -358,6 +358,116 @@ References checked on 2026-10-29. Vendor APIs, versions, pricing and limits may 
 14. Cloudflare Workers resource limits: https://developers.cloudflare.com/workers/platform/limits/
 15. Cloudflare Queues limits and behavior: https://developers.cloudflare.com/queues/platform/limits/
 
+## 13. Deep Learning research extension
+
+### 13.1 Position in the NOVA architecture
+
+Deep Learning is an optional signal/feature service, not the orchestration authority and not an execution layer. It must emit a versioned, typed result to the deterministic strategy/risk pipeline. The model may estimate volatility, classify a market regime, rank a finite set of strategy candidates, or produce a calibrated forecast with uncertainty. It must not authenticate users, choose tenant routes, change hard risk limits, or call broker write methods.
+
+Recommended initial order of work:
+
+1. Establish data-quality, feature-timestamp, baseline and walk-forward tests for the existing deterministic EMA/SMC research path.
+2. Add a volatility forecast and/or regime classifier as a read-only research output.
+3. Compare model-filtered signals against the same strategy without the model filter, using chronological out-of-sample evaluation and realistic costs.
+4. Run in shadow mode and log agreement, abstentions, uncertainty, drift and latency.
+5. Consider policy use only after repeatable out-of-sample evidence and review; this research does not authorize live execution.
+
+### 13.2 Model families and appropriate use
+
+| Model family | Candidate use | Key limitations / controls |
+|---|---|---|
+| Temporal Fusion Transformer (TFT) | Multi-horizon forecasts with static, known-future and observed historical covariates; useful when those feature categories are genuinely available | Not inherently robust to regime change; attention/variable-selection outputs are not proof of causal explanation. Compare to simple baselines and recalibrate under drift |
+| LSTM / GRU | Sequential features and volatility/regime estimates on a defined timeframe | Bidirectional LSTM may leak future information if used for a live causal prediction; online features must only use observations available at prediction time |
+| CNN / temporal convolution | Local patterns in price/indicator sequences | Can overfit repeated patterns and instrument-specific regimes; use walk-forward evaluation |
+| Transformer / NLP encoder | Extract time-stamped sentiment or event features from permitted news/text | Avoid look-ahead by using publication/availability time, not the article's event date alone; handle source bias, duplicates and revised articles |
+| PPO / SAC / other DRL | Offline research into a finite strategy-selection or allocation policy | Highly sensitive to simulator assumptions, reward design and data leakage; no unrestricted Buy/Sell/Order action in the current production path |
+
+TFT is designed for multi-horizon time-series forecasting and combines recurrent processing with attention and feature-selection components. It should not be assumed to outperform LSTM or to be inherently resilient to regime shifts. Select the smallest model that demonstrates stable incremental value over a well-defined baseline.
+
+For a first Deep Learning release, prioritize volatility/regime estimates over raw price-direction claims. Forecasts should include target definition, horizon, timestamp, model/version, uncertainty or calibration diagnostics, data-freshness status, and abstain reason. Forecast quality does not equal trading profitability.
+
+### 13.3 Output contract and downstream gating
+
+Every model output should conform to a versioned schema similar to:
+
+~~~json
+{
+  "schema_version": "1",
+  "model_id": "registered-model-name",
+  "model_version": "immutable-version",
+  "symbol": "provider-native-symbol",
+  "timeframe": "configured-timeframe",
+  "as_of": "UTC timestamp",
+  "target": "realized_volatility|regime|strategy_score",
+  "horizon": "declared-horizon",
+  "prediction": "typed-value-defined-by-target-schema",
+  "uncertainty": "optional-calibrated-value",
+  "data_freshness": "fresh|stale|unknown",
+  "status": "ok|abstain|unavailable"
+}
+~~~
+
+The illustrative JSON is a contract sketch, not a deployed schema. In implementation, use target-specific discriminated schemas and numeric types/bounds rather than accepting arbitrary values. Reject unknown model IDs, unregistered versions, stale data, missing features, invalid ranges and schema mismatches. Model output goes to a strategy evaluator and then to the existing deterministic Risk Engine; it does not directly invoke an MCP broker-write tool.
+
+### 13.4 Feature engineering and data leakage prevention
+
+- Build features only from data available at the decision timestamp. Record whether each candle is open or finalized and the timestamp/timezone convention.
+- For SMC pivots, swings, BOS/CHoCH, Order Blocks and FVG, distinguish a candidate pattern from one confirmed only after future bars. Backtests must not use the confirmation before it was observable.
+- For news/NLP, use the first-known publication/ingestion timestamp, deduplicate syndicated copies, and prevent revised text or later sentiment labels from leaking into earlier decisions.
+- Fit scalers, imputers, feature selectors and calibration only on the training window; transform validation/test with the frozen training artifacts.
+- Split time series chronologically. Use walk-forward folds and apply purging/embargo where label windows overlap or information can cross fold boundaries. The embargo duration must be justified by the maximum label/feature overlap and holding horizon; do not choose a universal arbitrary number.
+- Preserve a final untouched holdout. Repeatedly tuning on it invalidates its role as an independent test.
+- Test missing bars, duplicate timestamps, market closures, spread spikes, timezone shifts, stale quotes and symbol/contract changes.
+- Report data provenance and version/hash alongside every model result.
+
+### 13.5 Evaluation criteria
+
+Use metrics that match the prediction target:
+
+- **Volatility regression:** MAE/RMSE or a suitable robust loss, calibration and coverage of prediction intervals, plus error by regime.
+- **Regime classification:** per-class precision/recall, confusion matrix, class imbalance, transition delay and stability—not accuracy alone.
+- **Signal filtering:** incremental net performance over the identical unfiltered strategy, with spread/commission/slippage/swap/funding assumptions, turnover, exposure, trade count, drawdown and downside-period analysis.
+- **Probabilistic outputs:** calibration and reliability checks; if a threshold drives gating, measure false acceptance and false rejection costs.
+- **Operational metrics:** p50/p95 inference latency, missing-feature rate, abstention rate, stale-input rejection, drift alerts and model-version rollback success.
+
+Compare against naive persistence, simple statistical forecasts and the current deterministic strategy. Use paired periods where possible so differences are not explained by different market samples. Report uncertainty and avoid unsupported win-rate claims.
+
+### 13.6 Model lifecycle and safety
+
+- Register model artifacts, training code/version, dependencies, dataset hash, feature schema, label definition, training window, seed, hyperparameters, metrics and review status.
+- Pin model/runtime dependencies and verify artifact integrity before loading.
+- Keep training and expensive backtests in a separate Python job/runtime; do not place GPU-heavy training in a latency-sensitive Cloudflare Worker request.
+- Keep inference isolated behind an authenticated internal interface with bounded inputs, timeouts, concurrency limits and sanitized logs.
+- If the model is unavailable, stale, out of distribution, or returns invalid output, abstain and fall back to the deterministic strategy without increasing risk. If the deterministic baseline itself lacks valid fresh data, fail closed.
+- Monitor drift and shadow disagreement; support an explicit rollback to a previously reviewed model.
+- Do not automatically promote newly trained models to production.
+- Do not store secrets or user credentials in training data, prompts, checkpoints or model artifacts.
+
+### 13.7 Deep Learning implementation checklist
+
+- [ ] Inventory current feature/ML code and avoid duplicating existing SMC/EMA implementations.
+- [ ] Define target, horizon, prediction timestamp, feature schema and baseline before selecting an architecture.
+- [ ] Audit candle and signal indexing for look-ahead leakage.
+- [ ] Create chronological train/validation/test and walk-forward folds with appropriate purging/embargo.
+- [ ] Establish naive/statistical and existing-strategy baselines.
+- [ ] Train a volatility or regime model first; keep direction prediction and DRL as separate experiments.
+- [ ] Measure uncertainty/calibration and performance by instrument, timeframe and market regime.
+- [ ] Run net-of-cost strategy comparisons and stress tests.
+- [ ] Register immutable model/data versions and reproducible evaluation artifacts.
+- [ ] Run shadow inference with no broker-write access; observe drift, abstentions, latency and disagreement.
+- [ ] Require reviewed evidence before any activation; preserve deterministic hard-risk limits and Live Trading OFF.
+- [ ] Add tests for missing/stale inputs, schema errors, unknown model versions, runtime outage and rollback.
+
+### 13.8 Deep Learning references
+
+1. Lim et al., *Temporal Fusion Transformers for Interpretable Multi-horizon Time Series Forecasting* (International Journal of Forecasting): https://doi.org/10.1016/j.ijforecast.2021.03.012
+2. PyTorch LSTM documentation (including bidirectional configurations): https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html
+3. PyTorch GRU documentation: https://pytorch.org/docs/stable/generated/torch.nn.GRU.html
+4. Bailey et al., *The Probability of Backtest Overfitting*: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2326253
+5. López de Prado, *Advances in Financial Machine Learning* (purging/embargo and financial ML validation background): https://www.wiley.com/en-us/Advances+in+Financial+Machine+Learning-p-9781119482086
+6. Stable-Baselines3 PPO documentation: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
+7. Stable-Baselines3 SAC documentation: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
+
 ## Final decision
 
 Proceed with evidence collection and the Exness Demo read-only path first. The Zero-Menu UI, LangGraph durable workflows, RL meta-policy, and additional broker adapters are staged extensions, not reasons to weaken current authentication, tenant isolation, deterministic risk checks, or the Live Trading OFF boundary. No broker-write capability, production configuration, or deployment is authorized by this research record.
