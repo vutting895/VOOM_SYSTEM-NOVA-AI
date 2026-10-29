@@ -1,4 +1,4 @@
-const ALLOWED_PROTOCOLS = new Set(["2026-07-28", "2025-03-26", "2024-11-05"]);
+const ALLOWED_PROTOCOLS = new Set(["2025-03-26", "2024-11-05"]);
 const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 function isAllowedOrigin(origin) {
   return origin === UI_ORIGIN || origin === "https://app.base44.com" || Boolean(origin && /^https:\/\/[a-z0-9-]+\.base44\.app$/i.test(origin));
