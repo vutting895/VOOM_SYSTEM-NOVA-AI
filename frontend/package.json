@@ -10,7 +10,8 @@
     "cf:build": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build",
     "cf:preview": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build && npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare preview",
     "cf:deploy": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build && npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare deploy",
-    "cf:typegen": "npx --yes --package=wrangler wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf:typegen": "npx --yes --package=wrangler wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "prebuild": "node scripts/write-build-info.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
