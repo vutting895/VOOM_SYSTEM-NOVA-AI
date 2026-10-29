@@ -64,7 +64,7 @@ jobs:
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
       - name: Type-check
         run: npm run typecheck
-      - name: Build Next.js frontend for Vercel
+      - name: Build Next.js frontend for CI validation
         run: npm run build
 
   build-nova-preview:
