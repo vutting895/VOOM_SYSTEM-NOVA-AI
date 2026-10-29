@@ -1,0 +1,35 @@
+name: Wave3 research model training
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-wave3.txt
+      - name: Install research dependencies
+        run: python -m pip install -r requirements-wave3.txt
+      - name: Train models and run walk-forward / final OOS backtest
+        run: python tools/train_wave3_models.py
+      - name: Upload model artifacts and research report
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave3-xgb-mlp-research-${{ github.sha }}
+          path: |
+            models/wave3_xgb_deep/
+            reports/wave3_exness_xauusdm_m15_report.json
+            reports/wave3_final_oos_trades.csv
+          if-no-files-found: error
+          retention-days: 30

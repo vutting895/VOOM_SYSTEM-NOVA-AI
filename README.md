@@ -65,3 +65,15 @@ OAuth end-to-end verification, leaked-password protection, review of SECURITY DE
 - Keep only the small bootstrap copy, runtime checkout and its isolated Python environment, MT5 terminal, and private local tenant files on Windows. Tenant files stay under `%LOCALAPPDATA%\VOOM_SYSTEM\secrets` and must never enter Git.
 - Do not remove the existing development checkout until all its modified and untracked files have been compared with GitHub and any unique work preserved. Build caches may be deleted only after the replacement runtime has been verified.
 - The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
+
+
+## Wave3 + SMC model research (XGBoost + MLP)
+
+A reproducible training and backtest pipeline is available in the feature branch. It uses the redacted MT5 Demo XAUUSDm M15 history at datasets/exness-demo/, includes time-purged walk-forward folds, an untouched final OOS period, and training-artifact reload checks.
+
+Run from the repository root with Python 3.11:
+
+    python -m pip install -r requirements-wave3.txt
+    python tools/train_wave3_models.py
+
+Current run status and metrics: docs/WAVE3_MODEL_TRAINING_PLAN.md and reports/wave3_exness_xauusdm_m15_report.json. The model-training step succeeded, but the strategy performance gate is blocked: final OOS generated zero trades and ensemble accuracy did not beat the majority-class baseline. These artifacts are research-only; no deployment or live trading is enabled.

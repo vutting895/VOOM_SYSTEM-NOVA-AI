@@ -1,0 +1,1 @@
+signal_timestamp,entry_timestamp,exit_timestamp,direction,p_short,p_hold,p_long,entry_price,stop_price,take_profit_price,exit_price,exit_reason,lots,gross_pnl_usd,commission_usd,net_pnl_usd,equity_after_usd,bars_held
