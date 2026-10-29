@@ -39,6 +39,29 @@ jobs:
           }
           Write-Host "PowerShell bootstrap syntax is valid."
 
+      - name: Assert bootstrap validates the expected repository without pipeline exit-code ambiguity
+        shell: pwsh
+        run: |
+          $bootstrap = Get-Content -Raw "tools/windows/run-bridge-from-git.ps1"
+          if ($bootstrap -notmatch 'config --local --get remote\.origin\.url') {
+            throw "Bootstrap must inspect the local configured origin directly."
+          }
+          if ($bootstrap -match 'remote get-url origin\s*\|\s*Select-Object') {
+            throw "Bootstrap must not pipe remote URL lookup through Select-Object."
+          }
+          foreach ($guard in @(
+            '\$RemoteUri\.Scheme',
+            '\$RemoteUri\.Host',
+            '\$RemoteUri\.IsDefaultPort',
+            '\$RemoteUri\.UserInfo',
+            '\$RemotePath'
+          )) {
+            if ($bootstrap -notmatch $guard) {
+              throw "Expected strict origin validation guard is missing: $guard"
+            }
+          }
+          Write-Host "Bootstrap repository identity guard checks passed."
+
       - name: Assert Bridge stays read-only
         shell: pwsh
         run: |
