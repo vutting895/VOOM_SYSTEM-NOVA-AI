@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { validateIntentEnvelope } from '../../../../integrations/nova-ai-worker/intent-contract.js';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -110,10 +111,22 @@ export async function POST(request) {
     if (typeof payload.message !== 'string' || !payload.message.trim() || payload.message.length > 10000) {
       return json({ error: 'ai_provider_unavailable', executionEnabled: false, liveTradingEnabled: false }, 502);
     }
+
+    // Treat UI metadata as untrusted data even when it comes from our AI Worker.
+    // Only a strict, fixed-catalog intent envelope may cross into the browser.
+    let intent = null;
+    if (payload.intent !== undefined && payload.intent !== null) {
+      const checked = validateIntentEnvelope(payload.intent);
+      if (!checked.ok) {
+        return json({ error: 'invalid_intent_response', executionEnabled: false, liveTradingEnabled: false }, 502);
+      }
+      intent = checked.value;
+    }
     return json({
       message: payload.message.trim(),
       provider: payload.provider === 'cloudflare-workers-ai' ? payload.provider : 'unknown',
       model: typeof payload.model === 'string' ? payload.model : null,
+      intent,
       executionEnabled: false,
       liveTradingEnabled: false,
     });
