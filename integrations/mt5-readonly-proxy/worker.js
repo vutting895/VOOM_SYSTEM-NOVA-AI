@@ -37,10 +37,14 @@ function safeAuthDiagnostic(error) {
   return "MT5 Proxy could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
 }
 
+function supabaseApiKey(env) {
+  return env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "";
+}
+
 async function authenticate(request, env) {
   const token = bearer(request);
   if (!token) return { ok: false, status: 401, error: "authentication_required" };
-  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+  if (!env.SUPABASE_URL || !supabaseApiKey(env)) {
     return { ok: false, status: 503, error: "auth_service_not_configured" };
   }
 
@@ -58,7 +62,7 @@ async function authenticate(request, env) {
   const authInit = {
     method: "GET",
     headers: {
-      apikey: env.SUPABASE_ANON_KEY,
+      apikey: supabaseApiKey(env),
       Authorization: "Bearer " + token,
       Accept: "application/json"
     },
@@ -121,7 +125,7 @@ async function loadConnection(request, env, user) {
   try {
     const response = await fetch(url, {
       headers: {
-        apikey: env.SUPABASE_ANON_KEY,
+        apikey: supabaseApiKey(env),
         Authorization: "Bearer " + user.token,
         Accept: "application/json"
       },
