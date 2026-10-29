@@ -11,12 +11,13 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - ML examples under `workers/feature` are research prototypes, not a production pipeline.
 
 ## Frontend hosting and deployment
-- Canonical frontend target: Cloudflare Worker `voom-system-nova-ui`; the Vercel project is not the intended deployment path.
-- Broker Settings uses the central `voom-system-hub` endpoint via `NEXT_PUBLIC_SYSTEM_HUB_URL` (default: `https://voom-system-hub.suwapat787.workers.dev`) for Exness Demo account and quotes. The browser sends the signed-in user's Supabase access token; it does not call the MT5 Proxy directly.
-- `.github/workflows/frontend-ci.yml` runs worker tests, type-check, the Next.js build, and the Cloudflare OpenNext build.
-- `.github/workflows/cloudflare-deploy.yml` deploys only changed backend Workers and, when `frontend/**` changes, builds and deploys the canonical Cloudflare frontend and smoke-tests the home and broker routes.
-- The presence of `voom-system-nova-ui` in Cloudflare is not alone proof that a particular source commit is deployed. Use the workflow run and live route checks as evidence.
-- Required GitHub Actions secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never print secret values.
+- Canonical customer-facing frontend: Netlify at `https://voomsystem.netlify.app/`. Cloudflare is for backend Workers/APIs only; `voom-system-nova-ui` is not the current frontend target.
+- Frontend source directory: `frontend/` (Next.js App Router). The root `netlify.toml` sets the base directory to `frontend` and runs `npm run build`; Netlify's Next.js runtime handles the web application.
+- Broker Settings calls `voom-system-hub` via `NEXT_PUBLIC_SYSTEM_HUB_URL` (default: `https://voom-system-hub.suwapat787.workers.dev`). The browser sends the signed-in user's Supabase access token; it does not call the MT5 Proxy directly.
+- `.github/workflows/frontend-ci.yml` runs worker tests, type-check, the Next.js build, and Cloudflare backend config validation. On pushes to `main`, it also smoke-tests the production Netlify routes.
+- `.github/workflows/cloudflare-deploy.yml` deploys changed backend Workers only. It must not build or deploy a customer-facing frontend to Cloudflare.
+- Netlify must be connected to this repository and deploy from `main`. Configure public build variables in Netlify's site settings; do not commit values: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
+- Configure Cloudflare backend deployment secrets in GitHub Actions: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never print secret values.
 
 ### Local frontend checks (optional)
 Run from the repository root:
@@ -26,20 +27,19 @@ npm ci
 npm run typecheck
 npm run build
 ```
-Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
+Cloudflare OpenNext scripts/configuration are retained only for alternate/legacy use; they are not the production frontend deployment path.
 
 ## Environment
-Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
+The frontend's required public build variables belong in Netlify's site settings, and backend secrets belong in Cloudflare/GitHub Actions as appropriate. Never commit values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (optional until its authenticated endpoint is implemented and verified)
-- GitHub Actions deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+- `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`)
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
 
-Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the optional MT5 proxy URL is absent.
+Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the authenticated backend path is absent.
 
 ## Current deployment verification limits
-A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Vercel project/alias and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
-
+The repository now defines Netlify as the frontend deployment target and adds a main-branch route smoke test. This configuration alone does not prove that Netlify is connected to the correct repository, that the latest commit is deployed, or that the public routes work. Do not mark the frontend ready until the Netlify smoke test and real authenticated browser checks pass. Cloudflare Worker health is evidence for backend services only.
 ## Architecture
 - `frontend/`: Next.js UI, currently built for Vercel by the frontend workflow.
 - `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
