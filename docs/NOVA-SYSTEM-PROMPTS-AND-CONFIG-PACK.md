@@ -348,6 +348,44 @@ The prompts are not "complete in production" until each applicable gate has evid
 - CopilotKit v1 useCopilotAction migration notice: https://docs.copilotkit.ai/reference/v1/hooks/useCopilotAction
 - CopilotKit current interrupt hook reference: https://docs.copilotkit.ai/reference/hooks/useInterrupt
 
+## 9. Runtime selection decision — 2026-10-29
+
+### Decision for the next implementation increment
+
+**Keep the current application in TypeScript/Node for the chat API and keep the JavaScript Cloudflare Remote MCP Worker as the only active MCP server.** Do not introduce the archived Python FastAPI prototype or duplicate the existing MCP server merely to meet the FastMCP label. A separate FastMCP service is optional only if a specific capability cannot be met by the existing worker and is justified in a separately reviewed design.
+
+For a durable graph workflow, prototype **LangGraph.js in a Node runtime with a PostgreSQL checkpointer** (server-side Supabase/Postgres connection held only in a server environment variable). All thread IDs must be generated and resolved server-side; authenticate and verify owner access before loading state. Store no bearer tokens, bridge tokens or broker secrets in graph state.
+
+### CopilotKit compatibility finding
+
+The current CopilotKit documentation explicitly labels its native `useInterrupt` integration as unsupported for **LangGraph (TypeScript)** and **LangGraph (Python)**:
+- https://docs.copilotkit.ai/langgraph-typescript/human-in-the-loop/useInterrupt
+- https://docs.copilotkit.ai/langgraph-python/human-in-the-loop/useInterrupt
+
+Therefore, **do not use the supplied CopilotKit v1 `useCopilotAction` snippet or claim that CopilotKit's native `useInterrupt` automatically bridges LangGraph**. Keep the existing registered React component catalog for the next phase and implement the approval lifecycle through explicit authenticated application endpoints: create proposal -> persist pending approval -> render the registered review component -> validate owner/proposal/payload/policy version/expiry/one-time nonce -> resume the LangGraph thread server-side. If a CopilotKit SDK is added later, first prove the chosen AG-UI/runtime adapter carries the paused/resume lifecycle end-to-end with the selected versions. This is a custom bridge, not an assertion that the unsupported native hook is supported.
+
+LangGraph documents that checkpointers persist thread-scoped state and support recovery/resumption; use a production PostgreSQL checkpointer rather than the in-memory saver:
+- https://langchain-ai.github.io/langgraphjs/how-tos/persistence-postgres/
+- https://github.com/langchain-ai/langgraphjs/blob/main/docs/docs/concepts/persistence.md
+
+### NeMo Guardrails deployment boundary
+
+NeMo Guardrails is a Python runtime, so it must not be imported directly into the existing JavaScript Cloudflare Worker. If it is adopted, run it as a separately deployed private service or a separately tested Python job/API and call it through a fixed authenticated HTTPS endpoint with strict timeouts and response schemas. It is defence-in-depth only; backend authorization and tool allow-listing must still deny unsafe operations if the guardrail service is unavailable.
+
+The current NeMo docs distinguish Colang 1.0 from Colang 2.0 and note version-specific maturity. The earlier Colang 1.0 example in this pack is illustrative only; do not deploy it against an unpinned "latest" runtime. Pin a version, choose the matching Colang version, validate the configuration in CI, and test prompt-injection and normal-use cases before enabling it:
+- https://docs.nvidia.com/nemo/guardrails/latest/configure-guardrails/colang
+
+### Decision gates before package installation
+
+- [ ] Verify a pinned LangGraph.js + PostgreSQL-checkpointer version and run local persistence/recovery tests.
+- [ ] Verify the chosen CopilotKit SDK and runtime protocol with a minimal proof of stream, custom component rendering and a real server-owned pause/resume path; do not rely on `useInterrupt` for LangGraph until the official support status changes.
+- [ ] Decide whether NeMo's operational value justifies a separate Python service; otherwise leave it out and keep deterministic server-side guardrails.
+- [ ] Keep the active JavaScript Remote MCP Worker as the MCP endpoint unless a separate FastMCP use case is approved.
+- [ ] Confirm the deployment target and secrets path for the stateful Node service before enabling production persistence; do not add a service/database URL to client-visible environment variables.
+- [ ] Implement a non-production two-user test fixture and prove owner-session success plus foreign-thread/connection denial with no Relay call.
+
+This choice favors the repository's current TypeScript stack, avoids a second MCP endpoint and prevents reliance on a CopilotKit interrupt integration that the current docs mark unsupported for LangGraph TypeScript/Python. It does not mean the durable graph, guardrails service or CopilotKit bridge is already implemented.
+
 ## Final decision
 
 Adopt this pack as the security and behavior specification for the implementation phase, not as proof that LangGraph, FastMCP, NeMo Guardrails or CopilotKit are installed. Keep the existing Cloudflare Workers + Supabase + read-only Exness MT5 path as the active architecture. Do not add or deploy any broker-write operation under this task.
