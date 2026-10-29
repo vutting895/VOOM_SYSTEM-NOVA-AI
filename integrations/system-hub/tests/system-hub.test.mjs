@@ -34,15 +34,16 @@ function mockAuthAndRest({ authStatus = 200, userId = "user-a", rows = [] } = {}
   };
 }
 
-test("health endpoint is public and keeps trading disabled", async () => {
-  const response = await worker.fetch(request("/health"), {});
+test("health endpoint is public, CORS-safe, and keeps trading disabled", async () => {
+  const response = await worker.fetch(request("/health", { headers: { Origin: UI_ORIGIN } }), env);
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.service, "voom-system-hub");
   assert.equal(body.ordersEnabled, false);
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
-  assert.equal(body.authConfigured, false);
+  assert.equal(body.authConfigured, true);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
 });
 
 test("protected routes reject missing token", async () => {
