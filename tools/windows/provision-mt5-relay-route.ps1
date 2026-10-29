@@ -38,6 +38,10 @@ $routeMap = @{
     }
 } | ConvertTo-Json -Depth 5 -Compress
 
+# This helper replaces each target Worker’s full tenant map. The explicit confirmation
+# flag is mandatory because this utility is intended only for a verified single-tenant setup.
+$workerNames = @('voom-mt5-bridge-relay', 'voom-mt5-readonly-proxy')
+
 # Prefer the already-installed Wrangler CLI on disk-constrained Windows hosts.
 # Fall back to npx only when no global wrapper is available.
 $globalWrangler = Get-Command wrangler.cmd -ErrorAction SilentlyContinue
@@ -48,35 +52,43 @@ else {
     'npx wrangler'
 }
 
-$startInfo = New-Object System.Diagnostics.ProcessStartInfo
-$startInfo.FileName = $env:ComSpec
-$startInfo.Arguments = '/d /s /c "' + $wranglerCommand + ' secret put MT5_TENANT_ROUTES --name voom-mt5-bridge-relay"'
-$startInfo.WorkingDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
-$startInfo.UseShellExecute = $false
-$startInfo.RedirectStandardInput = $true
-$startInfo.RedirectStandardOutput = $true
-$startInfo.RedirectStandardError = $true
-$startInfo.CreateNoWindow = $true
+foreach ($workerName in $workerNames) {
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $env:ComSpec
+    $startInfo.Arguments = '/d /s /c "' + $wranglerCommand + ' secret put MT5_TENANT_ROUTES --name ' + $workerName + '"'
+    $startInfo.WorkingDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
 
-$process = New-Object System.Diagnostics.Process
-$process.StartInfo = $startInfo
-if (-not $process.Start()) {
-    throw 'Could not start Wrangler. Confirm Node.js/npx is installed and Cloudflare authentication is configured.'
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "Could not start Wrangler for Worker $workerName. Route contents were not printed."
+    }
+
+    # Drain output asynchronously so Wrangler cannot block on a full pipe. Do not print either stream.
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.StandardInput.WriteLine($routeMap)
+    $process.StandardInput.Close()
+
+    if (-not $process.WaitForExit(90000)) {
+        try { $process.Kill() } catch {}
+        throw "Wrangler timed out while provisioning Worker $workerName. Route contents were not printed."
+    }
+
+    $null = $stdoutTask.GetAwaiter().GetResult()
+    $null = $stderrTask.GetAwaiter().GetResult()
+
+    if ($process.ExitCode -ne 0) {
+        throw "Wrangler failed for Worker $workerName with exit code $($process.ExitCode). Route data was not printed."
+    }
 }
 
-# Drain output asynchronously so Wrangler cannot block on a full pipe. Do not print either stream.
-$stdoutTask = $process.StandardOutput.ReadToEndAsync()
-$stderrTask = $process.StandardError.ReadToEndAsync()
-$process.StandardInput.WriteLine($routeMap)
-$process.StandardInput.Close()
-if (-not $process.WaitForExit(90000)) {
-    try { $process.Kill() } catch {}
-    throw 'Wrangler timed out. Route contents were not printed; check local CLI authentication and disk space.'
-}
-$null = $stdoutTask.GetAwaiter().GetResult()
-$null = $stderrTask.GetAwaiter().GetResult()
-
-if ($process.ExitCode -ne 0) {
-    throw "Wrangler failed with exit code $($process.ExitCode). Check local Cloudflare authentication/permissions; route data was not printed."
-}
-Write-Host 'Relay tenant secret submitted to Cloudflare. Secret value was not displayed.'
+$routeMap = $null
+$token = $null
+$tenantId = $null
+Write-Host 'Tenant route secret submitted to the relay and proxy Workers. Secret values were not displayed.'
