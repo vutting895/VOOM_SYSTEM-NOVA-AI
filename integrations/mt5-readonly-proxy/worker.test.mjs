@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "supabase_test_access_token";
 const BRIDGE_TOKEN = "bridge_test_token_long_enough_for_route_validation_123";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
@@ -65,9 +66,11 @@ test("connected user is routed only to the stable workers.dev relay", async () =
   try {
     const response = await worker.fetch(new Request(
       "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
-      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
     ), envWithRoutes());
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+    assert.equal(response.headers.get("Vary"), "Origin");
     assert.equal(new URL(relayRequest.url).origin, RELAY_ORIGIN);
     assert.equal(new URL(relayRequest.url).pathname, "/api/account");
     assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
