@@ -217,3 +217,16 @@ test("rejects a modern request with a non-JSON Content-Type", async () => {
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, -32600);
 });
+
+test("decodes the MCP base64 sentinel for Mcp-Name before comparing it to body params", async () => {
+  const request = bearerRequest(makeModernRequest({
+    method: "tools/call",
+    params: { name: "system_status", arguments: {} },
+    nameHeader: "=?base64?c3lzdGVtX3N0YXR1cw==?="
+  }));
+  const response = await responseFor(request);
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.result.resultType, "complete");
+  assert.equal(payload.result.isError, false);
+});
