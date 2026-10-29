@@ -1,0 +1,58 @@
+name: MT5 Headless Bridge CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/mt5-headless-bridge/**"
+      - ".github/workflows/mt5-headless-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "integrations/mt5-headless-bridge/**"
+      - ".github/workflows/mt5-headless-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    name: Python read-only and tenant contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: integrations/mt5-headless-bridge/requirements*.txt
+      - name: Install bridge test dependencies
+        run: python -m pip install -r integrations/mt5-headless-bridge/requirements-dev.txt
+      - name: Compile Python sources
+        run: python -m py_compile integrations/mt5-headless-bridge/bridge.py integrations/mt5-headless-bridge/bridge_relay_client.py integrations/mt5-headless-bridge/tests/*.py
+      - name: Run headless Bridge contract tests
+        run: python -m unittest discover -s integrations/mt5-headless-bridge/tests -p "test_*.py" -v
+
+  container-build-and-compose-check:
+    name: Docker build and private-network Compose contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create non-production placeholder secret files
+        working-directory: integrations/mt5-headless-bridge
+        shell: bash
+        run: |
+          mkdir -p secrets
+          printf '12345678\n' > secrets/mt5-login.txt
+          printf 'not-a-real-password\n' > secrets/mt5-password.txt
+          printf 'Exness-Demo-Test\n' > secrets/mt5-server.txt
+          printf 'non-production-vnc-password\n' > secrets/vnc-password.txt
+          printf 'tenant_test_12345678\n' > secrets/mt5-tenant-id.txt
+          printf 'non-production-read-only-token-1234567890\n' > secrets/mt5-bridge-token.txt
+      - name: Validate Compose without starting services
+        working-directory: integrations/mt5-headless-bridge
+        run: docker compose config --quiet
+      - name: Build Python bridge image
+        run: docker build --file integrations/mt5-headless-bridge/Dockerfile --tag voom-mt5-headless-bridge:ci integrations/mt5-headless-bridge

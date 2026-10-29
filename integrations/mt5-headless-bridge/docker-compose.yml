@@ -1,0 +1,88 @@
+name: voom-mt5-headless
+
+services:
+  mt5-engine:
+    # Docker Hub manifest digest captured 2026-10-29; linux/amd64.
+    # Keep fixed while validating this legacy preinstalled image; do not float tags.
+    image: lprett/mt5linux@sha256:40480bc9d52eb24496f37131d3cf9162fead58ff3bceee0a102d956a129612d9
+    restart: unless-stopped
+    environment:
+      MT5_HOST: 0.0.0.0
+      RPYC_PORT: "18812"
+      NOVNC_HOST: 127.0.0.1
+    entrypoint: ["/bin/sh", "-ec"]
+    command: |
+      export LOGIN="$(cat /run/secrets/mt5_login)"
+      export PASSWORD="$(cat /run/secrets/mt5_password)"
+      export SERVER="$(cat /run/secrets/mt5_server)"
+      export VNC_PASSWORD="$(cat /run/secrets/vnc_password)"
+      exec ./start.sh >/dev/null 2>&1
+    secrets:
+      - mt5_login
+      - mt5_password
+      - mt5_server
+      - vnc_password
+    volumes:
+      - mt5_engine_state:/opt/wineprefix
+    expose:
+      - "18812"
+    networks:
+      - mt5_internal
+      - mt5_egress
+    mem_limit: 2g
+    cpus: 2.0
+    stop_grace_period: 30s
+
+  mt5-headless-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - mt5-engine
+    environment:
+      MT5_HEADLESS_RPC_HOST: mt5-engine
+      MT5_HEADLESS_RPC_PORT: "18812"
+      MT5_HEADLESS_RPC_TIMEOUT: "15"
+      MT5_TENANT_ID_FILE: /run/secrets/mt5_tenant_id
+      MT5_BRIDGE_TOKEN_FILE: /run/secrets/mt5_bridge_token
+      MT5_BRIDGE_RELAY_URL: wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect
+      MT5_BRIDGE_CORS_ORIGINS: https://voom-system-nova-ui.suwapat787.workers.dev
+    secrets:
+      - mt5_tenant_id
+      - mt5_bridge_token
+    networks:
+      - mt5_internal
+      - mt5_egress
+    mem_limit: 512m
+    cpus: 1.0
+
+secrets:
+  mt5_login:
+    file: ./secrets/mt5-login.txt
+  mt5_password:
+    file: ./secrets/mt5-password.txt
+  mt5_server:
+    file: ./secrets/mt5-server.txt
+  vnc_password:
+    file: ./secrets/vnc-password.txt
+  mt5_tenant_id:
+    file: ./secrets/mt5-tenant-id.txt
+  mt5_bridge_token:
+    file: ./secrets/mt5-bridge-token.txt
+
+networks:
+  mt5_internal:
+    internal: true
+  mt5_egress: {}
+
+volumes:
+  mt5_engine_state:
