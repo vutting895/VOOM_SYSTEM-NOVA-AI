@@ -161,3 +161,41 @@ This addendum supersedes older deployment and Bridge snapshots only where it rec
 4. Keep the Windows Bridge available as rollback until the alternative headless candidate has an approved security review and real staging test. Do not cut over to the Linux/Docker candidate yet.
 
 **Safety invariant:** Exness Demo only; read-only + AI Analysis; order submission disabled; Live Trading OFF. These checks do not authorize broker writes.
+
+
+## 8. Closure status refresh — 2026-10-30
+
+This section records changes after the previous evidence snapshot. It distinguishes merged source changes from production/authentication checks that are still open.
+
+### Merged and confirmed
+- PR #34 — hardened MT5 Bridge authentication ordering and fail-closed status handling; reviewed CI passed.
+- PR #37 — canonical delivery/verification plan; merged.
+- PR #58 — Remote MCP rejects unapproved supplied Origins; allowlists the current Netlify UI and the Cloudflare UI fallback. Frontend CI and SMC Research CI passed.
+- PR #64 — SciSpace literature review added: Probability of Backtest Overfitting / CSCV, Deflated Sharpe Ratio, GT-Score applicability limits, chronology and leakage checks.
+- PR #68 — stateless MCP 2026-07-28 request-metadata path and tests merged. Frontend CI, SMC Research CI, and its Netlify Deploy Preview passed. This is a tools-only subset; it does not claim full MCP resource/prompt/session/SSE support.
+- PR #69 — removed the hard-coded Turnstile site-key fallback. Frontend CI and Netlify Deploy Preview passed. This change makes missing configuration fail closed; it does not prove that a real user completed login.
+- PR #70 — retired Alpaca integration source removed from the repository. Historical Supabase migrations were preserved. A current read-only Cloudflare inventory returned 12 scripts and none named `voom-alpaca-oauth`; no Worker deletion, provider secret deletion, database table drop, or data deletion was performed.
+- Several old or superseded PRs were closed with explanatory comments while preserving their branches: #10, #13, #15, #16, #23, #52, #54, #59, and #61. This is not a claim that all future work in those areas is complete.
+
+### Current live/runtime evidence
+- The authenticated local Windows MT5 Bridge and external Cloudflare Relay returned HTTP 200 for health, account and bounded quote GETs for the configured Demo tenant. Both paths returned read-only/order-disabled flags; quote checks returned 5 XAUUSDm M5 bars.
+- Unauthenticated Hub and Relay protected reads returned HTTP 401.
+- These tests demonstrate direct Bridge/Relay read capability and anonymous rejection. They do **not** prove the full authenticated browser → Supabase session → System Hub → MT5 Proxy chain or foreign-connection denial.
+
+### Open blockers — do not claim overall closure yet
+1. **Netlify hosting cutover / PR #60:** still open. The earlier Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` `onPostBuild` phase with `Links checking failed`; an earlier log also mentioned `netlify-plugin-fetch-feeds`. These site-level plugins are not declared in the checked-in `netlify.toml`, and the connected Netlify API tools do not expose the Build Plugins settings. The account owner must inspect Project configuration → Developer settings → Build plugins, fix the links/feeds configuration or intentionally disable only plugins that are not required, then rerun the Preview. Do not merge PR #60 until the Preview and the production route checks pass.
+2. **Auth callback hardening / PR #71:** merged as `1f798f4e976d1516a044b0c53e4ca299f0e742e6`. Frontend CI (Next.js and OpenNext builds) and Netlify Deploy Preview passed for reviewed head `1ea3f53792bc00969f53fbf6631be3a29ffaa0c2`. The callback now requires a Supabase session and verifies the user with `auth.getUser()` before allowing a redirect to `/profile` or `/`. A real email OTP click/browser session on the production host and confirmation of the Supabase Auth redirect allowlist are still acceptance tests. No Supabase redirect settings have been changed.
+3. **Authenticated owner and foreign-user tests:** run with two authorized test sessions. Require owner connection/account read success and foreign connection-ID denial. Anonymous HTTP 401 is not a substitute.
+4. **Supabase Advisor:** `auth_leaked_password_protection` remains disabled on the Free tier. This capability is plan-gated; no upgrade has been approved or performed. Do not upgrade or change billing without owner approval. Performance Advisor currently reports 29 unused-index notices; no index has been deleted without workload review.
+5. **Local source safety / PR #35:** the old `C:\Program Files\voom_system` checkout has modified and untracked files. Do not overwrite it or merge a large consolidation until all unique local changes have been compared and preserved. The runtime checkout also trails current main.
+6. **Headless Bridge / PR #51:** remains a draft candidate. Do not switch from the currently working Windows Bridge until staging, tenant isolation, reconnection, observability and rollback tests pass.
+7. **Research/approval extensions / PRs #66 and #67:** remain drafts. Wave3/SMC ML is research-only; the durable approval lifecycle needs tested two-user ownership, expiry and replay protection before any state-changing capability could be considered.
+
+### Closure criteria
+- Netlify production serves the exact reviewed main commit and returns HTTP 200 for `/`, `/login`, `/settings/broker`, and the auth callback path; evidence records the exact deployed commit.
+- A real Supabase OTP session succeeds after callback and persists through refresh/logout.
+- Owner read and foreign connection-ID denial pass with two authorized test sessions.
+- Security/tenant tests and relevant CI pass on the exact commit.
+- The external Relay remains read-only and order submission remains disabled.
+
+**Non-negotiable:** Exness Demo only; Read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. No broker-write capability, production host cutover, or account/route-map mutation is authorized by this checklist alone.
