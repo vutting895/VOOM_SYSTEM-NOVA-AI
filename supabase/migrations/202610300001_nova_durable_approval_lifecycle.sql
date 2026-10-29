@@ -153,9 +153,15 @@ BEGIN
   IF NOT FOUND OR v_state <> 'active' THEN
     RAISE EXCEPTION 'nova_thread_not_found_or_not_active' USING ERRCODE = 'P0001';
   END IF;
+  -- Calculate the persisted hash in Postgres from jsonb's canonical representation.
+  -- The client checksum is format-checked but never trusted as the stored integrity value.
   INSERT INTO public.nova_approval_requests AS a
     (thread_id,user_id,request_type,proposal,proposal_hash,policy_version,status,expires_at)
-  VALUES (p_thread_id,v_user,p_request_type,p_proposal,p_proposal_hash,p_policy_version,'pending',p_expires_at)
+  VALUES (
+    p_thread_id, v_user, p_request_type, p_proposal,
+    encode(extensions.digest(convert_to(p_proposal::text, 'UTF8'), 'sha256'), 'hex'),
+    p_policy_version, 'pending', p_expires_at
+  )
   RETURNING a.id INTO v_id;
   UPDATE public.nova_agent_threads t SET state='awaiting_review',updated_at=now(),last_activity_at=now()
     WHERE t.id=p_thread_id AND t.user_id=v_user;
