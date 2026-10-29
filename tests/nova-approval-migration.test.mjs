@@ -23,7 +23,8 @@ test("only the approved research-draft type and versioned proposal schema are al
   assert.match(sql, /request_type text NOT NULL CHECK \(request_type = 'strategy_draft_review'\)/i);
   assert.match(sql, /nova\.approval\.v1|nova-approval\.v1/);
   assert.match(sql, /private\.nova_valid_strategy_draft_proposal/i);
-  assert.match(sql, /p_proposal_hash !~ '\^\[a-f0-9\]\{64\}\  assert.match(sql, /nova_one_pending_approval_per_thread[\s\S]*?WHERE status = 'pending'/i);
+  assert.ok(sql.includes("p_proposal_hash !~ '^[a-f0-9]{64}$'"), "client-provided hash must be format-checked");
+  assert.ok(sql.includes("encode(extensions.digest(convert_to(p_proposal::text, 'UTF8'), 'sha256'), 'hex')"), "persisted hash must be calculated server-side from canonical JSONB");
   assert.match(sql, /FOREIGN KEY \(thread_id, user_id\)[\s\S]*?REFERENCES public\.nova_agent_threads\(id, user_id\)/i);
 });
 
