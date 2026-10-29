@@ -29,4 +29,4 @@ Before the control plane can report an Exness connection as data-verified, the a
 - `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
 - No order-placement endpoint is implemented.
 - No broker password, access token, account payload, or bridge token is returned by the Hub.
-- The legacy `voom-alpaca-oauth` Worker is not overwritten or deleted by this migration. Disable it only after its production consumers, OAuth configuration, stored data, and rollback needs have been reviewed.
+- The former `voom-alpaca-oauth` implementation is not used by this Hub and its source folder is retired by a separate reviewed repository cleanup. This does not delete/disable a Worker in the Cloudflare account or drop any Supabase table/data; confirm provider-side consumers and retention before decommissioning. Keep applied Alpaca migration files as historical schema records.

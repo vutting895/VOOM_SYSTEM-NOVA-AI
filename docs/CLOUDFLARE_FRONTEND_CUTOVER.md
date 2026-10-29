@@ -57,7 +57,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
 ## Historical blockers and current resolution (updated 2026-10-29)
 
-- The earlier build failure referenced `NEXT_PUBLIC_ALPACA_WORKER_URL`; that variable is obsolete and the legacy Cloudflare Worker `voom-alpaca-oauth` has been retired.
+- The earlier build failure referenced `NEXT_PUBLIC_ALPACA_WORKER_URL`; that variable is obsolete and the Alpaca integration is not part of the active broker workflow. Repository source cleanup does not confirm that a provider-side `voom-alpaca-oauth` Worker is disabled; verify Cloudflare account state separately before any decommissioning.
 - Broker Settings now uses `NEXT_PUBLIC_SYSTEM_HUB_URL` and routes authenticated account/quote requests through `voom-system-hub` instead of calling the MT5 Proxy directly.
 - The Cloudflare workflow now detects frontend changes, builds through OpenNext, deploys `voom-system-nova-ui`, and smoke-tests the home and broker settings pages.
 - Live direct Relay tests returned HTTP 200 for the Exness Demo account summary and XAUUSDm M1 quotes. The authenticated per-user browser path must still be verified from a real signed-in Supabase session before claiming full frontend-to-broker success.
