@@ -1,12 +1,15 @@
-const UI = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGINS = new Set([
+  "https://voomsystem.netlify.app",
+  "https://voom-system-nova-ui.suwapat787.workers.dev"
+]);
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
 const BASE = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer"
 };
-const cors = (origin) => origin === UI ? {
-  "Access-Control-Allow-Origin": UI,
+const cors = (origin) => UI_ORIGINS.has(origin) ? {
+  "Access-Control-Allow-Origin": origin,
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
   "Access-Control-Max-Age": "300",
@@ -216,7 +219,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (origin !== UI) return new Response(null, { status: 403, headers: BASE });
+      if (!UI_ORIGINS.has(origin)) return new Response(null, { status: 403, headers: BASE });
       return new Response(null, { status: 204, headers: { ...BASE, ...cors(origin) } });
     }
     if (request.method === "GET" && url.pathname === "/health" && !url.searchParams.has("connection_id")) {
