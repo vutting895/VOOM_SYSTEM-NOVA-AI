@@ -82,6 +82,19 @@ jobs:
             throw "Route helper must drain both process output streams without printing secrets."
           }
           Write-Host "Relay secret helper safety checks passed."
+          if ($provisioner -notmatch "voom-mt5-bridge-relay") {
+            throw "Route helper must provision the relay Worker."
+          }
+          if ($provisioner -notmatch "voom-mt5-readonly-proxy") {
+            throw "Route helper must provision the authenticated proxy Worker."
+          }
+          if (-not $provisioner.Contains("workerNames = @('voom-mt5-bridge-relay', 'voom-mt5-readonly-proxy')")) {
+            throw "Route helper must explicitly enumerate both intended Workers."
+          }
+          if ($provisioner -notmatch 'ConfirmSingleTenantRoute') {
+            throw "Both Worker secret updates must retain the single-tenant replacement guard."
+          }
+          Write-Host "Both Worker route-map provisioning checks passed."
 
       - name: Assert Bridge stays read-only
         shell: pwsh
