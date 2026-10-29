@@ -83,5 +83,76 @@ FROM public.nova_resolve_approval(
   \quit 1
 \endif
 
+-- Owner A can edit a research draft, but the edit is not itself an approval.
+SELECT id AS edit_approval_id
+FROM public.nova_create_approval(
+  :'test_thread_id',
+  'strategy_draft_review',
+  '{"title":"Owner A second draft","summary":"Review this second research draft.","market":"XAU/USD","timeframe":"1h","riskProfile":"low"}'::jsonb,
+  repeat('b', 64),
+  'nova-approval.v1',
+  now() + interval '10 minutes'
+) \gset
+
+SELECT (
+  result_code = 'resolved'
+  AND status = 'edited'
+  AND decision_payload ->> 'summary' = 'Edited research-only summary'
+) AS owner_edit_saved
+FROM public.nova_resolve_approval(
+  :'edit_approval_id',
+  'edit',
+  'Edited before re-review',
+  '{"title":"Owner A second draft","summary":"Edited research-only summary","market":"XAU/USD","timeframe":"1h","riskProfile":"low"}'::jsonb,
+  'nova-approval.v1'
+) \gset
+\if :owner_edit_saved
+\else
+  \echo 'FAIL: owner edit did not persist as a non-approved edit'
+  \quit 1
+\endif
+
+-- Stale policy versions must not resolve a fresh request.
+SELECT id AS expiry_approval_id
+FROM public.nova_create_approval(
+  :'test_thread_id',
+  'strategy_draft_review',
+  '{"title":"Owner A expiry draft","summary":"Draft to test expiry and policy version.","market":"XAU/USD","timeframe":"1h","riskProfile":"low"}'::jsonb,
+  repeat('c', 64),
+  'nova-approval.v1',
+  now() + interval '10 minutes'
+) \gset
+
+SELECT (result_code = 'policy_mismatch' AND status = 'pending') AS stale_policy_rejected
+FROM public.nova_resolve_approval(
+  :'expiry_approval_id', 'approve', NULL, NULL, 'nova-approval.v2'
+) \gset
+\if :stale_policy_rejected
+\else
+  \echo 'FAIL: stale policy version changed the approval state'
+  \quit 1
+\endif
+
+-- Only this disposable CI database bypasses the immutability trigger to simulate elapsed time.
+RESET ROLE;
+ALTER TABLE public.nova_approval_requests DISABLE TRIGGER nova_approval_guard_update;
+UPDATE public.nova_approval_requests
+SET expires_at = now() - interval '1 second'
+WHERE id = :'expiry_approval_id';
+ALTER TABLE public.nova_approval_requests ENABLE TRIGGER nova_approval_guard_update;
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+
+SELECT (result_code = 'expired' AND status = 'expired') AS expired_approval_rejected
+FROM public.nova_resolve_approval(
+  :'expiry_approval_id', 'approve', NULL, NULL, 'nova-approval.v1'
+) \gset
+\if :expired_approval_rejected
+\else
+  \echo 'FAIL: expired approval was not rejected'
+  \quit 1
+\endif
+
 COMMIT;
-\echo 'PASS: owner create/read/resolve; second-user isolation; one-time decision'
+\echo 'PASS: owner create/read/resolve; second-user isolation; one-time replay rejection; edit; stale policy; expiry'
