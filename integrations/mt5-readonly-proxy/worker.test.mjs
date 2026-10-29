@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voomsystem.netlify.app";
 const USER_TOKEN = "supabase_test_access_token";
 const BRIDGE_TOKEN = "bridge_test_token_long_enough_for_route_validation_123";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
