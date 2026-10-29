@@ -32,9 +32,6 @@ function json(data, status = 200, origin = "", env = {}) {
     }
   });
 }
-function safeError(error) {
-  return json({ error, service: "voom-system-hub", ordersEnabled: false, liveTradingEnabled: false }, 503);
-}
 function bearer(request) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   return match ? match[1] : "";
@@ -274,7 +271,7 @@ export default {
         ordersEnabled: false,
         executionEnabled: false,
         liveTradingEnabled: false
-      });
+      }, 200, origin, env);
     }
 
     if (origin && !allowedOrigins(env).has(origin)) {
