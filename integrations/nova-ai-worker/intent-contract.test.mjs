@@ -33,7 +33,7 @@ test("routes an order-submission request to the static safety card and never an 
 
 test("routes risk and backtest requests to their dedicated static cards", () => {
   assert.equal(classifyResearchIntent("ตรวจความเสี่ยง drawdown และ margin usage").component.type, "risk_checklist");
-  assert.equal(classifyResearchIntent("ช่วยอธิบายผล backtest และ slippage").intent, "review_risk");
+  assert.equal(classifyResearchIntent("ช่วยอธิบายผล backtest และ slippage").intent, "review_backtest");
   assert.equal(classifyResearchIntent("Review backtest limits and historical data").component.type, "backtest_review");
 });
 
