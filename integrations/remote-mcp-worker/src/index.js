@@ -1,7 +1,8 @@
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26", "2024-11-05"]);
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
+const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 function isAllowedOrigin(origin) {
-  return origin === UI_ORIGIN || origin === "https://app.base44.com" || Boolean(origin && /^https:\/\/[a-z0-9-]+\.base44\.app$/i.test(origin));
+  return origin === NETLIFY_UI_ORIGIN || origin === CLOUDFLARE_FALLBACK_ORIGIN || origin === "https://app.base44.com" || Boolean(origin && /^https:\/\/[a-z0-9-]+\.base44\.app$/i.test(origin));
 }
 function json(data,status=200,headers={}) { return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}}); }
 function cors(origin) {
