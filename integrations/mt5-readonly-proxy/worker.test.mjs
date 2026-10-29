@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voomsystem.netlify.app";
+const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "supabase_test_access_token";
 const BRIDGE_TOKEN = "bridge_test_token_long_enough_for_route_validation_123";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
@@ -197,4 +198,13 @@ test("foreign user's connection ID is not forwarded to the Bridge", async () => 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Cloudflare rollback UI remains CORS-allowed while Netlify is primary", async () => {
+  const response = await worker.fetch(new Request(
+    "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+    { headers: { Origin: FALLBACK_UI_ORIGIN } }
+  ), envWithRoutes());
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
