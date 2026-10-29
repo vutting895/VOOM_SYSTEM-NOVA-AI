@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
   globalThis.fetch = async (url, init) => {
@@ -119,7 +120,7 @@ test("valid session can create research fallback but never execution", async () 
   authFetch();
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
     method: "POST",
-    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json", Origin: "https://voom-system-nova-ui.suwapat787.workers.dev" },
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json", Origin: "https://voomsystem.netlify.app" },
     body: JSON.stringify({ prompt: "EMA and RSI", market: "XAU/USD", timeframe: "1h", risk: "low" }),
   }), env);
   const body = await response.json();
@@ -129,7 +130,7 @@ test("valid session can create research fallback but never execution", async () 
   assert.equal(body.strategy.executionEnabled, false);
   assert.equal(body.strategy.backtestStatus, "not_run");
   assert.equal(body.liveTradingEnabled, false);
-  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voom-system-nova-ui.suwapat787.workers.dev");
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voomsystem.netlify.app");
 });
 
 test("untrusted browser origin is rejected", async () => {
@@ -236,4 +237,17 @@ test("unknown order route cannot execute", async () => {
     body: JSON.stringify({ symbol: "XAUUSD", side: "buy" }),
   }), env);
   assert.equal(response.status, 404);
+});
+
+test("Cloudflare rollback UI origin remains allowed", async () => {
+  const response = await worker.fetch(new Request("https://ai.test/health", {
+    method: "OPTIONS",
+    headers: {
+      Origin: FALLBACK_UI_ORIGIN,
+      "Access-Control-Request-Method": "GET",
+      "Access-Control-Request-Headers": "authorization,content-type"
+    }
+  }), {});
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });

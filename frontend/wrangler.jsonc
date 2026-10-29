@@ -1,6 +1,6 @@
 {
-  // Canonical customer-facing frontend runtime; deploy this Worker, not Vercel.
-  // Keep this name aligned with the Cloudflare Worker: voom-system-nova-ui.
+  // Legacy/rollback frontend configuration only; production hosting is Netlify.
+  // Cloudflare Workers in the production workflow host backend APIs only.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "voom-system-nova-ui",
   "main": ".open-next/worker.js",

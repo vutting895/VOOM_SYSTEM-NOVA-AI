@@ -5,7 +5,7 @@ Status: implementation baseline / not a claim of production readiness.
 ## 1. Confirmed user requirements
 
 - Primary project/repository: `vutting895/VOOM_SYSTEM-NOVA-AI`.
-- Frontend hosting and user entry point: Cloudflare. Do not depend on Vercel for the intended deployment path.
+- Frontend hosting and user entry point: Netlify at `https://voomsystem.netlify.app/`. Cloudflare Workers host backend APIs only.
 - Trading platform for the current phase: Exness Demo account running MT5.
 - User must access the system through the VOOM_SYSTEM web interface.
 - Current operating mode: read-only account/market connection and AI analysis.
@@ -16,7 +16,7 @@ Status: implementation baseline / not a claim of production readiness.
 
 ## 2. Version 1.0 target
 
-1. A Cloudflare-hosted web frontend with responsive layout for mobile and desktop.
+1. A Netlify-hosted web frontend with responsive layout for mobile and desktop.
 2. A status area showing service health and connection state, distinguishing configured, reachable, authenticated, and data-received states.
 3. A broker connection page for Exness Demo / MT5 with safe setup instructions and a read-only status display.
 4. Market-data and chart screens where a supported, authorized data source is configured.
@@ -43,7 +43,7 @@ Do not assume an existing local bridge is connected or always running; verify it
 
 ## 5. Acceptance checklist
 
-- [ ] Cloudflare frontend URL and deployment target confirmed.
+- [ ] Netlify frontend URL and deployment target confirmed; main-branch route smoke test and Auth/tenant acceptance gates must pass.
 - [ ] Correct repository/branch and build configuration confirmed.
 - [ ] Build and type checks run; results recorded.
 - [ ] Frontend opens on desktop and mobile.
@@ -78,16 +78,18 @@ Do not assume an existing local bridge is connected or always running; verify it
 Until the acceptance checklist is evidenced, Version 1.0 remains an implementation target, not a declaration that the system is ready or deployed.
 
 
-## 8. Cloudflare frontend cutover inspection (2026-10-27)
+## 8. Historical Cloudflare frontend cutover inspection (2026-10-27)
 
-- Cloudflare is the canonical frontend target; Vercel is not part of the intended deployment path.
+> Historical record only. Superseded by the Netlify frontend / Cloudflare backend architecture decision on 2026-10-29.
+
+- At the time of the inspection, Cloudflare was recorded as the frontend target. This statement is historical; Netlify is the selected frontend host now.
 - Frontend Worker: `voom-system-nova-ui` — `https://voom-system-nova-ui.suwapat787.workers.dev`.
 - API Worker: `voom-system-nova-ai` — `https://voom-system-nova-ai.suwapat787.workers.dev`.
 - GitHub deployment workflow: `.github/workflows/cloudflare-deploy.yml`; CI workflow: `.github/workflows/frontend-ci.yml`.
 - Cloudflare API confirmed both Worker names exist and their settings endpoints respond.
 - The inspected frontend Worker settings showed compatibility date `2026-10-24` with no compatibility flags, while `frontend/wrangler.jsonc` specifies `2026-10-27` and `nodejs_compat`. This indicates the deployed Worker may be older than the current repository configuration.
-- The separate Vercel project's most recent inspected deployments were `CANCELED`; this does not establish Cloudflare frontend health.
+- The separate Vercel deployment records were part of the historical investigation and do not establish current Netlify/Cloudflare readiness.
 - The live browser check could not be completed through the available inspection path. The latest Cloudflare deployment, route rendering, frontend-to-API calls, and AI Analysis UI remain unverified.
 - See `docs/CLOUDFLARE_FRONTEND_CUTOVER.md` for the evidence and required verification sequence.
 
-Cutover status: **configured as target, not yet verified end-to-end**. Keep Read-only + AI Analysis and Live Trading OFF until checks pass.
+Historical cutover status (2026-10-27): **not verified end-to-end**. See the current delivery plan on `main` for the latest Netlify/Cloudflare evidence and remaining blockers.

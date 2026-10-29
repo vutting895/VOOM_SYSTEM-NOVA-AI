@@ -1,4 +1,6 @@
-# Cloudflare Frontend Cutover — Inspection Record
+# Cloudflare Frontend Cutover — Historical Inspection Record
+
+> **SUPERSEDED (2026-10-30):** Retained as a record of the earlier Cloudflare frontend approach. The selected customer-facing frontend is Netlify (`https://voomsystem.netlify.app/`); Cloudflare Workers host backend APIs and the legacy UI is only a rollback option. Do not follow the historical frontend deploy steps below as the active production deployment process.
 
 Inspection date: 2026-10-27  
 Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`  
@@ -29,7 +31,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
 ## Current verdict
 
-**Cloudflare is configured as the intended frontend target, but the cutover is not yet verified end-to-end.** The Worker exists, but its observed configuration appears older than the repository's current Wrangler config. Do not mark the frontend as fully deployed until the Cloudflare build/deploy workflow completes successfully and the live URL is checked.
+**Historical verdict (2026-10-27):** Cloudflare was configured as a frontend target, but that approach was not accepted as the current production target. The Worker exists, but its observed configuration appears older than the repository's current Wrangler config. Do not mark the frontend as fully deployed until the Cloudflare build/deploy workflow completes successfully and the live URL is checked.
 
 ## Required verification sequence
 
@@ -40,8 +42,8 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`)
 2. Run `Frontend CI` on the exact `main` commit and require Hub tests, type-check, Next.js build, and Cloudflare OpenNext build to pass.
-3. Let `Deploy VOOM Workers to Cloudflare` deploy changed backend Workers and, when `frontend/**` changed, the `voom-system-nova-ui` frontend from the exact commit that passed CI.
-4. Inspect the new Cloudflare Worker version/deployment and confirm its configuration matches `frontend/wrangler.jsonc`.
+3. For current deployments, use `Deploy VOOM Workers to Cloudflare` for changed backend Workers only. Do not deploy the customer-facing frontend from this workflow.
+4. Historical only: inspect the legacy Cloudflare UI Worker if it is needed for rollback; it is not the current production frontend.
 5. Open the frontend URL and verify home, login, markets, learning universe, broker status, and AI analysis routes.
 6. Verify API status and errors without exposing secrets or account identifiers.
 7. The Broker Settings page now sends the signed-in Supabase access token to `voom-system-hub`. The Hub validates the session and scopes the connection lookup to the authenticated user before calling the MT5 Proxy. Verify this exact browser path with a real signed-in session; do not bypass Hub auth or use service-role credentials in the browser.
@@ -59,6 +61,6 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
 - The earlier build failure referenced `NEXT_PUBLIC_ALPACA_WORKER_URL`; that variable is obsolete and the Alpaca integration is not part of the active broker workflow. Repository source cleanup does not confirm that a provider-side `voom-alpaca-oauth` Worker is disabled; verify Cloudflare account state separately before any decommissioning.
 - Broker Settings now uses `NEXT_PUBLIC_SYSTEM_HUB_URL` and routes authenticated account/quote requests through `voom-system-hub` instead of calling the MT5 Proxy directly.
-- The Cloudflare workflow now detects frontend changes, builds through OpenNext, deploys `voom-system-nova-ui`, and smoke-tests the home and broker settings pages.
+- Historical observation at the time this record was created: the Cloudflare workflow detected frontend changes, built through OpenNext, deployed `voom-system-nova-ui`, and smoke-tested the home and broker settings pages. The active workflow is being changed to backend-only deployment.
 - Live direct Relay tests returned HTTP 200 for the Exness Demo account summary and XAUUSDm M1 quotes. The authenticated per-user browser path must still be verified from a real signed-in Supabase session before claiming full frontend-to-broker success.
 - No live trading or order execution is enabled.
