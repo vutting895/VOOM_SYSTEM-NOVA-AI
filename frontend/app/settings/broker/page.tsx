@@ -105,6 +105,8 @@ export default function BrokerSettingsPage() {
 
   const loadAccount = useCallback(async () => {
     setError("");
+    setNotice("");
+    setAccount(null);
     setBusy(true);
     try {
       const accessToken = await requireSignedInSession();
@@ -150,6 +152,8 @@ export default function BrokerSettingsPage() {
 
   const loadQuote = useCallback(async () => {
     setError("");
+    setNotice("");
+    setQuote(null);
     setBusy(true);
     try {
       const accessToken = await requireSignedInSession();
