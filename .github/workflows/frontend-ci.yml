@@ -81,5 +81,5 @@ jobs:
         run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
       - name: Type-check
         run: npm run typecheck
-      - name: Build Next.js frontend for Vercel
+      - name: Build Next.js frontend for CI validation (hosting is configured separately)
         run: npm run build
