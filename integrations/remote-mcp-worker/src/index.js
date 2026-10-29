@@ -380,25 +380,217 @@ export const tools=[
  {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}}
 
 ];
-async function handleMcp(request,env,origin) {
- const user=await getUser(request,env); if(!user?.id)return json({error:"unauthorized"},401,cors(origin));
- let body;try{body=await request.json()}catch{return json(rpc(null,null,{code:-32700,message:"Parse error"}),400,cors(origin))}
- if(!body||body.jsonrpc!=="2.0"||typeof body.method!=="string")return json(rpc(body?.id??null,null,{code:-32600,message:"Invalid Request"}),400,cors(origin));
- if(body.method.startsWith("notifications/"))return new Response(null,{status:202,headers:cors(origin)});
- if(body.method==="initialize"){const requested=body.params?.protocolVersion;return json(rpc(body.id,{protocolVersion:ALLOWED_PROTOCOLS.has(requested)?requested:"2025-03-26",capabilities:{tools:{}},serverInfo:{name:"voom-system-mcp",version:"0.2.0"}}),200,cors(origin))}
- if(body.method==="ping")return json(rpc(body.id,{}),200,cors(origin));
- if(body.method==="tools/list")return json(rpc(body.id,{tools}),200,cors(origin));
- if(body.method==="tools/call"){try{const result=await callTool(body.params?.name,body.params?.arguments||{},request,env,user);return json(rpc(body.id,{content:[{type:"text",text:JSON.stringify(result)}],isError:false}),200,cors(origin))}catch(e){return json(rpc(body.id,{content:[{type:"text",text:e instanceof Error?e.message:"Tool failed"}],isError:true}),200,cors(origin))}}
- return json(rpc(body.id,null,{code:-32601,message:"Method not found"}),200,cors(origin));
+
+const MODERN_PROTOCOL_VERSION = "2026-07-28";
+const PROTOCOL_META_KEY = "io.modelcontextprotocol/protocolVersion";
+const CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
+const CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities";
+const SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo";
+const SERVER_INFO = { name: "voom-system-mcp", version: "0.3.0" };
+const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...ALLOWED_PROTOCOLS];
+
+function protocolError(id, code, message, data, status, origin) {
+  const error = { code, message };
+  if (data !== undefined) error.data = data;
+  return json(rpc(id ?? null, null, error), status, cors(origin));
 }
-export default {async fetch(request,env){
- const url=new URL(request.url),origin=request.headers.get("Origin")||"";
- if(request.method==="OPTIONS"){const h=cors(origin);return Object.keys(h).length?new Response(null,{status:204,headers:h}):new Response(null,{status:403})}
- // MCP Streamable HTTP security: reject an untrusted browser Origin before auth or route dispatch.
- // No Origin remains valid for non-browser MCP clients; protected routes still require bearer auth.
- if(origin && !isAllowedOrigin(origin)) return json({error:"origin_not_allowed"},403);
- if(url.pathname==="/health"&&request.method==="GET")return json({ok:true,service:"voom-system-mcp",mode:"authenticated-read-only",liveTradingEnabled:false,toolCount:tools.length});
- if(url.pathname==="/mcp"&&request.method==="POST")return handleMcp(request,env,origin);
- if(url.pathname==="/api/status"&&request.method==="GET"){const user=await getUser(request,env);if(!user?.id)return json({error:"unauthorized"},401,cors(origin));return json({service:"voom-system-mcp",authenticated:true,mode:"read-only",tradingExecution:false},200,cors(origin))}
- return json({error:"not_found"},404);
+
+function decodeProtocolHeaderValue(value) {
+  const prefix = "=?base64?";
+  const suffix = "?=";
+  const hasPrefix = value.startsWith(prefix);
+  const hasSuffix = value.endsWith(suffix);
+  if (hasPrefix || hasSuffix) {
+    if (!hasPrefix || !hasSuffix || value.length <= prefix.length + suffix.length) return { ok: false };
+    const encoded = value.slice(prefix.length, -suffix.length);
+    try {
+      if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) return { ok: false };
+      const binary = atob(encoded);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return { ok: true, value: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
+    } catch {
+      return { ok: false };
+    }
+  }
+  if (value !== value.trim() || /[^\x09\x20-\x7E]/.test(value)) return { ok: false };
+  return { ok: true, value };
+}
+
+function validateModernTransportHeaders(request, body, origin) {
+  const id = body?.id ?? null;
+  const versionHeader = request.headers.get("MCP-Protocol-Version");
+  const methodHeader = request.headers.get("Mcp-Method");
+  const metadata = body?.params?._meta;
+  const metadataVersion = metadata?.[PROTOCOL_META_KEY];
+
+  if (!versionHeader || versionHeader !== MODERN_PROTOCOL_VERSION || metadataVersion !== MODERN_PROTOCOL_VERSION) {
+    return protocolError(id, -32020, "Header mismatch: MCP-Protocol-Version must match request metadata", undefined, 400, origin);
+  }
+  if (versionHeader !== metadataVersion) {
+    return protocolError(id, -32020, "Header mismatch: protocol version differs from request metadata", undefined, 400, origin);
+  }
+  if (!methodHeader || methodHeader !== body?.method) {
+    return protocolError(id, -32020, "Header mismatch: Mcp-Method must match the JSON-RPC method", undefined, 400, origin);
+  }
+
+  const nameHeader = request.headers.get("Mcp-Name");
+  const requiresName = ["tools/call", "resources/read", "prompts/get"].includes(body?.method);
+  const sourceName = body?.params?.name ?? body?.params?.uri;
+  if (requiresName) {
+    if (typeof sourceName !== "string" || !nameHeader) {
+      return protocolError(id, -32020, "Header mismatch: Mcp-Name is required for this method", undefined, 400, origin);
+    }
+    const decoded = decodeProtocolHeaderValue(nameHeader);
+    if (!decoded.ok || decoded.value !== sourceName) {
+      return protocolError(id, -32020, "Header mismatch: Mcp-Name does not match the request body", undefined, 400, origin);
+    }
+  } else if (nameHeader !== null) {
+    return protocolError(id, -32020, "Header mismatch: Mcp-Name is not valid for this method", undefined, 400, origin);
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(body || {}, "id") || body.id === null) {
+    return protocolError(null, -32600, "Invalid Request: Streamable HTTP requests must have an id", undefined, 400, origin);
+  }
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return protocolError(id, -32602, "Invalid params: modern protocol metadata is required", undefined, 400, origin);
+  }
+  const clientInfo = metadata[CLIENT_INFO_META_KEY];
+  const clientCapabilities = metadata[CLIENT_CAPABILITIES_META_KEY];
+  if (
+    !clientInfo || typeof clientInfo !== "object" || Array.isArray(clientInfo) ||
+    typeof clientInfo.name !== "string" || !clientInfo.name.trim() ||
+    typeof clientInfo.version !== "string" || !clientInfo.version.trim() ||
+    !clientCapabilities || typeof clientCapabilities !== "object" || Array.isArray(clientCapabilities)
+  ) {
+    return protocolError(id, -32602, "Invalid params: clientInfo and clientCapabilities metadata are required", undefined, 400, origin);
+  }
+  return null;
+}
+
+function modernResult(result) {
+  return {
+    resultType: "complete",
+    ...result,
+    _meta: {
+      ...(result?._meta || {}),
+      [SERVER_INFO_META_KEY]: SERVER_INFO
+    }
+  };
+}
+
+function modernSuccess(id, result, origin) {
+  return json(rpc(id, modernResult(result)), 200, cors(origin));
+}
+
+async function handleLegacyMcp(body, request, env, user, origin) {
+  if (body.method.startsWith("notifications/")) return new Response(null, { status: 202, headers: cors(origin) });
+  if (body.method === "initialize") {
+    const requested = body.params?.protocolVersion;
+    return json(rpc(body.id, {
+      protocolVersion: ALLOWED_PROTOCOLS.has(requested) ? requested : "2025-03-26",
+      capabilities: { tools: {} },
+      serverInfo: SERVER_INFO
+    }), 200, cors(origin));
+  }
+  if (body.method === "ping") return json(rpc(body.id, {}), 200, cors(origin));
+  if (body.method === "tools/list") return json(rpc(body.id, { tools }), 200, cors(origin));
+  if (body.method === "tools/call") {
+    try {
+      const result = await callTool(body.params?.name, body.params?.arguments || {}, request, env, user);
+      return json(rpc(body.id, { content: [{ type: "text", text: JSON.stringify(result) }], isError: false }), 200, cors(origin));
+    } catch (e) {
+      return json(rpc(body.id, { content: [{ type: "text", text: e instanceof Error ? e.message : "Tool failed" }], isError: true }), 200, cors(origin));
+    }
+  }
+  return json(rpc(body.id, null, { code: -32601, message: "Method not found" }), 200, cors(origin));
+}
+
+async function handleModernMcp(body, request, env, user, origin) {
+  const id = body.id;
+  if (body.method === "server/discover") {
+    return modernSuccess(id, {
+      supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
+      capabilities: { tools: {} },
+      instructions: "Authenticated, read-only NOVA research tools. Exness MT5 tools read the signed-in user's own Demo connection. No order submission or broker mutations are available.",
+      ttlMs: 60000,
+      cacheScope: "private"
+    }, origin);
+  }
+  if (body.method === "ping") return modernSuccess(id, {}, origin);
+  if (body.method === "tools/list") {
+    return modernSuccess(id, { tools, ttlMs: 60000, cacheScope: "private" }, origin);
+  }
+  if (body.method === "tools/call") {
+    try {
+      const result = await callTool(body.params?.name, body.params?.arguments || {}, request, env, user);
+      return modernSuccess(id, { content: [{ type: "text", text: JSON.stringify(result) }], isError: false }, origin);
+    } catch (e) {
+      return modernSuccess(id, { content: [{ type: "text", text: e instanceof Error ? e.message : "Tool failed" }], isError: true }, origin);
+    }
+  }
+  return protocolError(id, -32601, "Method not found", undefined, 404, origin);
+}
+
+async function handleMcp(request, env, origin) {
+  const user = await getUser(request, env);
+  if (!user?.id) return json({ error: "unauthorized" }, 401, cors(origin));
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json(rpc(null, null, { code: -32700, message: "Parse error" }), 400, cors(origin)); }
+
+  if (!body || body.jsonrpc !== "2.0" || typeof body.method !== "string" ||
+      (body.params !== undefined && (!body.params || typeof body.params !== "object" || Array.isArray(body.params)))) {
+    return json(rpc(body?.id ?? null, null, { code: -32600, message: "Invalid Request" }), 400, cors(origin));
+  }
+
+  const versionHeader = request.headers.get("MCP-Protocol-Version");
+  const metadataVersion = body.params?._meta?.[PROTOCOL_META_KEY];
+  const isModern = versionHeader === MODERN_PROTOCOL_VERSION || metadataVersion === MODERN_PROTOCOL_VERSION;
+
+  if (versionHeader && metadataVersion && versionHeader !== metadataVersion) {
+    return protocolError(body.id, -32020, "Header mismatch: MCP-Protocol-Version differs from request metadata", undefined, 400, origin);
+  }
+  if (isModern) {
+    const validation = validateModernTransportHeaders(request, body, origin);
+    if (validation) return validation;
+    return handleModernMcp(body, request, env, user, origin);
+  }
+
+  const requestedVersion = versionHeader || metadataVersion;
+  if (requestedVersion && !SUPPORTED_PROTOCOL_VERSIONS.includes(requestedVersion)) {
+    return protocolError(body.id, -32022, "Unsupported protocol version", {
+      supported: SUPPORTED_PROTOCOL_VERSIONS,
+      requested: requestedVersion
+    }, 400, origin);
+  }
+  return handleLegacyMcp(body, request, env, user, origin);
+}
+
+export default { async fetch(request, env) {
+  const url = new URL(request.url), origin = request.headers.get("Origin") || "";
+  if (request.method === "OPTIONS") {
+    const h = cors(origin);
+    return Object.keys(h).length ? new Response(null, { status: 204, headers: h }) : new Response(null, { status: 403 });
+  }
+  if (origin && !isAllowedOrigin(origin)) return json({ error: "origin_not_allowed" }, 403);
+  if (url.pathname === "/health" && request.method === "GET") {
+    return json({
+      ok: true,
+      service: "voom-system-mcp",
+      mode: "authenticated-read-only",
+      liveTradingEnabled: false,
+      order_submission_enabled: false,
+      ordersEnabled: false,
+      toolCount: tools.length,
+      protocolVersions: SUPPORTED_PROTOCOL_VERSIONS
+    });
+  }
+  if (url.pathname === "/mcp" && request.method === "POST") return handleMcp(request, env, origin);
+  if (url.pathname === "/api/status" && request.method === "GET") {
+    const user = await getUser(request, env);
+    if (!user?.id) return json({ error: "unauthorized" }, 401, cors(origin));
+    return json({ service: "voom-system-mcp", authenticated: true, mode: "read-only", tradingExecution: false }, 200, cors(origin));
+  }
+  return json({ error: "not_found" }, 404);
 }};
