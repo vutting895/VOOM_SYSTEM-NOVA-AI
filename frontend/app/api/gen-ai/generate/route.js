@@ -123,6 +123,16 @@ async function authenticateRequest(request) {
 }
 
 export async function POST(request) {
+  // Authenticate before parsing or validating the request body so every unauthenticated
+  // AI API request fails closed with 401, regardless of the payload shape.
+  const auth = await authenticateRequest(request);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.status, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+
   let body;
   try {
     body = await request.json();
@@ -141,9 +151,6 @@ export async function POST(request) {
   if (!['low', 'medium', 'high'].includes(risk)) {
     return NextResponse.json({ error: 'Risk profile ไม่ถูกต้อง' }, { status: 400 });
   }
-
-  const auth = await authenticateRequest(request);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status, headers: { 'Cache-Control': 'no-store' } });
 
   const input = { prompt, market, timeframe, risk };
   let strategy;
