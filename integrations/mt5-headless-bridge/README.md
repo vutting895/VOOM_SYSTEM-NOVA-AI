@@ -63,7 +63,7 @@ The mt5_engine_state volume persists the terminal's own runtime state. Protect t
 
 1. Review and merge the code through the NOVA pull-request process. The existing Windows bridge remains unchanged during review.
 2. Run contract tests and validate that Compose publishes no ports.
-3. First provision a **separate staging tenant/route** for relay testing. The relay Durable Object keeps one session per tenant and a new session can replace the current one; do not attach the current production tenant until the controlled cutover window.
+3. First provision a **separate staging tenant/route** for relay testing. The relay Durable Object keeps one session per tenant and a new session can replace the current one; do not attach the current production tenant until the controlled cutover window. The existing Windows route-provisioning helper replaces the entire route map in its single-tenant mode, so do not use that mode to add staging; use an approved complete route map containing every intended tenant entry, provisioned through a trusted secret path.
 4. Through the external Cloudflare relay, verify authenticated /health, /api/account, exact symbol discovery, and a quote/candle payload. Keep account identifiers and financial values out of logs.
 5. Verify the signed-in Supabase user's System Hub/Proxy path and prove a different user's connection ID is rejected.
 6. At an approved cutover, stop the Windows relay client before reusing the same tenant route, start the headless client, and repeat the end-to-end checks. If any check fails, stop the candidate and restore the prior Windows runtime.
