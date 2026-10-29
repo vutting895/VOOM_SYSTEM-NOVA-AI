@@ -88,7 +88,7 @@ jobs:
           if ($provisioner -notmatch "voom-mt5-readonly-proxy") {
             throw "Route helper must provision the authenticated proxy Worker."
           }
-          if ($provisioner -notmatch "workerNames = @\\('voom-mt5-bridge-relay', 'voom-mt5-readonly-proxy'\\)") {
+          if (-not $provisioner.Contains("workerNames = @('voom-mt5-bridge-relay', 'voom-mt5-readonly-proxy')")) {
             throw "Route helper must explicitly enumerate both intended Workers."
           }
           if ($provisioner -notmatch 'ConfirmSingleTenantRoute') {
