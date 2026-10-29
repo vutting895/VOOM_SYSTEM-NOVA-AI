@@ -456,21 +456,28 @@ function validateModernTransportHeaders(request, body, origin) {
     return protocolError(id, -32020, "Header mismatch: Mcp-Name is not valid for this method", undefined, 400, origin);
   }
 
-  if (!Object.prototype.hasOwnProperty.call(body || {}, "id") || body.id === null) {
-    return protocolError(null, -32600, "Invalid Request: Streamable HTTP requests must have an id", undefined, 400, origin);
+  const isNotification = typeof body?.method === "string" && body.method.startsWith("notifications/");
+  const hasId = Object.prototype.hasOwnProperty.call(body || {}, "id");
+  if (isNotification ? hasId : (!hasId || body.id === null || !["string", "number"].includes(typeof body.id))) {
+    return protocolError(id, -32600, isNotification
+      ? "Invalid Request: notifications must not have an id"
+      : "Invalid Request: Streamable HTTP requests must have an id", undefined, 400, origin);
   }
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return protocolError(id, -32602, "Invalid params: modern protocol metadata is required", undefined, 400, origin);
   }
   const clientInfo = metadata[CLIENT_INFO_META_KEY];
   const clientCapabilities = metadata[CLIENT_CAPABILITIES_META_KEY];
-  if (
+  if (!clientCapabilities || typeof clientCapabilities !== "object" || Array.isArray(clientCapabilities)) {
+    return protocolError(id, -32602, "Invalid params: clientCapabilities metadata is required", undefined, 400, origin);
+  }
+  // clientInfo is optional in the 2026-07-28 protocol. Validate its shape only when supplied.
+  if (clientInfo !== undefined && (
     !clientInfo || typeof clientInfo !== "object" || Array.isArray(clientInfo) ||
     typeof clientInfo.name !== "string" || !clientInfo.name.trim() ||
-    typeof clientInfo.version !== "string" || !clientInfo.version.trim() ||
-    !clientCapabilities || typeof clientCapabilities !== "object" || Array.isArray(clientCapabilities)
-  ) {
-    return protocolError(id, -32602, "Invalid params: clientInfo and clientCapabilities metadata are required", undefined, 400, origin);
+    typeof clientInfo.version !== "string" || !clientInfo.version.trim()
+  )) {
+    return protocolError(id, -32602, "Invalid params: clientInfo metadata is malformed", undefined, 400, origin);
   }
   return null;
 }
@@ -515,6 +522,7 @@ async function handleLegacyMcp(body, request, env, user, origin) {
 
 async function handleModernMcp(body, request, env, user, origin) {
   const id = body.id;
+  if (body.method.startsWith("notifications/")) return new Response(null, { status: 202, headers: cors(origin) });
   if (body.method === "server/discover") {
     return modernSuccess(id, {
       supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
