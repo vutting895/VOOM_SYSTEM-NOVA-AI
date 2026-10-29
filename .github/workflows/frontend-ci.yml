@@ -8,10 +8,14 @@ on:
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "shared/nova-intent-envelope.schema.json"
+      - "integrations/system-hub/**"
       - "supabase/migrations/**"
+      - "tests/**"
   push:
     branches: [main]
     paths:
@@ -20,10 +24,13 @@ on:
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/system-hub/**"
       - "supabase/migrations/**"
+      - "tests/**"
 
 permissions:
   contents: read
@@ -37,7 +44,7 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-      NEXT_PUBLIC_MT5_READONLY_PROXY_URL: "https://example.invalid"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
     steps:
       - name: Checkout
@@ -50,148 +57,41 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Test Supabase Marketplace security migration contract
+        working-directory: .
+        run: node --test tests/supabase-marketplace-security-migration.test.mjs
+      - name: Test AI API authentication precedes payload validation
+        working-directory: .
+        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
-        run: node --test integrations/nova-ai-worker/worker.test.mjs
+        run: node --test integrations/nova-ai-worker/*.test.mjs
+      - name: Test NOVA System Integration Hub authorization and tenant boundaries
+        working-directory: .
+        run: node --test integrations/system-hub/tests/*.test.mjs
       - name: Test Remote MCP Exness MT5 read-only tools
         working-directory: .
         run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
-      - name: Syntax-check customer-isolated MT5 bridge
+      - name: Test tenant-isolated MT5 Bridge relay and proxy
         working-directory: .
-        run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py
+        run: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - name: Syntax-check MT5 Bridge and outbound relay client
+        working-directory: .
+        run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Install Wrangler and OpenNext adapter for Cloudflare validation without changing lockfile
+        run: npm install --no-save --package-lock=false wrangler @opennextjs/cloudflare@1.20.13
+      - name: Validate tenant relay Durable Object configuration
+        working-directory: frontend
+        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+      - name: Validate NOVA System Integration Hub Worker bundle
+        working-directory: frontend
+        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
       - name: Type-check
         run: npm run typecheck
-      - name: Build Next.js frontend for Vercel
+      - name: Build Next.js frontend for CI validation
         run: npm run build
-
-  build-nova-preview:
-    name: Build NOVA PR #38 Cloudflare preview artifact
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 38 && github.event.pull_request.head.ref == 'feat/nova-unified-frontend-chat-20261028' && github.event.pull_request.head.repo.full_name == github.repository }}
-    needs: build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: "https://tlyyxufuiimrbaksoitf.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_YR_oZbHEc0t1XvLkDDKakA_8JX9XIFD"
-      NEXT_PUBLIC_MT5_READONLY_PROXY_URL: "https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
-    steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Install OpenNext locally for config resolution without changing the lockfile
-        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
-      - name: Build OpenNext Cloudflare artifact
+      - name: Build Next.js frontend using the Cloudflare OpenNext adapter
         run: npm run cf:build
-      - name: Upload OpenNext artifact for isolated Preview deployment
-        uses: actions/upload-artifact@v4
-        with:
-          name: nova-pr38-open-next
-          path: frontend/.open-next/**
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 3
-
-  deploy-nova-preview:
-    name: Deploy isolated NOVA PR #38 Preview Worker
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 38 && github.event.pull_request.head.ref == 'feat/nova-unified-frontend-chat-20261028' && github.event.pull_request.head.repo.full_name == github.repository }}
-    needs: build-nova-preview
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Download OpenNext artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: nova-pr38-open-next
-          path: frontend/.open-next
-      - name: Install OpenNext CLI and Wrangler without changing the lockfile
-        run: npm install --no-save --package-lock=false @opennextjs/cloudflare wrangler
-      - name: Deploy only the isolated Preview Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          missing=()
-          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
-            if [ -z "${!key}" ]; then
-              missing+=("$key")
-            fi
-          done
-          if [ "${#missing[@]}" -gt 0 ]; then
-            echo "Preview deploy blocked. Missing GitHub Actions secrets (names only): ${missing[*]}"
-            exit 1
-          fi
-          # Use OpenNext deploy so its remote cache is populated before the Worker starts serving.
-          # Explicit name keeps this isolated from the existing production Worker.
-          npx opennextjs-cloudflare deploy --config wrangler.jsonc --name voom-system-nova-ui-pr38-preview
-      - name: Smoke-test hosted Preview and safety gates
-        env:
-          PREVIEW_URL: "https://voom-system-nova-ui-pr38-preview.suwapat787.workers.dev"
-          AI_WORKER_URL: "https://voom-system-nova-ai.suwapat787.workers.dev"
-        run: |
-          set -euo pipefail
-          body="$(mktemp)"
-          trap 'rm -f "$body"' EXIT
-
-          code="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "$PREVIEW_URL/")"
-          root_ok=true
-          if [ "$code" != "200" ] || ! grep -Eiq 'NOVA|VOOM' "$body"; then
-            root_ok=false
-            echo "Preview homepage smoke test failed (HTTP $code). Response body (first 1200 bytes):"
-            head -c 1200 "$body" | tr '\n' ' ' || true
-            echo
-          fi
-
-          for path in /login /chat /markets /_next/static/css/c17fb60eb35d176c.css; do
-            route_code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$PREVIEW_URL$path")"
-            echo "Preview diagnostic GET $path -> HTTP $route_code"
-          done
-          if [ "$root_ok" != "true" ]; then
-            exit 1
-          fi
-
-          code="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' \
-            -X POST -H 'Content-Type: application/json' \
-            --data '{"messages":[{"role":"user","content":"Preview unauthenticated smoke test"}]}' \
-            "$PREVIEW_URL/api/chat")"
-          if [ "$code" != "401" ] || ! grep -q '"authentication_required"' "$body"; then
-            echo "Preview API did not reject unauthenticated Chat (HTTP $code)."
-            exit 1
-          fi
-
-          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$AI_WORKER_URL/health")"
-          if [ "$code" != "200" ] || ! grep -q '"aiBinding":true' "$body" || \
-             ! grep -q '"authConfigured":true' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
-            echo "AI Worker health or research-only safety contract failed (HTTP $code)."
-            exit 1
-          fi
-          echo "Preview page returned HTTP 200, unauthenticated Chat API returned HTTP 401, and AI Worker health reported AI/auth configured with Live Trading disabled."
