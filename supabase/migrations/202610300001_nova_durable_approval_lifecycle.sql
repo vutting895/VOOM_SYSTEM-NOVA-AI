@@ -67,7 +67,7 @@ CREATE POLICY nova_approval_select_own ON public.nova_approval_requests
 CREATE OR REPLACE FUNCTION private.nova_valid_strategy_draft_proposal(p jsonb)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $function$
 BEGIN
-  IF p IS NULL OR jsonb_typeof(p) <> 'object' OR jsonb_object_length(p) <> 5
+  IF p IS NULL OR jsonb_typeof(p) <> 'object' OR (SELECT count(*) FROM jsonb_object_keys(p)) <> 5
      OR (p - ARRAY['title','summary','market','timeframe','riskProfile']::text[]) <> '{}'::jsonb THEN
     RETURN false;
   END IF;
