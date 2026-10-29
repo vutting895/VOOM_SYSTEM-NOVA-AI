@@ -42,3 +42,13 @@ test("MT5 count is a bounded integer and rejects unexpected values", () => {
   assert.throws(() => normalizeMt5Count(0));
   assert.throws(() => normalizeMt5Count("2.5"));
 });
+
+test("the authenticated MCP registry must never expose broker-write tools", () => {
+  const forbiddenToolName = /(?:place|submit|execute|send|modify|amend|cancel|close|transfer|withdraw).*?(?:order|trade|position|fund)/i;
+  assert.equal(names.has("execute_broker_order"), false);
+  assert.equal(
+    [...names].some((name) => forbiddenToolName.test(name)),
+    false,
+    "MCP registry must not expose order, position or fund mutation tools"
+  );
+});
