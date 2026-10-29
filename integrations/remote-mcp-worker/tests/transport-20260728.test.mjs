@@ -21,15 +21,17 @@ function makeModernRequest({
   nameHeader,
   includeNameHeader = true,
   clientInfo = { name: "contract-test-client", version: "1.0.0" },
+  includeClientInfo = true,
   clientCapabilities = {},
   id = 1,
+  includeId = true,
   origin,
   accept = "application/json, text/event-stream",
   contentType = "application/json"
 } = {}) {
   const metadata = {};
   if (metadataVersion !== undefined) metadata[VERSION_META] = metadataVersion;
-  if (clientInfo !== undefined) metadata[CLIENT_INFO] = clientInfo;
+  if (includeClientInfo && clientInfo !== undefined) metadata[CLIENT_INFO] = clientInfo;
   if (clientCapabilities !== undefined) metadata[CLIENT_CAPABILITIES] = clientCapabilities;
   const headers = {
     "Content-Type": contentType,
@@ -44,10 +46,12 @@ function makeModernRequest({
   }
   if (origin) headers.Origin = origin;
   const requestParams = { ...params, _meta: metadata };
+  const payload = { jsonrpc: "2.0", method, params: requestParams };
+  if (includeId) payload.id = id;
   return new Request(ENDPOINT, {
     method: "POST",
     headers,
-    body: JSON.stringify({ jsonrpc: "2.0", id, method, params: requestParams })
+    body: JSON.stringify(payload)
   });
 }
 
@@ -170,11 +174,40 @@ test("rejects Mcp-Name when it does not match tools/call params.name", async () 
   assert.equal((await response.json()).error.code, -32020);
 });
 
-test("rejects malformed required client metadata", async () => {
-  const request = bearerRequest(makeModernRequest({ clientInfo: null }));
-  const response = await responseFor(request);
+test("accepts modern requests when optional clientInfo is omitted", async () => {
+  const response = await responseFor(bearerRequest(makeModernRequest({ includeClientInfo: false })));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).result.supportedVersions.includes(MODERN), true);
+});
+
+test("rejects malformed optional clientInfo and missing required clientCapabilities", async () => {
+  const malformed = await responseFor(bearerRequest(makeModernRequest({ clientInfo: null })));
+  assert.equal(malformed.status, 400);
+  assert.equal((await malformed.json()).error.code, -32602);
+
+  const missingCapabilities = await responseFor(bearerRequest(makeModernRequest({ clientCapabilities: undefined })));
+  assert.equal(missingCapabilities.status, 400);
+  assert.equal((await missingCapabilities.json()).error.code, -32602);
+});
+
+test("accepts a modern notification without an id using HTTP 202 and an empty body", async () => {
+  const response = await responseFor(bearerRequest(makeModernRequest({
+    method: "notifications/cancelled",
+    params: { requestId: 12, reason: "test" },
+    includeId: false
+  })));
+  assert.equal(response.status, 202);
+  assert.equal(await response.text(), "");
+});
+
+test("rejects a notification that incorrectly includes an id", async () => {
+  const response = await responseFor(bearerRequest(makeModernRequest({
+    method: "notifications/cancelled",
+    params: { requestId: 12 },
+    includeId: true
+  })));
   assert.equal(response.status, 400);
-  assert.equal((await response.json()).error.code, -32602);
+  assert.equal((await response.json()).error.code, -32600);
 });
 
 test("unsupported protocol versions return supported versions with code -32022", async () => {
