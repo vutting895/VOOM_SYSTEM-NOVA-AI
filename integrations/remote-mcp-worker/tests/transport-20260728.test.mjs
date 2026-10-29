@@ -230,3 +230,19 @@ test("decodes the MCP base64 sentinel for Mcp-Name before comparing it to body p
   assert.equal(payload.result.resultType, "complete");
   assert.equal(payload.result.isError, false);
 });
+
+test("trusted browser preflight allows the required modern MCP request headers", async () => {
+  const response = await worker.fetch(new Request(ENDPOINT, {
+    method: "OPTIONS",
+    headers: {
+      Origin: UI_ORIGIN,
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,content-type,accept,mcp-protocol-version,mcp-method,mcp-name"
+    }
+  }), {});
+  assert.equal(response.status, 204);
+  const allowedHeaders = String(response.headers.get("Access-Control-Allow-Headers") || "").toLowerCase();
+  assert.ok(allowedHeaders.includes("mcp-protocol-version"));
+  assert.ok(allowedHeaders.includes("mcp-method"));
+  assert.ok(allowedHeaders.includes("mcp-name"));
+});
