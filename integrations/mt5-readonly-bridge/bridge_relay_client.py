@@ -19,7 +19,7 @@ from urllib.request import Request, urlopen
 from websockets.asyncio.client import connect
 
 RELAY_HOST = "voom-mt5-bridge-relay.suwapat787.workers.dev"
-DEFAULT_RELAY_URL = "wss://" + RELAY_HOST + "/connect"
+DEFAULT_RELAY_URL = "wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect"
 LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")

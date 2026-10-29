@@ -129,10 +129,12 @@ test("token comparison rejects missing, unequal, and non-string values", () => {
 });
 
 test("a wrong bearer token cannot attach to a tenant session", () => {
-  const result = authorizeBridge(request("/connect", {
-    token: "wrong_token_which_is_long_enough_123456",
-    tenant: TENANT_ID,
-    headers: { Upgrade: "websocket" }
-  }), { MT5_TENANT_ROUTES: RELAY_ROUTES });
+  const fakeRequest = {
+    headers: new Headers({
+      Authorization: "Bearer wrong_token_which_is_long_enough_123456",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    })
+  };
+  const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
 });
