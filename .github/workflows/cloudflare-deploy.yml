@@ -1,4 +1,4 @@
-name: Deploy VOOM Backend Workers to Cloudflare
+name: Deploy VOOM Workers to Cloudflare
 
 on:
   workflow_run:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: voom-backend-workers-production
+  group: voom-cloudflare-workers-production
   cancel-in-progress: false
 
 jobs:
@@ -75,6 +75,7 @@ jobs:
           if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
       # Deploy only changed Worker directories from the exact commit that passed CI.
       # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
@@ -83,7 +84,7 @@ jobs:
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/mt5-bridge-relay/wrangler.jsonc --keep-vars
 
-      # Keep frontend hosting/deployment separate; this workflow deploys and verifies backend Workers only.
+      # Deploy only when its source/config changed; the frontend routes through the System Hub.
       - name: Deploy authenticated Exness MT5 read-only proxy
         if: steps.changed.outputs.mt5_proxy == 'true'
         working-directory: frontend
@@ -102,6 +103,39 @@ jobs:
           npx wrangler deploy --config ../integrations/system-hub/wrangler.jsonc --keep-vars \
             --var "SUPABASE_URL:$SUPABASE_URL" \
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
+
+      # Build and deploy the canonical Cloudflare frontend only when frontend files change.
+      # Public build variables contain URLs/site keys only; no broker tokens or Supabase service-role key.
+      - name: Deploy NOVA frontend to Cloudflare Workers
+        if: steps.changed.outputs.frontend == 'true'
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://voom-system-hub.suwapat787.workers.dev"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+        run: npm run cf:deploy
+
+      - name: Smoke-test Cloudflare frontend routes
+        if: steps.changed.outputs.frontend == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ui="https://voom-system-nova-ui.suwapat787.workers.dev"
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          for path in / /settings/broker; do
+            code="$(curl --silent --show-error --location --max-time 30 -o "$body" -w '%{http_code}' "$ui$path" || true)"
+            if [ "$code" != "200" ]; then
+              echo "Cloudflare frontend route $path returned HTTP $code."
+              exit 1
+            fi
+          done
+          if ! grep -q 'Exness MT5' "$body"; then
+            echo "Broker settings page did not render the expected Exness MT5 page content."
+            exit 1
+          fi
+          echo "Cloudflare frontend root and broker settings routes returned HTTP 200."
 
       - name: Smoke-test Cloudflare backend worker safety contracts
         shell: bash
