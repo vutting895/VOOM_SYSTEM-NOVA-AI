@@ -59,6 +59,9 @@ jobs:
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
+      - name: Test AI API authentication precedes payload validation
+        working-directory: .
+        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/worker.test.mjs
