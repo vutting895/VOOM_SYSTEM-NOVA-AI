@@ -33,9 +33,11 @@ const COMPONENT_FOR_INTENT = Object.freeze({
 
 const BLOCKED_ACTION_PHRASES = [
   "place_trade_order", "place order", "execute trade", "trade now", "buy now", "sell now",
-  "open trade", "close trade", "modify order", "send order",
+  "open trade", "close trade", "modify order", "send order", "open position", "close position",
+  "buy order", "sell order", "buy xau", "sell xau", "go long now", "go short now",
   "เปิดออเดอร์", "ปิดออเดอร์", "ส่งคำสั่งซื้อ", "ส่งคำสั่งขาย", "ส่งคำสั่งเทรด",
   "ซื้อเลย", "ขายเลย", "เทรดเลย", "เปิดสถานะ", "ปิดสถานะ", "แก้ไขออเดอร์",
+  "สั่งซื้อ", "สั่งขาย", "เปิดบอท", "เริ่มเทรด", "ให้บอทเทรด",
 ];
 
 const DRAFT_PHRASES = [
