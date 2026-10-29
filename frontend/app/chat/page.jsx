@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import IntentResult from '../../components/intent-result';
+import { buildBoundedChatHistory } from '../../lib/chat-history.mjs';
 
 const suggestions = [
   'อธิบายเงื่อนไข EMA 12/26 และ RSI 14 สำหรับ XAU/USD',
@@ -81,9 +82,7 @@ export default function NovaChatPage() {
     setInput('');
     setBusy(true);
     const userMessage = { id: crypto.randomUUID(), role: 'user', content };
-    const history = [...messages.filter((item) => !item.localOnly), userMessage]
-      .slice(-8)
-      .map(({ role, content: messageContent }) => ({ role, content: messageContent }));
+    const history = buildBoundedChatHistory(messages, userMessage);
     setMessages((current) => [...current, userMessage]);
 
     try {
