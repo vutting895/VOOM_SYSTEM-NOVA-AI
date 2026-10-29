@@ -61,17 +61,16 @@ async def enforce_read_only(request: Request, call_next):
 
 
 def require_token(authorization: str | None, tenant_id: str | None) -> None:
-    if not TENANT_ID:
-        raise HTTPException(status_code=503, detail="Bridge tenant is not configured")
-    if not tenant_id or not hmac.compare_digest(tenant_id, TENANT_ID):
-        raise HTTPException(status_code=403, detail="Bridge tenant mismatch")
-    if not BRIDGE_TOKEN:
+    # Report an unavailable service first, then authenticate before disclosing tenant-boundary results.
+    if not TENANT_ID or not BRIDGE_TOKEN:
         raise HTTPException(status_code=503, detail="Bridge is not configured")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     supplied = authorization[7:].strip()
     if not hmac.compare_digest(supplied, BRIDGE_TOKEN):
         raise HTTPException(status_code=401, detail="Invalid bearer token")
+    if not tenant_id or not hmac.compare_digest(tenant_id, TENANT_ID):
+        raise HTTPException(status_code=403, detail="Bridge tenant mismatch")
 
 
 def initialize_mt5() -> None:
