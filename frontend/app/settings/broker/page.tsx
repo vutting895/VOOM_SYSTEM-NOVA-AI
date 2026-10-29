@@ -46,6 +46,14 @@ type ReadOnlyQuote = {
 const hubUrl = (process.env.NEXT_PUBLIC_SYSTEM_HUB_URL || "https://voom-system-hub.suwapat787.workers.dev").replace(/\/$/, "");
 const supabase = getSupabaseBrowserClient();
 
+function pendingMessage(connection: HubConnection): string {
+  if (connection.recordStatus === "disabled") return "การเชื่อมต่อถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ";
+  if (connection.recordStatus !== "connected" || !connection.bridgeAllocated) {
+    return "ระบบรับคำขอแล้ว แต่ยังรอผู้ดูแลจัดสรร Bridge และ Tenant route เฉพาะบัญชีนี้";
+  }
+  return "";
+}
+
 export default function BrokerSettingsPage() {
   const [email, setEmail] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
@@ -66,20 +74,20 @@ export default function BrokerSettingsPage() {
   }, []);
 
   const getOrCreateOwnConnection = useCallback(async (accessToken: string): Promise<HubConnection> => {
-    const headers = { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" };
-    let response = await fetch(\`\${hubUrl}/v1/connections\`, { headers, cache: "no-store" });
+    const headers = { Authorization: `Bearer ${accessToken}`, Accept: "application/json" };
+    let response = await fetch(`${hubUrl}/v1/connections`, { headers, cache: "no-store" });
     let payload = await response.json().catch(() => ({})) as {
       connections?: HubConnection[];
       connection?: HubConnection;
       error?: string;
     };
     if (!response.ok) {
-      throw new Error(payload.error || \`อ่านรายการการเชื่อมต่อไม่สำเร็จ (HTTP \${response.status})\`);
+      throw new Error(payload.error || `อ่านรายการการเชื่อมต่อไม่สำเร็จ (HTTP ${response.status})`);
     }
     const existing = payload.connections?.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
     if (existing) return existing;
 
-    response = await fetch(\`\${hubUrl}/v1/connections\`, {
+    response = await fetch(`${hubUrl}/v1/connections`, {
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       cache: "no-store",
@@ -90,18 +98,10 @@ export default function BrokerSettingsPage() {
       error?: string;
     };
     if (!response.ok || !payload.connection) {
-      throw new Error(payload.error || \`สร้างคำขอ Exness Demo ไม่สำเร็จ (HTTP \${response.status})\`);
+      throw new Error(payload.error || `สร้างคำขอ Exness Demo ไม่สำเร็จ (HTTP ${response.status})`);
     }
     return payload.connection;
   }, []);
-
-  const pendingMessage = (connection: HubConnection) => {
-    if (connection.recordStatus === "disabled") return "การเชื่อมต่อถูกปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ";
-    if (connection.recordStatus !== "connected" || !connection.bridgeAllocated) {
-      return "ระบบรับคำขอแล้ว แต่ยังรอผู้ดูแลจัดสรร Bridge และ Tenant route เฉพาะบัญชีนี้";
-    }
-    return "";
-  };
 
   const loadAccount = useCallback(async () => {
     setError("");
@@ -117,8 +117,8 @@ export default function BrokerSettingsPage() {
         return;
       }
 
-      const response = await fetch(\`\${hubUrl}/v1/connections/\${encodeURIComponent(connection.connectionId)}/account\`, {
-        headers: { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" },
+      const response = await fetch(`${hubUrl}/v1/connections/${encodeURIComponent(connection.connectionId)}/account`, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
         cache: "no-store",
       });
       const payload = await response.json().catch(() => ({})) as {
@@ -133,7 +133,7 @@ export default function BrokerSettingsPage() {
           ? "คำขอยังรอการจัดสรร Bridge เฉพาะบัญชี"
           : payload.state === "tenant_guard_rejected" || response.status === 403
             ? "คำขอถูกปฏิเสธโดย Tenant Guard: ตรวจสอบการจัดสรรสิทธิ์บัญชี"
-            : payload.error || payload.detail || \`อ่านบัญชีผ่าน System Hub ไม่สำเร็จ (HTTP \${response.status})\`;
+            : payload.error || payload.detail || `อ่านบัญชีผ่าน System Hub ไม่สำเร็จ (HTTP ${response.status})`;
         throw new Error(message);
       }
       if (!payload.dataVerified || !payload.account?.connected) {
@@ -164,8 +164,8 @@ export default function BrokerSettingsPage() {
 
       const query = new URLSearchParams({ symbol: "XAUUSDm", timeframe: "M1", count: "3" });
       const response = await fetch(
-        \`\${hubUrl}/v1/connections/\${encodeURIComponent(connection.connectionId)}/quotes?\${query.toString()}\`,
-        { headers: { Authorization: \`Bearer \${accessToken}\`, Accept: "application/json" }, cache: "no-store" }
+        `${hubUrl}/v1/connections/${encodeURIComponent(connection.connectionId)}/quotes?${query.toString()}`,
+        { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store" }
       );
       const payload = await response.json().catch(() => ({})) as {
         quote?: ReadOnlyQuote;
@@ -179,14 +179,14 @@ export default function BrokerSettingsPage() {
           ? "คำขอยังรอการจัดสรร Bridge เฉพาะบัญชี"
           : payload.state === "tenant_guard_rejected" || response.status === 403
             ? "คำขออ่านราคาถูกปฏิเสธโดย Tenant Guard"
-            : payload.error || payload.detail || \`อ่านราคาผ่าน System Hub ไม่สำเร็จ (HTTP \${response.status})\`;
+            : payload.error || payload.detail || `อ่านราคาผ่าน System Hub ไม่สำเร็จ (HTTP ${response.status})`;
         throw new Error(message);
       }
       if (!payload.dataVerified || !payload.quote) {
         throw new Error("Hub ยังไม่ได้ยืนยันข้อมูลราคาจาก MT5");
       }
       setQuote(payload.quote);
-      setNotice(\`อ่านราคา \${payload.quote.symbol} \${payload.quote.timeframe} ผ่าน NOVA System Integration Hub แล้ว · Read-only\`);
+      setNotice(`อ่านราคา ${payload.quote.symbol} ${payload.quote.timeframe} ผ่าน NOVA System Integration Hub แล้ว · Read-only`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "อ่านราคาไม่สำเร็จ");
     } finally {
