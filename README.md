@@ -67,13 +67,15 @@ OAuth end-to-end verification, leaked-password protection, review of SECURITY DE
 - The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
 
 
-## Wave3 + SMC model research (XGBoost + MLP)
+## VOOM v6.2.6.3 Wave3 + SMC model research (XGBoost + 60-bar LSTM)
 
 A reproducible training and backtest pipeline is available in the feature branch. It uses the redacted MT5 Demo XAUUSDm M15 history at datasets/exness-demo/, includes time-purged walk-forward folds, an untouched final OOS period, and training-artifact reload checks.
 
 Run from the repository root with Python 3.11:
 
     python -m pip install -r requirements-wave3.txt
-    python tools/train_wave3_models.py
+    python tools/train_wave3_models.py --news-calendar datasets/news/high_impact_utc.csv
 
-Current run status and metrics: docs/WAVE3_MODEL_TRAINING_PLAN.md and reports/wave3_exness_xauusdm_m15_report.json. The model-training step succeeded, but the strategy performance gate is blocked: final OOS generated zero trades and ensemble accuracy did not beat the majority-class baseline. These artifacts are research-only; no deployment or live trading is enabled.
+Omit `--news-calendar` only for a fail-closed diagnostic run; without a genuine historical high-impact calendar the +/-30 minute news filter denies every entry.
+
+Current run status and metrics: docs/WAVE3_MODEL_TRAINING_PLAN.md and reports/wave3_exness_xauusdm_m15_report.json. The XGB + 60-bar LSTM training and artifact round-trip checks succeeded, but the v6.2.6.3 performance gate is blocked: final OOS accuracy is 40.4810% against a 45.9708% majority baseline, no final-OOS row passed SMC >=85 or the XGB/LSTM/ensemble confidence gates, and there were zero trades. No deployment or trading is enabled; artifacts are research-only.

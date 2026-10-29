@@ -1,6 +1,6 @@
-"""Leakage-aware Wave3 + SMC XGBoost / MLP training and backtest pipeline.
+"""VOOM v6.2.6.3 Wave3 + SMC XGBoost / 60-bar LSTM research and backtest pipeline.
 Research only: no broker execution or order-submission code. Features use closed bars;
-signals enter no earlier than the next bar open.
+BUY entries are considered no earlier than the next bar and all strategy gates must pass.
 """
 from __future__ import annotations
 
@@ -8,36 +8,50 @@ import argparse
 import hashlib
 import json
 import math
-import warnings
 from pathlib import Path
 from typing import Any
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, classification_report, confusion_matrix, f1_score
-from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
 from xgboost import XGBClassifier
 
 HORIZON_BARS = 12
 PIVOT_LEFT = 3
 PIVOT_RIGHT = 3
-RISK_FRACTION = 0.0025
-STOP_ATR_MULTIPLE = 1.5
-REWARD_RISK = 2.0
+STOP_ATR_MULTIPLE = 1.5  # Legacy synthetic-test path only; v6.2.6.3 uses a fixed $5 stop.
+REWARD_RISK = 2.0  # Legacy synthetic-test path only; v6.2.6.3 uses 2.2R.
 MAX_HOLD_BARS = 12
 SLIPPAGE_PRICE_PER_SIDE = 0.02
 COMMISSION_PER_LOT_PER_SIDE_USD = 0.0  # Assumption only; the small deal sample cannot verify account commission.
 CONTRACT_SIZE = 100.0
-VOLUME_MIN = 0.01
-VOLUME_MAX = 200.0
-VOLUME_STEP = 0.01
-PROBABILITY_THRESHOLD = 0.55
-PROBABILITY_MARGIN = 0.10
+PROBABILITY_THRESHOLD = 0.85  # 60% XGB + 40% LSTM combined probability
+PROBABILITY_MARGIN = 0.0
+XGB_MIN_CONFIDENCE = 0.75
+LSTM_MIN_CONFIDENCE = 0.80
+ENSEMBLE_XGB_WEIGHT = 0.60
+ENSEMBLE_LSTM_WEIGHT = 0.40
+LSTM_SEQUENCE_LENGTH = 60
+FIXED_STOP_DISTANCE_PRICE = 5.0  # The v6.2.6.3 example explicitly locks gold SL distance to $5.
+FIXED_REWARD_RISK = 2.2
+FIXED_TARGET_DISTANCE_PRICE = FIXED_STOP_DISTANCE_PRICE * FIXED_REWARD_RISK
+FIXED_LOT_SIZE = 0.01  # Conservative interpretation of the explicit final lot lock.
+MIN_WAVE1_SIZE_XAU = 10.0
+MIN_WAVE1_SIZE_BTC = 500.0
+XAU_MAX_SPREAD_PRICE = 0.35
+BTC_MAX_SPREAD_PRICE = 50.0
+MAX_DAILY_TRADES = 5
+MAX_DAILY_LOSS_USD = 500.0
 LABEL_NAMES = {0: "short", 1: "hold", 2: "long"}
 SEED = 6263
+
+torch.set_num_threads(4)
+torch.manual_seed(SEED)
 
 DEFAULT_DATA = "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv"
 DEFAULT_MODEL_DIR = "models/wave3_xgb_deep"
@@ -103,7 +117,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     f = pd.DataFrame(index=frame.index)
     for lag in (1, 2, 3, 6, 12, 24, 48):
         f[f"return_{lag}"] = c.pct_change(lag)
-    for span in (8, 12, 20, 26, 50, 100):
+    for span in (8, 12, 20, 21, 26, 50, 100):
         ema = c.ewm(span=span, adjust=False, min_periods=span).mean()
         f[f"ema_dist_{span}"] = c / ema - 1.0
     for window in (20, 50):
@@ -143,16 +157,23 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     names = (
         "structure_bias", "bos_up", "bos_down", "choch_up", "choch_down",
         "buy_side_sweep", "sell_side_sweep", "bull_fvg", "bear_fvg",
-        "bull_ob_recent", "bear_ob_recent", "bull_ob_zone", "bear_ob_zone",
-        "dist_last_swing_high", "dist_last_swing_low", "fib_pullback_ratio",
+        "bull_fvg_fill", "bear_fvg_fill", "bull_ob_recent", "bear_ob_recent",
+        "bull_ob_zone", "bear_ob_zone", "bull_ob_within5", "bear_ob_within5",
+        "choch_rule_up", "choch_rule_down", "dist_last_swing_high", "dist_last_swing_low",
+        "fib_pullback_ratio", "wave1_size", "wave1_high", "wave2_low",
+        "wave1_low_short", "wave2_high_short", "wave3_long_entry_price", "wave3_short_entry_price",
+        "wave3_long_fib_score", "wave3_short_fib_score", "wave3_long_rule_breakout", "wave3_short_rule_breakout",
         "wave3_long_zone", "wave3_short_zone", "wave3_long_breakout", "wave3_short_breakout",
     )
     struct = {name: np.zeros(n, dtype=float) for name in names}
     pivots: list[dict[str, Any]] = []
+    confirmed_low_prices: list[float] = []
+    confirmed_high_prices: list[float] = []
     last_high = last_low = None
     broken: set[tuple[str, int]] = set()
     bias = 0
     bull_ob = bear_ob = None
+    last_bull_gap = last_bear_gap = None
 
     for i in range(n):
         p = i - PIVOT_RIGHT
@@ -174,8 +195,16 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                     extreme = point["price"] > pivots[-1]["price"] if point["kind"] == "high" else point["price"] < pivots[-1]["price"]
                     if extreme:
                         pivots[-1] = point
+                        if point["kind"] == "high":
+                            confirmed_high_prices[-1] = float(point["price"])
+                        else:
+                            confirmed_low_prices[-1] = float(point["price"])
                 else:
                     pivots.append(point)
+                    if point["kind"] == "high":
+                        confirmed_high_prices.append(float(point["price"]))
+                    else:
+                        confirmed_low_prices.append(float(point["price"]))
 
         close_i = float(c.iloc[i])
         prev_i = float(c.iloc[i - 1]) if i else close_i
@@ -190,7 +219,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                     bos_up = 1
                 bias = 1
                 for j in range(max(0, i - 8), i):
-                    if c.iloc[j] < o.iloc[j]:
+                    candle_size_pct = (float(h.iloc[j]) - float(l.iloc[j])) / max(float(c.iloc[j]), 1e-12)
+                    if c.iloc[j] < o.iloc[j] and candle_size_pct >= 0.003:
                         bull_ob = (i, float(l.iloc[j]), float(h.iloc[j]))
         if last_low and last_low["idx"] < i:
             key = ("low", last_low["idx"])
@@ -202,7 +232,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                     bos_down = 1
                 bias = -1
                 for j in range(max(0, i - 8), i):
-                    if c.iloc[j] > o.iloc[j]:
+                    candle_size_pct = (float(h.iloc[j]) - float(l.iloc[j])) / max(float(c.iloc[j]), 1e-12)
+                    if c.iloc[j] > o.iloc[j] and candle_size_pct >= 0.003:
                         bear_ob = (i, float(l.iloc[j]), float(h.iloc[j]))
         struct["structure_bias"][i] = bias
         struct["bos_up"][i], struct["bos_down"][i] = bos_up, bos_down
@@ -215,15 +246,32 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             struct["dist_last_swing_low"][i] = (close_i - last_low["price"]) / close_i
             if float(l.iloc[i]) < last_low["price"] and close_i > last_low["price"]:
                 struct["sell_side_sweep"][i] = 1
+        if last_bull_gap and 0 < i - last_bull_gap[0] <= 48:
+            struct["bull_fvg_fill"][i] = float(l.iloc[i]) <= last_bull_gap[2] and float(h.iloc[i]) >= last_bull_gap[1]
+        if last_bear_gap and 0 < i - last_bear_gap[0] <= 48:
+            struct["bear_fvg_fill"][i] = float(h.iloc[i]) >= last_bear_gap[1] and float(l.iloc[i]) <= last_bear_gap[2]
         if i >= 2:
             struct["bull_fvg"][i] = float(l.iloc[i]) > float(h.iloc[i - 2])
             struct["bear_fvg"][i] = float(h.iloc[i]) < float(l.iloc[i - 2])
+            if struct["bull_fvg"][i]:
+                last_bull_gap = (i, float(h.iloc[i - 2]), float(l.iloc[i]))
+            if struct["bear_fvg"][i]:
+                last_bear_gap = (i, float(h.iloc[i]), float(l.iloc[i - 2]))
         if bull_ob and i - bull_ob[0] <= 24:
             struct["bull_ob_recent"][i] = 1
             struct["bull_ob_zone"][i] = bull_ob[1] <= close_i <= bull_ob[2]
+            ob_distance = max(bull_ob[1] - close_i, 0.0, close_i - bull_ob[2])
+            struct["bull_ob_within5"][i] = ob_distance <= 5.0
         if bear_ob and i - bear_ob[0] <= 24:
             struct["bear_ob_recent"][i] = 1
             struct["bear_ob_zone"][i] = bear_ob[1] <= close_i <= bear_ob[2]
+            ob_distance = max(bear_ob[1] - close_i, 0.0, close_i - bear_ob[2])
+            struct["bear_ob_within5"][i] = ob_distance <= 5.0
+
+        struct["choch_rule_up"][i] = (len(confirmed_low_prices) >= 3 and
+            confirmed_low_prices[-3] < confirmed_low_prices[-2] < confirmed_low_prices[-1] and close_i > float(o.iloc[i]))
+        struct["choch_rule_down"][i] = (len(confirmed_high_prices) >= 3 and
+            confirmed_high_prices[-3] > confirmed_high_prices[-2] > confirmed_high_prices[-1] and close_i < float(o.iloc[i]))
 
         if len(pivots) >= 3:
             a, b, d = pivots[-3:]
@@ -232,21 +280,73 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 retrace = (b["price"] - d["price"]) / impulse if impulse > 0 else np.nan
                 if d["price"] > a["price"] and 0 < retrace < 1:
                     struct["fib_pullback_ratio"][i] = retrace
+                    struct["wave1_size"][i] = impulse
+                    struct["wave1_high"][i] = b["price"]
+                    struct["wave2_low"][i] = d["price"]
+                    entry_price = b["price"] + 0.20 * impulse
+                    struct["wave3_long_entry_price"][i] = entry_price
                     in_zone = 0.45 <= retrace <= 0.85
                     struct["wave3_long_zone"][i] = in_zone
+                    struct["wave3_long_fib_score"][i] = 95.0 if 0.55 <= retrace <= 0.65 else (80.0 if in_zone else 0.0)
                     if i and in_zone and close_i > b["price"] and prev_i <= b["price"]:
                         struct["wave3_long_breakout"][i] = 1
+                    if (i and impulse >= MIN_WAVE1_SIZE_XAU and in_zone and
+                            struct["wave3_long_fib_score"][i] >= 80 and
+                            close_i >= entry_price and prev_i < entry_price):
+                        struct["wave3_long_rule_breakout"][i] = 1
             elif a["kind"] == "high" and b["kind"] == "low" and d["kind"] == "high":
                 impulse = a["price"] - b["price"]
                 retrace = (d["price"] - b["price"]) / impulse if impulse > 0 else np.nan
                 if d["price"] < a["price"] and 0 < retrace < 1:
                     struct["fib_pullback_ratio"][i] = retrace
+                    struct["wave1_size"][i] = impulse
+                    struct["wave1_low_short"][i] = b["price"]
+                    struct["wave2_high_short"][i] = d["price"]
+                    entry_price = b["price"] - 0.20 * impulse
+                    struct["wave3_short_entry_price"][i] = entry_price
                     in_zone = 0.45 <= retrace <= 0.85
                     struct["wave3_short_zone"][i] = in_zone
+                    struct["wave3_short_fib_score"][i] = 95.0 if 0.55 <= retrace <= 0.65 else (80.0 if in_zone else 0.0)
                     if i and in_zone and close_i < b["price"] and prev_i >= b["price"]:
                         struct["wave3_short_breakout"][i] = 1
+                    if (i and impulse >= MIN_WAVE1_SIZE_XAU and in_zone and
+                            struct["wave3_short_fib_score"][i] >= 80 and
+                            close_i <= entry_price and prev_i > entry_price):
+                        struct["wave3_short_rule_breakout"][i] = 1
     for name, values in struct.items():
         f[name] = values
+
+    # v6.2.6.3 BUY-side hard gates. All inputs are past/current closed-bar data.
+    prior_20_high = h.shift(1).rolling(20, min_periods=20).max()
+    prior_20_low = l.shift(1).rolling(20, min_periods=20).min()
+    f["bos20_up"] = (c > prior_20_high).astype(float)
+    f["bos20_down"] = (c < prior_20_low).astype(float)
+    f["momentum_5_positive"] = (c - c.shift(5) > 0).astype(float)
+    f["volume_ema20"] = frame["volume"].ewm(span=20, adjust=False, min_periods=20).mean()
+    f["volume_gate"] = (frame["volume"] > 0.8 * f["volume_ema20"]).astype(float)
+    f["rsi_buy_gate"] = ((f["rsi_14"] >= 0.50) & (f["rsi_14"] <= 0.70)).astype(float)
+    roll_high100 = h.rolling(100, min_periods=100).max()
+    roll_low100 = l.rolling(100, min_periods=100).min()
+    f["discount_zone"] = (c <= (roll_low100 + roll_high100) / 2.0).fillna(False).astype(float)
+    ts_indexed = frame.set_index("timestamp")
+    h1_close = ts_indexed["close"].resample("1h", label="right", closed="left").last().dropna()
+    h1_ema21 = h1_close.ewm(span=21, adjust=False, min_periods=21).mean()
+    h1_ema50 = h1_close.ewm(span=50, adjust=False, min_periods=50).mean()
+    h1_trend = (h1_ema21 > h1_ema50).reindex(frame["timestamp"], method="ffill")
+    f["h1_trend_up"] = h1_trend.fillna(False).to_numpy(dtype=float)
+    ema21 = c.ewm(span=21, adjust=False, min_periods=21).mean()
+    ema50 = c.ewm(span=50, adjust=False, min_periods=50).mean()
+    f["deep_trend_gate"] = ((c > ema21) & (ema21 > ema50)).astype(float)
+    f["near_fib_618"] = (f["fib_pullback_ratio"].between(0.568, 0.668)).astype(float)
+    f["atr_stop_gate"] = (1.5 * f["atr_price"] >= FIXED_STOP_DISTANCE_PRICE).astype(float)
+    max_spread = BTC_MAX_SPREAD_PRICE if "BTC" in str(frame.attrs.get("symbol", "")).upper() else XAU_MAX_SPREAD_PRICE
+    f["spread_gate"] = (frame["spread_price"] <= max_spread).astype(float)
+    f["smc_score_long"] = (30 * f["bos20_up"] + 20 * f["choch_rule_up"] +
+                           25 * f["bull_ob_within5"] + 25 * f["bull_fvg_fill"])
+    f["smc_score_short"] = (30 * f["bos20_down"] + 20 * f["choch_rule_down"] +
+                            25 * f["bear_ob_within5"] + 25 * f["bear_fvg_fill"])
+    f["smc_buy_gate"] = (f["smc_score_long"] >= 85).astype(float)
+    f["smc_sell_gate"] = (f["smc_score_short"] >= 85).astype(float)
     return f.replace([np.inf, -np.inf], np.nan)
 
 
@@ -276,6 +376,43 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
     return X, y, meta
 
 
+class LSTMNet(nn.Module):
+    """Small CPU-friendly LSTM classifier over the previous 60 closed M15 bars."""
+    def __init__(self, input_size: int, hidden_size: int = 32):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=2,
+                            batch_first=True, dropout=0.10)
+        self.head = nn.Sequential(nn.Linear(hidden_size, 32), nn.ReLU(), nn.Dropout(0.10), nn.Linear(32, 3))
+
+    def forward(self, sequences):
+        output, _ = self.lstm(sequences)
+        return self.head(output[:, -1, :])
+
+
+class _SequenceDataset(torch.utils.data.Dataset):
+    def __init__(self, values: np.ndarray, labels: np.ndarray | None = None, sequence_length: int = LSTM_SEQUENCE_LENGTH):
+        self.values = np.asarray(values, dtype=np.float32)
+        self.labels = None if labels is None else np.asarray(labels, dtype=np.int64)
+        self.sequence_length = int(sequence_length)
+
+    def __len__(self):
+        return max(0, len(self.values) - self.sequence_length + 1)
+
+    def __getitem__(self, index):
+        end = index + self.sequence_length
+        sequence = torch.from_numpy(self.values[index:end])
+        if self.labels is None:
+            return sequence
+        return sequence, torch.tensor(self.labels[end - 1], dtype=torch.long)
+
+
+def _align_probabilities(prob: np.ndarray, classes: np.ndarray) -> np.ndarray:
+    aligned = np.zeros((len(prob), 3), dtype=float)
+    for i, cls in enumerate(classes):
+        aligned[:, int(cls)] = prob[:, i]
+    return aligned
+
+
 def _build_models(X: pd.DataFrame, y: pd.Series):
     if set(np.unique(y)) != {0, 1, 2}:
         raise ValueError(f"training split must contain all labels; found={sorted(np.unique(y).tolist())}")
@@ -287,30 +424,70 @@ def _build_models(X: pd.DataFrame, y: pd.Series):
         tree_method="hist", n_jobs=4, random_state=SEED, verbosity=0,
     )
     xgb.fit(X, y, sample_weight=weights, verbose=False)
+
     scaler = StandardScaler()
-    scaled = scaler.fit_transform(X)
-    deep = MLPClassifier(
-        hidden_layer_sizes=(64, 32), activation="relu", solver="adam",
-        alpha=0.002, batch_size=512, learning_rate_init=0.0008,
-        max_iter=24, early_stopping=False, n_iter_no_change=6, tol=1e-4,
-        random_state=SEED, verbose=False,
-    )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        deep.fit(scaled, y, sample_weight=weights)
-    setattr(deep, "_training_warnings", [str(w.message) for w in caught if "converg" in str(w.message).lower()])
-    return xgb, scaler, deep
+    scaled = scaler.fit_transform(X).astype(np.float32)
+    dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64))
+    if len(dataset) < 200:
+        raise ValueError(f"not enough sequences for {LSTM_SEQUENCE_LENGTH}-bar LSTM: {len(dataset)}")
+    generator = torch.Generator().manual_seed(SEED)
+    loader = DataLoader(dataset, batch_size=512, shuffle=True, num_workers=0, generator=generator)
+    lstm = LSTMNet(input_size=scaled.shape[1])
+    counts = np.bincount(y.to_numpy(dtype=int), minlength=3).astype(float)
+    class_weights = len(y) / (3.0 * np.maximum(counts, 1.0))
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float32))
+    optimizer = torch.optim.AdamW(lstm.parameters(), lr=0.001, weight_decay=0.0005)
+    losses = []
+    for epoch in range(4):
+        lstm.train()
+        total_loss = total_rows = 0.0
+        for batch_x, batch_y in loader:
+            optimizer.zero_grad(set_to_none=True)
+            logits = lstm(batch_x)
+            loss = criterion(logits, batch_y)
+            loss.backward()
+            nn.utils.clip_grad_norm_(lstm.parameters(), max_norm=1.0)
+            optimizer.step()
+            total_loss += float(loss.detach()) * len(batch_y)
+            total_rows += len(batch_y)
+        losses.append(round(total_loss / max(total_rows, 1.0), 6))
+    lstm.eval()
+    setattr(lstm, "_training_losses", losses)
+    return xgb, scaler, lstm
 
 
-def predict_ensemble(X: pd.DataFrame, models) -> np.ndarray:
-    xgb, scaler, deep = models
-    def align(prob, classes):
-        out = np.zeros((len(prob), 3), dtype=float)
-        for i, cls in enumerate(classes):
-            out[:, int(cls)] = prob[:, i]
-        return out
-    return (align(xgb.predict_proba(X), np.asarray(xgb.classes_)) +
-            align(deep.predict_proba(scaler.transform(X)), np.asarray(deep.classes_))) / 2.0
+def predict_model_probabilities(X: pd.DataFrame, models, context_features: pd.DataFrame | None = None):
+    """Return independent XGB/LSTM probabilities; context supplies preceding known bars for the LSTM."""
+    xgb, scaler, lstm = models[:3]
+    xgb_prob = _align_probabilities(xgb.predict_proba(X), np.asarray(xgb.classes_))
+    if context_features is not None and len(context_features):
+        history = context_features.tail(LSTM_SEQUENCE_LENGTH - 1)
+        combined = pd.concat([history, X], ignore_index=True)
+        prediction_count = len(X)
+    else:
+        combined = X.reset_index(drop=True)
+        prediction_count = max(0, len(combined) - LSTM_SEQUENCE_LENGTH + 1)
+    scaled = scaler.transform(combined).astype(np.float32)
+    dataset = _SequenceDataset(scaled, labels=None)
+    loader = DataLoader(dataset, batch_size=512, shuffle=False, num_workers=0)
+    lstm = lstm.eval()
+    chunks = []
+    with torch.no_grad():
+        for batch_x in loader:
+            chunks.append(torch.softmax(lstm(batch_x), dim=1).cpu().numpy())
+    lstm_prob = np.concatenate(chunks, axis=0) if chunks else np.empty((0, 3), dtype=float)
+    if context_features is not None and len(context_features):
+        lstm_prob = lstm_prob[-prediction_count:]
+        if len(lstm_prob) != len(X):
+            raise RuntimeError(f"LSTM prediction rows mismatch: expected={len(X)} actual={len(lstm_prob)}")
+    else:
+        xgb_prob = xgb_prob[-prediction_count:]
+    return xgb_prob, lstm_prob
+
+
+def predict_ensemble(X: pd.DataFrame, models, context_features: pd.DataFrame | None = None) -> np.ndarray:
+    xgb_prob, lstm_prob = predict_model_probabilities(X, models, context_features)
+    return ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
 
 
 def load_saved_models(model_dir: str | Path):
@@ -318,8 +495,11 @@ def load_saved_models(model_dir: str | Path):
     root = Path(model_dir)
     xgb = XGBClassifier()
     xgb.load_model(str(root / "xgb_model.json"))
-    deep_bundle = joblib.load(root / "deep_mlp.joblib")
-    return xgb, deep_bundle["scaler"], deep_bundle["mlp"], list(deep_bundle["feature_columns"])
+    bundle = torch.load(root / "deep_lstm.pt", map_location="cpu", weights_only=False)
+    lstm = LSTMNet(input_size=int(bundle["input_size"]), hidden_size=int(bundle["hidden_size"]))
+    lstm.load_state_dict(bundle["state_dict"])
+    lstm.eval()
+    return xgb, bundle["scaler"], lstm, list(bundle["feature_columns"])
 
 
 def _classification_metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, Any]:
@@ -344,30 +524,56 @@ def _classification_metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, Any]:
     }
 
 
-def _lot_size(equity: float, stop_distance: float, spread: float,
-              contract_size: float = CONTRACT_SIZE) -> float:
-    risk_cash = equity * RISK_FRACTION
-    cost_per_lot = contract_size * (spread + 2 * SLIPPAGE_PRICE_PER_SIDE) + 2 * COMMISSION_PER_LOT_PER_SIDE_USD
-    loss_per_lot = stop_distance * contract_size + cost_per_lot
-    if loss_per_lot <= 0:
-        return 0.0
-    raw = min(VOLUME_MAX, risk_cash / loss_per_lot)
-    lots = math.floor((raw + 1e-12) / VOLUME_STEP) * VOLUME_STEP
-    return round(lots, 4) if lots >= VOLUME_MIN else 0.0
+def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarray | None:
+    """Return per-bar safe flags for high-impact events; missing calendar fails closed."""
+    if path is None:
+        return None
+    news_path = Path(path)
+    if not news_path.is_file():
+        raise FileNotFoundError(f"news calendar not found: {news_path}")
+    news = pd.read_csv(news_path)
+    if "timestamp" not in news.columns or "impact" not in news.columns:
+        raise ValueError("news calendar CSV must contain timestamp and impact columns")
+    impact = news["impact"].astype(str).str.strip().str.lower()
+    high = impact.isin({"high", "high impact", "critical", "red", "3", "3.0"})
+    events = pd.to_datetime(news.loc[high, "timestamp"], utc=True, errors="raise").sort_values().astype("int64").to_numpy()
+    if not len(events):
+        return np.ones(len(frame), dtype=bool)
+    bars = pd.to_datetime(frame["timestamp"], utc=True).astype("int64").to_numpy()
+    positions = np.searchsorted(events, bars)
+    before_idx = np.clip(positions - 1, 0, len(events) - 1)
+    after_idx = np.clip(positions, 0, len(events) - 1)
+    seconds = 30 * 60 * 1_000_000_000
+    before_dist = np.abs(bars - events[before_idx])
+    after_dist = np.abs(bars - events[after_idx])
+    return (np.minimum(before_dist, after_dist) > seconds)
 
 
 def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices: np.ndarray,
                     probabilities: np.ndarray, start_equity: float = 10000.0,
-                    contract_size: float = CONTRACT_SIZE) -> dict[str, Any]:
+                    contract_size: float = CONTRACT_SIZE,
+                    probability_threshold: float = PROBABILITY_THRESHOLD,
+                    probability_margin: float = PROBABILITY_MARGIN,
+                    xgb_probabilities: np.ndarray | None = None,
+                    lstm_probabilities: np.ndarray | None = None,
+                    news_safe: np.ndarray | None = None,
+                    require_news_calendar: bool = True) -> dict[str, Any]:
     """Single-position, next-bar execution simulation over a strictly held-out window."""
     if len(source_indices) == 0:
         return {"trade_count": 0, "reason": "no valid prediction rows"}
     end_i = int(source_indices[-1])
     prob_by_index = {int(i): p for i, p in zip(source_indices, probabilities)}
+    xgb_values = probabilities if xgb_probabilities is None else xgb_probabilities
+    lstm_values = probabilities if lstm_probabilities is None else lstm_probabilities
+    xgb_by_index = {int(i): p for i, p in zip(source_indices, xgb_values)}
+    lstm_by_index = {int(i): p for i, p in zip(source_indices, lstm_values)}
+    strict_rules = "wave3_long_rule_breakout" in features.columns
     equity = float(start_equity)
     peak = equity
     max_dd = 0.0
     trades: list[dict[str, Any]] = []
+    daily_trade_count: dict[str, int] = {}
+    daily_net_pnl: dict[str, float] = {}
     busy_until = -1
     for item in source_indices:
         i = int(item)
@@ -375,32 +581,74 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
             continue
         rowf = features.iloc[i]
         p = prob_by_index[i]
-        setup_long = bool(rowf["wave3_long_breakout"] and
-                          (rowf["bos_up"] or rowf["choch_up"] or rowf["bull_fvg"] or
-                           rowf["bull_ob_zone"] or rowf["sell_side_sweep"]))
-        setup_short = bool(rowf["wave3_short_breakout"] and
-                           (rowf["bos_down"] or rowf["choch_down"] or rowf["bear_fvg"] or
-                            rowf["bear_ob_zone"] or rowf["buy_side_sweep"]))
-        long_signal = setup_long and p[2] >= PROBABILITY_THRESHOLD and p[2] - p[0] >= PROBABILITY_MARGIN
-        short_signal = setup_short and p[0] >= PROBABILITY_THRESHOLD and p[0] - p[2] >= PROBABILITY_MARGIN
-        if long_signal == short_signal:
-            continue
+        p_xgb = xgb_by_index[i]
+        p_lstm = lstm_by_index[i]
         entry_i = i + 1
+        if entry_i > end_i or entry_i >= len(frame):
+            continue
+        signal_day = pd.Timestamp(frame["timestamp"].iloc[i]).strftime("%Y-%m-%d")
+        if daily_trade_count.get(signal_day, 0) >= MAX_DAILY_TRADES or daily_net_pnl.get(signal_day, 0.0) <= -MAX_DAILY_LOSS_USD:
+            continue
+
+        if strict_rules:
+            required_technical = (
+                "wave3_long_rule_breakout", "wave3_long_fib_score", "smc_score_long",
+                "rsi_buy_gate", "momentum_5_positive", "volume_gate", "near_fib_618",
+                "discount_zone", "h1_trend_up", "deep_trend_gate", "choch_rule_up",
+                "atr_stop_gate", "spread_gate",
+            )
+            if any(name not in rowf.index for name in required_technical):
+                raise RuntimeError("incomplete v6.2.6.3 feature schema; refusing to simulate entry")
+            setup_long = bool(rowf["wave3_long_rule_breakout"] and rowf["wave3_long_fib_score"] >= 80
+                              and rowf["smc_score_long"] >= 85)
+            xgb_ok = int(np.argmax(p_xgb)) == 2 and p_xgb[2] >= XGB_MIN_CONFIDENCE
+            lstm_ok = int(np.argmax(p_lstm)) == 2 and p_lstm[2] >= LSTM_MIN_CONFIDENCE
+            ensemble_ok = int(np.argmax(p)) == 2 and p[2] >= PROBABILITY_THRESHOLD
+            technical_ok = all(float(rowf[k]) >= 1.0 for k in (
+                "rsi_buy_gate", "momentum_5_positive", "volume_gate", "near_fib_618",
+                "discount_zone", "h1_trend_up", "deep_trend_gate", "choch_rule_up",
+                "atr_stop_gate", "spread_gate",
+            ))
+            news_ok = (news_safe is not None and bool(news_safe[i]) and bool(news_safe[entry_i]))
+            if not require_news_calendar and news_safe is None:
+                news_ok = True
+            long_signal = setup_long and xgb_ok and lstm_ok and ensemble_ok and technical_ok and news_ok
+            # The user supplied BUY contract only; do not invent unapproved SELL rules.
+            short_signal = False
+        else:
+            # Synthetic unit-test compatibility only; real pipeline data always uses strict rules.
+            setup_long = bool(rowf.get("wave3_long_breakout", 0) and
+                              (rowf.get("bos_up", 0) or rowf.get("choch_up", 0) or rowf.get("bull_fvg", 0) or
+                               rowf.get("bull_ob_zone", 0) or rowf.get("sell_side_sweep", 0)))
+            xgb_ok = int(np.argmax(p_xgb)) == 2 and p_xgb[2] >= XGB_MIN_CONFIDENCE
+            lstm_ok = int(np.argmax(p_lstm)) == 2 and p_lstm[2] >= LSTM_MIN_CONFIDENCE
+            ensemble_ok = int(np.argmax(p)) == 2 and p[2] >= probability_threshold
+            long_signal = setup_long and xgb_ok and lstm_ok and ensemble_ok
+            short_signal = False
+        if not long_signal or short_signal:
+            continue
+
         entry_spread = float(frame["spread_price"].iloc[entry_i])
+        if strict_rules and entry_spread > XAU_MAX_SPREAD_PRICE:
+            continue
         signal_atr = float(rowf["atr_price"])
         if not np.isfinite(signal_atr) or signal_atr <= 0:
             continue
-        stop_dist = max(STOP_ATR_MULTIPLE * signal_atr, entry_spread * 2)
-        lots = _lot_size(equity, stop_dist, entry_spread, contract_size)
-        if lots <= 0:
-            continue
-        long = long_signal
-        if long:
-            entry = float(frame["open"].iloc[entry_i]) + entry_spread + SLIPPAGE_PRICE_PER_SIDE
-            stop, target = entry - stop_dist, entry + stop_dist * REWARD_RISK
+        long = True
+        if strict_rules:
+            stop_dist = FIXED_STOP_DISTANCE_PRICE
+            entry_level = float(rowf["wave3_long_entry_price"])
+            if float(frame["high"].iloc[entry_i]) < entry_level:
+                continue
+            raw_entry = max(float(frame["open"].iloc[entry_i]), entry_level)
+            entry = raw_entry + entry_spread + SLIPPAGE_PRICE_PER_SIDE
+            lots = FIXED_LOT_SIZE
+            stop, target = entry - FIXED_STOP_DISTANCE_PRICE, entry + FIXED_TARGET_DISTANCE_PRICE
         else:
-            entry = float(frame["open"].iloc[entry_i]) - SLIPPAGE_PRICE_PER_SIDE
-            stop, target = entry + stop_dist, entry - stop_dist * REWARD_RISK
+            stop_dist = max(STOP_ATR_MULTIPLE * signal_atr, entry_spread * 2)
+            entry = float(frame["open"].iloc[entry_i]) + entry_spread + SLIPPAGE_PRICE_PER_SIDE
+            lots = FIXED_LOT_SIZE
+            stop, target = entry - stop_dist, entry + stop_dist * REWARD_RISK
         trade_end = min(end_i, entry_i + MAX_HOLD_BARS)
         exit_i, exit_price, exit_reason = trade_end, None, "time_exit"
         for j in range(entry_i, trade_end + 1):
@@ -432,11 +680,16 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
         peak = max(peak, equity)
         if peak > 0:
             max_dd = max(max_dd, (peak - equity) / peak)
+        exit_day = pd.Timestamp(frame["timestamp"].iloc[exit_i]).strftime("%Y-%m-%d")
+        daily_trade_count[signal_day] = daily_trade_count.get(signal_day, 0) + 1
+        daily_net_pnl[exit_day] = daily_net_pnl.get(exit_day, 0.0) + net
         trades.append({
             "signal_timestamp": frame["timestamp"].iloc[i].isoformat(),
             "entry_timestamp": frame["timestamp"].iloc[entry_i].isoformat(),
             "exit_timestamp": frame["timestamp"].iloc[exit_i].isoformat(),
-            "direction": "long" if long else "short",
+            "direction": "BUY",
+            "p_xgb_buy": round(float(p_xgb[2]), 6), "p_lstm_buy": round(float(p_lstm[2]), 6),
+            "p_ensemble_buy": round(float(p[2]), 6),
             "p_short": round(float(p[0]), 6), "p_hold": round(float(p[1]), 6), "p_long": round(float(p[2]), 6),
             "entry_price": round(entry, 5), "stop_price": round(stop, 5),
             "take_profit_price": round(target, 5), "exit_price": round(exit_price, 5),
@@ -456,9 +709,9 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
         "net_profit_usd": round(net, 4), "return_pct": round((equity / start_equity - 1) * 100, 4),
         "profit_factor": round(gross_win / gross_loss_abs, 4) if gross_loss_abs else (None if not gross_win else "undefined_no_losses"),
         "max_drawdown_closed_equity_pct": round(max_dd * 100, 4),
-        "avg_trade_usd": round(net / len(trades), 4) if trades else 0.0,
-        "avg_win_usd": round(float(np.mean([t["net_pnl_usd"] for t in wins])), 4) if wins else 0.0,
-        "avg_loss_usd": round(float(np.mean([t["net_pnl_usd"] for t in losses])), 4) if losses else 0.0,
+        "avg_trade_usd": round(net / len(trades), 4) if trades else None,
+        "avg_win_usd": round(float(np.mean([t["net_pnl_usd"] for t in wins])), 4) if wins else None,
+        "avg_loss_usd": round(float(np.mean([t["net_pnl_usd"] for t in losses])), 4) if losses else None,
         "final_equity_usd": round(equity, 4), "trades": trades,
     }
 
@@ -468,8 +721,66 @@ def _train_mask(meta: pd.DataFrame, test_start: pd.Timestamp) -> np.ndarray:
     return (meta["timestamp"] < cutoff).to_numpy()
 
 
+def _rule_gate_diagnostics(features: pd.DataFrame, raw_indices: np.ndarray,
+                           xgb_prob: np.ndarray, lstm_prob: np.ndarray, ensemble_prob: np.ndarray,
+                           news_safe: np.ndarray | None) -> dict[str, Any]:
+    """Count how many final-window rows survive each mandatory rule, in order."""
+    selected = features.iloc[raw_indices]
+    count = len(selected)
+    mask = np.ones(count, dtype=bool)
+    result: dict[str, Any] = {
+        "rows_tested": count,
+        "maximum_smc_score": float(selected["smc_score_long"].max()) if count else None,
+        "maximum_smc_score_on_wave3_entry_rows": (
+            float(selected.loc[selected["wave3_long_rule_breakout"].astype(bool), "smc_score_long"].max())
+            if count and selected["wave3_long_rule_breakout"].astype(bool).any() else None
+        ),
+    }
+    wave3_mask = selected["wave3_long_rule_breakout"].to_numpy(dtype=bool)
+    result["wave3_entry_rows_with_bos20"] = int((wave3_mask & selected["bos20_up"].to_numpy(dtype=bool)).sum())
+    result["wave3_entry_rows_with_choch"] = int((wave3_mask & selected["choch_rule_up"].to_numpy(dtype=bool)).sum())
+    result["wave3_entry_rows_with_ob_within5"] = int((wave3_mask & selected["bull_ob_within5"].to_numpy(dtype=bool)).sum())
+    result["wave3_entry_rows_with_fvg_fill"] = int((wave3_mask & selected["bull_fvg_fill"].to_numpy(dtype=bool)).sum())
+    conditions = [
+        ("wave3_entry_breakout", selected["wave3_long_rule_breakout"].to_numpy(dtype=bool)),
+        ("fib_score_ge_80", (selected["wave3_long_fib_score"].to_numpy() >= 80)),
+        ("smc_score_ge_85", (selected["smc_score_long"].to_numpy() >= 85)),
+        ("xgb_buy_ge_75_and_agrees", (xgb_prob[:, 2] >= XGB_MIN_CONFIDENCE) & (xgb_prob.argmax(axis=1) == 2)),
+        ("lstm_buy_ge_80_and_agrees", (lstm_prob[:, 2] >= LSTM_MIN_CONFIDENCE) & (lstm_prob.argmax(axis=1) == 2)),
+        ("ensemble_buy_ge_85_and_agrees", (ensemble_prob[:, 2] >= PROBABILITY_THRESHOLD) & (ensemble_prob.argmax(axis=1) == 2)),
+        ("rsi_50_70", selected["rsi_buy_gate"].to_numpy(dtype=bool)),
+        ("momentum_5_positive", selected["momentum_5_positive"].to_numpy(dtype=bool)),
+        ("volume_above_80pct_ema20", selected["volume_gate"].to_numpy(dtype=bool)),
+        ("near_fib_618_assumed_plusminus_5pct", selected["near_fib_618"].to_numpy(dtype=bool)),
+        ("discount_zone", selected["discount_zone"].to_numpy(dtype=bool)),
+        ("h1_trend_up", selected["h1_trend_up"].to_numpy(dtype=bool)),
+        ("close_ema21_ema50_and_higher_lows", (selected["deep_trend_gate"].to_numpy(dtype=bool) & selected["choch_rule_up"].to_numpy(dtype=bool))),
+        ("sl_5_within_atr_1_5", selected["atr_stop_gate"].to_numpy(dtype=bool)),
+        ("spread_at_or_below_0_35", selected["spread_gate"].to_numpy(dtype=bool)),
+    ]
+    for name, condition in conditions:
+        mask &= np.asarray(condition, dtype=bool)
+        result[name] = int(np.asarray(condition, dtype=bool).sum())
+        result["surviving_after_" + name] = int(mask.sum())
+    result["news_calendar_available"] = news_safe is not None
+    if news_safe is None:
+        result["news_safe_rows"] = 0
+        result["all_mandatory_gates_passed"] = 0
+    else:
+        signal_safe = np.asarray(news_safe, dtype=bool)[raw_indices]
+        entry_indices = np.minimum(raw_indices + 1, len(news_safe) - 1)
+        news_pass = signal_safe & np.asarray(news_safe, dtype=bool)[entry_indices]
+        result["news_safe_rows"] = int(news_pass.sum())
+        mask &= news_pass
+        result["surviving_after_news_30m"] = int(mask.sum())
+        result["all_mandatory_gates_passed"] = int(mask.sum())
+    result["note"] = "SELL rules not enabled: only a BUY-side checklist was specified. Missing news calendar is fail-closed."
+    return result
+
+
 def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: pd.Series,
-              meta: pd.DataFrame, name: str, test_start: str, test_end: str) -> dict[str, Any]:
+              meta: pd.DataFrame, name: str, test_start: str, test_end: str,
+              news_safe: np.ndarray | None) -> dict[str, Any]:
     start = pd.Timestamp(test_start, tz="UTC")
     end = pd.Timestamp(test_end, tz="UTC")
     train_idx = np.flatnonzero(_train_mask(meta, start))
@@ -479,12 +790,15 @@ def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: p
         return {"name": name, "status": "skipped_insufficient_rows", "train_rows": len(train_idx), "test_rows": len(test_idx)}
     X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
-    print(f"[{name}] train={len(train_idx)} test={len(test_idx)} fitting XGB + MLP...", flush=True)
+    sequence_context = X.iloc[max(0, int(test_idx[0]) - LSTM_SEQUENCE_LENGTH + 1):int(test_idx[0])]
+    print(f"[{name}] train={len(train_idx)} test={len(test_idx)} fitting XGB + 60-bar LSTM...", flush=True)
     models = _build_models(X_train, y_train)
-    prob = predict_ensemble(X_test, models)
+    xgb_prob, lstm_prob = predict_model_probabilities(X_test, models, sequence_context)
+    prob = ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
     pred = prob.argmax(axis=1)
     raw_idx = meta["source_index"].iloc[test_idx].to_numpy(dtype=int)
-    bt = backtest_window(frame, features, raw_idx, prob)
+    bt = backtest_window(frame, features, raw_idx, prob, xgb_probabilities=xgb_prob,
+                         lstm_probabilities=lstm_prob, news_safe=news_safe)
     return {
         "name": name, "status": "completed",
         "train_first_timestamp": meta["timestamp"].iloc[train_idx[0]].isoformat(),
@@ -495,14 +809,20 @@ def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: p
         "classification": _classification_metrics(y_test.to_numpy(), pred),
         "backtest": {k: v for k, v in bt.items() if k != "trades"},
         "trades": bt.get("trades", []),
-        "xgb_trees": int(models[0].n_estimators), "mlp_iterations": int(models[2].n_iter_),
-        "mlp_convergence_warnings": getattr(models[2], "_training_warnings", []),
+        "xgb_trees": int(models[0].n_estimators),
+        "lstm_training_losses": getattr(models[2], "_training_losses", []),
     }
 
 
-def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: str | Path) -> dict[str, Any]:
+def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: str | Path,
+                   news_calendar_path: str | Path | None = None) -> dict[str, Any]:
     frame = load_bars(data_path)
+    news_safe = load_news_calendar(news_calendar_path, frame)
     raw_hash = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
+    if news_safe is None:
+        print("NEWS GUARD: no historical high-impact calendar provided; entries will fail closed", flush=True)
+    else:
+        print(f"NEWS GUARD: calendar loaded; {int(news_safe.sum())}/{len(news_safe)} bars are outside the +/-30 minute exclusion window", flush=True)
     print("building causal indicators / SMC / Wave3 features...", flush=True)
     features = build_causal_features(frame)
     X, y, meta = make_labeled_frame(frame, features)
@@ -519,7 +839,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     ]
     fold_results = []
     for name, start, end in folds:
-        fold_results.append(_fold_run(frame, features, X, y, meta, name, start, end))
+        fold_results.append(_fold_run(frame, features, X, y, meta, name, start, end, news_safe))
 
     final_start = pd.Timestamp("2026-07-01", tz="UTC")
     train_idx = np.flatnonzero(_train_mask(meta, final_start))
@@ -528,49 +848,35 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         raise ValueError(f"not enough final training/OOS data: train={len(train_idx)} test={len(test_idx)}")
     X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
-    print(f"[FINAL_OOS_2026_H2] train={len(train_idx)} test={len(test_idx)} fitting final artifacts...", flush=True)
+    sequence_context = X.iloc[max(0, int(test_idx[0]) - LSTM_SEQUENCE_LENGTH + 1):int(test_idx[0])]
+    print(f"[FINAL_OOS_2026_H2] train={len(train_idx)} test={len(test_idx)} fitting final XGB + 60-bar LSTM artifacts...", flush=True)
     models = _build_models(X_train, y_train)
-    prob = predict_ensemble(X_test, models)
+    xgb_prob, lstm_prob = predict_model_probabilities(X_test, models, sequence_context)
+    prob = ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
     pred = prob.argmax(axis=1)
     raw_idx = meta["source_index"].iloc[test_idx].to_numpy(dtype=int)
-    bt = backtest_window(frame, features, raw_idx, prob)
-    oos_features = features.iloc[raw_idx]
-    long_setup = oos_features["wave3_long_breakout"].astype(bool) & (
-        oos_features["bos_up"].astype(bool) | oos_features["choch_up"].astype(bool) |
-        oos_features["bull_fvg"].astype(bool) | oos_features["bull_ob_zone"].astype(bool) |
-        oos_features["sell_side_sweep"].astype(bool)
-    )
-    short_setup = oos_features["wave3_short_breakout"].astype(bool) & (
-        oos_features["bos_down"].astype(bool) | oos_features["choch_down"].astype(bool) |
-        oos_features["bear_fvg"].astype(bool) | oos_features["bear_ob_zone"].astype(bool) |
-        oos_features["buy_side_sweep"].astype(bool)
-    )
-    signal_diagnostics = {
-        "wave3_long_breakouts": int(oos_features["wave3_long_breakout"].sum()),
-        "wave3_short_breakouts": int(oos_features["wave3_short_breakout"].sum()),
-        "long_with_smc_confluence": int(long_setup.sum()),
-        "short_with_smc_confluence": int(short_setup.sum()),
-        "long_passing_model_confidence": int((long_setup.to_numpy() & (prob[:, 2] >= PROBABILITY_THRESHOLD) &
-                                                ((prob[:, 2] - prob[:, 0]) >= PROBABILITY_MARGIN)).sum()),
-        "short_passing_model_confidence": int((short_setup.to_numpy() & (prob[:, 0] >= PROBABILITY_THRESHOLD) &
-                                                 ((prob[:, 0] - prob[:, 2]) >= PROBABILITY_MARGIN)).sum()),
-    }
-
+    bt = backtest_window(frame, features, raw_idx, prob, xgb_probabilities=xgb_prob,
+                         lstm_probabilities=lstm_prob, news_safe=news_safe)
+    signal_diagnostics = _rule_gate_diagnostics(features, raw_idx, xgb_prob, lstm_prob, prob, news_safe)
     model_path = Path(model_dir)
     model_path.mkdir(parents=True, exist_ok=True)
     models[0].save_model(str(model_path / "xgb_model.json"))
-    joblib.dump({"scaler": models[1], "mlp": models[2], "feature_columns": list(X.columns),
-                 "label_mapping": LABEL_NAMES, "seed": SEED},
-                model_path / "deep_mlp.joblib", compress=3)
+    torch.save({
+        "state_dict": models[2].state_dict(), "input_size": int(X.shape[1]), "hidden_size": 32,
+        "scaler": models[1], "feature_columns": list(X.columns), "label_mapping": LABEL_NAMES,
+        "sequence_length": LSTM_SEQUENCE_LENGTH, "seed": SEED,
+    }, model_path / "deep_lstm.pt")
     reloaded = load_saved_models(model_path)
     if reloaded[3] != list(X.columns):
         raise RuntimeError("saved model feature schema differs from the training schema")
     check_count = min(256, len(X_test))
-    if not np.allclose(predict_ensemble(X_test.iloc[:check_count], reloaded[:3]), prob[:check_count], atol=1e-6):
-        raise RuntimeError("saved model round-trip predictions do not match in-memory predictions")
-    print(f"saved artifacts reloaded and verified on {check_count} held-out rows", flush=True)
+    check_xgb, check_lstm = predict_model_probabilities(X_test.iloc[:check_count], reloaded[:3], sequence_context)
+    round_trip_prob = ENSEMBLE_XGB_WEIGHT * check_xgb + ENSEMBLE_LSTM_WEIGHT * check_lstm
+    if not np.allclose(round_trip_prob, prob[:check_count], atol=1e-6):
+        raise RuntimeError("saved XGB/LSTM artifacts do not reproduce in-memory ensemble probabilities")
+    print(f"saved XGB/LSTM artifacts reloaded and verified on {check_count} held-out rows", flush=True)
     manifest = {
-        "strategy": "VOOM Wave3 + SMC XGB/MLP ensemble", "version": "1.0.0-research",
+        "strategy": "VOOM v6.2.6.3 Wave3 + SMC XGB/60-bar LSTM BUY research", "version": "6.2.6.3-research",
         "data_sha256": raw_hash, "symbol": "XAUUSDm", "timeframe": "M15", "timezone": "UTC",
         "bar_count": len(frame), "usable_labeled_rows": len(X),
         "data_first_bar": ts0.isoformat(), "data_last_bar": tsn.isoformat(),
@@ -581,21 +887,43 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "xgb_parameters": {"n_estimators": 140, "max_depth": 4, "learning_rate": 0.04,
                            "subsample": 0.85, "colsample_bytree": 0.85, "min_child_weight": 8,
                            "reg_lambda": 5.0, "tree_method": "hist", "seed": SEED},
-        "deep_model": {"type": "scikit-learn MLPClassifier", "layers": [64, 32], "max_iter": 24,
-                       "iterations_completed": int(models[2].n_iter_),
-                       "convergence_warnings": getattr(models[2], "_training_warnings", [])},
+        "deep_model": {"type": "PyTorch LSTMClassifier", "sequence_length_bars": LSTM_SEQUENCE_LENGTH,
+                       "layers": [32, 32], "epochs": 4,
+                       "training_loss_by_epoch": getattr(models[2], "_training_losses", []),
+                       "ensemble_weight": ENSEMBLE_LSTM_WEIGHT},
         "artifact_round_trip_verification": {"passed": True, "held_out_rows_compared": check_count,
                                              "feature_schema_matches": True, "max_probability_abs_tolerance": 1e-6},
+        "v6_2_6_3_buy_contract": {
+            "wave1_minimum_price_size": MIN_WAVE1_SIZE_XAU,
+            "fib_accepted_pct": [45, 85], "fib_preferred_pct": [55, 65],
+            "fib_score_rule": "95 in preferred zone, 80 in accepted zone, otherwise 0",
+            "entry_rule": "Wave1 high + 20% of Wave1 size; BUY fills only if next bar reaches the trigger",
+            "smc_score_weights": {"BOS20": 30, "three_higher_lows_and_green_candle": 20, "large_order_block_within_5": 25, "FVG_refill": 25},
+            "minimum_smc_score": 85,
+            "xgb_buy_minimum": XGB_MIN_CONFIDENCE, "lstm_buy_minimum": LSTM_MIN_CONFIDENCE,
+            "ensemble": {"xgb_weight": ENSEMBLE_XGB_WEIGHT, "lstm_weight": ENSEMBLE_LSTM_WEIGHT, "buy_minimum": PROBABILITY_THRESHOLD},
+            "rsi_buy_range": [50, 70], "momentum_bars": 5,
+            "volume_minimum_fraction_of_ema20": 0.8, "fib_618_tolerance_assumption": 0.05,
+            "buy_requires_discount_zone_100_bars": True, "requires_m15_and_completed_h1_uptrend": True,
+            "spread_max_price_units": XAU_MAX_SPREAD_PRICE,
+            "news_blackout_minutes_each_side": 30,
+            "stop_distance_price_units": FIXED_STOP_DISTANCE_PRICE,
+            "target_distance_price_units": FIXED_TARGET_DISTANCE_PRICE,
+            "reward_risk": FIXED_REWARD_RISK, "fixed_lot": FIXED_LOT_SIZE,
+            "max_open_positions": 1, "max_daily_trades": MAX_DAILY_TRADES, "max_daily_loss_usd": MAX_DAILY_LOSS_USD,
+            "news_calendar_available": news_safe is not None,
+            "sell_rules_implemented": False,
+            "conflict_resolution": "Use fixed $5 SL and 2.2R target per explicit lock/example; SL = Wave2 Low - $5 conflicts with that example and is not used.",
+        },
         "backtest_assumptions": {
-            "starting_equity_usd": 10000.0, "risk_fraction_per_trade": RISK_FRACTION,
-            "stop_atr_multiple": STOP_ATR_MULTIPLE, "reward_risk": REWARD_RISK,
-            "max_hold_bars": MAX_HOLD_BARS, "contract_size": CONTRACT_SIZE,
-            "volume_min": VOLUME_MIN, "volume_max": VOLUME_MAX, "volume_step": VOLUME_STEP,
+            "starting_equity_usd": 10000.0, "contract_size": CONTRACT_SIZE,
+            "fixed_lot": FIXED_LOT_SIZE, "max_hold_bars": MAX_HOLD_BARS,
             "slippage_price_per_side": SLIPPAGE_PRICE_PER_SIDE,
             "commission_per_lot_per_side_usd": COMMISSION_PER_LOT_PER_SIDE_USD,
             "swap": "omitted; maximum holding period is 12 M15 bars",
-            "spread": "per-candle MT5 historical spread_price",
-            "fills": "next-bar open; conservative stop-first when SL and TP touch the same OHLC bar",
+            "spread": "per-candle MT5 historical spread_price; XAU entry must be <= 0.35 price units",
+            "fills": "BUY trigger checked on next bar; conservative stop-first when SL and TP touch the same OHLC bar",
+            "news": "entries fail closed when no historical high-impact calendar is provided",
         },
         "safety": {"orders_submitted": False, "live_trading_enabled": False,
                    "market_data_access": "read-only MT5 history export"},
@@ -613,12 +941,26 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "backtest": {k: v for k, v in bt.items() if k != "trades"},
         "trades": bt.get("trades", []),
         "class_distribution_train": {LABEL_NAMES[k]: int((y_train == k).sum()) for k in LABEL_NAMES},
-        "mlp_iterations": int(models[2].n_iter_),
-        "mlp_convergence_warnings": getattr(models[2], "_training_warnings", []),
+        "lstm_sequence_length_bars": LSTM_SEQUENCE_LENGTH,
+        "lstm_training_losses": getattr(models[2], "_training_losses", []),
     }
     gate_blockers = []
+    if news_safe is None:
+        gate_blockers.append("historical high-impact news calendar was not provided; mandatory +/-30 minute news filter fails closed")
+    if int(final_result["signal_diagnostics"].get("smc_score_ge_85", 0)) == 0:
+        gate_blockers.append("no rows in final OOS reached the mandatory SMC score >=85 gate")
+    if int(final_result["signal_diagnostics"].get("xgb_buy_ge_75_and_agrees", 0)) == 0:
+        gate_blockers.append("no final OOS rows met the XGB BUY >=75% and BUY-agreement gate")
+    if int(final_result["signal_diagnostics"].get("lstm_buy_ge_80_and_agrees", 0)) == 0:
+        gate_blockers.append("no final OOS rows met the LSTM BUY >=80% and BUY-agreement gate")
+    if int(final_result["signal_diagnostics"].get("ensemble_buy_ge_85_and_agrees", 0)) == 0:
+        gate_blockers.append("no final OOS rows met the ensemble BUY >=85% and BUY-agreement gate")
     if int(final_result["backtest"].get("trade_count", 0)) < 30:
         gate_blockers.append("final OOS has fewer than 30 closed trades; edge cannot be assessed reliably")
+    for fold in fold_results:
+        fold_cls = fold.get("classification", {})
+        if fold.get("status") == "completed" and not fold_cls.get("beats_majority_baseline", False):
+            gate_blockers.append(f"{fold.get('name')} classification did not beat its majority-class baseline")
     if not final_result["classification"]["beats_majority_baseline"]:
         gate_blockers.append("classification accuracy does not beat the majority-class baseline")
     final_pf = final_result["backtest"].get("profit_factor")
@@ -646,13 +988,14 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "chronological_walk_forward_folds": len(fold_results),
             "purge": f"{HORIZON_BARS} bars before each test boundary",
             "final_holdout": "2026-07-01 through latest labeled bar; not used for model fitting",
-            "models": ["XGBoostClassifier", "StandardScaler + MLPClassifier", "probabilities averaged 50/50"],
-            "signal_rule": f"Wave3 retracement 45-85% breakout + SMC confluence + probability >= {PROBABILITY_THRESHOLD} and margin >= {PROBABILITY_MARGIN}",
+            "models": ["XGBoostClassifier", "PyTorch two-layer LSTM on 60 M15 bars", "XGB 60% + LSTM 40%"],
+            "signal_rule": "v6.2.6.3 BUY-only strict gates: Wave3/Fib, SMC >=85, XGB >=75%, LSTM >=80%, ensemble >=85%, RSI/volume/momentum/Fib61.8/discount/H1/ATR/spread, plus high-impact news blackout +/-30m",
+            "historical_news_calendar_provided": news_safe is not None,
         },
         "walk_forward": fold_results,
         "final_out_of_sample": final_result,
         "model_files": ["models/wave3_xgb_deep/xgb_model.json",
-                        "models/wave3_xgb_deep/deep_mlp.joblib",
+                        "models/wave3_xgb_deep/deep_lstm.pt",
                         "models/wave3_xgb_deep/model_manifest.json"],
         "limitations": [
             "Historical research only; no claim of future profitability.",
@@ -661,6 +1004,10 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "Spread uses the recorded MT5 bar spread; slippage remains an assumption.",
             "Maximum drawdown uses closed-trade equity, not tick-level intratrade drawdown.",
             "The symbol available on this demo terminal is XAUUSDm; no symbol literally named XAUUSDM was found.",
+            "A historical event calendar is required for the +/-30 minute high-impact news exclusion; with no calendar the backtest fails closed and trade count remains zero.",
+            "The requested rules contain an SL conflict (Wave2 Low - $5 versus a locked $5 entry distance); research uses the explicit fixed $5 stop and $11 target example.",
+            "Only BUY rules were specified in the supplied checklist; SELL signal generation is deliberately disabled.",
+            "The 61.8% Fib tolerance is not specified in the user rule; research assumes +/-5 percentage points and records that assumption.",
         ],
         "safety": {"orders_submitted": False, "live_trading_enabled": False},
     }
@@ -669,7 +1016,8 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     report_file.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     trade_columns = [
         "signal_timestamp", "entry_timestamp", "exit_timestamp", "direction",
-        "p_short", "p_hold", "p_long", "entry_price", "stop_price", "take_profit_price",
+        "p_xgb_buy", "p_lstm_buy", "p_ensemble_buy", "p_short", "p_hold", "p_long",
+        "entry_price", "stop_price", "take_profit_price",
         "exit_price", "exit_reason", "lots", "gross_pnl_usd", "commission_usd",
         "net_pnl_usd", "equity_after_usd", "bars_held",
     ]
@@ -698,8 +1046,10 @@ def main() -> None:
     parser.add_argument("--data", default=DEFAULT_DATA)
     parser.add_argument("--model-dir", default=DEFAULT_MODEL_DIR)
     parser.add_argument("--report", default=DEFAULT_REPORT)
+    parser.add_argument("--news-calendar", default=None,
+                        help="CSV with UTC timestamp,impact columns; high impact events are excluded +/-30 minutes. Without it the backtest fails closed.")
     args = parser.parse_args()
-    run_experiment(args.data, args.model_dir, args.report)
+    run_experiment(args.data, args.model_dir, args.report, args.news_calendar)
 
 
 if __name__ == "__main__":

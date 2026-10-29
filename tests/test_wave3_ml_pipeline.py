@@ -75,11 +75,28 @@ class TestWave3Pipeline(unittest.TestCase):
         features.loc[100, ["wave3_long_breakout", "bos_up"]] = [1, 1]
         indices = np.arange(100, 120)
         probs = np.tile(np.array([0.05, 0.10, 0.85]), (len(indices), 1))
-        result = backtest_window(frame, features, indices, probs)
+        result = backtest_window(frame, features, indices, probs, require_news_calendar=False)
         self.assertEqual(result["trade_count"], 1)
         self.assertEqual(result["trades"][0]["entry_timestamp"], frame.loc[101, "timestamp"].isoformat())
         self.assertEqual(result["trades"][0]["exit_reason"], "take_profit")
         self.assertFalse(result.get("orders_submitted", False))
+
+    def test_v6263_required_buy_gate_features_are_present_and_causal(self):
+        frame = synthetic_bars(900)
+        features = build_causal_features(frame)
+        required = {
+            "wave3_long_rule_breakout", "wave3_long_fib_score", "wave3_long_entry_price",
+            "smc_score_long", "bos20_up", "choch_rule_up", "bull_ob_within5", "bull_fvg_fill",
+            "rsi_buy_gate", "momentum_5_positive", "volume_gate", "near_fib_618",
+            "discount_zone", "h1_trend_up", "deep_trend_gate", "atr_stop_gate", "spread_gate",
+        }
+        self.assertTrue(required.issubset(features.columns))
+        self.assertTrue(features["smc_score_long"].between(0, 100).all())
+        before = features.iloc[:500].copy()
+        changed = frame.copy()
+        changed.loc[600:, ["open", "high", "low", "close"]] *= 1.1
+        after = build_causal_features(changed).iloc[:500]
+        np.testing.assert_allclose(before.to_numpy(), after.to_numpy(), equal_nan=True, rtol=0, atol=0)
 
     def test_load_bars_rejects_bad_candle(self):
         frame = synthetic_bars(3500)
