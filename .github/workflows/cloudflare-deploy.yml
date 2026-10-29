@@ -56,7 +56,12 @@ jobs:
         working-directory: frontend
         run: npm install --no-save --package-lock=false wrangler
 
-      # Vercel owns the Next.js frontend. Do not deploy the frontend to Cloudflare here.
+      # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
+      - name: Deploy tenant-isolated MT5 Bridge relay
+        working-directory: frontend
+        run: npx wrangler deploy --config ../integrations/mt5-bridge-relay/wrangler.jsonc --keep-vars
+
+      # Keep frontend hosting/deployment separate; this workflow deploys and verifies backend Workers only.
       - name: Deploy authenticated Exness MT5 read-only proxy
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars
@@ -65,33 +70,25 @@ jobs:
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars
 
-      - name: Smoke-test Vercel frontend and Cloudflare worker safety contracts
+      - name: Smoke-test Cloudflare backend worker safety contracts
         shell: bash
         run: |
           set -euo pipefail
-          frontend="https://voomsystem.vercel.app"
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
+          relay="https://voom-mt5-bridge-relay.suwapat787.workers.dev"
           mcp="https://voom-system-mcp.suwapat787.workers.dev"
           body="$(mktemp)"
           trap 'rm -f "$body"' EXIT
 
-          # Vercel's Git integration deploys main independently; allow up to 3 minutes for its alias to update.
-          code="000"
-          for attempt in $(seq 1 18); do
-            code="$(curl --location --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$frontend/" || true)"
-            if [ "$code" = "200" ]; then
-              break
-            fi
-            sleep 10
-          done
-          if [ "$code" != "200" ]; then
-            echo "Vercel frontend did not return HTTP 200 after retrying (HTTP $code)."
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$relay/health" || true)"
+          if [ "$code" != "200" ] || ! grep -q '"status":"relay_ready"' "$body" || ! grep -q '"ordersEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
+            echo "MT5 relay health or read-only safety check failed (HTTP $code)."
             exit 1
           fi
 
-          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$frontend/api/broker/status?broker=mt5" || true)"
-          if [ "$code" != "401" ] || ! grep -q '"auth_required"' "$body"; then
-            echo "Vercel frontend did not reject unauthenticated private broker status (HTTP $code)."
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$relay/api/account" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"authentication_required"' "$body"; then
+            echo "MT5 relay did not reject unauthenticated account access (HTTP $code)."
             exit 1
           fi
 
@@ -118,4 +115,4 @@ jobs:
             echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
             exit 1
           fi
-          echo "Vercel frontend, MT5 proxy, and Remote MCP safety smoke tests passed."
+          echo "Cloudflare relay, MT5 proxy, and Remote MCP safety smoke tests passed."

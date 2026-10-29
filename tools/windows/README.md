@@ -30,6 +30,14 @@
 
 The first run clones the repository and installs Bridge dependencies if needed. Later runs update to the latest `main` commit and reinstall dependencies only when `requirements.txt` changes. It reports the commit used before starting `run-bridge.ps1`.
 
+## Relay transport (no custom domain)
+
+The tenant-aware Bridge runner starts FastAPI only on 127.0.0.1:8787, then opens an authenticated outbound WSS session to https://voom-mt5-bridge-relay.suwapat787.workers.dev. This path does not use the voom.ai zone, a named Cloudflare Tunnel, a custom hostname, or a public inbound port. No local cloudflared process is needed for this Bridge path.
+
+After the relay Worker is deployed and reviewed, the one-tenant provisioning helper is tools/windows/provision-mt5-relay-route.ps1. It writes MT5_TENANT_ROUTES to the relay Worker from local private files without printing the value. Because it replaces the relay route map, run it with -ConfirmSingleTenantRoute only after confirming that only one tenant entry should exist; use an approved complete map for multi-tenant setup.
+
+A successful Worker health response proves only that the Worker is deployed. Do not mark the Supabase connection connected until the authenticated route reaches the intended Exness Demo terminal and passes tenant isolation checks.
+
 ## Cleanup rules
 
 The legacy checkout found during the initial audit had local modifications and untracked directories. **Do not delete the whole legacy directory yet.** First compare those local-only items against GitHub and preserve or upload anything not already committed. Build caches and dependency folders may be removed only after the new launcher can refresh the Bridge and the Bridge starts correctly.
@@ -38,4 +46,4 @@ Do not remove the MT5 terminal, the `%LOCALAPPDATA%\VOOM_SYSTEM\secrets` folder,
 
 ## Safety boundary
 
-The Bridge remains GET-only, tenant-guarded, and read-only. This launcher does not submit orders and does not enable live trading. A successful process start is not proof the account is connected: verify the protected Bridge health request and the authenticated route end to end before reporting a connection as ready.
+The Bridge remains GET-only, tenant-guarded, and read-only. This launcher does not submit orders and does not enable live trading. A successful process start or relay Worker health response is not proof the account is connected: verify the authenticated relay and the signed-in user's route end to end before reporting a connection as ready.

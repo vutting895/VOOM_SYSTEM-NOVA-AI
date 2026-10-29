@@ -20,12 +20,14 @@ $env:MT5_BRIDGE_TOKEN = [System.IO.File]::ReadAllText($tokenPath).Trim()
 if ($env:MT5_BRIDGE_TOKEN.Length -lt 32) {
     throw 'Tenant-specific bridge token is invalid or too short.'
 }
-$env:MT5_BRIDGE_CORS_ORIGINS = 'https://voom-system-nova-ui.suwapat787.workers.dev'
+
+# Stable, authenticated WebSocket relay under workers.dev; no custom domain or named Tunnel.
+$env:MT5_BRIDGE_RELAY_URL = 'wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect'
 
 Set-Location $root
 $python = Join-Path $root '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) {
-    throw 'Bridge virtual environment is missing. Create .venv and install requirements.txt before starting.'
+    throw 'Bridge virtual environment is missing. Run the Git bootstrap to create it and install requirements.txt.'
 }
-& $python -m uvicorn bridge:app --host 127.0.0.1 --port 8787
+& $python bridge_relay_client.py
 exit $LASTEXITCODE
