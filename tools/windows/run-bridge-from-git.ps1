@@ -45,8 +45,38 @@ try {
             throw "Runtime path exists but is not a Git checkout; nothing was deleted: $Checkout"
         }
 
-        $RemoteUrl = (& git -C $Checkout remote get-url origin | Select-Object -First 1)
-        if ($LASTEXITCODE -ne 0 -or $RemoteUrl.Trim() -ne $RepositoryUrl) {
+        $RemoteUrl = (& git -C $Checkout config --local --get remote.origin.url 2>$null)
+        $RemoteUrlExitCode = $LASTEXITCODE
+        $RemoteUri = $null
+        try {
+            if (-not [string]::IsNullOrWhiteSpace([string]$RemoteUrl)) {
+                $RemoteUri = [System.Uri]([string]$RemoteUrl).Trim()
+            }
+        }
+        catch {
+            $RemoteUri = $null
+        }
+
+        $RemotePath = if ($RemoteUri) {
+            $RemoteUri.AbsolutePath.TrimEnd('/') -replace '(?i)\.git$', ''
+        }
+        else {
+            ''
+        }
+
+        # Validate repository identity from local Git config; avoid a piped URL lookup
+        # whose native exit code can be misleading in some Windows PowerShell sessions.
+        if (
+            $RemoteUrlExitCode -ne 0 -or
+            -not $RemoteUri -or
+            $RemoteUri.Scheme -cne 'https' -or
+            $RemoteUri.Host -ine 'github.com' -or
+            -not $RemoteUri.IsDefaultPort -or
+            -not [string]::IsNullOrEmpty($RemoteUri.UserInfo) -or
+            -not [string]::IsNullOrEmpty($RemoteUri.Query) -or
+            -not [string]::IsNullOrEmpty($RemoteUri.Fragment) -or
+            $RemotePath -cne '/vutting895/VOOM_SYSTEM-NOVA-AI'
+        ) {
             throw 'Runtime checkout origin does not match the expected private repository; refusing to update it.'
         }
 
