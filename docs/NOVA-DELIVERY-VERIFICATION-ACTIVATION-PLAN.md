@@ -223,3 +223,27 @@ This section records changes after the previous evidence snapshot. It distinguis
 5. Identify the owner of the recurring `/api/inngest` 404s and classify whether a fix is needed.
 
 **Safety invariant remains:** Exness Demo only; read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. No user session, broker credential, or connection route was fabricated during this observation.
+
+
+## 10. Post-cutover check — 2026-10-30
+
+### Code and CI completion
+- PR #74 merged to `main` as `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`. It adds root `netlify.toml` for `frontend/`, makes the Cloudflare deployment workflow backend-only, adds a bounded main-branch route smoke test, and permits the Netlify origin plus the existing Cloudflare rollback UI origin in the Hub/Proxy/NOVA AI/Bridge CORS configuration.
+- Exact reviewed PR head `548625330d4b3f165323e16039b18fdb11844b43`: Frontend CI and Windows Runtime CI passed; Netlify Deploy Preview is `ready` at https://deploy-preview-74--voomsystem.netlify.app.
+- Main commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`: Frontend CI passed, Windows Runtime CI passed, `Deploy authenticated NOVA AI Worker` passed, and `Deploy VOOM Workers to Cloudflare` passed.
+- The main-branch `netlify-production-smoke-test` completed successfully. Its logs confirm that `/`, `/login`, and `/settings/broker` returned HTTP 200. This is route availability evidence, not proof of an authenticated broker session or of which source commit Netlify served.
+
+### Production commit reconciliation remains open
+- Netlify's connected project API still reports published deployment `6ae38a561eb1efe24a5a1105`, state `ready`, branch `main`, commit `f8845887ebf2619e2723727735634246a4a54be9` (older than `main` `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`).
+- Therefore, do **not** claim the Netlify Production deployment record matches the latest main source yet. The current GitHub smoke test checks HTTP status/content for the routes but does not cross-check Netlify's published commit. Resolve/inspect the provider-side production deploy so its published commit is current, then record that exact deploy ID and SHA.
+- The connected Netlify tool surface exposes project/deploy reads but not a deployment-trigger or Build Plugins configuration operation. If the site does not advance automatically, the owner must inspect the Netlify Git integration / deploy status in the Netlify dashboard; no provider settings were changed by this PR.
+
+### User/session and security gates still open
+1. Exercise a real Supabase email OTP link on the Production host; confirm callback completion, session persistence through refresh, and logout, and verify the Supabase Auth redirect allowlist.
+2. With two authorized test sessions, prove a signed-in owner can read their own Exness Demo connection and cannot read a foreign connection ID. Anonymous HTTP 401 is not a substitute.
+3. Identify the source of the recurring `PUT /api/inngest` 404 requests seen in Netlify Observability (16 in the earlier 24-hour window). No handler was added because there is no corresponding route/reference in the repository.
+4. Supabase Security Advisor still flags `auth_leaked_password_protection` disabled on the Free tier; this is plan-gated and has not been enabled or upgraded. Performance Advisor reports 29 unused-index notices; none were automatically deleted.
+5. The local checkout `C:\Program Files\voom_system` remains dirty with modified/untracked files. Do not overwrite or consolidate it into main until every unique local change has been compared and preserved.
+6. PR #35 remains Draft for the source-consolidation safety hold. PRs #5, #51, #66, and #67 remain staged/draft work for alternate MCP, headless Bridge, Wave3/SMC research, and durable approval lifecycle; none is authorized as production execution code.
+
+**Safety invariant:** Exness Demo only; Read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. A green route smoke test does not authorize broker writes, automatic RL activation, or skipping tenant isolation.
