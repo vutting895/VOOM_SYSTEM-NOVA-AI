@@ -5,7 +5,7 @@ Status: implementation baseline / not a claim of production readiness.
 ## 1. Confirmed user requirements
 
 - Primary project/repository: `vutting895/VOOM_SYSTEM-NOVA-AI`.
-- Frontend hosting and user entry point: Cloudflare. Do not depend on Vercel for the intended deployment path.
+- Frontend hosting and user entry point: Netlify at `https://voomsystem.netlify.app/`. Cloudflare hosts backend Workers/APIs only.
 - Trading platform for the current phase: Exness Demo account running MT5.
 - User must access the system through the VOOM_SYSTEM web interface.
 - Current operating mode: read-only account/market connection and AI analysis.
@@ -16,7 +16,7 @@ Status: implementation baseline / not a claim of production readiness.
 
 ## 2. Version 1.0 target
 
-1. A Cloudflare-hosted web frontend with responsive layout for mobile and desktop.
+1. A Netlify-hosted web frontend with responsive layout for mobile and desktop.
 2. A status area showing service health and connection state, distinguishing configured, reachable, authenticated, and data-received states.
 3. A broker connection page for Exness Demo / MT5 with safe setup instructions and a read-only status display.
 4. Market-data and chart screens where a supported, authorized data source is configured.
@@ -43,7 +43,7 @@ Do not assume an existing local bridge is connected or always running; verify it
 
 ## 5. Acceptance checklist
 
-- [ ] Cloudflare frontend URL and deployment target confirmed.
+- [ ] Netlify frontend URL and deployment target confirmed; main-branch route smoke test must pass.
 - [ ] Correct repository/branch and build configuration confirmed.
 - [ ] Build and type checks run; results recorded.
 - [ ] Frontend opens on desktop and mobile.
@@ -78,7 +78,10 @@ Do not assume an existing local bridge is connected or always running; verify it
 Until the acceptance checklist is evidenced, Version 1.0 remains an implementation target, not a declaration that the system is ready or deployed.
 
 
-## 8. Cloudflare frontend cutover inspection (2026-10-27)
+## 8. Historical Cloudflare frontend cutover inspection (2026-10-27)
+
+> Historical record only. Superseded by the Netlify frontend / Cloudflare backend architecture decision on 2026-10-29. The old Cloudflare UI Worker is not the current production frontend target.
+
 
 - Cloudflare is the canonical frontend target; Vercel is not part of the intended deployment path.
 - Frontend Worker: `voom-system-nova-ui` — `https://voom-system-nova-ui.suwapat787.workers.dev`.
@@ -91,3 +94,13 @@ Until the acceptance checklist is evidenced, Version 1.0 remains an implementati
 - See `docs/CLOUDFLARE_FRONTEND_CUTOVER.md` for the evidence and required verification sequence.
 
 Cutover status: **configured as target, not yet verified end-to-end**. Keep Read-only + AI Analysis and Live Trading OFF until checks pass.
+
+## 9. Current frontend/backend architecture (updated 2026-10-29)
+
+- Customer-facing frontend: `https://voomsystem.netlify.app/`, built from `frontend/` using the root `netlify.toml` configuration and Netlify's Next.js runtime.
+- Backend: Cloudflare Workers, including `voom-system-hub`, `voom-mt5-readonly-proxy`, `voom-mt5-bridge-relay`, `voom-system-mcp`, and the NOVA AI Worker.
+- Auth/data: Supabase. Browser-facing Workers must allow the exact Netlify origin and validate Supabase sessions and tenant ownership server-side.
+- `.github/workflows/frontend-ci.yml` validates tests, type-check, Next.js build, backend Worker configs, and—on pushes to `main`—the live Netlify root/login/broker routes.
+- `.github/workflows/cloudflare-deploy.yml` deploys backend Workers only; it must not deploy the customer-facing UI.
+- The live Netlify status remains **unverified** until the production smoke-test job returns HTTP 200 for the required routes. A DNS/cache failure in an external inspection environment is not evidence of either success or a Netlify-side outage.
+- Preserve Exness Demo / MT5 read-only mode. Live Trading and order submission remain disabled.
