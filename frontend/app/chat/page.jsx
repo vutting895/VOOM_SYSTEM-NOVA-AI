@@ -291,7 +291,7 @@ export default function NovaChatPage() {
   }
 
   function clearConversation() {
-    setMessages((current) => current.filter((item) => item.localOnly || item.restoredReview));
+    setMessages((current) => current.filter((item) => item.localOnly || item.restoredReview || item.approval?.status === 'pending'));
     setError('');
   }
 
