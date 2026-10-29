@@ -8,6 +8,14 @@ const STATUS_COPY = Object.freeze({
   edited: 'บันทึกฉบับแก้ไขแล้ว แต่ยังไม่ผ่านการตรวจทานใหม่',
   expired: 'คำขอตรวจทานหมดอายุแล้ว',
 });
+const STATUS_LABEL = Object.freeze({
+  pending: 'รอการตรวจทาน',
+  approved: 'ยืนยันร่างแล้ว',
+  rejected: 'ปฏิเสธแล้ว',
+  edited: 'แก้ไขแล้ว',
+  expired: 'หมดอายุ',
+  cancelled: 'ยกเลิกแล้ว',
+});
 
 function pretty(value) {
   return typeof value === 'string' && value.length ? value : 'ยังไม่ได้ระบุ';
@@ -49,7 +57,7 @@ export default function ApprovalCard({ approval, busy = false, onDecision, onRev
           <small>บันทึกผลตรวจทานเท่านั้น · ไม่มีการส่งคำสั่งซื้อขาย</small>
         </div>
         <span className={'nova-approval-state is-' + approval.status}>
-          {approval.status === 'pending' && !expired ? 'รอการตรวจทาน' : expired ? 'หมดอายุ' : STATUS_COPY[approval.status] ? approval.status : 'สถานะ'}
+          {expired ? 'หมดอายุ' : (STATUS_LABEL[approval.status] || 'สถานะ')}
         </span>
       </div>
 
