@@ -1,11 +1,13 @@
-# Cloudflare Frontend Cutover — Inspection Record
+# Cloudflare Frontend Cutover — Historical Inspection Record
+
+> **SUPERSEDED (2026-10-29):** Retained as a record of the earlier deployment attempt only. The active architecture is Netlify frontend (`https://voomsystem.netlify.app/`) plus Cloudflare backend Workers. Do not use the Cloudflare UI deployment steps in this historical document as the current runbook.
 
 Inspection date: 2026-10-27  
 Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`  
 Canonical branch: `main`  
 Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
-## Intended deployment path
+## Historical intended deployment path (superseded)
 
 - Frontend Worker: `voom-system-nova-ui`
 - Frontend URL: https://voom-system-nova-ui.suwapat787.workers.dev
@@ -27,7 +29,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 6. The latest Vercel deployments inspected for the separate `voom_system_nova` project were `CANCELED`. Vercel is not the intended frontend host, but the existence of that project/integration has not been removed.
 7. A live browser check of the Cloudflare URL could not be completed with the available web inspection. The Worker listing/settings responses do not prove that the expected pages render or that frontend API calls succeed.
 
-## Current verdict
+## Historical verdict at the time of inspection
 
 **Cloudflare is configured as the intended frontend target, but the cutover is not yet verified end-to-end.** The Worker exists, but its observed configuration appears older than the repository's current Wrangler config. Do not mark the frontend as fully deployed until the Cloudflare build/deploy workflow completes successfully and the live URL is checked.
 
@@ -55,10 +57,10 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 - Do not report a build, deployment, browser check, or broker connection as successful without observable evidence.
 
 
-## Historical blockers and current resolution (updated 2026-10-29)
+## Historical blockers and observations (recorded 2026-10-29 before the Netlify architecture correction)
 
 - The earlier build failure referenced `NEXT_PUBLIC_ALPACA_WORKER_URL`; that variable is obsolete and the legacy Cloudflare Worker `voom-alpaca-oauth` has been retired.
 - Broker Settings now uses `NEXT_PUBLIC_SYSTEM_HUB_URL` and routes authenticated account/quote requests through `voom-system-hub` instead of calling the MT5 Proxy directly.
-- The Cloudflare workflow now detects frontend changes, builds through OpenNext, deploys `voom-system-nova-ui`, and smoke-tests the home and broker settings pages.
+- At the time this historical record was written, the Cloudflare workflow detected frontend changes and deployed `voom-system-nova-ui`; that frontend deployment path has since been superseded and is no longer the production target.
 - Live direct Relay tests returned HTTP 200 for the Exness Demo account summary and XAUUSDm M1 quotes. The authenticated per-user browser path must still be verified from a real signed-in Supabase session before claiming full frontend-to-broker success.
 - No live trading or order execution is enabled.
