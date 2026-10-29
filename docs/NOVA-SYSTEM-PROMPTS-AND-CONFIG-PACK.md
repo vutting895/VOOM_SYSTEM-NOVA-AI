@@ -389,3 +389,34 @@ This choice favors the repository's current TypeScript stack, avoids a second MC
 ## Final decision
 
 Adopt this pack as the security and behavior specification for the implementation phase, not as proof that LangGraph, FastMCP, NeMo Guardrails or CopilotKit are installed. Keep the existing Cloudflare Workers + Supabase + read-only Exness MT5 path as the active architecture. Do not add or deploy any broker-write operation under this task.
+
+
+## 10. Durable draft-review implementation increment — 2026-10-30
+
+The next PR adds an **app-owned, Supabase-backed draft-review lifecycle** while the compatible graph runtime is still being proven.
+
+### What this increment implements in code
+
+- A versioned migration for `public.nova_agent_threads` and `public.nova_approval_requests`.
+- RLS owner scoping, composite owner/thread foreign key, a unique pending-review constraint per thread, immutable proposal fields, expiry checks, policy-version checks and atomic single-use status transitions.
+- Public PostgREST functions are SECURITY INVOKER wrappers. Narrow private SECURITY DEFINER implementations check `auth.uid()`, owner, pending state, expiry, policy version and the fixed strategy-review schema before changing records.
+- Authenticated Next.js endpoints create/list owner-scoped thread metadata, create a pending strategy-draft review, restore pending reviews after refresh, and record approve/reject/edit decisions.
+- A fixed React review card records only a strategy draft review. It has no broker order or account mutation route.
+- The server-side `NOVA_APPROVALS_ENABLED` flag and build-time `NEXT_PUBLIC_NOVA_APPROVALS_ENABLED` flag are both **off unless explicitly enabled**. Do not set either in production before the migration and non-production runtime checks pass.
+
+### Explicit limitations (not complete yet)
+
+- The migration has **not** been applied to any Supabase project by this PR.
+- No staging branch, test user or test broker connection has been created.
+- This stores thread metadata and review state, **not the whole chat transcript or LangGraph checkpoint**.
+- Approve/reject/edit stores a durable decision but does not yet resume a LangGraph graph. The next runtime increment must either add a verified graph/checkpointer service and resume adapter, or explicitly retain the app-owned deterministic review workflow without claiming LangGraph is connected.
+- It has not yet passed integration tests against a real Supabase branch, a real owner session, a second user, or a network-isolated Relay-call assertion.
+
+### Non-production verification sequence
+
+1. Review and merge the PR only after CI and SQL security review pass.
+2. Prepare a non-production Supabase environment. The quoted development-branch cost was `$0.01344/hour` (about `$9.81 per 730 hours running`, before other usage/taxes). Obtain the user's approval before creating that branch.
+3. Apply the migration only to the approved non-production environment and validate it with Supabase DB advisors plus a rollback plan.
+4. Enable both feature flags only in that non-production deployment.
+5. Test owner thread create/list, pending approval create/read, approve/reject/edit, expiry, duplicate/replay, policy mismatch, refresh recovery, and two-user isolation. Verify a foreign thread/approval ID returns 404 and never reaches MT5 Relay.
+6. Only after every test passes should deployment/flag enablement be proposed separately for production. Read-only + AI Analysis remains mandatory; broker order submission and Live Trading stay OFF.
