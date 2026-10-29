@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../src/index.js";
 
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voomsystem.netlify.app";
+const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const ENDPOINT = "https://voom-system-mcp.test/mcp";
 
 function makeRequest({ origin, token, protocolVersion = "2025-03-26" } = {}) {
@@ -65,19 +66,21 @@ test("preserves supported protocol 2025-03-26 negotiation for an authenticated c
   };
 
   try {
-    const response = await worker.fetch(makeRequest({
-      origin: UI_ORIGIN,
-      token: "test-user-token"
-    }), {
-      SUPABASE_URL: "https://test.supabase.invalid",
-      SUPABASE_PUBLISHABLE_KEY: "test-publishable-key"
-    });
+    for (const origin of [UI_ORIGIN, FALLBACK_UI_ORIGIN]) {
+      const response = await worker.fetch(makeRequest({
+        origin,
+        token: "test-user-token"
+      }), {
+        SUPABASE_URL: "https://test.supabase.invalid",
+        SUPABASE_PUBLISHABLE_KEY: "test-publishable-key"
+      });
 
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("access-control-allow-origin"), UI_ORIGIN);
-    const payload = await response.json();
-    assert.equal(payload.result.protocolVersion, "2025-03-26");
-    assert.deepEqual(payload.result.capabilities, { tools: {} });
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("access-control-allow-origin"), origin);
+      const payload = await response.json();
+      assert.equal(payload.result.protocolVersion, "2025-03-26");
+      assert.deepEqual(payload.result.capabilities, { tools: {} });
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }
