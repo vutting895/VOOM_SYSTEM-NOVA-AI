@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "integrations/mt5-headless-bridge/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "integrations/mt5-headless-bridge/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -91,3 +93,25 @@ jobs:
         run: npm run build
       - name: Build Next.js frontend using the Cloudflare OpenNext adapter
         run: npm run cf:build
+
+      - name: Compile and test the headless MT5 bridge
+        working-directory: .
+        run: |
+          python -m pip install -r integrations/mt5-headless-bridge/requirements-dev.txt
+          python -m py_compile integrations/mt5-headless-bridge/bridge.py integrations/mt5-headless-bridge/bridge_relay_client.py integrations/mt5-headless-bridge/tests/*.py
+          python -m unittest discover -s integrations/mt5-headless-bridge/tests -p "test_*.py" -v
+      - name: Validate headless Compose without starting services
+        working-directory: integrations/mt5-headless-bridge
+        shell: bash
+        run: |
+          mkdir -p secrets
+          printf '12345678\n' > secrets/mt5-login.txt
+          printf 'not-a-real-password\n' > secrets/mt5-password.txt
+          printf 'Exness-Demo-Test\n' > secrets/mt5-server.txt
+          printf 'non-production-vnc-password\n' > secrets/vnc-password.txt
+          printf 'tenant_test_12345678\n' > secrets/mt5-tenant-id.txt
+          printf 'non-production-read-only-token-1234567890\n' > secrets/mt5-bridge-token.txt
+          docker compose config --quiet
+      - name: Build headless MT5 bridge image
+        working-directory: .
+        run: docker build --file integrations/mt5-headless-bridge/Dockerfile --tag voom-mt5-headless-bridge:ci integrations/mt5-headless-bridge
