@@ -6,7 +6,7 @@ function isAllowedOrigin(origin) {
 function json(data,status=200,headers={}) { return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}}); }
 function cors(origin) {
   const ok = isAllowedOrigin(origin);
-  return ok ? {"access-control-allow-origin":origin,"vary":"Origin","access-control-allow-methods":"POST, GET, OPTIONS","access-control-allow-headers":"Authorization, Content-Type, Accept, apikey"} : {};
+  return ok ? {"access-control-allow-origin":origin,"vary":"Origin","access-control-allow-methods":"POST, GET, OPTIONS","access-control-allow-headers":"Authorization, Content-Type, Accept, apikey, MCP-Protocol-Version, Mcp-Method, Mcp-Name"} : {};
 }
 async function getUser(request,env) {
   const auth=request.headers.get("Authorization")||"";
