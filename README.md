@@ -11,21 +11,15 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - ML examples under `workers/feature` are research prototypes, not a production pipeline.
 
 ## Frontend hosting and deployment
-- The current workflow builds the Next.js frontend for **Vercel**. Cloudflare is used for authenticated backend Workers, including the MT5 read-only proxy and Remote MCP endpoint.
-- `.github/workflows/frontend-ci.yml` runs frontend checks and worker/bridge safety tests.
-- `.github/workflows/cloudflare-deploy.yml` deploys the authenticated Cloudflare backend Workers; it explicitly does **not** deploy the Next.js frontend.
-- The workflow's frontend smoke test currently targets `https://voomsystem.vercel.app`. Treat this as a legacy alias until it is confirmed to point at the intended Vercel project. A successful check against this alias alone does not prove the selected Nova frontend deployment is current.
-- A Worker named `voom-system-nova-ui` may still exist on Cloudflare from an earlier cutover. Its presence is not proof that the current frontend source is deployed there, and this workflow does not redeploy that frontend Worker.
 
-### Local frontend checks (optional)
-Run from the repository root:
-```powershell
-Set-Location .\frontend
-npm ci
-npm run typecheck
-npm run build
-```
-Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
+- **Selected target for the new architecture: Netlify** at `https://voomsystem.netlify.app`. This is the intended destination, not a claim that cutover is complete.
+- **Current fallback: Cloudflare Worker `voom-system-nova-ui`**. The live `/` and `/settings/broker` routes returned HTTP 200 in a sanitized check on 2026-10-29.
+- The current workflow still deploys the frontend to Cloudflare when frontend files change. Keep this fallback path and the Windows MT5 Bridge available until Netlify passes its route, authentication, and tenant-ownership acceptance gates. Do not change DNS or Supabase redirects yet.
+- PR #54 adds root `netlify.toml` so Netlify builds from `frontend/`. Its verification notes recorded an HTTP 404 before that config was merged. A config file is not proof that the Netlify site is connected or serving the reviewed commit.
+- Fresh Netlify probe on 2026-10-29 returned no HTTP status from the available Windows device; this is not interpreted as either success or a current 404. The device has neither Netlify CLI nor `NETLIFY_AUTH_TOKEN` configured.
+- Configure Netlify build environment only in the Netlify dashboard: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Never commit their values.
+- `.github/workflows/frontend-ci.yml` runs the worker/bridge tests, typecheck, Next.js build, and Cloudflare OpenNext validation. A separate host cutover must verify the exact Netlify deploy and live routes before making it primary.
+- Do not use Vercel as the target. Cloudflare remains fallback until the Netlify candidate is approved and its Supabase login/callback/session and Exness Demo owner-isolation tests pass.
 
 ## Unified frontend and NOVA Chat
 
@@ -36,7 +30,7 @@ Cloudflare build scripts remain available for a separately approved frontend cut
 - The current Backtest page reports the present engine's buy-and-hold baseline, not a strategy backtest. Do not describe these baseline metrics as predictive or as evidence that EMA/RSI has been tested.
 
 ## Environment
-Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
+Configure frontend build variables in the selected Netlify site and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (optional until its authenticated endpoint is implemented and verified)
@@ -45,10 +39,10 @@ Configure frontend build variables in the intended Vercel project and backend se
 Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the optional MT5 proxy URL is absent.
 
 ## Current deployment verification limits
-A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Vercel project/alias and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
+A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Netlify production commit and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
 
 ## Architecture
-- `frontend/`: Next.js UI, currently built for Vercel by the frontend workflow.
+- `frontend/`: Next.js UI, selected Netlify target; Cloudflare remains the verified fallback until cutover gates pass.
 - `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
 - `integrations/mt5-readonly-proxy/`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
 - `workers/data-ingestion/`: public market-data adapter.
