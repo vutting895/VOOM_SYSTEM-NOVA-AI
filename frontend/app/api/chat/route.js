@@ -38,6 +38,17 @@ async function authenticate(request) {
 }
 
 export async function POST(request) {
+  // Authenticate before reading or validating request payloads, keeping the
+  // private chat API's failure behavior consistent for malformed and valid bodies.
+  const auth = await authenticate(request);
+  if (!auth.ok) {
+    return json({
+      error: auth.error,
+      executionEnabled: false,
+      liveTradingEnabled: false,
+    }, auth.status);
+  }
+
   let raw;
   try {
     raw = await request.text();
@@ -75,9 +86,6 @@ export async function POST(request) {
   if (messages[messages.length - 1].role !== 'user' || !messages.some((item) => item.role === 'user')) {
     return json({ error: 'invalid_conversation_order' }, 400);
   }
-
-  const auth = await authenticate(request);
-  if (!auth.ok) return json({ error: auth.error }, auth.status);
 
   let workerUrl;
   try {
