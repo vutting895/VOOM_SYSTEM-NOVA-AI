@@ -11,11 +11,12 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - ML examples under `workers/feature` are research prototypes, not a production pipeline.
 
 ## Frontend hosting and deployment
-- The current workflow builds the Next.js frontend for **Vercel**. Cloudflare is used for authenticated backend Workers, including the MT5 read-only proxy and Remote MCP endpoint.
-- `.github/workflows/frontend-ci.yml` runs frontend checks and worker/bridge safety tests.
-- `.github/workflows/cloudflare-deploy.yml` deploys the authenticated Cloudflare backend Workers; it explicitly does **not** deploy the Next.js frontend.
-- The workflow's frontend smoke test currently targets `https://voomsystem.vercel.app`. Treat this as a legacy alias until it is confirmed to point at the intended Vercel project. A successful check against this alias alone does not prove the selected Nova frontend deployment is current.
-- A Worker named `voom-system-nova-ui` may still exist on Cloudflare from an earlier cutover. Its presence is not proof that the current frontend source is deployed there, and this workflow does not redeploy that frontend Worker.
+- Canonical frontend target: Cloudflare Worker `voom-system-nova-ui`; the Vercel project is not the intended deployment path.
+- Broker Settings uses the central `voom-system-hub` endpoint via `NEXT_PUBLIC_SYSTEM_HUB_URL` (default: `https://voom-system-hub.suwapat787.workers.dev`) for Exness Demo account and quotes. The browser sends the signed-in user's Supabase access token; it does not call the MT5 Proxy directly.
+- `.github/workflows/frontend-ci.yml` runs worker tests, type-check, the Next.js build, and the Cloudflare OpenNext build.
+- `.github/workflows/cloudflare-deploy.yml` deploys only changed backend Workers and, when `frontend/**` changes, builds and deploys the canonical Cloudflare frontend and smoke-tests the home and broker routes.
+- The presence of `voom-system-nova-ui` in Cloudflare is not alone proof that a particular source commit is deployed. Use the workflow run and live route checks as evidence.
+- Required GitHub Actions secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never print secret values.
 
 ### Local frontend checks (optional)
 Run from the repository root:
