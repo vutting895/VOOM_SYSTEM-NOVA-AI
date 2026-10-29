@@ -15,8 +15,9 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  // Site keys are public identifiers; keep the configured widget usable even when a deployment variable is absent.
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAFlosj98ci8iYugG';
+  // Fail closed when the deployment has no configured Turnstile site key.
+  // Production site keys must be provided by the host environment, not hard-coded here.
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
   const resetCaptcha = useCallback(() => {
     setCaptchaToken('');
