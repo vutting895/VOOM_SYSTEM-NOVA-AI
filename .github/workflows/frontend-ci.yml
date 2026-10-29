@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -80,8 +82,8 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
-      - name: Install Wrangler and OpenNext adapter for Cloudflare validation without changing lockfile
-        run: npm install --no-save --package-lock=false wrangler @opennextjs/cloudflare@1.20.13
+      - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
+        run: npm install --no-save --package-lock=false wrangler
       - name: Validate tenant relay Durable Object configuration
         working-directory: frontend
         run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
@@ -92,5 +94,37 @@ jobs:
         run: npm run typecheck
       - name: Build Next.js frontend for CI validation
         run: npm run build
-      - name: Build Next.js frontend using the Cloudflare OpenNext adapter
-        run: npm run cf:build
+  netlify-production-smoke-test:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production Netlify routes after deployment propagation
+        shell: bash
+        env:
+          NETLIFY_SITE_URL: https://voomsystem.netlify.app
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          for path in / /login /settings/broker; do
+            healthy=false
+            for attempt in $(seq 1 12); do
+              code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
+              if [ "$code" = "200" ]; then
+                healthy=true
+                break
+              fi
+              echo "Netlify route $path returned HTTP $code on attempt $attempt/12; retrying boundedly."
+              sleep 10
+            done
+            if [ "$healthy" != "true" ]; then
+              echo "Netlify production route $path did not return HTTP 200 after bounded retries."
+              exit 1
+            fi
+          done
+          if ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body"; then
+            echo "Netlify broker settings route did not render the expected Exness MT5 content."
+            exit 1
+          fi
+          echo "Netlify root, login, and Exness broker settings routes returned HTTP 200."
