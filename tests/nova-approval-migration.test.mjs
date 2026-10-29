@@ -25,6 +25,7 @@ test("only the approved research-draft type and versioned proposal schema are al
   assert.match(sql, /private\.nova_valid_strategy_draft_proposal/i);
   assert.ok(sql.includes("p_proposal_hash !~ '^[a-f0-9]{64}$'"), "client-provided hash must be format-checked");
   assert.ok(sql.includes("encode(extensions.digest(convert_to(p_proposal::text, 'UTF8'), 'sha256'), 'hex')"), "persisted hash must be calculated server-side from canonical JSONB");
+  assert.match(sql, /nova_one_pending_approval_per_thread[\s\S]*?WHERE status = 'pending'/i);
   assert.match(sql, /FOREIGN KEY \(thread_id, user_id\)[\s\S]*?REFERENCES public\.nova_agent_threads\(id, user_id\)/i);
 });
 
@@ -73,13 +74,6 @@ test("approval proposal is immutable and terminal decisions cannot be replayed",
 test("migration never adds broker order, execution or Live Trading capabilities", () => {
   assert.doesNotMatch(sql, /execute_broker_order|place_trade_order|order_submission_enabled\s*=\s*true|liveTradingEnabled\s*=\s*true/i);
 });
-/i);
-  assert.match(sql, /encode\(extensions\.digest\(convert_to\(p_proposal::text, 'UTF8'\), 'sha256'\), 'hex'\)/i,
-    "persisted hash must be calculated server-side from canonical JSONB");
-  assert.match(sql, /nova_one_pending_approval_per_thread[\s\S]*?WHERE status = 'pending'/i);
-  assert.match(sql, /FOREIGN KEY \(thread_id, user_id\)[\s\S]*?REFERENCES public\.nova_agent_threads\(id, user_id\)/i);
-});
-
 test("private mutation implementations bind to auth.uid and check owner/state/expiry/policy", () => {
   for (const fn of ["nova_create_approval_impl", "nova_resolve_approval_impl"]) {
     const start = sql.indexOf(`FUNCTION private.${fn}(`);
