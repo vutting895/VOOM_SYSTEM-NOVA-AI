@@ -55,6 +55,12 @@ A Cloudflare Worker existing or responding to its settings endpoint does not pro
 - `shared/`: JSON schemas and feature-store contract.
 - `supabase/migrations/`: database migrations.
 
+## Optional Linux Headless MT5 Bridge (review-only)
+
+- Candidate runtime: `integrations/mt5-headless-bridge/` runs the MT5 terminal inside a Linux Wine/Xvfb container and exposes no host ports. It preserves the existing tenant-authenticated Cloudflare Relay contract.
+- It is a review-only alternative, not the current active runtime. Keep the Windows Bridge and route unchanged until authenticated account and quote reads through the external Relay **and** the signed-in Supabase Proxy ownership/cross-user rejection tests pass.
+- It uses a third-party MT5-on-Linux runtime; image pinning and security review are required before production use. Demo/read-only only; no order submission; Live Trading OFF.
+
 ## Not production-ready yet
 OAuth end-to-end verification, leaked-password protection, review of SECURITY DEFINER RPC grants, runtime monitoring, broader tests, and historical-data quality/fee modelling remain necessary before considering any live trading.
 
