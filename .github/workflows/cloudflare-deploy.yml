@@ -138,9 +138,20 @@ jobs:
             exit 1
           fi
 
-          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$hub/health" || true)"
-          if [ "$code" != "200" ] || ! grep -q '"service":"voom-system-hub"' "$body" || ! grep -q '"authConfigured":true' "$body" || ! grep -q '"ordersEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
-            echo "System Hub health, auth configuration, or read-only safety check failed (HTTP $code)."
+          # A brand-new workers.dev hostname can briefly return 404 while edge routing propagates.
+          # Retry boundedly; never treat retries as a pass unless the expected health contract is returned.
+          hub_health_ok=false
+          for attempt in $(seq 1 10); do
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$hub/health" || true)"
+            if [ "$code" = "200" ] && grep -q '"service":"voom-system-hub"' "$body" && grep -q '"authConfigured":true' "$body" && grep -q '"ordersEnabled":false' "$body" && grep -q '"liveTradingEnabled":false' "$body"; then
+              hub_health_ok=true
+              break
+            fi
+            echo "System Hub health check attempt ${attempt}/10 returned HTTP ${code}; retrying boundedly for edge propagation."
+            sleep 3
+          done
+          if [ "$hub_health_ok" != "true" ]; then
+            echo "System Hub health, auth configuration, or read-only safety check failed after bounded retries."
             exit 1
           fi
 
