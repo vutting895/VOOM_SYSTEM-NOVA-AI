@@ -67,6 +67,9 @@ jobs:
       - name: Test bounded NOVA chat history
         working-directory: .
         run: node --test tests/chat-history.test.mjs
+      - name: Test chat API authentication before body parsing
+        working-directory: .
+        run: node --test tests/chat-api-auth-order.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
