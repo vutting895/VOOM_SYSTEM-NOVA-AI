@@ -162,3 +162,39 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     globalThis.fetch = originalFetch;
   }
 });
+
+
+test("foreign user's connection ID is not forwarded to the Bridge", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "different-test-user-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      // Both predicates must be present: a valid row ID alone is not enough.
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
+      // Simulate the owner-scoped Supabase response when this ID belongs to another user.
+      return Response.json([]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayCalls += 1;
+      throw new Error("Foreign connection ID must never reach the Bridge Relay");
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "connection_not_found");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
