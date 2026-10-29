@@ -1,8 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-const candidate = process.env.COMMIT_REF || process.env.GITHUB_SHA || process.env.SOURCE_VERSION || "";
-const commit = /^[0-9a-f]{40}$/i.test(candidate) ? candidate.toLowerCase() : "unknown";
+const candidate = [process.env.COMMIT_REF, process.env.GITHUB_SHA, process.env.SOURCE_VERSION]
+  .find((value) => typeof value === "string" && /^[0-9a-f]{40}$/i.test(value)) || "";
+const commit = candidate ? candidate.toLowerCase() : "unknown";
 const outputPath = resolve(process.cwd(), "public", "build-info.json");
 
 await mkdir(dirname(outputPath), { recursive: true });
