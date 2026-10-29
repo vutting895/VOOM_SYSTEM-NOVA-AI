@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
+import IntentResult from '../../components/intent-result';
 
 const suggestions = [
   'อธิบายเงื่อนไข EMA 12/26 และ RSI 14 สำหรับ XAU/USD',
@@ -120,6 +121,7 @@ export default function NovaChatPage() {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: payload.message,
+        intent: payload.intent || null,
       }]);
     } catch (err) {
       setError(err?.message || 'ไม่สามารถติดต่อ NOVA AI ได้ในขณะนี้');
@@ -167,6 +169,7 @@ export default function NovaChatPage() {
                 <div className="nova-chat-bubble">
                   <div className="nova-chat-message-label">{message.role === 'user' ? 'YOU' : 'NOVA AI'}</div>
                   <p>{message.content}</p>
+                  {message.role === 'assistant' && message.intent && <IntentResult intent={message.intent} />}
                 </div>
               </article>
             ))}
