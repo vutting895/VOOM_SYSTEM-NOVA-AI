@@ -143,7 +143,11 @@ BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'authentication_required' USING ERRCODE = '42501'; END IF;
   IF p_request_type IS NULL OR p_request_type <> 'strategy_draft_review'
      OR p_policy_version IS NULL OR p_policy_version <> 'nova-approval.v1'
-     OR p_proposal_hash IS NULL OR p_proposal_hash !~ '^[a-f0-9]{64}
+     OR p_proposal_hash IS NULL OR p_proposal_hash !~ '^[a-f0-9]{64}$'
+     OR p_expires_at IS NULL
+     OR NOT private.nova_valid_strategy_draft_proposal(p_proposal)
+     OR p_expires_at <= now() + interval '1 minute'
+     OR p_expires_at > now() + interval '15 minutes' THEN
     RAISE EXCEPTION 'nova_approval_request_invalid' USING ERRCODE = '22023';
   END IF;
   SELECT t.state INTO v_state FROM public.nova_agent_threads t
