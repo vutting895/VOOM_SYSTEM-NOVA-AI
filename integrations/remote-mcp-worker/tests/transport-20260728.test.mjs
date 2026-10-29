@@ -23,15 +23,17 @@ function makeModernRequest({
   clientInfo = { name: "contract-test-client", version: "1.0.0" },
   clientCapabilities = {},
   id = 1,
-  origin
+  origin,
+  accept = "application/json, text/event-stream",
+  contentType = "application/json"
 } = {}) {
   const metadata = {};
   if (metadataVersion !== undefined) metadata[VERSION_META] = metadataVersion;
   if (clientInfo !== undefined) metadata[CLIENT_INFO] = clientInfo;
   if (clientCapabilities !== undefined) metadata[CLIENT_CAPABILITIES] = clientCapabilities;
   const headers = {
-    "Content-Type": "application/json",
-    "Accept": "application/json"
+    "Content-Type": contentType,
+    "Accept": accept
   };
   if (includeVersionHeader) headers["MCP-Protocol-Version"] = versionHeader;
   if (includeMethodHeader) headers["Mcp-Method"] = methodHeader;
@@ -200,4 +202,18 @@ test("legacy initialize remains compatible with protocol 2025-03-26", async () =
   const payload = await response.json();
   assert.equal(payload.result.protocolVersion, "2025-03-26");
   assert.deepEqual(payload.result.capabilities, { tools: {} });
+});
+
+test("rejects a modern request that does not advertise both supported response media types", async () => {
+  const request = bearerRequest(makeModernRequest({ accept: "application/json" }));
+  const response = await responseFor(request);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, -32600);
+});
+
+test("rejects a modern request with a non-JSON Content-Type", async () => {
+  const request = bearerRequest(makeModernRequest({ contentType: "text/plain" }));
+  const response = await responseFor(request);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, -32600);
 });
