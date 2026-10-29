@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voom-system-nova-ui/schemas/nova-intent-envelope.v1.json",
+  "title": "NOVA Intent Envelope v1",
+  "description": "Declarative, data-only intent output for the finite research UI catalog. Runtime validation also checks that component parameters equal the root parameters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "intent",
+    "parameters",
+    "component"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "nova.intent.v1"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "blocked_action",
+        "draft_strategy",
+        "review_risk",
+        "review_backtest",
+        "explain_indicators",
+        "general_research"
+      ]
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "market",
+        "timeframe",
+        "risk"
+      ],
+      "properties": {
+        "market": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "BTC/USDT",
+            "ETH/USDT",
+            "EUR/USD",
+            "XAU/USD",
+            "US30",
+            null
+          ]
+        },
+        "timeframe": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "5m",
+            "15m",
+            "1h",
+            "4h",
+            "1d",
+            null
+          ]
+        },
+        "risk": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ]
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "market",
+        "timeframe",
+        "risk",
+        "executionEnabled",
+        "liveTradingEnabled"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "safety_notice",
+            "strategy_draft",
+            "risk_checklist",
+            "backtest_review",
+            "indicator_guide",
+            "analysis_summary"
+          ]
+        },
+        "market": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "BTC/USDT",
+            "ETH/USDT",
+            "EUR/USD",
+            "XAU/USD",
+            "US30",
+            null
+          ]
+        },
+        "timeframe": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "5m",
+            "15m",
+            "1h",
+            "4h",
+            "1d",
+            null
+          ]
+        },
+        "risk": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            null
+          ]
+        },
+        "executionEnabled": {
+          "const": false
+        },
+        "liveTradingEnabled": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "blocked_action"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "safety_notice"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "draft_strategy"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "strategy_draft"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "review_risk"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "risk_checklist"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "review_backtest"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "backtest_review"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "explain_indicators"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "indicator_guide"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "const": "general_research"
+          }
+        },
+        "required": [
+          "intent"
+        ]
+      },
+      "then": {
+        "properties": {
+          "component": {
+            "properties": {
+              "type": {
+                "const": "analysis_summary"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
