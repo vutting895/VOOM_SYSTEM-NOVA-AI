@@ -22,6 +22,7 @@ on:
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
