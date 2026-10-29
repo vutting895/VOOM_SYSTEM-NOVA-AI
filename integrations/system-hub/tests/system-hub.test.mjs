@@ -69,6 +69,46 @@ test("bad or expired Supabase session is rejected", async () => {
   assert.equal((await response.json()).error, "invalid_or_expired_session");
 });
 
+test("same-origin Supabase Auth redirects are followed with the configured HTTPS origin only", async () => {
+  let calls = 0;
+  const seenOrigins = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    assert.equal(init.redirect, "manual");
+    assert.ok(init.signal);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      calls += 1;
+      if (calls === 1) return new Response(null, { status: 302, headers: { Location: "/auth/v1/user" } });
+      return Response.json({ message: "invalid session" }, { status: 401 });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  const response = await worker.fetch(request("/v1/integrations", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "invalid_or_expired_session");
+  assert.equal(calls, 2);
+  assert.deepEqual(seenOrigins, ["https://supabase.test", "https://supabase.test"]);
+});
+
+test("external Supabase Auth redirects fail closed without forwarding credentials", async () => {
+  const seenOrigins = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    assert.equal(init.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://attacker.example/collect" } });
+  };
+  const response = await worker.fetch(request("/v1/integrations", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "authentication_provider_unavailable");
+  assert.deepEqual(seenOrigins, ["https://supabase.test"]);
+});
+
 test("auth provider failure fails closed", async () => {
   globalThis.fetch = async () => { throw new Error("network unavailable"); };
   const response = await worker.fetch(request("/v1/integrations", {

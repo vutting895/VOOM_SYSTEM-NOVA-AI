@@ -37,6 +37,87 @@ test("private MT5 endpoint rejects missing user session", async () => {
   assert.equal((await response.json()).error, "authentication_required");
 });
 
+test("bad or expired Supabase session returns 401 with an explicit fetch policy", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    assert.equal(url.origin, "https://supabase.test");
+    assert.equal(url.pathname, "/auth/v1/user");
+    assert.equal(init.redirect, "manual");
+    assert.ok(init.signal);
+    calls += 1;
+    return Response.json({ message: "invalid session" }, { status: 401 });
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, "invalid_or_expired_session");
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("same-origin Supabase Auth redirect is followed without leaving the trusted origin", async () => {
+  const originalFetch = globalThis.fetch;
+  const seenOrigins = [];
+  let authCalls = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    assert.equal(init.redirect, "manual");
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      authCalls += 1;
+      if (authCalls === 1) {
+        return new Response(null, { status: 302, headers: { Location: "/auth/v1/user" } });
+      }
+      return Response.json({ message: "invalid session" }, { status: 401 });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, "invalid_or_expired_session");
+    assert.equal(authCalls, 2);
+    assert.deepEqual(seenOrigins, ["https://supabase.test", "https://supabase.test"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("external Supabase Auth redirect is not followed and fails closed", async () => {
+  const originalFetch = globalThis.fetch;
+  const seenOrigins = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    assert.equal(init.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://attacker.example/collect" } });
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "auth_service_unavailable");
+    assert.deepEqual(seenOrigins, ["https://supabase.test"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("connected user is routed only to the stable workers.dev relay", async () => {
   const originalFetch = globalThis.fetch;
   let relayRequest;

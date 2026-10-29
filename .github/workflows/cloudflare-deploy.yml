@@ -88,7 +88,9 @@ jobs:
       - name: Deploy authenticated Exness MT5 read-only proxy
         if: steps.changed.outputs.mt5_proxy == 'true'
         working-directory: frontend
-        run: npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars
+        run: |
+          npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars \
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
 
       - name: Deploy authenticated read-only Remote MCP Worker
         if: steps.changed.outputs.remote_mcp == 'true'
@@ -172,6 +174,12 @@ jobs:
             exit 1
           fi
 
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -H 'Authorization: Bearer invalid-ci-session-token' "$proxy/api/account?connection_id=00000000-0000-4000-8000-000000000000" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"error":"invalid_or_expired_session"' "$body"; then
+            echo "MT5 Proxy did not reject an invalid Supabase session with HTTP 401 (HTTP $code)."
+            exit 1
+          fi
+
           # A brand-new workers.dev hostname can briefly return 404 while edge routing propagates.
           # Retry boundedly; never treat retries as a pass unless the expected health contract is returned.
           hub_health_ok=false
@@ -192,6 +200,12 @@ jobs:
           code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$hub/v1/integrations" || true)"
           if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
             echo "System Hub did not reject unauthenticated integration inventory access (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -H 'Authorization: Bearer invalid-ci-session-token' "$hub/v1/integrations" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"error":"invalid_or_expired_session"' "$body"; then
+            echo "System Hub did not reject an invalid Supabase session with HTTP 401 (HTTP $code)."
             exit 1
           fi
 

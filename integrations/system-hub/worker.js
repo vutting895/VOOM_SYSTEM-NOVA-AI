@@ -47,6 +47,19 @@ function supabaseBase(env) {
     return "";
   }
 }
+function safeAuthDiagnostic(error) {
+  const errorName = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(error.name)
+    ? error.name
+    : "Error";
+  const message = String(error?.message || "unknown")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/eyJ[A-Za-z0-9._-]+/g, "[redacted-token]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]")
+    .slice(0, 160);
+  return "System Hub could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
+}
+
 async function authenticate(request, env) {
   const token = bearer(request);
   if (!token) return { ok: false, status: 401, error: "authentication_required" };
@@ -54,21 +67,53 @@ async function authenticate(request, env) {
   if (!base || !env.SUPABASE_PUBLISHABLE_KEY) {
     return { ok: false, status: 503, error: "authentication_not_configured" };
   }
+
+  const authUrl = new URL("/auth/v1/user", base);
+  const authInit = {
+    method: "GET",
+    headers: {
+      apikey: env.SUPABASE_PUBLISHABLE_KEY,
+      Authorization: "Bearer " + token,
+      Accept: "application/json"
+    },
+    cache: "no-store",
+    // Inspect redirects explicitly so the bearer token/key stay on the configured origin.
+    redirect: "manual",
+    signal: AbortSignal.timeout(15000)
+  };
+  let response;
   try {
-    const response = await fetch(base + "/auth/v1/user", {
-      headers: {
-        apikey: env.SUPABASE_PUBLISHABLE_KEY,
-        Authorization: "Bearer " + token,
-        Accept: "application/json"
-      },
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(6000)
-    });
-    if (response.status === 401 || response.status === 403) {
-      return { ok: false, status: 401, error: "invalid_or_expired_session" };
+    response = await fetch(authUrl, authInit);
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      if (!location) return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      let redirectedUrl;
+      try {
+        redirectedUrl = new URL(location, authUrl);
+      } catch {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      if (redirectedUrl.protocol !== "https:" || redirectedUrl.origin !== authUrl.origin) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
+      response = await fetch(redirectedUrl, authInit);
+      if (response.status >= 300 && response.status < 400) {
+        return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+      }
     }
-    if (!response.ok) return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+  } catch (error) {
+    console.warn(safeAuthDiagnostic(error));
+    return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return { ok: false, status: 401, error: "invalid_or_expired_session" };
+  }
+  if (!response.ok) {
+    console.warn("System Hub Supabase Auth returned non-success; status=" + response.status);
+    return { ok: false, status: 503, error: "authentication_provider_unavailable" };
+  }
+  try {
     const user = await response.json();
     return user && typeof user.id === "string" && user.id.length > 0
       ? { ok: true, userId: user.id, token }
@@ -101,8 +146,9 @@ async function queryOwnConnections(env, user, connectionId = "") {
         Accept: "application/json"
       },
       cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(6000)
+      // Do not automatically forward the user token across redirects.
+      redirect: "manual",
+      signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) return { ok: false, status: 503, error: "connection_service_unavailable" };
     const rows = await response.json();
@@ -152,8 +198,9 @@ async function createConnection(request, env, user, origin) {
         account_label: "Exness MT5 Demo"
       }),
       cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(6000)
+      // Do not automatically forward the user token across redirects.
+      redirect: "manual",
+      signal: AbortSignal.timeout(15000)
     });
   } catch {
     return json({ error: "connection_service_unavailable" }, 503, origin, env);
