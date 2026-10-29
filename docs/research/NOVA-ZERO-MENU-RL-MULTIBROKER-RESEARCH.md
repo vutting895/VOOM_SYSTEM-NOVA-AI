@@ -468,6 +468,45 @@ Compare against naive persistence, simple statistical forecasts and the current 
 6. Stable-Baselines3 PPO documentation: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 7. Stable-Baselines3 SAC documentation: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
 
+## 14. SciSpace literature cross-check and validation additions (2026-10-30)
+
+This section records a focused SciSpace literature search on financial ML evaluation, backtest selection bias, RL generalization, and tool-using-agent authorization. SciSpace is used for paper discovery and metadata; claims below are grounded in the cited publication pages where available. A search result is not itself proof of replication or deployment readiness.
+
+### 14.1 Strategy-selection bias: treat the entire search process as part of the experiment
+
+- Bailey, Borwein, López de Prado and Zhu, *The Probability of Backtest Overfitting* (Journal of Computational Finance, 2017), propose combinatorially symmetric cross-validation (CSCV) to estimate the probability that a strategy selected as best in-sample underperforms out-of-sample. The authors explain why a simple holdout can be unreliable for the strategy-selection problem. DOI: https://doi.org/10.21314/JCF.2016.322
+- Bailey and López de Prado, *The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and Non-Normality* (The Journal of Portfolio Management, 2014, 40(5), 94–107), address performance inflation from multiple testing and non-normal returns. DOI: https://doi.org/10.3905/JPM.2014.40.5.094
+- Practical NOVA implication: retain the complete candidate/parameter-trial count and all tested configurations, report selection-aware evidence (PBO/CSCV where appropriate and DSR with its required inputs), and keep an untouched chronological final holdout. These diagnostics supplement rather than replace realistic execution modelling or prospective paper tests.
+
+### 14.2 Newer objective-function evidence: useful lead, not a transferable guarantee
+
+Sheppert, *The GT-Score: A Robust Objective Function for Reducing Overfitting in Data-Driven Trading Strategies* (Journal of Risk and Financial Management, 2026, 19(1), 60), reports a study using daily OHLCV for 50 S&P 500 companies over 2010–2024, nine sequential walk-forward splits, and 15 random seeds across three strategies. It reports a 98% improvement in its validation/training generalization ratio versus baseline objective functions. DOI: https://doi.org/10.3390/jrfm19010060
+
+Interpretation limits matter: the reported experiments are daily-bar, historical stock-strategy experiments; the paper itself notes limits around asset coverage, no paper/live trading evaluation, and assumptions behind its statistical significance component. It is a research candidate for a later benchmark—not evidence that GT-Score improves Exness XAUUSDM, EMA/RSI, SMC, or any NOVA production strategy. Any local reproduction must pin data/code, fees and assumptions and report results even when they fail to beat the baseline.
+
+### 14.3 Updated minimum validation gate for NOVA strategy, RL, and Deep Learning experiments
+
+Before a strategy, learned filter, or RL policy can be described as robust:
+
+1. Freeze and version the experiment protocol before final evaluation. Log every parameter/configuration trial and avoid selecting the final winner by repeatedly inspecting the final holdout.
+2. Split data in chronological order. Fit normalizers, imputers, feature selection and calibration on training data only; apply frozen transforms to later windows. Add explicit point-in-time checks for candle finalization, timestamp/timezone, label maturity, SMC swing/pivot confirmation, news availability time, and order/fill timing.
+3. Use rolling walk-forward evaluation, with purge/embargo where label or holding windows overlap. Consider CSCV/PBO for the strategy-selection process and DSR for Sharpe-ratio inference after multiple trials and non-normality are considered.
+4. Compare like-for-like against simple baselines, including buy-and-hold and the current deterministic strategy where implemented. Include spread, commission, slippage, swap/funding where applicable, turnover, trade count, exposure, max drawdown and downside-period analysis. Report the instrument, timeframe, sample periods, data source/hash and exact cost assumptions.
+5. Treat positive historical metrics as research evidence only. Require prospective paper/shadow results with no broker-write access, track drift and abstentions, and preserve the deterministic risk engine as the final authority. Missing/stale data, unregistered models, schema failures or runtime errors must abstain/fail closed.
+
+The repository README currently says the Backtest page reports a buy-and-hold baseline rather than a strategy backtest. Therefore, neither this literature review nor a benchmark paper can be used to claim that the user's EMA/RSI or SMC strategy has already passed out-of-sample testing.
+
+### 14.4 Agent authorization literature: evidence-quality note
+
+The SciSpace discovery pass also returned several recent 2026 preprints about policy-constrained LLM tool use and agent over-authorization. Because these are very recent and not all are peer-reviewed, they are treated as exploratory leads rather than a production-control authority. NOVA's security design continues to rely on deterministic server-side identity verification, ownership checks, allowlisted tool routes, strict typed schemas, independent risk enforcement, auditable approval bound to an exact payload, and fail-closed behavior. Prompt instructions or an LLM-generated approval state must never grant a capability.
+
+### 14.5 SciSpace and publication references
+
+1. Bailey et al., *The Probability of Backtest Overfitting*, Journal of Computational Finance (2017): https://doi.org/10.21314/JCF.2016.322
+2. Bailey and López de Prado, *The Deflated Sharpe Ratio*, The Journal of Portfolio Management (2014): https://doi.org/10.3905/JPM.2014.40.5.094
+3. Sheppert, *The GT-Score*, Journal of Risk and Financial Management (2026): https://doi.org/10.3390/jrfm19010060
+4. SciSpace search scope (2026-10-30): financial ML robustness/out-of-sample performance; LLM tool-using agent authorization and human approval; temporal leakage, walk-forward validation, PBO and DSR. Papers discovered through semantic search were screened for publication status and applicability; unreviewed preprints are not treated as settled evidence.
+
 ## Final decision
 
 Proceed with evidence collection and the Exness Demo read-only path first. The Zero-Menu UI, LangGraph durable workflows, RL meta-policy, and additional broker adapters are staged extensions, not reasons to weaken current authentication, tenant isolation, deterministic risk checks, or the Live Trading OFF boundary. No broker-write capability, production configuration, or deployment is authorized by this research record.
