@@ -12,13 +12,12 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 
 ## Frontend hosting and deployment
 
-- **Selected frontend target: Netlify** at `https://voomsystem.netlify.app`. This is the intended destination, not a claim that cutover is complete.
-- **Current verified fallback: Cloudflare Worker `voom-system-nova-ui`**. In a sanitized live check on 2026-10-29, `/` and `/settings/broker` returned HTTP 200.
-- The current `.github/workflows/cloudflare-deploy.yml` still deploys the Cloudflare frontend when `frontend/**` changes. Keep that rollback path and the Windows MT5 Bridge available until Netlify passes production route, Supabase login/session, and cross-user ownership gates. Do not change DNS or Supabase redirects yet.
-- PR #54 adds the root `netlify.toml` to build the app from `frontend/`. Its verification notes recorded a historical HTTP 404. A config file does not prove that the site is connected or serving the reviewed commit.
-- A fresh Netlify probe on 2026-10-29 returned no HTTP status from the inspected Windows device; this means neither success nor a new 404. Netlify CLI and `NETLIFY_AUTH_TOKEN` are not configured on that machine.
-- Required Netlify dashboard variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Never commit their values.
-- `.github/workflows/frontend-ci.yml` validates worker/bridge tests, type-check, Next.js build, and Cloudflare OpenNext build. A separate reviewed cutover must verify the actual Netlify deploy, exact commit, and live routes before making Netlify primary.
+- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. Netlify Production deploy `6ae38a268cef1a5112a095bb` is `ready` on commit `1f798f4e976d1516a044b0c53e4ca299f0e742e6` (checked 2026-10-30).
+- Netlify Observability recorded HTTP 200 for the production root, Next.js RSC requests for `/login`, `/profile`, and `/broker`, and static frontend assets after that deployment. The anonymous broker-status endpoint returned HTTP 401 as expected. These observations do not prove a real OTP login/session or the complete broker route.
+- The legacy Cloudflare UI `voom-system-nova-ui` is retained temporarily as a rollback option, not the desired production target. The deployment workflow change to backend-only Cloudflare deploys and the root `netlify.toml` are in review in the Netlify alignment PR; do not describe that repository cutover as merged until it is.
+- A historical Netlify Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` post-build phase. Later previews for PRs #69 and #71 succeeded. The new hosting-alignment PR still needs its own Preview and logs verified; do not assume older failures or successes transfer to a new commit.
+- Required Netlify dashboard variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Configure them in site settings and never commit their values.
+- `.github/workflows/frontend-ci.yml` validates worker/security tests, type-check, and the Next.js build. Its production smoke-test job checks Netlify routes on a push to `main`. `.github/workflows/cloudflare-deploy.yml` is being aligned to deploy backend Workers only.
 
 ## Unified frontend and NOVA Chat
 
@@ -41,7 +40,14 @@ Configure frontend variables in the selected Netlify site and backend secrets in
 Never print secret values in logs or chat. The UI must show unavailable rather than claim a broker connection when authenticated System Hub or owner-session reads are not verified.
 
 ## Current deployment verification limits
-Cloudflare currently responds on the expected routes, but that does not prove a particular commit is serving. Netlify is the selected target but remains unverified. Before cutover, prove exact production commit, HTTP 200 on `/` and `/settings/broker`, Supabase login/callback/session persistence/logout, and owner-session versus foreign-connection denial. Do not update the Supabase Site URL or redirect allow-list until those tests pass.
+
+The current Netlify Production deploy is ready on the expected main-branch application commit, and Observability records HTTP 200 for the root, login/profile/broker Next.js RSC routes, and static assets after deployment. Remaining checks are still material: a direct `/settings/broker` response was not observed in the reviewed log window, no post-deploy direct `/auth/callback` request was observed, and the user's real email OTP/session flow has not been demonstrated.
+
+The actual Supabase owner-session path through System Hub/MT5 Proxy is not yet verified with a signed-in browser session. A valid owner connection read and a foreign connection-ID denial are still required. Anonymous HTTP 401 checks are only negative unauthenticated evidence, not proof of cross-user isolation.
+
+Netlify Observability also recorded repeated `PUT /api/inngest` HTTP 404 requests; current repository search found no Inngest handler/reference. Identify the source before changing application routes. Historical preview 401 responses are expected because non-production Netlify deploys require SSO; old preview 404/500 entries are not evidence of a current Production failure.
+
+Do not change Supabase Site URL/redirect settings or mark cutover fully accepted until the route smoke test, real OTP session persistence/logout, owner access, and foreign-connection denial have passed against a commit/deploy recorded in evidence. Keep Exness Demo/MT5 read-only, and keep order submission and Live Trading disabled.
 
 ## Architecture
 - `frontend/`: Next.js UI; Netlify is the selected target, and Cloudflare remains the verified fallback until cutover gates pass.
