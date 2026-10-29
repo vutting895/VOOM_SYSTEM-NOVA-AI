@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
 
       - name: Verify Cloudflare deployment configuration without printing values
         shell: bash
@@ -58,22 +59,44 @@ jobs:
         working-directory: frontend
         run: npm install --no-save --package-lock=false wrangler
 
+      - name: Detect changed backend Worker directories in the validated commit
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          head="$(git rev-parse HEAD)"
+          if ! git rev-parse "${head}^" >/dev/null 2>&1; then
+            echo "Could not inspect the validated commit's parent; refusing implicit full redeploy."
+            exit 1
+          fi
+          changed="$(git diff --name-only "${head}^" "${head}")"
+          printf '%s\n' "$changed"
+          if grep -Eq '^integrations/mt5-bridge-relay/' <<< "$changed"; then echo "mt5_relay=true" >> "$GITHUB_OUTPUT"; else echo "mt5_relay=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
+
+      # Deploy only changed Worker directories from the exact commit that passed CI.
       # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
       - name: Deploy tenant-isolated MT5 Bridge relay
+        if: steps.changed.outputs.mt5_relay == 'true'
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/mt5-bridge-relay/wrangler.jsonc --keep-vars
 
       # Keep frontend hosting/deployment separate; this workflow deploys and verifies backend Workers only.
       - name: Deploy authenticated Exness MT5 read-only proxy
+        if: steps.changed.outputs.mt5_proxy == 'true'
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars
 
       - name: Deploy authenticated read-only Remote MCP Worker
+        if: steps.changed.outputs.remote_mcp == 'true'
         working-directory: frontend
         run: npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars
 
       # Separate control plane; no Alpaca OAuth logic or order-submission routes are reused.
       - name: Deploy NOVA System Integration Hub
+        if: steps.changed.outputs.system_hub == 'true'
         working-directory: frontend
         run: |
           npx wrangler deploy --config ../integrations/system-hub/wrangler.jsonc --keep-vars \
