@@ -1,5 +1,8 @@
 import { classifyResearchIntent } from "./intent-contract.js";
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGINS = new Set([
+  "https://voomsystem.netlify.app",
+  "https://voom-system-nova-ui.suwapat787.workers.dev"
+]);
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -15,9 +18,9 @@ const RISKS = new Set(["low", "medium", "high"]);
 const MAX_BODY_BYTES = 16 * 1024;
 
 function corsHeaders(origin) {
-  if (origin !== UI_ORIGIN) return {};
+  if (!UI_ORIGINS.has(origin)) return {};
   return {
-    "Access-Control-Allow-Origin": UI_ORIGIN,
+    "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Accept",
     "Access-Control-Max-Age": "300",
@@ -303,9 +306,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
-    if (origin && origin !== UI_ORIGIN) return fail("origin_not_allowed", 403, "");
+    if (origin && !UI_ORIGINS.has(origin)) return fail("origin_not_allowed", 403, "");
     if (request.method === "OPTIONS") {
-      return origin === UI_ORIGIN
+      return UI_ORIGINS.has(origin)
         ? new Response(null, { status: 204, headers: { ...BASE_HEADERS, ...corsHeaders(origin) } })
         : fail("origin_not_allowed", 403, "");
     }
