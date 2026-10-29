@@ -1,4 +1,4 @@
-const DEFAULT_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
