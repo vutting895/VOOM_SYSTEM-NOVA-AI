@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
