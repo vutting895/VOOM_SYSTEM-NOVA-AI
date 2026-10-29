@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   INTENT_SCHEMA_VERSION,
   INTENTS,
@@ -7,6 +8,17 @@ import {
   classifyResearchIntent,
   validateIntentEnvelope,
 } from "./intent-contract.js";
+
+const sharedSchema = JSON.parse(await readFile(new URL("../../shared/nova-intent-envelope.schema.json", import.meta.url), "utf8"));
+
+test("JSON Schema is aligned with the runtime intent/component allow-lists", () => {
+  assert.equal(sharedSchema.properties.schemaVersion.const, INTENT_SCHEMA_VERSION);
+  assert.deepEqual(sharedSchema.properties.intent.enum, INTENTS);
+  assert.deepEqual(sharedSchema.properties.component.properties.type.enum, UI_COMPONENTS);
+  assert.equal(sharedSchema.properties.component.properties.executionEnabled.const, false);
+  assert.equal(sharedSchema.properties.component.properties.liveTradingEnabled.const, false);
+  assert.equal(sharedSchema.additionalProperties, false);
+});
 
 test("classifies a strategy request into a fixed draft card with only allow-listed parameters", () => {
   const result = classifyResearchIntent("ร่างกลยุทธ์ EMA 12/26 สำหรับ XAUUSDm M15 ความเสี่ยงต่ำ");
