@@ -55,7 +55,6 @@ function pendingMessage(connection: HubConnection): string {
 }
 
 export default function BrokerSettingsPage() {
-  const [email, setEmail] = useState("");
   const [signedInEmail, setSignedInEmail] = useState("");
   const [account, setAccount] = useState<ReadOnlyAccount | null>(null);
   const [busy, setBusy] = useState(false);
@@ -212,22 +211,6 @@ export default function BrokerSettingsPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  async function sendMagicLink(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true); setError(""); setNotice("");
-    try {
-      if (!supabase) throw new Error("ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Cloudflare");
-      const { error: authError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/settings/broker` },
-      });
-      if (authError) throw authError;
-      setNotice("ส่งลิงก์เข้าสู่ระบบไปยังอีเมลแล้ว กรุณาเปิดลิงก์จากอุปกรณ์นี้");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "ส่งลิงก์เข้าสู่ระบบไม่สำเร็จ");
-    } finally { setBusy(false); }
-  }
-
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -285,10 +268,10 @@ export default function BrokerSettingsPage() {
             </div>}
           </div>
         ) : (
-          <form onSubmit={sendMagicLink} style={{marginTop:22}}>
-            <label>อีเมลบัญชี VOOM_SYSTEM<input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" /></label>
-            <button className="btn primary" disabled={busy || !supabase} type="submit">{busy ? "กำลังส่ง…" : "ส่งลิงก์เข้าสู่ระบบทางอีเมล"}</button>
-          </form>
+          <div style={{marginTop:22}}>
+            <p className="muted">เพื่อให้ Supabase Auth ได้รับ CAPTCHA token ที่ถูกต้อง กรุณาเข้าสู่ระบบผ่านหน้าล็อกอินหลักก่อนกลับมาอ่านข้อมูลบัญชี</p>
+            <a className="btn primary" href="/login">เข้าสู่ระบบพร้อม CAPTCHA →</a>
+          </div>
         )}
         {notice && <p className="notice" role="status">{notice}</p>}
         {error && <p className="error" role="alert">{error}</p>}
