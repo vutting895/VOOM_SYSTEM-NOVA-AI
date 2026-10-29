@@ -40,7 +40,7 @@ jobs:
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-      NEXT_PUBLIC_MT5_READONLY_PROXY_URL: "https://example.invalid"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
     steps:
       - name: Checkout
@@ -71,8 +71,8 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
-      - name: Install Wrangler for relay config validation
-        run: npm install --no-save --package-lock=false wrangler
+      - name: Install Wrangler and OpenNext adapter for Cloudflare validation without changing lockfile
+        run: npm install --no-save --package-lock=false wrangler @opennextjs/cloudflare@1.20.13
       - name: Validate tenant relay Durable Object configuration
         working-directory: frontend
         run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
@@ -81,5 +81,7 @@ jobs:
         run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
       - name: Type-check
         run: npm run typecheck
-      - name: Build Next.js frontend for CI validation (hosting is configured separately)
+      - name: Build Next.js frontend for CI validation
         run: npm run build
+      - name: Build Next.js frontend using the Cloudflare OpenNext adapter
+        run: npm run cf:build

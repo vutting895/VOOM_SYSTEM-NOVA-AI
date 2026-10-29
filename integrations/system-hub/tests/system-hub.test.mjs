@@ -196,3 +196,195 @@ test("untrusted browser origin and order route are rejected", async () => {
   }), env);
   assert.equal(orderResponse.status, 404);
 });
+
+
+test("signed-in user can create one pending Exness Demo connection request", async () => {
+  const original = globalThis.fetch;
+  let insertPayload = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      if (init.method === "POST") {
+        assert.equal(url.searchParams.get("on_conflict"), "user_id,provider,environment");
+        insertPayload = JSON.parse(init.body);
+        assert.equal(insertPayload.provider, "exness_mt5");
+        assert.equal(insertPayload.environment, "demo");
+        assert.equal(insertPayload.status, "pending");
+        assert.equal(Object.hasOwn(insertPayload, "bridge_route_id"), false);
+        return Response.json([{
+          id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5",
+          environment: "demo", status: "pending", account_label: "Exness MT5 Demo",
+          bridge_route_id: null, created_at: "2026-10-29T00:00:00Z"
+        }], { status: 201 });
+      }
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([]);
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN, "Content-Type": "application/json" }
+    }), env);
+    const bodyText = await response.text();
+    const body = JSON.parse(bodyText);
+    assert.equal(response.status, 201);
+    assert.equal(body.created, true);
+    assert.equal(body.connection.recordStatus, "pending");
+    assert.equal(body.connection.readiness, "pending_provisioning");
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+    assert.doesNotMatch(bodyText, /bridge_route_id|access_token|password/);
+    assert.ok(insertPayload);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("account endpoint returns a minimal read-only account summary through the user's own connection", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/account") {
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({
+        connected: true, server: "Exness-Demo", currency: "USD", balance: 1000,
+        equity: 1002, margin: 10, free_margin: 992, margin_level: 10020,
+        account_number: "private-test-value", terminal_trade_allowed: true,
+        order_submission_enabled: false, mode: "read-only", as_of: "2026-10-29T04:00:00Z"
+      });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/account", {
+      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN }
+    }), env);
+    const bodyText = await response.text();
+    const body = JSON.parse(bodyText);
+    assert.equal(response.status, 200);
+    assert.equal(body.state, "data_verified");
+    assert.equal(body.dataVerified, true);
+    assert.equal(body.account.connected, true);
+    assert.equal(body.account.balance, 1000);
+    assert.equal(body.account.equity, 1002);
+    assert.equal(body.account.mode, "read-only");
+    assert.equal(body.account.order_submission_enabled, false);
+    assert.doesNotMatch(bodyText, /private-test-value|account_number|bridge_route_id|access_token/);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", async () => {
+  const original = globalThis.fetch;
+  let requestedQuote = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      requestedQuote = {
+        connectionId: url.searchParams.get("connection_id"),
+        symbol: url.searchParams.get("symbol"),
+        timeframe: url.searchParams.get("timeframe"),
+        count: url.searchParams.get("count"),
+        authorization: init.headers.Authorization
+      };
+      return Response.json({
+        symbol: "XAUUSDm", timeframe: "M1", digits: 3,
+        tick: { bid: 4038.9, ask: 4039.1, last: 0, time: "2026-10-29T04:55:00Z" },
+        bars: [{ time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
+        count: 1, order_submission_enabled: false, mode: "read-only", as_of: "2026-10-29T04:55:00Z"
+      });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=3",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.state, "data_verified");
+    assert.equal(body.quote.symbol, "XAUUSDm");
+    assert.equal(body.quote.tick.bid, 4038.9);
+    assert.equal(body.quote.bars.length, 1);
+    assert.equal(body.quote.order_submission_enabled, false);
+    assert.deepEqual(requestedQuote, {
+      connectionId: CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M1", count: "3",
+      authorization: "Bearer " + USER_TOKEN
+    });
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes with invalid bounds fail before making an upstream request", async () => {
+  mockAuthAndRest({ rows: [{
+    id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+    status: "connected", bridge_route_id: "tenant-a"
+  }] });
+  const response = await worker.fetch(request(
+    "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=501",
+    { headers: { Authorization: "Bearer " + USER_TOKEN } }
+  ), env);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "count_must_be_between_1_and_500");
+});
+
+test("account read does not reach proxy while a connection remains pending", async () => {
+  const original = globalThis.fetch;
+  let proxyCalled = false;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "pending", account_label: "Exness MT5 Demo", bridge_route_id: null
+      }]);
+    }
+    proxyCalled = true;
+    throw new Error("Pending route must not call the proxy");
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/account", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).state, "pending_provisioning");
+    assert.equal(proxyCalled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

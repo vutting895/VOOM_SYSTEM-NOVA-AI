@@ -112,6 +112,83 @@ async function queryOwnConnections(env, user, connectionId = "") {
     return { ok: false, status: 503, error: "connection_service_unavailable" };
   }
 }
+
+async function createConnection(request, env, user, origin) {
+  const existingResult = await queryOwnConnections(env, user);
+  if (!existingResult.ok) {
+    return json({ error: existingResult.error }, existingResult.status, origin, env);
+  }
+  const existing = existingResult.rows.find((row) => row.provider === "exness_mt5" && row.environment === "demo");
+  if (existing) {
+    return json({
+      connection: publicConnection(existing),
+      created: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 200, origin, env);
+  }
+
+  const url = connectionUrl(env, {
+    select: "id,user_id,provider,environment,status,account_label,last_verified_at,created_at,bridge_route_id",
+    on_conflict: "user_id,provider,environment"
+  });
+  if (!url) return json({ error: "connection_service_not_configured" }, 503, origin, env);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_PUBLISHABLE_KEY,
+        Authorization: "Bearer " + user.token,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Prefer: "resolution=ignore-duplicates,return=representation"
+      },
+      body: JSON.stringify({
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "pending",
+        account_label: "Exness MT5 Demo"
+      }),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(6000)
+    });
+  } catch {
+    return json({ error: "connection_service_unavailable" }, 503, origin, env);
+  }
+
+  if (response.ok) {
+    const rows = await response.json().catch(() => []);
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (row?.id) {
+      return json({
+        connection: publicConnection(row),
+        created: true,
+        ordersEnabled: false,
+        liveTradingEnabled: false
+      }, 201, origin, env);
+    }
+  }
+
+  // A concurrent request may have created the row. Re-read under the same user token
+  // rather than returning a duplicate or retrying an uncertain write.
+  const raced = await queryOwnConnections(env, user);
+  if (raced.ok) {
+    const row = raced.rows.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
+    if (row) {
+      return json({
+        connection: publicConnection(row),
+        created: false,
+        ordersEnabled: false,
+        liveTradingEnabled: false
+      }, 200, origin, env);
+    }
+  }
+  return json({ error: "connection_request_failed" }, 503, origin, env);
+}
+
 function publicConnection(row) {
   const providerAllowed = row.provider === "exness_mt5" && row.environment === "demo";
   return {
@@ -180,27 +257,42 @@ async function getConnection(request, env, user, id, origin) {
   }
   return { row };
 }
-async function checkConnection(request, env, user, row, origin) {
+
+const MT5_TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
+const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
+
+function safeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function proxyError(responseStatus, body) {
+  const state = responseStatus === 401 ? "session_rejected"
+    : responseStatus === 403 ? "tenant_guard_rejected"
+      : responseStatus === 404 ? "upstream_not_found"
+        : responseStatus === 409 ? "bridge_not_provisioned"
+          : responseStatus === 503 ? "bridge_or_proxy_unavailable"
+            : responseStatus === 504 ? "bridge_response_timeout" : "mt5_proxy_unavailable";
+  const status = [400, 401, 403, 404, 409].includes(responseStatus) ? responseStatus : 502;
+  return { ok: false, status, error: state, detail: typeof body?.error === "string" ? body.error : undefined };
+}
+async function requestMt5Proxy(env, user, row, path, query = {}) {
   if (row.status !== "connected" || !row.bridge_route_id) {
-    return json({
-      connectionId: row.id,
-      state: "pending_provisioning",
-      dataVerified: false,
-      ordersEnabled: false,
-      liveTradingEnabled: false
-    }, 409, origin, env);
+    return { ok: false, status: 409, error: "pending_provisioning" };
   }
   const proxyBase = String(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL).replace(/\/+$/, "");
   let proxy;
   try {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
-      !proxy.hostname.endsWith(".workers.dev")) throw new Error("invalid proxy");
+      !proxy.hostname.endsWith(".workers.dev") ||
+      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
   } catch {
-    return json({ error: "mt5_proxy_not_configured" }, 503, origin, env);
+    return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
-  const target = new URL("/api/account", proxy.origin);
+
+  const target = new URL(path, proxy.origin);
   target.searchParams.set("connection_id", row.id);
+  for (const [key, value] of Object.entries(query)) target.searchParams.set(key, String(value));
+
   try {
     const response = await fetch(target, {
       method: "GET",
@@ -212,42 +304,150 @@ async function checkConnection(request, env, user, row, origin) {
       redirect: "error",
       signal: AbortSignal.timeout(9000)
     });
-    if (!response.ok) {
-      const error = response.status === 401 ? "session_rejected"
-        : response.status === 403 ? "tenant_guard_rejected"
-          : response.status === 404 ? "connection_not_found"
-            : response.status === 409 ? "bridge_not_provisioned"
-              : "mt5_proxy_unavailable";
-      const status = response.status === 401 || response.status === 403 || response.status === 404 || response.status === 409
-        ? response.status : 502;
-      return json({
-        connectionId: row.id,
-        state: error,
-        dataVerified: false,
-        ordersEnabled: false,
-        liveTradingEnabled: false
-      }, status, origin, env);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return proxyError(response.status, body);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { ok: false, status: 502, error: "mt5_proxy_invalid_response" };
     }
-    // Intentionally discard the account payload: this endpoint verifies the read path without
-    // copying balances, account identifiers, or other broker data into control-plane logs/output.
+    return { ok: true, body };
+  } catch {
+    return { ok: false, status: 502, error: "mt5_proxy_unavailable" };
+  }
+}
+function connectionNotReady(row, origin, env) {
+  return json({
+    connectionId: row.id,
+    state: row.status === "disabled" ? "connection_disabled" : "pending_provisioning",
+    dataVerified: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, row.status === "disabled" ? 403 : 409, origin, env);
+}
+async function checkConnection(request, env, user, row, origin) {
+  const result = await requestMt5Proxy(env, user, row, "/api/account");
+  if (!result.ok) {
     return json({
       connectionId: row.id,
-      state: "data_verified",
-      dataVerified: true,
-      accountReadSucceeded: true,
-      checkedAt: new Date().toISOString(),
+      state: result.error,
+      detail: result.detail,
+      dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
-    }, 200, origin, env);
-  } catch {
+    }, result.status, origin, env);
+  }
+  if (result.body.connected === false) {
     return json({
       connectionId: row.id,
-      state: "mt5_proxy_unavailable",
+      state: "bridge_unavailable",
       dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
     }, 502, origin, env);
   }
+  // Intentionally discard account payload: this endpoint verifies reachability only.
+  return json({
+    connectionId: row.id,
+    state: "data_verified",
+    dataVerified: true,
+    accountReadSucceeded: true,
+    checkedAt: new Date().toISOString(),
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, 200, origin, env);
+}
+async function readAccount(request, env, user, row, origin) {
+  const result = await requestMt5Proxy(env, user, row, "/api/account");
+  if (!result.ok) {
+    return json({
+      connectionId: row.id,
+      state: result.error,
+      detail: result.detail,
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  const data = result.body;
+  if (data.connected !== true) {
+    return json({
+      connectionId: row.id,
+      state: "bridge_unavailable",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
+  return json({
+    connectionId: row.id,
+    state: "data_verified",
+    dataVerified: true,
+    checkedAt: new Date().toISOString(),
+    account: {
+      connected: true,
+      broker: "Exness",
+      platform: "MT5",
+      environment: "demo",
+      server: typeof data.server === "string" ? data.server : null,
+      currency: typeof data.currency === "string" ? data.currency : null,
+      balance: safeNumber(data.balance),
+      equity: safeNumber(data.equity),
+      margin: safeNumber(data.margin),
+      free_margin: safeNumber(data.free_margin ?? data.margin_free),
+      margin_level: safeNumber(data.margin_level),
+      mode: "read-only",
+      order_submission_enabled: false,
+      as_of: typeof data.as_of === "string" ? data.as_of : null
+    },
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, 200, origin, env);
+}
+async function readQuotes(request, env, user, row, origin) {
+  const url = new URL(request.url);
+  const symbol = String(url.searchParams.get("symbol") || "").trim();
+  const timeframe = String(url.searchParams.get("timeframe") || "M5").toUpperCase();
+  const count = url.searchParams.has("count") ? Number(url.searchParams.get("count")) : 100;
+  if (!MT5_SYMBOL.test(symbol)) return json({ error: "valid_mt5_symbol_required" }, 400, origin, env);
+  if (!MT5_TIMEFRAMES.has(timeframe)) return json({ error: "unsupported_mt5_timeframe" }, 400, origin, env);
+  if (!Number.isInteger(count) || count < 1 || count > 500) {
+    return json({ error: "count_must_be_between_1_and_500" }, 400, origin, env);
+  }
+
+  const result = await requestMt5Proxy(env, user, row, "/api/quotes", { symbol, timeframe, count });
+  if (!result.ok) {
+    return json({
+      connectionId: row.id,
+      state: result.error,
+      detail: result.detail,
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  const data = result.body;
+  return json({
+    connectionId: row.id,
+    state: "data_verified",
+    dataVerified: true,
+    quote: {
+      symbol: typeof data.symbol === "string" ? data.symbol : symbol,
+      timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
+      digits: safeNumber(data.digits),
+      tick: data.tick && typeof data.tick === "object" ? {
+        bid: safeNumber(data.tick.bid),
+        ask: safeNumber(data.tick.ask),
+        last: safeNumber(data.tick.last),
+        time: typeof data.tick.time === "string" ? data.tick.time : null
+      } : null,
+      bars: Array.isArray(data.bars) ? data.bars : [],
+      count: Number.isInteger(data.count) ? data.count : (Array.isArray(data.bars) ? data.bars.length : 0),
+      mode: "read-only",
+      order_submission_enabled: false,
+      as_of: typeof data.as_of === "string" ? data.as_of : null
+    },
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, 200, origin, env);
 }
 
 export default {
@@ -290,9 +490,10 @@ export default {
       }, 200, origin, env);
     }
 
-    if (url.pathname === "/v1/connections" && request.method === "GET") {
+    if (url.pathname === "/v1/connections" && (request.method === "GET" || request.method === "POST")) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
       return json({
@@ -303,20 +504,30 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check)$/.exec(url.pathname);
-    if (match && ((match[2] === "status" && request.method === "GET") ||
-      (match[2] === "check" && request.method === "POST"))) {
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    if (match && (
+      (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
+      (match[2] === "check" && request.method === "POST")
+    )) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
+      if (match[2] === "account") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readAccount(request, env, auth, result.row, origin);
+      }
+      if (match[2] === "quotes") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readQuotes(request, env, auth, result.row, origin);
+      }
       const connection = publicConnection(result.row);
       return json({
         ...connection,
         state: connection.readiness,
         dataVerified: false,
-        note: "Status reflects the user's connection record only. Use POST /v1/connections/{id}/check to verify the live read-only account path.",
+        note: "Status reflects the user's connection record only. Use POST /v1/connections/{id}/check or GET /account to verify the live read-only account path.",
       }, 200, origin, env);
     }
 
