@@ -22,6 +22,7 @@ from workers.quant_engine import (
 )
 
 EVALUATOR_VERSION = "nova.ohlcv-ema-evaluator.v1"
+MAX_BACKTEST_BARS = 250_000
 STRATEGY_ID = "ema-crossover-long-flat"
 STRATEGY_VERSION = "1.0.0"
 _SHA = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -325,6 +326,8 @@ def run_ema_crossover_backtest(
     """
     if not isinstance(candles, Sequence) or isinstance(candles, (str, bytes)) or len(candles) < 5:
         raise BacktestInputError("at least five completed OHLCV candles are required")
+    if len(candles) > MAX_BACKTEST_BARS:
+        raise BacktestInputError(f"dataset exceeds the bounded {MAX_BACKTEST_BARS}-bar evaluator limit")
     if not isinstance(strategy_parameters, Mapping):
         raise BacktestInputError("strategy_parameters must be an object")
     if set(strategy_parameters) != {"fast_period", "slow_period"}:
@@ -534,6 +537,14 @@ def run_ema_crossover_backtest(
         "sharpe_annualized": sharpe,
         "sortino_annualized": sortino,
         "volatility_annualized_pct": volatility_pct,
+        "metric_assumptions": {
+            "periods_per_year": periods_per_year,
+            "risk_free_rate_per_period": 0.0,
+            "return_sampling": "bar_close_to_bar_close",
+            "drawdown_sampling": "bar_close_only",
+            "cagr_time_basis": "calendar_elapsed_time_365.25_days",
+            "exposure_definition": "percentage_of_bars_with_an_open_position",
+        },
         "expectancy_account_currency": sum(net_trades) / len(trades) if trades else None,
         "exposure_pct": exposed_bars / len(candles) * 100.0,
         "buy_and_hold_return_pct": _benchmark_return(
