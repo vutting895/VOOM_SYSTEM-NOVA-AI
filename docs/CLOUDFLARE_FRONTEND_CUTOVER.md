@@ -52,7 +52,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
 - Do not enable Live Trading or introduce order submission during this cutover.
 - Do not paste secrets into source files, commits, issues, logs, or chat.
-- Repository source contains no Vercel deployment configuration or Vercel CI workflow. Provider-side GitHub App authorization and any separately retained hosting projects are managed outside this repository and are not changed by source commits.
+- Repository source contains no alternate hosting-provider deployment configuration or CI workflow. Provider-side GitHub App authorization and any separately retained hosting projects are managed outside this repository and are not changed by source commits.
 - Do not report a build, deployment, browser check, or broker connection as successful without observable evidence.
 
 
