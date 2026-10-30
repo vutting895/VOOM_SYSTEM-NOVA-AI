@@ -5,6 +5,7 @@ from workers.deep_research import (
     ContractValidationError,
     validate_research_claim,
     validate_research_hypothesis,
+    validate_research_evidence_graph,
     validate_research_source,
     validate_research_task,
 )
