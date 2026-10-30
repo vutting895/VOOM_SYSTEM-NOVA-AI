@@ -153,6 +153,8 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
         parsed = urlparse(uri)
     except ValueError as exc:
         raise ContractValidationError("uri is malformed") from exc
+    if any(ord(character) < 0x21 or ord(character) == 0x7F for character in uri):
+        raise ContractValidationError("uri must not contain whitespace or control characters")
     host = parsed.hostname or ""
     try:
         port = parsed.port
@@ -187,8 +189,9 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
         or any(ascii_host == suffix[1:] or ascii_host.endswith(suffix) for suffix in _RESERVED_HOST_SUFFIXES)
     ):
         raise ContractValidationError("uri must use a valid public DNS hostname")
-    if any(key.lower() in _SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
-        raise ContractValidationError("uri must not contain credential-like query parameters")
+    query_and_fragment = parsed.query + "&" + parsed.fragment
+    if any(key.lower() in _SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(query_and_fragment, keep_blank_values=True)):
+        raise ContractValidationError("uri must not contain credential-like query or fragment parameters")
     result["uri"] = uri
     for field in ("title", "publisher", "extractor_version"):
         result[field] = _text(obj[field], field, maximum=1_000)
