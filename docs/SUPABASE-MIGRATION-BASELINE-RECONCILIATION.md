@@ -190,9 +190,9 @@ Decision: treat `Voom_system` as the current configured runtime database baselin
 
 ### 3.4 Current runtime public-table schema fingerprint (read-only)
 
-The `list_tables(verbose=true)` catalog inventory returned 19 public tables. All 19 report RLS enabled. The following is a compact metadata fingerprint (table/column count/primary key/foreign-key targets); it does not include customer rows or column values and is not a substitute for schema-only SQL export.
+The `list_tables(verbose=true)` catalog inventory returned 19 public tables. All 19 report RLS enabled. The following is a compact metadata fingerprint (table/column count/primary key/foreign-key relationships); relationships can include incoming or outgoing references as surfaced by the catalog inventory. It does not include customer rows or column values and is not a substitute for schema-only SQL export.
 
-| Public table | Columns | Primary key | Foreign-key targets | RLS |
+| Public table | Columns | Primary key | FK-related tables (incoming/outgoing) | RLS |
 |---|---:|---|---|---|
 | `customer_profiles` | 6 | `user_id` | `auth.users` | enabled |
 | `trading_sessions` | 11 | `id` | `auth.users`, `trading_sessions`, `strategy_signals`, `customer_ai_subscriptions` | enabled |
