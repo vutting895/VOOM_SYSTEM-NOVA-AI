@@ -151,3 +151,26 @@ References added after network compatibility review:
 - Supabase connection methods and Free-plan IPv6/IPv4 table: https://supabase.com/docs/guides/database/connecting-to-postgres
 - Hyperdrive transaction pooling and connection minimum: https://developers.cloudflare.com/hyperdrive/concepts/connection-pooling/
 - Hyperdrive no-cache behavior and CLI switch: https://developers.cloudflare.com/hyperdrive/concepts/query-caching/
+
+## 12. Supabase-managed Vault grants and the service_role boundary
+
+The current Supabase Knowledge Base documents that Vault installation grants the built-in `service_role` role schema `USAGE`, `SELECT`/`DELETE` on Vault tables and views, and `EXECUTE` on selected Vault functions including `vault._crypto_aead_det_decrypt`. Supabase also documents that attempts by `postgres` to revoke grants on Supabase-managed extension objects can have no effect when the object is owned by `supabase_admin`; exact grants can vary by Vault version.
+
+This changes the acceptance wording:
+
+- Do not promise that a hosted migration can remove platform-managed Vault grants from `service_role`.
+- Do not use `service_role`, a role that inherits it, or a database login with membership in it as the customer-secret consumer.
+- Keep `vault` out of the Data API exposed schemas and do not create an exposed RPC/function that reads or returns Vault secrets.
+- Use a dedicated runtime login that is not a member of `service_role`, cannot access Vault tables/views or Vault extension functions directly, and can execute only the private accessor.
+- Keep the private function schema unexposed. `service_role` must not receive USAGE on it or EXECUTE on the accessor.
+- Verify the actual object owner and ACLs on the exact project/Vault version. Do not claim that a GRANT/REVOKE changed an extension-managed ACL unless catalog evidence proves the effective privilege changed.
+
+The local proof must model this honestly: it may verify that `nova_vault_api` is outside the `service_role` membership chain and cannot access Vault or invoke Vault extension functions directly. It must not assert that the platform-managed `service_role` role itself has lost its default Vault grants.
+
+If the product threat model requires that even a privileged Supabase `service_role` credential be intrinsically unable to read customer Secrets, Supabase Vault alone is not an adequate custody boundary under the documented platform grants. Stop before staging and evaluate an independently controlled secret store instead of attempting unsupported revokes.
+
+References:
+- Supabase Vault privilege troubleshooting and service_role caveat: https://supabase.com/kb/troubleshooting/revoking-privileges-on-storage-pg_cron-vault-and-extension-objects-has-no-effect
+- Supabase Vault encrypted storage and decrypted view: https://supabase.com/docs/guides/database/vault
+- Supabase database function security and function privileges: https://supabase.com/docs/guides/database/functions
+
