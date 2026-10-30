@@ -5,7 +5,7 @@ This project is a **disposable, local-only proof harness** for the candidate ded
 ## What this proves
 
 - A dedicated runtime login role has no direct access to vault.secrets or vault.decrypted_secrets.
-- A non-login function owner has only the read privilege required by the proof function.
+- A non-login function owner has SELECT on the decrypted view and EXECUTE on only the internal decrypt helper required by that view.
 - The runtime role can execute one fixed function in a non-exposed private schema.
 - anon, authenticated, and service_role cannot call that function.
 - The function binds the supplied authenticated owner, tenant, connection, provider, environment, generation, and READY state to one exact secret.
@@ -33,6 +33,14 @@ The project uses its own supabase/config.toml, a non-default local database port
 - This directory is not included in the canonical supabase/migrations path.
 - It does not create a production migration, change hosted grants, configure Hyperdrive, add a System Hub route, accept customer credentials, or deploy a Worker.
 - Exness MT5 remains on its existing per-tenant Bridge path. Order submission and Live Trading remain disabled.
+
+## Supabase-managed service_role limitation
+
+Supabase-managed Vault objects can be owned by `supabase_admin`. The project `postgres` role cannot revoke grants made by that object owner. Standard Supabase Vault setup grants `service_role` Vault schema usage, SELECT/DELETE on Vault tables/views, and EXECUTE on the internal decrypt function. This proof therefore **does not claim that `service_role` has been stripped of its platform-managed Vault access**.
+
+The acceptance boundary proved here is narrower and explicit: `nova_vault_api` is not a member of `service_role`, receives no direct Vault schema/table/view privileges, and can invoke only the private accessor; `anon`, `authenticated`, and PUBLIC have no direct access in this isolated local setup. `service_role` cannot execute the new private accessor. Do not use `service_role` as the customer-secret consumer or expose the `vault` schema through the Data API.
+
+If the security requirement is that even a privileged `service_role` key must be unable to read any Vault secret, Supabase Vault is not sufficient as the sole custody boundary under these platform-managed grants. Stop and evaluate a separate approved secret store rather than attempting unsupported revokes or claiming the grants were removed.
 
 
 - The migration runner receives explicit SET-only membership to the function-owner and runtime roles inside this disposable database so pgTAP can exercise the real effective privileges. These grants are local test scaffolding only and must not be copied into a hosted migration.
