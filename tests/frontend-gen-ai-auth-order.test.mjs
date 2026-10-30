@@ -42,7 +42,7 @@ test("Gen AI strategy page labels Google Gemini as a model provider", async () =
     new URL("../frontend/app/gen-ai/page.jsx", import.meta.url),
     "utf8",
   );
-  assert.match(pageSource, /data\\.llm\\?\\.provider === 'gemini' \\? 'Google Gemini'/);
-  assert.match(pageSource, /data\\.llm\\?\\.provider === 'cloudflare-workers-ai' \\? 'Cloudflare Workers AI'/);
-  assert.match(pageSource, /Rule-based fallback/);
+  assert.ok(pageSource.includes("data.llm?.provider === 'gemini' ? 'Google Gemini'"));
+  assert.ok(pageSource.includes("data.llm?.provider === 'cloudflare-workers-ai' ? 'Cloudflare Workers AI'"));
+  assert.ok(pageSource.includes("Rule-based fallback"));
 });
