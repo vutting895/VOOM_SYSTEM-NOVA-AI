@@ -127,7 +127,7 @@ def validate_skill_spec(
             raise SkillSpecError("Skill references a tool outside the server-owned allowlist")
 
     data_scope = raw["data_scope"]
-    if data_scope not in DATA_SCOPES:
+    if not isinstance(data_scope, str) or data_scope not in DATA_SCOPES:
         raise SkillSpecError("data_scope must be public_research or owner_workspace")
 
     preconditions = _identifier_list(raw["preconditions"], "preconditions", minimum=1, maximum=10)
