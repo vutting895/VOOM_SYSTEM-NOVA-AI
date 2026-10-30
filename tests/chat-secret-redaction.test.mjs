@@ -28,7 +28,7 @@ test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', 
 test('redacts short Basic authorization credentials', () => {
   const result = redactSensitiveText('Authorization: Basic YTpi');
   assert.doesNotMatch(result, /YTpi/);
-  assert.match(result, /\\[REDACTED\\]/);
+  assert.match(result, /\[REDACTED\]/);
 });
 
 test('redacts PEM private keys and preserves ordinary prose', () => {
