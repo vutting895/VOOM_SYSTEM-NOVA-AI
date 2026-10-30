@@ -87,6 +87,14 @@ class ExnessMT5AdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(caught.exception.code, "owner_scope_mismatch")
         self.assertEqual(hub.calls, [])
 
+    async def test_invalid_connection_id_is_rejected_before_hub_request(self):
+        hub = FakeHubClient()
+        invalid = BrokerConnection("not-a-uuid", OWNER_ID, "exness_mt5", "demo", "connected", ReadOnlyCapabilities())
+        with self.assertRaises(AdapterError) as caught:
+            await ExnessMT5Adapter(hub).verify(invalid)
+        self.assertEqual(caught.exception.code, "invalid_connection_id")
+        self.assertEqual(hub.calls, [])
+
     async def test_provider_environment_and_revocation_are_fail_closed(self):
         hub = FakeHubClient()
         adapter = ExnessMT5Adapter(hub)
@@ -142,6 +150,8 @@ class ExnessMT5AdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(caught.exception.code, "hub_symbol_mismatch")
         with self.assertRaises(AdapterError):
             await adapter.market_data_snapshot(connection(), tuple(f"SYM{i}" for i in range(11)))
+        with self.assertRaises(AdapterError):
+            await adapter.market_data_snapshot(connection(), (["not-hashable"],))
 
     async def test_market_data_capability_is_enforced(self):
         adapter = ExnessMT5Adapter(FakeHubClient())
