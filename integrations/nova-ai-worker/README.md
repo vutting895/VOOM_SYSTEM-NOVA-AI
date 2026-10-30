@@ -35,3 +35,5 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - If Gemini is not configured, the existing Cloudflare Workers AI path remains active. If Gemini is configured but fails, chat returns 503 without silent provider switching; strategy generation returns a clearly labelled, non-executable rule-based fallback.
 - Configure with `npx wrangler secret put GEMINI_API_KEY` from this directory. Do not commit the value. Set `GEMINI_MODEL` as a non-secret Worker variable only if needed.
 - `GET /health` reports only whether the Gemini secret is configured, never its value.
+- Billable Gemini and Cloudflare AI calls require the Cloudflare Worker rate-limit binding `AI_RATE_LIMITER`. It is keyed by the authenticated Supabase user ID, limited to 30 requests per 60 seconds, and fails closed with HTTP 503 if the binding is unavailable or HTTP 429 when the limit is exceeded.
+- The rate-limit binding is enforced before both chat and strategy-generation provider calls. Its health status is exposed only as a boolean.
