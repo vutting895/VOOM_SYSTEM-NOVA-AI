@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), "utf8");
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
+const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_proof.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 
@@ -48,4 +49,23 @@ test("CI runs only disposable local Supabase commands and injects no platform cr
   assert.match(workflow, /supabase test db --local/);
   assert.match(workflow, /supabase stop/);
   assert.doesNotMatch(workflow, /SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE|CLOUDFLARE_API_TOKEN|DATABASE_URL|supabase link|db push --linked/i);
+});
+
+test("only a signed, short-lived assertion can enter the local Vault accessor", () => {
+  assert.match(signedMigration, /create extension if not exists pgcrypto with schema extensions/i);
+  assert.match(signedMigration, /extensions\.hmac\(/i);
+  assert.match(signedMigration, /NOVA-VAULT-ASSERTION-V1/);
+  assert.match(signedMigration, /p_expires_at - p_issued_at > 60/);
+  assert.match(signedMigration, /assertion_nonce_consumption/);
+  assert.match(signedMigration, /constant_time_equal_32/);
+  assert.match(signedMigration, /revoke all on function nova_vault_private\.get_secret_for_connection_use/i);
+  assert.match(signedMigration, /grant execute on function nova_vault_private\.get_secret_for_signed_connection_use/i);
+  assert.match(signedMigration, /SYNTHETIC|LOCAL-ONLY-HMAC/);
+  assert.doesNotMatch(signedMigration, /ALTER ROLE/i);
+});
+
+test("runtime role cannot directly read assertion key or nonce metadata", () => {
+  assert.match(signedMigration, /revoke all on table nova_vault_private\.assertion_verifier_keys/i);
+  assert.match(signedMigration, /revoke all on table nova_vault_private\.assertion_nonce_consumption/i);
+  assert.match(signedMigration, /revoke all on function nova_vault_private\.constant_time_equal_32/i);
 });
