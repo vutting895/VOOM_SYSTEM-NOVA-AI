@@ -18,7 +18,7 @@ create table nova_vault_private.operation_journal (
   safe_error_code text check (safe_error_code is null or safe_error_code ~ '^[A-Z0-9_]{1,64}$'),
   created_at timestamptz not null default pg_catalog.clock_timestamp(),
   updated_at timestamptz not null default pg_catalog.clock_timestamp(),
-  primary key (key_id, operation_id),
+  primary key (tenant_id, operation_id),
   check (
     (state = 'IN_PROGRESS' and lease_token is not null and lease_expires_at is not null and sanitized_result is null)
     or (state = 'SUCCEEDED' and lease_token is null and lease_expires_at is null and sanitized_result is not null)
@@ -83,7 +83,7 @@ begin
 
   select * into strict v_row
     from nova_vault_private.operation_journal
-   where key_id = p_key_id and operation_id = p_operation_id
+   where tenant_id = p_tenant_id and operation_id = p_operation_id
    for update;
 
   if v_row.owner_id <> p_owner_id
@@ -107,7 +107,7 @@ begin
            lease_expires_at = null,
            updated_at = pg_catalog.clock_timestamp(),
            safe_error_code = 'LEASE_EXPIRED_OUTCOME_UNKNOWN'
-     where key_id = p_key_id and operation_id = p_operation_id;
+     where tenant_id = p_tenant_id and operation_id = p_operation_id;
     return 'RECONCILIATION_REQUIRED';
   end if;
 
@@ -251,7 +251,6 @@ alter function nova_vault_private.resolve_operation_unknown(text,uuid,bytea,text
   owner to nova_vault_fn_owner;
 
 create or replace function nova_vault_private.get_operation_result(
-  p_key_id text,
   p_operation_id uuid,
   p_owner_id uuid,
   p_tenant_id uuid
@@ -264,25 +263,24 @@ set search_path = ''
 as $function$
   select j.sanitized_result
     from nova_vault_private.operation_journal as j
-   where j.key_id = p_key_id
-     and j.operation_id = p_operation_id
+   where j.operation_id = p_operation_id
      and j.owner_id = p_owner_id
      and j.tenant_id = p_tenant_id
      and j.state = 'SUCCEEDED';
 $function$;
-alter function nova_vault_private.get_operation_result(text,uuid,uuid,uuid)
+alter function nova_vault_private.get_operation_result(uuid,uuid,uuid)
   owner to nova_vault_fn_owner;
 
 revoke all on function nova_vault_private.claim_operation(text,uuid,uuid,uuid,uuid,text,text,bytea,uuid) from public, anon, authenticated, service_role;
 revoke all on function nova_vault_private.complete_operation(text,uuid,uuid,jsonb) from public, anon, authenticated, service_role;
 revoke all on function nova_vault_private.mark_operation_unknown(text,uuid,uuid,text) from public, anon, authenticated, service_role;
 revoke all on function nova_vault_private.resolve_operation_unknown(text,uuid,bytea,text,jsonb,text) from public, anon, authenticated, service_role, nova_vault_api;
-revoke all on function nova_vault_private.get_operation_result(text,uuid,uuid,uuid) from public, anon, authenticated, service_role;
+revoke all on function nova_vault_private.get_operation_result(uuid,uuid,uuid) from public, anon, authenticated, service_role;
 
 grant execute on function nova_vault_private.claim_operation(text,uuid,uuid,uuid,uuid,text,text,bytea,uuid) to nova_vault_api;
 grant execute on function nova_vault_private.complete_operation(text,uuid,uuid,jsonb) to nova_vault_api;
 grant execute on function nova_vault_private.mark_operation_unknown(text,uuid,uuid,text) to nova_vault_api;
-grant execute on function nova_vault_private.get_operation_result(text,uuid,uuid,uuid) to nova_vault_api;
+grant execute on function nova_vault_private.get_operation_result(uuid,uuid,uuid) to nova_vault_api;
 
 alter default privileges for role nova_vault_fn_owner
   in schema nova_vault_private
