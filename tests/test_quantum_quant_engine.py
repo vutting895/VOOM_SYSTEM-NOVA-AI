@@ -72,5 +72,46 @@ class QuantumQuantEngineTests(unittest.TestCase):
         self.assertFalse(result["live_trading_enabled"])
         self.assertFalse(result["order_submission_enabled"])
 
+
+    def test_classical_scaler_is_isolated_from_quantum_preprocessing(self):
+        engine = QuantumQuantEngine(seed=19)
+        engine.fit_classical(self.features, self.labels)
+        before = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
+        )["bullish_probability"]
+        engine._fit_standardizer(self.features + 100.0, backend="quantum")
+        after = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
+        )["bullish_probability"]
+        self.assertEqual(before, after)
+
+    def test_broker_maximum_and_volume_step_are_respected(self):
+        result = QuantumQuantEngine().run_risk_filter(
+            "EURUSD", 10_000, 50,
+            loss_per_lot_account_ccy=1,
+            account_currency="USD",
+            min_volume=0.1,
+            max_volume=0.15,
+            volume_step=0.1,
+        )
+        self.assertEqual(result["calculated_volume_lots"], 0.1)
+        self.assertEqual(result["reason_code"], "VOLUME_CAPPED_AT_BROKER_MAX")
+        self.assertLessEqual(result["calculated_volume_lots"], 0.15)
+        self.assertLessEqual(result["estimated_stop_loss_account_ccy"], 200.0)
+
+    def test_non_usd_account_uses_account_currency_budget(self):
+        result = QuantumQuantEngine().run_risk_filter(
+            "EURGBP", 10_000, 50,
+            pip_value_per_lot=10,
+            pip_value_currency="GBP",
+            account_currency="GBP",
+            min_volume=0.01,
+            max_volume=100,
+            volume_step=0.01,
+        )
+        self.assertEqual(result["calculated_volume_lots"], 0.4)
+        self.assertIsNone(result["risk_usd"])
+        self.assertEqual(result["risk_budget_account_ccy"], 200.0)
+
 if __name__ == "__main__":
     unittest.main()
