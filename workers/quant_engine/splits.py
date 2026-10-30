@@ -22,6 +22,22 @@ class WalkForwardWindow:
     test_end: int  # exclusive
 
 
+def purge_bars_for_label_horizon(max_label_horizon_bars: int) -> int:
+    """Return the minimum boundary purge for a forward label/outcome horizon.
+
+    The caller must derive max_label_horizon_bars from the strategy's actual
+    maximum forward label or overlapping outcome window and persist that
+    derivation in the experiment manifest. This helper does not infer it.
+    """
+    if (
+        isinstance(max_label_horizon_bars, bool)
+        or not isinstance(max_label_horizon_bars, int)
+        or max_label_horizon_bars < 0
+    ):
+        raise ValueError("max_label_horizon_bars must be a non-negative integer")
+    return max_label_horizon_bars
+
+
 def chronological_split(
     rows: Sequence[Any],
     *,
@@ -64,9 +80,11 @@ def walk_forward_windows(
 ) -> tuple[WalkForwardWindow, ...]:
     """Create reproducible rolling or expanding train/test windows.
 
-    Test windows are later than training windows. Purged bars are excluded
-    between train and test. Incomplete trailing test windows are omitted.
-    The function does not tune parameters or touch a reserved final OOS period.
+    Test windows are non-overlapping by default. Overlapping test folds are
+    rejected because naive aggregate metrics would double-count observations.
+    Purge bars are excluded between each fold's train and test. Incomplete
+    trailing test windows are omitted. A reserved final OOS period must be
+    excluded by the caller before constructing these windows.
     """
     step = test_bars if step_bars is None else step_bars
     for name, value, minimum in (
@@ -77,6 +95,8 @@ def walk_forward_windows(
     ):
         if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             raise ValueError(f"{name} must be an integer >= {minimum}")
+    if step < test_bars:
+        raise ValueError("step_bars must be >= test_bars to prevent overlapping test folds")
     if isinstance(purge_bars, bool) or not isinstance(purge_bars, int) or purge_bars < 0:
         raise ValueError("purge_bars must be a non-negative integer")
 
