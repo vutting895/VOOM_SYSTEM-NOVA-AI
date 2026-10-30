@@ -107,20 +107,20 @@ set search_path = ''
 as $function$
   select extensions.hmac(
     pg_catalog.convert_to(
-        'NOVA-VAULT-ASSERTION-V1' || E'\\n'
-      || p_issuer || E'\\n'
-      || p_audience || E'\\n'
-      || p_key_id || E'\\n'
-      || p_owner_id::text || E'\\n'
-      || p_tenant_id::text || E'\\n'
-      || p_connection_id::text || E'\\n'
-      || p_provider || E'\\n'
-      || p_environment || E'\\n'
-      || p_capability || E'\\n'
-      || p_generation::text || E'\\n'
-      || p_operation_id::text || E'\\n'
-      || p_nonce::text || E'\\n'
-      || p_issued_at::text || E'\\n'
+        'NOVA-VAULT-ASSERTION-V1' || E'\n'
+      || p_issuer || E'\n'
+      || p_audience || E'\n'
+      || p_key_id || E'\n'
+      || p_owner_id::text || E'\n'
+      || p_tenant_id::text || E'\n'
+      || p_connection_id::text || E'\n'
+      || p_provider || E'\n'
+      || p_environment || E'\n'
+      || p_capability || E'\n'
+      || p_generation::text || E'\n'
+      || p_operation_id::text || E'\n'
+      || p_nonce::text || E'\n'
+      || p_issued_at::text || E'\n'
       || p_expires_at::text,
       'UTF8'
     ),
@@ -137,67 +137,6 @@ revoke all on function nova_vault_private._test_make_mac(
 -- Test-only invoker helper: executes the signed accessor as nova_vault_api and
 -- writes either an MD5 comparison digest or a denial boolean to a private GUC.
 -- It never returns or prints secret material.
-create function nova_vault_private._test_try_signed(
-  p_version integer,
-  p_issuer text,
-  p_audience text,
-  p_key_id text,
-  p_owner_id uuid,
-  p_tenant_id uuid,
-  p_connection_id uuid,
-  p_provider text,
-  p_environment text,
-  p_capability text,
-  p_generation bigint,
-  p_operation_id uuid,
-  p_nonce uuid,
-  p_issued_at bigint,
-  p_expires_at bigint,
-  p_mac bytea,
-  p_expect_denied boolean,
-  p_result_name text
-)
-returns void
-language plpgsql
-volatile
-security invoker
-set search_path = ''
-as $function$
-declare
-  v_secret text;
-begin
-  if p_result_name !~ '^nova_vault_proof\\.[a-z0-9_]+$' then
-    raise exception 'invalid test result setting';
-  end if;
-
-  if p_expect_denied then
-    begin
-      v_secret := nova_vault_private.get_secret_for_connection_use_signed(
-        p_version, p_issuer, p_audience, p_key_id,
-        p_owner_id, p_tenant_id, p_connection_id,
-        p_provider, p_environment, p_capability, p_generation,
-        p_operation_id, p_nonce, p_issued_at, p_expires_at, p_mac
-      );
-      perform pg_catalog.set_config(p_result_name, 'false', false);
-    exception when sqlstate '28000' then
-      perform pg_catalog.set_config(p_result_name, 'true', false);
-    end;
-  else
-    v_secret := nova_vault_private.get_secret_for_connection_use_signed(
-      p_version, p_issuer, p_audience, p_key_id,
-      p_owner_id, p_tenant_id, p_connection_id,
-      p_provider, p_environment, p_capability, p_generation,
-      p_operation_id, p_nonce, p_issued_at, p_expires_at, p_mac
-    );
-    perform pg_catalog.set_config(p_result_name, pg_catalog.md5(v_secret), false);
-  end if;
-end;
-$function$;
-
-grant execute on function nova_vault_private._test_try_signed(
-  integer, text, text, text, uuid, uuid, uuid, text, text, text,
-  bigint, uuid, uuid, bigint, bigint, bytea, boolean, text
-) to nova_vault_api;
 
 select pg_catalog.set_config(
   'nova_vault_proof.now',
@@ -402,7 +341,7 @@ select pg_catalog.set_config(
 select pg_catalog.set_config(
   'nova_vault_proof.mac_unknown_key_format',
   pg_catalog.encode(nova_vault_private._test_make_mac(
-    'voom-system-hub', 'nova-vault-access', E'bad\\nkey-id',
+    'voom-system-hub', 'nova-vault-access', E'bad\nkey-id',
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000011',
     '00000000-0000-4000-8000-000000000101',
@@ -446,7 +385,7 @@ as $function$
 declare
   v_secret text;
 begin
-  if p_result_name !~ '^nova_vault_proof\\.[a-z0-9_]+$' then
+  if p_result_name !~ '^nova_vault_proof\.[a-z0-9_]+$' then
     raise exception 'invalid test result setting';
   end if;
 
