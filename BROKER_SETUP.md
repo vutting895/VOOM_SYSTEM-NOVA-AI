@@ -1,23 +1,33 @@
 # Broker connectivity setup (NOVA)
 
-The server-side endpoint `GET /api/broker/status?broker=binance|bybit|mt5` checks connectivity only. Every response keeps `tradingEnabled: false`; no order endpoint exists.
+## Active connection model
 
-## Binance
-Set server environment variables `BINANCE_API_KEY` and `BINANCE_API_SECRET`. The endpoint signs a request to `GET /api/v3/account`. Create a read-only key; disable trading and withdrawals; enable IP restrictions.
+The customer-facing broker API is authenticated with the customer's Supabase session. It does not accept broker passwords or provider API secrets from the frontend.
 
-## Bybit
-Set `BYBIT_API_KEY` and `BYBIT_API_SECRET`. The endpoint signs a request to `GET /v5/account/wallet-balance` for a Unified account. Disable trade/withdrawal permissions and restrict source IPs.
+- **Exness MT5 Demo:** the supported private-account path is Next.js → System Integration Hub → MT5 read-only Proxy → tenant-isolated Relay → the customer's assigned Windows Bridge.
+- **Public market checks:** OKX, Coinbase, Kraken and Bitget checks use public time endpoints only. A successful check does not mean a customer account is connected.
+- **Binance / Bybit private accounts:** account credential verification is currently blocked/not enabled. The status API does not read `BINANCE_API_KEY`, `BINANCE_API_SECRET`, `BINANCE_SECRET_KEY`, `BYBIT_API_KEY` or `BYBIT_API_SECRET`.
+- **IBKR:** no active account adapter is configured. A local `127.0.0.1` Gateway/TWS address would refer to the machine running the adapter, not a remote customer's computer.
 
-## MetaTrader 5
-Set `MT5_BRIDGE_HEALTH_URL` and `MT5_BRIDGE_TOKEN`. The bridge must accept a Bearer token and return JSON `{"status":"ok"}` after token validation. Use HTTPS outside localhost. A broker/terminal-specific bridge is not included here and must be installed and reviewed separately.
+## Exness MT5 Demo
 
-## Local PowerShell example
-Set secrets in the server process environment; do not paste them into chat or commit them:
-```powershell
-$env:BINANCE_API_KEY = '...'
-$env:BINANCE_API_SECRET = '...'
-npm run dev
-```
+1. The customer requests an Exness Demo connection while signed in.
+2. The System Integration Hub keeps the pending/connected state and owner binding.
+3. An administrator provisions a unique tenant route and matching private Bridge token.
+4. The Windows Bridge reads the MT5 terminal session already logged in to the intended Exness Demo account. It does not accept or store the customer's MT5 password.
+5. The connection is considered connected only after the authenticated account-read path has been verified end to end.
 
-## Production gate (important)
-This repository currently has no user-authentication/session layer for the broker-status API. Do not expose the app publicly with exchange credentials configured until the endpoint is protected by authenticated sessions/authorization, rate limiting, audit logging, secret rotation and HTTPS. The current API only checks connectivity and never places orders; it is not a complete multi-user credential vault or a production trading system. Keep keys read-only until a separate security review and end-to-end paper-trading test pass.
+The Bridge's private files live under `%LOCALAPPDATA%\VOOM_SYSTEM\secrets\`. The tenant token is unique to one Bridge and is paired with the Cloudflare Worker secret `MT5_TENANT_ROUTES`. Do not place `MT5_LOGIN`, `MT5_PASSWORD`, `MT5_SERVER`, `MT5_TENANT_ID` or `MT5_BRIDGE_TOKEN` in the repository, browser environment, shared root `.env`, chat, or issue comments.
+
+See [the MT5 read-only Bridge guide](integrations/mt5-readonly-bridge/README.md) for the exact local setup and tenant-isolation checks.
+
+## Environment placement
+
+- Frontend public configuration belongs in Netlify site settings for production or `frontend/.env.local` for local development. Start from `frontend/.env.example`.
+- Cloudflare Worker runtime variables and secrets belong to the specific Worker deployment, supplied through the reviewed GitHub Actions workflow / Cloudflare configuration. Do not copy them into the frontend.
+- Customer-owned provider credentials remain disabled until the dedicated Vault role, trusted owner binding, privilege audit, rotation/revocation checks and two-customer staging isolation gates pass.
+- Exness MT5 terminal/Bridge credentials stay in the tenant-specific Bridge/Relay boundary; they are not customer Vault credentials.
+
+## Safety
+
+Read-only + AI Analysis remains mandatory. Order submission, position mutation, transfer, withdrawal and Live Trading remain disabled. A public market-data response, passing CI, or healthy Worker alone is not proof that a customer's broker account is connected.
