@@ -92,7 +92,7 @@ declare
   v_now bigint;
 begin
   v_now := pg_catalog.floor(
-    pg_catalog.extract(epoch from pg_catalog.clock_timestamp())
+    extract(epoch from pg_catalog.clock_timestamp())
   )::bigint;
 
   perform pg_catalog.set_config('nova_vault_proof.now', v_now::text, false);
@@ -333,6 +333,21 @@ select extensions.is(
   has_function_privilege('nova_vault_api', 'nova_vault_private.constant_time_equal_32(bytea,bytea)', 'EXECUTE'),
   false,
   'runtime login cannot execute the MAC comparison helper directly'
+);
+
+select extensions.ok(
+  has_function_privilege('nova_vault_fn_owner', 'extensions.hmac(bytea,bytea,text)', 'EXECUTE'),
+  'non-login function owner can call the required HMAC primitive'
+);
+
+select extensions.is(
+  has_function_privilege(
+    'service_role',
+    'nova_vault_private.get_secret_for_signed_connection_use(integer,text,text,text,uuid,uuid,uuid,text,text,text,bigint,uuid,uuid,bigint,bigint,bytea)',
+    'EXECUTE'
+  ),
+  false,
+  'service_role cannot invoke the private signed Secret accessor'
 );
 
 select extensions.ok(
