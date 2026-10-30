@@ -1,0 +1,187 @@
+{
+  "schemaVersion": "nova.strategy-catalog.v1",
+  "catalogVersion": "1.0.0",
+  "markets": [
+    {
+      "value": "XAU/USD",
+      "label": "XAUUSD · Gold"
+    },
+    {
+      "value": "BTC/USDT",
+      "label": "BTC / USDT"
+    },
+    {
+      "value": "ETH/USDT",
+      "label": "ETH / USDT"
+    },
+    {
+      "value": "EUR/USD",
+      "label": "EUR / USD"
+    },
+    {
+      "value": "US30",
+      "label": "US30 Index"
+    }
+  ],
+  "riskProfiles": [
+    {
+      "value": "low",
+      "label": "Conservative",
+      "detail": "เน้นการคัดกรองและความระมัดระวัง"
+    },
+    {
+      "value": "medium",
+      "label": "Balanced",
+      "detail": "สมดุลระหว่างโอกาสและความเสี่ยง"
+    },
+    {
+      "value": "high",
+      "label": "Advanced",
+      "detail": "สำหรับการวิจัยเชิงลึก ไม่ใช่การเพิ่มความเสี่ยงอัตโนมัติ"
+    }
+  ],
+  "analysisStyles": [
+    {
+      "value": "guided",
+      "label": "Guided · อธิบายเป็นขั้นตอน"
+    },
+    {
+      "value": "technical",
+      "label": "Technical · เน้นข้อมูลเชิงเทคนิค"
+    }
+  ],
+  "strategies": [
+    {
+      "id": "smc-precision",
+      "code": "STRATEGY 001",
+      "name": "SMC Precision",
+      "description": "อ่านโครงสร้างตลาดและสภาพคล่อง เพื่อจัดทำแผนวิจัยที่อธิบายเหตุผลได้",
+      "focus": "BOS · CHoCH · Order Blocks · FVG",
+      "markets": "Forex · Metals · Crypto",
+      "supportedMarkets": [
+        "XAU/USD",
+        "BTC/USDT",
+        "ETH/USDT",
+        "EUR/USD",
+        "US30"
+      ],
+      "defaultMarket": "XAU/USD",
+      "timeframe": "H1 · H4",
+      "supportedTimeframes": [
+        "H1",
+        "H4"
+      ],
+      "strategyVersion": "1.0.0-research",
+      "status": "research-only",
+      "statusLabel": "RESEARCH ONLY",
+      "statusDetail": "มี SMC analyzer และ baseline backtest บน main แต่ยังเป็น heuristic research ไม่ใช่กลยุทธ์ที่อนุมัติใช้งานจริง",
+      "researchOperations": [
+        "analyze",
+        "backtest"
+      ],
+      "engine": {
+        "id": "smc-wave",
+        "state": "implemented",
+        "sourcePath": "workers/feature/smc_wave/smc_strategy.py",
+        "version": "1.0.0-research"
+      },
+      "evidence": {
+        "implementation": "present-on-main",
+        "performance": "not-verified",
+        "notes": "SMC structure-break baseline is research-only; no profitability claim or strategy promotion."
+      },
+      "safety": {
+        "researchOnly": true,
+        "tradeAuthorized": false,
+        "orderSubmissionEnabled": false,
+        "liveTradingEnabled": false
+      }
+    },
+    {
+      "id": "wave3-confluence",
+      "code": "STRATEGY 002",
+      "name": "Wave3 Confluence",
+      "description": "ผสาน Wave Structure, Fibonacci Retracement และ SMC เพื่อค้นหาจังหวะที่มี confluence",
+      "focus": "Wave 1/2 · Fibonacci · SMC",
+      "markets": "XAUUSD · BTCUSD",
+      "supportedMarkets": [
+        "XAU/USD",
+        "BTC/USDT"
+      ],
+      "defaultMarket": "XAU/USD",
+      "timeframe": "H1 · H4",
+      "supportedTimeframes": [
+        "M15",
+        "H1",
+        "H4"
+      ],
+      "strategyVersion": "6.2.6.3-research",
+      "status": "blocked",
+      "statusLabel": "BLOCKED · FINAL OOS",
+      "statusDetail": "ผลที่บันทึกไว้มี 0 closed trades, accuracy ต่ำกว่า majority baseline และ SMC score สูงสุด 75/100 จึงยังไม่ผ่านเกณฑ์",
+      "researchOperations": [],
+      "engine": {
+        "id": "wave3-xgb-lstm",
+        "state": "branch-only",
+        "sourcePath": null,
+        "version": "6.2.6.3"
+      },
+      "evidence": {
+        "implementation": "draft-pr-66-not-on-main",
+        "performance": "blocked",
+        "notes": "Keep frozen strategy and risk gates unchanged; reconcile the branch and obtain a passing, reproducible OOS report before enabling research runs."
+      },
+      "safety": {
+        "researchOnly": true,
+        "tradeAuthorized": false,
+        "orderSubmissionEnabled": false,
+        "liveTradingEnabled": false
+      }
+    },
+    {
+      "id": "ai-market-scout",
+      "code": "STRATEGY 003",
+      "name": "AI Market Scout",
+      "description": "ผู้ช่วยสำรวจบริบทตลาดและจัดลำดับสินทรัพย์ที่ควรศึกษาต่อ โดยไม่สร้างสัญญาณซื้อขายขึ้นเอง",
+      "focus": "Market Context · Research · Watchlist",
+      "markets": "Cross-market research",
+      "supportedMarkets": [
+        "XAU/USD",
+        "BTC/USDT",
+        "ETH/USDT",
+        "EUR/USD",
+        "US30"
+      ],
+      "defaultMarket": "BTC/USDT",
+      "timeframe": "Multi-timeframe",
+      "supportedTimeframes": [
+        "M15",
+        "H1",
+        "H4",
+        "D1"
+      ],
+      "strategyVersion": "0.1.0-design",
+      "status": "catalog-only",
+      "statusLabel": "CATALOG ONLY",
+      "statusDetail": "มีรายการให้เลือกใน Workspace แต่ยังไม่มี strategy adapter ที่ผ่านการตรวจสอบบน main",
+      "researchOperations": [],
+      "engine": {
+        "id": "market-scout",
+        "state": "not-implemented",
+        "sourcePath": null,
+        "version": "0.1.0-design"
+      },
+      "evidence": {
+        "implementation": "design-only",
+        "performance": "not-applicable",
+        "notes": "Do not imply an autonomous market-scanning or ranking capability until a tested adapter is integrated."
+      },
+      "safety": {
+        "researchOnly": true,
+        "tradeAuthorized": false,
+        "orderSubmissionEnabled": false,
+        "liveTradingEnabled": false
+      }
+    }
+  ]
+}
