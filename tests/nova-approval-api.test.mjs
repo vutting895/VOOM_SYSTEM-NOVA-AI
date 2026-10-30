@@ -10,6 +10,7 @@ const threads = source("../frontend/app/api/agent/threads/route.js");
 const approvals = source("../frontend/app/api/agent/threads/[threadId]/approvals/route.js");
 const decision = source("../frontend/app/api/agent/approvals/[approvalId]/decision/route.js");
 const serverHelper = source("../frontend/lib/agent-approval-server.js");
+const approvalCard = source("../frontend/components/approval-card.jsx");
 const chatPage = source("../frontend/app/chat/page.jsx");
 
 test("every protected approval route authenticates before reading POST body", () => {
@@ -52,4 +53,28 @@ test("review UI states explicitly that approval is research-only, never broker e
   assert.match(card, /onReviewEdited/);
   assert.match(serverHelper, /auth\.getUser\(accessToken\)/);
   assert.match(serverHelper, /Cache-Control": "no-store"/);
+});
+
+test("expired UI requests server-side expiry reconciliation, never a rejection", () => {
+  const expiryStart = approvalCard.indexOf("{approval.status === 'pending' && expired && (");
+  const expiryEnd = approvalCard.indexOf("{approval.status !== 'pending'", expiryStart);
+  assert.notEqual(expiryStart, -1, "expired approval UI must exist");
+  assert.notEqual(expiryEnd, -1, "final approval state must follow expiry UI");
+  const expiredBlock = approvalCard.slice(expiryStart, expiryEnd);
+  assert.ok(expiredBlock.includes("submitDecision('expire')"));
+  assert.equal(expiredBlock.includes("submitDecision('reject')"), false);
+  assert.ok(decision.includes("approval_not_expired"));
+  assert.ok(decision.includes('serverConfirmedPending: result.result_code === "invalid_decision" && decision.decision === "expire"'));
+  assert.ok(chatPage.includes("payload.serverConfirmedPending === true"));
+  assert.ok(chatPage.includes("server_confirmed_pending: true"));
+  assert.ok(approvalCard.includes("approval.server_confirmed_pending !== true"));
+  assert.ok(chatPage.includes("เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล"));
+});
+
+test("JSON request reader rejects oversized bodies before unbounded buffering", () => {
+  assert.ok(serverHelper.includes("content-length"));
+  assert.ok(serverHelper.includes("request.body?.getReader()"));
+  assert.ok(serverHelper.includes("totalBytes > maxBytes"));
+  assert.ok(serverHelper.includes("reader.cancel()"));
+  assert.equal(serverHelper.includes("request.text()"), false);
 });

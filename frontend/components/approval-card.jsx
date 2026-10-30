@@ -35,6 +35,7 @@ export default function ApprovalCard({ approval, busy = false, onDecision, onRev
   if (!approval?.id || !approval?.proposal) return null;
 
   const expired = approval.status === 'pending'
+    && approval.server_confirmed_pending !== true
     && Number.isFinite(Date.parse(approval.expires_at))
     && Date.parse(approval.expires_at) <= Date.now();
 
@@ -42,7 +43,7 @@ export default function ApprovalCard({ approval, busy = false, onDecision, onRev
     if (busy || typeof onDecision !== 'function') return;
     await onDecision({
       decision,
-      note: note.trim() || null,
+      ...(decision === "expire" ? {} : { note: note.trim() || null }),
       ...(editedProposal ? { editedProposal } : {}),
     });
     setEditing(false);
@@ -115,10 +116,10 @@ export default function ApprovalCard({ approval, busy = false, onDecision, onRev
       )}
 
       {approval.status === 'pending' && expired && (
-        <div className="nova-approval-expired">
-          <p>คำขอนี้หมดอายุแล้ว จึงไม่สามารถยืนยันร่างได้</p>
-          <button type="button" className="is-secondary" disabled={busy} onClick={() => void submitDecision('reject')}>
-            ปิดคำขอที่หมดอายุ
+        <div className="nova-approval-expired" role="status">
+          <p>คำขอนี้เกินเวลาหมดอายุตามนาฬิกาของอุปกรณ์แล้ว กรุณาตรวจสอบสถานะกับเซิร์ฟเวอร์ก่อนปิดรายการ</p>
+          <button type="button" className="is-secondary" disabled={busy} onClick={() => void submitDecision('expire')}>
+            ตรวจสอบสถานะหมดอายุกับเซิร์ฟเวอร์
           </button>
         </div>
       )}

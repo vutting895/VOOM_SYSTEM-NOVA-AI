@@ -276,6 +276,15 @@ export default function NovaChatPage() {
             : message));
           return;
         }
+        if (payload.error === 'approval_not_expired') {
+          if (payload.serverConfirmedPending === true) {
+            setMessages((current) => current.map((message) => message.id === messageId
+              ? { ...message, approval: { ...message.approval, server_confirmed_pending: true } }
+              : message));
+          }
+          setError('เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล เซิร์ฟเวอร์ยืนยันว่าคำขอยังรอการตรวจทาน จึงคืนปุ่มยืนยัน ปฏิเสธ และแก้ไขให้แล้ว');
+          return;
+        }
         throw new Error(payload.error === 'approval_already_resolved'
           ? 'คำขอนี้ถูกตรวจทานไปแล้ว กรุณารีเฟรชสถานะ'
           : 'บันทึกผลตรวจทานไม่สำเร็จ กรุณาตรวจสถานะการ Login และ staging');

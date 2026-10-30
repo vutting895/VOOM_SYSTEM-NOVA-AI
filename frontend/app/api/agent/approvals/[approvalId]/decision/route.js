@@ -57,11 +57,14 @@ export async function POST(request, context) {
     policy_mismatch: ["approval_policy_stale", 409],
     invalid_decision: ["approval_decision_invalid", 400],
   };
-  const failure = failures[result.result_code];
+  const failure = result.result_code === "invalid_decision" && decision.decision === "expire"
+    ? ["approval_not_expired", 409]
+    : failures[result.result_code];
   if (failure) {
     return agentApiJson({
       error: failure[0],
       status: result.status || undefined,
+      serverConfirmedPending: result.result_code === "invalid_decision" && decision.decision === "expire",
       executionEnabled: false,
       liveTradingEnabled: false,
     }, failure[1]);

@@ -1,0 +1,47 @@
+name: NOVA Hosted Staging Auth Acceptance
+
+on:
+  push:
+    branches:
+      - fix/nova-approval-review-findings-20261030
+    paths:
+      - "scripts/staging/nova-auth-isolation-acceptance.mjs"
+      - ".github/workflows/nova-staging-auth-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-staging-auth-acceptance
+  cancel-in-progress: false
+
+jobs:
+  staging-auth-two-user-isolation:
+    name: Create, isolate, delete temporary staging Auth users
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run staging-only Auth Admin and RLS acceptance
+        env:
+          NOVA_STAGING_SUPABASE_URL: https://rovhmjeowracayicbqij.supabase.co
+          NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/staging/nova-auth-isolation-acceptance.mjs
+
+      - name: Upload sanitized evidence (no emails, IDs, credentials or sessions)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-staging-auth-evidence-${{ github.run_id }}
+          path: reports/nova-staging-auth-evidence.json
+          if-no-files-found: warn
+          retention-days: 14

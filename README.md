@@ -12,10 +12,10 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 
 ## Frontend hosting and deployment
 
-- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. After PR #74 merged as `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`, main-branch smoke tests returned HTTP 200 for `/`, `/login`, and `/settings/broker`; however, the connected Netlify project API still reports published deploy `6ae38a561eb1efe24a5a1105` on older commit `f8845887ebf2619e2723727735634246a4a54be9`. Exact Production commit reconciliation remains open.
+- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. On 2026-10-30, the connected Netlify API reported Production deploy `6ae3f790c1fff5d3192f585d` as `ready`, branch `main`, commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`, exactly matching current `main`. The earlier Production/main SHA mismatch is closed.
 - Netlify Observability recorded HTTP 200 for the production root, Next.js RSC requests for `/login`, `/profile`, and `/broker`, and static frontend assets after that deployment. The anonymous broker-status endpoint returned HTTP 401 as expected. These observations do not prove a real OTP login/session or the complete broker route.
-- The legacy Cloudflare UI `voom-system-nova-ui` is retained temporarily as a rollback option, not the desired production target. The deployment workflow change to backend-only Cloudflare deploys and the root `netlify.toml` are in review in the Netlify alignment PR; do not describe that repository cutover as merged until it is.
-- A historical Netlify Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` post-build phase. Later previews for PRs #69 and #71 succeeded. The new hosting-alignment PR still needs its own Preview and logs verified; do not assume older failures or successes transfer to a new commit.
+- Netlify is the primary customer-facing frontend. The main-branch Cloudflare deployment workflow deploys backend Workers only; the legacy Cloudflare UI is retained as a rollback path. Production SHA reconciliation is verified, while real OTP/browser-session and owner-isolation acceptance remain open.
+- Preview and Production are separate evidence. The last PR #77 Preview found is deploy `6ae444b02af10edc52549c8f`, on earlier head `50ae922bc64251b903c3b4c8c937c756e146c1d1`, state `error` (`Canceled build due to no content change`). No `ready` Deploy Preview is verified for current PR #77 head `e5882214f7d528aa8347e873836ddec29726a33f`.
 - Required Netlify dashboard variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Configure them in site settings and never commit their values.
 - `.github/workflows/frontend-ci.yml` validates worker/security tests, type-check, and the Next.js build. Its production smoke-test job checks Netlify routes on a push to `main`. `.github/workflows/cloudflare-deploy.yml` is being aligned to deploy backend Workers only.
 
@@ -26,7 +26,7 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - Chat calls a same-origin authenticated Next.js API route. That route verifies the Supabase session before forwarding a bounded conversation to the NOVA AI Worker; the Worker returns an error rather than inventing a response when the provider is unavailable.
 - Structured intent is a data-only `nova.intent.v1` envelope with a strict allow-list of intents, parameters and component types. Both the Worker and the API boundary validate it. The frontend renders only the fixed React component catalog; it does not evaluate model-supplied HTML or JavaScript.
 - The current classifier is deterministic first-pass routing, not yet a model-generated Zod/Pydantic structured output parser. Intent cards are research-only and have no execution controls.
-- Chat history is page-memory only and is not persisted across refreshes. Durable threads, LangGraph checkpoint/resume, approval lifecycle and real two-user session tests remain open.
+- Chat transcript history remains page-memory only and is not persisted across refreshes. PR #67 added owner-scoped durable thread metadata and research-draft approval decisions; isolated local two-user tests pass. Hosted approval migration/two-user acceptance remain open, and LangGraph checkpoint/resume is not implemented.
 - The current Backtest page reports a buy-and-hold baseline, not a strategy backtest. Do not describe baseline metrics as evidence of EMA/RSI performance.
 
 ## Environment
@@ -41,7 +41,7 @@ Never print secret values in logs or chat. The UI must show unavailable rather t
 
 ## Current deployment verification limits
 
-The current Netlify Production deploy is ready on the expected main-branch application commit, and Observability records HTTP 200 for the root, login/profile/broker Next.js RSC routes, and static assets after deployment. Remaining checks are still material: a direct `/settings/broker` response was not observed in the reviewed log window, no post-deploy direct `/auth/callback` request was observed, and the user's real email OTP/session flow has not been demonstrated.
+Netlify Production commit reconciliation is verified: deploy `6ae3f790c1fff5d3192f585d` is `ready` on commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`, exactly matching current `main`. The post-merge route smoke test returned HTTP 200 for `/`, `/login`, and `/settings/broker`. A real email OTP/session flow, owner-session access, and foreign-connection denial remain unverified. PR #77 has no ready Deploy Preview verified for its current head.
 
 The actual Supabase owner-session path through System Hub/MT5 Proxy is not yet verified with a signed-in browser session. A valid owner connection read and a foreign connection-ID denial are still required. Anonymous HTTP 401 checks are only negative unauthenticated evidence, not proof of cross-user isolation.
 
