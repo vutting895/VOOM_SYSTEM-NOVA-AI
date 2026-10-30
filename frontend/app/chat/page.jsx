@@ -7,6 +7,57 @@ import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import IntentResult from '../../components/intent-result';
 import { buildBoundedChatHistory } from '../../lib/chat-history.mjs';
 
+const APPROVAL_REVIEW_ENABLED = process.env.NEXT_PUBLIC_NOVA_APPROVALS_ENABLED === 'true';
+
+function intentFromProposal(proposal) {
+  const parameters = {
+    market: proposal.market ?? null,
+    timeframe: proposal.timeframe ?? null,
+    risk: proposal.riskProfile ?? null,
+  };
+  return {
+    schemaVersion: 'nova.intent.v1',
+    intent: 'draft_strategy',
+    parameters,
+    component: {
+      type: 'strategy_draft',
+      ...parameters,
+      executionEnabled: false,
+      liveTradingEnabled: false,
+    },
+  };
+}
+
+async function loadPendingReviewMessages(accessToken) {
+  const response = await fetch('/api/agent/threads?state=awaiting_review', {
+    headers: { Authorization: 'Bearer ' + accessToken },
+    cache: 'no-store',
+  });
+  if (!response.ok) return [];
+  const payload = await response.json().catch(() => ({}));
+  const threads = Array.isArray(payload.threads) ? payload.threads.slice(0, 20) : [];
+  const restored = await Promise.all(threads.map(async (thread) => {
+    const result = await fetch('/api/agent/threads/' + encodeURIComponent(thread.id) + '/approvals', {
+      headers: { Authorization: 'Bearer ' + accessToken },
+      cache: 'no-store',
+    });
+    if (!result.ok) return null;
+    const body = await result.json().catch(() => ({}));
+    const approval = Array.isArray(body.approvals) ? body.approvals.find((item) => item.status === 'pending') : null;
+    if (!approval) return null;
+    return {
+      id: 'restored-review-' + approval.id,
+      role: 'assistant',
+      content: 'พบคำขอตรวจทานร่างงานวิจัยที่บันทึกไว้ สามารถยืนยัน ปฏิเสธ หรือแก้ไขได้จนกว่าจะหมดอายุ',
+      intent: intentFromProposal(approval.proposal),
+      approval,
+      threadId: thread.id,
+      restoredReview: true,
+    };
+  }));
+  return restored.filter(Boolean);
+}
+
 const suggestions = [
   'อธิบายเงื่อนไข EMA 12/26 และ RSI 14 สำหรับ XAU/USD',
   'ช่วยตรวจความเสี่ยงและเงื่อนไขยกเลิกสมมติฐานกลยุทธ์',
@@ -28,6 +79,7 @@ export default function NovaChatPage() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [approvalBusyId, setApprovalBusyId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -49,6 +101,19 @@ export default function NovaChatPage() {
         return;
       }
       setAuthState('ready');
+      if (APPROVAL_REVIEW_ENABLED) {
+        void loadPendingReviewMessages(data.session.access_token)
+          .then((pending) => {
+            if (!active || !pending.length) return;
+            setMessages((current) => [
+              ...current.filter((message) => !message.restoredReview),
+              ...pending,
+            ]);
+          })
+          .catch(() => {
+            // Review restore is best-effort; private endpoints still fail closed.
+          });
+      }
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -129,8 +194,104 @@ export default function NovaChatPage() {
     }
   }
 
+  async function requestDraftReview(messageId, intent, revisedProposal = null) {
+    if (!APPROVAL_REVIEW_ENABLED || !intent || intent.intent !== 'draft_strategy') return;
+    setError('');
+    setApprovalBusyId(messageId);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) {
+        router.replace('/login');
+        return;
+      }
+      const token = data.session.access_token;
+      const threadResponse = await fetch('/api/agent/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ title: 'NOVA strategy draft review' }),
+        cache: 'no-store',
+      });
+      const threadPayload = await threadResponse.json().catch(() => ({}));
+      if (!threadResponse.ok || !threadPayload.thread?.id) {
+        throw new Error('สร้างเธรดตรวจทานไม่สำเร็จ ระบบอาจยังไม่ได้เปิดใช้งาน approval staging');
+      }
+
+      const proposal = revisedProposal || {
+        title: 'NOVA Strategy Draft',
+        summary: 'ร่างเพื่อการวิจัยเท่านั้น ยังไม่ผ่าน backtest และไม่มีคำสั่งซื้อขาย',
+        market: intent.parameters?.market ?? null,
+        timeframe: intent.parameters?.timeframe ?? null,
+        riskProfile: intent.parameters?.risk ?? null,
+      };
+      const approvalResponse = await fetch(
+        '/api/agent/threads/' + encodeURIComponent(threadPayload.thread.id) + '/approvals',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ requestType: 'strategy_draft_review', proposal }),
+          cache: 'no-store',
+        },
+      );
+      const approvalPayload = await approvalResponse.json().catch(() => ({}));
+      if (!approvalResponse.ok || !approvalPayload.approval?.id) {
+        throw new Error(approvalPayload.error === 'approval_workflow_disabled'
+          ? 'ระบบตรวจทานยังปิดอยู่จนกว่าจะเตรียม schema และ staging ผ่าน'
+          : 'บันทึกคำขอตรวจทานไม่สำเร็จ กรุณาตรวจ schema และสถานะ staging');
+      }
+
+      setMessages((current) => current.map((message) => message.id === messageId
+        ? { ...message, approval: approvalPayload.approval, threadId: threadPayload.thread.id }
+        : message));
+    } catch (err) {
+      setError(err?.message || 'สร้างคำขอตรวจทานไม่สำเร็จ');
+    } finally {
+      setApprovalBusyId(null);
+    }
+  }
+
+  async function decideDraftReview(messageId, decisionInput) {
+    const target = messages.find((message) => message.id === messageId);
+    if (!target?.approval?.id || !APPROVAL_REVIEW_ENABLED) return;
+    setError('');
+    setApprovalBusyId(messageId);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) {
+        router.replace('/login');
+        return;
+      }
+      const response = await fetch('/api/agent/approvals/' + encodeURIComponent(target.approval.id) + '/decision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+        body: JSON.stringify(decisionInput),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (payload.error === 'approval_expired') {
+          setMessages((current) => current.map((message) => message.id === messageId
+            ? { ...message, approval: { ...message.approval, status: 'expired' } }
+            : message));
+          return;
+        }
+        throw new Error(payload.error === 'approval_already_resolved'
+          ? 'คำขอนี้ถูกตรวจทานไปแล้ว กรุณารีเฟรชสถานะ'
+          : 'บันทึกผลตรวจทานไม่สำเร็จ กรุณาตรวจสถานะการ Login และ staging');
+      }
+      setMessages((current) => current.map((message) => message.id === messageId
+        ? { ...message, approval: { ...message.approval, ...payload.approval } }
+        : message));
+    } catch (err) {
+      setError(err?.message || 'บันทึกผลตรวจทานไม่สำเร็จ');
+    } finally {
+      setApprovalBusyId(null);
+    }
+  }
+
   function clearConversation() {
-    setMessages((current) => current.filter((item) => item.localOnly));
+    setMessages((current) => current.filter((item) => item.localOnly || item.restoredReview || item.approval?.status === 'pending'));
     setError('');
   }
 
@@ -168,7 +329,17 @@ export default function NovaChatPage() {
                 <div className="nova-chat-bubble">
                   <div className="nova-chat-message-label">{message.role === 'user' ? 'YOU' : 'NOVA AI'}</div>
                   <p>{message.content}</p>
-                  {message.role === 'assistant' && message.intent && <IntentResult intent={message.intent} />}
+                  {message.role === 'assistant' && message.intent && (
+                    <IntentResult
+                      intent={message.intent}
+                      approval={message.approval || null}
+                      reviewEnabled={APPROVAL_REVIEW_ENABLED}
+                      approvalBusy={approvalBusyId === message.id}
+                      onRequestReview={() => requestDraftReview(message.id, message.intent)}
+                      onDecision={(decision) => decideDraftReview(message.id, decision)}
+                      onReviewEdited={(proposal) => requestDraftReview(message.id, message.intent, proposal)}
+                    />
+                  )}
                 </div>
               </article>
             ))}

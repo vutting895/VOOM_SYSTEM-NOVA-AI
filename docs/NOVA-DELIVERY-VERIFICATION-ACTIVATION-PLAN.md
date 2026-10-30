@@ -247,3 +247,22 @@ This section records changes after the previous evidence snapshot. It distinguis
 6. PR #35 remains Draft for the source-consolidation safety hold. PRs #5, #51, #66, and #67 remain staged/draft work for alternate MCP, headless Bridge, Wave3/SMC research, and durable approval lifecycle; none is authorized as production execution code.
 
 **Safety invariant:** Exness Demo only; Read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. A green route smoke test does not authorize broker writes, automatic RL activation, or skipping tenant isolation.
+
+## 11. Supabase Free approval verification — 2026-10-30
+
+### Free replacement and evidence
+- Kept the existing Supabase project on the Free plan. No paid Supabase development branch was created; no hosted Supabase compute was incurred for this test.
+- PR #67 runs a disposable Supabase Local Stack inside GitHub Actions with Docker. It uses generated local-only API/Auth keys and localhost URLs, applies only `202610270001_mt5_customer_connections.sql`, `202610300001_nova_durable_approval_lifecycle.sql`, and a temporary `pgcrypto` bootstrap, then stops the stack.
+- The test creates two throwaway users through local Supabase Auth, signs in through the password grant to obtain real Auth-issued JWTs, and calls the actual Next.js approval API routes plus local PostgREST.
+- Local acceptance passed with two local Supabase Auth users and Auth-issued JWTs against the actual Next.js APIs/PostgREST: unauthenticated request is 401; owner A can create/list threads and create/read/approve drafts; owner B cannot see A's thread, create in A's thread, list A's approvals, or resolve A's approval; approve replay is rejected; edit and reject decisions persist; a fresh GET restores the edited/rejected states after the API request; owner A can read their Exness MT5 Demo pending connection while owner B receives no row under RLS.
+- Frontend CI run [40983936466](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40983936466) passed on latest code commit `b7ed3209b8e197b336f9b9f1af65c9c5158e7844`, including approval contracts, Netlify-aligned Next.js build, MT5 read-only, tenant guard, and proxy/relay checks. The Netlify Production smoke job is skipped for pull-request events, as expected.
+- NOVA Approval Migration CI run [40983936449](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40983936449) passed both jobs: ephemeral PostgreSQL migration/owner isolation (including edit, expiry, stale-policy, and replay cases), and local Supabase Auth + PostgREST + Next.js API isolation (including approve/edit/reject, replay denial, and read-after-write recovery).
+- The MT5 proxy suite reports 18 passing tests. The foreign connection ID case returns 404 and asserts zero **mocked** outbound Relay calls. This is not a live production Relay request or production telemetry.
+- Netlify Deploy Preview for the same latest code commit is `ready`: deploy `6ae3edd3ef8bceb71b60ce9b`, commit `b7ed3209b8e197b336f9b9f1af65c9c5158e7844`, preview URL https://deploy-preview-67--voomsystem.netlify.app.
+
+### What remains separate
+- The hosted `Voom_system` database has not received this approval migration. No hosted test users/connections, production flags, secrets, DNS, hosting configuration or broker settings were changed.
+- Real hosted email OTP/browser-session acceptance and the hosted Supabase Auth/Data API -> System Hub -> MT5 Proxy -> Relay chain remain unverified. Do not use production as a test tenant. Only run a hosted test later if a no-cost isolated environment is already available.
+- PR #67 is ready for review but remains unmerged. `main` uses Netlify as the primary frontend host; the Cloudflare deployment workflow is backend-only. A merge can start the Netlify Git-integrated Production build, so production release remains a separate approval gate.
+- Supabase Free limitations (including the plan-gated leaked-password protection setting) remain plan-gated; do not upgrade the plan or add billing to close this test.
+- Preserve the mandatory safety invariant: Exness Demo only, Read-only + AI Analysis, no broker order submission or position mutation, Live Trading OFF.

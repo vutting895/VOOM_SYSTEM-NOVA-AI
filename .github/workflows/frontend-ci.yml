@@ -72,6 +72,9 @@ jobs:
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
+      - name: Test NOVA durable approval lifecycle contracts
+        working-directory: .
+        run: node --test tests/nova-approval-*.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
