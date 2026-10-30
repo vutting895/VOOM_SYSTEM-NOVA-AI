@@ -104,6 +104,19 @@ class DataGuardianRequestContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "idempotency_key_invalid"):
             validate_job_request(payload)
 
+    def test_rejects_non_string_enum_values_without_type_errors(self):
+        for operation in ([], {}):
+            payload = request()
+            payload["operation"] = operation
+            with self.subTest(operation=operation):
+                with self.assertRaisesRegex(ContractError, "operation_not_allowed"):
+                    validate_job_request(payload)
+        for options in ({"target_format": {}}, {"reason_class": []}, {"backup_class": {} }):
+            operation = "transform" if "target_format" in options else ("cleanup_candidate" if "reason_class" in options else "backup")
+            with self.subTest(options=options):
+                with self.assertRaises(ContractError):
+                    validate_job_request(request(operation, options=options))
+
     def test_rejects_unknown_operation_and_unexpected_fields(self):
         with self.assertRaisesRegex(ContractError, "operation_not_allowed"):
             validate_job_request(request("delete"))
