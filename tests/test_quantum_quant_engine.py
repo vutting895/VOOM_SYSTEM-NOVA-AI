@@ -131,6 +131,13 @@ class QuantumQuantEngineTests(unittest.TestCase):
         )
         self.assertEqual(quantum["model_backend"], "PENNYLANE_VQC")
         self.assertEqual(quantum["quantum_circuit_status"], "EXECUTED")
+        self.assertEqual(len(quantum["quantum_expectation_by_wire"]), engine.n_qubits)
+        self.assertTrue(-1.0 <= quantum["quantum_expectation_value"] <= 1.0)
+        self.assertEqual(quantum["trading_action"], "NONE")
+        self.assertTrue(quantum["research_only"])
+        self.assertFalse(quantum["trade_authorized"])
+        self.assertFalse(quantum["order_submission_enabled"])
+        self.assertFalse(quantum["live_trading_enabled"])
 
         classical_after = engine.run_quantum_regime_forecast(
             "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8], backend="classical"
