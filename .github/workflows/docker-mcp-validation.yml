@@ -1,0 +1,57 @@
+name: Docker MCP validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".dockerignore"
+      - "mcp-server/**"
+      - "workers/**"
+      - "tests/**"
+      - "infra/docker-compose.yml"
+      - ".github/workflows/docker-mcp-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - ".dockerignore"
+      - "mcp-server/**"
+      - "workers/**"
+      - "tests/**"
+      - "infra/docker-compose.yml"
+      - ".github/workflows/docker-mcp-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-build-and-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install MCP SDK
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r mcp-server/requirements.txt
+      - name: Compile canonical Python modules
+        run: |
+          python -m py_compile mcp-server/app.py
+          python -m py_compile workers/data-ingestion/main_prototype.py
+          python -m py_compile workers/backtest/engine_prototype.py
+          python -m py_compile workers/risk/manager_prototype.py
+          python -m py_compile workers/portfolio/allocator.py
+          python -m py_compile workers/feature/smc_wave/smc_strategy.py
+      - name: Run deterministic research and risk unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Validate Compose configuration
+        run: docker compose -f infra/docker-compose.yml config --quiet
+      - name: Build the canonical local MCP container
+        run: docker compose -f infra/docker-compose.yml build mcp-server
+      - name: Run MCP protocol and safe-tool smoke tests through Docker stdio
+        run: python tests/docker_mcp_smoke.py
