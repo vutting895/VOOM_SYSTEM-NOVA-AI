@@ -289,7 +289,8 @@ export default {
       return json({
         ok: true, service: "voom-system-nova-ai", version: "1.1.0",
         aiBinding: Boolean(env.AI),
-        providerKeysConfigured: { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY) },\n        selectedProvider: ["gemini", "openai", "anthropic"].includes(String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase()) ? String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase() : "gemini",
+        providerKeysConfigured: { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY) },
+        selectedProvider: ["gemini", "openai", "anthropic"].includes(String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase()) ? String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase() : "gemini",
         authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
