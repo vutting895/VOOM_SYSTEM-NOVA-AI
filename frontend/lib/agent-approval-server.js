@@ -44,18 +44,73 @@ export async function authenticateAgentRequest(request) {
 
 export async function readAgentJson(request, maxBytes = 8000) {
   const contentType = request.headers.get("content-type") || "";
-  if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+  if (!/^application\\/json(?:\\s*;|$)/i.test(contentType)) {
     return { ok: false, response: agentApiJson({ error: "content_type_must_be_application_json" }, 415) };
   }
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    return { ok: false, response: agentApiJson({ error: "invalid_request_limit" }, 500) };
+  }
+
+  const contentLengthHeader = request.headers.get("content-length");
+  if (contentLengthHeader !== null) {
+    const normalizedLength = contentLengthHeader.trim();
+    if (!/^\\d+$/.test(normalizedLength)) {
+      return { ok: false, response: agentApiJson({ error: "invalid_content_length" }, 400) };
+    }
+    const contentLength = Number(normalizedLength);
+    if (!Number.isSafeInteger(contentLength) || contentLength > maxBytes) {
+      return { ok: false, response: agentApiJson({ error: "request_too_large" }, 413) };
+    }
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) {
+    return { ok: false, response: agentApiJson({ error: "invalid_request_body" }, 400) };
+  }
+
+  const chunks = [];
+  let totalBytes = 0;
+  let tooLarge = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        tooLarge = true;
+        try {
+          await reader.cancel();
+        } catch {
+          // The request is already being rejected; cancellation is best-effort.
+        }
+        break;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, response: agentApiJson({ error: "invalid_request_body" }, 400) };
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (tooLarge) {
+    return { ok: false, response: agentApiJson({ error: "request_too_large" }, 413) };
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
   let raw;
   try {
-    raw = await request.text();
+    raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     return { ok: false, response: agentApiJson({ error: "invalid_request_body" }, 400) };
   }
-  if (new TextEncoder().encode(raw).byteLength > maxBytes) {
-    return { ok: false, response: agentApiJson({ error: "request_too_large" }, 413) };
-  }
+
   let value;
   try {
     value = JSON.parse(raw);
@@ -67,7 +122,6 @@ export async function readAgentJson(request, maxBytes = 8000) {
   }
   return { ok: true, value };
 }
-
 export function isUuid(value) {
   return typeof value === "string"
     && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
