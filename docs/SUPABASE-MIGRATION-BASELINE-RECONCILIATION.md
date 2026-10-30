@@ -153,6 +153,8 @@ The following matrix compares the 24 applied migration names with source files f
 
 Read-only function catalog inspection recovered the current definitions for `private.is_active_staff`, the four private Marketplace implementation functions and their four public wrappers, plus `public.voom_handle_new_auth_user`. The public Marketplace functions currently report `SECURITY INVOKER`; the private implementation functions report `SECURITY DEFINER`. This describes current catalog state only, not the original SQL or the exact chronology of the applied migrations.
 
+The same catalog inspection reported the four private Marketplace implementation functions as `SECURITY DEFINER` and the four public API wrappers as `SECURITY INVOKER`. The current private implementations include owner/role checks for active customers and per-user subscription/session scoping. The inspected public trigger helper `voom_handle_new_auth_user` is `SECURITY DEFINER`. The currently visible public-table triggers include timestamp updates for `customer_profiles`, `trading_sessions` and `broker_connections`, plus the `strategy_versions_immutable` trigger. Treat these as current catalog observations only; verify exact grants, trigger bodies and function `search_path` settings from a complete schema export before replay.
+
 
 
 Catalog inspection in this older project confirmed the existence of the Marketplace public wrappers, private implementation functions, `private.is_active_staff()`, `public.ai_strategies` and `public.customer_profiles` referenced by `202610290001_security_definer_marketplace_hardening.sql`.
