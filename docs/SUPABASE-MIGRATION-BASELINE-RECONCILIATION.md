@@ -188,6 +188,34 @@ Important deployment qualification: the Netlify deploy metadata inspected during
 Decision: treat `Voom_system` as the current configured runtime database baseline for reconciliation. Treat the newer NOVA-oriented Supabase project as a separate candidate/environment until a reviewed migration and cutover process says otherwise. Do not switch endpoint bindings or apply the approval migration to the old runtime project as part of this documentation change.
 
 
+### 3.4 Current runtime public-table schema fingerprint (read-only)
+
+The `list_tables(verbose=true)` catalog inventory returned 19 public tables. All 19 report RLS enabled. The following is a compact metadata fingerprint (table/column count/primary key/foreign-key targets); it does not include customer rows or column values and is not a substitute for schema-only SQL export.
+
+| Public table | Columns | Primary key | Foreign-key targets | RLS |
+|---|---:|---|---|---|
+| `customer_profiles` | 6 | `user_id` | `auth.users` | enabled |
+| `trading_sessions` | 11 | `id` | `auth.users`, `trading_sessions`, `strategy_signals`, `customer_ai_subscriptions` | enabled |
+| `strategy_signals` | 14 | `id` | `auth.users`, `trading_sessions`, `signal_delivery_log`, `risk_guard_decisions` | enabled |
+| `risk_guard_decisions` | 7 | `id` | `auth.users`, `strategy_signals` | enabled |
+| `security_events` | 12 | `id` | `auth.users` | enabled |
+| `system_heartbeats` | 4 | `component` | none | enabled |
+| `ai_strategies` | 18 | `id` | `auth.users`, `customer_ai_subscriptions`, `strategy_versions`, `learning_events` | enabled |
+| `customer_ai_subscriptions` | 10 | `id` | `auth.users`, `ai_strategies`, `trading_sessions`, `signal_delivery_log` | enabled |
+| `signal_delivery_log` | 9 | `id` | `strategy_signals`, `customer_ai_subscriptions` | enabled |
+| `strategy_versions` | 11 | `id` | `ai_strategies`, `backtest_runs`, `learning_events`, `quality_gate_results`, self-reference | enabled |
+| `backtest_runs` | 16 | `id` | `strategy_versions` | enabled |
+| `quality_gate_configs` | 6 | `id` | `quality_gate_results` | enabled |
+| `quality_gate_results` | 9 | `id` | `strategy_versions`, `quality_gate_configs` | enabled |
+| `learning_events` | 7 | `id` | `strategy_versions`, `ai_strategies` | enabled |
+| `mcp_tool_audit` | 9 | `id` | `auth.users` | enabled |
+| `system_controls` | 4 | `key` | `auth.users` | enabled |
+| `alpaca_oauth_states` | 4 | `state_hash` | `auth.users` | enabled |
+| `alpaca_connections` | 5 | `user_id` | `auth.users` | enabled |
+| `broker_connections` | 10 | `id` | `auth.users` | enabled |
+
+The observed public policy inventory includes owner-scoped reads/updates for selected customer rows, staff-only reads for control/audit/research tables, explicit browser-deny policies for Alpaca state/connection tables and signal-delivery logs, and owner-scoped pending-request policies for `broker_connections`. RLS enabled on all tables must not be mistaken for complete isolation: table grants, policy predicates, SECURITY DEFINER functions, views and Storage policies still require a full schema/security export and allow/deny testing.
+
 ## 4. Supabase test and security observations
 
 For the newer NOVA-oriented project:
