@@ -64,3 +64,18 @@
 .cc-loading{min-height:70vh;display:grid;place-items:center;color:#9cb5c0;font-size:13px;padding:24px;text-align:center}
 @media(max-width:900px){.cc-layout{grid-template-columns:minmax(0,1fr);}.cc-messages{max-height:440px}.cc-chat{min-height:650px}.cc-workspace{min-height:0}}
 @media(max-width:520px){.cc-shell{padding:10px}.cc-header{flex-wrap:wrap}.cc-customer{margin-left:0;max-width:100%;order:3;width:100%}.cc-safety{margin-left:auto;font-size:8px}.cc-chat,.cc-workspace{padding:12px}.cc-stats{grid-template-columns:1fr}.cc-stat{flex-direction:row;align-items:center;justify-content:space-between}.cc-broker-state{align-items:flex-start;flex-wrap:wrap}.cc-broker-state>div{flex-basis:calc(100% - 25px)}.cc-broker-state button{margin-left:14px}.cc-workspace-foot{font-size:7px}}
+
+.cc-strategy-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 16px;border:1px solid rgba(98,230,243,.2);border-radius:13px;background:linear-gradient(115deg,rgba(13,54,68,.62),rgba(5,17,27,.88))}
+.cc-strategy-summary-main{min-width:0}
+.cc-strategy-summary-main>small,.cc-personal-ai-tools>div>small{display:block;color:#62e6f3;font-size:8px;font-weight:900;letter-spacing:.14em}
+.cc-strategy-summary-main>strong{display:block;margin-top:6px;color:#e4f6fa;font-size:18px;letter-spacing:-.03em}
+.cc-strategy-summary-main>p{margin:5px 0 0;color:#91aeba;font-size:10px;line-height:1.65}
+.cc-strategy-meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.cc-strategy-meta span{padding:5px 7px;border:1px solid rgba(98,230,243,.16);border-radius:999px;color:#9ac6d0;font-size:7px;letter-spacing:.07em}
+.cc-change-strategy{flex:0 0 auto;padding:9px 11px;border:1px solid rgba(98,230,243,.28);border-radius:8px;color:#8cecf2;font-size:9px;font-weight:800;white-space:nowrap}
+.cc-personal-ai-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid rgba(98,230,243,.12);border-radius:11px;background:rgba(5,16,25,.7)}
+.cc-personal-ai-tools>div>strong{display:block;margin-top:4px;color:#d7eef1;font-size:11px}
+.cc-quick-prompts{display:flex;gap:7px;flex-wrap:wrap}
+.cc-quick-prompts button{padding:7px 9px;border:1px solid rgba(98,230,243,.2);border-radius:8px;background:rgba(15,63,76,.24);color:#92dce4;font-size:8px;font-weight:800}
+.cc-quick-prompts button:hover,.cc-change-strategy:hover{border-color:#62e6f3;background:rgba(18,83,98,.36)}
+@media(max-width:600px){.cc-strategy-summary,.cc-personal-ai-tools{align-items:flex-start;flex-direction:column}.cc-change-strategy{align-self:flex-start}.cc-quick-prompts{width:100%}}
