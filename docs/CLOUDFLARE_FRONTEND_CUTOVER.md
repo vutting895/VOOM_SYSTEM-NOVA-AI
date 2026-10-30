@@ -1,6 +1,6 @@
 # Cloudflare Frontend Cutover — Historical Inspection Record
 
-> **SUPERSEDED (2026-10-30):** Retained as a record of the earlier Cloudflare frontend approach. The selected customer-facing frontend is Netlify (`https://voomsystem.netlify.app/`); Cloudflare Workers host backend APIs and the legacy UI is only a rollback option. Do not follow the historical frontend deploy steps below as the active production deployment process.
+> **Current verification boundary (2026-10-30):** Netlify (`https://voomsystem.netlify.app/`) remains the public production frontend. PR #85 adds a parallel OpenNext deployment to `voom-system-nova-ui.suwapat787.workers.dev` after the exact `main` commit passes Frontend CI. This Cloudflare Worker is a frontend validation target; it does not change DNS or cut over the public production domain. Do not describe the Cloudflare Worker as production until a separately approved cutover is completed.
 
 Inspection date: 2026-10-27  
 Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`  
@@ -42,8 +42,8 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`)
 2. Run `Frontend CI` on the exact `main` commit and require Hub tests, type-check, Next.js build, and Cloudflare OpenNext build to pass.
-3. For current deployments, use `Deploy VOOM Workers to Cloudflare` for changed backend Workers only. Do not deploy the customer-facing frontend from this workflow.
-4. Historical only: inspect the legacy Cloudflare UI Worker if it is needed for rollback; it is not the current production frontend.
+3. After PR #85 merges, `Deploy VOOM Workers to Cloudflare` deploys the customer frontend through OpenNext only when `frontend/` changed, using the exact SHA validated by Frontend CI. It then smoke-tests `/`, `/login`, `/command-center`, `/settings/broker`, and unauthenticated API denial. Backend Worker deployments remain change-scoped.
+4. Verify the Cloudflare UI Worker deployment timestamp/version and live route responses against the exact merged SHA. Netlify remains production until the customer explicitly approves DNS cutover.
 5. Open the frontend URL and verify home, login, markets, learning universe, broker status, and AI analysis routes.
 6. Verify API status and errors without exposing secrets or account identifiers.
 7. The Broker Settings page now sends the signed-in Supabase access token to `voom-system-hub`. The Hub validates the session and scopes the connection lookup to the authenticated user before calling the MT5 Proxy. Verify this exact browser path with a real signed-in session; do not bypass Hub auth or use service-role credentials in the browser.
