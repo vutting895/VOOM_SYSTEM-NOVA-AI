@@ -74,3 +74,8 @@ OAuth end-to-end verification, leaked-password protection, review of SECURITY DE
 - Keep only the small bootstrap copy, runtime checkout and its isolated Python environment, MT5 terminal, and private local tenant files on Windows. Tenant files stay under `%LOCALAPPDATA%\VOOM_SYSTEM\secrets` and must never enter Git.
 - Do not remove the existing development checkout until all its modified and untracked files have been compared with GitHub and any unique work preserved. Build caches may be deleted only after the replacement runtime has been verified.
 - The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
+
+
+## Internal Quant Engine
+
+The research foundation for reproducible datasets, experiment identity, chronological splits and walk-forward evaluation is documented in [Internal Quant Engine Architecture](docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md). The current package is research-only and has no broker-write or live-execution capability.
