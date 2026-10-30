@@ -7,6 +7,7 @@ const root = new URL("../", import.meta.url);
 const sql = readFileSync(new URL("supabase/verification/secret-vault-readiness.sql", root), "utf8");
 const compose = readFileSync(new URL("infra/docker-compose.yml", root), "utf8");
 const readinessDoc = readFileSync(new URL("docs/implementation/NOVA-AUTO-API-SECRET-MANAGER-READINESS.md", root), "utf8");
+const accessDesign = readFileSync(new URL("docs/implementation/NOVA-DEDICATED-VAULT-ACCESS-DESIGN.md", root), "utf8");
 
 test("Vault readiness SQL is read-only and never selects credential values", () => {
   const executableSql = sql.replace(/^\s*--.*$/gm, "");
