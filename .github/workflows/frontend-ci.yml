@@ -121,7 +121,6 @@ jobs:
     env:
       NOVA_STAGING_SUPABASE_URL: https://rovhmjeowracayicbqij.supabase.co
       NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY }}
-      NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
       NOVA_STAGING_APP_URL: http://127.0.0.1:3000
     steps:
       - name: Checkout PR code for isolated staging verification
@@ -159,6 +158,8 @@ jobs:
           echo $! > /tmp/nova-staging-next.pid
       - name: Run two-customer broker, thread and approval isolation tests
         working-directory: .
+        env:
+          NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
         run: node tests/staging-customer-isolation.mjs
       - name: Stop staging Next.js server
         if: always()
