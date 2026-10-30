@@ -41,6 +41,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`)
+   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (falls back to the existing `VOOM_SYSTEM_AUTH` public site key)
 2. Run `Frontend CI` on the exact `main` commit and require Hub tests, type-check, Next.js build, and Cloudflare OpenNext build to pass.
 3. After PR #85 merges, `Deploy VOOM Workers to Cloudflare` deploys the customer frontend through OpenNext only when `frontend/` changed, using the exact SHA validated by Frontend CI. It then smoke-tests `/`, `/login`, `/command-center`, `/settings/broker`, and unauthenticated API denial. Backend Worker deployments remain change-scoped.
 4. Verify the Cloudflare UI Worker deployment timestamp/version and live route responses against the exact merged SHA. Netlify remains production until the customer explicitly approves DNS cutover.
