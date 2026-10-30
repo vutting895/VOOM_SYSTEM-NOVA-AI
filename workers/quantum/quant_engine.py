@@ -102,7 +102,16 @@ class QuantumQuantEngine:
     def _validate_training_data(
         self, features: Sequence[Sequence[float]], labels: Sequence[Any]
     ) -> Tuple[np.ndarray, np.ndarray]:
-        x = np.asarray(features, dtype=float)
+        raw_x = np.asarray(features, dtype=object)
+        if any(isinstance(value, (bool, np.bool_)) for value in raw_x.flat):
+            raise ValueError("features must be numeric, not boolean")
+        try:
+            x = np.asarray(features, dtype=float)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("features must be a finite numeric matrix") from exc
+        raw_y = np.asarray(labels, dtype=object)
+        if any(isinstance(value, (bool, np.bool_)) for value in raw_y.flat):
+            raise ValueError("labels must be integer class values, not booleans")
         y = np.asarray(labels)
         if x.ndim != 2 or x.shape[1] != self.n_qubits or x.shape[0] < 4:
             raise ValueError(f"features must have shape (n_samples, {self.n_qubits}) with at least 4 rows")
@@ -247,6 +256,9 @@ class QuantumQuantEngine:
         """Fit the selected backend; classical is the production default."""
         if not isinstance(backend, str):
             raise ValueError("backend must be a string")
+        if isinstance(epochs, bool) or not isinstance(epochs, int) or epochs < 1:
+            raise ValueError("epochs must be a positive integer")
+        self._positive_float(learning_rate, "learning_rate")
         selected = backend.strip().lower()
         if selected == "classical":
             return self.fit_classical(features, labels, epochs=epochs, learning_rate=learning_rate)
@@ -304,6 +316,8 @@ class QuantumQuantEngine:
                 features, backend="quantum" if use_quantum else "classical"
             )
             band = self._non_negative_float(neutral_band, "neutral_band")
+            if band > 1.0:
+                raise ValueError("neutral_band cannot exceed the expectation-value range of 1.0")
         except (ValueError, RuntimeError) as exc:
             return {
                 "status": "MODEL_NOT_READY" if isinstance(exc, RuntimeError) else "INVALID_INPUT",
