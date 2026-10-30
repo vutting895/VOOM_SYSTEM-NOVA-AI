@@ -154,6 +154,81 @@ export default function Home() {
           </section>
         </div>
 
+        <section className="wix-insight-grid" aria-label="NOVA research, portfolio and telemetry">
+          <section className="hud-panel wix-insight-panel">
+            <div className="panel-heading">
+              <span><i className="panel-marker" /> AI SIGNAL &amp; RATIONALE</span>
+              <span className="panel-code">RESEARCH / 005</span>
+            </div>
+            <div className="wix-insight-body">
+              <div className="wix-signal-state">
+                <span className="micro-label">SIGNAL CONFIDENCE</span>
+                <strong>—</strong>
+                <span className="wix-data-state">WAITING FOR VALIDATED RESULT</span>
+              </div>
+              <div className="wix-rationale">
+                <strong>RATIONALE</strong>
+                <p>ยังไม่มีผลวิเคราะห์ที่ผ่านการตรวจสอบจาก Strategy Engine จึงไม่แสดงทิศทางสัญญาณ คะแนนความเชื่อมั่น หรือเหตุผลที่สร้างขึ้นเอง</p>
+              </div>
+              <Link className="panel-text-link" href="/gen-ai">OPEN AI ANALYSIS <span>→</span></Link>
+            </div>
+          </section>
+
+          <section className="hud-panel wix-insight-panel">
+            <div className="panel-heading">
+              <span><i className="panel-marker" /> PORTFOLIO &amp; RISK</span>
+              <span className="panel-code">RISK / 006</span>
+            </div>
+            <div className="wix-insight-body">
+              <div className="wix-metric-grid">
+                <div><span>ACCOUNT EQUITY</span><strong>—</strong><small>NOT VERIFIED</small></div>
+                <div><span>EXPOSURE</span><strong>—</strong><small>NOT VERIFIED</small></div>
+                <div><span>DRAWDOWN</span><strong>—</strong><small>NO VERIFIED HISTORY</small></div>
+              </div>
+              <div className="wix-execution-lock">
+                <span className="guard-icon">⌑</span>
+                <div><strong>EXECUTION LOCKED</strong><small>Risk monitoring only · No close-all or order action is available</small></div>
+                <span className="guard-seal">OFF</span>
+              </div>
+              <Link className="panel-text-link" href="/backtest">OPEN BACKTEST &amp; RISK REVIEW <span>→</span></Link>
+            </div>
+          </section>
+
+          <section className="hud-panel wix-insight-panel">
+            <div className="panel-heading">
+              <span><i className="panel-marker" /> PORTFOLIO ALLOCATION</span>
+              <span className="panel-code">ALLOC / 007</span>
+            </div>
+            <div className="wix-insight-body">
+              <div className="wix-allocation-empty">
+                <div className="wix-allocation-ring" aria-hidden="true"><span>—</span></div>
+                <div>
+                  <strong>NO VERIFIED ALLOCATION</strong>
+                  <p>การจัดสรรสินทรัพย์จะแสดงเมื่อเชื่อมข้อมูลพอร์ตที่ยืนยันเจ้าของบัญชีและแหล่งข้อมูลแล้ว</p>
+                </div>
+              </div>
+              <div className="wix-data-footnote">ไม่มีการนำเปอร์เซ็นต์ตัวอย่างจาก Wix มาใช้เป็นยอดถือครองจริง</div>
+              <Link className="panel-text-link" href="/broker">CHECK ACCOUNT CONNECTION <span>→</span></Link>
+            </div>
+          </section>
+
+          <section className="hud-panel wix-insight-panel">
+            <div className="panel-heading">
+              <span><i className="panel-marker" /> SYSTEM ACTIVITY &amp; TELEMETRY</span>
+              <span className="panel-code">SYSTEM / 008</span>
+            </div>
+            <div className="wix-insight-body">
+              <div className="wix-telemetry-list">
+                <div><span className="wix-telemetry-led pending" /><span><strong>BROKER STATUS API</strong><small>{brokerStatus} · {brokerDetail}</small></span></div>
+                <div><span className="wix-telemetry-led pending" /><span><strong>MARKET DATA FEED</strong><small>UNVERIFIED · Live candles are not available on this overview</small></span></div>
+                <div><span className="wix-telemetry-led locked" /><span><strong>ORDER EXECUTION</strong><small>DISABLED · No order submission or emergency close action</small></span></div>
+              </div>
+              <div className="wix-data-footnote">แสดงเฉพาะสถานะที่ Frontend ตรวจพบ ไม่ใช่ Server Logs หรือประวัติธุรกรรม</div>
+              <Link className="panel-text-link" href="/broker">OPEN SYSTEM &amp; BROKER STATUS <span>→</span></Link>
+            </div>
+          </section>
+        </section>
+
         <section className="modules-section"><div className="section-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> SYSTEM MODULES</div><h2>Intelligence <span>Modules</span></h2></div><span className="panel-code">MODULES / 04</span></div><div className="module-grid">{modules.map((module, i) => <Link className="module-card" href={module.href} key={module.name}><span className="module-icon">{module.icon}</span><span className="module-number">0{i + 1}</span><h3>{module.name}</h3><p>{module.detail}</p><span className="module-open">ACCESS MODULE ↗</span></Link>)}</div></section>
 
         <footer className="jarvis-footer"><span>VOOM_SYSTEM <b>·</b> NOVA AI</span><span>INTERFACE CONCEPT / VERIFIED DATA ONLY</span><span>LIVE TRADING <strong>OFF</strong></span></footer>

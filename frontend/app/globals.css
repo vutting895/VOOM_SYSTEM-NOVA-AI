@@ -692,3 +692,59 @@ button:disabled { cursor: wait; opacity: .65; }
   .nova-approval-actions button { width: 100%; }
   .nova-approval-state { max-width: 80px; }
 }
+
+
+/* Wix dashboard concept migrated into native NOVA components.
+   All unavailable financial values remain explicit empty states; no sample metrics are presented as live data. */
+.wix-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+.wix-insight-panel { min-width: 0; padding-bottom: 14px; }
+.wix-insight-body { display: grid; gap: 13px; padding: 15px 16px 0; }
+.wix-signal-state { display: grid; gap: 5px; justify-items: start; }
+.wix-signal-state > strong { color: #d9f3f7; font-size: 31px; line-height: 1.1; letter-spacing: -.04em; }
+.wix-data-state { color: #d5b38e; font-size: 8px; font-weight: 850; letter-spacing: .09em; }
+.wix-rationale { padding: 11px 12px; border-left: 2px solid rgba(98,230,243,.42); background: rgba(3,15,24,.42); }
+.wix-rationale > strong { color: #8dbbc8; font-size: 8px; letter-spacing: .12em; }
+.wix-rationale p { margin: 6px 0 0; color: #8faab5; font-size: 10px; line-height: 1.7; }
+.wix-metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.wix-metric-grid > div { display: grid; gap: 6px; min-width: 0; padding: 10px 9px; border: 1px solid rgba(80,209,231,.13); background: rgba(3,15,24,.38); }
+.wix-metric-grid span { color: #7294a1; font-size: 7px; font-weight: 800; letter-spacing: .06em; }
+.wix-metric-grid strong { color: #d8edf1; font-size: 21px; line-height: 1; }
+.wix-metric-grid small { color: #b99b7e; font-size: 7px; line-height: 1.4; }
+.wix-execution-lock { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid rgba(255,151,135,.18); background: rgba(63,27,29,.14); }
+.wix-execution-lock .guard-icon { width: 35px; height: 35px; font-size: 19px; }
+.wix-execution-lock > div { display: grid; gap: 4px; min-width: 0; }
+.wix-execution-lock > div strong { color: #ffb2a6; font-size: 9px; letter-spacing: .08em; }
+.wix-execution-lock > div small { color: #a98983; font-size: 8px; line-height: 1.5; }
+.wix-execution-lock .guard-seal { margin-left: auto; flex: 0 0 auto; }
+.wix-allocation-empty { display: flex; align-items: center; gap: 15px; min-height: 108px; }
+.wix-allocation-ring { display: grid; place-items: center; flex: 0 0 84px; width: 84px; aspect-ratio: 1; border: 7px solid rgba(95,137,151,.16); border-right-color: rgba(95,137,151,.34); border-radius: 50%; }
+.wix-allocation-ring span { color: #9ab2bc; font-size: 21px; font-weight: 800; }
+.wix-allocation-empty > div:last-child { min-width: 0; }
+.wix-allocation-empty strong { color: #c6e6eb; font-size: 9px; letter-spacing: .07em; }
+.wix-allocation-empty p { margin: 6px 0 0; color: #829eaa; font-size: 9px; line-height: 1.7; }
+.wix-data-footnote { padding-top: 9px; border-top: 1px solid rgba(80,209,231,.09); color: #6e8c98; font-size: 8px; line-height: 1.6; }
+.wix-telemetry-list { display: grid; gap: 0; }
+.wix-telemetry-list > div { display: flex; align-items: flex-start; gap: 9px; padding: 10px 0; border-bottom: 1px solid rgba(80,209,231,.09); }
+.wix-telemetry-list > div:first-child { padding-top: 1px; }
+.wix-telemetry-list > div > span:last-child { display: grid; gap: 4px; min-width: 0; }
+.wix-telemetry-list strong { color: #a9d4dd; font-size: 8px; letter-spacing: .08em; }
+.wix-telemetry-list small { color: #819ba6; font-size: 8px; line-height: 1.55; overflow-wrap: anywhere; }
+.wix-telemetry-led { flex: 0 0 6px; width: 6px; height: 6px; margin-top: 3px; border-radius: 50%; background: #c4a17e; box-shadow: 0 0 8px rgba(196,161,126,.28); }
+.wix-telemetry-led.locked { background: #e18f83; box-shadow: 0 0 8px rgba(225,143,131,.24); }
+@media (max-width: 1150px) {
+  .wix-insight-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .wix-insight-grid { gap: 10px; }
+  .wix-insight-body { padding: 12px 12px 0; }
+  .wix-metric-grid { grid-template-columns: 1fr; }
+  .wix-metric-grid > div { grid-template-columns: 1fr auto; align-items: center; }
+  .wix-metric-grid small { grid-column: 1 / -1; }
+  .wix-allocation-empty { align-items: flex-start; gap: 11px; }
+  .wix-allocation-ring { flex-basis: 65px; width: 65px; border-width: 6px; }
+}
