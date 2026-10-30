@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), "utf8");
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
 const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_proof.sql", import.meta.url), "utf8");
+const signedTests = readFileSync(new URL("./supabase/tests/signed_identity_assertion_proof.test.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 
@@ -69,3 +70,17 @@ test("runtime role cannot directly read assertion key or nonce metadata", () => 
   assert.match(signedMigration, /revoke all on table nova_vault_private\.assertion_nonce_consumption/i);
   assert.match(signedMigration, /revoke all on function nova_vault_private\.constant_time_equal_32/i);
 });
+
+test("signed assertion pgTAP suite covers cross-owner forgery, expiry, capability, generation and replay", () => {
+  assert.match(signedTests, /extensions\.plan\(26\)/);
+  assert.match(signedTests, /Customer A cannot forge Customer B owner, tenant and connection claims/i);
+  assert.match(signedTests, /expired signed assertions are rejected/i);
+  assert.match(signedTests, /future-dated assertions are rejected/i);
+  assert.match(signedTests, /trade-write capability is rejected/i);
+  assert.match(signedTests, /stale secret generations are rejected/i);
+  assert.match(signedTests, /a previously consumed nonce cannot be replayed/i);
+  assert.match(signedTests, /fresh nonce may retry the same idempotent operation ID/i);
+  assert.match(signedTests, /pg_temp\.nova_vault_proof_mac/);
+  assert.doesNotMatch(signedTests, /select\s+decrypted_secret\s+from/i);
+});
+
