@@ -1,0 +1,35 @@
+# Disposable local-only project. Never link this directory to a hosted Supabase project.
+project_id = "nova-vault-isolation-proof"
+
+[api]
+enabled = true
+port = 55431
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 55432
+shadow_port = 55430
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = false
+
+[auth]
+enabled = false
+
+[realtime]
+enabled = false
+
+[storage]
+enabled = false
+
+[analytics]
+enabled = false
+
+[inbucket]
+enabled = false
