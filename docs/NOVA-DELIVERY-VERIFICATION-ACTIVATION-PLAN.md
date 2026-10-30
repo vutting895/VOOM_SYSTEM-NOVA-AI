@@ -189,7 +189,7 @@ This section records changes after the previous evidence snapshot. It distinguis
 4. **Supabase Advisor:** `auth_leaked_password_protection` remains disabled on the Free tier. This capability is plan-gated; no upgrade has been approved or performed. Do not upgrade or change billing without owner approval. Performance Advisor currently reports 29 unused-index notices; no index has been deleted without workload review.
 5. **Local source safety / PR #35:** the old `C:\Program Files\voom_system` checkout has modified and untracked files. Do not overwrite it or merge a large consolidation until all unique local changes have been compared and preserved. The runtime checkout also trails current main.
 6. **Headless Bridge / PR #51:** remains a draft candidate. Do not switch from the currently working Windows Bridge until staging, tenant isolation, reconnection, observability and rollback tests pass.
-7. **Research/approval extensions / PRs #66 and #67:** remain drafts. Wave3/SMC ML is research-only; the durable approval lifecycle needs tested two-user ownership, expiry and replay protection before any state-changing capability could be considered.
+7. **Research/approval extensions:** PR #67 was merged as `5de80ad4324e93843f6b1aaa3af9004230c81e05`. Its durable approval lifecycle passed isolated PostgreSQL and local Supabase Auth/PostgREST tests, but hosted approval migration and two-user acceptance remain open. PR #66 remains research-only/staged; no approval workflow grants broker-write capability.
 
 ### Closure criteria
 - Netlify production serves the exact reviewed main commit and returns HTTP 200 for `/`, `/login`, `/settings/broker`, and the auth callback path; evidence records the exact deployed commit.
@@ -263,6 +263,23 @@ This section records changes after the previous evidence snapshot. It distinguis
 ### What remains separate
 - The hosted `Voom_system` database has not received this approval migration. No hosted test users/connections, production flags, secrets, DNS, hosting configuration or broker settings were changed.
 - Real hosted email OTP/browser-session acceptance and the hosted Supabase Auth/Data API -> System Hub -> MT5 Proxy -> Relay chain remain unverified. Do not use production as a test tenant. Only run a hosted test later if a no-cost isolated environment is already available.
-- PR #67 is ready for review but remains unmerged. `main` uses Netlify as the primary frontend host; the Cloudflare deployment workflow is backend-only. A merge can start the Netlify Git-integrated Production build, so production release remains a separate approval gate.
+- PR #67 was merged to `main` as `5de80ad4324e93843f6b1aaa3af9004230c81e05`. Post-merge Frontend CI, Netlify route smoke tests, and both local approval-migration CI jobs passed. This does not authorize or prove a Production release. The Netlify API still reports the published deploy on older commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`; exact Production/main SHA reconciliation remains open.
 - Supabase Free limitations (including the plan-gated leaked-password protection setting) remain plan-gated; do not upgrade the plan or add billing to close this test.
 - Preserve the mandatory safety invariant: Exness Demo only, Read-only + AI Analysis, no broker order submission or position mutation, Live Trading OFF.
+
+
+## 12. PR #67 merge follow-up — 2026-10-30
+
+### Merged source and post-merge checks
+- PR #67 merged as `5de80ad4324e93843f6b1aaa3af9004230c81e05`.
+- Frontend CI run [40988065814](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988065814) passed, including the production route smoke test for `/`, `/login`, and `/settings/broker`.
+- NOVA Approval Migration CI run [40988064733](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988064733) passed both ephemeral PostgreSQL and disposable Local Supabase Auth/PostgREST/API jobs.
+- Cloudflare backend workflow [40988208467](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988208467) completed successfully; all four Worker deploy steps were skipped because the merge commit changed no Worker source directories. Safety smoke tests passed.
+- Post-merge route smoke tests do not prove the published Netlify deploy serves the merge SHA. The connected Netlify API still reports Production deploy `6ae38faa5b0c4d754f75d498` on commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`, older than current `main` `5de80ad4324e93843f6b1aaa3af9004230c81e05`.
+
+### Outstanding acceptance gates
+- Review follow-up fixes are proposed on a separate PR: server-authoritative expiry reconciliation, bounded streaming JSON body reads, and documentation synchronization. Do not push directly to `main`.
+- Hosted `Voom_system` remains on Supabase Free, has no development branches, and does not contain migration `202610300001_nova_durable_approval_lifecycle`. No hosted test tenant is available in the checked project metadata. Do not use Production for acceptance testing.
+- Real hosted email OTP/session checks, owner-only Exness Demo account/quote reads, and foreign-connection denial through System Hub → Proxy → Relay remain unverified.
+- LangGraph checkpoint persistence and graph pause/resume remain unimplemented. Approval request metadata is not a LangGraph checkpointer.
+- Production release remains a separate approval gate. Keep Supabase Free; Exness Demo read-only; order submission/position mutation disabled; Live Trading OFF.
