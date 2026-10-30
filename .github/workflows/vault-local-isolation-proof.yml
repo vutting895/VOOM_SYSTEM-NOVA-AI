@@ -39,7 +39,7 @@ jobs:
 
       - name: Verify local-only project contract
         working-directory: tools/vault-proof
-        run: node --test contract.test.mjs
+        run: node --test contract.test.mjs hmac-known-answer.test.mjs
 
       - name: Start disposable local Supabase stack
         working-directory: tools/vault-proof
