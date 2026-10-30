@@ -131,7 +131,7 @@ def validate_ohlcv(
             aligned = abs(ratio - nearest) < 1e-9
             if aligned and nearest >= 2:
                 gaps += nearest - 1
-            elif not aligned and delta > expected_interval_seconds:
+            elif not aligned:
                 irregular += 1
 
     warnings: list[str] = []
