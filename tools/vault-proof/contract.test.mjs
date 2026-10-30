@@ -122,6 +122,15 @@ test("signed-identity migration is local-only and removes runtime access to unsi
   assert.match(signedMigration, /MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=/);
 });
 
+test("local privilege tests distinguish the internal unsigned accessor from the signed runtime API", () => {
+  assert.match(migration, /alter function nova_vault_private\.get_secret_for_connection_use\([\s\S]*?owner to nova_vault_fn_owner/i);
+  assert.match(migration, /grant execute on function nova_vault_private\.get_secret_for_connection_use\([\s\S]*?to nova_vault_api/i);
+  assert.match(signedMigration, /revoke all on function nova_vault_private\.get_secret_for_connection_use\([\s\S]*?from public, anon, authenticated, service_role, nova_vault_api/i);
+  assert.match(signedIdentityTests, /runtime login cannot call the unsigned owner-parameter accessor/);
+  assert.match(signedIdentityTests, /pgcrypto HMAC is a public cryptographic primitive; verifier key remains inaccessible/);
+  assert.match(readFileSync(new URL("./supabase/tests/secret_vault_access_proof.test.sql", import.meta.url), "utf8"), /set role nova_vault_fn_owner;/);
+});
+
 test("Worker Web Crypto HMAC-SHA-256 matches RFC 4231 known-answer vector", async () => {
   const rawKey = new Uint8Array(20).fill(0x0b);
   const key = await webcrypto.subtle.importKey(
