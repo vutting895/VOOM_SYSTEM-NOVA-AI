@@ -22,5 +22,6 @@ The validators reject unknown fields, enforce bounded payloads and identifiers, 
 Run tests from the repository root:
 
 ```bash
-python -m unittest discover -s tests -p "test_deep_research_contracts.py" -v\npython -m unittest discover -s tests -p "test_deep_research_ledger.py" -v
+python -m unittest discover -s tests -p "test_deep_research_contracts.py" -v
+python -m unittest discover -s tests -p "test_deep_research_ledger.py" -v
 ```
