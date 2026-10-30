@@ -106,6 +106,23 @@ class DeepResearchContractTests(unittest.TestCase):
         with self.assertRaises(ContractValidationError):
             validate_research_task(payload)
 
+    def test_rejects_non_string_field_names_and_unhashable_enum_values(self):
+        payload = self.task()
+        payload[17] = "unexpected"
+        with self.assertRaises(ContractValidationError):
+            validate_research_task(payload)
+
+        cases = [
+            (validate_research_task, self.task(), "state"),
+            (validate_research_source, self.source(), "source_type"),
+            (validate_research_claim, self.claim(), "classification"),
+            (validate_research_hypothesis, self.hypothesis(), "status"),
+        ]
+        for validator, payload, field in cases:
+            payload[field] = []
+            with self.subTest(field=field), self.assertRaises(ContractValidationError):
+                validator(payload)
+
     def test_accepts_valid_source_snapshot(self):
         validated = validate_research_source(self.source())
         self.assertEqual(validated["snapshot_sha256"], "a" * 64)
