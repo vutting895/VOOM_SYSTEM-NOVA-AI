@@ -37,6 +37,8 @@
 
 - TLS 1.2+ (TLS 1.3 preferred), strict certificate validation, bounded request/response sizes, explicit timeouts, and rate limits.
 - Credential intake responses and every custody response use Cache-Control: no-store and Pragma: no-cache.
+- No CDN, reverse proxy, application cache, or database query cache may cache authentication, registry, lifecycle, or secret-bearing operations. Decrypted credentials and DEKs must never enter a cross-request cache. The durable operation ledger is the source of truth for idempotent results, not a cache of provider secrets.
+- Cloudflare Hyperdrive is not part of the selected Option C customer-custody path; do not provision or configure it for this workstream. The replacement acceptance check is an independently isolated custodian datastore/API with no-cache behavior proven at every layer.
 - Disable request-body capture, URL/query logging, Authorization/Cookie capture, automatic exception serialization, and provider response-body logging at every proxy/APM/trace layer.
 - Reject unknown JSON fields; validate types/enums/lengths; canonicalize identifiers before authorization.
 - No arbitrary URL, host, HTTP method, provider path, header, or SQL fragment is accepted from the caller.
