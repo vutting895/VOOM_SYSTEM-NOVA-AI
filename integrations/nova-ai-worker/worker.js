@@ -21,14 +21,14 @@ const MAX_BODY_BYTES = 16 * 1024;
 // Reject credential-like content at the Worker boundary. Frontend sanitization is
 // defense-in-depth only: authenticated clients can call these routes directly.
 const CREDENTIAL_PATTERNS = [
-  /\\bAuthorization\\s*:\\s*Basic\\s+[A-Za-z0-9+/]+={0,2}\\b/i,
-  /\\bBearer\\s+\\S+/i,
-  /\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b/,
-  /\\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\\b/,
-  /\\b(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[ _-]?key|password|passwd|secret|token)\\s*[:=]\\s*["']?[^\\s"'\x60,;]{3,}/i,
-  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\\s]+)/i,
+  /\bAuthorization\s*:\s*Basic\s+[A-Za-z0-9+/]+={0,2}\b/i,
+  /\bBearer\s+\S+/i,
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
+  /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\b/,
+  /\b(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[_ -]?key|password|passwd|secret|token)\s*[:=]\s*["']?[^\s"',;]{3,}/i,
+  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\s]+)/i,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
-  /(?:^|\\n)\\s*(?:cookie|set-cookie)\\s*:\\s*[^\\r\\n]+/im,
+  /(?:^|\n)\s*(?:cookie|set-cookie)\s*:\s*[^\r\n]+/im,
 ];
 
 function containsCredentialLikeText(value) {
