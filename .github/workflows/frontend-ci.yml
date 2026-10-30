@@ -100,7 +100,7 @@ jobs:
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
-        run: npm install --no-save --package-lock=false wrangler
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
         working-directory: frontend
         run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
