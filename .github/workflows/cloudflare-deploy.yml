@@ -254,4 +254,4 @@ jobs:
             echo "Cloudflare frontend root, login, command center, broker settings, and unauthenticated API denial checks passed."
           fi
 
-          echo "Cloudflare relay, MT5 proxy, and Remote MCP safety smoke tests passed."
+          echo "Cloudflare deployment workflow completed. Smoke checks were executed only for components deployed by this commit."
