@@ -56,18 +56,21 @@ test("review UI states explicitly that approval is research-only, never broker e
 });
 
 test("expired UI requests server-side expiry reconciliation, never a rejection", () => {
-  const expiredBlock = approvalCard.match(/\\{approval\\.status === 'pending' && expired && \\([\\s\\S]*?\\n      \\)\\}/);
-  assert.ok(expiredBlock, "expired approval UI must exist");
-  assert.match(expiredBlock[0], /submitDecision\\('expire'\\)/);
-  assert.doesNotMatch(expiredBlock[0], /submitDecision\\('reject'\\)/);
-  assert.match(decision, /approval_not_expired/);
-  assert.match(chatPage, /เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล/);
+  const expiryStart = approvalCard.indexOf("{approval.status === 'pending' && expired && (");
+  const expiryEnd = approvalCard.indexOf("{approval.status !== 'pending'", expiryStart);
+  assert.notEqual(expiryStart, -1, "expired approval UI must exist");
+  assert.notEqual(expiryEnd, -1, "final approval state must follow expiry UI");
+  const expiredBlock = approvalCard.slice(expiryStart, expiryEnd);
+  assert.ok(expiredBlock.includes("submitDecision('expire')"));
+  assert.equal(expiredBlock.includes("submitDecision('reject')"), false);
+  assert.ok(decision.includes("approval_not_expired"));
+  assert.ok(chatPage.includes("เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล"));
 });
 
 test("JSON request reader rejects oversized bodies before unbounded buffering", () => {
-  assert.match(serverHelper, /content-length/);
-  assert.match(serverHelper, /request\\.body\\?\\.getReader\\(\\)/);
-  assert.match(serverHelper, /totalBytes > maxBytes/);
-  assert.match(serverHelper, /reader\\.cancel\\(\\)/);
-  assert.doesNotMatch(serverHelper, /request\\.text\\(\\)/);
+  assert.ok(serverHelper.includes("content-length"));
+  assert.ok(serverHelper.includes("request.body?.getReader()"));
+  assert.ok(serverHelper.includes("totalBytes > maxBytes"));
+  assert.ok(serverHelper.includes("reader.cancel()"));
+  assert.equal(serverHelper.includes("request.text()"), false);
 });
