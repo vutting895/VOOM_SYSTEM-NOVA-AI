@@ -106,6 +106,7 @@ jobs:
           npx wrangler deploy --config wrangler.jsonc --keep-vars \
             --var "SUPABASE_URL:$SUPABASE_URL" \
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "SUPABASE_ANON_KEY:$SUPABASE_PUBLISHABLE_KEY" \
             --var "NOVA_APPROVALS_ENABLED:false"
 
       # Deploy only changed Worker directories from the exact commit that passed CI.
