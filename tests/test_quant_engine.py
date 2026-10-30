@@ -6,6 +6,7 @@ from workers.quant_engine import (
     build_run_fingerprint,
     canonical_dataset_sha256,
     chronological_split,
+    purge_bars_for_label_horizon,
     validate_ohlcv,
     walk_forward_windows,
 )
@@ -39,6 +40,24 @@ class QuantQualityTests(unittest.TestCase):
         report = validate_ohlcv(rows, expected_interval_seconds=3600)
         self.assertEqual(report.observed_gap_count, 2)
         self.assertEqual(len(rows), 3)
+        with self.assertRaises(DatasetValidationError):
+            validate_ohlcv(rows, expected_interval_seconds=3600, reject_gaps=True)
+
+    def test_irregular_interval_is_not_floor_counted_as_missing_bars(self):
+        rows = sample_rows(2)
+        rows[1]["timestamp"] = "2026-01-01T02:30:00Z"
+        report = validate_ohlcv(rows, expected_interval_seconds=3600)
+        self.assertEqual(report.observed_gap_count, 0)
+        self.assertEqual(report.irregular_interval_count, 1)
+        self.assertIn("non-aligned", report.warnings[0])
+
+    def test_shorter_than_expected_interval_is_reported_as_irregular(self):
+        rows = sample_rows(2)
+        rows[1]["timestamp"] = "2026-01-01T00:30:00Z"
+        report = validate_ohlcv(rows, expected_interval_seconds=3600)
+        self.assertEqual(report.observed_gap_count, 0)
+        self.assertEqual(report.irregular_interval_count, 1)
+        self.assertTrue(any("non-aligned" in warning for warning in report.warnings))
         with self.assertRaises(DatasetValidationError):
             validate_ohlcv(rows, expected_interval_seconds=3600, reject_gaps=True)
 
@@ -115,10 +134,19 @@ class QuantSplitTests(unittest.TestCase):
         self.assertLess(windows[0].train_end, windows[0].test_start)
         self.assertLess(windows[0].test_end, windows[1].test_end)
 
+    def test_overlapping_test_folds_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "overlapping test folds"):
+            walk_forward_windows(100, train_bars=40, test_bars=10, step_bars=5, purge_bars=2)
+
     def test_rolling_windows_keep_training_size_fixed(self):
         windows = walk_forward_windows(100, train_bars=30, test_bars=10, expanding=False)
         self.assertEqual(windows[0].train_end - windows[0].train_start, 30)
         self.assertEqual(windows[-1].train_end - windows[-1].train_start, 30)
+
+    def test_purge_policy_uses_strategy_label_horizon(self):
+        self.assertEqual(purge_bars_for_label_horizon(12), 12)
+        with self.assertRaises(ValueError):
+            purge_bars_for_label_horizon(-1)
 
 
 if __name__ == "__main__":
