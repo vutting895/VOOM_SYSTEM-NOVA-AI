@@ -173,7 +173,7 @@ select extensions.ok(
   'SECURITY DEFINER function pins an empty search_path'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 select pg_catalog.set_config(
   'nova_vault_proof.customer_a_hash',
   md5(nova_vault_private.get_secret_for_connection_use(
@@ -182,7 +182,7 @@ select pg_catalog.set_config(
     '00000000-0000-4000-8000-000000000101',
     'proof_provider', 'demo', 1
   )),
-  true
+  false
 );
 reset role;
 
@@ -192,7 +192,7 @@ select extensions.is(
   'runtime role receives only Customer A secret for A connection'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 select pg_catalog.set_config(
   'nova_vault_proof.customer_b_hash',
   md5(nova_vault_private.get_secret_for_connection_use(
@@ -201,7 +201,7 @@ select pg_catalog.set_config(
     '00000000-0000-4000-8000-000000000102',
     'proof_provider', 'demo', 1
   )),
-  true
+  false
 );
 reset role;
 
@@ -211,7 +211,7 @@ select extensions.is(
   'runtime role receives only Customer B secret for B connection'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -220,9 +220,13 @@ begin
     '00000000-0000-4000-8000-000000000102',
     'proof_provider', 'demo', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.cross_owner_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.cross_owner_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.cross_owner_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.cross_owner_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -233,7 +237,7 @@ select extensions.is(
   'Customer A cannot use Customer B connection even when its UUID is known'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -242,9 +246,13 @@ begin
     '00000000-0000-4000-8000-000000000101',
     'proof_provider', 'demo', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.reverse_owner_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.reverse_owner_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.reverse_owner_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.reverse_owner_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -255,7 +263,7 @@ select extensions.is(
   'Customer B cannot use Customer A connection'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -264,9 +272,13 @@ begin
     '00000000-0000-4000-8000-000000000101',
     'proof_provider', 'demo', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.tenant_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.tenant_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.tenant_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.tenant_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -277,7 +289,7 @@ select extensions.is(
   'connection lookup rejects a tenant mismatch'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -286,9 +298,13 @@ begin
     '00000000-0000-4000-8000-000000000101',
     'another_provider', 'demo', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.provider_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.provider_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.provider_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.provider_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -299,7 +315,7 @@ select extensions.is(
   'connection lookup rejects a provider mismatch'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -308,9 +324,13 @@ begin
     '00000000-0000-4000-8000-000000000101',
     'proof_provider', 'production', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.environment_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.environment_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.environment_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.environment_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -321,7 +341,7 @@ select extensions.is(
   'connection lookup rejects an environment mismatch'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -330,9 +350,13 @@ begin
     '00000000-0000-4000-8000-000000000101',
     'proof_provider', 'demo', 2
   );
-  perform pg_catalog.set_config('nova_vault_proof.generation_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.generation_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.generation_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.generation_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
@@ -343,7 +367,7 @@ select extensions.is(
   'connection lookup rejects a stale generation'
 );
 
-set local role nova_vault_api;
+set role nova_vault_api;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -352,9 +376,13 @@ begin
     '00000000-0000-4000-8000-000000000103',
     'proof_provider', 'demo', 1
   );
-  perform pg_catalog.set_config('nova_vault_proof.lifecycle_denied', 'false', true);
+  perform pg_catalog.set_config('nova_vault_proof.lifecycle_denied', 'false',
+  false
+);
 exception when sqlstate 'P0002' then
-  perform pg_catalog.set_config('nova_vault_proof.lifecycle_denied', 'true', true);
+  perform pg_catalog.set_config('nova_vault_proof.lifecycle_denied', 'true',
+  false
+);
 end;
 $test$;
 reset role;
