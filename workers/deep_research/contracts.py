@@ -16,7 +16,8 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 _DATE_ONLY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "client_secret", "code", "credential", "password", "private_key", "refresh_token", "secret", "signature", "sig", "token", "x-amz-credential", "x-amz-signature"}
+_SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "client_secret", "code", "credential", "password", "private_key", "refresh_token", "secret", "signature", "sig", "token", "x-amz-credential", "x-amz-security-token", "x-amz-signature", "x-goog-credential", "x-goog-signature"}
+_RESERVED_HOST_SUFFIXES = (".localhost", ".local", ".internal", ".test", ".invalid", ".example", ".lan", ".home")
 _CLASSIFICATIONS = {"observed", "corroborated", "inferred", "hypothesis", "disputed", "unsupported", "rejected"}
 _SOURCE_TYPES = {"official_documentation", "academic_paper", "repository", "market_data", "user_file", "other"}
 _TASK_STATES = {
@@ -160,9 +161,11 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
     if (
         parsed.scheme.lower() != "https"
         or not host
-        or parsed.username
-        or parsed.password
+        or "@" in parsed.netloc
+        or parsed.username is not None
+        or parsed.password is not None
         or port not in (None, 443)
+        or (port is None and parsed.netloc.endswith(":"))
         or host.endswith(".")
         or "." not in host
     ):
@@ -173,8 +176,17 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
         pass
     else:
         raise ContractValidationError("uri must use a hostname rather than an IP literal")
-    if host.lower() in {"localhost", "localhost.localdomain"}:
-        raise ContractValidationError("uri must not target a local hostname")
+    try:
+        ascii_host = host.encode("idna").decode("ascii").lower()
+    except UnicodeError as exc:
+        raise ContractValidationError("uri hostname is invalid") from exc
+    labels = ascii_host.split(".")
+    if (
+        len(ascii_host) > 253
+        or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
+        or any(ascii_host == suffix[1:] or ascii_host.endswith(suffix) for suffix in _RESERVED_HOST_SUFFIXES)
+    ):
+        raise ContractValidationError("uri must use a valid public DNS hostname")
     if any(key.lower() in _SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
         raise ContractValidationError("uri must not contain credential-like query parameters")
     result["uri"] = uri
