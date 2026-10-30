@@ -1,0 +1,29 @@
+name: NOVA AI Provider Gateway CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/nova-ai-worker/**"
+      - ".github/workflows/ai-provider-gateway-ci.yml"
+  push:
+    branches-ignore: [main]
+    paths:
+      - "integrations/nova-ai-worker/**"
+      - ".github/workflows/ai-provider-gateway-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run NOVA AI Worker and provider gateway tests
+        working-directory: integrations/nova-ai-worker
+        run: node --test
