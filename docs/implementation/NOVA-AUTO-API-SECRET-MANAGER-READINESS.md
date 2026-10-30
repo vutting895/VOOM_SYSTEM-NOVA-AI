@@ -108,3 +108,20 @@ Cloudflare Workers are developed and deployed from their existing integration di
 7. Production activation remains a separate approval gate.
 
 No staging grants, secrets, production data, Cloudflare configuration, Worker deployments, broker routes, or trading flags were changed during this readiness step.
+
+
+## 8. Additional legacy credential table inspection — 2026-10-30
+
+A separate read-only catalog inspection found a legacy `public.user_brokers` table with credential-related columns: `api_key`, `api_secret_encrypted`, and `passphrase_encrypted`.
+
+Observed security metadata:
+- RLS enabled: yes.
+- FORCE ROW LEVEL SECURITY: no.
+- RLS policies: zero.
+- Column-level grants on the sensitive columns: observed for `anon`, `authenticated`, and `service_role`.
+
+The absence of policies currently filters ordinary RLS-protected access, but broad column grants remain a latent exposure if a policy is later added or a privileged access path is used. Treat this as a legacy credential surface requiring separate remediation.
+
+**Do not read credential rows, assume the table is empty, expose this table through new APIs, or drop/migrate these columns as part of this PR.** Before cleanup, identify all consumers and any existing credential records using an approved controlled process, design a customer-safe migration into the approved vault, verify backups and rollback, and obtain separate review. Never copy credential values into logs, reports, fixtures, or chat.
+
+The read-only audit reports only table existence, RLS flags, policy count, sensitive column names, and role/column/privilege metadata. It does not select from `public.user_brokers`.
