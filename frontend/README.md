@@ -11,7 +11,7 @@ This folder contains the customer-facing Next.js App Router application for VOOM
 - **Broker:** Exness Demo through the authenticated System Hub and tenant-scoped MT5 read-only Proxy/Relay.
 - **Safety:** Read-only + AI Analysis. Live Trading and order submission remain disabled.
 
-The repository-root `netlify.toml` continues to serve the current public production site. After Frontend CI passes on `main`, `.github/workflows/cloudflare-deploy.yml` also builds the exact validated commit with OpenNext and deploys the parallel Cloudflare UI Worker. This does not change DNS or cut over the public production domain; retain Netlify until a separately approved cutover.
+The repository-root `netlify.toml` continues to serve the current public production site. For PR #85, Frontend CI builds and deploys the exact PR head to the isolated staging Cloudflare Worker. The stable `voom-system-nova-ui` Worker is not updated by default; the main workflow requires the explicit GitHub Actions variable `DEPLOY_CLOUDFLARE_FRONTEND_MAIN=true` to opt in. This does not change DNS or cut over the public production domain; retain Netlify until a separately approved cutover.
 
 ## Required build environment
 
