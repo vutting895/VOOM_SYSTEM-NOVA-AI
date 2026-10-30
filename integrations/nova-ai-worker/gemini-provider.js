@@ -12,8 +12,7 @@ export function resolveGeminiModel(env) {
 export async function generateGeminiText(env, { systemInstruction, prompt, maxOutputTokens = 900 }) {
   if (typeof env?.GEMINI_API_KEY !== "string" || !env.GEMINI_API_KEY.trim()) throw new Error("gemini_not_configured");
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 12000) throw new Error("invalid_gemini_prompt");
-  const model = typeof env.GEMINI_MODEL === "string" && /^[a-zA-Z0-9._-]{1,80}$/.test(env.GEMINI_MODEL)
-    ? env.GEMINI_MODEL : DEFAULT_MODEL;
+  const model = resolveGeminiModel(env);
   const response = await fetch(GEMINI_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
