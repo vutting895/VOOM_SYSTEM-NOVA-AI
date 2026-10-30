@@ -1,7 +1,7 @@
 -- pgTAP assertions for the disposable local Vault proof only.
 -- Assertions hash fixture values; the test output never prints the synthetic secret.
 
-select extensions.plan(33);
+select extensions.plan(38);
 
 select extensions.ok(
   exists (select 1 from pg_catalog.pg_roles where rolname = 'nova_vault_fn_owner'),
@@ -93,6 +93,59 @@ select extensions.is(
   has_table_privilege('nova_vault_api', 'vault.decrypted_secrets', 'SELECT'),
   false,
   'runtime role cannot read the decrypted Vault view directly'
+);
+
+select extensions.is(
+  (
+    select count(*)::integer
+      from pg_catalog.pg_namespace as n
+      cross join lateral pg_catalog.aclexplode(
+        coalesce(n.nspacl, pg_catalog.acldefault('n', n.nspowner))
+      ) as acl
+     where n.nspname = 'vault'
+       and acl.grantee = 0
+       and acl.privilege_type = 'USAGE'
+  ),
+  0,
+  'PUBLIC has no direct USAGE on the Vault schema'
+);
+
+select extensions.is(
+  (
+    select count(*)::integer
+      from pg_catalog.pg_class as c
+      join pg_catalog.pg_namespace as n on n.oid = c.relnamespace
+      cross join lateral pg_catalog.aclexplode(
+        coalesce(c.relacl, pg_catalog.acldefault('r', c.relowner))
+      ) as acl
+     where n.nspname = 'vault'
+       and c.relkind in ('r', 'v', 'm', 'p')
+       and acl.grantee = 0
+       and acl.privilege_type = 'SELECT'
+  ),
+  0,
+  'PUBLIC has no direct SELECT on Vault tables or views'
+);
+
+select extensions.ok(
+  not has_schema_privilege('anon', 'vault', 'USAGE')
+  and not has_table_privilege('anon', 'vault.secrets', 'SELECT')
+  and not has_table_privilege('anon', 'vault.decrypted_secrets', 'SELECT'),
+  'anon cannot access Vault schema, encrypted table, or decrypted view directly'
+);
+
+select extensions.ok(
+  not has_schema_privilege('authenticated', 'vault', 'USAGE')
+  and not has_table_privilege('authenticated', 'vault.secrets', 'SELECT')
+  and not has_table_privilege('authenticated', 'vault.decrypted_secrets', 'SELECT'),
+  'authenticated cannot access Vault schema, encrypted table, or decrypted view directly'
+);
+
+select extensions.ok(
+  not has_schema_privilege('service_role', 'vault', 'USAGE')
+  and not has_table_privilege('service_role', 'vault.secrets', 'SELECT')
+  and not has_table_privilege('service_role', 'vault.decrypted_secrets', 'SELECT'),
+  'service_role cannot access Vault schema, encrypted table, or decrypted view directly'
 );
 
 select extensions.is(
