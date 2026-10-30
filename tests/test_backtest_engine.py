@@ -162,6 +162,13 @@ class BacktestExecutionTests(unittest.TestCase):
                 code_revision=CODE_SHA,
             )
 
+    def test_dataset_size_is_bounded_and_metrics_disclose_sampling(self):
+        with self.assertRaisesRegex(BacktestInputError, "bounded"):
+            run([{}] * 250_001)
+        report = run(candles_from_closes(CLOSES))
+        self.assertEqual(report["metric_assumptions"]["drawdown_sampling"], "bar_close_only")
+        self.assertEqual(report["metric_assumptions"]["risk_free_rate_per_period"], 0.0)
+
     def test_reproducible_hashes_and_metrics(self):
         rows = candles_from_closes(CLOSES)
         first = run(rows)
