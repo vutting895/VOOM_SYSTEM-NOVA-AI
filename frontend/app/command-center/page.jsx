@@ -61,14 +61,6 @@ export default function CommandCenterPage() {
     setLogs((current) => [...current.slice(-79), makeLog(message, level)]);
   }, []);
 
-  const getToken = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return null;
-    const { data, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) throw new Error('ตรวจสอบเซสชันไม่สำเร็จ');
-    return data.session?.access_token || null;
-  }, []);
-
   const loadBroker = useCallback(async (token) => {
     try {
       const response = await fetch('/api/broker/status?broker=mt5', {
