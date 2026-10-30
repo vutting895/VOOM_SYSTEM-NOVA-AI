@@ -11,8 +11,10 @@ const SECRET_PATTERNS = [
 export function redactSensitiveText(value) {
   if (typeof value !== 'string') return '';
   return SECRET_PATTERNS.reduce(
-    (text, pattern) => text.replace(pattern, (match, prefix) =>
-      prefix ? prefix + '[REDACTED]' : '[REDACTED]'),
+    (text, pattern) => text.replace(pattern, (...args) => {
+      const prefix = typeof args[1] === 'string' ? args[1] : '';
+      return prefix ? prefix + '[REDACTED]' : '[REDACTED]';
+    }),
     value,
   );
 }
