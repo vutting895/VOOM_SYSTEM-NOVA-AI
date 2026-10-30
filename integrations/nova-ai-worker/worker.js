@@ -216,10 +216,10 @@ async function generate(env, input) {
         llm: { provider: "gemini", available: true, model }, liveTradingEnabled: false
       };
     } catch {
-      return { strategy: fallback(input, "gemini_provider_or_output_error"), llm: { provider: "fallback", available: false }, liveTradingEnabled: false };
+      // Explicit Hybrid mode: fall through to Cloudflare Workers AI and expose the actual provider.
     }
   }
-  if (!env.AI || typeof env.AI.run !== "function") return { strategy: fallback(input), llm: { provider: "fallback", available: false }, liveTradingEnabled: false };
+  if (!env.AI || typeof env.AI.run !== "function") return { strategy: fallback(input, env.GEMINI_API_KEY ? "gemini_and_cloudflare_unavailable" : "ai_binding_unavailable"), llm: { provider: "fallback", available: false }, liveTradingEnabled: false };
   const model = "@cf/meta/llama-3.2-3b-instruct";
   const instruction = "Return JSON only with name, entryWorkers, exit:{takeProfitPct,stopLossPct}, rationale. Allowed entryWorkers: "
     + [...ALLOWED_WORKERS].join(", ") + ". TP > 0 and <= 20; SL > 0 and <= 10. Research draft only; no claims of tested performance and no trade instructions.";
@@ -239,7 +239,7 @@ async function generate(env, input) {
         createdAt: new Date().toISOString(), executionEnabled: false, backtestStatus: "not_run",
         warning: "LLM-generated draft; not backtested, not financial advice, and not executable."
       },
-      llm: { provider: "cloudflare-workers-ai", available: true, model }, liveTradingEnabled: false
+      llm: { provider: "cloudflare-workers-ai", available: true, model, ...(env.GEMINI_API_KEY ? { fallbackFrom: "gemini" } : {}) }, liveTradingEnabled: false
     };
   } catch (error) {
     return { strategy: fallback(input, error?.message || "model_error"), llm: { provider: "fallback", available: false }, liveTradingEnabled: false };
@@ -264,17 +264,17 @@ async function generateChat(env, messages) {
       const message = await generateGeminiText(env, { systemInstruction: system, prompt, maxOutputTokens: 900 });
       return { message, provider: "gemini", model, intent, executionEnabled: false, liveTradingEnabled: false };
     } catch {
-      throw Object.assign(new Error("ai_provider_unavailable"), { status: 503 });
+      // Explicit Hybrid mode: use Cloudflare Workers AI as the visible backup provider.
     }
   }
-  if (!env.AI || typeof env.AI.run !== "function") throw Object.assign(new Error("ai_unavailable"), { status: 503 });
+  if (!env.AI || typeof env.AI.run !== "function") throw Object.assign(new Error(env.GEMINI_API_KEY ? "ai_provider_unavailable" : "ai_unavailable"), { status: 503 });
   const model = "@cf/meta/llama-3.2-3b-instruct";
   try {
     const result = await env.AI.run(model, { messages: [{ role: "system", content: system }, ...messages], max_tokens: 900, temperature: 0.25 });
     const message = typeof result === "string" ? result : typeof result?.response === "string" ? result.response : typeof result?.result?.response === "string" ? result.result.response : "";
     const trimmed = message.trim();
     if (!trimmed || trimmed.length > 10000) throw new Error("invalid_model_response");
-    return { message: trimmed, provider: "cloudflare-workers-ai", model, intent, executionEnabled: false, liveTradingEnabled: false };
+    return { message: trimmed, provider: "cloudflare-workers-ai", model, ...(env.GEMINI_API_KEY ? { fallbackFrom: "gemini" } : {}), intent, executionEnabled: false, liveTradingEnabled: false };
   } catch {
     throw Object.assign(new Error("ai_provider_unavailable"), { status: 503 });
   }
