@@ -7,6 +7,7 @@ const styles = await readFile(new URL('../frontend/app/command-center/command-ce
 const navigation = await readFile(new URL('../frontend/components/nova-navigation.jsx', import.meta.url), 'utf8');
 const frontendCi = await readFile(new URL('../.github/workflows/frontend-ci.yml', import.meta.url), 'utf8');
 const cloudflareDeploy = await readFile(new URL('../.github/workflows/cloudflare-deploy.yml', import.meta.url), 'utf8');
+const stagingIsolation = await readFile(new URL('./staging-customer-isolation.mjs', import.meta.url), 'utf8');
 const chatRoute = await readFile(new URL('../frontend/app/api/chat/route.js', import.meta.url), 'utf8');
 
 test('customer command center requires an authenticated Supabase session', () => {
@@ -82,4 +83,20 @@ test('pull-request CI does not expose Cloudflare or Supabase deployment secrets 
 
 test('stable Cloudflare frontend deployment remains owner opt-in', () => {
   assert.match(cloudflareDeploy, /vars\.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'/);
+});
+
+
+test('staging sign-in forwards only an explicitly supplied CAPTCHA token', () => {
+  assert.ok(stagingIsolation.includes('NOVA_STAGING_CAPTCHA_TOKEN'));
+  assert.ok(stagingIsolation.includes('gotrue_meta_security: { captcha_token: captchaToken }'));
+});
+
+test('Cloudflare deploy pins Wrangler whenever any backend Worker or opted-in UI Worker is deployed', () => {
+  assert.ok(cloudflareDeploy.includes("Install pinned Wrangler whenever a Worker will be deployed"));
+  assert.ok(cloudflareDeploy.includes("steps.changed.outputs.mt5_relay == 'true'"));
+  assert.ok(cloudflareDeploy.includes("steps.changed.outputs.mt5_proxy == 'true'"));
+  assert.ok(cloudflareDeploy.includes("steps.changed.outputs.remote_mcp == 'true'"));
+  assert.ok(cloudflareDeploy.includes("steps.changed.outputs.system_hub == 'true'"));
+  assert.ok(cloudflareDeploy.includes("vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'"));
+  assert.ok(cloudflareDeploy.includes('wrangler@4.156.0'));
 });
