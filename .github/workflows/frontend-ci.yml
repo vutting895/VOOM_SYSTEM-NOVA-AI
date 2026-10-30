@@ -21,6 +21,8 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "infra/**"
+      - "supabase/verification/**"
   push:
     branches: [main]
     paths:
@@ -38,6 +40,8 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "infra/**"
+      - "supabase/verification/**"
 
 permissions:
   contents: read
@@ -67,6 +71,9 @@ jobs:
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
+      - name: Test Supabase Vault readiness and local secret boundaries
+        working-directory: .
+        run: node --test tests/secret-vault-readiness.test.mjs
       - name: Test AI API authentication precedes payload validation
         working-directory: .
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
