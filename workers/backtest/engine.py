@@ -15,6 +15,7 @@ import re
 from typing import Any
 
 from workers.quant_engine import (
+    DatasetValidationError,
     build_run_fingerprint,
     canonical_dataset_sha256,
     validate_ohlcv,
@@ -135,11 +136,14 @@ def _validate_candle_lineage(
     expected_interval_seconds: int,
     reject_gaps: bool,
 ) -> tuple[list[dict[str, datetime]], dict[str, Any]]:
-    report = validate_ohlcv(
-        candles,
-        expected_interval_seconds=expected_interval_seconds,
-        reject_gaps=reject_gaps,
-    )
+    try:
+        report = validate_ohlcv(
+            candles,
+            expected_interval_seconds=expected_interval_seconds,
+            reject_gaps=reject_gaps,
+        )
+    except DatasetValidationError as exc:
+        raise BacktestInputError(str(exc)) from exc
     lineage: list[dict[str, datetime]] = []
     previous_available: datetime | None = None
     for index, candle in enumerate(candles):
