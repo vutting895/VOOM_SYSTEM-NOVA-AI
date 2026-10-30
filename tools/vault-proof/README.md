@@ -52,3 +52,11 @@ If the security requirement is that even a privileged `service_role` key must be
 The SQL function accepts an owner and tenant identity supplied by its trusted caller. PostgreSQL can prove that those values match the registered connection; this local proof **cannot prove that an arbitrary caller is entitled to assert those identity values**. The System Hub must establish that identity from the verified Supabase session, and a separate security review must decide whether a signed, short-lived internal assertion or another cryptographically verifiable binding is required before staging.
 
 This proof therefore does not authorize customer Secret reads/writes, staging grants, Hyperdrive creation, or production activation. Hyperdrive cache-disabled configuration, actual Supabase Free-plan connectivity, Worker authorization, rotation, revocation, and independent two-user staging acceptance remain separate gates.
+
+## Signed identity assertion proof
+
+A second local-only migration and pgTAP suite now exercise a candidate HMAC-SHA-256 assertion path. The disposable migration creates one synthetic verifier key in Supabase Vault, maps a fixed key ID to that secret, and grants the non-login function owner the HMAC primitive. The runtime role can call only the signed accessor; it cannot read the verifier-key registry, nonce replay registry, Vault view, or HMAC helper directly.
+
+The signed assertion binds a fixed issuer and audience, version, key ID, owner, tenant, connection, provider, environment, read-only capability, secret generation, operation ID, nonce, and a 60-second maximum validity window. PostgreSQL reconstructs the canonical message, verifies the MAC, consumes the nonce once, and re-checks the current connection binding before returning the synthetic Secret to the trusted test caller. The test suite compares only hashes.
+
+The HMAC key in the migration and test file is explicitly synthetic and local-only. It is not a deployable credential. The test does not provision a Cloudflare Worker Secret, a staging key, a customer credential, or a hosted Vault key. Cross-runtime Cloudflare Web Crypto known-answer equivalence, staging tenant mapping, Worker integration, Hyperdrive, rotation and revocation remain separate gates.
