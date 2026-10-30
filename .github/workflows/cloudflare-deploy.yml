@@ -85,7 +85,7 @@ jobs:
         run: npm install --no-save --package-lock=false wrangler@4.156.0
 
       - name: Verify Cloudflare frontend public configuration without printing values
-        if: steps.changed.outputs.frontend == 'true'
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
         shell: bash
         run: |
           if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ -z "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" ]; then
@@ -95,12 +95,12 @@ jobs:
           echo "Cloudflare frontend public configuration is present."
 
       - name: Build OpenNext frontend for Cloudflare from the validated commit
-        if: steps.changed.outputs.frontend == 'true'
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
         working-directory: frontend
         run: npm run cf:build
 
       - name: Deploy customer frontend to the Cloudflare UI Worker
-        if: steps.changed.outputs.frontend == 'true'
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
         working-directory: frontend
         run: |
           sha="$(git rev-parse HEAD)"
@@ -144,7 +144,7 @@ jobs:
       - name: Smoke-test Cloudflare backend worker safety contracts
         shell: bash
         env:
-          FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend }}
+          FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true' }}
         run: |
           set -euo pipefail
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
