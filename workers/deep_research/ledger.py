@@ -139,7 +139,8 @@ def append_evidence_event(
             and existing["owner_id"] == normalized_owner_id
             and existing["event_type"] == event_type
             and existing["recorded_at"] == normalized_recorded_at
-            and existing["payload"] == normalized_payload
+            and _canonical_json_bytes(existing["payload"])
+            == _canonical_json_bytes(normalized_payload)
         )
         if same_intent:
             # event_id is the idempotency key: a retry returns the already
