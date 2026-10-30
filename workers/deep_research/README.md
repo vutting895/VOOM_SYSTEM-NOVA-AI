@@ -7,7 +7,7 @@ This package provides strict, dependency-free validators for the first versioned
 - `nova.research-claim.v1`
 - `nova.research-hypothesis.v1`
 
-The validators reject unknown fields, enforce bounded payloads and identifiers, validate source snapshot hashes and HTTPS URI shape, preserve counter-evidence, and require falsification criteria for hypotheses approved for experiment.
+The validators reject unknown fields, enforce bounded payloads and identifiers, validate source snapshot hashes, require timezone-aware ISO timestamps (normalized to UTC), reject credential-like or IP-literal source URLs, enforce unique passage IDs, preserve counter-evidence, and require falsification criteria for hypotheses approved for experiment.
 
 **Security boundary:** these are data-contract validators only. They do not authenticate users, establish owner/tenant scope, authorize tool calls, fetch URLs, persist source content, or execute source instructions. The NOVA System Integration Hub must authenticate and inject trusted owner/tenant identifiers before calling this package. SSRF protection, redirect validation, DNS/IP policy and network egress controls belong in the future source-fetch adapter.
 

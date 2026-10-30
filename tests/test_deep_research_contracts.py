@@ -106,6 +106,25 @@ class DeepResearchContractTests(unittest.TestCase):
         with self.assertRaises(ContractValidationError):
             validate_research_task(payload)
 
+    def test_task_timestamps_require_timezone_and_chronological_order(self):
+        for value in ("2026-10-31T09:00:00", "not-a-date", "2026-02-30T09:00:00Z"):
+            payload = self.task()
+            payload["created_at"] = value
+            with self.subTest(value=value), self.assertRaises(ContractValidationError):
+                validate_research_task(payload)
+        payload = self.task()
+        payload["updated_at"] = "2026-10-31T08:59:59Z"
+        with self.assertRaisesRegex(ContractValidationError, "must not precede"):
+            validate_research_task(payload)
+
+    def test_task_timestamps_are_normalized_to_utc(self):
+        payload = self.task()
+        payload["created_at"] = "2026-10-31T09:00:00+07:00"
+        payload["updated_at"] = "2026-10-31T09:00:01+07:00"
+        result = validate_research_task(payload)
+        self.assertEqual(result["created_at"], "2026-10-31T02:00:00.000000Z")
+        self.assertEqual(result["updated_at"], "2026-10-31T02:00:01.000000Z")
+
     def test_rejects_non_string_field_names_and_unhashable_enum_values(self):
         payload = self.task()
         payload[17] = "unexpected"
@@ -142,6 +161,46 @@ class DeepResearchContractTests(unittest.TestCase):
         payload = self.source()
         payload["passages"][0]["end_offset"] = 0
         with self.assertRaises(ContractValidationError):
+            validate_research_source(payload)
+
+    def test_source_uri_rejects_ip_literals_bad_ports_and_secret_queries(self):
+        for uri in (
+            "https://127.0.0.1/research",
+            "https://localhost/research",
+            "https://example.org:invalid/research",
+            "https://example.org/research?access_token=secret",
+            "https://example.org/research?X-Amz-Credential=secret",
+            "https://example.org/research?X-Goog-Signature=secret",
+            "https://example.org/research?X-Amz-Security-Token=secret",
+            "https://[::1/research",
+            "https://research.local/path",
+            "https://worker.internal/path",
+            "https://example.org:/path",
+            "https://@example.org/path",
+            "https://bad_host.example.org/path",
+            "https://example.org/path?x=one\ntoken=secret",
+            "https://example.org/path#access_token=secret"
+        ):
+            payload = self.source()
+            payload["uri"] = uri
+            with self.subTest(uri=uri), self.assertRaises(ContractValidationError):
+                validate_research_source(payload)
+
+    def test_source_dates_require_timezone_except_calendar_publication_date(self):
+        payload = self.source()
+        payload["published_at"] = "2026-10-30"
+        payload["accessed_at"] = "2026-10-31T09:00:00+07:00"
+        result = validate_research_source(payload)
+        self.assertEqual(result["published_at"], "2026-10-30")
+        self.assertEqual(result["accessed_at"], "2026-10-31T02:00:00.000000Z")
+        payload["accessed_at"] = "2026-10-31T09:00:00"
+        with self.assertRaises(ContractValidationError):
+            validate_research_source(payload)
+
+    def test_rejects_duplicate_passage_ids(self):
+        payload = self.source()
+        payload["passages"].append(dict(payload["passages"][0]))
+        with self.assertRaisesRegex(ContractValidationError, "passage_id values must be unique"):
             validate_research_source(payload)
 
     def test_accepts_valid_claim_and_keeps_counter_evidence_field(self):
