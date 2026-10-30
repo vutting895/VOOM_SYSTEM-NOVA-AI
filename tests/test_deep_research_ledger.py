@@ -100,6 +100,13 @@ class EvidenceLedgerChainTests(unittest.TestCase):
         ):
             self.append([first], event_type="research_plan_revised")
 
+    def test_event_idempotency_compares_canonical_json_types(self):
+        first = self.append(payload={"metric": 1})
+        with self.assertRaisesRegex(
+            ContractValidationError, "event_id already exists with different event content"
+        ):
+            self.append([first], payload={"metric": 1.0})
+
     def test_append_rejects_duplicate_event_ids_and_mixed_owners(self):
         first = self.append()
         with self.assertRaisesRegex(ContractValidationError, "event_id already exists with different event content"):
