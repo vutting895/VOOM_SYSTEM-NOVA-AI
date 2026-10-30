@@ -26,8 +26,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install base dependency
-        run: python -m pip install --disable-pip-version-check "numpy>=2.0,<3.0" "pennylane>=0.40"
+      - name: Install quantum research dependencies
+        run: python -m pip install --disable-pip-version-check -r workers/quantum/requirements.txt
       - name: Compile engine
         run: python -m py_compile workers/quantum/quant_engine.py
       - name: Run focused tests
