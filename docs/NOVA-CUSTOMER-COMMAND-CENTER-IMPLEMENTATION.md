@@ -31,7 +31,7 @@ Add a customer-specific, authenticated Zero-Menu Command Center at `/command-cen
 - Do not present placeholder numbers, chart shapes, or client logs as real-time market/account/server data.
 
 ## Verification / definition of done
-- [ ] Frontend CI typecheck and production build pass for this branch.
+- [x] Frontend CI typecheck and production build pass for this branch (run #281, commit c77bb782d18efec520f10b2a53a6034305fb7299).
 - [ ] Customer A cannot read Customer B's broker account, risk data, logs, threads, or approvals.
 - [ ] Existing approval create/edit/reject flow passes against isolated staging Supabase with two test users.
 - [ ] Verified Exness Demo account and quote/candle reads return source timestamps and are owner-scoped.
