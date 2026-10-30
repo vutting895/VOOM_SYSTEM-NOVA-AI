@@ -79,8 +79,8 @@ jobs:
           if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Install pinned Wrangler for backend-only Worker deploys
-        if: steps.changed.outputs.frontend != 'true'
+      - name: Install pinned Wrangler whenever a Worker will be deployed
+        if: steps.changed.outputs.mt5_relay == 'true' || steps.changed.outputs.mt5_proxy == 'true' || steps.changed.outputs.remote_mcp == 'true' || steps.changed.outputs.system_hub == 'true' || (steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true')
         working-directory: frontend
         run: npm install --no-save --package-lock=false wrangler@4.156.0
 
