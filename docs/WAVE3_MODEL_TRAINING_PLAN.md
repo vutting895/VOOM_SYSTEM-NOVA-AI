@@ -70,3 +70,16 @@ The prior deep_mlp.joblib artifact is retained in the repository for audit/prove
 A deterministic seeded search now runs independently inside each outer walk-forward training window. It evaluates the baseline plus three XGBoost hyperparameter candidates over two chronological inner validation windows. Each inner split purges the 12-bar label horizon before validation. Candidate comparison uses the fixed 60% XGB / 40% 60-bar LSTM ensemble and a composite score of balanced accuracy, macro-F1, and normalized multiclass log loss, with a penalty for fold-to-fold score variability. The selected XGB parameters are then refit on the full outer training window before evaluation on its later outer test window.
 
 The final model's tuning uses only data before 2026-07-01. Final OOS is not read by the tuner and is not used for feature selection, hyperparameter selection, or thresholds. The strategy contract is immutable during tuning: SMC >=85, Fib >=80, XGB >=75%, LSTM >=80%, ensemble >=85%, 60/40 model weights, and all other entry/risk gates remain fixed. Tuning changes model capacity/regularization only; it is not allowed to relax the entry checklist or force trades. All trials, inner-fold metrics, selected hyperparameters, and fixed-gate declarations are written to reports/wave3_auto_tuning_history.json and model_manifest.json.
+
+## Latest nested auto-tuned result — 2026-10-30
+
+Authoritative report: `reports/wave3_auto_tuned_20261030_report.json`. This is the latest nested-tuning run; the earlier `reports/wave3_exness_xauusdm_m15_report.json` and the pre-tuning figures above are retained for historical comparison, not as the current result.
+
+- Dataset: Exness Demo XAUUSDm M15, 101,076 closed bars; final OOS has 7,942 labeled rows beginning 2026-07-01 UTC. Final OOS was excluded from tuning.
+- Final OOS classification: accuracy 41.5135%, balanced accuracy 39.4037%, macro-F1 37.2134%; majority/always-hold baseline accuracy 45.9708%. The model did not beat the baseline.
+- Five expanding walk-forward accuracies: 42.7755% (2024-H1), 41.4606% (2024-H2), 37.9556% (2025-H1), 34.5858% (2025-H2), and 38.1971% (2026-H1). None beat its majority-class baseline.
+- Final OOS produced 34 Wave3 entry-trigger rows, but maximum SMC on those rows was 75/100; zero rows met SMC >=85. XGB BUY >=75% agreement and ensemble BUY >=85% agreement counts were zero. Although 50 rows met the LSTM >=80% probability diagnostic, none survived the preceding hard gates.
+- Closed trades: 0. Win rate and profit factor are undefined, not 0%. The minimum 30-trade requirement, positive net profit, and PF >1.0 were not established.
+- No verified historical high-impact USD calendar was supplied. The +/-30-minute news exclusion therefore fails closed; a genuine calendar is still required for a fresh OOS run.
+
+The 92.3% win-rate and PF 5.10 figures in the original strategy brief remain unverified claims. The tuned classification probabilities are not calibrated probabilities of a trade winning. Do not weaken the Fibonacci, SMC, XGB, LSTM, ensemble, news, spread, or risk gates to manufacture signals. This run is training/backtest evidence only; production eligibility remains false and Live Trading/order submission remain OFF.
