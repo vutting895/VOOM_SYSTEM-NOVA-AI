@@ -1,0 +1,67 @@
+name: NOVA Broker Adapter Contracts
+
+on:
+  pull_request:
+    paths:
+      - "integrations/broker-adapters/**"
+      - "integrations/system-hub/**"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "frontend/app/api/broker/status/**"
+      - "frontend/lib/broker-system-hub.*"
+      - ".github/workflows/broker-adapter-contracts.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "integrations/broker-adapters/**"
+      - "integrations/system-hub/**"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "frontend/app/api/broker/status/**"
+      - "frontend/lib/broker-system-hub.*"
+      - ".github/workflows/broker-adapter-contracts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: broker-adapter-contracts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile broker adapter contracts
+        run: python -m compileall -q integrations/broker-adapters/nova_broker_adapters integrations/broker-adapters/tests
+
+      - name: Run broker adapter contract tests
+        env:
+          PYTHONPATH: integrations/broker-adapters
+        run: python -m unittest discover -s integrations/broker-adapters/tests -v
+
+      - name: Run Windows MT5 bridge tenant guard tests
+        run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_tenant_guard.py" -v
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Broker Status System Hub client tests
+        run: node --test frontend/lib/broker-system-hub.test.mjs
+
+      - name: Run System Hub, MT5 Proxy, and Bridge Relay tests
+        run: node --experimental-default-type=module --test integrations/system-hub/tests/system-hub.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs integrations/mt5-bridge-relay/worker.test.mjs
