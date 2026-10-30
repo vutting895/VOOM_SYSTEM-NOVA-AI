@@ -4,7 +4,6 @@ import worker, { SentinelState } from "../worker.js";
 import {
   SENTINEL_POLICY_VERSION,
   SENTINEL_RETENTION_MS,
-  SentinelState,
   assessSentinelThreat,
   callSentinel
 } from "../sentinel.js";
