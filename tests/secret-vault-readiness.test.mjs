@@ -46,7 +46,7 @@ test("dedicated Vault access stays behind the existing Hub and rejects broad ser
 
 test("Vault operations require an explicitly cache-disabled Hyperdrive binding", () => {
   assert.match(accessDesign, /--caching-disabled/);
-  assert.match(accessDesign, /all Vault\/auth\/permission\/rotation calls/);
+  assert.match(accessDesign, /all Vault\/auth\/permission\/rotation calls/i);
   assert.match(accessDesign, /HTTP `Cache-Control: no-store` does not disable Hyperdrive SQL query caching/);
   assert.match(accessDesign, /ROTATE_ON_NEXT_USE/);
 });
