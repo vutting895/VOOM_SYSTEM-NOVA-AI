@@ -72,14 +72,12 @@ test('customer identity changes clear tenant state and invalidate stale async re
 });
 
 
-test('PR Cloudflare preview is SHA-stamped, staging-only and isolated from production APIs', () => {
-  assert.match(frontendCi, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
-  assert.match(frontendCi, /voom-system-nova-ui-pr85-preview/);
-  assert.match(frontendCi, /NEXT_PUBLIC_SUPABASE_URL: https:\/\/rovhmjeowracayicbqij\.supabase\.co/);
-  assert.match(frontendCi, /NEXT_PUBLIC_SYSTEM_HUB_URL: https:\/\/example\.invalid/);
-  assert.match(frontendCi, /NOVA_AI_API_URL:https:\/\/example\.invalid/);
-  assert.match(frontendCi, /MT5_READONLY_PROXY_URL:https:\/\/example\.invalid/);
-  assert.match(frontendCi, /NOVA_BUILD_SHA:\$sha/);
+test('pull-request CI does not expose Cloudflare or Supabase deployment secrets to PR-controlled code', () => {
+  assert.doesNotMatch(frontendCi, /cloudflare-pr-preview:/);
+  assert.doesNotMatch(frontendCi, /staging-customer-isolation:/);
+  assert.match(frontendCi, /Secret-bearing preview and staging acceptance jobs are intentionally excluded/);
+  assert.doesNotMatch(frontendCi, /CLOUDFLARE_API_TOKEN:\\s*\\$\\{\\{\\s*secrets\\./);
+  assert.doesNotMatch(frontendCi, /NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY:\\s*\\$\\{\\{\\s*secrets\\./);
 });
 
 test('stable Cloudflare frontend deployment remains owner opt-in', () => {
