@@ -47,8 +47,19 @@ If the security requirement is that even a privileged `service_role` key must be
 
 - The migration runner receives explicit SET-only membership to the function-owner and runtime roles inside this disposable database so pgTAP can exercise the real effective privileges. These grants are local test scaffolding only and must not be copied into a hosted migration.
 
-## Important unresolved identity boundary
+## Signed identity assertion — local cryptographic proof only
 
-The SQL function accepts an owner and tenant identity supplied by its trusted caller. PostgreSQL can prove that those values match the registered connection; this local proof **cannot prove that an arbitrary caller is entitled to assert those identity values**. The System Hub must establish that identity from the verified Supabase session, and a separate security review must decide whether a signed, short-lived internal assertion or another cryptographically verifiable binding is required before staging.
+The second disposable migration and pgTAP suite now evaluate a candidate HMAC-SHA-256 assertion verifier. The local fixture uses a synthetic 32-byte key and tests:
 
-This proof therefore does not authorize customer Secret reads/writes, staging grants, Hyperdrive creation, or production activation. Hyperdrive cache-disabled configuration, actual Supabase Free-plan connectivity, Worker authorization, rotation, revocation, and independent two-user staging acceptance remain separate gates.
+- The fixed 15-field UTF-8 canonical message used by both Worker Web Crypto and PostgreSQL pgcrypto, with a cross-runtime known-answer vector.
+- Fixed protocol version, issuer, audience, key ID, owner, tenant, connection, provider, environment, read-only capability, generation, operation ID, nonce, issued-at and expires-at claims.
+- Customer A/B fixture isolation, claim tampering, wrong audience, expired/future assertions, invalid MAC, stale generation and duplicate nonce rejection.
+- Runtime-role denial for the unsigned owner-parameter accessor, direct reads of the verifier-key registry/replay table, and direct access to HMAC extension functions.
+
+This only proves the SQL verifier candidate in a disposable local database. It does **not** prove the actual System Hub creates claims from a verified Supabase session, that a deployed Worker holds a properly provisioned signer key, or that the current application has a canonical tenant registry. The proof currently requires a non-null tenant UUID in its synthetic fixture, while the architecture candidate allows an empty tenant slot only after an explicit owner-only schema decision. Do not carry this fixture parameter shape into the runtime until the real schema and claim contract are verified.
+
+The nonce uniqueness check only prevents replay of the same `key_id + nonce`. It does not provide operation idempotency when a retry uses a fresh nonce but repeats an `operation_id`. The System Hub must keep a durable idempotency record keyed by operation ID and reconcile ambiguous outcomes before any provider call is enabled.
+
+The HMAC verifier is symmetric: compromise of the Worker signing environment can mint assertions. Supabase-managed `service_role` Vault grants also remain a privileged boundary. This design does not protect against those compromises; evaluate a separate secret-custody service if that is outside the accepted threat model.
+
+This proof therefore does not authorize customer Secret reads/writes, staging grants, Hyperdrive creation, or production activation. Actual cache-disabled Hyperdrive configuration, System Hub session-to-owner resolution, Worker signer/verifier key provisioning, sanitized audit/log/trace integration, provider-aware rotation/revoke, independent security review, and staging-only A/B acceptance remain separate gates.
