@@ -65,8 +65,9 @@ def _ensure_json_value(value: Any, *, depth: int = 0) -> None:
         for key, item in value.items():
             if not isinstance(key, str):
                 raise ContractValidationError("event payload object keys must be strings")
-            normalized_key = key.strip().lower().replace("-", "_").replace(".", "_")
-            if normalized_key in _FORBIDDEN_PAYLOAD_KEYS:
+            normalized_key = re.sub(r"[^a-z0-9]", "", key.lower())
+            forbidden_normalized = {re.sub(r"[^a-z0-9]", "", name) for name in _FORBIDDEN_PAYLOAD_KEYS}
+            if normalized_key in forbidden_normalized:
                 raise ContractValidationError(
                     f"event payload must not contain credential field: {key}"
                 )
