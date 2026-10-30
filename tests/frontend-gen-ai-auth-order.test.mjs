@@ -35,3 +35,14 @@ test("AI API returns the authentication status with no-store headers before payl
   assert.ok(responseIndex > failureIndex, "auth failures must use no-store response headers");
   assert.ok(responseIndex < parseIndex, "auth failure response must happen before body parsing");
 });
+
+
+test("Gen AI strategy page labels Google Gemini as a model provider", async () => {
+  const pageSource = await (await import("node:fs/promises")).readFile(
+    new URL("../frontend/app/gen-ai/page.jsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(pageSource, /data\\.llm\\?\\.provider === 'gemini' \\? 'Google Gemini'/);
+  assert.match(pageSource, /data\\.llm\\?\\.provider === 'cloudflare-workers-ai' \\? 'Cloudflare Workers AI'/);
+  assert.match(pageSource, /Rule-based fallback/);
+});
