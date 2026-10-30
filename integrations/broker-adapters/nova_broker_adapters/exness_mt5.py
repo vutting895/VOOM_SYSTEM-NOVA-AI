@@ -6,11 +6,11 @@ read-only check/account/quotes routes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 import math
 import re
 from typing import Any, Mapping, Protocol
+from uuid import UUID
 
 from .contracts import (
     AccountBalance,
@@ -63,6 +63,10 @@ class ExnessMT5Adapter:
         self._timeframe = timeframe
 
     def _validate_connection(self, connection: BrokerConnection, capability: str) -> None:
+        try:
+            UUID(connection.connection_id)
+        except ValueError:
+            raise AdapterError("invalid_connection_id") from None
         if connection.provider_id != self.provider_id:
             raise AdapterError("provider_not_supported")
         if connection.environment != self.environment:
@@ -191,8 +195,10 @@ class ExnessMT5Adapter:
         self._validate_connection(connection, "market_data_read")
         if not isinstance(symbols, tuple) or not 1 <= len(symbols) <= 10:
             raise AdapterError("symbol_count_out_of_range")
-        if len(set(symbols)) != len(symbols) or any(not isinstance(symbol, str) or not _SYMBOL.fullmatch(symbol) for symbol in symbols):
+        if any(not isinstance(symbol, str) or not _SYMBOL.fullmatch(symbol) for symbol in symbols):
             raise AdapterError("invalid_market_symbol")
+        if len(set(symbols)) != len(symbols):
+            raise AdapterError("duplicate_market_symbol")
 
         points: list[MarketDataPoint] = []
         # Sequential bounded reads avoid unbounded provider fan-out.
