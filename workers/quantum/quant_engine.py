@@ -323,7 +323,7 @@ class QuantumQuantEngine:
                 float(value) for value in np.asarray(measured, dtype=float).reshape(-1)
             ]
             expectation = float(np.mean(expectation_by_wire))
-            bullish_probability = float(np.clip((expectation + 1.0) / 2.0, 0.0, 1.0))
+            bullish_score_01 = float(np.clip((expectation + 1.0) / 2.0, 0.0, 1.0))
             model_backend = "PENNYLANE_VQC"
         else:
             if self._classical_weights is None:
@@ -336,10 +336,10 @@ class QuantumQuantEngine:
                     "message": "Train a classifier with labelled historical data first.",
                 }
             augmented = np.concatenate(([1.0], x_scaled))
-            bullish_probability = float(self._sigmoid(
+            bullish_score_01 = float(self._sigmoid(
                 np.asarray([augmented @ self._classical_weights])
             )[0])
-            expectation = 2.0 * bullish_probability - 1.0
+            expectation = 2.0 * bullish_score_01 - 1.0
             model_backend = "CLASSICAL_LOGISTIC_REGRESSION"
 
         regime = "BULLISH_MSS" if expectation > band else (
@@ -351,7 +351,9 @@ class QuantumQuantEngine:
             "timeframe": timeframe,
             "predicted_regime": regime,
             "regime_score": round(expectation, 6),
-            "bullish_probability": round(bullish_probability, 6),
+            "bullish_score_01": round(bullish_score_01, 6),
+            "probability_calibrated": False,
+            "score_semantics": "uncalibrated_backend_score_mapped_to_0_1",
             "model_backend": model_backend,
             "qubits_allocated": self.n_qubits if use_quantum else 0,
             "quantum_circuit_status": "EXECUTED" if use_quantum else "NOT_USED",
