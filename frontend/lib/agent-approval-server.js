@@ -43,8 +43,11 @@ export async function authenticateAgentRequest(request) {
 }
 
 export async function readAgentJson(request, maxBytes = 8000) {
-  const contentType = request.headers.get("content-type") || "";
-  if (!/^application\\/json(?:\\s*;|$)/i.test(contentType)) {
+  const contentType = (request.headers.get("content-type") || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  if (contentType !== "application/json") {
     return { ok: false, response: agentApiJson({ error: "content_type_must_be_application_json" }, 415) };
   }
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
@@ -54,7 +57,9 @@ export async function readAgentJson(request, maxBytes = 8000) {
   const contentLengthHeader = request.headers.get("content-length");
   if (contentLengthHeader !== null) {
     const normalizedLength = contentLengthHeader.trim();
-    if (!/^\\d+$/.test(normalizedLength)) {
+    const isDecimalLength = normalizedLength.length > 0
+      && [...normalizedLength].every((character) => character >= "0" && character <= "9");
+    if (!isDecimalLength) {
       return { ok: false, response: agentApiJson({ error: "invalid_content_length" }, 400) };
     }
     const contentLength = Number(normalizedLength);
