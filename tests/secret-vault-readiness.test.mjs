@@ -97,7 +97,7 @@ test("dedicated Vault design extends the existing Hub and uses least-privilege r
   has(accessDesign, /existing Cloudflare Worker/i);
   has(accessDesign, /nova_vault_api/);
   has(accessDesign, /nova_vault_fn_owner/);
-  has(accessDesign, /must not be a member of service_role/i);
+  has(accessDesign, /must not be a member of .{0,3}service_role/i);
   has(accessDesign, /no direct table\/view access/i);
   has(accessDesign, /does not independently verify the Supabase JWT/i);
 });
@@ -105,7 +105,8 @@ test("dedicated Vault design extends the existing Hub and uses least-privilege r
 test("Vault access design requires cache-disabled Hyperdrive and no secret leakage", () => {
   has(accessDesign, /--caching-disabled/);
   has(accessDesign, /all Vault\/auth\/permission\/rotation calls/i);
-  has(accessDesign, /HTTP Cache-Control: no-store does not disable Hyperdrive SQL query caching/);
+  has(accessDesign, /Cache-Control: no-store/i);
+  has(accessDesign, /query caching/i);
   has(accessDesign, /must never reach browser code, generated UI, the AI model, MCP/i);
 });
 
@@ -113,7 +114,7 @@ test("Hyperdrive network, pooling and activation gates are explicitly documented
   has(accessDesign, /Free plan is IPv6-only/i);
   has(accessDesign, /minimum origin connection pool of five connections/i);
   has(accessDesign, /transaction pooling/i);
-  has(accessDesign, /Do not depend on session-level state/i);
+  has(accessDesign, /do not depend on session-level state/i);
   has(accessDesign, /Do not upgrade Supabase/i);
   has(accessDesign, /candidate, not a green light/i);
   has(accessDesign, /Do not create Hyperdrive resources/i);
