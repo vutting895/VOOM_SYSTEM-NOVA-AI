@@ -25,6 +25,12 @@ test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', 
   assert.doesNotMatch(result, /service-role-private-value/);
 });
 
+test('redacts short Basic authorization credentials', () => {
+  const result = redactSensitiveText('Authorization: Basic YTpi');
+  assert.doesNotMatch(result, /YTpi/);
+  assert.match(result, /\\[REDACTED\\]/);
+});
+
 test('redacts PEM private keys and preserves ordinary prose', () => {
   const source = 'Please review this setup.\nCookie: sessionid=private-cookie-value; auth=secret\n-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- Thank you.';
   const result = redactSensitiveText(source);
