@@ -6,6 +6,8 @@ on:
       - "frontend/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/nova-staging-trusted-acceptance.yml"
+      - "scripts/staging/**"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
@@ -23,6 +25,8 @@ on:
       - "frontend/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/nova-staging-trusted-acceptance.yml"
+      - "scripts/staging/**"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
       - "integrations/mt5-readonly-proxy/**"
@@ -75,6 +79,9 @@ jobs:
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-*.test.mjs
+      - name: Test trusted staging acceptance workflow contract
+        working-directory: .
+        run: node --test tests/nova-trusted-staging-workflow.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
