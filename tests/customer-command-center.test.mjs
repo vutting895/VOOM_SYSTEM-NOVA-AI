@@ -11,7 +11,7 @@ test('customer command center requires an authenticated Supabase session', () =>
   assert.match(page, /getSupabaseBrowserClient/);
   assert.match(page, /router\.replace\('\/login'\)/);
   assert.match(page, /auth\.state !== 'ready'/);
-  assert.match(page, /Authorization: 'Bearer ' \+ auth\.token/);
+  assert.match(page, /Authorization: 'Bearer ' \+ (?:auth\.token|requestToken)/);
 });
 
 test('AI intent is reduced to the fixed strategy-draft schema', () => {
