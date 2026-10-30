@@ -330,7 +330,7 @@ async function cleanup() {
     try {
       await adminRequest("/auth/v1/admin/users/" + encodeURIComponent(user.id), "DELETE", undefined, "Delete temporary staging user");
       const deleted = await fetch(base + "/auth/v1/admin/users/" + encodeURIComponent(user.id), {
-        headers: headers(serviceRoleKey, serviceRoleKey, { Accept: "application/json" }),
+        headers: adminHeaders({ Accept: "application/json" }),
         cache: "no-store",
       });
       if (deleted.status !== 404) failures.push("Auth user deletion could not be verified");
@@ -340,7 +340,7 @@ async function cleanup() {
     for (const table of ["broker_connections", "nova_agent_threads", "nova_approval_requests"]) {
       try {
         const response = await fetch(base + "/rest/v1/" + table + "?user_id=eq." + encodeURIComponent(user.id) + "&select=id", {
-          headers: headers(serviceRoleKey, serviceRoleKey, { Accept: "application/json" }),
+          headers: adminHeaders({ Accept: "application/json" }),
           cache: "no-store",
         });
         const rows = await response.json().catch(() => null);
