@@ -345,7 +345,7 @@ try {
     console.error("STAGING CLEANUP FAILURE: temporary test users or rows may remain. Inspect staging Auth and the three test tables.");
     primaryError = primaryError || new Error(cleanupFailures[0]);
   } else {
-    console.log("STAGING CLEANUP: both temporary test users were signed out, deleted, and verified absent; owned test rows are zero.");
+    console.log("STAGING CLEANUP: " + users.length + " temporary test user(s) were signed out, deleted, and verified absent; owned test rows are zero.");
   }
 }
 if (primaryError) throw primaryError;
