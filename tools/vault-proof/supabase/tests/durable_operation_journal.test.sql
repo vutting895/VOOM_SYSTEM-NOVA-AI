@@ -1,5 +1,5 @@
 -- Local-only proof of durable operation idempotency and ambiguous provider outcome handling.
-select extensions.plan(13);
+select extensions.plan(14);
 
 select extensions.is(
   nova_vault_private.claim_operation(
