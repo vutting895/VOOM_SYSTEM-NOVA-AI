@@ -249,8 +249,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                     bos_up = 1
                 bias = 1
                 # Use the last confirmed swing-low to BOS interval, not an
-                # arbitrary eight-bar lookback. The OB size (>=0.3%), $5 proximity,
-                # and 24-bar post-BOS validity remain unchanged.
+                # arbitrary eight-bar lookback. OB size (>=0.3%) and $5 proximity
+                # remain hard requirements; price invalidation governs OB validity.
                 bullish_ob_start = max(0, int(last_low["idx"])) if last_low else max(0, i - 8)
                 for j in range(bullish_ob_start, i):
                     candle_size_pct = (float(h.iloc[j]) - float(l.iloc[j])) / max(float(c.iloc[j]), 1e-12)
@@ -690,8 +690,12 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
 
     exact_events = event_times.loc[exact_mode]
     if len(exact_events):
-        events = exact_events.sort_values().astype("int64").to_numpy()
-        bar_ns = bars.astype("int64").to_numpy()
+        # Normalize both timestamp arrays to nanoseconds before integer comparison.
+        # pandas can preserve microsecond resolution for parsed CSV timestamps while
+        # market bars may use nanoseconds; mixing raw int64 values creates a 1000x
+        # unit mismatch and can incorrectly blacklist every bar.
+        events = exact_events.sort_values().dt.as_unit("ns").astype("int64").to_numpy()
+        bar_ns = bars.dt.as_unit("ns").astype("int64").to_numpy()
         positions = np.searchsorted(events, bar_ns)
         before_idx = np.clip(positions - 1, 0, len(events) - 1)
         after_idx = np.clip(positions, 0, len(events) - 1)

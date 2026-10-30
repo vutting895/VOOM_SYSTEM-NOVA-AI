@@ -195,6 +195,35 @@ class TestWave3Pipeline(unittest.TestCase):
         invalid_bearish = _bearish_ob_state(2015.1, 2005.0, 2015.0)
         self.assertFalse(invalid_bearish["valid"])
 
+    def test_news_calendar_exact_event_uses_consistent_timestamp_resolution(self):
+        import tempfile
+        from wave3_ml_pipeline import load_news_calendar
+
+        # Force nanosecond market bars while the CSV parser may return microsecond
+        # timestamps. All exact-time exclusions must remain limited to +/-30 minutes.
+        timestamps = pd.to_datetime([
+            "2026-07-01T09:00:00Z",
+            "2026-07-01T12:00:00Z",
+            "2026-07-01T12:30:00Z",
+            "2026-07-01T13:00:00Z",
+            "2026-07-01T13:15:00Z",
+            "2026-07-02T12:00:00Z",
+        ], utc=True).as_unit("ns")
+        frame = pd.DataFrame({"timestamp": timestamps})
+        calendar = pd.DataFrame({
+            "timestamp": ["2026-07-01T12:30:00Z"],
+            "impact": ["high"],
+            "time_mode": ["datetime"],
+            "calendar_source": ["MQL5 Economic Calendar"],
+            "coverage_start_utc": ["2026-07-01T00:00:00Z"],
+            "coverage_end_exclusive_utc": ["2026-07-03T00:00:00Z"],
+        })
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "news.csv"
+            calendar.to_csv(path, index=False)
+            safe = load_news_calendar(path, frame)
+        self.assertEqual(safe.tolist(), [True, False, False, False, True, True])
+
     def test_news_calendar_rejects_empty_high_impact_dataset(self):
         import tempfile
         from wave3_ml_pipeline import load_news_calendar

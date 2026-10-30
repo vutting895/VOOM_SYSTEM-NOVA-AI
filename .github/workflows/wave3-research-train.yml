@@ -1,7 +1,14 @@
-name: Wave3 research model training
+﻿name: Wave3 research model training
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/wave3-hybrid-backtest-20261029
+    paths:
+      - "datasets/exness-demo/news/**"
+      - "workers/strategy/**"
+      - ".github/workflows/wave3-research-train.yml"
 
 permissions:
   contents: read
@@ -23,15 +30,60 @@ jobs:
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2,<3"
       - name: Install research dependencies
         run: python -m pip install -r requirements-wave3.txt
+      - name: Validate historical USD high-impact calendar
+        run: |
+          python - <<'PY'
+          import csv
+          from datetime import datetime
+          from pathlib import Path
+
+          path = Path("datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv")
+          required = {
+              "timestamp", "impact", "currency", "event", "country", "time_mode",
+              "calendar_source", "calendar_timezone", "coverage_start_utc",
+              "coverage_end_exclusive_utc", "event_id", "value_id",
+          }
+          with path.open(newline="", encoding="utf-8-sig") as stream:
+              reader = csv.DictReader(stream)
+              if not required.issubset(set(reader.fieldnames or [])):
+                  raise SystemExit(f"calendar schema missing columns: {sorted(required - set(reader.fieldnames or []))}")
+              rows = list(reader)
+          if not rows:
+              raise SystemExit("calendar has no events; refusing to run OOS")
+          start = datetime.fromisoformat("2022-07-21T00:00:00+00:00")
+          end = datetime.fromisoformat("2026-10-30T00:00:00+00:00")
+          seen = set()
+          for row in rows:
+              if any(not (row.get(column) or "").strip() for column in required):
+                  raise SystemExit("calendar contains blank required fields")
+              if row["impact"].strip().lower() != "high" or row["currency"].strip().upper() != "USD" or row["country"].strip().upper() != "US":
+                  raise SystemExit("calendar contains a non-US high-impact USD row")
+              if row["calendar_source"] != "MQL5 Economic Calendar" or "GMT+0" not in row["calendar_timezone"]:
+                  raise SystemExit("calendar source/timezone metadata mismatch")
+              if row["coverage_start_utc"] != "2022-07-21T00:00:00Z" or row["coverage_end_exclusive_utc"] != "2026-10-30T00:00:00Z":
+                  raise SystemExit("calendar coverage metadata mismatch")
+              event_time = datetime.fromisoformat(row["timestamp"].replace("Z", "+00:00"))
+              if event_time.tzinfo is None or not (start <= event_time < end):
+                  raise SystemExit("calendar timestamp is naive or outside requested UTC coverage")
+              key = (row["event_id"], row["value_id"])
+              if key in seen:
+                  raise SystemExit(f"duplicate calendar event/value id: {key}")
+              seen.add(key)
+          print(f"Validated {len(rows)} unique high-impact USD events; UTC coverage complete.")
+          PY
       - name: Train models and run walk-forward / final OOS backtest
-        run: python tools/train_wave3_models.py
+        run: >-
+          python tools/train_wave3_models.py
+          --news-calendar datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
+          --model-dir models/wave3_news_calendar_20261030
+          --report reports/wave3_news_calendar_20261030_report.json
       - name: Upload model artifacts and research report
         uses: actions/upload-artifact@v4
         with:
           name: wave3-xgb-lstm-research-${{ github.sha }}
           path: |
-            models/wave3_xgb_deep/
-            reports/wave3_exness_xauusdm_m15_report.json
+            models/wave3_news_calendar_20261030/
+            reports/wave3_news_calendar_20261030_report.json
             reports/wave3_auto_tuning_history.json
             reports/wave3_final_oos_trades.csv
           if-no-files-found: error

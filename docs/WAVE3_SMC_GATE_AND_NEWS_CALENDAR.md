@@ -44,7 +44,11 @@ Exness documents its trading-platform time as GMT+0. MQL5 calendar timestamps us
 
 If a high-impact event has date-only, no-time, tentative, or unknown time mode, the loader blocks that entire UTC date. Exact datetime events block the interval +/-30 minutes. A supplied calendar with no high-impact events or with insufficient coverage is rejected; it is never interpreted as all bars being safe.
 
-The MQL5 source compiled successfully in MetaEditor with 0 errors and 0 warnings. However, the active MT5 instance did not run the exporter when launched via a second \`/config\` command; the terminal was already open and no CSV was created. The exporter therefore still needs to be run once from Navigator. Until a CSV is present and validated, the news gate remains fail-closed and no fresh OOS result may claim complete news filtering.
+On 2026-10-30 the exporter was run from the active Exness Demo MT5 Navigator. The Experts log recorded NEWS_EXPORT_SUCCESS twice; each marker reported 2,166 high-impact events, 15,853 queried calendar values, and zero unknown time modes. The output CSV is 388,313 bytes with 2,166 records and the expected 12 columns. Validation found no timestamp parse errors, blank required fields, duplicate event/value ID pairs, non-USD/non-high-impact rows, or events outside the declared UTC coverage. All records currently have time_mode=datetime; event timestamps range from 2022-07-21T12:30:00Z through 2026-10-29T12:30:00Z. The verified file is stored in datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv on the research branch.
+
+The first full-loader smoke test exposed a timestamp-resolution bug: pandas preserved event timestamps at microsecond resolution while market bars used nanoseconds, but both were converted directly to int64 for distance comparisons. That unit mismatch incorrectly marked all 101,076 bars unsafe. The loader now explicitly normalizes both arrays to nanoseconds before comparing; a regression test covers the mixed-resolution case. On the 101,076-bar dataset, the corrected loader now marks 95,099 bars safe and 5,977 bars blocked (94.0866% safe). The fixed +/-30-minute window and fail-closed behavior for untimed events remain unchanged.
+
+The calendar is now connected to the research workflow through an explicit --news-calendar argument and separate report/model output paths. A new OOS run is still required; the previous report predates this calendar and the timestamp fix and must not be treated as the fresh calendar-filtered result.
 
 ## Performance and safety
 
