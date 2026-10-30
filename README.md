@@ -12,10 +12,10 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 
 ## Frontend hosting and deployment
 
-- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. After PR #67 merged, main-branch smoke tests on commit `5de80ad4324e93843f6b1aaa3af9004230c81e05` returned HTTP 200 for `/`, `/login`, and `/settings/broker`. The connected Netlify project API still reports Production deploy `6ae38faa5b0c4d754f75d498` on older commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`; exact Production/main SHA reconciliation remains open.
+- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. On 2026-10-30, the connected Netlify API reported Production deploy `6ae3f790c1fff5d3192f585d` as `ready`, branch `main`, commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`, exactly matching current `main`. The earlier Production/main SHA mismatch is closed.
 - Netlify Observability recorded HTTP 200 for the production root, Next.js RSC requests for `/login`, `/profile`, and `/broker`, and static frontend assets after that deployment. The anonymous broker-status endpoint returned HTTP 401 as expected. These observations do not prove a real OTP login/session or the complete broker route.
-- Netlify is the primary customer-facing frontend. The main-branch Cloudflare deployment workflow deploys backend Workers only; the legacy Cloudflare UI is retained as a rollback path until the Netlify Production SHA and authentication gates are verified.
-- A historical Netlify Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` post-build phase. Later previews for PRs #69 and #71 succeeded. The new hosting-alignment PR still needs its own Preview and logs verified; do not assume older failures or successes transfer to a new commit.
+- Netlify is the primary customer-facing frontend. The main-branch Cloudflare deployment workflow deploys backend Workers only; the legacy Cloudflare UI is retained as a rollback path. Production SHA reconciliation is verified, while real OTP/browser-session and owner-isolation acceptance remain open.
+- Preview and Production are separate evidence. The last PR #77 Preview found is deploy `6ae444b02af10edc52549c8f`, on earlier head `50ae922bc64251b903c3b4c8c937c756e146c1d1`, state `error` (`Canceled build due to no content change`). No `ready` Deploy Preview is verified for current PR #77 head `e5882214f7d528aa8347e873836ddec29726a33f`.
 - Required Netlify dashboard variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Configure them in site settings and never commit their values.
 - `.github/workflows/frontend-ci.yml` validates worker/security tests, type-check, and the Next.js build. Its production smoke-test job checks Netlify routes on a push to `main`. `.github/workflows/cloudflare-deploy.yml` is being aligned to deploy backend Workers only.
 
@@ -41,7 +41,7 @@ Never print secret values in logs or chat. The UI must show unavailable rather t
 
 ## Current deployment verification limits
 
-The current Netlify Production deploy is reported Ready, but its published commit is older than current `main` (`5de80ad4324e93843f6b1aaa3af9004230c81e05`). GitHub's post-merge smoke test returned HTTP 200 for `/`, `/login`, and `/settings/broker`, but those HTTP checks do not identify the commit Netlify served. A real email OTP/session flow and exact Production SHA reconciliation remain unverified.
+Netlify Production commit reconciliation is verified: deploy `6ae3f790c1fff5d3192f585d` is `ready` on commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`, exactly matching current `main`. The post-merge route smoke test returned HTTP 200 for `/`, `/login`, and `/settings/broker`. A real email OTP/session flow, owner-session access, and foreign-connection denial remain unverified. PR #77 has no ready Deploy Preview verified for its current head.
 
 The actual Supabase owner-session path through System Hub/MT5 Proxy is not yet verified with a signed-in browser session. A valid owner connection read and a foreign connection-ID denial are still required. Anonymous HTTP 401 checks are only negative unauthenticated evidence, not proof of cross-user isolation.
 
