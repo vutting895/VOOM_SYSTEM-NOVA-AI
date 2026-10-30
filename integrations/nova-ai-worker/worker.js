@@ -189,7 +189,7 @@ async function generate(env, input) {
       { role: "system", content: instruction },
       { role: "user", content: JSON.stringify(input) },
     ]);
-    let raw = result.text.replace(/^\\s*\x60\x60\x60(?:json)?/i, "").replace(/\x60\x60\x60\\s*$/, "");
+    let raw = result.text.replace("```json", "").replace("```", "").trim();
     raw = JSON.parse(raw);
     const entryWorkers = [...new Set((Array.isArray(raw?.entryWorkers) ? raw.entryWorkers : [])
       .filter((name) => typeof name === "string" && ALLOWED_WORKERS.has(name)))].slice(0, 6);
@@ -288,7 +288,9 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         ok: true, service: "voom-system-nova-ai", version: "1.1.0",
-        aiBinding: Boolean(env.AI),\n        providerKeysConfigured: { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY) },\n        selectedProvider: ["gemini", "openai", "anthropic"].includes(String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase()) ? String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase() : "gemini",\n        authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
+        aiBinding: Boolean(env.AI),
+        providerKeysConfigured: { gemini: Boolean(env.GEMINI_API_KEY), openai: Boolean(env.OPENAI_API_KEY), anthropic: Boolean(env.ANTHROPIC_API_KEY) },\n        selectedProvider: ["gemini", "openai", "anthropic"].includes(String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase()) ? String(env.NOVA_AI_PROVIDER || "gemini").toLowerCase() : "gemini",
+        authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
     }
