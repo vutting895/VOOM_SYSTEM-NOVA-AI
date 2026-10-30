@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const READ_ONLY = new Set([
@@ -93,17 +93,22 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
   async function claimOperation(key, record) {
     const path = join(ledgerDir, key + ".json");
     await mkdir(dirname(path), { recursive: true });
+    const temporary = path + "." + randomUUID() + ".claim";
     try {
-      const handle = await open(path, "wx", 0o600);
-      try { await handle.writeFile(JSON.stringify(record)); }
-      finally { await handle.close(); }
-      return { kind: "CLAIMED", record, path };
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      const prior = await readLedger(path);
-      if (!prior) throw new Error("LEDGER_RECORD_UNAVAILABLE");
-      if (prior.fingerprint !== record.fingerprint) return { kind: "CONFLICT", record: prior, path };
-      return { kind: "EXISTS", record: prior, path };
+      await writeFile(temporary, JSON.stringify(record), { mode: 0o600, flag: "wx" });
+      try {
+        // Hard-link publication makes the complete claim visible atomically.
+        await link(temporary, path);
+        return { kind: "CLAIMED", record, path };
+      } catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        const prior = await readLedger(path);
+        if (!prior) throw new Error("LEDGER_RECORD_UNAVAILABLE");
+        if (prior.fingerprint !== record.fingerprint) return { kind: "CONFLICT", record: prior, path };
+        return { kind: "EXISTS", record: prior, path };
+      }
+    } finally {
+      await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; });
     }
   }
 
