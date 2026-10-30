@@ -7,11 +7,16 @@ Trusted owner/tenant identifiers must be injected by the NOVA control plane.
 from __future__ import annotations
 
 import re
+from datetime import date, datetime, timezone
+from ipaddress import ip_address
 from typing import Any, Mapping
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlparse
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_RFC3339 = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$")
+_DATE_ONLY = re.compile(r"^\\d{4}-\\d{2}-\\d{2}$")
+_SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "password", "secret", "signature", "token", "x-amz-signature"}
 _CLASSIFICATIONS = {"observed", "corroborated", "inferred", "hypothesis", "disputed", "unsupported", "rejected"}
 _SOURCE_TYPES = {"official_documentation", "academic_paper", "repository", "market_data", "user_file", "other"}
 _TASK_STATES = {
@@ -46,6 +51,29 @@ def _text(value: Any, name: str, *, maximum: int = _MAX_TEXT) -> str:
     if not isinstance(value, str) or not value.strip() or len(value) > maximum:
         raise ContractValidationError(f"{name} must be a non-empty string of at most {maximum} characters")
     return value.strip()
+
+
+def _iso_timestamp(value: Any, name: str, *, allow_date_only: bool = False) -> str:
+    raw = _text(value, name, maximum=64)
+    if allow_date_only and _DATE_ONLY.fullmatch(raw):
+        try:
+            date.fromisoformat(raw)
+        except ValueError as exc:
+            raise ContractValidationError(f"{name} must be a valid ISO-8601 date") from exc
+        return raw
+    if not _RFC3339.fullmatch(raw):
+        raise ContractValidationError(f"{name} must be an ISO-8601 timestamp with an explicit timezone")
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ContractValidationError(f"{name} must be a valid ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ContractValidationError(f"{name} must include an explicit timezone")
+    return parsed.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def _timestamp_value(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def _id(value: Any, name: str) -> str:
@@ -100,8 +128,10 @@ def validate_research_task(payload: Any) -> dict[str, Any]:
         raise ContractValidationError("plan_version must be a positive integer")
     if not isinstance(obj["state"], str) or obj["state"] not in _TASK_STATES:
         raise ContractValidationError("state is not a supported research task state")
-    for field in ("created_at", "updated_at"):
-        result[field] = _text(obj[field], field, maximum=64)
+    result["created_at"] = _iso_timestamp(obj["created_at"], "created_at")
+    result["updated_at"] = _iso_timestamp(obj["updated_at"], "updated_at")
+    if _timestamp_value(result["updated_at"]) < _timestamp_value(result["created_at"]):
+        raise ContractValidationError("updated_at must not precede created_at")
     return result
 
 
@@ -119,13 +149,37 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
     result["source_id"] = _id(obj["source_id"], "source_id")
     uri = _text(obj["uri"], "uri", maximum=2_048)
     parsed = urlparse(uri)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
-        raise ContractValidationError("uri must be an HTTPS URL without embedded credentials")
+    host = parsed.hostname or ""
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ContractValidationError("uri contains an invalid port") from exc
+    if (
+        parsed.scheme.lower() != "https"
+        or not host
+        or parsed.username
+        or parsed.password
+        or port not in (None, 443)
+        or host.endswith(".")
+        or "." not in host
+    ):
+        raise ContractValidationError("uri must be a public-shaped HTTPS URL without credentials or a non-standard port")
+    try:
+        ip_address(host)
+    except ValueError:
+        pass
+    else:
+        raise ContractValidationError("uri must use a hostname rather than an IP literal")
+    if host.lower() in {"localhost", "localhost.localdomain"}:
+        raise ContractValidationError("uri must not target a local hostname")
+    if any(key.lower() in _SENSITIVE_QUERY_KEYS for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+        raise ContractValidationError("uri must not contain credential-like query parameters")
     result["uri"] = uri
-    for field in ("title", "publisher", "extractor_version", "accessed_at"):
+    for field in ("title", "publisher", "extractor_version"):
         result[field] = _text(obj[field], field, maximum=1_000)
+    result["accessed_at"] = _iso_timestamp(obj["accessed_at"], "accessed_at")
     if obj["published_at"] is not None:
-        result["published_at"] = _text(obj["published_at"], "published_at", maximum=64)
+        result["published_at"] = _iso_timestamp(obj["published_at"], "published_at", allow_date_only=True)
     if not isinstance(obj["source_type"], str) or obj["source_type"] not in _SOURCE_TYPES:
         raise ContractValidationError("source_type is not supported")
     digest = _text(obj["snapshot_sha256"], "snapshot_sha256", maximum=64)
@@ -134,13 +188,18 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
     if not isinstance(obj["passages"], list) or len(obj["passages"]) > _MAX_ITEMS:
         raise ContractValidationError("passages must be a list of at most 100 passages")
     passages = []
+    passage_ids: set[str] = set()
     for passage in obj["passages"]:
         item = _object(passage, "passage", {"passage_id", "text", "start_offset", "end_offset"}, {"passage_id", "text", "start_offset", "end_offset"})
         start, end = item["start_offset"], item["end_offset"]
         if any(isinstance(n, bool) or not isinstance(n, int) or n < 0 for n in (start, end)) or end <= start:
             raise ContractValidationError("passage offsets must be non-negative integers with end > start")
+        passage_id = _id(item["passage_id"], "passage_id")
+        if passage_id in passage_ids:
+            raise ContractValidationError("passage_id values must be unique within a source snapshot")
+        passage_ids.add(passage_id)
         passages.append({
-            "passage_id": _id(item["passage_id"], "passage_id"),
+            "passage_id": passage_id,
             "text": _text(item["text"], "passage.text", maximum=4_000),
             "start_offset": start,
             "end_offset": end,
