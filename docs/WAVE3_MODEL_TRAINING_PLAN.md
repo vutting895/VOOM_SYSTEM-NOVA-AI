@@ -83,3 +83,8 @@ Authoritative report: `reports/wave3_auto_tuned_20261030_report.json`. This is t
 - No verified historical high-impact USD calendar was supplied. The +/-30-minute news exclusion therefore fails closed; a genuine calendar is still required for a fresh OOS run.
 
 The 92.3% win-rate and PF 5.10 figures in the original strategy brief remain unverified claims. The tuned classification probabilities are not calibrated probabilities of a trade winning. Do not weaken the Fibonacci, SMC, XGB, LSTM, ensemble, news, spread, or risk gates to manufacture signals. This run is training/backtest evidence only; production eligibility remains false and Live Trading/order submission remain OFF.
+
+
+### Latest calendar-filtered OOS update — 2026-10-30
+
+The newer run supersedes the older pre-calendar limitation and baseline as the latest measured result. Workflow: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41022129986 (commit 80c503750a9db669e615b13b3c0006daf158c641). The validated Exness calendar was applied (7,421 news-safe rows). Final OOS: 7,942 samples, accuracy 41.3246%, balanced accuracy 39.1057%, macro-F1 37.6761%, versus 45.9708% majority baseline. All five walk-forward folds remained below their majority baselines. Closed trades: 0; PF undefined. On 34 Wave3 entry rows, maximum SMC was 75; XGB BUY >=75% agreement and ensemble BUY >=85% agreement counts were 0. The run is not performance-qualified. The generated report contained stale no-calendar wording; the report generator was corrected to describe calendar availability from the actual run state. A fresh run is required to verify the corrected report text.
