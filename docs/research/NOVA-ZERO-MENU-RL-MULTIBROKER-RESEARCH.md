@@ -36,7 +36,7 @@ The following are observations from checked-in main-branch files, not claims tha
 
 This research did not prove that a specific customer's Exness account is provisioned, that real authenticated account/quote reads succeed, that cross-user access is rejected in the deployed environment, that the live deployment matches main, or that an RL model, LangGraph approval workflow, IBKR adapter, or CCXT adapter is already implemented and tested. Treat these as open verification items until an artifact or test result proves otherwise.
 
-The root README also contains inconsistent hosting notes: it calls Cloudflare the canonical frontend target but has older wording that refers to Vercel for frontend settings/builds. Resolve this in a separate docs/configuration change after verifying the actual workflow and production routes; this research-only change does not switch hosting or deploy anything.
+The repository hosting model is Netlify for the customer-facing frontend and Cloudflare Workers for backend APIs. Keep deployment automation aligned with those targets; do not add a second frontend hosting provider or provider-specific deployment workflow.
 
 ## 3. Recommended target architecture
 

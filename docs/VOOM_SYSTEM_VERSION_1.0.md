@@ -88,7 +88,6 @@ Until the acceptance checklist is evidenced, Version 1.0 remains an implementati
 - GitHub deployment workflow: `.github/workflows/cloudflare-deploy.yml`; CI workflow: `.github/workflows/frontend-ci.yml`.
 - Cloudflare API confirmed both Worker names exist and their settings endpoints respond.
 - The inspected frontend Worker settings showed compatibility date `2026-10-24` with no compatibility flags, while `frontend/wrangler.jsonc` specifies `2026-10-27` and `nodejs_compat`. This indicates the deployed Worker may be older than the current repository configuration.
-- The separate Vercel deployment records were part of the historical investigation and do not establish current Netlify/Cloudflare readiness.
 - The live browser check could not be completed through the available inspection path. The latest Cloudflare deployment, route rendering, frontend-to-API calls, and AI Analysis UI remain unverified.
 - See `docs/CLOUDFLARE_FRONTEND_CUTOVER.md` for the evidence and required verification sequence.
 
