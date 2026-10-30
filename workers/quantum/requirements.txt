@@ -1,0 +1,4 @@
+# Research-only dependencies for workers/quantum/.
+# Runtime integration remains disabled until the feature/label contracts are approved.
+numpy>=2.0,<3.0
+pennylane>=0.45,<0.46
