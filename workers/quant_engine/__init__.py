@@ -19,6 +19,7 @@ __all__ = [
     "ChronologicalSplit",
     "DatasetQualityReport",
     "DatasetValidationError",
+    "ExperimentValidationError",
     "PurgePolicy",
     "WalkForwardWindow",
     "build_run_fingerprint",
@@ -26,5 +27,6 @@ __all__ = [
     "chronological_split",
     "derive_purge_policy",
     "validate_ohlcv",
+    "validate_quant_experiment",
     "walk_forward_windows",
 ]
