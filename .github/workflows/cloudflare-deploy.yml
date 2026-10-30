@@ -22,6 +22,12 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SYSTEM_HUB_URL: ${{ vars.NEXT_PUBLIC_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev' }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY || vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAFlosj98ci8iYugG' }}
+      NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
+      NOVA_APPROVALS_ENABLED: "false"
     steps:
       - name: Checkout exact commit validated by Frontend CI
         uses: actions/checkout@v4
@@ -55,10 +61,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      - name: Install Wrangler for backend Worker deploys without changing the lockfile
-        working-directory: frontend
-        run: npm install --no-save --package-lock=false wrangler
-
       - name: Detect changed backend Worker directories in the validated commit
         id: changed
         shell: bash
@@ -75,6 +77,39 @@ jobs:
           if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install pinned Wrangler whenever a Worker will be deployed
+        if: steps.changed.outputs.mt5_relay == 'true' || steps.changed.outputs.mt5_proxy == 'true' || steps.changed.outputs.remote_mcp == 'true' || steps.changed.outputs.system_hub == 'true' || (steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true')
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+
+      - name: Verify Cloudflare frontend public configuration without printing values
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        shell: bash
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ -z "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" ]; then
+            echo "Cloudflare frontend deployment blocked. Configure NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and NEXT_PUBLIC_TURNSTILE_SITE_KEY in GitHub Actions secrets/variables."
+            exit 1
+          fi
+          echo "Cloudflare frontend public configuration is present."
+
+      - name: Build OpenNext frontend for Cloudflare from the validated commit
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        working-directory: frontend
+        run: npm run cf:build
+
+      - name: Deploy customer frontend to the Cloudflare UI Worker
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        working-directory: frontend
+        run: |
+          sha="$(git rev-parse HEAD)"
+          npx wrangler deploy --config wrangler.jsonc --keep-vars \
+            --var "NOVA_BUILD_SHA:$sha" \
+            --var "SUPABASE_URL:$SUPABASE_URL" \
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "SUPABASE_ANON_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "NOVA_APPROVALS_ENABLED:false"
 
       # Deploy only changed Worker directories from the exact commit that passed CI.
       # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
@@ -108,6 +143,8 @@ jobs:
 
       - name: Smoke-test Cloudflare backend worker safety contracts
         shell: bash
+        env:
+          FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true' }}
         run: |
           set -euo pipefail
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
@@ -187,4 +224,34 @@ jobs:
             echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
             exit 1
           fi
-          echo "Cloudflare relay, MT5 proxy, and Remote MCP safety smoke tests passed."
+          if [ "$FRONTEND_DEPLOYED" = "true" ]; then
+            ui="https://voom-system-nova-ui.suwapat787.workers.dev"
+            for path in / /login /command-center /settings/broker; do
+              code="$(curl --silent --show-error --location --max-time 25 -o "$body" -w '%{http_code}' "$ui$path" || true)"
+              if [ "$code" != "200" ]; then
+                echo "Cloudflare frontend route $path failed with HTTP $code."
+                exit 1
+              fi
+            done
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{invalid-json' "$ui/api/chat" || true)"
+            if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
+              echo "Cloudflare frontend chat API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/broker/status?broker=mt5" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Cloudflare frontend broker API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/agent/threads" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Cloudflare frontend approvals API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+            echo "Cloudflare frontend root, login, command center, broker settings, and unauthenticated API denial checks passed."
+          fi
+
+          echo "Cloudflare deployment workflow completed. Smoke checks were executed only for components deployed by this commit."

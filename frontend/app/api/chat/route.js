@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { validateIntentEnvelope } from '../../../../integrations/nova-ai-worker/intent-contract.js';
+import { redactSensitiveText } from '../../../lib/redact-sensitive-text.mjs';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -87,6 +88,13 @@ export async function POST(request) {
     return json({ error: 'invalid_conversation_order' }, 400);
   }
 
+  // Customer prompts are untrusted input. Redact credential-like values on the
+  // server before any message content is forwarded to the AI Worker.
+  const safeMessages = messages.map((item) => ({
+    role: item.role,
+    content: redactSensitiveText(item.content),
+  }));
+
   let workerUrl;
   try {
     workerUrl = new URL('/api/chat', workerBase);
@@ -103,7 +111,7 @@ export async function POST(request) {
         Accept: 'application/json',
         Authorization: 'Bearer ' + auth.accessToken,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages: safeMessages }),
       cache: 'no-store',
       redirect: 'error',
       signal: AbortSignal.timeout(35000),

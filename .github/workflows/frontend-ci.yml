@@ -1,5 +1,9 @@
 name: Frontend CI
 
+concurrency:
+  group: nova-frontend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     paths:
@@ -69,6 +73,18 @@ jobs:
       - name: Test bounded NOVA chat history
         working-directory: .
         run: node --test tests/chat-history.test.mjs
+      - name: Test customer Zero-Menu Command Center contracts
+        working-directory: .
+        run: node --test tests/customer-command-center.test.mjs
+      - name: Test customer strategy selection and preference isolation
+        working-directory: .
+        run: node --test tests/customer-strategy-selection.test.mjs
+      - name: Syntax-check staging customer isolation harness
+        working-directory: .
+        run: node --check tests/staging-customer-isolation.mjs
+      - name: Test server-side chat secret redaction
+        working-directory: .
+        run: node --test tests/chat-secret-redaction.test.mjs
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
@@ -94,7 +110,7 @@ jobs:
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
-        run: npm install --no-save --package-lock=false wrangler
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
         working-directory: frontend
         run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
@@ -105,6 +121,22 @@ jobs:
         run: npm run typecheck
       - name: Build Next.js frontend for CI validation
         run: npm run build
+
+      - name: Build Cloudflare OpenNext Worker bundle for CI validation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
+        run: npm run cf:build
+
+
+
+  # Secret-bearing preview and staging acceptance jobs are intentionally excluded from pull_request CI.
+  # PR-controlled code must never receive Cloudflare deployment or Supabase service-role secrets.
+  # Netlify creates the PR Preview independently; hosted staging acceptance requires a separate
+  # trusted workflow using main-owned test code and a protected GitHub Environment.
 
   netlify-production-smoke-test:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

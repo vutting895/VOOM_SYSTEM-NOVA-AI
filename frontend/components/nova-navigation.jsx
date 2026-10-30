@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const items = [
+  { label: 'Command Center', href: '/command-center', code: '00' },
+  { label: 'Strategy Selection', href: '/strategies', code: '01' },
   { label: 'Dashboard', href: '/', code: '01' },
   { label: 'AI Chat', href: '/chat', code: '02' },
   { label: 'Markets', href: '/markets', code: '03' },
@@ -16,6 +18,10 @@ const items = [
 
 export default function NovaNavigation() {
   const pathname = usePathname() || '/';
+
+  // The customer command center is intentionally menu-free and owns its own header.
+  if (pathname === '/command-center' || pathname.startsWith('/command-center/')
+    || pathname === '/strategies' || pathname.startsWith('/strategies/')) return null;
 
   return (
     <header className="nova-global-nav">
