@@ -75,3 +75,64 @@ The estimate excludes gaps, commissions, swaps, slippage and feed/execution fail
 - Quantum computing for finance, Nature Reviews Physics (2023): https://www.nature.com/articles/s42254-023-00603-1
 - Doosti et al., review of quantum ML for financial services (2026-04-08): https://doi.org/10.1088/2632-2153/ae51df
 - 2026 systematic review of quantum ML: https://www.sciencedirect.com/science/article/pii/S0957417426010407
+
+
+## 2026-10-31 requested capability coverage and delivery roadmap
+
+The current PR is a **VQC research prototype**, not yet the complete three-pillar Quantum Engine requested for NOVA. Keep the following distinctions explicit.
+
+| Requested capability | Current evidence in this PR | Status / next gate |
+|---|---|---|
+| Quantum time-series forecasting (QLSTM / PQC) | A four-wire PennyLane VQC classifier with angle embedding and trainable RY/CNOT layers. It is evaluated on `default.qubit`. | **Partial.** No recurrent hidden state, LSTM gates, temporal sequence input, approved feature schema, or market-data experiment exists. First prove the VQC on point-in-time features against classical logistic/XGBoost/LSTM baselines; only then prototype a genuine recurrent QLSTM cell. |
+| Portfolio / risk optimization (QAOA / VQE) | The current `run_qaoa_risk_filter` is explicitly a compatibility alias for deterministic arithmetic sizing and reports `qaoa_executed=false`. | **Not implemented.** Do not call this QAOA/VQE. Define an explicit constrained portfolio objective and QUBO/Ising mapping, then implement a small QAOA/VQE simulator experiment and compare with exact enumeration plus strong classical solvers. |
+| Quantum reinforcement learning (QRL) | No policy network, environment, reward function, critic, replay/trajectory store, or RL training loop is present. | **Not implemented.** Start with a classical RL baseline and offline simulation. A VQC policy is a separate research plugin; it must not output live lot sizes or invoke broker tools. |
+
+### Ordered implementation phases
+
+**Q0 — Preserve the existing NOVA Quant foundation.**  
+Treat PR #94 (dataset quality, hashes, chronological splits and walk-forward windows), PR #98 (overlap/purge/gap hardening), PR #96 (umbrella research tracker), PR #97/#99 (Deep Research Core), and this PR as one dependency graph. The Quantum code must consume the same immutable dataset/run contracts and evaluation windows; it must not create an independent ingestion, experiment identity, split, risk, or broker stack. Before merging, reconcile the `workers/quantum/` package with the `workers/quant_engine/` foundation so there is one Quant compute plane and one clearly named Quantum backend boundary.
+
+**Q1 — Approve point-in-time feature and label contracts.**  
+The current four numeric inputs are not market features. Define immutable ordered feature IDs, units, transforms, warm-up and null rules, source timestamps, instrument/timeframe identity, and the exact target-label economic meaning and forward horizon. Generate each historical feature only from information available at its `as_of` timestamp. Add look-ahead, future-mitigation, stale-data, gap, duplicate, schema-order and deterministic replay tests. Fit every scaler/transform on the training partition only.
+
+**Q2 — Establish classical parity before quantum experiments.**  
+On the same dataset snapshots, run regularized logistic regression and relevant tuned classical comparators (for example gradient-boosted trees and LSTM only where temporal inputs justify them). Use nested/purged chronological walk-forward validation, identical search budgets where feasible, transaction-cost assumptions for any trading simulation, and an untouched final OOS set. Report balanced accuracy, macro-F1, log loss, Brier/calibration, regime-specific confusion, stability across seeds/windows, and confidence intervals. A training-loss reduction is not an acceptance result.
+
+**Q3 — Evaluate the VQC and then QLSTM separately.**  
+Label the present `default.qubit` execution as **state-vector simulation**. PennyLane's `AngleEmbedding` maps no more than one feature per wire to RX/RY/RZ rotation angles; this is an encoding operation, not proof that high-dimensional data has been processed faster. Record qubits, circuit depth, gates, simulator/device, shots, optimizer steps, initialization, wall-clock training and inference time. For QLSTM, specify the recurrent state and input/forget/output gate semantics, parameter sharing, sequence window, gradient method and memory cost; compare it against a tuned classical LSTM on the exact same chronological folds. Do not describe the current feed-forward VQC as QLSTM.
+
+**Q4 — Implement QAOA only after the portfolio objective is specified.**  
+Define the investment universe and binary/encoded decision variables, expected-return and covariance estimates, risk aversion, budget, cardinality, concentration, sector, turnover and transaction-cost constraints. Document penalty scaling and prove that the QUBO/Ising mapping preserves the intended feasible set. For a first small-universe experiment, compare QAOA (cost Hamiltonian + mixer + parameterized alternating circuit + classical optimizer) and/or VQE against exact enumeration and strong classical quadratic/mixed-integer solvers. Report feasibility rate, objective gap, approximation ratio, solution stability, total end-to-end latency, QPU shots/time and cost. VQE is not automatically a substitute for a correctly formulated QAOA problem.
+
+**Q5 — Prototype QRL offline; do not put it on the execution path.**  
+Define the market simulator, observation availability, action space, reward net of fees/spread/slippage, risk constraints, episode boundaries and out-of-sample regime splits. First benchmark PPO/DDPG or another appropriate classical policy. Only then compare a VQC policy using identical state/action/reward contracts and compute budgets. Include seed variance, drawdown, turnover, tail loss and policy stability. The result is a research policy score, never an order or broker authorization.
+
+**Q6 — Private integration only after research acceptance.**  
+The existing chat route and Cloudflare Workers do not host this Python package. Keep heavy training/backtests in an isolated Python compute plane; use the existing NOVA System Integration Hub for authentication, tenant ownership, idempotency, job authorization and audit correlation. Choose a private authenticated adapter or reviewed Node inference port through an ADR. Do not add an unauthenticated endpoint, public Python subprocess in an Edge Worker, a second MCP server, or direct browser-to-model access. Missing, stale, malformed or cross-tenant data must fail closed.
+
+### Latency and quantum-advantage policy
+
+Do not claim microsecond lot sizing or a general quantum speedup. The present simulator uses classical state-vector computation; hardware access adds circuit submission, shots, queue/session, measurement, error and classical feedback costs. A 2026 QRL portfolio preprint explicitly identifies cloud infrastructure latency as a practical deployment limitation. Hardware gate time alone is not end-to-end decision latency.
+
+Benchmark separately:
+- offline training time;
+- local simulator inference;
+- hardware circuit execution and shot count;
+- queue/session and classical feedback overhead;
+- end-to-end feature-to-result latency under realistic load;
+- operating cost and reliability.
+
+Only use the terms **quantum advantage** or **faster than classical** after an independently reproducible, statistically supported out-of-sample comparison against tuned classical baselines with equal problem definitions and complete end-to-end resource accounting.
+
+### Safety invariant
+
+All phases remain research-only. The Python package has no broker credentials, broker-write API, order direction, order submission, position mutation or live-trading switch. Any future advisory size must still be recomputed/validated by the independent NOVA risk policy using current broker/account metadata; this package cannot set or relax that policy. Exness Demo remains read-only, `ordersEnabled=false`, `executionEnabled=false`, and Live Trading OFF.
+
+### Additional technical references
+
+- PennyLane AngleEmbedding (feature-to-rotation mapping): https://docs.pennylane.ai/en/stable/code/api/pennylane.AngleEmbedding.html
+- PennyLane QNode and differentiation methods (including simulator-only backprop): https://docs.pennylane.ai/en/stable/code/api/pennylane.QNode.html
+- Qiskit QAOA algorithm contract (problem Hamiltonian, mixer, circuit repetitions and classical optimizer): https://qiskit-community.github.io/qiskit-optimization/stubs/qiskit_optimization.minimum_eigensolvers.QAOA.html
+- 2026 QRL portfolio preprint (notes cloud infrastructure latency limitation): https://arxiv.org/abs/2601.18811
+- 2026 QAOA portfolio benchmark study (reports hardware shot/sub-job overhead): https://pmc.ncbi.nlm.nih.gov/articles/PMC13512001/
+- 2026 systematic review of QML in finance (discusses NISQ, encoding bottlenecks and lack of broad benchmarking): https://www.sciencedirect.com/science/article/pii/S2666764926000019
