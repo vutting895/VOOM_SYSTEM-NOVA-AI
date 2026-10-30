@@ -93,6 +93,13 @@ class QuantExperimentContractTests(unittest.TestCase):
         with self.assertRaises(ExperimentValidationError):
             validate_quant_experiment(payload)
 
+    def test_rejects_credential_and_broker_fields_in_nested_parameters(self):
+        for key in ("api_key", "accessToken", "broker_password", "account_number", "connection_id"):
+            payload = self.experiment()
+            payload["parameters"][key] = "must-not-enter-experiment"
+            with self.subTest(key=key), self.assertRaises(ExperimentValidationError):
+                validate_quant_experiment(payload)
+
     def test_rejects_invalid_timestamp_and_oversized_parameter_value(self):
         payload = self.experiment()
         payload["created_at"] = "2026-10-31T10:00:00"
