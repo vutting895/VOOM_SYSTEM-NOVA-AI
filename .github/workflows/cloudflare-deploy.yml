@@ -61,6 +61,24 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Detect changed backend Worker directories in the validated commit
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          head="$(git rev-parse HEAD)"
+          if ! git rev-parse "${head}^" >/dev/null 2>&1; then
+            echo "Could not inspect the validated commit's parent; refusing implicit full redeploy."
+            exit 1
+          fi
+          changed="$(git diff --name-only "${head}^" "${head}")"
+          printf '%s\n' "$changed"
+          if grep -Eq '^integrations/mt5-bridge-relay/' <<< "$changed"; then echo "mt5_relay=true" >> "$GITHUB_OUTPUT"; else echo "mt5_relay=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
       - name: Install Wrangler for backend Worker deploys without changing the lockfile
         working-directory: frontend
         run: npm install --no-save --package-lock=false wrangler
@@ -88,24 +106,6 @@ jobs:
             --var "SUPABASE_URL:$SUPABASE_URL" \
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
             --var "NOVA_APPROVALS_ENABLED:false"
-
-      - name: Detect changed backend Worker directories in the validated commit
-        id: changed
-        shell: bash
-        run: |
-          set -euo pipefail
-          head="$(git rev-parse HEAD)"
-          if ! git rev-parse "${head}^" >/dev/null 2>&1; then
-            echo "Could not inspect the validated commit's parent; refusing implicit full redeploy."
-            exit 1
-          fi
-          changed="$(git diff --name-only "${head}^" "${head}")"
-          printf '%s\n' "$changed"
-          if grep -Eq '^integrations/mt5-bridge-relay/' <<< "$changed"; then echo "mt5_relay=true" >> "$GITHUB_OUTPUT"; else echo "mt5_relay=false" >> "$GITHUB_OUTPUT"; fi
-          if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
-          if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
-          if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
-          if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
       # Deploy only changed Worker directories from the exact commit that passed CI.
       # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
