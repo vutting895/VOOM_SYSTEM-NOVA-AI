@@ -21,6 +21,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "workers/learning_universe/**"
       - "infra/**"
       - "supabase/verification/**"
   push:
@@ -40,6 +41,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "workers/learning_universe/**"
       - "infra/**"
       - "supabase/verification/**"
 
@@ -86,6 +88,9 @@ jobs:
       - name: Test customer strategy selection and preference isolation
         working-directory: .
         run: node --test tests/customer-strategy-selection.test.mjs
+      - name: Test canonical Learning Universe catalog
+        working-directory: .
+        run: node --test tests/frontend-learning-universe-catalog.test.mjs
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
@@ -113,9 +118,16 @@ jobs:
       - name: Syntax-check MT5 Bridge and outbound relay client
         working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+      - name: Set up Python for Learning Universe contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Test Learning Universe lifecycle contracts
+        working-directory: .
+        run: python -m unittest discover -s tests -p "test_learning_universe_lifecycle.py" -v
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
