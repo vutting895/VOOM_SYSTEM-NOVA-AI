@@ -8,6 +8,8 @@ const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vau
 const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_assertion_proof.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
+const signedIdentityTests = readFileSync(new URL("./supabase/tests/signed_identity_assertion.test.sql", import.meta.url), "utf8");
+const hmacKnownAnswerTest = readFileSync(new URL("./hmac-known-answer.test.mjs", import.meta.url), "utf8");
 
 test("proof project is isolated from hosted Supabase projects", () => {
   assert.match(config, /project_id = "nova-vault-isolation-proof"/);
@@ -209,4 +211,12 @@ test("signed assertion expiry and canonical field bounds fail closed", () => {
   assert.throws(() => canonicalVaultAssertion({ ...valid, keyId: "bad\\nkey" }));
   assert.throws(() => canonicalVaultAssertion({ ...valid, provider: "bad\\nprovider" }));
   assert.throws(() => canonicalVaultAssertion({ ...valid, capability: "trade.submit" }));
+});
+
+test("Worker Web Crypto and PostgreSQL pgcrypto match the canonical assertion HMAC vector", () => {
+  assert.match(hmacKnownAnswerTest, /webcrypto\.subtle\.sign/);
+  assert.match(hmacKnownAnswerTest, /ecfd257bb3dfff3d0fa34e8d1d01506b2e063a2dbeb4284c3737bb283602a001/);
+  assert.match(signedIdentityTests, /PostgreSQL pgcrypto matches the Web Crypto canonical assertion known-answer vector/);
+  assert.match(signedIdentityTests, /ecfd257bb3dfff3d0fa34e8d1d01506b2e063a2dbeb4284c3737bb283602a001/);
+  assert.match(signedIdentityTests, /extensions\.plan\(25\)/);
 });
