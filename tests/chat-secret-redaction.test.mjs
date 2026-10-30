@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { redactSensitiveText } from '../frontend/lib/redact-sensitive-text.mjs';
+
+const chatRoute = await readFile(new URL('../frontend/app/api/chat/route.js', import.meta.url), 'utf8');
 
 test('redacts labeled API keys, passwords and access tokens', () => {
   const source = 'API_KEY=sk-proj-abcdefghijklmnopqrstuvwxyz123456 password="super-secret-value" access_token: abcdefghijklmnop';
@@ -23,7 +26,7 @@ test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', 
 });
 
 test('redacts PEM private keys and preserves ordinary prose', () => {
-  const source = 'Please review this setup.\\nCookie: sessionid=private-cookie-value; auth=secret\\n-----BEGIN PRIVATE KEY-----\\nprivate-material\\n-----END PRIVATE KEY----- Thank you.';
+  const source = 'Please review this setup.\nCookie: sessionid=private-cookie-value; auth=secret\n-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- Thank you.'; auth=secret\\n-----BEGIN PRIVATE KEY-----\\nprivate-material\\n-----END PRIVATE KEY----- Thank you.';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /private-material/);
   assert.doesNotMatch(result, /private-cookie-value/);
