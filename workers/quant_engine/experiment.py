@@ -14,6 +14,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _MAX_ITEMS = 100
 _MAX_BYTES = 64_000
+_SENSITIVE_KEY_PARTS = ("secret", "token", "password", "credential", "apikey", "broker", "account", "position", "connectionid")
 
 
 class ExperimentValidationError(ValueError):
@@ -72,6 +73,9 @@ def _json_tree(value: Any, label: str = "parameters", depth: int = 0) -> None:
         if len(value) > _MAX_ITEMS or any(not isinstance(k, str) or not k or len(k) > 128 for k in value):
             raise ExperimentValidationError(f"{label} has invalid or excessive keys")
         for key, child in value.items():
+            normalized = "".join(char for char in key.lower() if char.isalnum())
+            if any(part in normalized for part in _SENSITIVE_KEY_PARTS):
+                raise ExperimentValidationError(f"{label} contains a credential, account, or broker-related field")
             _json_tree(child, f"{label}.{key}", depth + 1)
         return
     if isinstance(value, list):
