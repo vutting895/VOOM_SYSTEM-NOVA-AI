@@ -15,9 +15,11 @@ Two distinct database histories were observed:
 1. The newer NOVA-oriented project has a short applied migration history containing the durable NOVA approval lifecycle and MT5 customer connections. Its current public schema contains those tables plus five older tables.
 2. The older `Voom_system` project has a larger 24-entry migration history and contains the Marketplace, customer-profile and strategy objects referenced by the repository's Marketplace hardening migration.
 
-The checked-in repository currently contains only four migration files. This is insufficient evidence to replay either project's full schema from an empty database. Do not combine migration histories, change migration version records, run `db reset`, or apply a new Research migration until the intended target project and its baseline are explicitly reconciled.
+3. **The current deployed configuration points to the older `Voom_system` project.** Netlify site `voomsystem` has a non-secret `NEXT_PUBLIC_SUPABASE_URL` endpoint targeting that project. Cloudflare Workers `voom-system-hub` and `voom-system-nova-ai` also have non-secret `SUPABASE_URL` bindings targeting the same endpoint. Only the endpoint match was recorded; no publishable key, secret binding value or credential was emitted. This is direct configuration evidence that the currently connected frontend and the two inspected Workers share the older project as their runtime Supabase target.
 
-This review used read-only Supabase project, migration, table, extension, policy, grant and PostgreSQL catalog metadata. No DDL, migration, seed, user row, token or secret was created, changed or read.
+The checked-in repository currently contains only four migration files. This is insufficient evidence to replay the older runtime target's full schema from an empty database. Do not combine migration histories, change migration version records, run `db reset`, or apply a new Research migration until its exact applied SQL and out-of-band objects are reconciled. The newer NOVA-oriented project should be treated as a separate candidate/environment, not assumed to be the database serving the inspected current deployment.
+
+This review used read-only Supabase project, migration, table, extension, policy, grant and PostgreSQL catalog metadata, plus Netlify environment-variable metadata and Cloudflare Worker binding metadata. No DDL, migration, seed, user row, token or secret was created, changed or read.
 
 ## 2. Repository migration inventory at the reviewed main SHA
 
@@ -101,7 +103,7 @@ The complete 24-row history is available from the project migration inventory; t
 
 Catalog inspection in this older project confirmed the existence of the Marketplace public wrappers, private implementation functions, `private.is_active_staff()`, `public.ai_strategies` and `public.customer_profiles` referenced by `202610290001_security_definer_marketplace_hardening.sql`.
 
-This explains why the Marketplace hardening migration's dependencies were absent in the newer project's catalog but present in the older project's catalog. It does not establish that the older project should remain the canonical target.
+This explains why the Marketplace hardening migration's dependencies were absent in the newer project's catalog but present in the older project's catalog. The deployment-configuration check further confirms that the older project is the current runtime target for the inspected Netlify and Cloudflare resources. This is not a claim that it is ready for schema replay or that a future migration/cutover cannot select a new project.
 
 ## 4. Supabase test and security observations
 
@@ -118,15 +120,15 @@ No blanket policies should be added to silence the RLS advisor. Each legacy tabl
 
 ## 5. Required decisions before creating the Evidence Ledger migration
 
-### Gate A — Declare the canonical target
+### Gate A — Confirm the runtime target and classify the future target
 
-Record which Supabase project is the canonical NOVA application database for the current deployment. Do not select a target solely because its display name or migration count appears more recent.
+Current configuration evidence identifies the older `Voom_system` project as the runtime Supabase target used by the inspected Netlify `voomsystem` site and Cloudflare Workers `voom-system-hub` and `voom-system-nova-ai`. Use this project as the baseline for **current runtime reconciliation** unless an explicit cutover plan is approved. Do not infer that the separate newer NOVA-oriented project has replaced it merely because its name or migration history looks newer.
 
-The decision record must state:
-- project identity and environment (production, staging or local);
-- which current frontend/Worker deployment uses it;
-- whether the older `Voom_system` project is active, rollback-only or legacy;
-- which data must be retained and which services still consume it;
+The decision record must still state:
+- which project/environment is production, staging, rollback-only or development;
+- whether the newer NOVA-oriented project is intended as a future replacement, isolated staging target or retained experiment;
+- which customers, records, services and broker routes must be preserved during any future migration;
+- whether current frontend and Worker configuration is to remain on `Voom_system` until a separately approved cutover;
 - who owns the final migration approval.
 
 ### Gate B — Produce schema and migration evidence
