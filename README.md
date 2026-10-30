@@ -50,6 +50,7 @@ Netlify Observability also recorded repeated `PUT /api/inngest` HTTP 404 request
 Do not change Supabase Site URL/redirect settings or mark cutover fully accepted until the route smoke test, real OTP session persistence/logout, owner access, and foreign-connection denial have passed against a commit/deploy recorded in evidence. Keep Exness Demo/MT5 read-only, and keep order submission and Live Trading disabled.
 
 ## Architecture
+- [NOVA Intent-Driven Generative UI & Agent Orchestration Architecture](docs/architecture/NOVA-INTENT-DRIVEN-GENERATIVE-UI-AGENT-ARCHITECTURE.md) — Zero-Menu, declarative UI, orchestration, HITL, MCP, guardrails and staged adoption decisions.
 - `frontend/`: Next.js UI; Netlify is the selected target, and Cloudflare remains the verified fallback until cutover gates pass.
 - `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
 - `integrations/mt5-readonly-proxy/`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
