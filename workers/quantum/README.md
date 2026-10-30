@@ -52,17 +52,13 @@ Any future use of the sizing estimate must pass through the independently mainta
 
 ## Installation
 
-Base classifier and risk sizing require NumPy:
+Install the isolated research dependency set (Python 3.11 is used by the focused CI job):
 
 ```bash
-python -m pip install "numpy>=2.0,<3.0"
+python -m pip install -r workers/quantum/requirements.txt
 ```
 
-PennyLane is optional and required only for VQC training/simulation:
-
-```bash
-python -m pip install "pennylane>=0.40"
-```
+The package import still handles a missing PennyLane installation explicitly, but VQC fitting and simulator forecasts are unavailable without PennyLane. This dependency file belongs to the research module; it is not a new general-purpose backend environment and must not be added to the MT5 Bridge or MCP runtime.
 
 ## Minimal research usage
 
