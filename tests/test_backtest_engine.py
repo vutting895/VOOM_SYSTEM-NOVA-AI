@@ -123,6 +123,18 @@ class BacktestExecutionTests(unittest.TestCase):
         self.assertFalse(report["orders_submitted"])
         self.assertFalse(report["live_trading_enabled"])
 
+    def test_data_arriving_at_open_is_not_filled_on_that_same_open(self):
+        rows = candles_from_closes(CLOSES)
+        baseline = run(rows)
+        signal_index = baseline["trades"][0]["signal_index"]
+        next_open = datetime.fromisoformat(
+            rows[signal_index + 1]["timestamp"].replace("Z", "+00:00")
+        )
+        rows[signal_index]["ingested_at"] = next_open.isoformat().replace("+00:00", "Z")
+        report = run(rows)
+        trade = next(t for t in report["trades"] if t["signal_index"] == signal_index)
+        self.assertGreater(trade["entry_index"], signal_index + 1)
+
     def test_late_ingestion_delays_fill_until_a_later_open(self):
         rows = candles_from_closes(CLOSES)
         baseline = run(rows)
