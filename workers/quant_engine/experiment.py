@@ -84,7 +84,12 @@ def _json_tree(value: Any, label: str = "parameters", depth: int = 0) -> None:
 
 
 def validate_quant_experiment(payload: Any) -> dict[str, Any]:
-    """Validate immutable experiment inputs; this function does not run an experiment."""
+    """Validate immutable experiment inputs; this function does not run an experiment.
+
+    Fold indexes are zero-based and end-exclusive. The validator checks the
+    declared purge gap; embargo_bars is retained for the evaluator to apply and
+    verify when it builds and runs the complete fold schedule.
+    """
     fields = {
         "schema_version", "experiment_id", "research_id", "hypothesis_id",
         "dataset_manifest_id", "dataset_sha256", "quality_report_id",
@@ -165,4 +170,4 @@ def validate_quant_experiment(payload: Any) -> dict[str, Any]:
         raise ExperimentValidationError("experiment must contain finite JSON values") from exc
     if len(encoded.encode("utf-8")) > _MAX_BYTES:
         raise ExperimentValidationError(f"experiment exceeds {_MAX_BYTES} bytes")
-    return result
+    return json.loads(encoded)
