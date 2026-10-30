@@ -10,6 +10,7 @@ from .contracts import (
     BrokerConnection,
     BrokerReadOnlyAdapter,
     ConnectionVerification,
+    MarketDataPoint,
     ReadOnlyCapabilities,
 )
 
@@ -20,5 +21,6 @@ __all__ = [
     "BrokerConnection",
     "BrokerReadOnlyAdapter",
     "ConnectionVerification",
+    "MarketDataPoint",
     "ReadOnlyCapabilities",
 ]
