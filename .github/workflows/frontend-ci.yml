@@ -121,6 +121,9 @@ jobs:
       - name: Test Internal Quant Engine research contracts
         working-directory: .
         run: python -m unittest discover -s tests -p "test_quant_engine.py" -v
+      - name: Test immutable Quant Experiment contract
+        working-directory: .
+        run: python -m unittest discover -s tests -p "test_quant_experiment_contract.py" -v
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
