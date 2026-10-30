@@ -96,6 +96,9 @@ class EvidenceLedgerChainTests(unittest.TestCase):
         for payload in (
             {"access_token": "do-not-store"},
             {"metadata": {"api-key": "do-not-store"}},
+            {"apiKey": "do-not-store"},
+            {"refreshToken": "do-not-store"},
+            {"serviceRoleKey": "do-not-store"},
             {"authorization": "Bearer do-not-store"},
         ):
             with self.subTest(payload=payload), self.assertRaisesRegex(
