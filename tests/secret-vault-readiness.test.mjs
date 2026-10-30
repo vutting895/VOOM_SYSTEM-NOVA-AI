@@ -61,6 +61,6 @@ test("Hyperdrive connectivity and pooling constraints must be proven on the curr
 
 test("dedicated Vault design is not an authorization to modify hosted state or activate secrets", () => {
   assert.match(accessDesign, /candidate, not a green light/);
-  assert.match(accessDesign, /No staging grants/);
+  assert.match(accessDesign, /Do not create Hyperdrive resources/);
   assert.match(accessDesign, /Staging remains blocked/);
 });
