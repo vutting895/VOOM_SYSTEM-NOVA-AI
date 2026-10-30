@@ -1,7 +1,7 @@
 -- pgTAP assertions for the disposable local Vault proof only.
 -- Assertions hash fixture values; the test output never prints the synthetic secret.
 
-select extensions.plan(29);
+select extensions.plan(33);
 
 select extensions.ok(
   exists (select 1 from pg_catalog.pg_roles where rolname = 'nova_vault_fn_owner'),
@@ -32,6 +32,30 @@ select extensions.ok(
           and not rolreplication and not rolbypassrls and not rolinherit
      from pg_catalog.pg_roles where rolname = 'nova_vault_api'),
   'runtime role has no elevated role attributes'
+);
+
+select extensions.is(
+  pg_catalog.pg_has_role('nova_vault_api', 'service_role', 'MEMBER'),
+  false,
+  'runtime role is not a member of service_role'
+);
+
+select extensions.is(
+  pg_catalog.pg_has_role('nova_vault_api', 'postgres', 'MEMBER'),
+  false,
+  'runtime role is not a member of postgres'
+);
+
+select extensions.is(
+  pg_catalog.pg_has_role('nova_vault_api', 'nova_vault_fn_owner', 'MEMBER'),
+  false,
+  'runtime role cannot assume function-owner authority'
+);
+
+select extensions.is(
+  pg_catalog.pg_has_role('nova_vault_fn_owner', 'service_role', 'MEMBER'),
+  false,
+  'function owner is not a member of service_role'
 );
 
 select extensions.ok(
