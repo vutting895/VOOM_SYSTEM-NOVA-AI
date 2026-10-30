@@ -177,6 +177,69 @@ try {
   assert.equal(replay.status, 409, "A resolved approval must reject a replay");
   assert.equal(replay.body?.error, "approval_already_resolved");
 
+  const editedProposal = {
+    ...proposal,
+    title: "Edited Exness Demo research draft",
+    summary: "Edited and saved for a fresh review; still no order or account action.",
+  };
+
+  const secondApprovalResponse = await appRequest(
+    `/api/agent/threads/${threadId}/approvals`,
+    userA.token,
+    "POST",
+    { requestType: "strategy_draft_review", proposal },
+  );
+  assert.equal(secondApprovalResponse.status, 201, `Owner A could not create the edit-test approval: ${JSON.stringify(secondApprovalResponse.body)}`);
+  const secondApprovalId = secondApprovalResponse.body?.approval?.id;
+  assert.ok(secondApprovalId, "Edit-test approval creation returned no id");
+
+  const editDecision = await appRequest(
+    `/api/agent/approvals/${secondApprovalId}/decision`,
+    userA.token,
+    "POST",
+    { decision: "edit", note: "Revise and submit for a fresh review", editedProposal },
+  );
+  assert.equal(editDecision.status, 200, `Owner A could not save an edited draft: ${JSON.stringify(editDecision.body)}`);
+  assert.equal(editDecision.body?.approval?.status, "edited");
+  assert.equal(editDecision.body?.approval?.decision_payload?.summary, editedProposal.summary);
+  assert.equal(editDecision.body?.executionEnabled, false);
+  assert.equal(editDecision.body?.liveTradingEnabled, false);
+  assert.equal(editDecision.body?.brokerMutationEnabled, false);
+
+  // A fresh GET is the refresh/recovery check: the edited state must be restored from Postgres.
+  const restoredAfterEdit = await appRequest(`/api/agent/threads/${threadId}/approvals`, userA.token);
+  assert.equal(restoredAfterEdit.status, 200);
+  const restoredEditedApproval = restoredAfterEdit.body.approvals.find((item) => item.id === secondApprovalId);
+  assert.equal(restoredEditedApproval?.status, "edited");
+  assert.equal(restoredEditedApproval?.decision_payload?.summary, editedProposal.summary);
+
+  const thirdApprovalResponse = await appRequest(
+    `/api/agent/threads/${threadId}/approvals`,
+    userA.token,
+    "POST",
+    { requestType: "strategy_draft_review", proposal },
+  );
+  assert.equal(thirdApprovalResponse.status, 201, `Owner A could not create the reject-test approval: ${JSON.stringify(thirdApprovalResponse.body)}`);
+  const thirdApprovalId = thirdApprovalResponse.body?.approval?.id;
+  assert.ok(thirdApprovalId, "Reject-test approval creation returned no id");
+
+  const rejectDecision = await appRequest(
+    `/api/agent/approvals/${thirdApprovalId}/decision`,
+    userA.token,
+    "POST",
+    { decision: "reject", note: "Not approved for this research iteration" },
+  );
+  assert.equal(rejectDecision.status, 200, `Owner A could not reject the draft: ${JSON.stringify(rejectDecision.body)}`);
+  assert.equal(rejectDecision.body?.approval?.status, "rejected");
+  assert.equal(rejectDecision.body?.approval?.decision_payload, null);
+  assert.equal(rejectDecision.body?.executionEnabled, false);
+  assert.equal(rejectDecision.body?.liveTradingEnabled, false);
+  assert.equal(rejectDecision.body?.brokerMutationEnabled, false);
+
+  const restoredAfterReject = await appRequest(`/api/agent/threads/${threadId}/approvals`, userA.token);
+  assert.equal(restoredAfterReject.status, 200);
+  assert.equal(restoredAfterReject.body.approvals.find((item) => item.id === thirdApprovalId)?.status, "rejected");
+
   const connectionCreated = await restRequest("broker_connections?select=id,user_id,status", userA.token, "POST", {
     account_label: "Exness MT5 Demo",
   });
