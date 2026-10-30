@@ -109,13 +109,14 @@ select extensions.ok(
   'runtime role can use the private function schema'
 );
 
-select extensions.ok(
+select extensions.is(
   has_function_privilege(
     'nova_vault_api',
     'nova_vault_private.get_secret_for_connection_use(uuid,uuid,uuid,text,text,bigint)',
     'EXECUTE'
   ),
-  'runtime role can execute the one approved function'
+  false,
+  'runtime role cannot execute the unsigned owner-parameter accessor'
 );
 
 select extensions.is(
@@ -272,7 +273,7 @@ select extensions.ok(
   'SECURITY DEFINER function pins an empty search_path'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 select pg_catalog.set_config(
   'nova_vault_proof.customer_a_hash',
   md5(nova_vault_private.get_secret_for_connection_use(
@@ -288,10 +289,10 @@ reset role;
 select extensions.is(
   current_setting('nova_vault_proof.customer_a_hash', true),
   md5('SYNTHETIC-LOCAL-ONLY-VAULT-PROOF-CUSTOMER-A'),
-  'runtime role receives only Customer A secret for A connection'
+  'function owner resolves only Customer A secret for A connection'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 select pg_catalog.set_config(
   'nova_vault_proof.customer_b_hash',
   md5(nova_vault_private.get_secret_for_connection_use(
@@ -307,10 +308,10 @@ reset role;
 select extensions.is(
   current_setting('nova_vault_proof.customer_b_hash', true),
   md5('SYNTHETIC-LOCAL-ONLY-VAULT-PROOF-CUSTOMER-B'),
-  'runtime role receives only Customer B secret for B connection'
+  'function owner resolves only Customer B secret for B connection'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -333,10 +334,10 @@ reset role;
 select extensions.is(
   current_setting('nova_vault_proof.cross_owner_denied', true),
   'true',
-  'Customer A cannot use Customer B connection even when its UUID is known'
+  'function owner rejects owner mismatch even when the other connection UUID is known'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -359,10 +360,10 @@ reset role;
 select extensions.is(
   current_setting('nova_vault_proof.reverse_owner_denied', true),
   'true',
-  'Customer B cannot use Customer A connection'
+  'function owner rejects reverse owner mismatch'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -388,7 +389,7 @@ select extensions.is(
   'connection lookup rejects a tenant mismatch'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -414,7 +415,7 @@ select extensions.is(
   'connection lookup rejects a provider mismatch'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -440,7 +441,7 @@ select extensions.is(
   'connection lookup rejects an environment mismatch'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
@@ -466,7 +467,7 @@ select extensions.is(
   'connection lookup rejects a stale generation'
 );
 
-set role nova_vault_api;
+set role nova_vault_fn_owner;
 do $test$
 begin
   perform nova_vault_private.get_secret_for_connection_use(
