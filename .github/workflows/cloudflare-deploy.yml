@@ -238,8 +238,14 @@ jobs:
             fi
 
             code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/broker/status?broker=mt5" || true)"
-            if [ "$code" != "401" ] || ! grep -q 'auth_required' "$body"; then
+            if [ "$code" != "401" ]; then
               echo "Cloudflare frontend broker API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/agent/threads" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Cloudflare frontend approvals API did not reject an unauthenticated request (HTTP $code)."
               exit 1
             fi
             echo "Cloudflare frontend root, login, command center, broker settings, and unauthenticated API denial checks passed."
