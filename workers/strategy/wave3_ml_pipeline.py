@@ -381,7 +381,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     h1_ema21 = h1_close.ewm(span=21, adjust=False, min_periods=21).mean()
     h1_ema50 = h1_close.ewm(span=50, adjust=False, min_periods=50).mean()
     h1_trend = (h1_ema21 > h1_ema50).reindex(frame["timestamp"], method="ffill")
-    f["h1_trend_up"] = h1_trend.fillna(False).to_numpy(dtype=float)
+    f["h1_trend_up"] = h1_trend.astype("boolean").fillna(False).to_numpy(dtype=float)
     ema21 = c.ewm(span=21, adjust=False, min_periods=21).mean()
     ema50 = c.ewm(span=50, adjust=False, min_periods=50).mean()
     f["deep_trend_gate"] = ((c > ema21) & (ema21 > ema50)).astype(float)
