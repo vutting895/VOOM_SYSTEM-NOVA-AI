@@ -142,7 +142,7 @@ class FakeNamespace {
   get(id) {
     if (!this.actors.has(id)) this.actors.set(id, new SentinelState(context(), {}));
     const actor = this.actors.get(id);
-    return { fetch: (request) => actor.fetch(request) };
+    return { fetch: (input, init) => actor.fetch(input instanceof Request ? input : new Request(input, init)) };
   }
 }
 
