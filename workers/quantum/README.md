@@ -9,6 +9,7 @@ Status: **research-only Python module; not connected to production workers, brok
 - Keeps classical and quantum preprocessing statistics separate.
 - Calculates an advisory position-size estimate only when explicit account-currency loss metadata and broker volume constraints are supplied.
 - Does not fetch market data, generate features, persist model artifacts, authorize a trade, or submit broker orders.
+- Emits an uncalibrated 0–1 regime score, not a calibrated probability; downstream consumers must not treat it as a probability until a separately tested calibration artifact exists.
 - Does not implement QAOA/QUBO. The legacy `run_qaoa_risk_filter` name is only a compatibility alias for classical arithmetic risk sizing.
 
 The four numeric inputs are an implementation shape, **not a production feature definition**. Do not assign feature names or semantics based on the illustrative sample below.
