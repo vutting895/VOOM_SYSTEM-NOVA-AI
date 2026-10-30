@@ -6,7 +6,7 @@ import {
   readExnessBrokerStatus,
 } from "./broker-system-hub.mjs";
 
-const HUB = "https://hub.test";
+const HUB = "https://voom-system-hub.suwapat787.workers.dev";
 const TOKEN = "user-session-token";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000123";
 
@@ -75,9 +75,11 @@ test("Hub client uses only the fixed HTTPS System Hub origin and forwards the si
   assert.equal(calls[0].init.cache, "no-store");
 });
 
-test("Hub client rejects non-HTTPS configured origins and does not use caller-controlled URL", () => {
-  assert.throws(() => createBrokerSystemHubClient({ hubUrl: "http://hub.test" }), /HTTPS/);
-  assert.throws(() => createBrokerSystemHubClient({ hubUrl: "https://user:pass@hub.test" }), /HTTPS/);
+test("Hub client rejects non-HTTPS, alternate-host, and path-overridden origins", () => {
+  assert.throws(() => createBrokerSystemHubClient({ hubUrl: "http://voom-system-hub.suwapat787.workers.dev" }), /fixed trusted HTTPS origin/);
+  assert.throws(() => createBrokerSystemHubClient({ hubUrl: "https://user:pass@voom-system-hub.suwapat787.workers.dev" }), /fixed trusted HTTPS origin/);
+  assert.throws(() => createBrokerSystemHubClient({ hubUrl: "https://hub.test" }), /fixed trusted HTTPS origin/);
+  assert.throws(() => createBrokerSystemHubClient({ hubUrl: HUB + "/attacker-prefix" }), /fixed trusted HTTPS origin/);
 });
 
 test("Hub client requires bearer before making network request", async () => {
