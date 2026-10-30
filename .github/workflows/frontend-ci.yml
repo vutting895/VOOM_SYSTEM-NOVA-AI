@@ -112,6 +112,15 @@ jobs:
       - name: Build Next.js frontend for CI validation
         run: npm run build
 
+      - name: Build Cloudflare OpenNext Worker bundle for CI validation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
+        run: npm run cf:build
+
 
   staging-customer-isolation:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 85 && github.event.pull_request.head.repo.full_name == github.repository }}
