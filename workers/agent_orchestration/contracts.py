@@ -200,15 +200,15 @@ class AgentRunState:
 def validate_tool_contract(contract: ToolContract) -> ToolContract:
     if not isinstance(contract, ToolContract):
         raise ContractError("tool contract must be a ToolContract")
-    if not _NAME_RE.fullmatch(contract.name):
+    if not isinstance(contract.name, str) or not _NAME_RE.fullmatch(contract.name):
         raise ContractError("tool name must be lowercase snake_case")
     if contract.name in _FORBIDDEN_TOOL_NAMES:
         raise ContractError("tool is explicitly forbidden in NOVA v1")
     if not isinstance(contract.version, str) or not re.fullmatch(r"v[1-9][0-9]*", contract.version):
         raise ContractError("tool version must use vN format")
-    if contract.side_effect not in ("none", "draft_write", "external_write", "broker_write"):
+    if not isinstance(contract.side_effect, str) or contract.side_effect not in ("none", "draft_write", "external_write", "broker_write"):
         raise ContractError("unsupported tool side_effect")
-    if contract.approval_mode not in ("none", "human_review"):
+    if not isinstance(contract.approval_mode, str) or contract.approval_mode not in ("none", "human_review"):
         raise ContractError("unsupported approval_mode")
     if contract.side_effect in ("external_write", "broker_write"):
         raise ContractError("external and broker writes are disabled in NOVA v1")
@@ -232,7 +232,7 @@ def validate_tool_contract(contract: ToolContract) -> ToolContract:
 
 
 def validate_tool_registry(contracts: Sequence[ToolContract]) -> dict[str, ToolContract]:
-    if isinstance(contracts, (str, bytes)):
+    if not isinstance(contracts, Sequence) or isinstance(contracts, (str, bytes)):
         raise ContractError("tool registry must be a sequence of contracts")
     registry: dict[str, ToolContract] = {}
     for contract in contracts:
@@ -246,6 +246,10 @@ def validate_tool_registry(contracts: Sequence[ToolContract]) -> dict[str, ToolC
 def validate_tool_call(call: ToolCall, registry: Mapping[str, ToolContract]) -> ToolCall:
     if not isinstance(call, ToolCall):
         raise ContractError("tool call must be a ToolCall")
+    if not isinstance(registry, Mapping):
+        raise ContractError("tool registry must be a mapping")
+    if not isinstance(call.tool_name, str):
+        raise ContractError("tool_name must be a string")
     contract = registry.get(call.tool_name)
     if contract is None:
         raise ContractError("tool is not in the server-owned allowlist")
