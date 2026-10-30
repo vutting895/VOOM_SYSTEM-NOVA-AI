@@ -1,4 +1,5 @@
 const DEFAULT_HUB_URL = "https://voom-system-hub.suwapat787.workers.dev";
+const TRUSTED_HUB_ORIGIN = new URL(DEFAULT_HUB_URL).origin;
 const SAFE_MESSAGES = Object.freeze({
   session_rejected: "Supabase session นี้ใช้ไม่ได้แล้ว กรุณาเข้าสู่ระบบใหม่",
   permission_denied: "คำขอถูกปฏิเสธโดยสิทธิ์เจ้าของบัญชี",
@@ -26,10 +27,18 @@ function normalizeBaseUrl(value) {
   } catch {
     throw new TypeError("System Hub URL is invalid");
   }
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
-    throw new TypeError("System Hub URL must be a trusted HTTPS origin");
+  if (
+    url.protocol !== "https:" ||
+    url.origin !== TRUSTED_HUB_ORIGIN ||
+    url.pathname !== "/" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new TypeError("System Hub URL must match the fixed trusted HTTPS origin");
   }
-  url.pathname = url.pathname.replace(/\/+$/, "") + "/";
+  url.pathname = "/";
   return url;
 }
 
