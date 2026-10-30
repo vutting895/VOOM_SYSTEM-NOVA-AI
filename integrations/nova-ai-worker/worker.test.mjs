@@ -256,6 +256,63 @@ test("Cloudflare rollback UI origin remains allowed", async () => {
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
 
+test("strategy and chat provenance report the exact Gemini model sent to the API", async () => {
+  const original = globalThis.fetch;
+  const sentModels = [];
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/interactions");
+    const requestBody = JSON.parse(init.body);
+    sentModels.push(requestBody.model);
+    const strategyOutput = JSON.stringify({
+      name: "Synthetic NOVA draft",
+      entryWorkers: ["EMATrendWorker"],
+      exit: { takeProfitPct: 2, stopLossPct: 1 },
+      rationale: "Synthetic test response only."
+    });
+    const output = requestBody.system_instruction.includes("Return JSON only") ? strategyOutput : "Synthetic Gemini research answer";
+    return new Response(JSON.stringify({
+      status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "text", text: output }] }]
+    }), { status: 200 });
+  };
+  const runtimeEnv = {
+    ...env,
+    GEMINI_API_KEY: "gemini-test-key",
+    GEMINI_MODEL: "invalid model name",
+  };
+  try {
+    const strategyResponse = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "Create a synthetic research draft", market: "XAU/USD", timeframe: "1h", risk: "low" }),
+    }), runtimeEnv);
+    const strategyBody = await strategyResponse.json();
+    assert.equal(strategyResponse.status, 200);
+    assert.equal(strategyBody.llm.provider, "gemini");
+    assert.equal(strategyBody.llm.model, "gemini-flash-latest");
+    assert.equal(strategyBody.strategy.modelUsed, "gemini-flash-latest");
+    assert.equal(strategyBody.strategy.executionEnabled, false);
+
+    const chatResponse = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA for research" }] }),
+    }), runtimeEnv);
+    const chatBody = await chatResponse.json();
+    assert.equal(chatResponse.status, 200);
+    assert.equal(chatBody.provider, "gemini");
+    assert.equal(chatBody.model, "gemini-flash-latest");
+    assert.equal(chatBody.message, "Synthetic Gemini research answer");
+    assert.equal(chatBody.executionEnabled, false);
+    assert.deepEqual(sentModels, ["gemini-flash-latest", "gemini-flash-latest"]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("Gemini is preferred for authenticated chat when configured and remains research-only", async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
