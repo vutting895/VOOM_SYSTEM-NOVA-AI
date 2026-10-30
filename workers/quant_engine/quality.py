@@ -23,6 +23,7 @@ class DatasetQualityReport:
     end_timestamp: str
     observed_gap_count: int
     warnings: tuple[str, ...]
+    observed_irregular_interval_count: int = 0
     schema_version: str = "nova.ohlcv.v1"
 
 
@@ -99,10 +100,11 @@ def validate_ohlcv(
     expected_interval_seconds: int | None = None,
     reject_gaps: bool = False,
 ) -> DatasetQualityReport:
-    """Validate chronological OHLCV rows without silently sorting or filling gaps.
+    """Validate OHLCV chronology without sorting, filling, or floor-counting gaps.
 
-    A gap exceeds the supplied expected interval. Gaps are reported, not
-    repaired; market closures and provider omissions need source-specific policy.
+    Exact multiples of the expected interval contribute missing-interval counts.
+    Non-integral multiples are reported separately as irregular intervals because
+    their session/provider meaning cannot be inferred by this generic validator.
     """
     if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)) or not rows:
         raise DatasetValidationError("dataset must be a non-empty sequence of OHLCV rows")
@@ -116,20 +118,35 @@ def validate_ohlcv(
     normalised = _normalise_rows(rows)
     timestamps = [datetime.fromisoformat(item["timestamp"].replace("Z", "+00:00")) for item in normalised]
     gaps = 0
+    irregular_intervals = 0
     for index in range(1, len(timestamps)):
-        delta = (timestamps[index] - timestamps[index - 1]).total_seconds()
-        if delta <= 0:
+        delta = timestamps[index] - timestamps[index - 1]
+        delta_microseconds = (
+            (delta.days * 86400 + delta.seconds) * 1_000_000 + delta.microseconds
+        )
+        if delta_microseconds <= 0:
             raise DatasetValidationError(
                 f"row {index}: timestamps must be strictly increasing; duplicates and out-of-order rows are rejected"
             )
-        if expected_interval_seconds is not None and delta > expected_interval_seconds:
-            gaps += max(1, int(delta // expected_interval_seconds) - 1)
+        if expected_interval_seconds is not None:
+            expected_microseconds = expected_interval_seconds * 1_000_000
+            if delta_microseconds > expected_microseconds:
+                quotient, remainder = divmod(delta_microseconds, expected_microseconds)
+                if remainder == 0:
+                    gaps += quotient - 1
+                else:
+                    irregular_intervals += 1
 
     warnings: list[str] = []
     if gaps:
         warnings.append(f"{gaps} expected candle interval(s) appear to be missing; no rows were fabricated")
-        if reject_gaps:
-            raise DatasetValidationError(warnings[-1])
+    if irregular_intervals:
+        warnings.append(
+            f"{irregular_intervals} interval(s) do not align to the expected candle grid; "
+            "provider/session alignment must be resolved by the source adapter"
+        )
+    if reject_gaps and (gaps or irregular_intervals):
+        raise DatasetValidationError("; ".join(warnings))
 
     return DatasetQualityReport(
         row_count=len(normalised),
@@ -137,6 +154,7 @@ def validate_ohlcv(
         end_timestamp=normalised[-1]["timestamp"],
         observed_gap_count=gaps,
         warnings=tuple(warnings),
+        observed_irregular_interval_count=irregular_intervals,
     )
 
 

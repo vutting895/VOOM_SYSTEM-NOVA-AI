@@ -15,3 +15,12 @@ Run contract tests from the repository root:
 ~~~bash
 python -m unittest discover -s tests -p "test_quant_engine.py" -v
 ~~~
+
+
+## Leakage-control contract
+
+- Split APIs require an explicit purge_bars; callers must not inherit an implicit zero. Use derive_purge_policy(label_horizons_bars, embargo_bars=...) to derive the maximum forward-label horizon plus an explicitly recorded additional boundary buffer, then persist policy.to_manifest() with the experiment.
+- A zero purge is permitted only when the experiment explicitly passes purge_bars=0 and has no forward-looking label/holding horizon.
+- Walk-forward test folds must not overlap. step_bars < test_bars is rejected so aggregate OOS metrics cannot double-count test bars.
+- The generic OHLCV validator counts missing intervals only for exact multiples of the expected interval. Non-integral intervals are reported separately and fail reject_gaps=True; source adapters must resolve session/calendar alignment rather than fabricate candles.
+- The helper's embargo is an additional pre-holdout exclusion buffer for this strictly chronological splitter. It is not a post-test embargo for combinatorial CV; those evaluation designs require a distinct policy.

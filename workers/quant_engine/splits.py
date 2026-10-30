@@ -22,14 +22,60 @@ class WalkForwardWindow:
     test_end: int  # exclusive
 
 
+@dataclass(frozen=True)
+class PurgePolicy:
+    """Recorded exclusion policy derived from all forward-label horizons."""
+
+    label_horizons_bars: tuple[int, ...]
+    max_label_horizon_bars: int
+    embargo_bars: int
+    purge_bars: int
+
+    def to_manifest(self) -> dict[str, int | list[int]]:
+        return {
+            "label_horizons_bars": list(self.label_horizons_bars),
+            "max_label_horizon_bars": self.max_label_horizon_bars,
+            "embargo_bars": self.embargo_bars,
+            "purge_bars": self.purge_bars,
+        }
+
+
+def derive_purge_policy(
+    label_horizons_bars: Sequence[int],
+    *,
+    embargo_bars: int = 0,
+) -> PurgePolicy:
+    """Derive and record a conservative boundary gap from forward-label horizons.
+
+    embargo_bars is an additional pre-holdout exclusion buffer for this
+    strictly chronological splitter. It is not a post-test embargo for
+    combinatorial/cross-validation folds; those designs need a separate policy.
+    """
+    if not isinstance(label_horizons_bars, Sequence) or isinstance(label_horizons_bars, (str, bytes)) or not label_horizons_bars:
+        raise ValueError("label_horizons_bars must be a non-empty sequence of positive integers")
+    if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in label_horizons_bars):
+        raise ValueError("each label horizon must be a positive integer")
+    if isinstance(embargo_bars, bool) or not isinstance(embargo_bars, int) or embargo_bars < 0:
+        raise ValueError("embargo_bars must be a non-negative integer")
+
+    horizons = tuple(label_horizons_bars)
+    maximum = max(horizons)
+    return PurgePolicy(
+        label_horizons_bars=horizons,
+        max_label_horizon_bars=maximum,
+        embargo_bars=embargo_bars,
+        purge_bars=maximum + embargo_bars,
+    )
+
+
 def chronological_split(
     rows: Sequence[Any],
     *,
     train_fraction: float = 0.70,
     validation_fraction: float = 0.15,
-    purge_bars: int = 0,
+    purge_bars: int,
 ) -> ChronologicalSplit:
-    """Split in timestamp order and remove bars immediately before each holdout."""
+    """Split in timestamp order using an explicitly supplied boundary exclusion gap."""
     if len(rows) < 3:
         raise ValueError("at least three rows are required")
     if not (0 < train_fraction < 1 and 0 < validation_fraction < 1 and train_fraction + validation_fraction < 1):
@@ -59,14 +105,16 @@ def walk_forward_windows(
     train_bars: int,
     test_bars: int,
     step_bars: int | None = None,
-    purge_bars: int = 0,
+    purge_bars: int,
     expanding: bool = True,
 ) -> tuple[WalkForwardWindow, ...]:
     """Create reproducible rolling or expanding train/test windows.
 
-    Test windows are later than training windows. Purged bars are excluded
-    between train and test. Incomplete trailing test windows are omitted.
-    The function does not tune parameters or touch a reserved final OOS period.
+    Test windows are later than training windows and never overlap. The caller
+    must supply an explicit purge gap derived from the maximum forward-label
+    horizon (or explicitly set zero for a no-forward-label experiment).
+    Incomplete trailing test windows are omitted. The function does not tune
+    parameters or touch a reserved final OOS period.
     """
     step = test_bars if step_bars is None else step_bars
     for name, value, minimum in (
@@ -77,6 +125,8 @@ def walk_forward_windows(
     ):
         if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
             raise ValueError(f"{name} must be an integer >= {minimum}")
+    if step < test_bars:
+        raise ValueError("step_bars must be >= test_bars; overlapping test folds are not supported")
     if isinstance(purge_bars, bool) or not isinstance(purge_bars, int) or purge_bars < 0:
         raise ValueError("purge_bars must be a non-negative integer")
 

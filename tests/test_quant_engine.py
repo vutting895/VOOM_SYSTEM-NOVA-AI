@@ -6,6 +6,7 @@ from workers.quant_engine import (
     build_run_fingerprint,
     canonical_dataset_sha256,
     chronological_split,
+    derive_purge_policy,
     validate_ohlcv,
     walk_forward_windows,
 )
@@ -67,6 +68,16 @@ class QuantQualityTests(unittest.TestCase):
         changed[1]["volume"] = 1001
         self.assertNotEqual(canonical_dataset_sha256(rows_a), canonical_dataset_sha256(changed))
 
+    def test_non_integral_interval_is_not_floor_counted_as_missing_candles(self):
+        rows = sample_rows(3)
+        rows[2]["timestamp"] = "2026-01-01T03:30:00Z"
+        report = validate_ohlcv(rows, expected_interval_seconds=3600)
+        self.assertEqual(report.observed_gap_count, 0)
+        self.assertEqual(report.observed_irregular_interval_count, 1)
+        self.assertTrue(any("do not align" in warning for warning in report.warnings))
+        with self.assertRaises(DatasetValidationError):
+            validate_ohlcv(rows, expected_interval_seconds=3600, reject_gaps=True)
+
 
 class QuantExperimentIdentityTests(unittest.TestCase):
     def test_run_fingerprint_is_order_independent_but_config_sensitive(self):
@@ -97,6 +108,21 @@ class QuantExperimentIdentityTests(unittest.TestCase):
 
 
 class QuantSplitTests(unittest.TestCase):
+    def test_purge_policy_uses_maximum_forward_label_horizon_and_records_embargo(self):
+        policy = derive_purge_policy([3, 8, 5], embargo_bars=2)
+        self.assertEqual(policy.max_label_horizon_bars, 8)
+        self.assertEqual(policy.purge_bars, 10)
+        self.assertEqual(policy.to_manifest(), {
+            "label_horizons_bars": [3, 8, 5],
+            "max_label_horizon_bars": 8,
+            "embargo_bars": 2,
+            "purge_bars": 10,
+        })
+        with self.assertRaises(ValueError):
+            derive_purge_policy([])
+        with self.assertRaises(ValueError):
+            derive_purge_policy([0, 4])
+
     def test_chronological_split_purges_boundary_bars(self):
         rows = list(range(100))
         split = chronological_split(rows, train_fraction=0.6, validation_fraction=0.2, purge_bars=3)
@@ -116,9 +142,13 @@ class QuantSplitTests(unittest.TestCase):
         self.assertLess(windows[0].test_end, windows[1].test_end)
 
     def test_rolling_windows_keep_training_size_fixed(self):
-        windows = walk_forward_windows(100, train_bars=30, test_bars=10, expanding=False)
+        windows = walk_forward_windows(100, train_bars=30, test_bars=10, purge_bars=0, expanding=False)
         self.assertEqual(windows[0].train_end - windows[0].train_start, 30)
         self.assertEqual(windows[-1].train_end - windows[-1].train_start, 30)
+
+    def test_overlapping_test_folds_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "overlapping test folds"):
+            walk_forward_windows(100, train_bars=30, test_bars=10, step_bars=5, purge_bars=0)
 
 
 if __name__ == "__main__":
