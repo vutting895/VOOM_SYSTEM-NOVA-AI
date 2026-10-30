@@ -233,10 +233,11 @@ This section records changes after the previous evidence snapshot. It distinguis
 - Main commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`: Frontend CI passed, Windows Runtime CI passed, `Deploy authenticated NOVA AI Worker` passed, and `Deploy VOOM Workers to Cloudflare` passed.
 - The main-branch `netlify-production-smoke-test` completed successfully. Its logs confirm that `/`, `/login`, and `/settings/broker` returned HTTP 200. This is route availability evidence, not proof of an authenticated broker session or of which source commit Netlify served.
 
-### Production commit reconciliation remains open
-- Netlify's connected project API still reports published deployment `6ae38a561eb1efe24a5a1105`, state `ready`, branch `main`, commit `f8845887ebf2619e2723727735634246a4a54be9` (older than `main` `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`).
-- Therefore, do **not** claim the Netlify Production deployment record matches the latest main source yet. The current GitHub smoke test checks HTTP status/content for the routes but does not cross-check Netlify's published commit. Resolve/inspect the provider-side production deploy so its published commit is current, then record that exact deploy ID and SHA.
-- The connected Netlify tool surface exposes project/deploy reads but not a deployment-trigger or Build Plugins configuration operation. If the site does not advance automatically, the owner must inspect the Netlify Git integration / deploy status in the Netlify dashboard; no provider settings were changed by this PR.
+### Production commit reconciliation — verified on 2026-10-30
+- The connected Netlify project API reports Production deploy `6ae3f790c1fff5d3192f585d`, state `ready`, branch `main`, commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`; this exactly matches current `main`. The previous Production/main SHA mismatch is closed.
+- This verifies the Production deployment's source commit, not real email OTP/session completion, owner-scoped Exness Demo reads, or foreign-connection denial.
+- The last Netlify Preview record found for PR #77 is deploy `6ae444b02af10edc52549c8f`, state `error`, on earlier head `50ae922bc64251b903c3b4c8c937c756e146c1d1`; error: `Canceled build due to no content change`. No `ready` Deploy Preview is verified for current PR #77 head `e5882214f7d528aa8347e873836ddec29726a33f`.
+- The connected Netlify tool surface exposes project/deploy reads but not a deployment-trigger or Build Plugins configuration operation. If the current PR Preview does not start automatically, inspect Netlify Git integration / deploy status in the dashboard; no provider settings were changed.
 
 ### User/session and security gates still open
 1. Exercise a real Supabase email OTP link on the Production host; confirm callback completion, session persistence through refresh, and logout, and verify the Supabase Auth redirect allowlist.
@@ -263,7 +264,7 @@ This section records changes after the previous evidence snapshot. It distinguis
 ### What remains separate
 - The hosted `Voom_system` database has not received this approval migration. No hosted test users/connections, production flags, secrets, DNS, hosting configuration or broker settings were changed.
 - Real hosted email OTP/browser-session acceptance and the hosted Supabase Auth/Data API -> System Hub -> MT5 Proxy -> Relay chain remain unverified. Do not use production as a test tenant. Only run a hosted test later if a no-cost isolated environment is already available.
-- PR #67 was merged to `main` as `5de80ad4324e93843f6b1aaa3af9004230c81e05`. Post-merge Frontend CI, Netlify route smoke tests, and both local approval-migration CI jobs passed. This does not authorize or prove a Production release. The Netlify API still reports the published deploy on older commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`; exact Production/main SHA reconciliation remains open.
+- PR #67 was merged to `main` as `5de80ad4324e93843f6b1aaa3af9004230c81e05`. Post-merge Frontend CI, Netlify route smoke tests, and both local approval-migration CI jobs passed. Netlify API now reports Production deploy `6ae3f790c1fff5d3192f585d` as `ready` on that exact merge commit, so Production/main SHA reconciliation is closed. Real OTP/session and owner-isolation checks remain separate acceptance gates.
 - Supabase Free limitations (including the plan-gated leaked-password protection setting) remain plan-gated; do not upgrade the plan or add billing to close this test.
 - Preserve the mandatory safety invariant: Exness Demo only, Read-only + AI Analysis, no broker order submission or position mutation, Live Trading OFF.
 
@@ -275,7 +276,7 @@ This section records changes after the previous evidence snapshot. It distinguis
 - Frontend CI run [40988065814](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988065814) passed, including the production route smoke test for `/`, `/login`, and `/settings/broker`.
 - NOVA Approval Migration CI run [40988064733](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988064733) passed both ephemeral PostgreSQL and disposable Local Supabase Auth/PostgREST/API jobs.
 - Cloudflare backend workflow [40988208467](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40988208467) completed successfully; all four Worker deploy steps were skipped because the merge commit changed no Worker source directories. Safety smoke tests passed.
-- Post-merge route smoke tests do not prove the published Netlify deploy serves the merge SHA. The connected Netlify API still reports Production deploy `6ae38faa5b0c4d754f75d498` on commit `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`, older than current `main` `5de80ad4324e93843f6b1aaa3af9004230c81e05`.
+- Netlify API verification reports Production deploy `6ae3f790c1fff5d3192f585d` as `ready` on commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`, equal to current `main`; exact Production/main SHA reconciliation is closed. Route smoke tests do not prove real OTP/session completion or owner-scoped broker reads.
 
 ### Outstanding acceptance gates
 - Review follow-up fixes are proposed on a separate PR: server-authoritative expiry reconciliation, bounded streaming JSON body reads, and documentation synchronization. Do not push directly to `main`.
@@ -283,3 +284,22 @@ This section records changes after the previous evidence snapshot. It distinguis
 - Real hosted email OTP/session checks, owner-only Exness Demo account/quote reads, and foreign-connection denial through System Hub → Proxy → Relay remain unverified.
 - LangGraph checkpoint persistence and graph pause/resume remain unimplemented. Approval request metadata is not a LangGraph checkpointer.
 - Production release remains a separate approval gate. Keep Supabase Free; Exness Demo read-only; order submission/position mutation disabled; Live Trading OFF.
+
+ 
+## 13. PR #77 review follow-up — 2026-10-30
+
+### Current head and CI evidence
+- PR #77 remains Draft and unmerged. Current head: `e5882214f7d528aa8347e873836ddec29726a33f` on `fix/nova-approval-review-findings-20261030`.
+- Fixed the P2 premature-expiry UI finding: the decision API explicitly marks when the database confirms the approval remains pending; the client then restores review controls instead of continuing to trust a fast device clock. Regression contract coverage was added and the original review thread was resolved.
+- Frontend CI [41021702955](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41021702955) passed, including approval API/contract tests, type-check, and Next.js build.
+- NOVA Approval Migration CI [41021702939](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41021702939) passed both PostgreSQL migration/owner-isolation and local Supabase Auth/PostgREST/API isolation jobs.
+- Windows Runtime CI [41021702985](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41021702985) passed.
+
+### Remaining blockers before PR closure
+- Hosted Staging Auth Acceptance [41019246418](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41019246418) failed closed because GitHub Actions did not have `NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY` or `NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY`. The staging URL was present; logs explicitly state no Auth API request was made. Add the two keys only as repository Actions secrets, never in chat/source/logs, then rerun the staging-only acceptance. The workflow creates two temporary users tagged `purpose=system_test_only`, checks isolation, then deletes and verifies cleanup.
+- Netlify Production deploy `6ae3f790c1fff5d3192f585d` is `ready` on main commit `5de80ad4324e93843f6b1aaa3af9004230c81e05`; this is the exact current `main` SHA. This closes the Production/main SHA reconciliation item, not the independent user/session acceptance.
+- Netlify's last PR #77 Preview record, deploy `6ae444b02af10edc52549c8f` on earlier head `50ae922bc64251b903c3b4c8c937c756e146c1d1`, is `error` with `Canceled build due to no content change`. No ready Preview is verified for current head `e5882214f7d528aa8347e873836ddec29726a33f`.
+- Vercel status contexts on the current PR head report deployment rate limits (`api-deployments-free-per-day`). Vercel is not the selected frontend host; those failures are not Netlify Preview evidence.
+- Keep PR #77 Draft and do not merge until staging acceptance and current-head Netlify Preview evidence are available. Production release remains a separate explicit approval gate.
+
+**Safety invariant:** Exness Demo remains read-only; no broker order submission or position mutation; Live Trading OFF; Supabase Free remains in use; no Production test tenant or Production Auth users.
