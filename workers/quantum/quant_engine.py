@@ -57,8 +57,13 @@ class QuantumQuantEngine:
 
             @qml.qnode(self.dev, interface="autograd", diff_method="backprop")
             def circuit(weights: Any, features: Any) -> Tuple[Any, ...]:
-                for wire in range(n_qubits):
-                    qml.RY(features[wire], wires=wire)
+                # Map the validated, scaled feature vector to qubit rotation angles.
+                # The caller/feature contract owns semantic meaning and feature order.
+                qml.AngleEmbedding(
+                    features=features,
+                    wires=range(n_qubits),
+                    rotation="Y",
+                )
                 for layer in range(weights.shape[0]):
                     for wire in range(n_qubits):
                         qml.RY(weights[layer, wire], wires=wire)
@@ -314,7 +319,10 @@ class QuantumQuantEngine:
                 pnp.array(self._quantum_weights, requires_grad=False),
                 pnp.array(angles, requires_grad=False),
             )
-            expectation = float(np.mean(np.asarray(measured, dtype=float)))
+            expectation_by_wire = [
+                float(value) for value in np.asarray(measured, dtype=float).reshape(-1)
+            ]
+            expectation = float(np.mean(expectation_by_wire))
             bullish_probability = float(np.clip((expectation + 1.0) / 2.0, 0.0, 1.0))
             model_backend = "PENNYLANE_VQC"
         else:
@@ -350,6 +358,12 @@ class QuantumQuantEngine:
             "trading_action": "NONE",
             "live_trading_enabled": False,
         }
+        if use_quantum:
+            # Preserve the aggregate score and the per-wire measurements for auditability.
+            result["quantum_expectation_value"] = round(expectation, 6)
+            result["quantum_expectation_by_wire"] = [
+                round(value, 6) for value in expectation_by_wire
+            ]
         if fallback_reason:
             result["fallback_reason"] = fallback_reason
         return result
