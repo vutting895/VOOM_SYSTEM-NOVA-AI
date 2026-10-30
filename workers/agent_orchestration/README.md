@@ -23,6 +23,14 @@ or expose broker execution.
   route IDs, raw provider payloads and tool implementation objects.
 - A future checkpoint loader must authenticate the current session and verify
   owner access to the existing NOVA thread before reading/resuming a checkpoint.
+- A pending approval checkpoint stores only the approval ID, immutable proposal
+  hash, and approval policy version. It never stores the authenticated owner ID
+  or token.
+- approval_resume.py validates a server-loaded approval snapshot against the
+  current authenticated owner, checkpoint thread, pending approval ID, proposal
+  hash, policy version, decision status and expiry before a future graph resume
+  command. This is a pure contract validator; it does not call Supabase or resume
+  LangGraph itself.
 - Tool calls carry application-generated call and idempotency IDs. Retry budgets
   are bounded, and non-idempotent calls cannot be configured for retries.
 
@@ -43,6 +51,9 @@ python -m compileall -q workers/agent_orchestration
 
 ## Not yet implemented
 
-LangGraph nodes/checkpointer, tool execution, approval interrupt/resume adapter,
-AG-UI/SSE, MCP client integration, tracing backend, database persistence and
-production deployment remain separate milestones under Issue #104.
+LangGraph nodes/checkpointer, tool execution, the API-to-graph approval adapter,
+AG-UI/SSE, MCP client integration, tracing backend, checkpoint database schema,
+retention/backup policy and production deployment remain separate milestones
+under Issue #104. The resume validator does not provide durable replay protection;
+the existing approval API's atomic one-time decision transition remains
+authoritative.
