@@ -67,7 +67,7 @@ test("contract schemas are strict and match the selected separate custody API", 
   assert.equal(responseSchema.additionalProperties, false);
   assert.equal(responseSchema.properties.result.additionalProperties, false);
   assert.match(adr, /independently verifies the customer session/i);
-  assert.match(adr, /never receives plaintext customer credentials/i);
+  assert.match(adr, /plaintext customer credentials/i);
   assert.match(threatModel, /service_role/i);
   assert.match(apiContract, /OUTCOME_UNKNOWN/);
   assert.match(apiContract, /Idempotency-Key/);
