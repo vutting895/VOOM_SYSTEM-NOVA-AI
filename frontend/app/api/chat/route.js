@@ -133,6 +133,7 @@ export async function POST(request) {
     return json({
       message: payload.message.trim(),
       provider: ['gemini', 'cloudflare-workers-ai'].includes(payload.provider) ? payload.provider : 'unknown',
+      fallbackFrom: payload.fallbackFrom === 'gemini' ? 'gemini' : null,
       model: typeof payload.model === 'string' ? payload.model : null,
       intent,
       executionEnabled: false,
