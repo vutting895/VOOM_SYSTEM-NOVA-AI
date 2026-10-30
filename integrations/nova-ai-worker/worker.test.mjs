@@ -400,3 +400,21 @@ test("Worker rejects credential-like content on direct chat and strategy routes 
     }
   }
 });
+
+
+test("ordinary bearer terminology is not mistaken for a credential", async () => {
+  authFetch();
+  let providerCalled = false;
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain bearer bonds and bearer tokens in financial markets." }] }),
+  }), {
+    ...env,
+    AI: { run: async () => { providerCalled = true; return { response: "Bearer bonds are debt securities." }; } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(providerCalled, true);
+  assert.equal(body.message, "Bearer bonds are debt securities.");
+});
