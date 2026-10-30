@@ -22,6 +22,10 @@ $roles$;
 -- The local migration runner receives SET membership so it can assign object ownership
 -- to the dedicated non-login owner. This is local-only proof setup, not a runtime grant.
 grant nova_vault_fn_owner to current_user with set true;
+-- The disposable proof runner also receives SET-only membership in the runtime role
+-- so it can execute privilege assertions without granting the runtime role any
+-- membership in the function owner or an elevated role.
+grant nova_vault_api to current_user with set true;
 -- The disposable test runner also needs SET (not INHERIT) to exercise the
 -- runtime role's exact privileges in pgTAP. This membership exists only locally.
 grant nova_vault_api to current_user with set true;
@@ -89,6 +93,13 @@ values
     ),
     1, 'ROTATION_REQUIRED'
   );
+
+-- This disposable project models the intended direct-access boundary. Remove
+-- Vault schema and table/view privileges from client-facing roles, generic
+-- service_role, and the runtime login. The non-login function owner retains
+-- only the explicit USAGE/SELECT grants above.
+revoke all on schema vault from public, anon, authenticated, service_role, nova_vault_api;
+revoke all on all tables in schema vault from public, anon, authenticated, service_role, nova_vault_api;
 
 create or replace function nova_vault_private.get_secret_for_connection_use(
   p_authenticated_owner_id uuid,
