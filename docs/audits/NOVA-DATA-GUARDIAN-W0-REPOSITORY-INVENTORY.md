@@ -119,3 +119,36 @@ Do not request or print secrets, credentials, account IDs, customer file content
 ## 9. Safety boundary
 
 This inventory performed no filesystem cleanup, no storage writes, no database migrations, no RLS/grant changes, no secret retrieval, no provider provisioning, no schedule creation, no deployment and no customer-data processing. Exness Demo remains read-only; order submission and Live Trading remain disabled.
+
+
+## 10. Live staging/provider read-only inspection (2026-10-31)
+
+The repository documentation and search identify Supabase project `rovhmjeowracayicbqij` as the isolated staging project. Read-only Supabase provider inspection was therefore scoped to that project; no production project was queried or changed.
+
+### Supabase staging observations
+
+- Project status: `ACTIVE_HEALTHY`; region `ap-northeast-1`; PostgreSQL 17.11.
+- The project table inventory exposes the built-in `storage` schema and its system tables, but no custom Data Guardian/file metadata tables were identified.
+- Read-only query of `storage.buckets` returned an empty list.
+- Read-only grouped query of `storage.objects` returned no bucket object counts.
+- Read-only query of `pg_policies` for the `storage` schema returned no policy rows.
+- Selected public tables `broker_connections`, `nova_agent_threads`, and `nova_approval_requests` have owner-scoped policies based on `auth.uid()`. No `tenant_id` registry was established in the inspected schemas.
+- The live staging migration history reports only `nova_durable_approval_lifecycle` and `mt5_customer_connections`; its version identifiers differ from the checked-in migration filenames. This difference requires reconciliation before any new migration is proposed.
+- Supabase Vault extension `supabase_vault` is installed. This alone does not establish safe grants, key custody, backup coverage or authorization for Data Guardian; no secret values or decrypted views were queried.
+
+### Cloudflare R2 observation
+
+- Cloudflare account discovery returned one account.
+- Read-only R2 bucket listing returned HTTP 403 / error 10042: R2 must be enabled through the Cloudflare Dashboard.
+- No bucket names, object inventory, lifecycle rules, versioning or retention settings could therefore be verified. R2 was not enabled and no resource was created.
+
+### Updated W0 conclusions
+
+1. The identified staging Supabase project currently has no Storage buckets or objects; it is not a ready file-storage destination.
+2. Its built-in Storage schema exists, but the inspected storage schema has no custom policies. Do not create a bucket or change policies until product owner approval and an access-control design are reviewed.
+3. The existing owner model remains `auth.uid()/user_id` for selected application tables; a universal tenant identity for files remains unapproved.
+4. Migration-history divergence must be reconciled against the repository before any Data Guardian DDL is authored.
+5. Cloudflare R2 is not enabled for the inspected account. Enabling it may change service availability and potentially billing; no enablement is authorized by this task.
+6. Local Windows disks, NAS, Netlify environment settings and other cloud storage remain outside the inspected evidence.
+
+No provider settings, buckets, policies, migrations, secrets or data were modified. All provider calls in this section were read-only.
