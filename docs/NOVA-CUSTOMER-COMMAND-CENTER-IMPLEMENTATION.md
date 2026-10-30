@@ -49,7 +49,7 @@ Add a customer-specific, authenticated Zero-Menu Command Center at `/command-cen
 - Do not present placeholder numbers, chart shapes, or client logs as real-time market/account/server data.
 
 ## Verification / definition of done
-- [x] Frontend CI build job passed on PR head `137b4b4abe72675fd0ca8a9f2474257a04c831d2` (run #329): contract/security tests, typecheck, Next.js production build and Cloudflare OpenNext build.
+- [x] Frontend CI build passed on PR head `920e85c9c7a94706b061706b341e96a29fb3cbba` (run #375): customer strategy-selection tests, existing contract/security tests, TypeScript typecheck, Next.js production build and Cloudflare OpenNext build.
 - [ ] Exact-SHA Cloudflare staging preview deploy and route smoke tests complete.
 - [ ] Hosted two-customer staging acceptance job passes, including verified cleanup.
 - [ ] Customer A cannot read Customer B's broker account, risk data, logs, threads, or approvals. Staging acceptance currently covers broker connections, threads and approvals; risk data is not served by this UI slice and activity logs are local-only.
