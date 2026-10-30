@@ -147,3 +147,27 @@ test("invalid session is rejected before connection lookup", async t => {
   assert.equal(lookups, 0);
   assert.equal(calls.length, 0);
 });
+
+test("concurrent duplicate requests publish one complete claim and invoke provider once", async t => {
+  let markStarted;
+  let releaseProvider;
+  const started = new Promise(resolve => { markStarted = resolve; });
+  const gate = new Promise(resolve => { releaseProvider = resolve; });
+  const { runtime, calls } = await fixture(t, {
+    provider: { executeReadOnly: async input => {
+      calls.push(input);
+      markStarted();
+      await gate;
+      return { account: { balance: 1000, equity: 1000, currency: "USD" } };
+    } }
+  });
+  const firstPromise = invoke(runtime);
+  await started;
+  const second = await invoke(runtime);
+  assert.equal(second.status, 202);
+  assert.equal(second.body.state, "RUNNING");
+  releaseProvider();
+  const first = await firstPromise;
+  assert.equal(first.status, 200);
+  assert.equal(calls.length, 1);
+});
