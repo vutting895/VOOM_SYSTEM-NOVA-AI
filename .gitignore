@@ -22,3 +22,4 @@ data/
 Thumbs.db
 .vscode/
 frontend/next-env.d.ts
+frontend/public/build-info.json

@@ -69,6 +69,9 @@ jobs:
       - name: Test bounded NOVA chat history
         working-directory: .
         run: node --test tests/chat-history.test.mjs
+      - name: Test frontend build SHA metadata
+        working-directory: .
+        run: node --test tests/frontend-build-info.test.mjs
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
@@ -111,32 +114,61 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Verify production Netlify routes after deployment propagation
+      - name: Verify Netlify Production routes and exact source commit
         shell: bash
         env:
           NETLIFY_SITE_URL: https://voomsystem.netlify.app
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          body="$(mktemp)"
-          trap 'rm -f "$body"' EXIT
-          for path in / /login /settings/broker; do
-            healthy=false
-            for attempt in $(seq 1 12); do
-              code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
-              if [ "$code" = "200" ]; then
-                healthy=true
-                break
+          root_body="$(mktemp)"
+          login_body="$(mktemp)"
+          broker_body="$(mktemp)"
+          info_body="$(mktemp)"
+          trap 'rm -f "$root_body" "$login_body" "$broker_body" "$info_body"' EXIT
+
+          if ! [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Expected GitHub commit SHA is missing or malformed."
+            exit 1
+          fi
+
+          accepted=false
+          for attempt in $(seq 1 18); do
+            routes_ok=true
+            for spec in "/:$root_body" "/login:$login_body" "/settings/broker:$broker_body"; do
+              route="${spec%%:*}"
+              target="${spec#*:}"
+              code="$(curl --silent --show-error --location --max-time 20 -o "$target" -w '%{http_code}' "$NETLIFY_SITE_URL$route" || true)"
+              if [ "$code" != "200" ]; then
+                routes_ok=false
+                echo "Netlify route $route returned HTTP $code on attempt $attempt/18."
               fi
-              echo "Netlify route $path returned HTTP $code on attempt $attempt/12; retrying boundedly."
-              sleep 10
             done
-            if [ "$healthy" != "true" ]; then
-              echo "Netlify production route $path did not return HTTP 200 after bounded retries."
-              exit 1
+
+            if [ "$routes_ok" = "true" ]; then
+              info_code="$(curl --silent --show-error --location --max-time 20 -o "$info_body" -w '%{http_code}' "$NETLIFY_SITE_URL/build-info.json" || true)"
+              if [ "$info_code" = "200" ]; then
+                served_commit="$(node -e 'const fs=require("node:fs"); try { console.log(JSON.parse(fs.readFileSync(process.argv[1],"utf8")).commit || ""); } catch { console.log(""); }' "$info_body")"
+                if [ "$served_commit" = "$EXPECTED_COMMIT" ]; then
+                  accepted=true
+                  break
+                fi
+                echo "Netlify still serves commit '$served_commit'; expected '$EXPECTED_COMMIT' (attempt $attempt/18)."
+              else
+                echo "Netlify /build-info.json returned HTTP $info_code on attempt $attempt/18."
+              fi
             fi
+            sleep 10
           done
-          if ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body"; then
+
+          if [ "$accepted" != "true" ]; then
+            echo "Netlify Production did not serve the expected main commit $EXPECTED_COMMIT; cutover verification failed."
+            exit 1
+          fi
+
+          if ! grep -q 'Exness Demo' "$broker_body" && ! grep -q 'Exness MT5' "$broker_body"; then
             echo "Netlify broker settings route did not render the expected Exness MT5 content."
             exit 1
           fi
-          echo "Netlify root, login, and Exness broker settings routes returned HTTP 200."
+
+          echo "Netlify Production routes returned HTTP 200 and build-info.json matched exact commit $EXPECTED_COMMIT."
