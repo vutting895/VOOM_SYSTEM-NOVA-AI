@@ -44,7 +44,7 @@ function StatusValue({ label, value, tone = 'muted' }) {
 export default function CommandCenterPage() {
   const router = useRouter();
   const listRef = useRef(null);
-  const [auth, setAuth] = useState({ state: 'checking', token: '', email: '' });
+  const [auth, setAuth] = useState({ state: 'checking', token: '', email: '', userId: '' });
   const identityRef = useRef(null);
   const requestGenerationRef = useRef(0);
   const welcomeMessage = () => ({
@@ -158,15 +158,18 @@ export default function CommandCenterPage() {
 
   async function createDraftReview(messageId, intent, revisedProposal = null) {
     if (!APPROVALS_ENABLED || !auth.token || intent?.intent !== 'draft_strategy') return;
+    const generation = requestGenerationRef.current;
+    const requestToken = auth.token;
     setApprovalBusy(messageId);
     try {
       const threadResponse = await fetch('/api/agent/threads', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + requestToken },
         body: JSON.stringify({ title: 'Customer command center strategy review' }),
         cache: 'no-store',
       });
       const thread = await threadResponse.json().catch(() => ({}));
+      if (generation !== requestGenerationRef.current) return;
       if (!threadResponse.ok || !thread.thread?.id) throw new Error('ระบบตรวจทานร่างยังไม่พร้อม');
       const proposal = revisedProposal || {
         title: 'NOVA Strategy Draft',
@@ -177,46 +180,52 @@ export default function CommandCenterPage() {
       };
       const response = await fetch('/api/agent/threads/' + encodeURIComponent(thread.thread.id) + '/approvals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + requestToken },
         body: JSON.stringify({ requestType: 'strategy_draft_review', proposal }),
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
+      if (generation !== requestGenerationRef.current) return;
       if (!response.ok || !payload.approval?.id) throw new Error('บันทึกร่างตรวจทานไม่สำเร็จ');
       setMessages((current) => current.map((item) => item.id === messageId
         ? { ...item, approval: payload.approval, threadId: thread.thread.id }
         : item));
       appendLog('Owner-scoped research draft review created');
     } catch (err) {
+      if (generation !== requestGenerationRef.current) return;
       setError(err.message || 'สร้างคำขอตรวจทานไม่สำเร็จ');
       appendLog('Draft review creation failed', 'warning');
     } finally {
-      setApprovalBusy('');
+      if (generation === requestGenerationRef.current) setApprovalBusy('');
     }
   }
 
   async function decideApproval(messageId, decision) {
     const target = messages.find((item) => item.id === messageId);
     if (!target?.approval?.id || !auth.token) return;
+    const generation = requestGenerationRef.current;
+    const requestToken = auth.token;
     setApprovalBusy(messageId);
     try {
       const response = await fetch('/api/agent/approvals/' + encodeURIComponent(target.approval.id) + '/decision', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + requestToken },
         body: JSON.stringify(decision),
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
+      if (generation !== requestGenerationRef.current) return;
       if (!response.ok) throw new Error('ไม่สามารถบันทึกผลตรวจทานได้');
       setMessages((current) => current.map((item) => item.id === messageId
         ? { ...item, approval: { ...item.approval, ...payload.approval } }
         : item));
       appendLog('Research draft review decision saved');
     } catch (err) {
+      if (generation !== requestGenerationRef.current) return;
       setError(err.message || 'บันทึกผลไม่สำเร็จ');
       appendLog('Approval decision failed', 'warning');
     } finally {
-      setApprovalBusy('');
+      if (generation === requestGenerationRef.current) setApprovalBusy('');
     }
   }
 
