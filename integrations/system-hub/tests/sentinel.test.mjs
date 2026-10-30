@@ -244,3 +244,32 @@ test("rejected browser Origin probes are counted and temporarily throttled", asy
     assert.equal(response.status, index === 7 ? 429 : 403);
   }
 });
+
+test("actor cooldown expires without requiring retention cleanup", async () => {
+  const ctx = context();
+  const actor = new SentinelState(ctx, {});
+  for (let index = 0; index < 15; index += 1) {
+    const result = await actor.fetch(new Request("https://sentinel.internal/record", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorType: "ip", event: "invalid_or_expired_session" })
+    }));
+    assert.equal((await result.json()).blocked, index === 14);
+  }
+
+  const originalNow = Date.now;
+  try {
+    const blockedUntil = ctx.storage.value.blockedUntil;
+    Date.now = () => blockedUntil + 1;
+    const response = await actor.fetch(new Request("https://sentinel.internal/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actorType: "ip" })
+    }));
+    const result = await response.json();
+    assert.equal(result.blocked, false);
+    assert.equal(result.retryAfterSeconds, 0);
+  } finally {
+    Date.now = originalNow;
+  }
+});
