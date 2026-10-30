@@ -333,7 +333,7 @@ export default {
       try {
         return json(await generateChat(env, messages), 200, origin);
       } catch (error) {
-        return fail(error.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
+        const noProviderConfigured = !env.AI && !env.GEMINI_API_KEY && !env.OPENAI_API_KEY && !env.ANTHROPIC_API_KEY;\n        return fail(noProviderConfigured ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
       }
     }
     const result = backtest(body);
