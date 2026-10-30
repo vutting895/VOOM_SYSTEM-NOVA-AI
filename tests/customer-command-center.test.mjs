@@ -56,3 +56,15 @@ test('chat API redacts credentials server-side before forwarding to the AI Worke
   assert.match(chatRoute, /const safeMessages = messages\.map/);
   assert.match(chatRoute, /messages: safeMessages/);
 });
+
+
+test('customer identity changes clear tenant state and invalidate stale async responses', () => {
+  assert.match(page, /const resetCustomerState = useCallback/);
+  assert.match(page, /requestGenerationRef\.current \+= 1/);
+  assert.match(page, /setMessages\(\[makeWelcomeMessage\(\)\]\)/);
+  assert.match(page, /setLogs\(\[\]\)/);
+  assert.match(page, /setBroker\(\{ status: 'checking'/);
+  assert.match(page, /const identityChanged = identityRef\.current !== userId/);
+  assert.match(page, /if \(requestGenerationRef\.current !== generation\) return/);
+  assert.match(page, /identityRef\.current !== expectedUserId/);
+});
