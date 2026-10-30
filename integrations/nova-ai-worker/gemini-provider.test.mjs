@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { generateGeminiText } from "./gemini-provider.js";
+import { generateGeminiText, resolveGeminiModel } from "./gemini-provider.js";
 const originalFetch = globalThis.fetch;
 test.afterEach(() => { globalThis.fetch = originalFetch; });
 
@@ -18,6 +18,25 @@ test("Gemini uses server-side key header and Interactions API without URL key", 
   assert.equal(captured.init.redirect, "error");
   assert.equal(JSON.parse(captured.init.body).store, false);
 });
+test("model resolver matches the provider's validated model and fallback", () => {
+  assert.equal(resolveGeminiModel({ GEMINI_MODEL: "gemini-2.5-flash" }), "gemini-2.5-flash");
+  assert.equal(resolveGeminiModel({ GEMINI_MODEL: "invalid model name" }), "gemini-flash-latest");
+  assert.equal(resolveGeminiModel({ GEMINI_MODEL: "" }), "gemini-flash-latest");
+  assert.equal(resolveGeminiModel({}), "gemini-flash-latest");
+});
+
+test("invalid configured model sends the same fallback model selected by the resolver", async () => {
+  let sentModel = null;
+  globalThis.fetch = async (_url, init) => {
+    sentModel = JSON.parse(init.body).model;
+    return new Response(JSON.stringify({ status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "NOVA response" }] }] }), { status: 200 });
+  };
+  const env = { GEMINI_API_KEY: "test-secret", GEMINI_MODEL: "invalid model name" };
+  await generateGeminiText(env, { prompt: "Hello" });
+  assert.equal(sentModel, resolveGeminiModel(env));
+  assert.equal(sentModel, "gemini-flash-latest");
+});
+
 test("missing key fails without network access", async () => {
   let called = false; globalThis.fetch = async () => { called = true; };
   await assert.rejects(() => generateGeminiText({}, { prompt: "Hello" }), /gemini_not_configured/);
