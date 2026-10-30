@@ -1,7 +1,7 @@
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi,
   /\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi,
-  /\bBasic\s+[A-Za-z0-9+/]{8,}={0,2}/gi,
+  /\bBasic\s+[A-Za-z0-9+/]+={0,2}/gi,
   /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{30,})\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
   /((?:^|\n)\s*(?:cookie|set-cookie)\s*:\s*)[^\r\n]+/gim,
