@@ -1,6 +1,6 @@
 -- pgTAP proof for the disposable local signed-identity assertion verifier.
 -- Uses synthetic local-only HMAC key material and records only hashes/booleans.
-select extensions.plan(24);
+select extensions.plan(25);
 
 -- RFC 4231 Test Case 1: shared HMAC-SHA-256 known-answer vector.
 select extensions.is(
@@ -14,6 +14,36 @@ select extensions.is(
   ),
   'b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7',
   'PostgreSQL pgcrypto HMAC-SHA-256 matches RFC 4231 known-answer vector'
+);
+
+select extensions.is(
+  pg_catalog.encode(
+    extensions.hmac(
+      pg_catalog.convert_to(
+          'NOVA-VAULT-ASSERTION-V1' || E'\n'
+        || 'voom-system-hub' || E'\n'
+        || 'nova-vault-access' || E'\n'
+        || 'proof-hmac-v1' || E'\n'
+        || '00000000-0000-4000-8000-000000000001' || E'\n'
+        || '00000000-0000-4000-8000-000000000011' || E'\n'
+        || '00000000-0000-4000-8000-000000000101' || E'\n'
+        || 'proof_provider' || E'\n'
+        || 'demo' || E'\n'
+        || 'secret.use.readonly' || E'\n'
+        || '1' || E'\n'
+        || '00000000-0000-4000-8000-000000000901' || E'\n'
+        || '00000000-0000-4000-8000-000000000a01' || E'\n'
+        || '1761800000' || E'\n'
+        || '1761800060',
+        'UTF8'
+      ),
+      pg_catalog.decode('MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=', 'base64'),
+      'sha256'
+    ),
+    'hex'
+  ),
+  'ecfd257bb3dfff3d0fa34e8d1d01506b2e063a2dbeb4284c3737bb283602a001',
+  'PostgreSQL pgcrypto matches the Web Crypto canonical assertion known-answer vector'
 );
 
 select extensions.ok(
