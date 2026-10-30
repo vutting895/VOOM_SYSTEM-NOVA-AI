@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { webcrypto } from "node:crypto";
 
 const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), "utf8");
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
+const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_assertion_proof.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 
@@ -48,4 +50,163 @@ test("CI runs only disposable local Supabase commands and injects no platform cr
   assert.match(workflow, /supabase test db --local/);
   assert.match(workflow, /supabase stop/);
   assert.doesNotMatch(workflow, /SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE|CLOUDFLARE_API_TOKEN|DATABASE_URL|supabase link|db push --linked/i);
+});
+
+
+const assertionUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function canonicalVaultAssertion(claims) {
+  assert.equal(claims.version, 1);
+  assert.equal(claims.issuer, "voom-system-hub");
+  assert.equal(claims.audience, "nova-vault-access");
+  for (const field of ["ownerId", "tenantId", "connectionId", "operationId", "nonce"]) {
+    assert.match(claims[field], assertionUuid, `invalid ${field}`);
+  }
+  assert.match(claims.keyId, /^[A-Za-z0-9_-]{1,64}$/);
+  assert.match(claims.provider, /^[a-z0-9_-]{1,64}$/);
+  assert.match(claims.environment, /^[a-z0-9_-]{1,32}$/);
+  assert.equal(claims.capability, "secret.use.readonly");
+  for (const field of ["generation", "issuedAt", "expiresAt"]) {
+    assert.ok(Number.isSafeInteger(claims[field]), `invalid ${field}`);
+  }
+  assert.ok(claims.generation >= 1);
+  return [
+    "NOVA-VAULT-ASSERTION-V1",
+    claims.issuer,
+    claims.audience,
+    claims.keyId,
+    claims.ownerId.toLowerCase(),
+    claims.tenantId.toLowerCase(),
+    claims.connectionId.toLowerCase(),
+    claims.provider,
+    claims.environment,
+    claims.capability,
+    String(claims.generation),
+    claims.operationId.toLowerCase(),
+    claims.nonce.toLowerCase(),
+    String(claims.issuedAt),
+    String(claims.expiresAt)
+  ].join("\n");
+}
+
+function validVaultAssertionWindow(issuedAt, expiresAt, now) {
+  return Number.isSafeInteger(issuedAt)
+    && Number.isSafeInteger(expiresAt)
+    && Number.isSafeInteger(now)
+    && issuedAt >= now - 60
+    && issuedAt <= now + 5
+    && expiresAt > now
+    && expiresAt > issuedAt
+    && expiresAt <= issuedAt + 60;
+}
+
+async function verifyVaultAssertion(key, claims, signature) {
+  try {
+    const message = new TextEncoder().encode(canonicalVaultAssertion(claims));
+    return await webcrypto.subtle.verify("HMAC", key, signature, message);
+  } catch {
+    return false;
+  }
+}
+
+test("signed-identity migration is local-only and removes runtime access to unsigned identity assertions", () => {
+  assert.match(signedMigration, /LOCAL PROOF ONLY/i);
+  assert.match(signedMigration, /create extension if not exists pgcrypto with schema extensions/i);
+  assert.match(signedMigration, /get_secret_for_connection_use_signed/i);
+  assert.match(signedMigration, /revoke all on function nova_vault_private\.get_secret_for_connection_use\([\s\S]*?from public, anon, authenticated, service_role, nova_vault_api/i);
+  assert.match(signedMigration, /assertion_nonce_replay/);
+  assert.match(signedMigration, /on conflict \(key_id, nonce\) do nothing/i);
+  assert.doesNotMatch(signedMigration, /grant\s+.*service_role/i);
+  assert.match(signedMigration, /MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=/);
+});
+
+test("Worker Web Crypto HMAC-SHA-256 matches RFC 4231 known-answer vector", async () => {
+  const rawKey = new Uint8Array(20).fill(0x0b);
+  const key = await webcrypto.subtle.importKey(
+    "raw", rawKey, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]
+  );
+  const message = new TextEncoder().encode("Hi There");
+  const signature = new Uint8Array(await webcrypto.subtle.sign("HMAC", key, message));
+  assert.equal(signature.length, 32);
+  assert.equal(
+    Buffer.from(signature).toString("hex"),
+    "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+  );
+  assert.equal(await webcrypto.subtle.verify("HMAC", key, signature, message), true);
+});
+
+test("canonical HMAC assertion detects claim tampering across every bound claim", async () => {
+  const keyBytes = new TextEncoder().encode("0123456789abcdef0123456789abcdef");
+  const key = await webcrypto.subtle.importKey(
+    "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]
+  );
+  const original = {
+    version: 1,
+    issuer: "voom-system-hub",
+    audience: "nova-vault-access",
+    keyId: "proof-hmac-v1",
+    ownerId: "00000000-0000-4000-8000-000000000001",
+    tenantId: "00000000-0000-4000-8000-000000000011",
+    connectionId: "00000000-0000-4000-8000-000000000101",
+    provider: "proof_provider",
+    environment: "demo",
+    capability: "secret.use.readonly",
+    generation: 1,
+    operationId: "10000000-0000-4000-8000-000000000001",
+    nonce: "20000000-0000-4000-8000-000000000001",
+    issuedAt: 1793390000,
+    expiresAt: 1793390060
+  };
+  const originalBytes = new TextEncoder().encode(canonicalVaultAssertion(original));
+  const signature = await webcrypto.subtle.sign("HMAC", key, originalBytes);
+  assert.equal(await verifyVaultAssertion(key, original, signature), true);
+
+  const mutations = [
+    ["version", c => { c.version = 2; }],
+    ["issuer", c => { c.issuer = "untrusted"; }],
+    ["audience", c => { c.audience = "wrong-audience"; }],
+    ["keyId", c => { c.keyId = "other-key"; }],
+    ["ownerId", c => { c.ownerId = "00000000-0000-4000-8000-000000000002"; }],
+    ["tenantId", c => { c.tenantId = "00000000-0000-4000-8000-000000000012"; }],
+    ["connectionId", c => { c.connectionId = "00000000-0000-4000-8000-000000000102"; }],
+    ["provider", c => { c.provider = "other_provider"; }],
+    ["environment", c => { c.environment = "production"; }],
+    ["capability", c => { c.capability = "trade.submit"; }],
+    ["generation", c => { c.generation = 2; }],
+    ["operationId", c => { c.operationId = "10000000-0000-4000-8000-000000000002"; }],
+    ["nonce", c => { c.nonce = "20000000-0000-4000-8000-000000000002"; }],
+    ["issuedAt", c => { c.issuedAt += 1; }],
+    ["expiresAt", c => { c.expiresAt -= 1; }]
+  ];
+  for (const [field, mutate] of mutations) {
+    const changed = structuredClone(original);
+    mutate(changed);
+    assert.equal(await verifyVaultAssertion(key, changed, signature), false, `${field} tampering must fail`);
+  }
+});
+
+test("signed assertion expiry and canonical field bounds fail closed", () => {
+  const now = 1793390000;
+  assert.equal(validVaultAssertionWindow(now, now + 60, now), true);
+  assert.equal(validVaultAssertionWindow(now - 61, now - 1, now), false);
+  assert.equal(validVaultAssertionWindow(now + 6, now + 60, now), false);
+  assert.equal(validVaultAssertionWindow(now, now + 61, now), false);
+  assert.equal(validVaultAssertionWindow(now, now, now), false);
+
+  const valid = {
+    version: 1, issuer: "voom-system-hub", audience: "nova-vault-access",
+    keyId: "proof-hmac-v1",
+    ownerId: "00000000-0000-4000-8000-000000000001",
+    tenantId: "00000000-0000-4000-8000-000000000011",
+    connectionId: "00000000-0000-4000-8000-000000000101",
+    provider: "proof_provider", environment: "demo",
+    capability: "secret.use.readonly", generation: 1,
+    operationId: "10000000-0000-4000-8000-000000000001",
+    nonce: "20000000-0000-4000-8000-000000000001",
+    issuedAt: now, expiresAt: now + 60
+  };
+  assert.doesNotThrow(() => canonicalVaultAssertion(valid));
+  assert.throws(() => canonicalVaultAssertion({ ...valid, keyId: "bad\\nkey" }));
+  assert.throws(() => canonicalVaultAssertion({ ...valid, provider: "bad\\nprovider" }));
+  assert.throws(() => canonicalVaultAssertion({ ...valid, capability: "trade.submit" }));
 });
