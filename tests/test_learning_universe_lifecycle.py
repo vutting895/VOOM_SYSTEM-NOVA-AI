@@ -266,6 +266,38 @@ class LearningUniverseLifecycleTests(unittest.TestCase):
                 },
             )
 
+    def test_evidence_rejects_unknown_and_nested_payload_fields(self):
+        cycle = create_cycle("cycle-test-001", NOW)
+        for extra in ({"free_form_payload": "not-allowlisted"}, {"dataset_manifest_id": {"nested": "value"}}):
+            with self.subTest(extra=extra):
+                with self.assertRaises(LearningLifecycleError):
+                    advance(
+                        cycle,
+                        LearningState.DATA_VALIDATED,
+                        {
+                            "dataset_manifest_id": "dataset-001",
+                            "dataset_sha256": SHA256,
+                            "quality_report_id": "quality-001",
+                            "data_quality_passed": True,
+                            **extra,
+                        },
+                    )
+
+    def test_transition_rejects_tampered_execution_safety_flags(self):
+        cycle = create_cycle("cycle-test-001", NOW)
+        tampered = {**cycle, "order_submission_enabled": True}
+        with self.assertRaises(LearningLifecycleError):
+            advance(
+                tampered,
+                LearningState.DATA_VALIDATED,
+                {
+                    "dataset_manifest_id": "dataset-001",
+                    "dataset_sha256": SHA256,
+                    "quality_report_id": "quality-001",
+                    "data_quality_passed": True,
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
