@@ -2,7 +2,7 @@
 -- All key material and customer Secrets in this file are synthetic local fixtures.
 -- Test output stores and compares hashes only; it never selects or prints plaintext.
 
-select extensions.plan(26);
+select extensions.plan(27);
 
 create or replace function pg_temp.nova_vault_proof_mac(
   p_issuer text,
@@ -86,6 +86,36 @@ grant execute on function pg_temp.nova_vault_signed_secret_hash(
   integer, text, text, text, uuid, uuid, uuid, text, text, text,
   bigint, uuid, uuid, bigint, bigint, text
 ) to nova_vault_api;
+
+select extensions.is(
+  pg_catalog.encode(
+    extensions.hmac(
+      pg_catalog.convert_to(
+          'NOVA-VAULT-ASSERTION-V1' || E'\n'
+        || 'voom-system-hub' || E'\n'
+        || 'nova-vault-access' || E'\n'
+        || 'local-proof-v1' || E'\n'
+        || '00000000-0000-4000-8000-000000000001' || E'\n'
+        || '00000000-0000-4000-8000-000000000011' || E'\n'
+        || '00000000-0000-4000-8000-000000000101' || E'\n'
+        || 'proof_provider' || E'\n'
+        || 'demo' || E'\n'
+        || 'account_read' || E'\n'
+        || '1' || E'\n'
+        || '00000000-0000-4000-8000-000000000901' || E'\n'
+        || '00000000-0000-4000-8000-000000000a01' || E'\n'
+        || '1761800000' || E'\n'
+        || '1761800060',
+        'UTF8'
+      ),
+      pg_catalog.convert_to('LOCAL-ONLY-HMAC-KEY-32-BYTE-0123', 'UTF8'),
+      'sha256'
+    ),
+    'hex'
+  ),
+  'd43bad3836bb5b8e0e4e6b17ca558d1ce639e1d2cb22561ed11a45618c53d696',
+  'PostgreSQL pgcrypto matches the Worker Web Crypto HMAC known-answer vector'
+);
 
 do $prepare$
 declare
