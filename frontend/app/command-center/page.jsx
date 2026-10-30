@@ -5,22 +5,40 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import { buildBoundedChatHistory } from '../../lib/chat-history.mjs';
+import {
+  customerWorkspaceStorageKey,
+  getCustomerStrategy,
+  normalizeCustomerWorkspacePreferences,
+} from '../../lib/customer-strategies.mjs';
 import ApprovalCard from '../../components/approval-card';
 import './command-center.css';
 
 const APPROVALS_ENABLED = process.env.NEXT_PUBLIC_NOVA_APPROVALS_ENABLED === 'true';
 const WIDGET_ALLOWLIST = Object.freeze(['smc_chart', 'risk_gauge', 'terminal_log', 'approval_card']);
 
-function makeWelcomeMessage() {
+function makeWelcomeMessage(strategyName = '') {
+  const strategyContext = strategyName ? ' พื้นที่นี้ตั้งค่ากลยุทธ์ ' + strategyName + ' เป็นแนวทางเริ่มต้นสำหรับการสนทนา' : '';
   return {
     id: 'welcome',
     role: 'assistant',
-    content: 'NOVA พร้อมช่วยวิเคราะห์และค้นคว้า โปรดระบุสิ่งที่ต้องการตรวจสอบ ระบบจะแสดงเฉพาะข้อมูลที่ Backend ยืนยันได้ และจะไม่ส่งคำสั่งซื้อขาย',
+    content: 'NOVA พร้อมช่วยวิเคราะห์และค้นคว้า โปรดระบุสิ่งที่ต้องการตรวจสอบ ระบบจะแสดงเฉพาะข้อมูลที่ Backend ยืนยันได้ และจะไม่ส่งคำสั่งซื้อขาย' + strategyContext,
   };
 }
 
 function makeLog(message, level = 'info') {
   return { id: crypto.randomUUID(), at: new Date().toISOString(), message, level };
+}
+
+function readCustomerWorkspacePreference(userId) {
+  const storageKey = customerWorkspaceStorageKey(userId);
+  if (!storageKey || typeof window === 'undefined') return null;
+  try {
+    return normalizeCustomerWorkspacePreferences(
+      JSON.parse(window.localStorage.getItem(storageKey) || 'null'),
+    );
+  } catch {
+    return null;
+  }
 }
 
 function safeIntent(intent) {
@@ -56,6 +74,7 @@ export default function CommandCenterPage() {
   const identityRef = useRef(null);
   const requestGenerationRef = useRef(0);
   const [messages, setMessages] = useState([makeWelcomeMessage()]);
+  const [workspacePreference, setWorkspacePreference] = useState(null);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -70,6 +89,7 @@ export default function CommandCenterPage() {
   const resetCustomerState = useCallback(() => {
     requestGenerationRef.current += 1;
     setMessages([makeWelcomeMessage()]);
+    setWorkspacePreference(null);
     setInput('');
     setBusy(false);
     setError('');
@@ -170,6 +190,14 @@ export default function CommandCenterPage() {
       if (identityChanged) {
         identityRef.current = userId;
         resetCustomerState();
+        const preference = readCustomerWorkspacePreference(userId);
+        if (!preference) {
+          setAuth({ state: 'ready', token: session.access_token, email: session.user.email || 'Signed-in customer', userId });
+          router.replace('/strategies');
+          return;
+        }
+        setWorkspacePreference(preference);
+        setMessages([makeWelcomeMessage(getCustomerStrategy(preference.strategyId)?.name || '')]);
         appendLog('Customer identity changed; previous customer state discarded');
         void loadBroker(session.access_token, userId);
         void restorePendingApprovals(session.access_token, userId);
@@ -209,6 +237,14 @@ export default function CommandCenterPage() {
     () => messages.filter((message) => message.approval?.status === 'pending'),
     [messages],
   );
+  const selectedStrategy = workspacePreference
+    ? getCustomerStrategy(workspacePreference.strategyId)
+    : null;
+
+  function setResearchPrompt(prompt) {
+    setInput(prompt);
+    setError('');
+  }
 
   async function createDraftReview(messageId, intent, revisedProposal = null) {
     if (!APPROVALS_ENABLED || !auth.token || intent?.intent !== 'draft_strategy') return;
@@ -328,11 +364,12 @@ export default function CommandCenterPage() {
 
   if (auth.state === 'checking') return <main className="cc-loading">กำลังตรวจสอบสิทธิ์และเตรียม Workspace…</main>;
   if (auth.state !== 'ready') return <main className="cc-loading" role="alert">ไม่สามารถเปิด Workspace ได้ กรุณาตรวจสอบ Supabase Auth และเข้าสู่ระบบใหม่</main>;
+  if (!workspacePreference || !selectedStrategy) return <main className="cc-loading">กำลังเปิดพื้นที่ส่วนตัวของคุณ…</main>;
 
   return (
     <main className="cc-shell">
       <header className="cc-header">
-        <Link href="/" className="cc-brand"><span>V</span><strong>VOOM / NOVA</strong></Link>
+        <Link href="/" className="cc-brand"><span>V</span><strong>VOOM_SYSTEM <i>/ NOVA</i></strong></Link>
         <div className="cc-customer"><small>CUSTOMER WORKSPACE</small><strong>{auth.email}</strong></div>
         <div className="cc-safety"><i /> READ-ONLY · LIVE TRADING OFF</div>
       </header>
@@ -375,7 +412,23 @@ export default function CommandCenterPage() {
         </section>
 
         <section className="cc-workspace">
-          <div className="cc-section-title"><div><small>DYNAMIC CANVAS WORKSPACE</small><h2>Active <em>Workspace</em></h2></div><span>02 / LIVE STATE</span></div>
+          <div className="cc-section-title"><div><small>PERSONAL CUSTOMER ENVIRONMENT</small><h2>My <em>Private Dashboard</em></h2></div><span>02 / PRIVATE</span></div>
+          <section className="cc-strategy-summary" aria-label="Selected customer strategy">
+            <div className="cc-strategy-summary-main">
+              <small>YOUR ACTIVE RESEARCH STRATEGY · {selectedStrategy.code}</small>
+              <strong>{selectedStrategy.name}</strong>
+              <p>{selectedStrategy.description}</p>
+              <div className="cc-strategy-meta"><span>{workspacePreference.market}</span><span>{workspacePreference.riskProfile.toUpperCase()} RISK PROFILE</span><span>{workspacePreference.analysisStyle.toUpperCase()} ANALYSIS</span></div>
+            </div>
+            <Link href="/strategies" className="cc-change-strategy">เปลี่ยนกลยุทธ์ ↗</Link>
+          </section>
+          <section className="cc-personal-ai-tools" aria-label="Personal NOVA AI quick actions">
+            <div><small>PERSONAL AI ASSISTANT</small><strong>NOVA · {selectedStrategy.name}</strong></div>
+            <div className="cc-quick-prompts">
+              <button type="button" onClick={() => setResearchPrompt('ช่วยอธิบายบริบทของ ' + workspacePreference.market + ' ด้วยแนวทาง ' + selectedStrategy.name + ' โดยใช้เฉพาะข้อมูลที่ตรวจสอบแหล่งที่มาได้')}>วิเคราะห์ตลาด</button>
+              <button type="button" onClick={() => setResearchPrompt('ช่วยจัดทำรายการเงื่อนไขที่ต้องตรวจสอบสำหรับ ' + selectedStrategy.name + ' บน ' + workspacePreference.market + ' โดยไม่สร้างคำสั่งซื้อขาย')}>ตรวจเงื่อนไขกลยุทธ์</button>
+            </div>
+          </section>
           <WidgetFrame title="SMC MARKET STRUCTURE" code="WIDGET / CHART">
             <div className="cc-chart-empty">
               <div className="cc-chart-grid" />
