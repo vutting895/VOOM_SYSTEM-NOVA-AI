@@ -6,9 +6,11 @@ import { webcrypto } from "node:crypto";
 const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), "utf8");
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
 const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_assertion_proof.sql", import.meta.url), "utf8");
+const operationReplayMigration = readFileSync(new URL("./supabase/migrations/20261031000300_operation_id_replay_guard.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 const signedIdentityTests = readFileSync(new URL("./supabase/tests/signed_identity_assertion.test.sql", import.meta.url), "utf8");
+const operationReplayTests = readFileSync(new URL("./supabase/tests/operation_idempotency_proof.test.sql", import.meta.url), "utf8");
 const hmacKnownAnswerTest = readFileSync(new URL("./hmac-known-answer.test.mjs", import.meta.url), "utf8");
 
 test("proof project is isolated from hosted Supabase projects", () => {
@@ -53,7 +55,6 @@ test("CI runs only disposable local Supabase commands and injects no platform cr
   assert.match(workflow, /supabase stop/);
   assert.doesNotMatch(workflow, /SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE|CLOUDFLARE_API_TOKEN|DATABASE_URL|supabase link|db push --linked/i);
 });
-
 
 const assertionUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -228,4 +229,13 @@ test("Worker Web Crypto and PostgreSQL pgcrypto match the canonical assertion HM
   assert.match(signedIdentityTests, /PostgreSQL pgcrypto matches the Web Crypto canonical assertion known-answer vector/);
   assert.match(signedIdentityTests, /ecfd257bb3dfff3d0fa34e8d1d01506b2e063a2dbeb4284c3737bb283602a001/);
   assert.match(signedIdentityTests, /extensions\.plan\(25\)/);
+});
+
+test("fresh nonces cannot replay a logical operation in the local Vault proof", () => {
+  assert.match(operationReplayMigration, /unique \(key_id, operation_id\)/i);
+  assert.match(operationReplayMigration, /LOCAL PROOF ONLY/i);
+  assert.match(operationReplayTests, /same operation ID with a fresh nonce is rejected/);
+  assert.match(operationReplayTests, /'23505'/);
+  assert.match(readme, /not a complete idempotency implementation/i);
+  assert.match(readme, /reconcile an ambiguous provider outcome/i);
 });
