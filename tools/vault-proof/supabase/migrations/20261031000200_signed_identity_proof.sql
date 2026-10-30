@@ -148,7 +148,7 @@ begin
   end if;
 
   v_now := pg_catalog.floor(
-    pg_catalog.extract(epoch from pg_catalog.clock_timestamp())
+    extract(epoch from pg_catalog.clock_timestamp())
   )::bigint;
 
   if p_issued_at is null
