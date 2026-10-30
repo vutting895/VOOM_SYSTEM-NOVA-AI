@@ -2,14 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { LEARNING_TRACKS, getReadinessLabel } from '../../lib/learning-universe/catalog.mjs';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 
-const learningModules = [
-  'Supervised XGBoost', 'Unsupervised KMeans', 'CNN Vision / MAE', 'GNN Correlation',
-  'Mamba Long-Context', 'Diffusion Research', 'Neuro-symbolic Rules', 'VLM Analysis',
-  'Continual Learning / EWC', 'World Model / JEPA', 'Agentic Self-play', 'Federated Learning',
-  'RL / PPO Research', 'Gen AI Strategy', 'Backtest Engine', 'Optuna Tuning'
-];
+
 
 export default function GenAIPage() {
   const [prompt, setPrompt] = useState('ศึกษาแนวทาง EMA และ RSI สำหรับ XAU/USD โดยจำกัดความเสี่ยงและระบุเงื่อนไขยกเลิกสัญญาณ');
@@ -130,11 +126,11 @@ export default function GenAIPage() {
 
       <section className="nova-panel" style={{ marginTop: 18 }}>
         <h2>Learning Universe 16 · รายการโมดูล</h2>
-        <p>รายการเพื่อจัดหมวดการพัฒนา ไม่ได้หมายความว่าทุกโมดูลถูก deploy หรือทำงานอัตโนมัติ</p>
+        <p>ใช้ทะเบียนเดียวกับหน้า Learning Universe โดยแสดงสถานะจากหลักฐานใน repository ไม่ใช่สถานะ deploy หรือ runtime</p>
         <div className="nova-worker-grid">
-          {learningModules.map((module, index) => <div className="nova-worker" key={module}><strong>{index + 1}. {module}</strong><small>สถานะ runtime: ยังไม่ยืนยัน</small></div>)}
+          {LEARNING_TRACKS.map((module) => <div className="nova-worker" key={module.id}><strong>{module.number}. {module.name}</strong><small>{getReadinessLabel(module.readiness)}</small></div>)}
         </div>
-        <div className="nova-notice" style={{ marginBottom: 0 }}><strong>Auto-Learning Loop</strong><p>ควรเปิดวงจรเรียนรู้อัตโนมัติหลังมีข้อมูล Backtest ที่ทำซ้ำได้, guardrails, การประเมิน out-of-sample และการอนุมัติที่ตรวจสอบย้อนกลับได้เท่านั้น</p></div>
+        <div className="nova-notice" style={{ marginBottom: 0 }}><strong>Auto-Learning Loop</strong><p>วงจรปัจจุบันเป็น lifecycle contract prototype: ต้องผ่าน data-quality, feature/label approval, out-of-sample, cost/baseline/risk gates และ human review ก่อน paper/shadow เท่านั้น; ยังไม่มี scheduler, persistence หรือ automatic promotion</p></div>
       </section>
 
       <footer className="nova-footer">API: /api/gen-ai/generate → Cloudflare Workers AI · Draft only · Live Trading OFF</footer>
