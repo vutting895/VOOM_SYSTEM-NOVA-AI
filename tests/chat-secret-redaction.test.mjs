@@ -12,10 +12,11 @@ test('redacts labeled API keys, passwords and access tokens', () => {
 });
 
 test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', () => {
-  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 Authorization: Basic dXNlcjpwYXNzd29yZA== https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890 NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY=service-role-private-value';
+  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 Authorization: Basic dXNlcjpwYXNzd29yZA== eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.signature-value-1234567890 https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890 NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY=service-role-private-value';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /Bearer abcdefghijklmnopqrstuvwxyz123456/);
   assert.doesNotMatch(result, /Basic dXNlcjpwYXNzd29yZA==/);
+  assert.doesNotMatch(result, /eyJhbGciOiJIUzI1NiJ9/);
   assert.doesNotMatch(result, /token-value-123/);
   assert.doesNotMatch(result, /ghp_abcdefghijklmnopqrstuvwxyz1234567890/);
   assert.doesNotMatch(result, /service-role-private-value/);
