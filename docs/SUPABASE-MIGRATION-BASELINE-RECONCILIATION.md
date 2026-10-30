@@ -120,6 +120,41 @@ Read-only migration metadata returned 24 applied migrations, including:
 
 The complete 24-row history is available from the project migration inventory; this summary is not a replacement for exporting its exact migration definitions.
 
+### 3.2.1 Applied migration-to-source mapping
+
+The following matrix compares the 24 applied migration names with source files found in the old `Voom_system` repository and the current NOVA repository. A source file listed as “aggregate” contains multiple groups of DDL and is not assumed to be byte-for-byte identical to the applied migration. “Not recovered” means the original SQL is not present in the two inspected repositories' current `main` migration directories; it does not mean the migration did not run.
+
+| Applied runtime migration | Source evidence found | Status / follow-up |
+|---|---|---|
+| `voom_system_core_schema` | Old repo `20261023_000001_voom_core.sql` | Source found; compare exact applied definition and later alterations. |
+| `voom_system_security_hardening` | Old repo `20261023_000002_voom_system_security_hardening.sql` | Source found. |
+| `voom_auth_roles` | Old repo `20261023_000003_voom_auth_roles.sql` | Source found. |
+| `voom_ai_strategies_registry` | Old repo `20261023_000004_ai_marketplace.sql` | Aggregate source; contains `ai_strategies` DDL alongside two later migration concerns. |
+| `voom_customer_ai_subscriptions` | Old repo `20261023_000004_ai_marketplace.sql` | Aggregate source; not a standalone migration file. |
+| `voom_signal_delivery_log` | Old repo `20261023_000004_ai_marketplace.sql` | Aggregate source; not a standalone migration file. |
+| `voom_customer_marketplace_read_rpcs` | No original SQL file recovered; current function definitions inspected from `pg_get_functiondef` | Current public/private function state is known, but original migration source and chronological changes are not recovered. |
+| `voom_customer_marketplace_activation_rpcs` | No original SQL file recovered; current function definitions inspected from `pg_get_functiondef` | Current public/private function state is known, but original migration source and chronological changes are not recovered. |
+| `voom_marketplace_resume_paused_subscription` | No original SQL file recovered | Source recovery and catalog/history attribution remain open. |
+| `voom_dashboard_readonly_rls_v1` | No original SQL file recovered | RLS policy definitions exist in current catalog; exact migration source not recovered. |
+| `voom_staff_dashboard_read_policies_v2` | Old repo has partial role/security source; no exact matching migration file | Current staff policies are visible in catalog; exact migration source not recovered. |
+| `voom_signal_delivery_log_deny_client_v1` | No original SQL file recovered | Current deny-client policy is visible in catalog; exact migration source not recovered. |
+| `customer_signup_profile_trigger` | Old repo `20261024_000001_customer_signup_profile_trigger.sql` | Source found. |
+| `customer_profiles_select_own_policy` | Old repo core SQL contains an owner-read policy, but no exact matching migration file | Later policy transitions need to be reconciled against current catalog. |
+| `remove_redundant_customer_profile_select_policy` | No original SQL file recovered | Current catalog does not preserve historical policy sequence; source recovery required. |
+| `remove_duplicate_profile_policy_and_index_foreign_keys` | Old repo `20261024_000002_security_policy_indexes.sql` | Likely related aggregate follow-up; verify exact SQL and applied ordering before mapping as equivalent. |
+| `nova_governance_tables` | No original SQL file recovered | Current 19-table runtime inventory does not show a separate governance table set under those names; classify as removed/renamed/out-of-band only after schema diff. |
+| `nova_governance_rls_and_seed` | No original SQL file recovered | Seed/data and policy history must be recovered or documented as out-of-band; do not replay guessed seed rows. |
+| `alpaca_oauth` | Current NOVA repo `supabase/migrations/202610240001_alpaca_oauth.sql` | Source file found in canonical repo; compare against runtime definition/version. Keep only as historical provenance after Alpaca retirement. |
+| `secure_alpaca_secret_tables` | No exact follow-up source file recovered | Current `alpaca_connections` / `alpaca_oauth_states` structures and deny-client policy exist; exact hardening migration SQL remains missing. |
+| `enable_rls_ai_strategies` | Old repo marketplace aggregate enables RLS and revokes browser grants | Partial source coverage; exact applied migration body not recovered. |
+| `index_alpaca_oauth_states_user_id` | No original SQL file recovered | Current index definition can be inspected, but original migration source remains missing. |
+| `mt5_customer_connections` | Current NOVA repo `supabase/migrations/202610270001_mt5_customer_connections.sql` | Source file found; applied runtime version `20261027160402` differs from filename prefix. |
+| `security_definer_marketplace_hardening` | Current NOVA repo `supabase/migrations/202610290001_security_definer_marketplace_hardening.sql` | Source file found; applied runtime version `20261029084244` differs from filename prefix. |
+
+Read-only function catalog inspection recovered the current definitions for `private.is_active_staff`, the four private Marketplace implementation functions and their four public wrappers, plus `public.voom_handle_new_auth_user`. The public Marketplace functions currently report `SECURITY INVOKER`; the private implementation functions report `SECURITY DEFINER`. This describes current catalog state only, not the original SQL or the exact chronology of the applied migrations.
+
+
+
 Catalog inspection in this older project confirmed the existence of the Marketplace public wrappers, private implementation functions, `private.is_active_staff()`, `public.ai_strategies` and `public.customer_profiles` referenced by `202610290001_security_definer_marketplace_hardening.sql`.
 
 This explains why the Marketplace hardening migration's dependencies were absent in the newer project's catalog but present in the older project's catalog. The deployment-configuration check further confirms that the older project is the current runtime target for the inspected Netlify and Cloudflare resources. This is not a claim that it is ready for schema replay or that a future migration/cutover cannot select a new project.
