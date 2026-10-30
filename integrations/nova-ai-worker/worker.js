@@ -278,7 +278,7 @@ async function generateChat(env, messages) {
   ].join(" ");
   const intent = classifyResearchIntent(messages[messages.length - 1].content);
   if (env.GEMINI_API_KEY) {
-    const model = env.GEMINI_MODEL || "gemini-flash-latest";
+    const model = resolveGeminiModel(env);
     try {
       const prompt = messages.map((m) => (m.role === "assistant" ? "NOVA assistant: " : "User: ") + m.content).join("\n\n");
       const message = await generateGeminiText(env, { systemInstruction: system, prompt, maxOutputTokens: 900 });
