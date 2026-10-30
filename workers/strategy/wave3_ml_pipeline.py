@@ -1156,8 +1156,17 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     if not np.allclose(round_trip_prob, prob[:check_count], atol=1e-6):
         raise RuntimeError("saved XGB/LSTM artifacts do not reproduce in-memory ensemble probabilities")
     print(f"saved XGB/LSTM artifacts reloaded and verified on {check_count} held-out rows", flush=True)
+    model_artifacts = {}
+    for artifact_name in ("xgb_model.json", "deep_lstm.pt"):
+        artifact_path = model_path / artifact_name
+        model_artifacts[artifact_name] = {
+            "path": artifact_path.as_posix(),
+            "sha256": hashlib.sha256(artifact_path.read_bytes()).hexdigest(),
+            "bytes": artifact_path.stat().st_size,
+        }
     manifest = {
         "strategy": "VOOM v6.2.6.3 Wave3 + SMC XGB/60-bar LSTM BUY research", "version": "6.2.6.3-research",
+        "model_artifacts": model_artifacts,
         "data_sha256": raw_hash, "symbol": "XAUUSDm", "timeframe": "M15", "timezone": "UTC",
         "bar_count": len(frame), "usable_labeled_rows": len(X),
         "data_first_bar": ts0.isoformat(), "data_last_bar": tsn.isoformat(),
@@ -1285,9 +1294,11 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             tuning_trials, fold_results, final_model=final_tuning, status="completed"
         ),
         "final_out_of_sample": final_result,
-        "model_files": ["models/wave3_xgb_deep/xgb_model.json",
-                        "models/wave3_xgb_deep/deep_lstm.pt",
-                        "models/wave3_xgb_deep/model_manifest.json"],
+        "model_files": [
+            (model_path / "xgb_model.json").as_posix(),
+            (model_path / "deep_lstm.pt").as_posix(),
+            (model_path / "model_manifest.json").as_posix(),
+        ],
         "limitations": [
             "Historical research only; no claim of future profitability.",
             "Commission is configured to zero because the available small MT5 deal sample does not verify commission per lot; confirm broker schedule before production use.",
