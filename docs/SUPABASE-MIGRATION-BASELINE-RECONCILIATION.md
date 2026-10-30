@@ -32,6 +32,25 @@ This review used read-only Supabase project, migration, table, extension, policy
 
 There is no checked-in complete bootstrap migration for all legacy tables observed in either database. The migration directory therefore must not be treated as a fresh-install baseline yet.
 
+## 2.1 Forensic source files found in the older repository
+
+A read-only inventory of `vutting895/Voom_system` on its `main` branch found these eight PostgreSQL migration files:
+
+1. `Supabase/migrations/20261023_000001_voom_core.sql`
+2. `Supabase/migrations/20261023_000002_voom_system_security_hardening.sql`
+3. `Supabase/migrations/20261023_000003_voom_auth_roles.sql`
+4. `Supabase/migrations/20261023_000004_ai_marketplace.sql`
+5. `Supabase/migrations/20261023_000005_source1_test_registry.sql`
+6. `Supabase/migrations/20261024_000001_customer_signup_profile_trigger.sql`
+7. `Supabase/migrations/20261024_000002_security_policy_indexes.sql`
+8. `Supabase/migrations/20261024_000003_customer_paper_trading.sql`
+
+The older repository is forensic source material only; `VOOM_SYSTEM-NOVA-AI/main` remains the canonical product repository. `Research/MCP_Server/commercial_schema.sql` in the old repository uses SQLite syntax (`PRAGMA`) and must not be treated as a Postgres/Supabase migration.
+
+The `ai_marketplace.sql` file aggregates the DDL for `ai_strategies`, `customer_ai_subscriptions` and `signal_delivery_log`, while the runtime migration history records these as separate migration entries. This is a source mapping, not a one-file-to-one-applied-migration match.
+
+These eight files do not account for all 24 applied runtime migrations. In particular, the separate RPC/read/activation migrations, NOVA governance tables/RLS/seed, Alpaca secret hardening, and later RLS/index changes are not all represented as standalone source files in the old repository's current `main` tree. Further source recovery or reviewed schema extraction is required.
+
 ## 3. Observed database histories
 
 ### 3.1 Newer NOVA-oriented project
@@ -105,6 +124,33 @@ Catalog inspection in this older project confirmed the existence of the Marketpl
 
 This explains why the Marketplace hardening migration's dependencies were absent in the newer project's catalog but present in the older project's catalog. The deployment-configuration check further confirms that the older project is the current runtime target for the inspected Netlify and Cloudflare resources. This is not a claim that it is ready for schema replay or that a future migration/cutover cannot select a new project.
 
+### 3.3 Runtime configuration and schema alignment
+
+Read-only deployment-configuration inspection found the same non-secret Supabase endpoint target in all three inspected resources:
+
+- Netlify site `voomsystem`: `NEXT_PUBLIC_SUPABASE_URL` (context `all`).
+- Cloudflare Worker `voom-system-hub`: `SUPABASE_URL` binding.
+- Cloudflare Worker `voom-system-nova-ai`: `SUPABASE_URL` binding.
+
+All three matched the older `Voom_system` project. No publishable key value or secret binding value was emitted or copied.
+
+Catalog inspection of that runtime project found 19 public tables. The following are present: `customer_profiles`, `ai_strategies`, `customer_ai_subscriptions`, `signal_delivery_log`, `broker_connections`, `alpaca_connections`, `alpaca_oauth_states`, `trading_sessions`, `strategy_signals`, `backtest_runs`, `strategy_versions`, `learning_events`, `quality_gate_configs`, `quality_gate_results`, `risk_guard_decisions`, `security_events`, `mcp_tool_audit`, `system_controls` and `system_heartbeats`.
+
+The same catalog checks returned these objects as absent:
+
+- `public.nova_agent_threads`
+- `public.nova_approval_requests`
+- `public.paper_orders`
+
+This creates a verified schema/configuration mismatch for the durable NOVA approval feature: `VOOM_SYSTEM-NOVA-AI/main` contains frontend API routes under `frontend/app/api/agent/threads/**` and approval routes that query `nova_agent_threads` / `nova_approval_requests` and invoke `nova_create_approval` / `nova_resolve_approval`. The durable approval migration is applied to the separate newer NOVA-oriented project, but not to the older `Voom_system` project currently named by all three inspected endpoint bindings.
+
+The old repository contains a `customer_paper_trading` migration for `paper_orders`, but the runtime catalog reports that table absent and the 24-row runtime migration history has no matching `paper_orders` migration name. Do not replay that SQL automatically; classify whether it was never applied or was later retired.
+
+Important deployment qualification: the Netlify deploy metadata inspected during this review identified the currently published deploy record as a PR #89 Deploy Preview (commit `37502c0448c9ea955f60ff529c304f3571ea2c48`), not an exact `main` production commit. Therefore this document records endpoint configuration and schema mismatch evidence, but does not claim that the latest `main` approval routes are currently served or that a public endpoint smoke test has failed.
+
+Decision: treat `Voom_system` as the current configured runtime database baseline for reconciliation. Treat the newer NOVA-oriented Supabase project as a separate candidate/environment until a reviewed migration and cutover process says otherwise. Do not switch endpoint bindings or apply the approval migration to the old runtime project as part of this documentation change.
+
+
 ## 4. Supabase test and security observations
 
 For the newer NOVA-oriented project:
@@ -122,14 +168,14 @@ No blanket policies should be added to silence the RLS advisor. Each legacy tabl
 
 ### Gate A — Confirm the runtime target and classify the future target
 
-Current configuration evidence identifies the older `Voom_system` project as the runtime Supabase target used by the inspected Netlify `voomsystem` site and Cloudflare Workers `voom-system-hub` and `voom-system-nova-ai`. Use this project as the baseline for **current runtime reconciliation** unless an explicit cutover plan is approved. Do not infer that the separate newer NOVA-oriented project has replaced it merely because its name or migration history looks newer.
+Current endpoint configuration identifies the older `Voom_system` project as the runtime Supabase target for the inspected Netlify site and Cloudflare Hub/NOVA Workers. Use it as the baseline for current-runtime reconciliation. This does not establish that the inspected deployment is the latest `main` commit: the available Netlify deploy metadata was for a PR #89 Deploy Preview.
 
 The decision record must still state:
-- which project/environment is production, staging, rollback-only or development;
-- whether the newer NOVA-oriented project is intended as a future replacement, isolated staging target or retained experiment;
-- which customers, records, services and broker routes must be preserved during any future migration;
-- whether current frontend and Worker configuration is to remain on `Voom_system` until a separately approved cutover;
-- who owns the final migration approval.
+- whether `Voom_system` is intended to remain the long-term production database or only the current runtime/rollback baseline;
+- whether the newer NOVA-oriented project is a staging candidate, future replacement or retained experiment;
+- which customer records, services and broker routes must be preserved during any migration;
+- whether current Netlify and Cloudflare bindings remain on `Voom_system` until a separately approved cutover;
+- who owns final migration approval.
 
 ### Gate B — Produce schema and migration evidence
 
