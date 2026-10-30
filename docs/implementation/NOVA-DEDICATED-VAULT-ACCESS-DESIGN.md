@@ -135,3 +135,19 @@ Create a disposable local PostgreSQL/Vault test environment, never use live cust
 ## 10. Completion status
 
 This document is an architecture candidate with a test plan. It is not proof that dedicated Vault access works. The next implementation item is a disposable local proof of role grants, function ownership, owner-binding, and Hyperdrive no-cache configuration. Staging remains blocked until that proof is reviewed and separately approved.
+
+## 11. Supabase Free network and Hyperdrive pool constraints
+
+The network path is a mandatory proof gate, not an assumption. Cloudflare's Supabase-specific Hyperdrive guide recommends using the Supabase **direct connection** because Hyperdrive provides its own connection pooling. The current Supabase connection guide states that the direct database endpoint on the Free plan is IPv6-only; the shared Supavisor pooler is IPv4-only and offers session and transaction modes. Therefore:
+
+- Before proposing any Hyperdrive configuration, prove that Cloudflare Hyperdrive can reach the actual staging project's direct IPv6 endpoint using a disposable least-privilege role. Do not create a Hyperdrive config with a project-owner credential.
+- Do not upgrade Supabase or purchase an IPv4 add-on to bypass a connectivity failure. If the documented direct connection cannot be reached, stop and evaluate the IPv4 shared **session** pooler as a fallback in a separate compatibility proof. Do not choose transaction pooler mode as the default because Hyperdrive itself also pools in transaction mode and double-pooling/session semantics must be proven first.
+- Hyperdrive has a minimum origin connection pool of five connections per configuration. On the existing Supabase Free plan, budget this explicitly against the database connection limit. Start with one Vault-only configuration; do not create parallel cached and uncached Vault pools.
+- Hyperdrive uses transaction pooling. Any session-level state is reset when a connection returns to the pool. Do not depend on session advisory locks, session variables, temporary tables, or transaction state surviving between Worker requests. Implement per-connection rotation coordination with durable DB row leases/fencing tokens and short atomic transactions; release the database transaction before calling a provider API.
+- All Vault/auth/permission/rotation calls must use the dedicated `--caching-disabled` Hyperdrive configuration. The default query cache can serve prior read results for up to 60 seconds plus a 15-second stale-while-revalidate window, and writes do not invalidate cached reads. HTTP `Cache-Control: no-store` does not disable Hyperdrive SQL query caching.
+
+References added after network compatibility review:
+- Cloudflare's Supabase Hyperdrive guide (direct connection, least-privilege warning, Hyperdrive pooling): https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-database-providers/supabase/
+- Supabase connection methods and Free-plan IPv6/IPv4 table: https://supabase.com/docs/guides/database/connecting-to-postgres
+- Hyperdrive transaction pooling and connection minimum: https://developers.cloudflare.com/hyperdrive/concepts/connection-pooling/
+- Hyperdrive no-cache behavior and CLI switch: https://developers.cloudflare.com/hyperdrive/concepts/query-caching/
