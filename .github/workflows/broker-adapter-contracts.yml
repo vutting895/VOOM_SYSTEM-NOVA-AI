@@ -4,12 +4,20 @@ on:
   pull_request:
     paths:
       - "integrations/broker-adapters/**"
+      - "integrations/system-hub/**"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
       - ".github/workflows/broker-adapter-contracts.yml"
   push:
     branches:
       - main
     paths:
       - "integrations/broker-adapters/**"
+      - "integrations/system-hub/**"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
       - ".github/workflows/broker-adapter-contracts.yml"
 
 permissions:
@@ -22,7 +30,7 @@ concurrency:
 jobs:
   contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,3 +47,14 @@ jobs:
         env:
           PYTHONPATH: integrations/broker-adapters
         run: python -m unittest discover -s integrations/broker-adapters/tests -v
+
+      - name: Run Windows MT5 bridge tenant guard tests
+        run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_tenant_guard.py" -v
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run System Hub, MT5 Proxy, and Bridge Relay tests
+        run: node --experimental-default-type=module --test integrations/system-hub/tests/system-hub.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs integrations/mt5-bridge-relay/worker.test.mjs
