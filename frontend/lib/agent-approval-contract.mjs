@@ -45,12 +45,18 @@ export function normalizeApprovalDecision(value) {
     throw new TypeError("decision_contains_unknown_fields");
   }
   const decision = value.decision;
-  if (!["approve", "reject", "edit"].includes(decision)) {
+  if (!["approve", "reject", "edit", "expire"].includes(decision)) {
     throw new TypeError("decision_invalid");
   }
   const note = value.note === undefined || value.note === null ? null : value.note;
   if (note !== null && (typeof note !== "string" || note.trim().length > 300)) {
     throw new TypeError("decision_note_invalid");
+  }
+  if (decision === "expire") {
+    if (note !== null || value.editedProposal !== undefined) {
+      throw new TypeError("expiration_payload_not_allowed");
+    }
+    return { decision, note: null, editedProposal: null };
   }
   if (decision === "edit") {
     return {
