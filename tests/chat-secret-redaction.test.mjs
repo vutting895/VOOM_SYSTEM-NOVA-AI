@@ -34,3 +34,10 @@ test('redacts PEM private keys and preserves ordinary prose', () => {
 test('non-string input is handled safely', () => {
   assert.equal(redactSensitiveText(null), '');
 });
+
+
+test('server redacts customer prompts before forwarding them to the AI Worker', () => {
+  assert.match(chatRoute, /import \{ redactSensitiveText \}/);
+  assert.match(chatRoute, /content: redactSensitiveText\(item\.content\)/);
+  assert.match(chatRoute, /body: JSON\.stringify\(\{ messages: safeMessages \}\)/);
+});
