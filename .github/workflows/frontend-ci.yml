@@ -40,6 +40,8 @@ on:
       - "integrations/nova-ai-worker/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
+      - "workers/quant_engine/**"
+      - "workers/deep_research/**"
       - "supabase/migrations/**"
       - "tests/**"
       - "infra/**"
