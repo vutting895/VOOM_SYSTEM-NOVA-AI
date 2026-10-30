@@ -74,8 +74,8 @@ A reproducible training and backtest pipeline is available in the feature branch
 Run from the repository root with Python 3.11:
 
     python -m pip install -r requirements-wave3.txt
-    python tools/train_wave3_models.py --news-calendar datasets/news/high_impact_utc.csv
+    python tools/train_wave3_models.py --news-calendar datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
 
 Omit `--news-calendar` only for a fail-closed diagnostic run; without a genuine historical high-impact calendar the +/-30 minute news filter denies every entry.
 
-Current nested auto-tuned result: docs/WAVE3_MODEL_TRAINING_PLAN.md and reports/wave3_auto_tuned_20261030_report.json. Five chronological walk-forward windows and the final OOS fit completed, and model artifact reload checks passed. The final OOS gate remains blocked: 41.5135% accuracy versus a 45.9708% majority baseline, 39.4037% balanced accuracy, 0 trades, and no Wave3 entry reached SMC >=85 or the XGB/ensemble confidence gates. The historical high-impact news calendar was not supplied and therefore fails closed. No deployment or trading is enabled; artifacts are research-only.
+Pre-calendar baseline (historical only): reports/wave3_auto_tuned_20261030_report.json recorded 41.5135% accuracy versus a 45.9708% majority baseline and 0 trades. The newer calendar-filtered run is recorded in the Wave3 research workflow artifact; it applied the Exness historical calendar and remains below performance gates. See the current report artifact linked from PR #66. No deployment or trading is enabled; artifacts are research-only.
