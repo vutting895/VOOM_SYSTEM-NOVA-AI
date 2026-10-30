@@ -382,7 +382,8 @@ The current NeMo docs distinguish Colang 1.0 from Colang 2.0 and note version-sp
 - [ ] Decide whether NeMo's operational value justifies a separate Python service; otherwise leave it out and keep deterministic server-side guardrails.
 - [ ] Keep the active JavaScript Remote MCP Worker as the MCP endpoint unless a separate FastMCP use case is approved.
 - [ ] Confirm the deployment target and secrets path for the stateful Node service before enabling production persistence; do not add a service/database URL to client-visible environment variables.
-- [ ] Implement a non-production two-user test fixture and prove owner-session success plus foreign-thread/connection denial with no Relay call.
+- [x] Implement a local Supabase two-user Auth fixture and verify owner-session success plus foreign-thread/approval/Exness Demo connection denial. The MT5 proxy test also verifies a foreign connection ID is not forwarded and records zero mocked Relay calls.
+- [ ] Capture hosted non-production Auth/Data API and live Proxy/Relay evidence only if a no-cost isolated hosted environment becomes available; never use production for this test.
 
 This choice favors the repository's current TypeScript stack, avoids a second MCP endpoint and prevents reliance on a CopilotKit interrupt integration that the current docs mark unsupported for LangGraph TypeScript/Python. It does not mean the durable graph, guardrails service or CopilotKit bridge is already implemented.
 
