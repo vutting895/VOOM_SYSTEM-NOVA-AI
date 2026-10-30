@@ -2,7 +2,7 @@
 
 Research-only linear long/flat evaluator. Signals are produced only after a
 completed bar is available to the research process and are filled no earlier
-than the first subsequent bar open. This module never connects to a broker.
+than the first subsequent bar open strictly after data availability. This module never connects to a broker.
 """
 from __future__ import annotations
 
@@ -281,7 +281,7 @@ def _benchmark_return(
     exposure_fraction: float,
 ) -> float | None:
     entry_index = next(
-        (i for i in range(1, len(candles)) if lineage[0]["effective"] <= lineage[i]["open"]),
+        (i for i in range(1, len(candles)) if lineage[0]["effective"] < lineage[i]["open"]),
         None,
     )
     if entry_index is None:
@@ -320,7 +320,7 @@ def run_ema_crossover_backtest(
     """Run a deterministic long/flat EMA test with point-in-time execution.
 
     timestamp is the bar-open time. A signal is computed only from a completed
-    bar and may fill only at a later bar open at or after both available_at
+    bar and may fill only at a later bar open strictly after both available_at
     and ingested_at. The evaluator is deliberately unleveraged and long/flat.
     """
     if not isinstance(candles, Sequence) or isinstance(candles, (str, bytes)) or len(candles) < 5:
@@ -389,7 +389,7 @@ def run_ema_crossover_backtest(
         if position is not None:
             cash, _ = _charge_financing(position, cash, open_price, open_time, market_data, costs)
 
-        while decision_cursor < len(decisions) and decisions[decision_cursor]["available_at"] <= open_time:
+        while decision_cursor < len(decisions) and decisions[decision_cursor]["available_at"] < open_time:
             desired_position = decisions[decision_cursor]["target"]
             decision_cursor += 1
 
@@ -403,7 +403,7 @@ def run_ema_crossover_backtest(
             cash -= entry_notional + entry_fee
             signal_index = next(
                 item["signal_index"] for item in reversed(decisions[:decision_cursor])
-                if item["target"] == 1 and item["available_at"] <= open_time
+                if item["target"] == 1 and item["available_at"] < open_time
             )
             position = {
                 "quantity": quantity,
