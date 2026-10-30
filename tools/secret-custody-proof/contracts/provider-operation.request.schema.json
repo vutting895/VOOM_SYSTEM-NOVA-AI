@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voom.invalid/contracts/secret-custody/provider-operation.request.schema.json",
+  "title": "NOVA Secret Custody Provider Operation Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["connection_id", "provider", "environment", "operation", "request"],
+  "properties": {
+    "connection_id": { "type": "string", "format": "uuid" },
+    "provider": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
+    "environment": { "type": "string", "enum": ["demo", "sandbox", "production"] },
+    "operation": {
+      "type": "string",
+      "enum": ["account.read", "positions.read", "quotes.read", "secret.rotate", "secret.revoke"]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "symbols": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "type": "string", "pattern": "^[A-Z0-9._-]{1,32}$" }
+        },
+        "since": { "type": "string", "format": "date-time" },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+      }
+    }
+  }
+}
