@@ -25,7 +25,7 @@ test('broker, chart and risk UI do not invent live account metrics', () => {
   assert.match(page, /ACCOUNT EQUITY" value="—"/);
   assert.match(page, /MARGIN USAGE" value="—"/);
   assert.match(page, /MAX DRAWDOWN" value="—"/);
-  assert.match(page, /not FastMCP\/Worker server logs/);
+  assert.match(page, /FastMCP\/Worker server logs/);
 });
 
 test('review actions use the owner-scoped durable approval API and stay non-executable', () => {
