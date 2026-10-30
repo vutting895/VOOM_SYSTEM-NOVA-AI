@@ -17,7 +17,7 @@ Every candle must contain:
 - `is_closed=true`: explicit completed-bar assertion.
 - OHLCV fields validated by `workers.quant_engine.validate_ohlcv`.
 
-A decision is considered usable only after both `available_at` and `ingested_at`. The earliest simulated fill is the first subsequent candle open at or after that time. In-progress candles, naive timestamps, overlapping bars, out-of-order availability, and malformed OHLCV are rejected. Gap checks use the declared fixed interval; providers with session calendars must supply a calendar-aware adapter instead of silently filling or relabeling gaps.
+A decision is considered usable only after both `available_at` and `ingested_at`. The earliest simulated fill is the first subsequent candle open strictly after that time. In-progress candles, naive timestamps, overlapping bars, out-of-order availability, and malformed OHLCV are rejected. Gap checks use the declared fixed interval; providers with session calendars must supply a calendar-aware adapter instead of silently filling or relabeling gaps.
 
 Market metadata is explicit: source, symbol, timeframe, price basis, quote/account currencies, contract multiplier, quote-to-account conversion rate, expected interval, annualization periods, and whether gaps must be rejected. The current evaluator accepts mid or last price input only.
 
@@ -29,7 +29,8 @@ An explicit cost model is mandatory, with per-side fees, full spread, per-side s
 - Buy/sell fills occur at the next eligible bar open, adjusted adversely for half-spread and slippage.
 - Fees apply per side; financing is charged using the declared constant daily estimate.
 - Exposure is capped at 100% of available cash; leverage, shorting and margin liquidation are not simulated.
-- Returns include cash/equity accounting, max drawdown, annualized Sharpe/Sortino and volatility (using caller-supplied periods/year), CAGR, trade expectancy, profit factor, exposure, and a same-cost buy-and-hold reference.
+- Returns include cash/equity accounting, bar-close-only max drawdown, annualized Sharpe/Sortino and volatility (using caller-supplied periods/year and a zero risk-free rate), calendar-time CAGR, trade expectancy, profit factor, exposure, and a same-assumption buy-and-hold reference.
+- Input is bounded to 250,000 bars per run. Heavy or multi-fold evaluation must be scheduled in the isolated compute plane, not run in request-bound handlers.
 - Open positions are liquidated at end-of-data using adverse execution costs. No intrabar stop/target assumptions are inferred from OHLC bars.
 
 ## Known limitations / integration gates
