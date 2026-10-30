@@ -329,7 +329,7 @@ class DeepResearchContractTests(unittest.TestCase):
             )
 
     def test_graph_rejects_duplicate_ids_and_malformed_collections(self):
-        with self.assertRaisesRegex(ContractValidationError, "at least 1"):
+        with self.assertRaisesRegex(ContractValidationError, "1..100 records"):
             validate_research_evidence_graph(self.task(), [], [self.claim()], [])
 
         with self.assertRaisesRegex(ContractValidationError, "source_id values must be unique"):
