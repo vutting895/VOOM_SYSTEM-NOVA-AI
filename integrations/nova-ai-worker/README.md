@@ -26,3 +26,12 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## Google Gemini provider
+
+- Gemini is preferred when the Worker secret `GEMINI_API_KEY` is configured. Optional non-secret `GEMINI_MODEL` selects a supported model; default: `gemini-flash-latest`.
+- Requests use the Gemini Interactions API from the Worker only, with the key in the `x-goog-api-key` header. The key is never placed in a URL, response, browser bundle, or logs.
+- Gemini receives bounded chat text or validated strategy input only. No tools/function calling, broker credentials, private account data, or order capabilities are provided.
+- If Gemini is not configured, the existing Cloudflare Workers AI path remains active. If Gemini is configured but fails, chat returns 503 without silent provider switching; strategy generation returns a clearly labelled, non-executable rule-based fallback.
+- Configure with `npx wrangler secret put GEMINI_API_KEY` from this directory. Do not commit the value. Set `GEMINI_MODEL` as a non-secret Worker variable only if needed.
+- `GET /health` reports only whether the Gemini secret is configured, never its value.
