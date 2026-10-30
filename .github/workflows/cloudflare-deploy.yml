@@ -79,9 +79,10 @@ jobs:
           if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
           if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
-      - name: Install Wrangler for backend Worker deploys without changing the lockfile
+      - name: Install pinned Wrangler for backend-only Worker deploys
+        if: steps.changed.outputs.frontend != 'true'
         working-directory: frontend
-        run: npm install --no-save --package-lock=false wrangler
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
 
       - name: Verify Cloudflare frontend public configuration without printing values
         if: steps.changed.outputs.frontend == 'true'
