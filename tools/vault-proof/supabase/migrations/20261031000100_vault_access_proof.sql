@@ -98,8 +98,16 @@ values
 -- Vault schema and table/view privileges from client-facing roles, generic
 -- service_role, and the runtime login. The non-login function owner retains
 -- only the explicit USAGE/SELECT grants above.
-revoke all on schema vault from public, anon, authenticated, service_role, nova_vault_api;
-revoke all on all tables in schema vault from public, anon, authenticated, service_role, nova_vault_api;
+-- Supabase-managed Vault objects are generally owned by supabase_admin.
+-- Do not claim to revoke grants made by that owner (notably service_role grants).
+-- The proof removes any directly revocable client/runtime grants; service_role
+-- is not a member of the dedicated runtime role and cannot call this private accessor.
+revoke all on schema vault from public, anon, authenticated, nova_vault_api;
+revoke all on all tables in schema vault from public, anon, authenticated, nova_vault_api;
+
+-- The decrypted_secrets view invokes this internal function. Grant exactly that
+-- dependency to the non-login function owner, not to nova_vault_api.
+grant execute on function vault._crypto_aead_det_decrypt to nova_vault_fn_owner;
 
 create or replace function nova_vault_private.get_secret_for_connection_use(
   p_authenticated_owner_id uuid,
