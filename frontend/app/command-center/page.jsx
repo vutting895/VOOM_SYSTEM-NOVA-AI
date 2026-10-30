@@ -11,6 +11,14 @@ import './command-center.css';
 const APPROVALS_ENABLED = process.env.NEXT_PUBLIC_NOVA_APPROVALS_ENABLED === 'true';
 const WIDGET_ALLOWLIST = Object.freeze(['smc_chart', 'risk_gauge', 'terminal_log', 'approval_card']);
 
+function makeWelcomeMessage() {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: 'NOVA พร้อมช่วยวิเคราะห์และค้นคว้า โปรดระบุสิ่งที่ต้องการตรวจสอบ ระบบจะแสดงเฉพาะข้อมูลที่ Backend ยืนยันได้ และจะไม่ส่งคำสั่งซื้อขาย',
+  };
+}
+
 function makeLog(message, level = 'info') {
   return { id: crypto.randomUUID(), at: new Date().toISOString(), message, level };
 }
@@ -47,12 +55,7 @@ export default function CommandCenterPage() {
   const [auth, setAuth] = useState({ state: 'checking', token: '', email: '', userId: '' });
   const identityRef = useRef(null);
   const requestGenerationRef = useRef(0);
-  const welcomeMessage = () => ({
-    id: 'welcome',
-    role: 'assistant',
-    content: 'NOVA พร้อมช่วยวิเคราะห์และค้นคว้า โปรดระบุสิ่งที่ต้องการตรวจสอบ ระบบจะแสดงเฉพาะข้อมูลที่ Backend ยืนยันได้ และจะไม่ส่งคำสั่งซื้อขาย',
-  });
-  const [messages, setMessages] = useState([welcomeMessage()]);
+  const [messages, setMessages] = useState([makeWelcomeMessage()]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -66,7 +69,7 @@ export default function CommandCenterPage() {
 
   const resetCustomerState = useCallback(() => {
     requestGenerationRef.current += 1;
-    setMessages([welcomeMessage()]);
+    setMessages([makeWelcomeMessage()]);
     setInput('');
     setBusy(false);
     setError('');
