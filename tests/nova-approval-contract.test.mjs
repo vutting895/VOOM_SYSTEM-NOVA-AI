@@ -71,3 +71,17 @@ test("accepts UUID-shaped identifiers and rejects untrusted arbitrary identifier
   assert.equal(isUuid("foreign-user-account"), false);
   assert.equal(isUuid(""), false);
 });
+
+test("server-authoritative expiry probe carries no decision payload", () => {
+  assert.deepEqual(normalizeApprovalDecision({ decision: "expire" }), {
+    decision: "expire", note: null, editedProposal: null,
+  });
+  assert.throws(
+    () => normalizeApprovalDecision({ decision: "expire", note: "not an expiry probe" }),
+    /expiration_payload_not_allowed/,
+  );
+  assert.throws(
+    () => normalizeApprovalDecision({ decision: "expire", editedProposal: validProposal() }),
+    /expiration_payload_not_allowed/,
+  );
+});
