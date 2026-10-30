@@ -7,10 +7,13 @@
   "required": ["operation_id", "state"],
   "properties": {
     "operation_id": { "type": "string", "format": "uuid" },
-    "state": { "type": "string", "enum": ["SUCCEEDED", "FAILED_FINAL", "IN_PROGRESS", "OUTCOME_UNKNOWN"] },
-    "safe_error_code": { "type": "string", "pattern": "^[A-Z0-9_]{1,64}$" },
+    "state": { "type": "string", "enum": ["SUCCEEDED", "FAILED_FINAL", "IN_PROGRESS", "OUTCOME_UNKNOWN", "RECONCILING", "MANUAL_REVIEW"] },
+    "result_code": { "type": "string", "pattern": "^[A-Z0-9_]{1,64}$" },
     "retry_after_ms": { "type": "integer", "minimum": 100, "maximum": 30000 },
     "provider_reference": { "type": "string", "maxLength": 128 },
+    "reconciliation_required": { "type": "boolean" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
     "result": {
       "type": "object",
       "additionalProperties": false,
