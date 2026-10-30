@@ -1,7 +1,7 @@
 -- pgTAP assertions for the disposable local Vault proof only.
 -- Assertions hash fixture values; the test output never prints the synthetic secret.
 
-select extensions.plan(38);
+select extensions.plan(42);
 
 select extensions.ok(
   exists (select 1 from pg_catalog.pg_roles where rolname = 'nova_vault_fn_owner'),
@@ -61,6 +61,47 @@ select extensions.is(
 select extensions.ok(
   has_table_privilege('nova_vault_fn_owner', 'vault.decrypted_secrets', 'SELECT'),
   'non-login function owner has the view read needed by this proof'
+);
+
+select extensions.is(
+  has_table_privilege('nova_vault_fn_owner', 'vault.secrets', 'SELECT'),
+  false,
+  'function owner cannot read encrypted Vault base rows directly'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 1
+       and bool_and(has_function_privilege('nova_vault_fn_owner', p.oid, 'EXECUTE'))
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+     where n.nspname = 'vault'
+       and p.proname = '_crypto_aead_det_decrypt'
+  ),
+  'function owner can execute the single decrypt helper required by the view'
+);
+
+select extensions.ok(
+  not exists (
+    select 1
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+     where n.nspname = 'vault'
+       and p.proname <> '_crypto_aead_det_decrypt'
+       and has_function_privilege('nova_vault_fn_owner', p.oid, 'EXECUTE')
+  ),
+  'function owner cannot execute unrelated Vault extension functions'
+);
+
+select extensions.ok(
+  not exists (
+    select 1
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+     where n.nspname = 'vault'
+       and has_function_privilege('nova_vault_api', p.oid, 'EXECUTE')
+  ),
+  'runtime login cannot execute any Vault extension function directly'
 );
 
 select extensions.ok(
