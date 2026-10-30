@@ -276,6 +276,10 @@ export default function NovaChatPage() {
             : message));
           return;
         }
+        if (payload.error === 'approval_not_expired') {
+          setError('เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล คำขอนี้ยังไม่หมดอายุตามเวลาเซิร์ฟเวอร์ จึงยังไม่เปลี่ยนสถานะ');
+          return;
+        }
         throw new Error(payload.error === 'approval_already_resolved'
           ? 'คำขอนี้ถูกตรวจทานไปแล้ว กรุณารีเฟรชสถานะ'
           : 'บันทึกผลตรวจทานไม่สำเร็จ กรุณาตรวจสถานะการ Login และ staging');
