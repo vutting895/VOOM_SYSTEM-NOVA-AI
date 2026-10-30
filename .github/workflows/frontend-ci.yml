@@ -136,12 +136,21 @@ jobs:
           else
             echo "Deep Research Core tests are not present on this branch; covered by its implementation PR."
           fi
+      - name: Test Deep Research Ledger event-chain integrity
+        working-directory: .
+        shell: bash
+        run: |
+          if [[ -f tests/test_deep_research_ledger.py ]]; then
+            python -m unittest discover -s tests -p "test_deep_research_ledger.py" -v
+          else
+            echo "Deep Research Ledger tests are not present on this branch."
+          fi
       - name: Compile Python research packages
         working-directory: .
         shell: bash
         run: |
           paths=()
-          for path in workers/quant_engine workers/deep_research tests/test_quant_engine.py tests/test_deep_research_contracts.py; do
+          for path in workers/quant_engine workers/deep_research tests/test_quant_engine.py tests/test_deep_research_contracts.py tests/test_deep_research_ledger.py; do
             if [[ -e "$path" ]]; then paths+=("$path"); fi
           done
           if (( ${#paths[@]} )); then
