@@ -90,14 +90,13 @@ values
     1, 'ROTATION_REQUIRED'
   );
 
--- This disposable project models the intended direct-access boundary. Remove
--- Vault schema and table/view privileges from client-facing roles, generic
--- service_role, and the runtime login. The non-login function owner retains
--- only the explicit USAGE/SELECT grants above.
+-- This disposable project proves the directly revocable Vault access
+-- boundary for PUBLIC, anon, authenticated, and the dedicated runtime login.
 -- Supabase-managed Vault objects are generally owned by supabase_admin.
--- Do not claim to revoke grants made by that owner (notably service_role grants).
--- The proof removes any directly revocable client/runtime grants; service_role
--- is not a member of the dedicated runtime role and cannot call this private accessor.
+-- Do not attempt to revoke service_role grants made by that owner: postgres
+-- cannot change those platform-managed ACL entries. Instead, the dedicated
+-- runtime role must not be a member of service_role and must use only the
+-- private accessor granted below.
 revoke all on schema vault from public, anon, authenticated, nova_vault_api;
 revoke all on all tables in schema vault from public, anon, authenticated, nova_vault_api;
 
