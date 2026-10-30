@@ -86,7 +86,7 @@ def validate_job_request(value: Any) -> dict[str, Any]:
         raise ContractError("idempotency_key_invalid")
 
     operation = value.get("operation")
-    if operation not in OPERATIONS:
+    if not isinstance(operation, str) or operation not in OPERATIONS:
         raise ContractError("operation_not_allowed")
 
     refs = value.get("object_refs")
@@ -120,7 +120,7 @@ def _validate_options(operation: str, options: dict[str, Any]) -> dict[str, Any]
     if operation == "transform":
         _exact_keys(options, {"target_format", "width", "height", "quality"}, "options")
         target_format = options.get("target_format")
-        if target_format not in FORMATS:
+        if not isinstance(target_format, str) or target_format not in FORMATS:
             raise ContractError("target_format_not_allowed")
         result: dict[str, Any] = {"target_format": target_format}
         for dimension in ("width", "height"):
@@ -139,14 +139,14 @@ def _validate_options(operation: str, options: dict[str, Any]) -> dict[str, Any]
     if operation == "cleanup_candidate":
         _exact_keys(options, {"reason_class"}, "options")
         reason = options.get("reason_class")
-        if reason not in {"temporary", "cache", "exact_duplicate", "abandoned_staging"}:
+        if not isinstance(reason, str) or reason not in {"temporary", "cache", "exact_duplicate", "abandoned_staging"}:
             raise ContractError("cleanup_reason_not_allowed")
         return {"reason_class": reason}
 
     if operation == "backup":
         _exact_keys(options, {"backup_class"}, "options")
         backup_class = options.get("backup_class", "standard")
-        if backup_class not in {"standard", "critical"}:
+        if not isinstance(backup_class, str) or backup_class not in {"standard", "critical"}:
             raise ContractError("backup_class_not_allowed")
         return {"backup_class": backup_class}
 
@@ -182,7 +182,7 @@ def validate_job_result(value: Any) -> dict[str, Any]:
         parsed_job_id = None
     if parsed_job_id is None:
         raise ContractError("job_id_invalid")
-    if value.get("state") not in JOB_STATES:
+    if not isinstance(value.get("state"), str) or value.get("state") not in JOB_STATES:
         raise ContractError("job_state_invalid")
 
     result: dict[str, Any] = {
@@ -199,7 +199,7 @@ def validate_job_result(value: Any) -> dict[str, Any]:
 
     verdict = value.get("scanner_verdict")
     if verdict is not None:
-        if verdict not in SCANNER_VERDICTS:
+        if not isinstance(verdict, str) or verdict not in SCANNER_VERDICTS:
             raise ContractError("scanner_verdict_invalid")
         result["scanner_verdict"] = verdict
 
