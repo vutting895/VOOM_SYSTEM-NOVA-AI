@@ -9,25 +9,27 @@ const readinessDoc = readFileSync(new URL("docs/implementation/NOVA-AUTO-API-SEC
 const rotationPolicy = readFileSync(new URL("docs/implementation/NOVA-SECRET-ROTATION-ON-NEXT-USE.md", root), "utf8");
 const accessDesign = readFileSync(new URL("docs/implementation/NOVA-DEDICATED-VAULT-ACCESS-DESIGN.md", root), "utf8");
 
-const executableSql = sql.replace(/^\\s*--.*$/gm, "");
-const has = (text, pattern) => assert.match(text, pattern, `Expected document to contain: ${pattern}`);
+const executableSql = sql.replace(/^\s*--.*$/gm, "");
+const has = (text, pattern) => assert.match(text, pattern, "Expected document to contain " + pattern);
 
 test("Vault readiness SQL is catalog-only, read-only and never selects credential values", () => {
-  assert.doesNotMatch(executableSql, /\\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|CALL|DO)\\b/i);
+  assert.doesNotMatch(executableSql, /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|GRANT|REVOKE|CALL|DO)\b/i);
   has(executableSql, /pg_extension/);
   has(executableSql, /role_table_grants/);
   has(executableSql, /role_routine_grants/);
   has(executableSql, /has_schema_privilege/);
-  assert.doesNotMatch(executableSql, /select\\s+decrypted_secret\\s+from/i);
-  assert.doesNotMatch(executableSql, /vault\\.create_secret\\s*\\(/i);
+  assert.doesNotMatch(executableSql, /select\s+decrypted_secret\s+from/i);
+  assert.doesNotMatch(executableSql, /vault\.create_secret\s*\(/i);
 });
 
 test("read-only Vault audit reports legacy user_brokers credential metadata without reading rows", () => {
   has(executableSql, /role_column_grants/);
   has(executableSql, /pg_policies/);
   has(executableSql, /legacy_user_brokers_credential_surface/);
-  for (const column of ["api_key", "api_secret_encrypted", "passphrase_encrypted"]) has(executableSql, new RegExp(column));
-  assert.doesNotMatch(executableSql, /select\\s+.+\\s+from\\s+public\\.user_brokers/i);
+  for (const column of ["api_key", "api_secret_encrypted", "passphrase_encrypted"]) {
+    has(executableSql, new RegExp(column));
+  }
+  assert.doesNotMatch(executableSql, /select\s+.+\s+from\s+public\.user_brokers/i);
 });
 
 test("local frontend Compose does not receive provider or Bridge credentials", () => {
@@ -41,7 +43,7 @@ test("local frontend Compose does not receive provider or Bridge credentials", (
 test("readiness gate keeps customer credential reads and writes blocked", () => {
   has(readinessDoc, /BLOCK credential writes and reads/i);
   has(readinessDoc, /credential_vault_unavailable/);
-  has(readinessDoc, /dedicated server-side role\\/path/i);
+  has(readinessDoc, /dedicated server-side role\/path/i);
   has(readinessDoc, /two staging users/i);
   has(readinessDoc, /Live Trading/i);
   has(readinessDoc, /Do not read credential rows/i);
@@ -50,7 +52,7 @@ test("readiness gate keeps customer credential reads and writes blocked", () => 
 test("rotation policy defines before-next-distinct-use version semantics", () => {
   has(rotationPolicy, /ROTATE_ON_NEXT_USE/);
   has(rotationPolicy, /After that provider operation succeeds, persist .*ROTATION_REQUIRED/i);
-  has(rotationPolicy, /Before the next distinct use, rotate\\/refresh the credential/i);
+  has(rotationPolicy, /Before the next distinct use, rotate\/refresh the credential/i);
   has(rotationPolicy, /V1 for use 1, V2 for use 2, V3 for use 3/);
 });
 
@@ -73,7 +75,7 @@ test("next use requires lease, successor, validation, switch, retirement, then e
   const positions = steps.map((step) => rotationPolicy.toLowerCase().indexOf(step.toLowerCase()));
   assert.ok(positions.every((position) => position >= 0), "All rotation state-machine steps must exist");
   for (let index = 1; index < positions.length; index += 1) {
-    assert.ok(positions[index] > positions[index - 1], `Rotation step out of order: ${steps[index]}`);
+    assert.ok(positions[index] > positions[index - 1], "Rotation step out of order: " + steps[index]);
   }
 });
 
@@ -88,22 +90,22 @@ test("rotation policy preserves tenant isolation, secret redaction and read-only
   has(rotationPolicy, /Customer A cannot read, rotate, use, or revoke Customer B/);
   has(rotationPolicy, /must never reach browser code, generated UI, the AI model, MCP payloads/i);
   has(rotationPolicy, /Keep provider capabilities read-only/i);
-  has(rotationPolicy, /does not enable the Vault, create customer credentials, grant database privileges/i);
+  has(rotationPolicy, /does \*\*not\*\* enable the Vault, create customer credentials, grant database privileges/i);
 });
 
 test("dedicated Vault design extends the existing Hub and uses least-privilege roles", () => {
   has(accessDesign, /existing Cloudflare Worker/i);
   has(accessDesign, /nova_vault_api/);
   has(accessDesign, /nova_vault_fn_owner/);
-  has(accessDesign, /must not be a member of `service_role`/);
-  has(accessDesign, /no direct table\\/view access/i);
+  has(accessDesign, /must not be a member of service_role/i);
+  has(accessDesign, /no direct table\/view access/i);
   has(accessDesign, /does not independently verify the Supabase JWT/i);
 });
 
 test("Vault access design requires cache-disabled Hyperdrive and no secret leakage", () => {
   has(accessDesign, /--caching-disabled/);
-  has(accessDesign, /all Vault\\/auth\\/permission\\/rotation calls/i);
-  has(accessDesign, /HTTP `Cache-Control: no-store` does not disable Hyperdrive SQL query caching/);
+  has(accessDesign, /all Vault\/auth\/permission\/rotation calls/i);
+  has(accessDesign, /HTTP Cache-Control: no-store does not disable Hyperdrive SQL query caching/);
   has(accessDesign, /must never reach browser code, generated UI, the AI model, MCP/i);
 });
 
