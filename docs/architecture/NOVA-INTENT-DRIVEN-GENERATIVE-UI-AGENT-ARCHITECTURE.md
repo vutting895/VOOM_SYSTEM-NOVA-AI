@@ -18,7 +18,7 @@ NOVA should evolve into an **Intent-Driven AI Operating System**, not a collecti
 6. Keep the existing Cloudflare JavaScript Remote MCP Worker. FastMCP is an option for a future Python tool service, not a replacement mandate for the current Worker.
 7. Treat NVIDIA NeMo Guardrails as an optional defense-in-depth policy layer. It does not replace authentication, tenant checks, strict schemas, tool allow-lists, deterministic risk controls, or approval enforcement.
 8. Human approval in the current release approves a **research draft only**. Approval must never be interpreted as permission to submit a broker order.
-9. No live trading, order submission, broker mutation, transfer, withdrawal, or credential entry through chat is in scope.
+9. No live trading, order submission, broker-side mutation, transfer, withdrawal, or credential entry through chat is in scope. Creating a pending broker-connection request is a separate Supabase state change, not a broker order; it must be excluded from autonomous read-only tool calls and require an explicit owner-confirmed application action.
 
 ## 2. Current repository baseline (observed on main)
 
@@ -30,7 +30,7 @@ NOVA should evolve into an **Intent-Driven AI Operating System**, not a collecti
 | Threads / approvals | `frontend/app/api/agent/threads/`, approval APIs, `agent-approval-contract.mjs` | Durable review lifecycle exists in source; approval currently covers strategy draft review only |
 | Database | `nova_agent_threads`, `nova_approval_requests`, RLS and RPC migration | No LangGraph checkpoint store is claimed to be implemented |
 | MCP | Authenticated Cloudflare `integrations/remote-mcp-worker/`, Streamable HTTP | Existing JavaScript Worker is the primary remote MCP surface |
-| Control plane | Existing System Hub, tenant-scoped MT5 proxy/relay | Hub must remain the authority for identity, ownership, routing and capabilities |
+| Control plane | Existing System Hub, tenant-scoped MT5 proxy/relay | The current Remote MCP broker path does **not** call System Hub: it authenticates the user, reads that user's own connection row with the caller's Supabase bearer (subject to RLS), then calls the MT5 read-only Proxy; the Proxy independently validates owner and tenant route. Hub-mediated broker authorization is a target boundary, not a current MCP guarantee |
 | Guardrails | Strict input contracts, auth checks, tool boundaries, risk checks | NeMo Guardrails is not currently asserted as installed or active |
 | Persistence | Supabase Postgres, owner-scoped records and approval lifecycle | Chat history remains partly page-memory; durable thread/checkpoint contract needs design and tests |
 
@@ -60,8 +60,8 @@ POLICY & SAFETY GATE
   | tenant capability check + deterministic risk rules + audit correlation
   v
 LAYER 3 — TOOLING / MCP
-  | authenticated application adapter -> existing System Hub / Remote MCP
-  | bounded, named, read-only tools; timeout; output schema; audit
+  | authenticated application adapter -> System Hub for Hub-mediated operations; existing Remote MCP for its current direct path
+  | bounded, named tools; autonomous agent registry is read-only; state-changing connection requests require a separate explicit user action
   v
 DATA / CONNECTORS
   | market data | backtest | risk analysis | Exness MT5 Demo read-only
@@ -72,7 +72,7 @@ DURABLE STATE / OBSERVABILITY
   | audit trail | metrics / traces with secrets and sensitive values removed
 ```
 
-**Authority direction:** UI and model can request; orchestration can coordinate; tools can read only what the authenticated principal is entitled to read; Hub and database policy decide. No downstream component may elevate the model's permissions.
+**Authority direction:** UI and model can request; orchestration can coordinate; the authenticated application establishes the principal; Supabase RLS and the MT5 Proxy enforce the current direct-MCP owner/route checks; System Hub enforces only operations that actually pass through it. The current Remote MCP path does not call System Hub. Any future Hub-mediated path must be implemented and tested before architecture or UI claims it is active. No downstream component may elevate the model's permissions.
 
 ## 4. Layer 1 — Zero-Menu and Generative UI
 
@@ -189,13 +189,14 @@ Never persist bearer tokens, Supabase service-role keys, Gemini keys, broker pas
 
 ### 6.1 Current release boundary
 
-The existing approval lifecycle supports a bounded `strategy_draft_review`. The card may offer:
-- **Approve** — accept this exact research draft for continued analysis only;
-- **Edit** — save a revised draft, which requires a new review and new proposal hash;
-- **Reject** — close the proposal as rejected;
-- **Respond** — provide clarification or a review note; this does not approve the proposal.
+The existing approval lifecycle supports a bounded `strategy_draft_review`. The checked-in card/API currently support these terminal decisions:
+- **Approve** — accept the research draft for continued analysis only; it does not authorize an account or broker action;
+- **Edit** — save a revised draft as `edited`; the revised draft must be submitted as a new review before it can be accepted;
+- **Reject** — close the proposal as rejected.
 
-An approval must bind to the exact normalized proposal hash, policy version, owner, thread, expiry and one-time decision nonce. The backend rechecks these values when resolving the approval. UI state is not authorization.
+The card's optional **Note** field is attached to one of those decisions. There is no standalone, non-resolving **Respond** action or response API in the current contract. Treat Respond as future work; implement it only with a separate response path that leaves the approval pending, or handle clarification as an ordinary chat turn without silently resolving the approval.
+
+The current database stores an immutable proposal and `proposal_hash`, and the resolver checks the authenticated owner, pending status, expiry and policy version while locking the row and making a pending-to-terminal transition. The current schema does **not** issue, store or validate a one-time decision nonce, and the decision API does not accept an expected proposal hash. Its `invalid_nonce` response mapping is not evidence that nonce validation is active. Add nonce or decision-time hash binding only in a separately reviewed API/schema migration with issuance, persistence, replay protection and regression tests. UI state is not authorization.
 
 ### 6.2 Interrupt and resume semantics
 
@@ -203,10 +204,12 @@ If LangGraph is adopted, an interrupt pauses the workflow and returns a review c
 1. re-authenticate the user;
 2. re-load the thread under the current user/tenant scope;
 3. re-read the pending approval from the database;
-4. verify expiry, nonce, proposal hash and policy version;
-5. verify that the proposal has not changed;
+4. apply the current owner, pending-status, expiry and policy-version checks;
+5. rely on the database's immutable proposal/proposal-hash fields; do not claim a decision nonce or client-supplied expected-hash check exists today;
 6. resume only the permitted research workflow;
 7. write an audit event for the decision and resumed transition.
+
+A one-time nonce or explicit expected-hash handshake is a future hardening option, not a current guarantee; it requires a versioned schema/API change and replay tests.
 
 A stale, expired, duplicate, cross-tenant or edited-after-review approval must fail closed.
 
@@ -220,16 +223,20 @@ A future release that considers broker writes requires a separate architecture d
 
 Keep `integrations/remote-mcp-worker/` as the current authenticated Cloudflare Remote MCP endpoint. The frontend must call a same-origin authenticated API or trusted server adapter, not a browser-side local stdio process.
 
-Each tool call must:
+**Observed current Exness path:** `handleMcp()` authenticates the caller. `loadOwnMt5Connection()` then queries `broker_connections` directly using the caller's Supabase bearer and filters `user_id` to the authenticated user's ID. For MT5 reads, the Worker forwards that bearer and the selected `connection_id` to the MT5 read-only Proxy; the Proxy independently enforces its owner/tenant route checks. This current path does not call System Hub. Do not describe Hub as enforcing a request it does not receive.
+
+Each autonomous agent tool call must:
 - resolve the authenticated principal from a verified request context;
 - use a fixed tool registry and JSON schema;
 - enforce per-user/tenant quota before expensive work;
 - apply a strict timeout and maximum response size;
-- verify connection ownership in the System Hub on every broker-related request;
+- enforce owner and tenant-route checks in the component that actually receives the request (current direct path: caller-scoped Supabase/RLS plus MT5 Proxy; a future Hub-mediated path must verify through Hub);
 - return normalized data with provenance and `asOf` timestamp;
 - redact secrets and sensitive provider errors;
 - write a correlation/audit event;
 - reject unknown tool names and arguments.
+
+**Important state-changing exception:** the current registry exposes `request_mt5_demo_connection`. That tool can insert a `pending` row into Supabase `broker_connections`; it is not a broker order, but it is a database write. It must not be included in an autonomous read-only agent tool allow-list. Until the runtime enforces this boundary, an agent must not invoke it automatically. A future connection-request flow must be a separate explicit user-confirmed application action, authenticated and owner-bound, with idempotency, quota and audit controls.
 
 Initial tool groups:
 - market data: bounded public quotes/candles;
