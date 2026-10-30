@@ -1,3 +1,6 @@
+import { callSentinel, SENTINEL_POLICY_VERSION, SentinelState } from "./sentinel.js";
+export { SentinelState };
+
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -37,6 +40,71 @@ function bearer(request) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   return match ? match[1] : "";
 }
+function sentinelUnavailable(origin, env) {
+  return json({ error: "sentinel_unavailable", sentinelEnabled: true }, 503, origin, env);
+}
+
+function sentinelRateLimited(origin, env, result) {
+  const retryAfter = Math.max(1, Math.min(900, Number(result?.retryAfterSeconds) || 60));
+  const base = json({
+    error: "temporarily_rate_limited",
+    pattern: result?.pattern || null,
+    retryAfterSeconds: retryAfter,
+    policyVersion: SENTINEL_POLICY_VERSION
+  }, 429, origin, env);
+  const headers = new Headers(base.headers);
+  headers.set("Retry-After", String(retryAfter));
+  return new Response(base.body, { status: 429, headers });
+}
+
+async function sentinelOriginRejected(request, origin, env) {
+  if (env.SENTINEL_ENABLED !== "true") {
+    return json({ error: "origin_not_allowed" }, 403, "", env);
+  }
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  if (!ip) return sentinelUnavailable("", env);
+  const checked = await callSentinel(env, "ip", ip, "check");
+  if (!checked.ready) return sentinelUnavailable("", env);
+  if (checked.blocked) return sentinelRateLimited("", env, checked);
+  const recorded = await callSentinel(env, "ip", ip, "record", "origin_rejected");
+  if (!recorded.ready) return sentinelUnavailable("", env);
+  if (recorded.blocked) return sentinelRateLimited("", env, recorded);
+  return json({ error: "origin_not_allowed" }, 403, "", env);
+}
+
+async function authenticateWithSentinel(request, env, origin) {
+  if (env.SENTINEL_ENABLED === "true") {
+    const ip = request.headers.get("CF-Connecting-IP") || "";
+    if (!ip) return { ok: false, response: sentinelUnavailable(origin, env) };
+    const ipState = await callSentinel(env, "ip", ip, "check");
+    if (!ipState.ready) return { ok: false, response: sentinelUnavailable(origin, env) };
+    if (ipState.blocked) return { ok: false, response: sentinelRateLimited(origin, env, ipState) };
+  }
+
+  const user = await authenticate(request, env);
+  if (!user.ok) {
+    if (user.status === 401 && env.SENTINEL_ENABLED === "true") {
+      const ip = request.headers.get("CF-Connecting-IP") || "";
+      const recorded = await callSentinel(env, "ip", ip, "record", "invalid_or_expired_session");
+      if (!recorded.ready) return { ok: false, response: sentinelUnavailable(origin, env) };
+      if (recorded.blocked) return { ok: false, response: sentinelRateLimited(origin, env, recorded) };
+    }
+    return { ok: false, response: json({ error: user.error }, user.status, origin, env) };
+  }
+
+  const userState = await callSentinel(env, "user", user.userId, "check");
+  if (!userState.ready) return { ok: false, response: sentinelUnavailable(origin, env) };
+  if (userState.blocked) return { ok: false, response: sentinelRateLimited(origin, env, userState) };
+  return { ok: true, user };
+}
+
+async function recordResourceProbe(env, user, event, origin) {
+  const result = await callSentinel(env, "user", user.userId, "record", event);
+  if (!result.ready) return sentinelUnavailable(origin, env);
+  if (result.blocked) return sentinelRateLimited(origin, env, result);
+  return null;
+}
+
 function supabaseBase(env) {
   const value = String(env.SUPABASE_URL || "").replace(/\/+$/, "");
   if (!value) return "";
@@ -295,11 +363,19 @@ function integrationRegistry(env) {
   ];
 }
 async function getConnection(request, env, user, id, origin) {
-  if (!CONNECTION_ID.test(id)) return { response: json({ error: "valid_connection_id_required" }, 400, origin, env) };
+  if (!CONNECTION_ID.test(id)) {
+    const blocked = await recordResourceProbe(env, user, "invalid_resource_id", origin);
+    if (blocked) return { response: blocked };
+    return { response: json({ error: "valid_connection_id_required" }, 400, origin, env) };
+  }
   const result = await queryOwnConnections(env, user, id);
   if (!result.ok) return { response: json({ error: result.error }, result.status, origin, env) };
   const row = result.rows[0];
-  if (!row) return { response: json({ error: "connection_not_found" }, 404, origin, env) };
+  if (!row) {
+    const blocked = await recordResourceProbe(env, user, "resource_not_found", origin);
+    if (blocked) return { response: blocked };
+    return { response: json({ error: "connection_not_found" }, 404, origin, env) };
+  }
   if (row.provider !== "exness_mt5" || row.environment !== "demo") {
     return { response: json({ error: "integration_not_allowed" }, 403, origin, env) };
   }
@@ -504,7 +580,10 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (!origin || !allowedOrigins(env).has(origin)) return new Response(null, { status: 403, headers: BASE_HEADERS });
+      if (!origin || !allowedOrigins(env).has(origin)) {
+        if (origin && env.SENTINEL_ENABLED === "true") return sentinelOriginRejected(request, origin, env);
+        return new Response(null, { status: 403, headers: BASE_HEADERS });
+      }
       return new Response(null, { status: 204, headers: { ...BASE_HEADERS, ...corsHeaders(origin, env) } });
     }
 
@@ -516,6 +595,9 @@ export default {
         mode: "control-plane-read-only",
         authConfigured: Boolean(supabaseBase(env) && env.SUPABASE_PUBLISHABLE_KEY),
         mt5ProxyConfigured: Boolean(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL),
+        sentinelEnabled: env.SENTINEL_ENABLED === "true",
+        sentinelConfigured: env.SENTINEL_ENABLED === "true" && Boolean(env.SENTINEL_STATE) && typeof env.SENTINEL_HASH_SECRET === "string" && env.SENTINEL_HASH_SECRET.length >= 32,
+        sentinelPolicyVersion: SENTINEL_POLICY_VERSION,
         ordersEnabled: false,
         executionEnabled: false,
         liveTradingEnabled: false
@@ -523,12 +605,13 @@ export default {
     }
 
     if (origin && !allowedOrigins(env).has(origin)) {
-      return json({ error: "origin_not_allowed" }, 403, origin, env);
+      return sentinelOriginRejected(request, origin, env);
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
-      const auth = await authenticate(request, env);
-      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const authResult = await authenticateWithSentinel(request, env, origin);
+      if (!authResult.ok) return authResult.response;
+      const auth = authResult.user;
       return json({
         service: "voom-system-hub",
         integrations: integrationRegistry(env),
@@ -539,8 +622,9 @@ export default {
     }
 
     if (url.pathname === "/v1/connections" && (request.method === "GET" || request.method === "POST")) {
-      const auth = await authenticate(request, env);
-      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const authResult = await authenticateWithSentinel(request, env, origin);
+      if (!authResult.ok) return authResult.response;
+      const auth = authResult.user;
       if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
@@ -557,8 +641,9 @@ export default {
       (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
       (match[2] === "check" && request.method === "POST")
     )) {
-      const auth = await authenticate(request, env);
-      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const authResult = await authenticateWithSentinel(request, env, origin);
+      if (!authResult.ok) return authResult.response;
+      const auth = authResult.user;
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
