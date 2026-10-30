@@ -28,6 +28,8 @@ test("migration grants runtime access to one private function, not Vault tables"
   assert.match(migration, /grant select on table vault\.decrypted_secrets to nova_vault_fn_owner/i);
   assert.doesNotMatch(migration, /grant\s+(select|all).*vault\.(secrets|decrypted_secrets)\s+to\s+nova_vault_api/i);
   assert.doesNotMatch(migration, /grant\s+.*service_role/i);
+  assert.match(migration, /grant nova_vault_fn_owner to current_user with set true/i);
+  assert.doesNotMatch(migration, /alter role nova_vault_(fn_owner|api)/i);
 });
 
 test("fixture material is synthetic and the proof does not enable a Worker route", () => {
