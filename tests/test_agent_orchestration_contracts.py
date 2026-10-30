@@ -160,6 +160,22 @@ class AgentOrchestrationContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "non-finite"):
             validate_tool_call(call, registry)
 
+    def test_rejects_invalid_tool_name_type(self):
+        with self.assertRaisesRegex(ContractError, "tool name"):
+            validate_tool_registry([ToolContract(name=None, version="v1")])
+
+    def test_rejects_invalid_registry_type(self):
+        with self.assertRaisesRegex(ContractError, "sequence"):
+            validate_tool_registry(None)
+
+    def test_rejects_invalid_tool_call_name_type(self):
+        registry = validate_tool_registry(
+            [ToolContract(name="get_market_quotes", version="v1")]
+        )
+        call = ToolCall(None, CALL_ID, IDEMPOTENCY_KEY, {})
+        with self.assertRaisesRegex(ContractError, "tool_name"):
+            validate_tool_call(call, registry)
+
     def test_rejects_duplicate_registry_names(self):
         with self.assertRaisesRegex(ContractError, "duplicate"):
             validate_tool_registry(
