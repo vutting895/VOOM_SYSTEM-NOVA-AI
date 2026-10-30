@@ -45,11 +45,14 @@ export default function CommandCenterPage() {
   const router = useRouter();
   const listRef = useRef(null);
   const [auth, setAuth] = useState({ state: 'checking', token: '', email: '' });
-  const [messages, setMessages] = useState([{
+  const identityRef = useRef(null);
+  const requestGenerationRef = useRef(0);
+  const welcomeMessage = () => ({
     id: 'welcome',
     role: 'assistant',
     content: 'NOVA พร้อมช่วยวิเคราะห์และค้นคว้า โปรดระบุสิ่งที่ต้องการตรวจสอบ ระบบจะแสดงเฉพาะข้อมูลที่ Backend ยืนยันได้ และจะไม่ส่งคำสั่งซื้อขาย',
-  }]);
+  });
+  const [messages, setMessages] = useState([welcomeMessage()]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -61,7 +64,20 @@ export default function CommandCenterPage() {
     setLogs((current) => [...current.slice(-79), makeLog(message, level)]);
   }, []);
 
-  const loadBroker = useCallback(async (token) => {
+  const resetCustomerState = useCallback(() => {
+    requestGenerationRef.current += 1;
+    setMessages([welcomeMessage()]);
+    setInput('');
+    setBusy(false);
+    setError('');
+    setBroker({ status: 'checking', detail: 'กำลังตรวจสอบสถานะบัญชีของผู้ใช้ปัจจุบัน' });
+    setLogs([]);
+    setApprovalBusy('');
+  }, []);
+
+  const loadBroker = useCallback(async (token, expectedUserId) => {
+    const generation = requestGenerationRef.current;
+    if (!expectedUserId || identityRef.current !== expectedUserId) return;
     try {
       const response = await fetch('/api/broker/status?broker=mt5', {
         cache: 'no-store',
@@ -69,9 +85,11 @@ export default function CommandCenterPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok && response.status !== 202) throw new Error(data.detail || 'Broker status unavailable');
+      if (generation !== requestGenerationRef.current || identityRef.current !== expectedUserId) return;
       setBroker({ status: data.status || 'unverified', detail: data.detail || 'ยังไม่มีผลตรวจสอบจาก Broker Hub' });
       appendLog('Broker status checked: ' + (data.status || 'unverified'));
     } catch (err) {
+      if (generation !== requestGenerationRef.current || identityRef.current !== expectedUserId) return;
       setBroker({ status: 'unavailable', detail: err.message || 'ไม่สามารถตรวจสอบ Broker ได้' });
       appendLog('Broker status unavailable', 'warning');
     }
@@ -81,38 +99,53 @@ export default function CommandCenterPage() {
     let active = true;
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      setAuth({ state: 'misconfigured', token: '', email: '' });
+      setAuth({ state: 'misconfigured', token: '', email: '', userId: '' });
       return () => { active = false; };
     }
+
+    const applySession = (session) => {
+      if (!session?.access_token || !session?.user?.id) {
+        if (identityRef.current !== null) resetCustomerState();
+        identityRef.current = null;
+        setAuth({ state: 'signed-out', token: '', email: '', userId: '' });
+        router.replace('/login');
+        return;
+      }
+
+      const userId = session.user.id;
+      const identityChanged = identityRef.current !== userId;
+      if (identityChanged) {
+        identityRef.current = userId;
+        resetCustomerState();
+        appendLog('Customer identity changed; previous customer state discarded');
+        void loadBroker(session.access_token, userId);
+      }
+      setAuth({
+        state: 'ready',
+        token: session.access_token,
+        email: session.user.email || 'Signed-in customer',
+        userId,
+      });
+    };
+
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) return;
-      const session = data?.session;
       if (sessionError) {
-        setAuth({ state: 'error', token: '', email: '' });
+        setAuth({ state: 'error', token: '', email: '', userId: '' });
         return;
       }
-      if (!session?.access_token) {
-        router.replace('/login');
-        return;
-      }
-      setAuth({ state: 'ready', token: session.access_token, email: session.user?.email || 'Signed-in customer' });
-      void loadBroker(session.access_token);
-      appendLog('Authenticated customer workspace initialized');
+      applySession(data?.session);
     });
+
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      if (!session) {
-        setAuth({ state: 'signed-out', token: '', email: '' });
-        router.replace('/login');
-      } else {
-        setAuth({ state: 'ready', token: session.access_token, email: session.user?.email || 'Signed-in customer' });
-      }
+      if (active) applySession(session);
     });
     return () => {
       active = false;
       listener.subscription.unsubscribe();
+      requestGenerationRef.current += 1;
     };
-  }, [router, loadBroker, appendLog]);
+  }, [router, loadBroker, appendLog, resetCustomerState]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
@@ -198,6 +231,8 @@ export default function CommandCenterPage() {
     setError('');
     setInput('');
     setBusy(true);
+    const generation = requestGenerationRef.current;
+    const requestToken = auth.token;
     const userMessage = { id: crypto.randomUUID(), role: 'user', content };
     const history = buildBoundedChatHistory(messages, userMessage);
     setMessages((current) => [...current, userMessage]);
@@ -205,11 +240,12 @@ export default function CommandCenterPage() {
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + auth.token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + requestToken },
         body: JSON.stringify({ messages: history }),
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
+      if (generation !== requestGenerationRef.current) return;
       if (!response.ok) throw new Error(payload.error === 'ai_provider_unavailable'
         ? 'NOVA AI Worker ยังไม่พร้อมใช้งาน'
         : 'คำขอ AI ไม่สำเร็จ (' + response.status + ')');
@@ -219,10 +255,11 @@ export default function CommandCenterPage() {
       setMessages((current) => [...current, { id: messageId, role: 'assistant', content: payload.message, intent }]);
       appendLog('AI response received; intent passed fixed-catalog validation');
     } catch (err) {
+      if (generation !== requestGenerationRef.current) return;
       setError(err.message || 'ไม่สามารถติดต่อ NOVA AI ได้');
       appendLog('Chat request failed', 'warning');
     } finally {
-      setBusy(false);
+      if (generation === requestGenerationRef.current) setBusy(false);
     }
   }
 
@@ -293,7 +330,7 @@ export default function CommandCenterPage() {
             </div>
             <div className="cc-broker-state"><span className={'cc-state-dot ' + (broker.status === 'connected' ? 'ok' : '')} />
               <div><strong>EXNESS MT5 DEMO · {broker.status.toUpperCase()}</strong><p>{broker.detail}</p></div>
-              <button type="button" onClick={() => void loadBroker(auth.token)}>ตรวจอีกครั้ง</button>
+              <button type="button" onClick={() => void loadBroker(auth.token, auth.userId)}>ตรวจอีกครั้ง</button>
             </div>
             <p className="cc-data-note">ไม่รวมยอดหลายโบรกเกอร์จนกว่าจะมี API ที่ยืนยันตัวตนและ ownership แยกตามบัญชีได้</p>
           </WidgetFrame>
