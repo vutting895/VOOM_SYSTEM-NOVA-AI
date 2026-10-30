@@ -4,12 +4,28 @@
   "title": "NOVA Secret Custody Provider Operation Request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["connection_id", "capability", "parameters", "policy_version"],
+  "required": [
+    "connection_id",
+    "capability",
+    "parameters",
+    "policy_version"
+  ],
   "properties": {
-    "connection_id": { "type": "string", "format": "uuid" },
+    "connection_id": {
+      "type": "string",
+      "format": "uuid"
+    },
     "capability": {
       "type": "string",
-      "enum": ["account.summary.read", "balances.read", "positions.read", "orders.read", "quotes.read", "credential.status.read"]
+      "enum": [
+        "account.summary.read",
+        "balances.read",
+        "positions.read",
+        "orders.read",
+        "quotes.read",
+        "credential.status.read",
+        "orders.read"
+      ]
     },
     "parameters": {
       "type": "object",
@@ -18,13 +34,30 @@
         "symbols": {
           "type": "array",
           "maxItems": 50,
-          "items": { "type": "string", "pattern": "^[A-Z0-9._-]{1,32}$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9._-]{1,32}$"
+          }
         },
-        "since": { "type": "string", "format": "date-time" },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
+        "since": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
       }
     },
-    "policy_version": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,40}$" },
-    "client_correlation_id": { "type": "string", "maxLength": 64, "pattern": "^[A-Za-z0-9._:-]{1,64}$" }
+    "policy_version": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,40}$"
+    },
+    "client_correlation_id": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$"
+    }
   }
 }
