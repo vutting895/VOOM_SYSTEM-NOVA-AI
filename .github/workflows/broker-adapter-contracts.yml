@@ -1,0 +1,41 @@
+name: NOVA Broker Adapter Contracts
+
+on:
+  pull_request:
+    paths:
+      - "integrations/broker-adapters/**"
+      - ".github/workflows/broker-adapter-contracts.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "integrations/broker-adapters/**"
+      - ".github/workflows/broker-adapter-contracts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: broker-adapter-contracts-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile broker adapter contracts
+        run: python -m compileall -q integrations/broker-adapters/nova_broker_adapters integrations/broker-adapters/tests
+
+      - name: Run broker adapter contract tests
+        env:
+          PYTHONPATH: integrations/broker-adapters
+        run: python -m unittest discover -s integrations/broker-adapters/tests -v
