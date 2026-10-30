@@ -183,10 +183,13 @@ select extensions.ok(
 );
 
 select extensions.ok(
-  has_function_privilege(
-    'nova_vault_fn_owner',
-    'vault._crypto_aead_det_decrypt',
-    'EXECUTE'
+  (
+    select count(*) = 1
+       and bool_and(has_function_privilege('nova_vault_fn_owner', p.oid, 'EXECUTE'))
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+     where n.nspname = 'vault'
+       and p.proname = '_crypto_aead_det_decrypt'
   ),
   'non-login function owner has the exact decrypt dependency required by the Vault view'
 );
