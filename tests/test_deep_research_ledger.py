@@ -72,10 +72,45 @@ class EvidenceLedgerChainTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractValidationError, "hash verification failed"):
             verify_evidence_event_chain(tampered)
 
+    def test_event_id_is_an_idempotency_key_for_exact_retries(self):
+        first = self.append()
+        retried = self.append([first])
+        self.assertEqual(retried, first)
+
+        second = self.append(
+            [first],
+            event_id="event-002",
+            event_type="source_snapshot_registered",
+            recorded_at="2026-10-31T09:01:00+07:00",
+            payload={"source_id": "source-001"},
+        )
+        late_retry = self.append([first, second])
+        self.assertEqual(late_retry, first)
+        self.assertEqual(late_retry["sequence"], 1)
+
+    def test_event_id_retry_with_different_content_is_rejected(self):
+        first = self.append()
+        with self.assertRaisesRegex(
+            ContractValidationError, "event_id already exists with different event content"
+        ):
+            self.append([first], payload={"plan_version": 2})
+
+        with self.assertRaisesRegex(
+            ContractValidationError, "event_id already exists with different event content"
+        ):
+            self.append([first], event_type="research_plan_revised")
+
+    def test_event_idempotency_compares_canonical_json_types(self):
+        first = self.append(payload={"metric": 1})
+        with self.assertRaisesRegex(
+            ContractValidationError, "event_id already exists with different event content"
+        ):
+            self.append([first], payload={"metric": 1.0})
+
     def test_append_rejects_duplicate_event_ids_and_mixed_owners(self):
         first = self.append()
-        with self.assertRaisesRegex(ContractValidationError, "event_id already exists"):
-            self.append([first])
+        with self.assertRaisesRegex(ContractValidationError, "event_id already exists with different event content"):
+            self.append([first], payload={"plan_version": 99})
 
         with self.assertRaisesRegex(ContractValidationError, "cannot mix owner_id"):
             self.append([first], event_id="event-002", owner_id="owner-002")
