@@ -350,3 +350,53 @@ test("AI rate limit keys are isolated by authenticated user id", async () => {
   }
   assert.deepEqual(keys, ["user:user-one", "user:user-two"]);
 });
+
+
+test("Worker rejects credential-like content on direct chat and strategy routes before quota or provider calls", async () => {
+  const credentials = [
+    { value: "Authorization: Basic YTpi", marker: "YTpi" },
+    { value: "Authorization: Bearer short-test-token", marker: "short-test-token" },
+    { value: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature", marker: "eyJhbGciOiJIUzI1NiJ9" },
+    { value: "AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", marker: "AIzaSy" },
+    { value: "api_key=short-secret-value", marker: "short-secret-value" },
+    { value: "sk-proj-abcdefghijklmnop1234", marker: "sk-proj-" },
+  ];
+  const routes = ["/api/chat", "/api/gen-ai/generate"];
+
+  for (const route of routes) {
+    for (const credential of credentials) {
+      authFetch();
+      const authOnlyFetch = globalThis.fetch;
+      let providerFetches = 0;
+      let quotaCalls = 0;
+      let workersAiCalls = 0;
+      globalThis.fetch = async (url, init) => {
+        if (String(url) === "https://supabase.example/auth/v1/user") return authOnlyFetch(url, init);
+        providerFetches += 1;
+        return new Response("unexpected provider call", { status: 500 });
+      };
+
+      const input = route === "/api/chat"
+        ? { messages: [{ role: "user", content: "Please analyze this text: " + credential.value }] }
+        : { prompt: "Please analyze this text: " + credential.value, market: "XAU/USD", timeframe: "1h", risk: "medium" };
+      const response = await worker.fetch(new Request("https://worker.test" + route, {
+        method: "POST",
+        headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }), {
+        ...env,
+        GEMINI_API_KEY: "test-gemini-key",
+        AI_RATE_LIMITER: { limit: async () => { quotaCalls += 1; return { success: true }; } },
+        AI: { run: async () => { workersAiCalls += 1; return { response: "must not run" }; } },
+      });
+
+      const responseText = await response.text();
+      assert.equal(response.status, 400, route + " should reject " + credential.marker);
+      assert.equal(JSON.parse(responseText).error, "sensitive_input_blocked");
+      assert.equal(responseText.includes(credential.marker), false, "response must not echo credential-like content");
+      assert.equal(providerFetches, 0, "Gemini provider must not receive credential-like input");
+      assert.equal(quotaCalls, 0, "rejected input must not consume a provider quota slot");
+      assert.equal(workersAiCalls, 0, "Cloudflare Workers AI must not receive credential-like input");
+    }
+  }
+});
