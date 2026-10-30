@@ -138,11 +138,11 @@ def validate_observation(raw: Mapping[str, Any]) -> dict[str, Any]:
         raise LearningObservationError("missing observation fields: " + ", ".join(sorted(missing)))
     if raw["contract"] != OBSERVATION_CONTRACT:
         raise LearningObservationError("unsupported observation contract")
-    if raw["source_type"] not in SOURCE_TYPES:
+    if not isinstance(raw["source_type"], str) or raw["source_type"] not in SOURCE_TYPES:
         raise LearningObservationError("unsupported source_type")
-    if raw["outcome"] not in OUTCOMES:
+    if not isinstance(raw["outcome"], str) or raw["outcome"] not in OUTCOMES:
         raise LearningObservationError("unsupported outcome")
-    if raw["task_class"] not in TASK_CLASSES:
+    if not isinstance(raw["task_class"], str) or raw["task_class"] not in TASK_CLASSES:
         raise LearningObservationError("unsupported task_class")
     if raw["data_minimized"] is not True:
         raise LearningObservationError("data_minimized must be true")
@@ -154,7 +154,7 @@ def validate_observation(raw: Mapping[str, Any]) -> dict[str, Any]:
     fallback_from = raw["fallback_from"]
 
     if source_type == "external_provider":
-        if provider_id not in PROVIDER_IDS:
+        if not isinstance(provider_id, str) or provider_id not in PROVIDER_IDS:
             raise LearningObservationError("external provider_id is not registered")
         provider_model = _bounded_text(provider_model, "provider_model", 80)
         provider_version = _bounded_text(provider_version, "provider_version", 80)
@@ -163,7 +163,7 @@ def validate_observation(raw: Mapping[str, Any]) -> dict[str, Any]:
             raise LearningObservationError("internal-agent observations must not contain provider metadata")
 
     if fallback_from is not None:
-        if fallback_from not in PROVIDER_IDS or fallback_from == provider_id:
+        if not isinstance(fallback_from, str) or fallback_from not in PROVIDER_IDS or fallback_from == provider_id:
             raise LearningObservationError("fallback_from must identify a different registered provider")
 
     dataset_sha = raw.get("dataset_sha256")
