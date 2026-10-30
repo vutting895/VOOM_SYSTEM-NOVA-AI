@@ -1,5 +1,10 @@
 import unittest
+from datetime import datetime
 
+from workers.agent_orchestration.approval_resume import (
+    ApprovalDecisionSnapshot,
+    validate_approval_resume,
+)
 from workers.agent_orchestration.contracts import (
     AGENT_STATE_SCHEMA,
     ContractError,
@@ -17,6 +22,9 @@ CALL_ID = "33333333-3333-4333-8333-333333333333"
 IDEMPOTENCY_KEY = "44444444-4444-4444-8444-444444444444"
 APPROVAL_ID = "55555555-5555-4555-8555-555555555555"
 NOW = "2026-10-31T01:00:00+07:00"
+PENDING_HASH = "a" * 64
+OWNER_ID = "66666666-6666-4666-8666-666666666666"
+APPROVAL_POLICY_VERSION = "nova-approval.v1"
 
 
 class AgentOrchestrationContractTests(unittest.TestCase):
@@ -35,6 +43,30 @@ class AgentOrchestrationContractTests(unittest.TestCase):
         }
         values.update(overrides)
         return AgentRunState(**values)
+
+    def valid_waiting_state(self, **overrides):
+        values = {
+            "status": "awaiting_approval",
+            "pending_approval_id": APPROVAL_ID,
+            "pending_proposal_hash": PENDING_HASH,
+            "pending_approval_policy_version": APPROVAL_POLICY_VERSION,
+        }
+        values.update(overrides)
+        return self.valid_state(**values)
+
+    def valid_approval(self, **overrides):
+        values = {
+            "approval_id": APPROVAL_ID,
+            "thread_id": THREAD_ID,
+            "owner_id": OWNER_ID,
+            "status": "approved",
+            "proposal_hash": PENDING_HASH,
+            "policy_version": APPROVAL_POLICY_VERSION,
+            "expires_at": "2026-10-31T02:00:00+07:00",
+            "decided_at": "2026-10-31T01:30:00+07:00",
+        }
+        values.update(overrides)
+        return ApprovalDecisionSnapshot(**values)
 
     def test_accepts_valid_read_only_tool_call(self):
         registry = validate_tool_registry(
@@ -206,8 +238,148 @@ class AgentOrchestrationContractTests(unittest.TestCase):
             validate_agent_state(self.valid_state(created_at="2026-10-31T01:00:00"))
 
     def test_accepts_waiting_state_with_approval_reference(self):
-        state = self.valid_state(status="awaiting_approval", pending_approval_id=APPROVAL_ID)
+        state = self.valid_waiting_state()
         self.assertEqual(validate_agent_state(state), state)
+
+    def test_awaiting_approval_requires_proposal_hash(self):
+        with self.assertRaisesRegex(ContractError, "requires pending_proposal_hash"):
+            validate_agent_state(
+                self.valid_state(
+                    status="awaiting_approval",
+                    pending_approval_id=APPROVAL_ID,
+                    pending_approval_policy_version=APPROVAL_POLICY_VERSION,
+                )
+            )
+
+    def test_awaiting_approval_requires_approval_policy_version(self):
+        with self.assertRaisesRegex(ContractError, "requires pending_approval_policy_version"):
+            validate_agent_state(
+                self.valid_state(
+                    status="awaiting_approval",
+                    pending_approval_id=APPROVAL_ID,
+                    pending_proposal_hash=PENDING_HASH,
+                )
+            )
+
+    def test_pending_proposal_hash_is_only_valid_while_waiting(self):
+        with self.assertRaisesRegex(ContractError, "only while awaiting"):
+            validate_agent_state(self.valid_state(pending_proposal_hash=PENDING_HASH))
+
+    def test_accepts_owner_bound_approval_resume(self):
+        state = self.valid_waiting_state()
+        approval = self.valid_approval()
+        result = validate_approval_resume(
+            state,
+            approval,
+            OWNER_ID,
+            datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+        )
+        self.assertEqual(result.approval_id, APPROVAL_ID)
+        self.assertEqual(result.thread_id, THREAD_ID)
+        self.assertEqual(result.proposal_hash, PENDING_HASH)
+        self.assertEqual(result.policy_version, APPROVAL_POLICY_VERSION)
+        self.assertFalse(hasattr(result, "owner_id"))
+
+    def test_rejects_approval_resume_for_different_owner(self):
+        with self.assertRaisesRegex(ContractError, "owner does not match"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(),
+                "77777777-7777-4777-8777-777777777777",
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_approval_resume_for_different_thread(self):
+        with self.assertRaisesRegex(ContractError, "thread does not match"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(thread_id="77777777-7777-4777-8777-777777777777"),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_approval_id_not_pending_in_checkpoint(self):
+        with self.assertRaisesRegex(ContractError, "id does not match"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(approval_id="77777777-7777-4777-8777-777777777777"),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_tampered_proposal_hash(self):
+        with self.assertRaisesRegex(ContractError, "hash does not match"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(proposal_hash="b" * 64),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_stale_approval_policy_version(self):
+        with self.assertRaisesRegex(ContractError, "policy version does not match"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(policy_version="nova-approval.v0"),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_pending_rejected_or_edited_approval(self):
+        for status in ("pending", "rejected", "edited", "expired"):
+            with self.subTest(status=status):
+                with self.assertRaisesRegex(ContractError, "not approved"):
+                    validate_approval_resume(
+                        self.valid_waiting_state(),
+                        self.valid_approval(status=status),
+                        OWNER_ID,
+                        datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+                    )
+
+    def test_rejects_approval_expired_before_resume(self):
+        with self.assertRaisesRegex(ContractError, "expired"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(expires_at="2026-10-31T01:40:00+07:00"),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_approval_without_decision_timestamp(self):
+        with self.assertRaisesRegex(ContractError, "missing decided_at"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(decided_at=None),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_future_approval_decision_timestamp(self):
+        with self.assertRaisesRegex(ContractError, "future"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(decided_at="2026-10-31T01:50:00+07:00"),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
+
+    def test_rejects_naive_resume_clock(self):
+        with self.assertRaisesRegex(ContractError, "resume time must include a timezone"):
+            validate_approval_resume(
+                self.valid_waiting_state(),
+                self.valid_approval(),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00"),
+            )
+
+    def test_rejects_resume_when_run_is_not_waiting(self):
+        with self.assertRaisesRegex(ContractError, "not awaiting approval"):
+            validate_approval_resume(
+                self.valid_state(),
+                self.valid_approval(),
+                OWNER_ID,
+                datetime.fromisoformat("2026-10-31T01:45:00+07:00"),
+            )
 
     def test_rejects_checkpoint_tool_call_with_sensitive_arguments(self):
         call = ToolCall(
