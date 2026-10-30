@@ -74,7 +74,7 @@ begin
     p_key_id, p_operation_id, p_owner_id, p_tenant_id, p_connection_id,
     p_provider, p_environment, p_request_fingerprint, 'IN_PROGRESS',
     p_lease_token, pg_catalog.clock_timestamp() + interval '30 seconds'
-  ) on conflict (key_id, operation_id) do nothing;
+  ) on conflict (tenant_id, operation_id) do nothing;
 
   get diagnostics v_inserted = row_count;
   if v_inserted = 1 then
