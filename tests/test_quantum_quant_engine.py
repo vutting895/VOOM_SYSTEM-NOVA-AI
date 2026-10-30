@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from workers.quantum.quant_engine import QuantumQuantEngine
+from workers.quantum.quant_engine import PENNYLANE_AVAILABLE, QuantumQuantEngine
 
 class QuantumQuantEngineTests(unittest.TestCase):
     def setUp(self):
@@ -112,6 +112,30 @@ class QuantumQuantEngineTests(unittest.TestCase):
         self.assertEqual(result["calculated_volume_lots"], 0.4)
         self.assertIsNone(result["risk_usd"])
         self.assertEqual(result["risk_budget_account_ccy"], 200.0)
+
+
+    @unittest.skipUnless(PENNYLANE_AVAILABLE, "PennyLane optional dependency is not installed")
+    def test_pennylane_vqc_trains_and_keeps_backend_scalers_isolated(self):
+        engine = QuantumQuantEngine(seed=23)
+        engine.fit_classical(self.features, self.labels)
+        classical_before = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
+        )["bullish_probability"]
+
+        trained = engine.fit_quantum(
+            self.features + 25.0, self.labels, epochs=2, learning_rate=0.01
+        )
+        self.assertEqual(trained["status"], "TRAINED")
+        quantum = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [25.8, 25.8, 25.8, 25.8], backend="quantum"
+        )
+        self.assertEqual(quantum["model_backend"], "PENNYLANE_VQC")
+        self.assertEqual(quantum["quantum_circuit_status"], "EXECUTED")
+
+        classical_after = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8], backend="classical"
+        )["bullish_probability"]
+        self.assertEqual(classical_before, classical_after)
 
 if __name__ == "__main__":
     unittest.main()
