@@ -382,10 +382,52 @@ The current NeMo docs distinguish Colang 1.0 from Colang 2.0 and note version-sp
 - [ ] Decide whether NeMo's operational value justifies a separate Python service; otherwise leave it out and keep deterministic server-side guardrails.
 - [ ] Keep the active JavaScript Remote MCP Worker as the MCP endpoint unless a separate FastMCP use case is approved.
 - [ ] Confirm the deployment target and secrets path for the stateful Node service before enabling production persistence; do not add a service/database URL to client-visible environment variables.
-- [ ] Implement a non-production two-user test fixture and prove owner-session success plus foreign-thread/connection denial with no Relay call.
+- [x] Implement a local Supabase two-user Auth fixture and verify owner-session success plus foreign-thread/approval/Exness Demo connection denial. The MT5 proxy test also verifies a foreign connection ID is not forwarded and records zero mocked Relay calls.
+- [ ] Capture hosted non-production Auth/Data API and live Proxy/Relay evidence only if a no-cost isolated hosted environment becomes available; never use production for this test.
 
 This choice favors the repository's current TypeScript stack, avoids a second MCP endpoint and prevents reliance on a CopilotKit interrupt integration that the current docs mark unsupported for LangGraph TypeScript/Python. It does not mean the durable graph, guardrails service or CopilotKit bridge is already implemented.
 
 ## Final decision
 
 Adopt this pack as the security and behavior specification for the implementation phase, not as proof that LangGraph, FastMCP, NeMo Guardrails or CopilotKit are installed. Keep the existing Cloudflare Workers + Supabase + read-only Exness MT5 path as the active architecture. Do not add or deploy any broker-write operation under this task.
+
+
+## 10. Durable draft-review implementation increment — 2026-10-30
+
+The next PR adds an **app-owned, Supabase-backed draft-review lifecycle** while the compatible graph runtime is still being proven.
+
+### What this increment implements in code
+
+- A versioned migration for `public.nova_agent_threads` and `public.nova_approval_requests`.
+- RLS owner scoping, composite owner/thread foreign key, a unique pending-review constraint per thread, immutable proposal fields, expiry checks, policy-version checks and atomic single-use status transitions.
+- Public PostgREST functions are SECURITY INVOKER wrappers. Narrow private SECURITY DEFINER implementations check `auth.uid()`, owner, pending state, expiry, policy version and the fixed strategy-review schema before changing records.
+- Authenticated Next.js endpoints create/list owner-scoped thread metadata, create a pending strategy-draft review, restore pending reviews after refresh, and record approve/reject/edit decisions.
+- A fixed React review card records only a strategy draft review. It has no broker order or account mutation route.
+- The server-side `NOVA_APPROVALS_ENABLED` flag and build-time `NEXT_PUBLIC_NOVA_APPROVALS_ENABLED` flag are both **off unless explicitly enabled**. Do not set either in production before the migration and non-production runtime checks pass.
+
+### Verification evidence now available
+
+- The free GitHub Actions workflow starts an isolated Supabase Local Stack with Docker; it does not create a hosted Supabase development branch or link to the production project.
+- The local stack applies only the Exness `broker_connections` migration, the NOVA approval migration and a throwaway `pgcrypto` bootstrap. Historical/production-dependent Alpaca and Marketplace migrations are intentionally excluded from this targeted test workspace.
+- Two throwaway users are created through the local Supabase Auth admin API and sign in through the local password-token endpoint. The returned user JWTs are then used against the actual Next.js routes and local PostgREST/RLS.
+- Current-head Local Supabase Auth + API integration run [40981464497](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40981464497) passed. It verifies unauthenticated rejection; owner A thread create/list; owner B cannot see A's thread, create approval under A's thread, list A's approval or resolve A's approval; owner A can create/read/approve; replay is rejected; and the Exness Demo pending connection is readable only by its owner.
+- Current-head Frontend CI run [40981464492](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40981464492) passed, including tenant-isolated proxy/relay tests, type-check and production-target build validation.
+- The proxy unit test separately asserts that a foreign user's connection ID returns 404 and produces **zero mocked outbound Relay calls**. This is a network-isolated test harness, not evidence of a request against the live production Relay.
+
+### Explicit limitations (not complete yet)
+
+- The migration has **not** been applied to any hosted Supabase project by this PR; the production database is unchanged.
+- The real local Supabase Auth + PostgREST + RLS integration has passed, but it does not prove behavior against the hosted `Voom_system` project or its live access configuration.
+- The zero-Relay assertion is proven in a mocked proxy test, not by production Relay telemetry or a real remote Proxy request.
+- This stores thread metadata and review state, **not the whole chat transcript or LangGraph checkpoint**.
+- Approve/reject/edit stores a durable decision but does not yet resume a LangGraph graph. The next runtime increment must either add a verified graph/checkpointer service and resume adapter, or explicitly retain the app-owned deterministic review workflow without claiming LangGraph is connected.
+- No hosted development branch, hosted test user, hosted test broker connection or paid Supabase compute has been created. Keep Supabase Free.
+
+### Free verification sequence
+
+1. Run the disposable local Supabase Auth/PostgREST stack in GitHub Actions and apply only the two migrations under test plus the local `pgcrypto` bootstrap.
+2. Verify real local Auth-issued JWTs through the actual Next.js API routes, owner/foreign-user RLS, approval replay, and Exness Demo connection ownership.
+3. Run the MT5 proxy/relay test suite; require a foreign connection to fail closed with zero mocked Relay calls.
+4. Do **not** link this workflow to the hosted production project, apply the migration remotely, enable production feature flags, or trigger production deployment as part of CI.
+5. A hosted non-production integration test remains optional and separate. Use an already-available no-cost isolated project/environment only if one exists; do not create a billable Supabase branch or use production as a test environment.
+6. Keep Read-only + AI Analysis mandatory. Broker order submission, position mutation and Live Trading remain OFF.

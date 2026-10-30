@@ -1,4 +1,5 @@
 import { validateIntentEnvelope } from "../../integrations/nova-ai-worker/intent-contract.js";
+import ApprovalCard from "./approval-card";
 
 const FIELD_LABELS = Object.freeze({
   market: "ตลาด",
@@ -73,7 +74,7 @@ function displayField(value) {
   return typeof value === "string" && value.length ? value : FIELD_FALLBACK;
 }
 
-export default function IntentResult({ intent }) {
+export default function IntentResult({ intent, approval = null, onRequestReview, onDecision, onReviewEdited, approvalBusy = false, reviewEnabled = false }) {
   const checked = validateIntentEnvelope(intent);
   if (!checked.ok) return null;
 
@@ -109,6 +110,22 @@ export default function IntentResult({ intent }) {
         <span>Execution: disabled</span>
         <span>Broker mutations: disabled</span>
       </div>
+      {descriptor.type === "strategy_draft" && reviewEnabled && !approval && typeof onRequestReview === "function" && (
+        <div className="nova-intent-review-action">
+          <button type="button" disabled={approvalBusy} onClick={onRequestReview}>
+            {approvalBusy ? "กำลังบันทึกคำขอ…" : "ขอตรวจทานร่างแบบบันทึกได้"}
+          </button>
+          <p>การตรวจทานนี้บันทึกเฉพาะร่างงานวิจัย ไม่ส่งคำสั่งและไม่เปลี่ยนบัญชีโบรกเกอร์</p>
+        </div>
+      )}
+      {approval && (
+        <ApprovalCard
+          approval={approval}
+          busy={approvalBusy}
+          onDecision={onDecision}
+          onReviewEdited={onReviewEdited}
+        />
+      )}
     </section>
   );
 }
