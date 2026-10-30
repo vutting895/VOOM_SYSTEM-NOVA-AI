@@ -6,7 +6,7 @@ or submit orders. Heavy backtests and model training belong in an isolated worke
 
 from .identity import build_run_fingerprint
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
-from .splits import ChronologicalSplit, WalkForwardWindow, chronological_split, walk_forward_windows
+from .splits import ChronologicalSplit, WalkForwardWindow, chronological_split, purge_bars_for_label_horizon, walk_forward_windows
 
 __all__ = [
     "ChronologicalSplit",
@@ -16,6 +16,7 @@ __all__ = [
     "build_run_fingerprint",
     "canonical_dataset_sha256",
     "chronological_split",
+    "purge_bars_for_label_horizon",
     "validate_ohlcv",
     "walk_forward_windows",
 ]
