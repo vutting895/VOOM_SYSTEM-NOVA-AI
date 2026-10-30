@@ -194,6 +194,8 @@ class AgentRunState:
     created_at: str
     updated_at: str
     pending_approval_id: str | None = None
+    pending_proposal_hash: str | None = None
+    pending_approval_policy_version: str | None = None
     tool_calls: tuple[ToolCall, ...] = ()
 
 
@@ -290,10 +292,21 @@ def validate_agent_state(state: AgentRunState) -> AgentRunState:
         raise ContractError("updated_at cannot precede created_at")
     if state.pending_approval_id is not None:
         _require_uuid(state.pending_approval_id, "pending_approval_id")
-    if state.status == "awaiting_approval" and state.pending_approval_id is None:
-        raise ContractError("awaiting_approval state requires pending_approval_id")
-    if state.status != "awaiting_approval" and state.pending_approval_id is not None:
-        raise ContractError("pending_approval_id is valid only while awaiting approval")
+    if state.pending_proposal_hash is not None:
+        if not isinstance(state.pending_proposal_hash, str) or not re.fullmatch(r"[a-f0-9]{64}", state.pending_proposal_hash):
+            raise ContractError("pending_proposal_hash must be a SHA-256 hex digest")
+    if state.pending_approval_policy_version is not None:
+        if not isinstance(state.pending_approval_policy_version, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", state.pending_approval_policy_version):
+            raise ContractError("pending_approval_policy_version is invalid")
+    if state.status == "awaiting_approval":
+        if state.pending_approval_id is None:
+            raise ContractError("awaiting_approval state requires pending_approval_id")
+        if state.pending_proposal_hash is None:
+            raise ContractError("awaiting_approval state requires pending_proposal_hash")
+        if state.pending_approval_policy_version is None:
+            raise ContractError("awaiting_approval state requires pending_approval_policy_version")
+    elif any((state.pending_approval_id, state.pending_proposal_hash, state.pending_approval_policy_version)):
+        raise ContractError("pending approval fields are valid only while awaiting approval")
     if not isinstance(state.tool_calls, (tuple, list)):
         raise ContractError("tool_calls must be a sequence")
     if len(state.tool_calls) > MAX_TOOL_CALLS_IN_CHECKPOINT:
