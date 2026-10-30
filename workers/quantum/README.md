@@ -29,7 +29,7 @@ The module is intentionally isolated under `workers/quantum/` until:
 Base classifier and risk sizing require NumPy:
 
 ```bash
-python -m pip install "numpy>=1.26,<2.0"
+python -m pip install "numpy>=2.0,<3.0"
 ```
 
 PennyLane is optional and required only for VQC training/simulation:
