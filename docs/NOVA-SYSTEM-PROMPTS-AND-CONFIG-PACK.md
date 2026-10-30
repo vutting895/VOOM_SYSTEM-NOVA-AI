@@ -404,19 +404,29 @@ The next PR adds an **app-owned, Supabase-backed draft-review lifecycle** while 
 - A fixed React review card records only a strategy draft review. It has no broker order or account mutation route.
 - The server-side `NOVA_APPROVALS_ENABLED` flag and build-time `NEXT_PUBLIC_NOVA_APPROVALS_ENABLED` flag are both **off unless explicitly enabled**. Do not set either in production before the migration and non-production runtime checks pass.
 
+### Verification evidence now available
+
+- The free GitHub Actions workflow starts an isolated Supabase Local Stack with Docker; it does not create a hosted Supabase development branch or link to the production project.
+- The local stack applies only the Exness `broker_connections` migration, the NOVA approval migration and a throwaway `pgcrypto` bootstrap. Historical/production-dependent Alpaca and Marketplace migrations are intentionally excluded from this targeted test workspace.
+- Two throwaway users are created through the local Supabase Auth admin API and sign in through the local password-token endpoint. The returned user JWTs are then used against the actual Next.js routes and local PostgREST/RLS.
+- Current-head Local Supabase Auth + API integration run [40981464497](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40981464497) passed. It verifies unauthenticated rejection; owner A thread create/list; owner B cannot see A's thread, create approval under A's thread, list A's approval or resolve A's approval; owner A can create/read/approve; replay is rejected; and the Exness Demo pending connection is readable only by its owner.
+- Current-head Frontend CI run [40981464492](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40981464492) passed, including tenant-isolated proxy/relay tests, type-check and production-target build validation.
+- The proxy unit test separately asserts that a foreign user's connection ID returns 404 and produces **zero mocked outbound Relay calls**. This is a network-isolated test harness, not evidence of a request against the live production Relay.
+
 ### Explicit limitations (not complete yet)
 
-- The migration has **not** been applied to any Supabase project by this PR.
-- No staging branch, test user or test broker connection has been created.
+- The migration has **not** been applied to any hosted Supabase project by this PR; the production database is unchanged.
+- The real local Supabase Auth + PostgREST + RLS integration has passed, but it does not prove behavior against the hosted `Voom_system` project or its live access configuration.
+- The zero-Relay assertion is proven in a mocked proxy test, not by production Relay telemetry or a real remote Proxy request.
 - This stores thread metadata and review state, **not the whole chat transcript or LangGraph checkpoint**.
 - Approve/reject/edit stores a durable decision but does not yet resume a LangGraph graph. The next runtime increment must either add a verified graph/checkpointer service and resume adapter, or explicitly retain the app-owned deterministic review workflow without claiming LangGraph is connected.
-- It has not yet passed integration tests against a real Supabase branch, a real owner session, a second user, or a network-isolated Relay-call assertion.
+- No hosted development branch, hosted test user, hosted test broker connection or paid Supabase compute has been created. Keep Supabase Free.
 
-### Non-production verification sequence
+### Free verification sequence
 
-1. Review and merge the PR only after CI and SQL security review pass.
-2. Prepare a non-production Supabase environment. The quoted development-branch cost was `$0.01344/hour` (about `$9.81 per 730 hours running`, before other usage/taxes). Obtain the user's approval before creating that branch.
-3. Apply the migration only to the approved non-production environment and validate it with Supabase DB advisors plus a rollback plan.
-4. Enable both feature flags only in that non-production deployment.
-5. Test owner thread create/list, pending approval create/read, approve/reject/edit, expiry, duplicate/replay, policy mismatch, refresh recovery, and two-user isolation. Verify a foreign thread/approval ID returns 404 and never reaches MT5 Relay.
-6. Only after every test passes should deployment/flag enablement be proposed separately for production. Read-only + AI Analysis remains mandatory; broker order submission and Live Trading stay OFF.
+1. Run the disposable local Supabase Auth/PostgREST stack in GitHub Actions and apply only the two migrations under test plus the local `pgcrypto` bootstrap.
+2. Verify real local Auth-issued JWTs through the actual Next.js API routes, owner/foreign-user RLS, approval replay, and Exness Demo connection ownership.
+3. Run the MT5 proxy/relay test suite; require a foreign connection to fail closed with zero mocked Relay calls.
+4. Do **not** link this workflow to the hosted production project, apply the migration remotely, enable production feature flags, or trigger production deployment as part of CI.
+5. A hosted non-production integration test remains optional and separate. Use an already-available no-cost isolated project/environment only if one exists; do not create a billable Supabase branch or use production as a test environment.
+6. Keep Read-only + AI Analysis mandatory. Broker order submission, position mutation and Live Trading remain OFF.
