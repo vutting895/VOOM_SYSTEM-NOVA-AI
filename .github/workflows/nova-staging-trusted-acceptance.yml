@@ -1,0 +1,117 @@
+name: NOVA Trusted Staging Customer Isolation
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Open PR number to verify against its Netlify Preview
+        required: true
+        type: string
+      head_sha:
+        description: Exact PR head SHA (40 hexadecimal characters)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+
+concurrency:
+  group: nova-trusted-staging-acceptance
+  cancel-in-progress: false
+
+jobs:
+  staging-customer-isolation:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    name: Main-owned two-customer staging acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: nova-staging-acceptance
+    steps:
+      - name: Checkout trusted main-owned harness (never PR code)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Verify protected environment marker and staging-only configuration
+        env:
+          ENVIRONMENT_PROTECTED: ${{ vars.NOVA_STAGING_ENVIRONMENT_PROTECTED }}
+          STAGING_PUBLISHABLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          STAGING_SERVICE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$ENVIRONMENT_PROTECTED" != "true" ]; then
+            echo "Blocked: configure required reviewers and main-only deployment branch policy for environment nova-staging-acceptance, then set NOVA_STAGING_ENVIRONMENT_PROTECTED=true."
+            exit 1
+          fi
+          if [ -z "$STAGING_PUBLISHABLE_KEY" ] || [ -z "$STAGING_SERVICE_KEY" ]; then
+            echo "Blocked: staging-only Supabase keys are missing from the protected environment."
+            exit 1
+          fi
+          echo "Protected staging environment marker and key presence verified; values are not printed."
+
+      - name: Validate exact open PR head and successful Netlify Deploy Preview
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const { GH_TOKEN, REPOSITORY, PR_NUMBER, HEAD_SHA, GITHUB_OUTPUT } = process.env;
+          if (!/^\d+$/.test(PR_NUMBER || "") || !/^[a-f0-9]{40}$/i.test(HEAD_SHA || "")) {
+            throw new Error("pr_number or head_sha input is invalid");
+          }
+          const headers = {
+            Authorization: `Bearer ${GH_TOKEN}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          };
+          const prResponse = await fetch(`https://api.github.com/repos/${REPOSITORY}/pulls/${PR_NUMBER}`, { headers });
+          if (!prResponse.ok) throw new Error(`GitHub PR lookup failed: HTTP ${prResponse.status}`);
+          const pr = await prResponse.json();
+          if (pr.state !== "open" || pr.base?.ref !== "main" || pr.head?.repo?.full_name !== REPOSITORY || pr.head?.sha !== HEAD_SHA) {
+            throw new Error("PR must be open, target main, originate from this repository, and match the supplied exact head SHA");
+          }
+          const statusesResponse = await fetch(`https://api.github.com/repos/${REPOSITORY}/commits/${HEAD_SHA}/statuses?per_page=100`, { headers });
+          if (!statusesResponse.ok) throw new Error(`GitHub status lookup failed: HTTP ${statusesResponse.status}`);
+          const statuses = await statusesResponse.json();
+          const previewStatus = statuses.find((item) => item.context === "netlify/voomsystem/deploy-preview");
+          if (!previewStatus || previewStatus.state !== "success") {
+            throw new Error("No successful Netlify Deploy Preview status exists for the exact supplied PR head SHA");
+          }
+          const previewUrl = `https://deploy-preview-${PR_NUMBER}--voomsystem.netlify.app`;
+          const previewResponse = await fetch(previewUrl + "/login", { redirect: "manual", signal: AbortSignal.timeout(15000) });
+          if (![200, 307, 308].includes(previewResponse.status)) {
+            throw new Error(`Exact PR Netlify Preview /login is not ready (HTTP ${previewResponse.status})`);
+          }
+          await import("node:fs/promises").then(({ appendFile }) => appendFile(GITHUB_OUTPUT, `preview_url=${previewUrl}\npr_number=${PR_NUMBER}\nhead_sha=${HEAD_SHA}\n`));
+          console.log(`Validated PR #${PR_NUMBER} at ${HEAD_SHA} and exact-SHA Netlify Deploy Preview readiness.`);
+          NODE
+
+      - name: Run main-owned two-customer Auth, RLS and approval acceptance
+        env:
+          NOVA_STAGING_SUPABASE_URL: https://rovhmjeowracayicbqij.supabase.co
+          NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+          NOVA_STAGING_CAPTCHA_TOKEN_A: ${{ secrets.NOVA_STAGING_CAPTCHA_TOKEN_A }}
+          NOVA_STAGING_CAPTCHA_TOKEN_B: ${{ secrets.NOVA_STAGING_CAPTCHA_TOKEN_B }}
+          NOVA_STAGING_APP_URL: ${{ steps.candidate.outputs.preview_url }}
+          NOVA_STAGING_EVIDENCE_PATH: reports/staging-isolation-evidence.json
+        run: node scripts/staging/nova-pr-customer-isolation-acceptance.mjs
+
+      - name: Upload sanitized staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-staging-isolation-${{ github.run_id }}
+          path: reports/staging-isolation-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
