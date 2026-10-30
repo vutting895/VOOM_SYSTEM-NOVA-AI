@@ -31,6 +31,8 @@ class ContractValidationError(ValueError):
 def _object(value: Any, name: str, allowed: set[str], required: set[str]) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ContractValidationError(f"{name} must be an object")
+    if any(not isinstance(key, str) for key in value):
+        raise ContractValidationError(f"{name} field names must be strings")
     unknown = set(value) - allowed
     missing = required - set(value)
     if unknown:
@@ -96,7 +98,7 @@ def validate_research_task(payload: Any) -> dict[str, Any]:
             raise ContractValidationError(f"{field} must be an object")
     if isinstance(obj["plan_version"], bool) or not isinstance(obj["plan_version"], int) or obj["plan_version"] < 1:
         raise ContractValidationError("plan_version must be a positive integer")
-    if obj["state"] not in _TASK_STATES:
+    if not isinstance(obj["state"], str) or obj["state"] not in _TASK_STATES:
         raise ContractValidationError("state is not a supported research task state")
     for field in ("created_at", "updated_at"):
         result[field] = _text(obj[field], field, maximum=64)
@@ -124,7 +126,7 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
         result[field] = _text(obj[field], field, maximum=1_000)
     if obj["published_at"] is not None:
         result["published_at"] = _text(obj["published_at"], "published_at", maximum=64)
-    if obj["source_type"] not in _SOURCE_TYPES:
+    if not isinstance(obj["source_type"], str) or obj["source_type"] not in _SOURCE_TYPES:
         raise ContractValidationError("source_type is not supported")
     digest = _text(obj["snapshot_sha256"], "snapshot_sha256", maximum=64)
     if not _SHA256.fullmatch(digest):
@@ -157,7 +159,7 @@ def validate_research_claim(payload: Any) -> dict[str, Any]:
     obj = _base(payload, "nova.research-claim.v1", allowed, allowed)
     if obj["schema_version"] != "nova.research-claim.v1":
         raise ContractValidationError("schema_version must be nova.research-claim.v1")
-    if obj["classification"] not in _CLASSIFICATIONS:
+    if not isinstance(obj["classification"], str) or obj["classification"] not in _CLASSIFICATIONS:
         raise ContractValidationError("classification is not supported")
     result = dict(obj)
     for field in ("claim_id", "research_id"):
@@ -192,7 +194,7 @@ def validate_research_hypothesis(payload: Any) -> dict[str, Any]:
     if not isinstance(obj["alternatives"], list) or len(obj["alternatives"]) > 20:
         raise ContractValidationError("alternatives must be a list of at most 20 items")
     result["alternatives"] = [_text(x, "alternatives[]", maximum=1_000) for x in obj["alternatives"]]
-    if obj["status"] not in {"draft", "ready_for_review", "approved_for_experiment", "rejected", "tested", "falsified"}:
+    if not isinstance(obj["status"], str) or obj["status"] not in {"draft", "ready_for_review", "approved_for_experiment", "rejected", "tested", "falsified"}:
         raise ContractValidationError("status is not supported")
     if obj["status"] == "approved_for_experiment" and not result["falsification_rule"]:
         raise ContractValidationError("approved hypotheses require a falsification_rule")
