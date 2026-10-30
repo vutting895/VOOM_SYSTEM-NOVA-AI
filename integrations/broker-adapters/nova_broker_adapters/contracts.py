@@ -12,7 +12,10 @@ from typing import Literal, Protocol, runtime_checkable
 _ALLOWED_OPERATIONS = frozenset({"connection.verify", "account.read", "market_data.read"})
 _ALLOWED_ENVIRONMENTS = frozenset({"demo", "paper", "live"})
 _ALLOWED_CONNECTION_STATES = frozenset({
+    # Persisted System Hub statuses plus normalized adapter readiness states.
+    "pending",
     "configured",
+    "connected",
     "reachable",
     "authenticated",
     "identity_verified",
@@ -21,6 +24,7 @@ _ALLOWED_CONNECTION_STATES = frozenset({
     "reauth_required",
     "revoked",
     "disconnected",
+    "disabled",
     "unavailable",
 })
 _ALLOWED_VERIFICATION_STATES = frozenset({
@@ -122,7 +126,9 @@ class BrokerConnection:
     provider_id: str
     environment: Literal["demo", "paper", "live"]
     state: Literal[
+        "pending",
         "configured",
+        "connected",
         "reachable",
         "authenticated",
         "identity_verified",
@@ -131,6 +137,7 @@ class BrokerConnection:
         "reauth_required",
         "revoked",
         "disconnected",
+        "disabled",
         "unavailable",
     ]
     capabilities: ReadOnlyCapabilities
@@ -199,12 +206,32 @@ class AccountBalance:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountMetrics:
+    """Normalized account-level margin metrics for brokers such as MT5."""
+
+    currency: str
+    balance: float
+    equity: float
+    margin: float
+    free_margin: float
+    margin_level: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_currency(self.currency)
+        for name in ("balance", "equity", "margin", "free_margin"):
+            _validate_finite_number(name, getattr(self, name))
+        if self.margin_level is not None:
+            _validate_finite_number("margin_level", self.margin_level)
+
+
+@dataclass(frozen=True, slots=True)
 class AccountSnapshot:
     provider_id: str
     connection_id: str
     balances: tuple[AccountBalance, ...]
     as_of: datetime
     provider_account_id_masked: str | None = None
+    metrics: AccountMetrics | None = None
 
     def __post_init__(self) -> None:
         for name, value in (("provider_id", self.provider_id), ("connection_id", self.connection_id)):
@@ -216,16 +243,23 @@ class AccountSnapshot:
             raise ValueError("balances must be a tuple of AccountBalance values")
         _validate_timestamp("as_of", self.as_of)
         _validate_masked_account_id(self.provider_account_id_masked)
+        if self.metrics is not None and not isinstance(self.metrics, AccountMetrics):
+            raise ValueError("metrics must be AccountMetrics when supplied")
 
 
 @dataclass(frozen=True, slots=True)
 class MarketDataPoint:
-    """A single normalized read-only market price observation."""
+    """A normalized bid/ask/last observation; currency stays unknown unless supplied."""
 
     symbol: str
     price: float
-    currency: str
+    currency: str | None
     as_of: datetime
+    bid: float | None = None
+    ask: float | None = None
+    last: float | None = None
+    timeframe: str = "M5"
+    price_basis: Literal["mid", "last", "bar_close"] = "last"
 
     def __post_init__(self) -> None:
         if (
@@ -238,7 +272,18 @@ class MarketDataPoint:
         _validate_finite_number("price", self.price)
         if self.price < 0:
             raise ValueError("price cannot be negative")
-        _validate_currency(self.currency)
+        if self.currency is not None:
+            _validate_currency(self.currency)
+        for name in ("bid", "ask", "last"):
+            value = getattr(self, name)
+            if value is not None:
+                _validate_finite_number(name, value)
+                if value < 0:
+                    raise ValueError(f"{name} cannot be negative")
+        if self.timeframe not in {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}:
+            raise ValueError("unsupported market data timeframe")
+        if self.price_basis not in {"mid", "last", "bar_close"}:
+            raise ValueError("unsupported market data price basis")
         _validate_timestamp("as_of", self.as_of)
 
 
