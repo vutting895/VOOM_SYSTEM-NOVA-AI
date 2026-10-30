@@ -43,8 +43,10 @@ class QuantumQuantEngine:
         self.n_qubits = n_qubits
         self.seed = seed
         self._rng = np.random.default_rng(seed)
-        self._feature_mean: Optional[np.ndarray] = None
-        self._feature_scale: Optional[np.ndarray] = None
+        self._classical_feature_mean: Optional[np.ndarray] = None
+        self._classical_feature_scale: Optional[np.ndarray] = None
+        self._quantum_feature_mean: Optional[np.ndarray] = None
+        self._quantum_feature_scale: Optional[np.ndarray] = None
         self._classical_weights: Optional[np.ndarray] = None
         self._quantum_weights: Any = None
         self._quantum_qnode: Any = None
@@ -114,21 +116,37 @@ class QuantumQuantEngine:
             raise ValueError("training data must contain both classes")
         return x, y01
 
-    def _fit_standardizer(self, x: np.ndarray) -> np.ndarray:
-        self._feature_mean = np.mean(x, axis=0)
+    def _fit_standardizer(self, x: np.ndarray, *, backend: str = "classical") -> np.ndarray:
+        mean = np.mean(x, axis=0)
         scale = np.std(x, axis=0)
-        self._feature_scale = np.where(scale > 1e-12, scale, 1.0)
-        return (x - self._feature_mean) / self._feature_scale
+        scale = np.where(scale > 1e-12, scale, 1.0)
+        if backend == "classical":
+            self._classical_feature_mean = mean
+            self._classical_feature_scale = scale
+        elif backend == "quantum":
+            self._quantum_feature_mean = mean
+            self._quantum_feature_scale = scale
+        else:
+            raise ValueError("backend must be 'classical' or 'quantum'")
+        return (x - mean) / scale
 
-    def _transform_features(self, features: Sequence[float]) -> np.ndarray:
-        if self._feature_mean is None or self._feature_scale is None:
-            raise RuntimeError("model is not trained; call fit() first")
+    def _transform_features(
+        self, features: Sequence[float], *, backend: str = "classical"
+    ) -> np.ndarray:
+        if backend == "classical":
+            mean, scale = self._classical_feature_mean, self._classical_feature_scale
+        elif backend == "quantum":
+            mean, scale = self._quantum_feature_mean, self._quantum_feature_scale
+        else:
+            raise ValueError("backend must be 'classical' or 'quantum'")
+        if mean is None or scale is None:
+            raise RuntimeError(f"{backend} model is not trained; call fit() first")
         x = np.asarray(features, dtype=float)
         if x.shape != (self.n_qubits,):
             raise ValueError(f"features must contain exactly {self.n_qubits} values")
         if not np.isfinite(x).all():
             raise ValueError("features contain NaN or infinite values")
-        return (x - self._feature_mean) / self._feature_scale
+        return (x - mean) / scale
 
     @staticmethod
     def _sigmoid(values: np.ndarray) -> np.ndarray:
@@ -181,7 +199,7 @@ class QuantumQuantEngine:
         if isinstance(epochs, bool) or not isinstance(epochs, int) or epochs < 1:
             raise ValueError("epochs must be a positive integer")
         lr = self._positive_float(learning_rate, "learning_rate")
-        x_scaled = self._fit_standardizer(x)
+        x_scaled = self._fit_standardizer(x, backend="quantum")
         x_angles = np.tanh(x_scaled) * math.pi
         y_signed = y01 * 2.0 - 1.0
         initial = self._rng.normal(0.0, 0.1, size=(self._quantum_layers, self.n_qubits))
@@ -263,17 +281,6 @@ class QuantumQuantEngine:
                 "predicted_regime": "UNAVAILABLE",
                 "message": "Supply a validated feature vector; synthetic values are not used.",
             }
-        try:
-            x_scaled = self._transform_features(features)
-            band = self._non_negative_float(neutral_band, "neutral_band")
-        except (ValueError, RuntimeError) as exc:
-            return {
-                "status": "MODEL_NOT_READY" if isinstance(exc, RuntimeError) else "INVALID_INPUT",
-                "symbol": symbol,
-                "timeframe": timeframe,
-                "predicted_regime": "UNAVAILABLE",
-                "reason": str(exc),
-            }
         if not isinstance(backend, str):
             return {"status": "INVALID_INPUT", "reason": "backend_must_be_a_string"}
         requested = backend.strip().lower()
@@ -286,6 +293,20 @@ class QuantumQuantEngine:
             fallback_reason = "PennyLane unavailable" if not PENNYLANE_AVAILABLE else "VQC not trained"
         if requested == "auto":
             use_quantum = False  # Deliberately prefer the trained classical baseline.
+
+        try:
+            x_scaled = self._transform_features(
+                features, backend="quantum" if use_quantum else "classical"
+            )
+            band = self._non_negative_float(neutral_band, "neutral_band")
+        except (ValueError, RuntimeError) as exc:
+            return {
+                "status": "MODEL_NOT_READY" if isinstance(exc, RuntimeError) else "INVALID_INPUT",
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "predicted_regime": "UNAVAILABLE",
+                "reason": str(exc),
+            }
 
         if use_quantum:
             angles = np.tanh(x_scaled) * math.pi
