@@ -216,6 +216,15 @@ The `list_tables(verbose=true)` catalog inventory returned 19 public tables. All
 
 The observed public policy inventory includes owner-scoped reads/updates for selected customer rows, staff-only reads for control/audit/research tables, explicit browser-deny policies for Alpaca state/connection tables and signal-delivery logs, and owner-scoped pending-request policies for `broker_connections`. RLS enabled on all tables must not be mistaken for complete isolation: table grants, policy predicates, SECURITY DEFINER functions, views and Storage policies still require a full schema/security export and allow/deny testing.
 
+A grouped `information_schema.role_table_grants` inspection found legacy grants that should be reviewed separately from RLS policy correctness:
+
+- `anon` retains `SELECT` (and metadata privileges such as `REFERENCES`, `TRIGGER`, `TRUNCATE`) on `customer_profiles`, `strategy_signals` and `trading_sessions`; their current SELECT policies are scoped to `authenticated`, so these grants alone do not establish anonymous row visibility.
+- `anon` and `authenticated` retain broad table privileges on `alpaca_connections` and `alpaca_oauth_states`, but explicit `ALL` deny policies apply to both browser roles. The policies are fail-closed; the grants are still unnecessary surface and should be reduced after checking any remaining consumers.
+- Most research, audit, gate and control tables grant authenticated SELECT only with staff-only policies. `broker_connections` grants authenticated SELECT/INSERT, constrained by owner and pending-only policies.
+- `service_role` has BYPASSRLS at the role level and must remain server-only; its table privileges should be treated as privileged backend capability, not a browser permission.
+
+No anonymous data read was performed. A policy-denied operation was not simulated against customer rows. Recommended next security migration: explicitly REVOKE obsolete browser grants and re-GRANT only the required operations, without adding permissive policies; test owner allow, foreign-owner deny and anonymous deny in staging first.
+
 ## 4. Supabase test and security observations
 
 For the newer NOVA-oriented project:
