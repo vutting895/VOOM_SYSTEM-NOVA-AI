@@ -5,6 +5,7 @@ from workers.deep_research import (
     ContractValidationError,
     validate_research_claim,
     validate_research_hypothesis,
+    validate_research_evidence_graph,
     validate_research_source,
     validate_research_task,
 )
@@ -245,6 +246,111 @@ class DeepResearchContractTests(unittest.TestCase):
         payload["objective"] = "x" * 20_000
         with self.assertRaises(ContractValidationError):
             validate_research_task(payload)
+
+
+    def test_accepts_complete_linked_evidence_graph(self):
+        graph = validate_research_evidence_graph(
+            self.task(), [self.source()], [self.claim()], [self.hypothesis()]
+        )
+        self.assertEqual(graph["task"]["research_id"], "research-001")
+        self.assertEqual(graph["claims"][0]["supporting_evidence"], ["p1"])
+        self.assertEqual(graph["hypotheses"][0]["supporting_claim_ids"], ["claim-001"])
+
+    def test_graph_rejects_claim_with_dangling_source_id(self):
+        claim = self.claim()
+        claim["source_ids"] = ["missing-source"]
+        with self.assertRaisesRegex(ContractValidationError, "unknown source_ids"):
+            validate_research_evidence_graph(self.task(), [self.source()], [claim], [])
+
+    def test_graph_rejects_dangling_or_out_of_scope_passage_references(self):
+        claim = self.claim()
+        claim["supporting_evidence"] = ["missing-passage"]
+        with self.assertRaisesRegex(ContractValidationError, "unknown passage_ids"):
+            validate_research_evidence_graph(self.task(), [self.source()], [claim], [])
+
+        source2 = self.source()
+        source2["source_id"] = "source-002"
+        source2["passages"] = [{
+            "passage_id": "p2", "text": "Independent source passage.",
+            "start_offset": 0, "end_offset": 27,
+        }]
+        claim = self.claim()
+        claim["supporting_evidence"] = ["p2"]
+        with self.assertRaisesRegex(ContractValidationError, "outside its source_ids"):
+            validate_research_evidence_graph(
+                self.task(), [self.source(), source2], [claim], []
+            )
+
+    def test_graph_rejects_duplicate_passage_ids_across_sources(self):
+        source2 = self.source()
+        source2["source_id"] = "source-002"
+        with self.assertRaisesRegex(ContractValidationError, "unique across a research graph"):
+            validate_research_evidence_graph(
+                self.task(), [self.source(), source2], [self.claim()], []
+            )
+
+    def test_graph_rejects_observed_claim_without_supporting_passage(self):
+        claim = self.claim()
+        claim["supporting_evidence"] = []
+        with self.assertRaisesRegex(ContractValidationError, "requires supporting passage"):
+            validate_research_evidence_graph(self.task(), [self.source()], [claim], [])
+
+    def test_graph_rejects_cross_research_claim_and_hypothesis(self):
+        claim = self.claim()
+        claim["research_id"] = "research-other"
+        with self.assertRaisesRegex(ContractValidationError, "different research_id"):
+            validate_research_evidence_graph(self.task(), [self.source()], [claim], [])
+
+        hypothesis = self.hypothesis()
+        hypothesis["research_id"] = "research-other"
+        with self.assertRaisesRegex(ContractValidationError, "different research_id"):
+            validate_research_evidence_graph(
+                self.task(), [self.source()], [self.claim()], [hypothesis]
+            )
+
+    def test_graph_rejects_hypothesis_with_dangling_claim_reference(self):
+        hypothesis = self.hypothesis()
+        hypothesis["supporting_claim_ids"] = ["missing-claim"]
+        with self.assertRaisesRegex(ContractValidationError, "unknown claim_ids"):
+            validate_research_evidence_graph(
+                self.task(), [self.source()], [self.claim()], [hypothesis]
+            )
+
+    def test_graph_rejects_same_evidence_or_claim_as_both_support_and_counter(self):
+        claim = self.claim()
+        claim["counter_evidence"] = ["p1"]
+        with self.assertRaisesRegex(ContractValidationError, "same passage as support"):
+            validate_research_evidence_graph(self.task(), [self.source()], [claim], [])
+
+        hypothesis = self.hypothesis()
+        hypothesis["counter_claim_ids"] = ["claim-001"]
+        with self.assertRaisesRegex(ContractValidationError, "same claim as supporting"):
+            validate_research_evidence_graph(
+                self.task(), [self.source()], [self.claim()], [hypothesis]
+            )
+
+    def test_graph_rejects_duplicate_ids_and_malformed_collections(self):
+        with self.assertRaisesRegex(ContractValidationError, "1..100 records"):
+            validate_research_evidence_graph(self.task(), [], [self.claim()], [])
+
+        with self.assertRaisesRegex(ContractValidationError, "source_id values must be unique"):
+            validate_research_evidence_graph(
+                self.task(), [self.source(), self.source()], [self.claim()], []
+            )
+
+        with self.assertRaisesRegex(ContractValidationError, "claim_id values must be unique"):
+            claim2 = self.claim()
+            validate_research_evidence_graph(
+                self.task(), [self.source()], [self.claim(), claim2], []
+            )
+
+        with self.assertRaisesRegex(ContractValidationError, "hypothesis_id values must be unique"):
+            hypothesis2 = self.hypothesis()
+            validate_research_evidence_graph(
+                self.task(), [self.source()], [self.claim()],
+                [self.hypothesis(), hypothesis2]
+            )
+
 
 
 if __name__ == "__main__":
