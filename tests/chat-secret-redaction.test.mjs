@@ -26,14 +26,14 @@ test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', 
 });
 
 test('redacts PEM private keys and preserves ordinary prose', () => {
-  const source = 'Please review this setup.\nCookie: sessionid=private-cookie-value; auth=secret\n-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- Thank you.'; auth=secret\\n-----BEGIN PRIVATE KEY-----\\nprivate-material\\n-----END PRIVATE KEY----- Thank you.';
+  const source = 'Please review this setup.\nCookie: sessionid=private-cookie-value; auth=secret\n-----BEGIN PRIVATE KEY-----\nprivate-material\n-----END PRIVATE KEY----- Thank you.';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /private-material/);
   assert.doesNotMatch(result, /private-cookie-value/);
+  assert.doesNotMatch(result, /auth=secret/);
   assert.match(result, /Please review this setup/);
   assert.match(result, /Thank you/);
 });
-
 test('non-string input is handled safely', () => {
   assert.equal(redactSensitiveText(null), '');
 });
