@@ -100,6 +100,8 @@ test('staging harness accepts modern Supabase secret keys without using them as 
   assert.match(stagingIsolation, /apikey: serviceRoleKey/);
   assert.match(stagingIsolation, /\!serviceRoleKey\.startsWith\("sb_secret_"\) \? \{ Authorization: "Bearer " \+ serviceRoleKey \} : \{\}/);
   assert.match(stagingIsolation, /serviceClaims\?\.role === "service_role"/);
+  assert.match(stagingIsolation, /headers: adminHeaders\(\{ Accept: "application\\/json" \}\)/);
+  assert.doesNotMatch(stagingIsolation, /headers: headers\(serviceRoleKey,\\s*serviceRoleKey/);
 });
 
 test('command center restores owner-scoped pending reviews after a reload', () => {
