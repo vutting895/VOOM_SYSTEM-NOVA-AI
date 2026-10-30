@@ -76,6 +76,7 @@ test("caller-supplied identity, secret fields and write capabilities fail closed
   for (const body of [
     { ...request, owner_id: "user-b" },
     { ...request, parameters: { access_token: "synthetic" } },
+    { ...request, parameters: { arbitrary_sql: "select * from secrets" } },
     { ...request, capability: "trade.submit" }
   ]) {
     assert.equal((await invoke(runtime, body)).status, 400);
@@ -132,4 +133,17 @@ test("provider result with credential-shaped fields is rejected and never return
   const result = await invoke(runtime);
   assert.equal(result.status, 502);
   assert.equal(result.body.result, undefined);
+});
+
+test("invalid session is rejected before connection lookup", async t => {
+  let lookups = 0;
+  const { runtime, calls, deps } = await fixture(t);
+  const guarded = createCustodyRuntime({
+    ...deps,
+    resolveConnection: async (...args) => { lookups++; return deps.resolveConnection(...args); }
+  });
+  const result = await invoke(guarded, request, "expired-or-invalid");
+  assert.equal(result.status, 401);
+  assert.equal(lookups, 0);
+  assert.equal(calls.length, 0);
 });
