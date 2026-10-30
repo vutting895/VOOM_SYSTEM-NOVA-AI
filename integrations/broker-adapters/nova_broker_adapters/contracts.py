@@ -4,19 +4,86 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from math import isfinite
+import re
 from typing import Literal, Protocol, runtime_checkable
 
 
 _ALLOWED_OPERATIONS = frozenset({"connection.verify", "account.read", "market_data.read"})
+_ALLOWED_ENVIRONMENTS = frozenset({"demo", "paper", "live"})
+_ALLOWED_CONNECTION_STATES = frozenset({
+    "configured",
+    "reachable",
+    "authenticated",
+    "identity_verified",
+    "data_verified",
+    "degraded",
+    "reauth_required",
+    "revoked",
+    "disconnected",
+    "unavailable",
+})
+_ALLOWED_VERIFICATION_STATES = frozenset({
+    "reachable",
+    "authenticated",
+    "identity_verified",
+    "data_verified",
+    "degraded",
+    "reauth_required",
+    "unavailable",
+})
+_DIAGNOSTIC_CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_MASK_MARKERS = ("*", "x", "X", "•", "·")
+
+
+def _validate_timestamp(name: str, value: datetime) -> None:
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{name} must be timezone-aware")
+
+
+def _validate_masked_account_id(value: str | None) -> None:
+    if value is None:
+        return
+    if (
+        not isinstance(value, str)
+        or not 4 <= len(value) <= 32
+        or value.strip() != value
+        or any(character.isspace() for character in value)
+        or not any(marker in value for marker in _MASK_MARKERS)
+    ):
+        raise ValueError("provider_account_id_masked must contain an explicit mask marker")
+
+
+def _validate_currency(currency: str) -> None:
+    if (
+        not isinstance(currency, str)
+        or not 2 <= len(currency) <= 12
+        or not currency.isascii()
+        or not currency.isalnum()
+        or currency != currency.upper()
+    ):
+        raise ValueError("currency must be a 2-12 character uppercase ASCII ticker")
+
+
+def _validate_finite_number(name: str, value: int | float) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be a finite number")
+    try:
+        finite = isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite:
+        raise ValueError(f"{name} must be a finite number")
 
 
 class AdapterError(RuntimeError):
-    """Safe adapter failure carrying a non-secret diagnostic code."""
+    """Safe adapter failure carrying a non-secret diagnostic code only."""
 
-    def __init__(self, code: str, message: str = "Broker adapter operation failed") -> None:
-        if not code or not code.replace("_", "").isalnum():
-            raise ValueError("Adapter error code must be a stable alphanumeric identifier")
-        super().__init__(message)
+    def __init__(self, code: str) -> None:
+        if not isinstance(code, str) or _DIAGNOSTIC_CODE.fullmatch(code) is None:
+            raise ValueError("Adapter error code must be a stable lowercase identifier")
+        # Provider exception text must never be copied into this exception.
+        super().__init__("Broker adapter operation failed")
         self.code = code
 
 
@@ -39,6 +106,9 @@ class ReadOnlyCapabilities:
         return frozenset(result)
 
     def validate(self) -> None:
+        for name in ("connection_verify", "account_read", "market_data_read"):
+            if type(getattr(self, name)) is not bool:
+                raise AdapterError("invalid_capability")
         if not self.operations().issubset(_ALLOWED_OPERATIONS):
             raise AdapterError("unsupported_capability")
 
@@ -71,8 +141,14 @@ class BrokerConnection:
             ("owner_id", self.owner_id),
             ("provider_id", self.provider_id),
         ):
-            if not value or value.strip() != value:
+            if not isinstance(value, str) or not value or value.strip() != value:
                 raise ValueError(f"{name} must be a non-empty normalized identifier")
+        if self.environment not in _ALLOWED_ENVIRONMENTS:
+            raise ValueError("unsupported broker environment")
+        if self.state not in _ALLOWED_CONNECTION_STATES:
+            raise ValueError("unsupported broker connection state")
+        if not isinstance(self.capabilities, ReadOnlyCapabilities):
+            raise ValueError("capabilities must be ReadOnlyCapabilities")
         self.capabilities.validate()
 
 
@@ -93,10 +169,18 @@ class ConnectionVerification:
     diagnostic_code: str | None = None
 
     def __post_init__(self) -> None:
-        if self.checked_at.tzinfo is None:
-            raise ValueError("checked_at must be timezone-aware")
-        if self.latency_ms is not None and self.latency_ms < 0:
-            raise ValueError("latency_ms cannot be negative")
+        if self.state not in _ALLOWED_VERIFICATION_STATES:
+            raise ValueError("unsupported connection verification state")
+        _validate_timestamp("checked_at", self.checked_at)
+        _validate_masked_account_id(self.provider_account_id_masked)
+        if self.latency_ms is not None and (
+            isinstance(self.latency_ms, bool)
+            or not isinstance(self.latency_ms, int)
+            or self.latency_ms < 0
+        ):
+            raise ValueError("latency_ms must be a non-negative integer")
+        if self.diagnostic_code is not None and _DIAGNOSTIC_CODE.fullmatch(self.diagnostic_code) is None:
+            raise ValueError("diagnostic_code must be a stable lowercase identifier")
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,11 +190,12 @@ class AccountBalance:
     available: float | None = None
 
     def __post_init__(self) -> None:
-        # ISO fiat and common exchange tickers (e.g. USDT) are both supported.
-        if not 2 <= len(self.currency) <= 12 or not self.currency.isalnum():
-            raise ValueError("currency must be a 2-12 character alphanumeric code")
-        if self.total < 0 and self.available is not None and self.available < 0:
-            raise ValueError("invalid negative balance values")
+        _validate_currency(self.currency)
+        _validate_finite_number("total", self.total)
+        if self.available is not None:
+            _validate_finite_number("available", self.available)
+        # Signed values are preserved: some providers report liabilities or
+        # negative available margin. Callers must not silently clamp balances.
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,10 +207,39 @@ class AccountSnapshot:
     provider_account_id_masked: str | None = None
 
     def __post_init__(self) -> None:
-        if self.as_of.tzinfo is None:
-            raise ValueError("as_of must be timezone-aware")
-        if not self.provider_id or not self.connection_id:
-            raise ValueError("provider_id and connection_id are required")
+        for name, value in (("provider_id", self.provider_id), ("connection_id", self.connection_id)):
+            if not isinstance(value, str) or not value or value.strip() != value:
+                raise ValueError(f"{name} must be a non-empty normalized identifier")
+        if not isinstance(self.balances, tuple) or any(
+            not isinstance(balance, AccountBalance) for balance in self.balances
+        ):
+            raise ValueError("balances must be a tuple of AccountBalance values")
+        _validate_timestamp("as_of", self.as_of)
+        _validate_masked_account_id(self.provider_account_id_masked)
+
+
+@dataclass(frozen=True, slots=True)
+class MarketDataPoint:
+    """A single normalized read-only market price observation."""
+
+    symbol: str
+    price: float
+    currency: str
+    as_of: datetime
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.symbol, str)
+            or not 1 <= len(self.symbol) <= 32
+            or self.symbol.strip() != self.symbol
+            or any(character.isspace() for character in self.symbol)
+        ):
+            raise ValueError("symbol must be a normalized non-empty ticker")
+        _validate_finite_number("price", self.price)
+        if self.price < 0:
+            raise ValueError("price cannot be negative")
+        _validate_currency(self.currency)
+        _validate_timestamp("as_of", self.as_of)
 
 
 @runtime_checkable
@@ -139,6 +253,13 @@ class BrokerReadOnlyAdapter(Protocol):
 
     async def account_snapshot(self, connection: BrokerConnection) -> AccountSnapshot:
         """Return a normalized, timestamped account snapshot."""
+
+    async def market_data_snapshot(
+        self,
+        connection: BrokerConnection,
+        symbols: tuple[str, ...],
+    ) -> tuple[MarketDataPoint, ...]:
+        """Return data only when market_data_read is granted; otherwise fail closed."""
 
     async def close(self) -> None:
         """Release provider sessions, sockets, and SDK resources."""
