@@ -1,5 +1,5 @@
 import { classifyResearchIntent } from "./intent-contract.js";
-import { generateGeminiText } from "./gemini-provider.js";
+import { generateGeminiText, resolveGeminiModel } from "./gemini-provider.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
   "https://voom-system-nova-ui.suwapat787.workers.dev"
@@ -215,7 +215,7 @@ function fallback(input, reason = "AI binding unavailable") {
 }
 async function generate(env, input) {
   if (env.GEMINI_API_KEY) {
-    const model = env.GEMINI_MODEL || "gemini-flash-latest";
+    const model = resolveGeminiModel(env);
     const instruction = "Return JSON only with name, entryWorkers, exit:{takeProfitPct,stopLossPct}, rationale. Allowed entryWorkers: "
       + [...ALLOWED_WORKERS].join(", ") + ". TP > 0 and <= 20; SL > 0 and <= 10. Research draft only; no claims of tested performance and no trade instructions.";
     try {
