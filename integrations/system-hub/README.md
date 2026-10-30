@@ -30,3 +30,11 @@ Before the control plane can report an Exness connection as data-verified, the a
 - No order-placement endpoint is implemented.
 - No broker password, access token, account payload, or bridge token is returned by the Hub.
 - The former `voom-alpaca-oauth` implementation is not used by this Hub and its source folder is retired by a separate reviewed repository cleanup. This does not delete/disable a Worker in the Cloudflare account or drop any Supabase table/data; confirm provider-side consumers and retention before decommissioning. Keep applied Alpaca migration files as historical schema records.
+
+## Authenticated broker provider catalog
+
+- `GET /v1/broker/providers` — returns the server-owned provider capability registry for an authenticated Supabase user. It exposes no credentials, account IDs, host/port values, or caller-selected destinations.
+- Exness MT5 Demo is the only currently supported customer connection path and continues to use the existing tenant-specific Bridge → Relay → read-only Proxy path.
+- IBKR, Binance, and Bybit are advertised as planned but disabled until their isolated runtime / credential-vault / provider permission gates are verified. A catalog entry is not proof of a live provider connection.
+- The Hub remains authoritative for user identity, connection ownership, account selection, and operation authorization.
+

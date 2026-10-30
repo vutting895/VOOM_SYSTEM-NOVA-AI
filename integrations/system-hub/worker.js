@@ -1,3 +1,4 @@
+import { listBrokerProviders } from "./broker-registry.js";
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -524,6 +525,19 @@ export default {
 
     if (origin && !allowedOrigins(env).has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
+    }
+
+    if (url.pathname === "/v1/broker/providers" && request.method === "GET") {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      return json({
+        providers: listBrokerProviders(),
+        selectionAuthority: "system_hub",
+        mode: "read-only",
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false
+      }, 200, origin, env);
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
