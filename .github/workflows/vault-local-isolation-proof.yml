@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - security/vault-readiness-consolidated-20261031
+      - security/vault-local-isolation-proof-20261031
     paths:
       - "tools/vault-proof/**"
       - ".github/workflows/vault-local-isolation-proof.yml"
