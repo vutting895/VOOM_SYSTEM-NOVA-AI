@@ -1,6 +1,6 @@
 # NOVA Quantum Quant Engine
 
-Status: **research-only Python module; not connected to production workers, broker routes, or order execution.**
+Status: **research-only Python module; not connected to production workers, broker routes, chat orchestration, or order execution.**
 
 ## Responsibility and boundaries
 
@@ -11,18 +11,44 @@ Status: **research-only Python module; not connected to production workers, brok
 - Does not fetch market data, generate features, persist model artifacts, authorize a trade, or submit broker orders.
 - Does not implement QAOA/QUBO. The legacy `run_qaoa_risk_filter` name is only a compatibility alias for classical arithmetic risk sizing.
 
-This module is not a replacement for `workers/risk/`. The Risk Worker remains the intended independent, fail-closed policy boundary. The quant engine's sizing result must be treated as advisory and passed through the authoritative risk policy before any future paper-trading workflow.
+The four numeric inputs are an implementation shape, **not a production feature definition**. Do not assign feature names or semantics based on the illustrative sample below.
 
-## Runtime placement
+## Runtime placement and current NOVA architecture
 
-This is a Python module. It is not a Cloudflare Worker and is not imported by the deployed Remote MCP Worker. The Remote MCP Worker remains a stateless TypeScript/JavaScript service; do not try to import this package into that runtime.
+This is a Python module. It is not a Cloudflare Worker and is not imported by the deployed Remote MCP Worker.
 
-The module is intentionally isolated under `workers/quantum/` until:
-1. `workers/feature/` defines a versioned, point-in-time feature contract and supplies the exact four-feature vector plus schema/version and source timestamp.
-2. The Python Agent runtime and its deployment location are identified and tested.
-3. A bounded, authenticated adapter is designed if the model is exposed through MCP or another service.
-4. `workers/risk/` remains the independent authority for account-level exposure, leverage, drawdown, stale-data and per-account limits.
-5. Integration tests prove tenant isolation, data freshness, risk-policy enforcement and no order side effects.
+The current chat path is:
+
+1. `frontend/app/api/chat/route.js` runs in the Next.js Node.js runtime, authenticates the Supabase bearer session, validates and bounds the conversation, then forwards it to the NOVA AI Worker.
+2. `integrations/nova-ai-worker/worker.js` provides the current authenticated AI/research interface and deterministic first-pass intent classification.
+3. The owner-scoped `frontend/app/api/agent/threads` and approval routes persist strategy-draft review records. They do **not** currently provide LangGraph execution state, a graph checkpointer, or an Agent runtime for this Python module.
+
+The repository's reviewed architecture decision is to prototype **LangGraph.js in the existing Node runtime with a PostgreSQL checkpointer** if durable graph orchestration is adopted. LangGraph is not currently wired into the chat route. Do not treat the previous Python LangGraph sample as the active repository runtime.
+
+A Python module cannot be imported directly by the JavaScript Cloudflare Workers or Next.js route. Do not add a Python subprocess to an edge Worker, expose a public unauthenticated Python API, or add a second MCP server by default. Before this engine is integrated, select and review one explicit boundary:
+
+- a private, authenticated Python inference adapter with bounded requests, strict typed input/output schemas, timeouts, health behavior and deployment ownership; or
+- a reviewed port of the required classical inference path into the existing Node runtime.
+
+The choice requires an architecture decision and tests. Neither boundary is implemented by this PR.
+
+## Integration gates
+
+Keep the engine isolated until all of the following are true:
+
+1. `workers/feature/` or `shared/` defines a versioned, point-in-time feature contract with named features, units, ranges, ordering, schema version, source timestamp and missing/stale-data behavior. The feature contract must also define how historical training labels are generated without look-ahead leakage.
+2. The source pipeline produces that exact contract and passes chronological split, leakage and data-quality checks. Existing feature modules are research prototypes; do not infer that they already provide the four engine inputs.
+3. A private adapter or reviewed Node port is approved, implemented and tested. The browser must never choose model artifacts, tenant IDs, connection IDs, runtime URLs or backend capabilities.
+4. The inference response includes schema/model version, inference time, source-data time, backend used, status and explicit uncertainty/abstention semantics. Missing, stale or invalid features must fail closed.
+5. The output remains an advisory research signal. It must not select an order, authorize a strategy, mutate broker state or change account risk limits.
+
+## Risk-policy separation
+
+The engine's position-size calculation is **not** the NOVA Risk Worker or an authorization decision.
+
+The active Remote MCP `validate_paper_risk` tool is a separate paper guardrail. It checks portfolio allocation, daily loss, drawdown, leverage and data age; it does not accept this engine's lot-size result, calculate broker contract loss, or replace symbol-level broker min/max/step constraints. The two interfaces must not be treated as interchangeable.
+
+Any future use of the sizing estimate must pass through the independently maintained server-side risk policy with authenticated owner/tenant context, current account and instrument metadata, and fail-closed handling. Reconcile per-position sizing with portfolio exposure and daily/drawdown limits explicitly. No integration or risk-policy approval is created by this module.
 
 ## Installation
 
