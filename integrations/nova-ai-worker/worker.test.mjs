@@ -281,7 +281,7 @@ test("Gemini is preferred for authenticated chat when configured and remains res
   } finally { globalThis.fetch = original; }
 });
 
-test("configured Gemini failure returns 503 without silent provider switching", async () => {
+test("configured Gemini failure falls back to Cloudflare AI with explicit provenance", async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async (url) => String(url) === "https://supabase.example/auth/v1/user"
     ? new Response(JSON.stringify({ id: "user-test" }), { status: 200 })
@@ -290,9 +290,18 @@ test("configured Gemini failure returns 503 without silent provider switching", 
     const response = await worker.fetch(new Request("https://worker.test/api/chat", {
       method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
       body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
-    }), { ...env, GEMINI_API_KEY: "gemini-test-key" });
-    assert.equal(response.status, 503);
-    assert.equal((await response.json()).error, "ai_provider_unavailable");
+    }), {
+      ...env,
+      GEMINI_API_KEY: "gemini-test-key",
+      AI: { run: async () => ({ response: "Cloudflare backup answer" }) },
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.provider, "cloudflare-workers-ai");
+    assert.equal(body.fallbackFrom, "gemini");
+    assert.equal(body.message, "Cloudflare backup answer");
+    assert.equal(body.executionEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
   } finally { globalThis.fetch = original; }
 });
 
