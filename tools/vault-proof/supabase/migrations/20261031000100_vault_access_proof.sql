@@ -19,11 +19,9 @@ begin
 end
 $roles$;
 
-alter role nova_vault_fn_owner
-  nologin noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
-
-alter role nova_vault_api
-  login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls;
+-- The local migration runner receives SET membership so it can assign object ownership
+-- to the dedicated non-login owner. This is local-only proof setup, not a runtime grant.
+grant nova_vault_fn_owner to current_user with set true;
 
 create schema nova_vault_private authorization nova_vault_fn_owner;
 
