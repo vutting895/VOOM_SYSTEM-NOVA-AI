@@ -179,6 +179,7 @@ export async function POST(request) {
             : 'fallback',
           available: ['gemini', 'cloudflare-workers-ai'].includes(payload.llm.provider) && payload.llm.available === true,
           model: typeof payload.llm.model === 'string' ? payload.llm.model : null,
+          fallbackFrom: payload.llm.fallbackFrom === 'gemini' ? 'gemini' : null,
         }
       : { provider: 'fallback', available: false, model: null };
     strategy = validateDraft(payload.strategy, input, llm);
