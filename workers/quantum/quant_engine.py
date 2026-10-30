@@ -356,6 +356,9 @@ class QuantumQuantEngine:
             "qubits_allocated": self.n_qubits if use_quantum else 0,
             "quantum_circuit_status": "EXECUTED" if use_quantum else "NOT_USED",
             "trading_action": "NONE",
+            "research_only": True,
+            "trade_authorized": False,
+            "order_submission_enabled": False,
             "live_trading_enabled": False,
         }
         if use_quantum:
