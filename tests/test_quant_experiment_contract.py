@@ -40,6 +40,8 @@ class QuantExperimentContractTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], "nova.quant-experiment.v1")
         self.assertEqual(result["folds"][0]["test_start"], 82)
         self.assertIsNot(result, payload)
+        result["parameters"]["fast_period"] = 9
+        self.assertEqual(payload["parameters"]["fast_period"], 12)
 
     def test_rejects_unknown_and_missing_fields(self):
         payload = self.experiment()
