@@ -156,6 +156,19 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
 }
+async function checkAiRateLimit(env, userId) {
+  if (typeof userId !== "string" || !userId || !env.AI_RATE_LIMITER || typeof env.AI_RATE_LIMITER.limit !== "function") {
+    return { ok: false, status: 503, error: "ai_rate_limiter_unavailable" };
+  }
+  try {
+    const result = await env.AI_RATE_LIMITER.limit({ key: "user:" + userId });
+    return result?.success === true
+      ? { ok: true }
+      : { ok: false, status: 429, error: "ai_rate_limit_exceeded" };
+  } catch {
+    return { ok: false, status: 503, error: "ai_rate_limiter_unavailable" };
+  }
+}
 function fallback(input, reason = "AI binding unavailable") {
   const prompt = input.prompt.toLowerCase();
   const key = input.risk === "low" ? "conservative"
@@ -312,7 +325,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         ok: true, service: "voom-system-nova-ai", version: "1.1.0",
-        aiBinding: Boolean(env.AI), geminiConfigured: Boolean(env.GEMINI_API_KEY), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
+        aiBinding: Boolean(env.AI), geminiConfigured: Boolean(env.GEMINI_API_KEY), rateLimiterConfigured: Boolean(env.AI_RATE_LIMITER), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
     }
@@ -341,6 +354,8 @@ export default {
       let input;
       try { input = validateInput(body); }
       catch (error) { return fail(error.message || "invalid_input", error.status || 400, origin); }
+      const quota = await checkAiRateLimit(env, auth.userId);
+      if (!quota.ok) return fail(quota.error, quota.status, origin);
       const result = await generate(env, input);
       result.strategy.executionEnabled = false;
       result.strategy.backtestStatus = "not_run";
@@ -351,6 +366,8 @@ export default {
       let messages;
       try { messages = validateChatInput(body); }
       catch (error) { return fail(error.message || "invalid_messages", error.status || 400, origin); }
+      const quota = await checkAiRateLimit(env, auth.userId);
+      if (!quota.ok) return fail(quota.error, quota.status, origin);
       try {
         return json(await generateChat(env, messages), 200, origin);
       } catch (error) {
