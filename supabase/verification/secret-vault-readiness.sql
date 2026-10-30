@@ -82,3 +82,15 @@ select
 from pg_roles
 where rolname in ('nova_secret_manager', 'service_role', 'authenticated', 'anon')
 order by rolname;
+
+
+-- 6) Inspect the legacy user_brokers credential surface using catalog metadata only.
+-- Never select from public.user_brokers or inspect credential contents.
+select jsonb_build_object(
+  'table_present', to_regclass('public.user_brokers') is not null,
+  'rls_enabled', coalesce((select c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='user_brokers'), false),
+  'force_rls', coalesce((select c.relforcerowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='user_brokers'), false),
+  'policy_count', (select count(*) from pg_policies where schemaname='public' and tablename='user_brokers'),
+  'sensitive_columns_present', coalesce((select jsonb_agg(column_name order by column_name) from information_schema.columns where table_schema='public' and table_name='user_brokers' and column_name in ('api_key','api_secret_encrypted','passphrase_encrypted')), '[]'::jsonb),
+  'sensitive_column_grants', coalesce((select jsonb_agg(jsonb_build_object('grantee',grantee,'column',column_name,'privilege',privilege_type) order by grantee,column_name,privilege_type) from information_schema.role_column_grants where table_schema='public' and table_name='user_brokers' and column_name in ('api_key','api_secret_encrypted','passphrase_encrypted') and grantee in ('anon','authenticated','service_role','postgres')), '[]'::jsonb)
+) as legacy_user_brokers_credential_surface;
