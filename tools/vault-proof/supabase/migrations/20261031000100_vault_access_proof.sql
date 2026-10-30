@@ -22,12 +22,8 @@ $roles$;
 -- The local migration runner receives SET membership so it can assign object ownership
 -- to the dedicated non-login owner. This is local-only proof setup, not a runtime grant.
 grant nova_vault_fn_owner to current_user with set true;
--- The disposable proof runner also receives SET-only membership in the runtime role
--- so it can execute privilege assertions without granting the runtime role any
--- membership in the function owner or an elevated role.
-grant nova_vault_api to current_user with set true;
--- The disposable test runner also needs SET (not INHERIT) to exercise the
--- runtime role's exact privileges in pgTAP. This membership exists only locally.
+-- The disposable proof runner receives one explicit SET-only membership in the
+-- runtime role so pgTAP can exercise its effective privileges. Local test only.
 grant nova_vault_api to current_user with set true;
 
 create schema nova_vault_private authorization nova_vault_fn_owner;
@@ -105,9 +101,51 @@ values
 revoke all on schema vault from public, anon, authenticated, nova_vault_api;
 revoke all on all tables in schema vault from public, anon, authenticated, nova_vault_api;
 
--- The decrypted_secrets view invokes this internal function. Grant exactly that
--- dependency to the non-login function owner, not to nova_vault_api.
-grant execute on function vault._crypto_aead_det_decrypt to nova_vault_fn_owner;
+-- The decrypted_secrets view invokes this internal function. Grant exactly this
+-- dependency to the non-login function owner, not to nova_vault_api. Resolve the
+-- catalog signature instead of assuming a fixed overload on every Vault version.
+do $vault_decrypt_grant$
+declare
+  v_match_count integer;
+  v_function_oid oid;
+begin
+  select count(*)::integer, (array_agg(p.oid order by p.oid))[1]
+    into v_match_count, v_function_oid
+    from pg_catalog.pg_proc as p
+    join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+   where n.nspname = 'vault'
+     and p.proname = '_crypto_aead_det_decrypt';
+
+  if v_match_count <> 1 or v_function_oid is null then
+    raise exception 'expected exactly one vault decrypt helper; found %', v_match_count;
+  end if;
+
+  execute format(
+    'grant execute on function %s to nova_vault_fn_owner',
+    v_function_oid::regprocedure
+  );
+end;
+$vault_decrypt_grant$;
+
+-- The runtime login must not call any Vault extension function directly.
+do $vault_runtime_function_guard$
+declare
+  v_function_oid oid;
+begin
+  for v_function_oid in
+    select p.oid
+      from pg_catalog.pg_proc as p
+      join pg_catalog.pg_namespace as n on n.oid = p.pronamespace
+     where n.nspname = 'vault'
+       and p.proname = '_crypto_aead_det_decrypt'
+  loop
+    execute format(
+      'revoke execute on function %s from public, anon, authenticated, nova_vault_api',
+      v_function_oid::regprocedure
+    );
+  end loop;
+end;
+$vault_runtime_function_guard$;
 
 create or replace function nova_vault_private.get_secret_for_connection_use(
   p_authenticated_owner_id uuid,
