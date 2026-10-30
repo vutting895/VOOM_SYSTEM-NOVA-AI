@@ -15,7 +15,7 @@ for (const [name, value] of [
   if (!value) throw new Error("Missing staging-only environment value: " + name);
 }
 if (base !== expectedBase) throw new Error("Refusing to run customer-isolation tests outside the approved staging Supabase project.");
-if (serviceRoleKey === publishableKey) throw new Error("Staging Auth Admin key and publishable key must be distinct.");
+if (serviceRoleKey === publishableKey) throw new Error("Staging secret NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY matches the publishable key. Replace it with the staging project\u0027s legacy service_role JWT; values are never printed.");
 
 const users = [];
 const checks = [];
