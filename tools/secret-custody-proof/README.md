@@ -18,3 +18,8 @@ The request/response JSON Schemas and Node tests verify:
 The tests do not prove cryptographic implementation, actual Supabase JWT verification, mTLS, KMS/HSM policy, envelope encryption, tenant isolation in a deployed service, provider reconciliation, or availability/latency. Those require an implementation and independent review.
 
 Do not put real secrets, access tokens, key material, connection strings, or customer data in fixtures. No secret values are required.
+
+
+The `crypto-proof.test.mjs` suite uses Node's built-in crypto module with ephemeral synthetic keys to exercise AES-256-GCM envelope-encryption mechanics, immutable associated-data binding, ciphertext/tag tamper rejection, DEK rewrap under a rotated KEK, and Ed25519 signature verification using only the public key at the verifier. The test does not persist key material or use a real KMS/HSM.
+
+**Proof boundary:** passing these tests proves only the selected library primitives and the local contract model. It does not prove KMS/HSM policy, non-exportable key custody, mTLS/workload identity, actual Supabase JWT verification, production key rotation/revocation, custodian runtime isolation, or independent security review.
