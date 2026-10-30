@@ -106,8 +106,9 @@ class AccountBalance:
     available: float | None = None
 
     def __post_init__(self) -> None:
-        if len(self.currency) != 3 or not self.currency.isalpha():
-            raise ValueError("currency must be a three-letter code")
+        # ISO fiat and common exchange tickers (e.g. USDT) are both supported.
+        if not 2 <= len(self.currency) <= 12 or not self.currency.isalnum():
+            raise ValueError("currency must be a 2-12 character alphanumeric code")
         if self.total < 0 and self.available is not None and self.available < 0:
             raise ValueError("invalid negative balance values")
 
