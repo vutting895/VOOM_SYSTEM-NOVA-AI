@@ -6,7 +6,9 @@ const publishableKey = process.env.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY || "";
 const serviceRoleKey = process.env.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY || "";
 const appUrl = (process.env.NOVA_STAGING_APP_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 // Optional short-lived CAPTCHA token for staging sign-in; never log or persist it.
-const captchaToken = process.env.NOVA_STAGING_CAPTCHA_TOKEN || "";
+const captchaTokenA = process.env.NOVA_STAGING_CAPTCHA_TOKEN_A || "";
+const captchaTokenB = process.env.NOVA_STAGING_CAPTCHA_TOKEN_B || "";
+const sharedCaptchaToken = process.env.NOVA_STAGING_CAPTCHA_TOKEN || "";
 const expectedBase = "https://rovhmjeowracayicbqij.supabase.co";
 
 for (const [name, value] of [
@@ -36,8 +38,15 @@ if (publishableKey.startsWith("sb_publishable_")) {
   }
 }
 const serviceClaims = decodeLegacyJwt(serviceRoleKey);
-if (serviceRoleKey === publishableKey || serviceClaims?.role !== "service_role" || serviceClaims?.ref !== "rovhmjeowracayicbqij") {
-  throw new Error("NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY must be the staging project's legacy service_role JWT. The current key is missing, mismatched, or not an admin JWT; values are never printed.");
+const isNewSecretKey = serviceRoleKey.startsWith("sb_secret_");
+const isValidNewSecretKey = /^sb_secret_[A-Za-z0-9_-]{22}_[A-Za-z0-9_-]{8}$/.test(serviceRoleKey);
+const isValidLegacyServiceKey = serviceClaims?.role === "service_role"
+  && serviceClaims?.ref === "rovhmjeowracayicbqij";
+if (serviceRoleKey === publishableKey || (isNewSecretKey ? !isValidNewSecretKey : !isValidLegacyServiceKey)) {
+  throw new Error("NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY must be this staging project's sb_secret key or legacy service_role JWT. The current key is missing, mismatched, or invalid; values are never printed.");
+}
+if (Boolean(captchaTokenA) !== Boolean(captchaTokenB) || (sharedCaptchaToken && (!captchaTokenA || !captchaTokenB))) {
+  throw new Error("Staging CAPTCHA requires two distinct single-use tokens: NOVA_STAGING_CAPTCHA_TOKEN_A and NOVA_STAGING_CAPTCHA_TOKEN_B. A single token cannot be reused for both test sign-ins.");
 }
 
 const users = [];
@@ -49,6 +58,15 @@ function headers(apiKey, bearer, extra = {}) {
   return {
     apikey: apiKey,
     ...(bearer ? { Authorization: "Bearer " + bearer } : {}),
+    ...extra,
+  };
+}
+
+function adminHeaders(extra = {}) {
+  return {
+    apikey: serviceRoleKey,
+    // Modern sb_secret keys are API keys, not JWTs. Never send them as Bearer tokens.
+    ...(!serviceRoleKey.startsWith("sb_secret_") ? { Authorization: "Bearer " + serviceRoleKey } : {}),
     ...extra,
   };
 }
@@ -72,7 +90,7 @@ async function jsonRequest(url, init, label) {
 async function adminRequest(path, method, body, label) {
   return jsonRequest(base + path, {
     method,
-    headers: headers(serviceRoleKey, serviceRoleKey, {
+    headers: adminHeaders({
       Accept: "application/json",
       "Content-Type": "application/json",
     }),
@@ -103,7 +121,7 @@ async function restRequest(path, token, method = "GET", body = undefined, label 
   }, label);
 }
 
-async function createTestUser(label) {
+async function createTestUser(label, captchaToken) {
   const suffix = randomUUID().replaceAll("-", "");
   const email = "nova-pr85-" + label + "-" + suffix + "@example.com";
   const password = randomBytes(32).toString("base64url") + "A9!";
@@ -153,8 +171,8 @@ async function check(label, callback) {
 
 async function runTests() {
   await waitForApp();
-  const userA = await createTestUser("a");
-  const userB = await createTestUser("b");
+  const userA = await createTestUser("a", captchaTokenA);
+  const userB = await createTestUser("b", captchaTokenB);
 
   const brokerA = await apiRequest("/api/broker/status?broker=mt5", userA.token, "POST", {}, "Create Customer A Demo request");
   const brokerB = await apiRequest("/api/broker/status?broker=mt5", userB.token, "POST", {}, "Create Customer B Demo request");
