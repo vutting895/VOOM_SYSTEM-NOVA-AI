@@ -85,7 +85,12 @@
     "csv_present": false,
     "coverage_start_utc": "2022-07-21T00:00:00Z",
     "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
-    "policy": "fail_closed_until_csv_is_present_and_coverage_validated"
+    "policy": "fail_closed_until_csv_is_present_and_coverage_validated",
+    "active_terminal_profile": "Exness-MT5Trial7 (demo)",
+    "exporter_deployed_to_active_terminal": true,
+    "compiled_in_active_terminal": "0 errors, 0 warnings",
+    "manual_action_required": "Run Navigator > Scripts > VOOM > Export_USD_High_Impact in the active Exness terminal; accept the default coverage inputs; verify NEWS_EXPORT_SUCCESS in Experts tab.",
+    "execution_blocker": "Remote keyboard/UI injection was denied by the Windows desktop session; no script run was claimed and no partial CSV was accepted."
   },
   "production": {
     "performance_gate": "blocked",
