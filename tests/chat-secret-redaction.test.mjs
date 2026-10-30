@@ -12,9 +12,10 @@ test('redacts labeled API keys, passwords and access tokens', () => {
 });
 
 test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', () => {
-  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890';
+  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 Authorization: Basic dXNlcjpwYXNzd29yZA== https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /Bearer abcdefghijklmnopqrstuvwxyz123456/);
+  assert.doesNotMatch(result, /Basic dXNlcjpwYXNzd29yZA==/);
   assert.doesNotMatch(result, /token-value-123/);
   assert.doesNotMatch(result, /ghp_abcdefghijklmnopqrstuvwxyz1234567890/);
 });
