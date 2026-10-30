@@ -8,6 +8,8 @@ This project is a **disposable, local-only proof harness** for the candidate ded
 - A non-login function owner has SELECT on the decrypted view and EXECUTE on only the internal decrypt helper required by that view.
 - The runtime role can execute one fixed function in a non-exposed private schema.
 - anon, authenticated, and service_role cannot call that function.
+- The function owner receives EXECUTE on exactly the Vault decrypt helper that the `decrypted_secrets` view calls; it does not receive Vault base-table reads or unrelated Vault functions.
+- The runtime login receives no direct EXECUTE on Vault extension functions.
 - The function binds the supplied authenticated owner, tenant, connection, provider, environment, generation, and READY state to one exact secret.
 - Two synthetic customer fixtures cannot cross-read each other's connection.
 - The function has SECURITY DEFINER with an empty search_path.
