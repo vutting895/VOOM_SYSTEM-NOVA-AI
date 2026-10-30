@@ -251,3 +251,43 @@ test("Cloudflare rollback UI origin remains allowed", async () => {
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+test("Gemini is preferred for authenticated chat when configured and remains research-only", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/interactions");
+    assert.equal(init.headers["x-goog-api-key"], "gemini-test-key");
+    const req = JSON.parse(init.body);
+    assert.equal(req.store, false);
+    assert.match(req.system_instruction, /Live trading and order submission are disabled/);
+    return new Response(JSON.stringify({ status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Gemini research answer" }] }] }), { status: 200 });
+  };
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA" }] }),
+    }), { ...env, GEMINI_API_KEY: "gemini-test-key" });
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.provider, "gemini");
+    assert.equal(body.message, "Gemini research answer");
+    assert.equal(body.executionEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally { globalThis.fetch = original; }
+});
+
+test("configured Gemini failure returns 503 without silent provider switching", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url) === "https://supabase.example/auth/v1/user"
+    ? new Response(JSON.stringify({ id: "user-test" }), { status: 200 })
+    : new Response("private provider error", { status: 429 });
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+    }), { ...env, GEMINI_API_KEY: "gemini-test-key" });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "ai_provider_unavailable");
+  } finally { globalThis.fetch = original; }
+});
