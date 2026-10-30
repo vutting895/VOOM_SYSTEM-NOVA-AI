@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 const page = await readFile(new URL('../frontend/app/command-center/page.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../frontend/app/command-center/command-center.css', import.meta.url), 'utf8');
 const navigation = await readFile(new URL('../frontend/components/nova-navigation.jsx', import.meta.url), 'utf8');
+const frontendCi = await readFile(new URL('../.github/workflows/frontend-ci.yml', import.meta.url), 'utf8');
+const cloudflareDeploy = await readFile(new URL('../.github/workflows/cloudflare-deploy.yml', import.meta.url), 'utf8');
 const chatRoute = await readFile(new URL('../frontend/app/api/chat/route.js', import.meta.url), 'utf8');
 
 test('customer command center requires an authenticated Supabase session', () => {
@@ -67,4 +69,19 @@ test('customer identity changes clear tenant state and invalidate stale async re
   assert.match(page, /const identityChanged = identityRef\.current !== userId/);
   assert.match(page, /if \(generation !== requestGenerationRef\.current\) return/);
   assert.match(page, /identityRef\.current !== expectedUserId/);
+});
+
+
+test('PR Cloudflare preview is SHA-stamped, staging-only and isolated from production APIs', () => {
+  assert.match(frontendCi, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+  assert.match(frontendCi, /voom-system-nova-ui-pr85-preview/);
+  assert.match(frontendCi, /NEXT_PUBLIC_SUPABASE_URL: https:\/\/rovhmjeowracayicbqij\.supabase\.co/);
+  assert.match(frontendCi, /NEXT_PUBLIC_SYSTEM_HUB_URL: https:\/\/example\.invalid/);
+  assert.match(frontendCi, /NOVA_AI_API_URL:https:\/\/example\.invalid/);
+  assert.match(frontendCi, /MT5_READONLY_PROXY_URL:https:\/\/example\.invalid/);
+  assert.match(frontendCi, /NOVA_BUILD_SHA:\$sha/);
+});
+
+test('stable Cloudflare frontend deployment remains owner opt-in', () => {
+  assert.match(cloudflareDeploy, /vars\.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'/);
 });
