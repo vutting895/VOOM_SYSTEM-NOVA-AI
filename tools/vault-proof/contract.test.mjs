@@ -6,6 +6,7 @@ const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), 
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
 const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_proof.sql", import.meta.url), "utf8");
 const signedTests = readFileSync(new URL("./supabase/tests/signed_identity_assertion_proof.test.sql", import.meta.url), "utf8");
+const knownAnswerTest = readFileSync(new URL("./hmac-known-answer.test.mjs", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 
@@ -71,8 +72,15 @@ test("runtime role cannot directly read assertion key or nonce metadata", () => 
   assert.match(signedMigration, /revoke all on function nova_vault_private\.constant_time_equal_32/i);
 });
 
+test("Web Crypto and PostgreSQL pgcrypto share a fixed HMAC known-answer vector", () => {
+  assert.match(knownAnswerTest, /webcrypto\.subtle\.sign/);
+  assert.match(knownAnswerTest, /d43bad3836bb5b8e0e4e6b17ca558d1ce639e1d2cb22561ed11a45618c53d696/);
+  assert.match(signedTests, /PostgreSQL pgcrypto matches the Worker Web Crypto HMAC known-answer vector/);
+  assert.match(signedTests, /d43bad3836bb5b8e0e4e6b17ca558d1ce639e1d2cb22561ed11a45618c53d696/);
+});
+
 test("signed assertion pgTAP suite covers cross-owner forgery, expiry, capability, generation and replay", () => {
-  assert.match(signedTests, /extensions\.plan\(26\)/);
+  assert.match(signedTests, /extensions\.plan\(27\)/);
   assert.match(signedTests, /Customer A cannot forge Customer B owner, tenant and connection claims/i);
   assert.match(signedTests, /expired signed assertions are rejected/i);
   assert.match(signedTests, /future-dated assertions are rejected/i);
