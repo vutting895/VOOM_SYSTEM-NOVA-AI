@@ -6,8 +6,17 @@
   "workers_dev": true,
   "vars": {
     "ALLOWED_ORIGINS": "https://voomsystem.netlify.app,https://voom-system-nova-ui.suwapat787.workers.dev",
-    "MT5_READONLY_PROXY_URL": "https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
+    "MT5_READONLY_PROXY_URL": "https://voom-mt5-readonly-proxy.suwapat787.workers.dev",
+    "SENTINEL_ENABLED": "false"
   },
+  "durable_objects": {
+    "bindings": [
+      { "name": "SENTINEL_STATE", "class_name": "SentinelState" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SentinelState"] }
+  ],
   "observability": {
     "enabled": true
   }

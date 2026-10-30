@@ -30,3 +30,12 @@ Before the control plane can report an Exness connection as data-verified, the a
 - No order-placement endpoint is implemented.
 - No broker password, access token, account payload, or bridge token is returned by the Hub.
 - The former `voom-alpaca-oauth` implementation is not used by this Hub and its source folder is retired by a separate reviewed repository cleanup. This does not delete/disable a Worker in the Cloudflare account or drop any Supabase table/data; confirm provider-side consumers and retention before decommissioning. Keep applied Alpaca migration files as historical schema records.
+
+
+## NOVA Sentinel — bounded intrusion detection and response
+
+The System Hub includes the NOVA Sentinel implementation candidate in `sentinel.js`. It correlates repeated authentication failures and rejected Origins by a pseudonymous source-IP actor, and repeated resource probes by the authenticated user actor. It applies only short, actor-scoped HTTP cooldowns; it does not attack external hosts or revoke/delete resources.
+
+Sentinel is disabled by default (`SENTINEL_ENABLED=false`). If explicitly enabled, it requires the `SENTINEL_STATE` Durable Object binding and the out-of-band `SENTINEL_HASH_SECRET` Worker Secret. Do not add that secret to source control, GitHub Actions output, browser variables, chat, or AI/MCP payloads. Missing protection dependencies fail closed for protected routes only when the feature is explicitly enabled.
+
+See `docs/implementation/NOVA-SENTINEL-AUTONOMOUS-DEFENSE.md` for activation gates, event thresholds, privacy, false-positive considerations, and the limits of the first release. This is deterministic event correlation, not self-training ML; policy updates require review and regression tests.
