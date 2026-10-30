@@ -76,7 +76,7 @@ function validateDraft(raw, input, llm) {
     throw new Error('Invalid risk bounds');
   }
 
-  const usedModel = llm?.provider === 'cloudflare-workers-ai' && llm?.available === true;
+  const usedModel = ['gemini', 'cloudflare-workers-ai'].includes(llm?.provider) && llm?.available === true;
   return {
     id: `draft-${Date.now().toString(36)}`,
     name: typeof raw.name === 'string' ? raw.name.slice(0, 100) : 'NOVA AI Draft',
@@ -87,14 +87,14 @@ function validateDraft(raw, input, llm) {
     exit: { takeProfitPct, stopLossPct },
     rationale: typeof raw.rationale === 'string' ? raw.rationale.slice(0, 1200) : 'โมเดลไม่ได้ให้เหตุผล',
     userGoal: input.prompt,
-    source: usedModel ? 'cloudflare-workers-ai' : 'rule-based-fallback',
+    source: usedModel ? llm.provider : 'rule-based-fallback',
     modelUsed: usedModel && typeof (llm.model || raw.modelUsed) === 'string' ? (llm.model || raw.modelUsed) : null,
     status: 'draft',
     createdAt: new Date().toISOString(),
     executionEnabled: false,
     backtestStatus: 'not_run',
     warning: usedModel
-      ? 'สร้างด้วย Cloudflare Workers AI และตรวจ schema แล้ว แต่ยังไม่ผ่าน Backtest/Risk Engine และห้ามใช้เป็นคำสั่งซื้อขาย'
+      ? `สร้างด้วย ${llm.provider === 'gemini' ? 'Google Gemini' : 'Cloudflare Workers AI'} และตรวจ schema แล้ว แต่ยังไม่ผ่าน Backtest/Risk Engine และห้ามใช้เป็นคำสั่งซื้อขาย`
       : 'ผลนี้เป็น rule-based fallback ไม่ใช่ผลจาก LLM และยังไม่ผ่าน Backtest/Risk Engine',
   };
 }
@@ -174,11 +174,12 @@ export async function POST(request) {
     if (!response.ok || !payload?.strategy) throw new Error('NOVA AI Worker unavailable');
     llm = payload.llm && typeof payload.llm === 'object'
       ? {
-          provider: payload.llm.provider === 'cloudflare-workers-ai' && payload.llm.available === true
-            ? 'cloudflare-workers-ai'
+          provider: ['gemini', 'cloudflare-workers-ai'].includes(payload.llm.provider) && payload.llm.available === true
+            ? payload.llm.provider
             : 'fallback',
-          available: payload.llm.provider === 'cloudflare-workers-ai' && payload.llm.available === true,
+          available: ['gemini', 'cloudflare-workers-ai'].includes(payload.llm.provider) && payload.llm.available === true,
           model: typeof payload.llm.model === 'string' ? payload.llm.model : null,
+          fallbackFrom: payload.llm.fallbackFrom === 'gemini' ? 'gemini' : null,
         }
       : { provider: 'fallback', available: false, model: null };
     strategy = validateDraft(payload.strategy, input, llm);

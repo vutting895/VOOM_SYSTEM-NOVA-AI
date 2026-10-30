@@ -46,7 +46,7 @@ export default function GenAIPage() {
       if (!response.ok) throw new Error(data.error || 'สร้างร่างกลยุทธ์ไม่สำเร็จ');
       if (!data.strategy) throw new Error('API ไม่ได้ส่งข้อมูล strategy กลับมา');
       setStrategy(data.strategy);
-      setProvider(data.llm?.provider === 'cloudflare-workers-ai' && data.llm?.available ? 'Cloudflare Workers AI' : 'Rule-based fallback');
+      setProvider(data.llm?.available && data.llm?.provider === 'gemini' ? 'Google Gemini' : data.llm?.available && data.llm?.provider === 'cloudflare-workers-ai' ? 'Cloudflare Workers AI' : 'Rule-based fallback');
     } catch (err) {
       setError(err.message || 'ไม่สามารถเรียกบริการสร้างกลยุทธ์ได้');
     } finally {
@@ -102,7 +102,7 @@ export default function GenAIPage() {
         <section className="nova-panel" aria-live="polite">
           <h2>ผลลัพธ์กลยุทธ์</h2>
           {!strategy ? (
-            <div className="nova-empty">กรอกโจทย์แล้วกดสร้าง ระบบจะเรียก Cloudflare Workers AI ผ่าน NOVA AI Worker หลังตรวจ session หาก AI ไม่พร้อมจะแสดง rule-based fallback พร้อมป้ายกำกับ</div>
+            <div className="nova-empty">กรอกโจทย์แล้วกดสร้าง ระบบจะเรียก Google Gemini ผ่าน NOVA AI Worker เป็นหลัก และใช้ Cloudflare Workers AI เป็นตัวสำรองหลังตรวจ session หาก AI ทั้งสองไม่พร้อมจะแสดง rule-based fallback พร้อมป้ายกำกับ</div>
           ) : (
             <div>
               <span className="nova-pill">DRAFT · NOT BACKTESTED</span>
@@ -137,7 +137,7 @@ export default function GenAIPage() {
         <div className="nova-notice" style={{ marginBottom: 0 }}><strong>Auto-Learning Loop</strong><p>ควรเปิดวงจรเรียนรู้อัตโนมัติหลังมีข้อมูล Backtest ที่ทำซ้ำได้, guardrails, การประเมิน out-of-sample และการอนุมัติที่ตรวจสอบย้อนกลับได้เท่านั้น</p></div>
       </section>
 
-      <footer className="nova-footer">API: /api/gen-ai/generate → Cloudflare Workers AI · Draft only · Live Trading OFF</footer>
+      <footer className="nova-footer">API: /api/gen-ai/generate → Google Gemini · Cloudflare Workers AI backup · Draft only · Live Trading OFF</footer>
     </main>
   );
 }

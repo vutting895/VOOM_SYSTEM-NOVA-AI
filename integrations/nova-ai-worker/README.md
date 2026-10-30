@@ -26,3 +26,14 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## Google Gemini provider
+
+- Gemini is preferred when the Worker secret `GEMINI_API_KEY` is configured. Optional non-secret `GEMINI_MODEL` selects a supported model; default: `gemini-flash-latest`.
+- Requests use the Gemini Interactions API from the Worker only, with the key in the `x-goog-api-key` header. The key is never placed in a URL, response, browser bundle, or logs.
+- Gemini receives bounded chat text or validated strategy input only. No tools/function calling, broker credentials, private account data, or order capabilities are provided.
+- If Gemini is not configured, the existing Cloudflare Workers AI path remains active. If Gemini is configured but fails or returns invalid output, the Worker explicitly falls back to Cloudflare Workers AI and returns `provider: cloudflare-workers-ai` plus `fallbackFrom: gemini`. If both providers are unavailable, chat fails closed and strategy generation returns a clearly labelled, non-executable rule-based fallback.
+- Configure with `npx wrangler secret put GEMINI_API_KEY` from this directory. Do not commit the value. Set `GEMINI_MODEL` as a non-secret Worker variable only if needed.
+- `GET /health` reports only whether the Gemini secret is configured, never its value.
+- Billable Gemini and Cloudflare AI calls require the Cloudflare Worker rate-limit binding `AI_RATE_LIMITER`. It is keyed by the authenticated Supabase user ID, limited to 30 requests per 60 seconds, and fails closed with HTTP 503 if the binding is unavailable or HTTP 429 when the limit is exceeded. Cloudflare's built-in limiter is approximate and location-local, not a strict global billing cap; enforce provider-side quotas as an additional spend safeguard.
+- The rate-limit binding is enforced before both chat and strategy-generation provider calls. Its health status is exposed only as a boolean.
