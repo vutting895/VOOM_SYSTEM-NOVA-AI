@@ -71,6 +71,7 @@ test("contract schemas are strict and match the selected separate custody API", 
   assert.match(threatModel, /service_role/i);
   assert.match(apiContract, /OUTCOME_UNKNOWN/);
   assert.match(apiContract, /Idempotency-Key/);
+  assert.match(apiContract, /Cache-Control: no-store/);
 });
 
 test("provider operation request accepts only connection, capability, policy and bounded parameters", () => {
