@@ -247,3 +247,21 @@ This section records changes after the previous evidence snapshot. It distinguis
 6. PR #35 remains Draft for the source-consolidation safety hold. PRs #5, #51, #66, and #67 remain staged/draft work for alternate MCP, headless Bridge, Wave3/SMC research, and durable approval lifecycle; none is authorized as production execution code.
 
 **Safety invariant:** Exness Demo only; Read-only + AI Analysis; `order_submission_enabled=false`; Live Trading OFF. A green route smoke test does not authorize broker writes, automatic RL activation, or skipping tenant isolation.
+
+## 11. Supabase Free approval verification — 2026-10-30
+
+### Free replacement and evidence
+- Kept the existing Supabase project on the Free plan. No paid Supabase development branch was created; no hosted Supabase compute was incurred for this test.
+- PR #67 runs a disposable Supabase Local Stack inside GitHub Actions with Docker. It uses generated local-only API/Auth keys and localhost URLs, applies only `202610270001_mt5_customer_connections.sql`, `202610300001_nova_durable_approval_lifecycle.sql`, and a temporary `pgcrypto` bootstrap, then stops the stack.
+- The test creates two throwaway users through local Supabase Auth, signs in through the password grant to obtain real Auth-issued JWTs, and calls the actual Next.js approval API routes plus local PostgREST.
+- Local acceptance passed: unauthenticated request is 401; owner A can create/list a thread and create/read/approve a draft; owner B cannot see A's thread, create within A's thread, list A's approvals, or resolve A's approval; replay is rejected; owner A can read their Exness MT5 Demo pending connection and owner B receives no row under RLS.
+- Frontend CI run [40982606442](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40982606442) passed on merged-main-based PR head `840fa1cf41c60340da479a61e3b0d58885ef5322`, including the approval contracts, Netlify-aligned frontend build, MT5 read-only, tenant guard, and proxy/relay checks. The Netlify Production smoke job is skipped for pull-request events, as expected.
+- NOVA Approval Migration CI run [40982606572](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/40982606572) passed both jobs: ephemeral PostgreSQL migration/owner isolation, and local Supabase Auth + PostgREST + Next.js API isolation.
+- The MT5 proxy test's foreign connection ID case returns 404 and asserts zero **mocked** outbound Relay calls. This is not a live production Relay request or production telemetry.
+
+### What remains separate
+- The hosted `Voom_system` database has not received this approval migration. No hosted test users/connections, production flags, secrets, DNS, hosting configuration or broker settings were changed.
+- Real hosted email OTP/browser-session acceptance and the hosted Supabase Auth/Data API -> System Hub -> MT5 Proxy -> Relay chain remain unverified. Do not use production as a test tenant. Only run a hosted test later if a no-cost isolated environment is already available.
+- PR #67 remains Draft and unmerged. `main` now uses Netlify as the primary frontend host; the Cloudflare deployment workflow is backend-only. A merge can start the Netlify Git-integrated Production build, so keep the release gate separate and obtain explicit production-release approval before merging.
+- Supabase Free limitations (including the plan-gated leaked-password protection setting) remain plan-gated; do not upgrade the plan or add billing to close this test.
+- Preserve the mandatory safety invariant: Exness Demo only, Read-only + AI Analysis, no broker order submission or position mutation, Live Trading OFF.
