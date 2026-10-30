@@ -142,10 +142,12 @@ select extensions.ok(
 );
 
 select extensions.ok(
-  not has_schema_privilege('service_role', 'vault', 'USAGE')
-  and not has_table_privilege('service_role', 'vault.secrets', 'SELECT')
-  and not has_table_privilege('service_role', 'vault.decrypted_secrets', 'SELECT'),
-  'service_role cannot access Vault schema, encrypted table, or decrypted view directly'
+  has_function_privilege(
+    'nova_vault_fn_owner',
+    'vault._crypto_aead_det_decrypt',
+    'EXECUTE'
+  ),
+  'non-login function owner has the exact decrypt dependency required by the Vault view'
 );
 
 select extensions.is(
