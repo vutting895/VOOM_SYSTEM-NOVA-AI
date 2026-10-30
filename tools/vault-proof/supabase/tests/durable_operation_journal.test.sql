@@ -1,5 +1,5 @@
 -- Local-only proof of durable operation idempotency and ambiguous provider outcome handling.
-select extensions.plan(12);
+select extensions.plan(13);
 
 select extensions.is(
   nova_vault_private.claim_operation(
@@ -73,7 +73,6 @@ select extensions.is(
 
 select extensions.is(
   nova_vault_private.get_operation_result(
-    'proof-hmac-v1',
     '10000000-0000-4000-8000-000000000201',
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000011'
@@ -84,13 +83,38 @@ select extensions.is(
 
 select extensions.is(
   nova_vault_private.get_operation_result(
-    'proof-hmac-v1',
     '10000000-0000-4000-8000-000000000201',
     '00000000-0000-4000-8000-000000000002',
     '00000000-0000-4000-8000-000000000012'
   ),
   null,
   'foreign owner and tenant cannot recover the prior result'
+);
+
+insert into nova_vault_private.assertion_keys(key_id, secret_id, key_status)
+values (
+  'proof-hmac-v2',
+  vault.create_secret(
+    'RkFLRS1MT0NBT C1PTkxZLUhNQUMtS0VZLTI=',
+    'nova-vault-proof-hmac-v2',
+    'Synthetic rotated HMAC key for local idempotency proof only'
+  ),
+  'ACTIVE'
+);
+
+select extensions.is(
+  nova_vault_private.claim_operation(
+    'proof-hmac-v2',
+    '10000000-0000-4000-8000-000000000201',
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000011',
+    '00000000-0000-4000-8000-000000000101',
+    'proof_provider', 'demo',
+    pg_catalog.decode(repeat('11', 32), 'hex'),
+    '20000000-0000-4000-8000-000000000207'
+  ),
+  'REPLAY_SUCCEEDED',
+  'signing-key rotation cannot bypass tenant-scoped operation idempotency'
 );
 
 select extensions.throws_ok(
@@ -157,7 +181,6 @@ select extensions.lives_ok(
 
 select extensions.is(
   nova_vault_private.get_operation_result(
-    'proof-hmac-v1',
     '10000000-0000-4000-8000-000000000202',
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000011'
