@@ -121,9 +121,6 @@ def append_evidence_event(
     validates its shape but cannot authenticate or authorize the caller.
     """
     verified = verify_evidence_event_chain(existing_events)
-    if len(verified) >= _MAX_EVENTS:
-        raise ContractValidationError(f"event chain exceeds {_MAX_EVENTS} events")
-
     normalized_event_id = _id(event_id, "event_id")
     normalized_research_id = _id(research_id, "research_id")
     normalized_owner_id = _id(owner_id, "owner_id")
@@ -132,8 +129,28 @@ def append_evidence_event(
     normalized_recorded_at = _iso_timestamp(recorded_at, "recorded_at")
     normalized_payload = _copy_payload(payload)
 
-    if any(item["event_id"] == normalized_event_id for item in verified):
-        raise ContractValidationError("event_id already exists in this chain")
+    existing = next(
+        (item for item in verified if item["event_id"] == normalized_event_id),
+        None,
+    )
+    if existing is not None:
+        same_intent = (
+            existing["research_id"] == normalized_research_id
+            and existing["owner_id"] == normalized_owner_id
+            and existing["event_type"] == event_type
+            and existing["recorded_at"] == normalized_recorded_at
+            and existing["payload"] == normalized_payload
+        )
+        if same_intent:
+            # event_id is the idempotency key: a retry returns the already
+            # committed event, including when later events have been appended.
+            return dict(existing)
+        raise ContractValidationError(
+            "event_id already exists with different event content"
+        )
+
+    if len(verified) >= _MAX_EVENTS:
+        raise ContractValidationError(f"event chain exceeds {_MAX_EVENTS} events")
 
     if verified:
         previous = verified[-1]
