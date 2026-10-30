@@ -5,6 +5,8 @@ const base = process.env.NOVA_STAGING_SUPABASE_URL || "";
 const publishableKey = process.env.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY || "";
 const serviceRoleKey = process.env.NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY || "";
 const appUrl = (process.env.NOVA_STAGING_APP_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
+// Optional short-lived CAPTCHA token for staging sign-in; never log or persist it.
+const captchaToken = process.env.NOVA_STAGING_CAPTCHA_TOKEN || "";
 const expectedBase = "https://rovhmjeowracayicbqij.supabase.co";
 
 for (const [name, value] of [
@@ -125,7 +127,7 @@ async function createTestUser(label) {
       Accept: "application/json",
       "Content-Type": "application/json",
     }),
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, ...(captchaToken ? { gotrue_meta_security: { captcha_token: captchaToken } } : {}) }),
   }, "Sign in temporary staging user");
   assert.ok(typeof signedIn.payload?.access_token === "string", "Password sign-in did not return an access token");
   assert.equal(signedIn.payload?.user?.id, id, "Signed-in identity does not match created test user");
