@@ -35,6 +35,7 @@ export default function ApprovalCard({ approval, busy = false, onDecision, onRev
   if (!approval?.id || !approval?.proposal) return null;
 
   const expired = approval.status === 'pending'
+    && approval.server_confirmed_pending !== true
     && Number.isFinite(Date.parse(approval.expires_at))
     && Date.parse(approval.expires_at) <= Date.now();
 
