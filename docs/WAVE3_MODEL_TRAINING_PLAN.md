@@ -63,3 +63,10 @@ The full local run completed successfully: all five chronological walk-forward f
 The result is a successful training and verification run, **not** a successful trading-performance result. The specified v6.2.6.3 rules currently admit no final-OOS trades and classification remains below baseline. Do not activate the model or infer WR 92.3% / PF 5.10 from the supplied target claims. Additional evidence needed to evaluate a possible rule interpretation is a genuine historical high-impact calendar plus review of how SMC components should combine across a setup; this branch has not weakened any gate to manufacture signals. Live Trading and order submission remain OFF.
 
 The prior deep_mlp.joblib artifact is retained in the repository for audit/provenance and is not used by the v6.2.6.3 pipeline; the active deep model is deep_lstm.pt.
+
+
+## Automatic model tuning — nested and bounded
+
+A deterministic seeded search now runs independently inside each outer walk-forward training window. It evaluates the baseline plus three XGBoost hyperparameter candidates over two chronological inner validation windows. Each inner split purges the 12-bar label horizon before validation. Candidate comparison uses the fixed 60% XGB / 40% 60-bar LSTM ensemble and a composite score of balanced accuracy, macro-F1, and normalized multiclass log loss, with a penalty for fold-to-fold score variability. The selected XGB parameters are then refit on the full outer training window before evaluation on its later outer test window.
+
+The final model's tuning uses only data before 2026-07-01. Final OOS is not read by the tuner and is not used for feature selection, hyperparameter selection, or thresholds. The strategy contract is immutable during tuning: SMC >=85, Fib >=80, XGB >=75%, LSTM >=80%, ensemble >=85%, 60/40 model weights, and all other entry/risk gates remain fixed. Tuning changes model capacity/regularization only; it is not allowed to relax the entry checklist or force trades. All trials, inner-fold metrics, selected hyperparameters, and fixed-gate declarations are written to reports/wave3_auto_tuning_history.json and model_manifest.json.

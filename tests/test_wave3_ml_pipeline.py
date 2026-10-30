@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "workers" / "strategy"))
 from wave3_ml_pipeline import (
     HORIZON_BARS, _train_mask, backtest_window, build_causal_features,
-    load_bars, make_labeled_frame,
+    load_bars, make_labeled_frame, build_inner_validation_splits,
+    generate_xgb_tuning_candidates, HORIZON_BARS,
 )
 
 
@@ -97,6 +98,31 @@ class TestWave3Pipeline(unittest.TestCase):
         changed.loc[600:, ["open", "high", "low", "close"]] *= 1.1
         after = build_causal_features(changed).iloc[:500]
         np.testing.assert_allclose(before.to_numpy(), after.to_numpy(), equal_nan=True, rtol=0, atol=0)
+
+
+    def test_auto_tuning_splits_are_chronological_and_purged(self):
+        timestamps = pd.date_range("2023-01-01", periods=10000, freq="15min", tz="UTC")
+        meta = pd.DataFrame({"timestamp": timestamps})
+        splits = build_inner_validation_splits(meta)
+        self.assertEqual(len(splits), 2)
+        for split in splits:
+            train_last = meta["timestamp"].iloc[split["train_indices"][-1]]
+            validation_start = pd.Timestamp(split["validation_start"])
+            self.assertLess(train_last, validation_start - pd.Timedelta(minutes=15 * HORIZON_BARS))
+            self.assertGreater(split["validation_indices"][0], split["train_indices"][-1])
+            self.assertEqual(split["purge_bars"], HORIZON_BARS)
+
+    def test_auto_tuning_candidates_are_deterministic_and_bounded(self):
+        first = generate_xgb_tuning_candidates(4)
+        second = generate_xgb_tuning_candidates(4)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 4)
+        self.assertEqual(first[0]["max_depth"], 4)
+        for candidate in first:
+            self.assertIn(candidate["max_depth"], (3, 4, 5))
+            self.assertIn(candidate["n_estimators"], (100, 120, 140, 160, 180))
+            self.assertGreaterEqual(candidate["learning_rate"], 0.025)
+            self.assertLessEqual(candidate["learning_rate"], 0.06)
 
     def test_load_bars_rejects_bad_candle(self):
         frame = synthetic_bars(3500)

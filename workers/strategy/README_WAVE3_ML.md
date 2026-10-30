@@ -14,13 +14,14 @@ Omit `--news-calendar` only for a fail-closed diagnostic run; without the histor
 Input data is the exported Exness MT5 Demo XAUUSDm, M15 bar series in UTC. Labels use a 12-bar forward horizon, with a movement threshold at least twice the recorded spread or 0.35 ATR times the square root of the horizon. Features are generated causally; each pivot is available only after its right-side confirmation bars have closed. The trainer purges 12 bars before each walk-forward boundary.
 
 The training script creates:
+- reports/wave3_auto_tuning_history.json
 - models/wave3_xgb_deep/xgb_model.json
 - models/wave3_xgb_deep/deep_lstm.pt
 - models/wave3_xgb_deep/model_manifest.json
 - reports/wave3_exness_xauusdm_m15_report.json
 - reports/wave3_final_oos_trades.csv
 
-The fixed walk-forward test periods are 2024-H1, 2024-H2, 2025-H1, 2025-H2 and 2026-H1, with the final holdout from 2026-07-01 to the latest labeled bar. The BUY gate follows v6.2.6.3: XGB >=75%, LSTM over the previous 60 M15 bars >=80%, both choose BUY, and their 60/40 ensemble must be >=85%. No lower threshold grid is used to force trades.
+The automatic tuner runs inside each outer training window: four deterministic XGBoost candidates are scored on two expanding chronological inner validation windows, with a 12-bar purge at each boundary. The selected XGB parameters are refit with the fixed 60-bar LSTM, then evaluated on the untouched outer window. The Final OOS from 2026-07-01 is never used for tuning. The BUY gate follows v6.2.6.3: XGB >=75%, LSTM over the previous 60 M15 bars >=80%, both choose BUY, and their 60/40 ensemble must be >=85%. No lower threshold grid is used to force trades. The tuner does not change SMC/Fibonacci/RSI/volume/spread/news rules, XGB/LSTM confidence minima, ensemble weights, or risk controls; only XGB model hyperparameters are selected.
 
 ## Backtest assumptions / limitations
 

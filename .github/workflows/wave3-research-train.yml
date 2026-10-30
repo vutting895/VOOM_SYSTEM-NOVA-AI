@@ -32,6 +32,7 @@ jobs:
           path: |
             models/wave3_xgb_deep/
             reports/wave3_exness_xauusdm_m15_report.json
+            reports/wave3_auto_tuning_history.json
             reports/wave3_final_oos_trades.csv
           if-no-files-found: error
           retention-days: 30

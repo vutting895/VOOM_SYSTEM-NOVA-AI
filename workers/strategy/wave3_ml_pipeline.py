@@ -30,7 +30,9 @@ MAX_HOLD_BARS = 12
 SLIPPAGE_PRICE_PER_SIDE = 0.02
 COMMISSION_PER_LOT_PER_SIDE_USD = 0.0  # Assumption only; the small deal sample cannot verify account commission.
 CONTRACT_SIZE = 100.0
-PROBABILITY_THRESHOLD = 0.85  # 60% XGB + 40% LSTM combined probability
+PROBABILITY_THRESHOLD = 0.85  # Fixed v6.2.6.3 gate; auto-tuning may not change strategy thresholds.
+AUTO_TUNING_TRIALS = 4
+AUTO_TUNING_FOLDS = ((0.62, 0.75), (0.82, 0.95))
 PROBABILITY_MARGIN = 0.0
 XGB_MIN_CONFIDENCE = 0.75
 LSTM_MIN_CONFIDENCE = 0.80
@@ -413,18 +415,30 @@ def _align_probabilities(prob: np.ndarray, classes: np.ndarray) -> np.ndarray:
     return aligned
 
 
-def _build_models(X: pd.DataFrame, y: pd.Series):
+
+def _fit_xgb(X: pd.DataFrame, y: pd.Series, hyperparameters: dict[str, Any] | None = None):
     if set(np.unique(y)) != {0, 1, 2}:
         raise ValueError(f"training split must contain all labels; found={sorted(np.unique(y).tolist())}")
-    weights = compute_sample_weight(class_weight="balanced", y=y)
-    xgb = XGBClassifier(
-        n_estimators=140, max_depth=4, learning_rate=0.04, subsample=0.85,
-        colsample_bytree=0.85, min_child_weight=8, reg_lambda=5.0,
-        objective="multi:softprob", num_class=3, eval_metric="mlogloss",
+    params = {
+        "n_estimators": 140, "max_depth": 4, "learning_rate": 0.04,
+        "subsample": 0.85, "colsample_bytree": 0.85, "min_child_weight": 8,
+        "reg_lambda": 5.0,
+    }
+    if hyperparameters:
+        params.update(hyperparameters)
+    model = XGBClassifier(
+        **params, objective="multi:softprob", num_class=3, eval_metric="mlogloss",
         tree_method="hist", n_jobs=4, random_state=SEED, verbosity=0,
     )
-    xgb.fit(X, y, sample_weight=weights, verbose=False)
+    weights = compute_sample_weight(class_weight="balanced", y=y)
+    model.fit(X, y, sample_weight=weights, verbose=False)
+    return model, params
 
+
+def _fit_lstm(X: pd.DataFrame, y: pd.Series):
+    if set(np.unique(y)) != {0, 1, 2}:
+        raise ValueError(f"LSTM training split must contain all labels; found={sorted(np.unique(y).tolist())}")
+    torch.manual_seed(SEED)
     scaler = StandardScaler()
     scaled = scaler.fit_transform(X).astype(np.float32)
     dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64))
@@ -453,13 +467,19 @@ def _build_models(X: pd.DataFrame, y: pd.Series):
         losses.append(round(total_loss / max(total_rows, 1.0), 6))
     lstm.eval()
     setattr(lstm, "_training_losses", losses)
+    return scaler, lstm
+
+
+def _build_models(X: pd.DataFrame, y: pd.Series,
+                  xgb_hyperparameters: dict[str, Any] | None = None):
+    xgb, selected_params = _fit_xgb(X, y, xgb_hyperparameters)
+    scaler, lstm = _fit_lstm(X, y)
+    setattr(xgb, "_voom_hyperparameters", selected_params)
     return xgb, scaler, lstm
 
 
-def predict_model_probabilities(X: pd.DataFrame, models, context_features: pd.DataFrame | None = None):
-    """Return independent XGB/LSTM probabilities; context supplies preceding known bars for the LSTM."""
-    xgb, scaler, lstm = models[:3]
-    xgb_prob = _align_probabilities(xgb.predict_proba(X), np.asarray(xgb.classes_))
+def _predict_lstm_probabilities(X: pd.DataFrame, scaler, lstm,
+                                context_features: pd.DataFrame | None = None) -> np.ndarray:
     if context_features is not None and len(context_features):
         history = context_features.tail(LSTM_SEQUENCE_LENGTH - 1)
         combined = pd.concat([history, X], ignore_index=True)
@@ -475,13 +495,23 @@ def predict_model_probabilities(X: pd.DataFrame, models, context_features: pd.Da
     with torch.no_grad():
         for batch_x in loader:
             chunks.append(torch.softmax(lstm(batch_x), dim=1).cpu().numpy())
-    lstm_prob = np.concatenate(chunks, axis=0) if chunks else np.empty((0, 3), dtype=float)
+    probabilities = np.concatenate(chunks, axis=0) if chunks else np.empty((0, 3), dtype=float)
     if context_features is not None and len(context_features):
-        lstm_prob = lstm_prob[-prediction_count:]
-        if len(lstm_prob) != len(X):
-            raise RuntimeError(f"LSTM prediction rows mismatch: expected={len(X)} actual={len(lstm_prob)}")
-    else:
-        xgb_prob = xgb_prob[-prediction_count:]
+        probabilities = probabilities[-prediction_count:]
+        if len(probabilities) != len(X):
+            raise RuntimeError(f"LSTM prediction rows mismatch: expected={len(X)} actual={len(probabilities)}")
+    return probabilities
+
+
+def predict_model_probabilities(X: pd.DataFrame, models, context_features: pd.DataFrame | None = None):
+    """Return independent XGB/LSTM probabilities; context supplies preceding known bars for the LSTM."""
+    xgb, scaler, lstm = models[:3]
+    xgb_prob = _align_probabilities(xgb.predict_proba(X), np.asarray(xgb.classes_))
+    lstm_prob = _predict_lstm_probabilities(X, scaler, lstm, context_features)
+    if context_features is None or not len(context_features):
+        xgb_prob = xgb_prob[-len(lstm_prob):]
+    if len(xgb_prob) != len(lstm_prob):
+        raise RuntimeError(f"XGB/LSTM prediction rows mismatch: xgb={len(xgb_prob)} lstm={len(lstm_prob)}")
     return xgb_prob, lstm_prob
 
 
@@ -778,9 +808,156 @@ def _rule_gate_diagnostics(features: pd.DataFrame, raw_indices: np.ndarray,
     return result
 
 
+
+def build_inner_validation_splits(meta_train: pd.DataFrame) -> list[dict[str, Any]]:
+    """Create strictly chronological inner validation windows with a 12-bar label purge."""
+    if "timestamp" not in meta_train.columns:
+        raise ValueError("inner tuning metadata requires timestamp")
+    timestamps = pd.to_datetime(meta_train["timestamp"], utc=True).reset_index(drop=True)
+    n = len(timestamps)
+    splits: list[dict[str, Any]] = []
+    for fold_number, (start_fraction, end_fraction) in enumerate(AUTO_TUNING_FOLDS, start=1):
+        validation_start = min(n - 1, int(n * start_fraction))
+        validation_end = min(n, max(validation_start + 1, int(n * end_fraction)))
+        start_time = timestamps.iloc[validation_start]
+        cutoff = start_time - pd.Timedelta(minutes=15 * HORIZON_BARS)
+        train_indices = np.flatnonzero((timestamps < cutoff).to_numpy())
+        validation_indices = np.arange(validation_start, validation_end, dtype=int)
+        if len(train_indices) < 5000 or len(validation_indices) < 300:
+            continue
+        splits.append({
+            "fold": fold_number,
+            "train_indices": train_indices,
+            "validation_indices": validation_indices,
+            "validation_start": start_time.isoformat(),
+            "validation_end_exclusive": timestamps.iloc[validation_end - 1].isoformat(),
+            "purge_bars": HORIZON_BARS,
+            "train_rows": int(len(train_indices)),
+            "validation_rows": int(len(validation_indices)),
+        })
+    return splits
+
+
+def generate_xgb_tuning_candidates(n_trials: int = AUTO_TUNING_TRIALS) -> list[dict[str, Any]]:
+    """Seeded, reproducible search. The baseline configuration is always included."""
+    if not 1 <= int(n_trials) <= 12:
+        raise ValueError("n_trials must be between 1 and 12")
+    candidates = [{
+        "n_estimators": 140, "max_depth": 4, "learning_rate": 0.04,
+        "subsample": 0.85, "colsample_bytree": 0.85, "min_child_weight": 8,
+        "reg_lambda": 5.0,
+    }]
+    rng = np.random.default_rng(SEED)
+    seen = {tuple(sorted(candidates[0].items()))}
+    while len(candidates) < int(n_trials):
+        candidate = {
+            "n_estimators": int(rng.choice([100, 120, 140, 160, 180])),
+            "max_depth": int(rng.choice([3, 4, 5])),
+            "learning_rate": float(rng.choice([0.025, 0.03, 0.04, 0.05, 0.06])),
+            "subsample": float(rng.choice([0.75, 0.80, 0.85, 0.90, 0.95])),
+            "colsample_bytree": float(rng.choice([0.75, 0.80, 0.85, 0.90, 0.95])),
+            "min_child_weight": int(rng.choice([5, 8, 10, 12])),
+            "reg_lambda": float(rng.choice([2.0, 3.0, 5.0, 8.0, 10.0])),
+        }
+        key = tuple(sorted(candidate.items()))
+        if key not in seen:
+            candidates.append(candidate)
+            seen.add(key)
+    return candidates
+
+
+def auto_tune_xgb(X_train: pd.DataFrame, y_train: pd.Series, meta_train: pd.DataFrame,
+                  n_trials: int = AUTO_TUNING_TRIALS, study_name: str = "training-window") -> dict[str, Any]:
+    """Tune XGB on past-only inner windows; keep LSTM 60-bar and all v6.2.6.3 gates fixed."""
+    splits = build_inner_validation_splits(meta_train.reset_index(drop=True))
+    candidates = generate_xgb_tuning_candidates(n_trials)
+    if not splits:
+        return {
+            "status": "skipped_insufficient_inner_rows", "study_name": study_name,
+            "selected_parameters": candidates[0], "trials": [],
+            "note": "No valid purged inner validation windows; use baseline XGB parameters.",
+        }
+
+    trial_scores: list[list[float]] = [[] for _ in candidates]
+    trial_folds: list[list[dict[str, Any]]] = [[] for _ in candidates]
+    for split in splits:
+        train_indices = split["train_indices"]
+        validation_indices = split["validation_indices"]
+        X_fit, y_fit = X_train.iloc[train_indices], y_train.iloc[train_indices]
+        X_validation, y_validation = X_train.iloc[validation_indices], y_train.iloc[validation_indices]
+        context_start = max(0, int(validation_indices[0]) - LSTM_SEQUENCE_LENGTH + 1)
+        sequence_context = X_train.iloc[context_start:int(validation_indices[0])]
+        # Fit the deep model once per temporal fold; each XGB candidate is tested against
+        # the identical LSTM probabilities to make candidate comparisons paired.
+        lstm_scaler, lstm_model = _fit_lstm(X_fit, y_fit)
+        lstm_prob = _predict_lstm_probabilities(X_validation, lstm_scaler, lstm_model, sequence_context)
+        y_values = y_validation.to_numpy(dtype=int)
+        one_hot = np.eye(3, dtype=float)[y_values]
+        for trial_index, candidate in enumerate(candidates):
+            xgb_model, _ = _fit_xgb(X_fit, y_fit, candidate)
+            xgb_prob = _align_probabilities(xgb_model.predict_proba(X_validation), np.asarray(xgb_model.classes_))
+            ensemble_prob = ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
+            predicted = ensemble_prob.argmax(axis=1)
+            balanced = float(balanced_accuracy_score(y_values, predicted))
+            macro_f1 = float(f1_score(y_values, predicted, labels=[0, 1, 2], average="macro", zero_division=0))
+            clipped = np.clip(ensemble_prob, 1e-8, 1.0)
+            log_loss_value = float(-np.log(clipped[np.arange(len(y_values)), y_values]).mean())
+            normalized_log_score = max(0.0, 1.0 - min(1.0, log_loss_value / math.log(3.0)))
+            objective = 0.40 * balanced + 0.35 * macro_f1 + 0.25 * normalized_log_score
+            trial_scores[trial_index].append(objective)
+            trial_folds[trial_index].append({
+                "inner_fold": split["fold"],
+                "validation_start": split["validation_start"],
+                "validation_end_exclusive": split["validation_end_exclusive"],
+                "train_rows": split["train_rows"],
+                "validation_rows": split["validation_rows"],
+                "balanced_accuracy": round(balanced, 6),
+                "macro_f1": round(macro_f1, 6),
+                "log_loss": round(log_loss_value, 6),
+                "composite_score": round(objective, 6),
+            })
+
+    trials = []
+    for index, candidate in enumerate(candidates):
+        scores = trial_scores[index]
+        mean_score = float(np.mean(scores)) if scores else float("-inf")
+        score_std = float(np.std(scores)) if scores else float("inf")
+        robust_score = mean_score - 0.15 * score_std if scores else float("-inf")
+        trials.append({
+            "trial": index + 1, "parameters": candidate,
+            "mean_composite_score": round(mean_score, 6) if np.isfinite(mean_score) else None,
+            "score_std": round(score_std, 6) if np.isfinite(score_std) else None,
+            "robust_score": round(robust_score, 6) if np.isfinite(robust_score) else None,
+            "folds": trial_folds[index],
+        })
+    eligible = [trial for trial in trials if trial["robust_score"] is not None]
+    if not eligible:
+        selected = candidates[0]
+        selected_trial = None
+    else:
+        selected_trial = max(eligible, key=lambda item: item["robust_score"])
+        selected = selected_trial["parameters"]
+    return {
+        "status": "completed" if selected_trial else "fallback_baseline",
+        "study_name": study_name,
+        "search": "seeded_random_search",
+        "trials_requested": int(n_trials),
+        "trials_completed": len(eligible),
+        "inner_validation_folds": len(splits),
+        "objective": "0.40*balanced_accuracy + 0.35*macro_F1 + 0.25*(1-normalized_log_loss), minus 0.15*fold_score_std",
+        "purge_bars": HORIZON_BARS,
+        "selected_parameters": selected,
+        "selected_robust_score": selected_trial["robust_score"] if selected_trial else None,
+        "selected_trial": selected_trial["trial"] if selected_trial else None,
+        "trials": trials,
+        "strategy_gates_tuned": False,
+        "final_oos_used_for_tuning": False,
+    }
+
+
 def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: pd.Series,
               meta: pd.DataFrame, name: str, test_start: str, test_end: str,
-              news_safe: np.ndarray | None) -> dict[str, Any]:
+              news_safe: np.ndarray | None, tuning_trials: int) -> dict[str, Any]:
     start = pd.Timestamp(test_start, tz="UTC")
     end = pd.Timestamp(test_end, tz="UTC")
     train_idx = np.flatnonzero(_train_mask(meta, start))
@@ -791,8 +968,11 @@ def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: p
     X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
     sequence_context = X.iloc[max(0, int(test_idx[0]) - LSTM_SEQUENCE_LENGTH + 1):int(test_idx[0])]
-    print(f"[{name}] train={len(train_idx)} test={len(test_idx)} fitting XGB + 60-bar LSTM...", flush=True)
-    models = _build_models(X_train, y_train)
+    tuning = auto_tune_xgb(X_train, y_train, meta.iloc[train_idx].reset_index(drop=True),
+                           n_trials=tuning_trials, study_name=name)
+    print(f"[{name}] train={len(train_idx)} test={len(test_idx)} auto_tuning={tuning['status']} "
+          f"trials={tuning.get('trials_completed', 0)} fitting selected XGB + 60-bar LSTM...", flush=True)
+    models = _build_models(X_train, y_train, tuning["selected_parameters"])
     xgb_prob, lstm_prob = predict_model_probabilities(X_test, models, sequence_context)
     prob = ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
     pred = prob.argmax(axis=1)
@@ -810,12 +990,15 @@ def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: p
         "backtest": {k: v for k, v in bt.items() if k != "trades"},
         "trades": bt.get("trades", []),
         "xgb_trees": int(models[0].n_estimators),
+        "xgb_parameters": getattr(models[0], "_voom_hyperparameters", {}),
+        "auto_tuning": tuning,
         "lstm_training_losses": getattr(models[2], "_training_losses", []),
     }
 
 
 def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: str | Path,
-                   news_calendar_path: str | Path | None = None) -> dict[str, Any]:
+                   news_calendar_path: str | Path | None = None,
+                   tuning_trials: int = AUTO_TUNING_TRIALS) -> dict[str, Any]:
     frame = load_bars(data_path)
     news_safe = load_news_calendar(news_calendar_path, frame)
     raw_hash = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
@@ -839,7 +1022,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     ]
     fold_results = []
     for name, start, end in folds:
-        fold_results.append(_fold_run(frame, features, X, y, meta, name, start, end, news_safe))
+        fold_results.append(_fold_run(frame, features, X, y, meta, name, start, end, news_safe, tuning_trials))
 
     final_start = pd.Timestamp("2026-07-01", tz="UTC")
     train_idx = np.flatnonzero(_train_mask(meta, final_start))
@@ -849,8 +1032,12 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
     X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
     sequence_context = X.iloc[max(0, int(test_idx[0]) - LSTM_SEQUENCE_LENGTH + 1):int(test_idx[0])]
-    print(f"[FINAL_OOS_2026_H2] train={len(train_idx)} test={len(test_idx)} fitting final XGB + 60-bar LSTM artifacts...", flush=True)
-    models = _build_models(X_train, y_train)
+    final_tuning = auto_tune_xgb(X_train, y_train, meta.iloc[train_idx].reset_index(drop=True),
+                                 n_trials=tuning_trials, study_name="final_model_pre_2026_07_01")
+    print(f"[FINAL_OOS_2026_H2] train={len(train_idx)} test={len(test_idx)} "
+          f"selected XGB from {final_tuning.get('trials_completed', 0)} auto-tuning trials; "
+          "Final OOS is not used for tuning", flush=True)
+    models = _build_models(X_train, y_train, final_tuning["selected_parameters"])
     xgb_prob, lstm_prob = predict_model_probabilities(X_test, models, sequence_context)
     prob = ENSEMBLE_XGB_WEIGHT * xgb_prob + ENSEMBLE_LSTM_WEIGHT * lstm_prob
     pred = prob.argmax(axis=1)
@@ -884,9 +1071,9 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "final_oos_start": "2026-07-01T00:00:00+00:00", "label_horizon_bars": HORIZON_BARS,
         "label_threshold": "max(2 * recorded bar spread, 0.35 * ATR14 * sqrt(horizon))",
         "feature_columns": list(X.columns), "label_mapping": LABEL_NAMES,
-        "xgb_parameters": {"n_estimators": 140, "max_depth": 4, "learning_rate": 0.04,
-                           "subsample": 0.85, "colsample_bytree": 0.85, "min_child_weight": 8,
-                           "reg_lambda": 5.0, "tree_method": "hist", "seed": SEED},
+        "xgb_parameters": {**getattr(models[0], "_voom_hyperparameters", {}),
+                           "tree_method": "hist", "seed": SEED},
+        "auto_tuning": final_tuning,
         "deep_model": {"type": "PyTorch LSTMClassifier", "sequence_length_bars": LSTM_SEQUENCE_LENGTH,
                        "layers": [32, 32], "epochs": 4,
                        "training_loss_by_epoch": getattr(models[2], "_training_losses", []),
@@ -943,6 +1130,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "class_distribution_train": {LABEL_NAMES[k]: int((y_train == k).sum()) for k in LABEL_NAMES},
         "lstm_sequence_length_bars": LSTM_SEQUENCE_LENGTH,
         "lstm_training_losses": getattr(models[2], "_training_losses", []),
+        "auto_tuning": final_tuning,
     }
     gate_blockers = []
     if news_safe is None:
@@ -985,6 +1173,10 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
                  "first_timestamp_utc": ts0.isoformat(), "last_timestamp_utc": tsn.isoformat(),
                  "usable_labeled_rows": len(X), "symbol": "XAUUSDm", "timeframe": "M15"},
         "methodology": {
+            "auto_tuning": "Deterministic seeded XGB search with two inner chronological folds per outer training window; 12-bar label purge; XGB candidate is scored using the fixed 60/40 XGB+LSTM ensemble.",
+            "auto_tuning_trials_per_window": int(tuning_trials),
+            "strategy_entry_gates_are_fixed": True,
+            "final_oos_used_for_tuning": False,
             "chronological_walk_forward_folds": len(fold_results),
             "purge": f"{HORIZON_BARS} bars before each test boundary",
             "final_holdout": "2026-07-01 through latest labeled bar; not used for model fitting",
@@ -993,6 +1185,22 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "historical_news_calendar_provided": news_safe is not None,
         },
         "walk_forward": fold_results,
+        "auto_tuning": {
+            "search": "seeded_random_search",
+            "trials_per_window": int(tuning_trials),
+            "final_model": final_tuning,
+            "walk_forward_windows": [
+                {"name": item.get("name"), "auto_tuning": item.get("auto_tuning")}
+                for item in fold_results
+            ],
+            "fixed_strategy_gates": {
+                "xgb_buy_minimum": XGB_MIN_CONFIDENCE,
+                "lstm_buy_minimum": LSTM_MIN_CONFIDENCE,
+                "ensemble_buy_minimum": PROBABILITY_THRESHOLD,
+                "smc_minimum": 85,
+                "wave3_fib_minimum": 80,
+            },
+        },
         "final_out_of_sample": final_result,
         "model_files": ["models/wave3_xgb_deep/xgb_model.json",
                         "models/wave3_xgb_deep/deep_lstm.pt",
@@ -1014,6 +1222,8 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     report_file = Path(report_path)
     report_file.parent.mkdir(parents=True, exist_ok=True)
     report_file.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    tuning_file = report_file.with_name("wave3_auto_tuning_history.json")
+    tuning_file.write_text(json.dumps(report["auto_tuning"], indent=2, default=str), encoding="utf-8")
     trade_columns = [
         "signal_timestamp", "entry_timestamp", "exit_timestamp", "direction",
         "p_xgb_buy", "p_lstm_buy", "p_ensemble_buy", "p_short", "p_hold", "p_long",
@@ -1036,6 +1246,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
                    "classification": {k: r.get("classification", {}).get(k) for k in ("samples", "accuracy_pct", "balanced_accuracy_pct", "macro_f1_pct")},
                    "backtest": r.get("backtest")} for r in fold_results],
         "report": str(report_file), "model_dir": str(model_path),
+        "auto_tuning": {"trials_per_window": int(tuning_trials), "final_selected_parameters": final_tuning["selected_parameters"]},
     }
     print("[FINAL OOS RESULT]\n" + json.dumps(compact, indent=2, default=str), flush=True)
     return report
@@ -1048,8 +1259,10 @@ def main() -> None:
     parser.add_argument("--report", default=DEFAULT_REPORT)
     parser.add_argument("--news-calendar", default=None,
                         help="CSV with UTC timestamp,impact columns; high impact events are excluded +/-30 minutes. Without it the backtest fails closed.")
+    parser.add_argument("--tuning-trials", type=int, default=AUTO_TUNING_TRIALS,
+                        help="Number of deterministic XGB hyperparameter candidates per nested tuning window (1-12; entry gates remain fixed).")
     args = parser.parse_args()
-    run_experiment(args.data, args.model_dir, args.report, args.news_calendar)
+    run_experiment(args.data, args.model_dir, args.report, args.news_calendar, args.tuning_trials)
 
 
 if __name__ == "__main__":
