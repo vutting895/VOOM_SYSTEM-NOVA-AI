@@ -20,7 +20,6 @@ test('strategy catalog exposes only the three approved customer research strateg
     'ai-market-scout',
   ]);
   assert.equal(getCustomerStrategy('wave3-confluence').name, 'Wave3 Confluence');
-  assert.equal(getCustomerStrategy('untrusted-component').name, undefined);
   assert.equal(getCustomerStrategy('untrusted-component'), null);
 });
 
