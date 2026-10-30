@@ -7,6 +7,8 @@ const config = readFileSync(new URL("./supabase/config.toml", import.meta.url), 
 const migration = readFileSync(new URL("./supabase/migrations/20261031000100_vault_access_proof.sql", import.meta.url), "utf8");
 const signedMigration = readFileSync(new URL("./supabase/migrations/20261031000200_signed_identity_assertion_proof.sql", import.meta.url), "utf8");
 const operationReplayMigration = readFileSync(new URL("./supabase/migrations/20261031000300_operation_id_replay_guard.sql", import.meta.url), "utf8");
+const operationJournalMigration = readFileSync(new URL("./supabase/migrations/20261031000400_durable_operation_journal.sql", import.meta.url), "utf8");
+const operationJournalTests = readFileSync(new URL("./supabase/tests/durable_operation_journal.test.sql", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../../.github/workflows/vault-local-isolation-proof.yml", import.meta.url), "utf8");
 const readme = readFileSync(new URL("./README.md", import.meta.url), "utf8");
 const signedIdentityTests = readFileSync(new URL("./supabase/tests/signed_identity_assertion.test.sql", import.meta.url), "utf8");
@@ -238,4 +240,23 @@ test("fresh nonces cannot replay a logical operation in the local Vault proof", 
   assert.match(operationReplayTests, /'23505'/);
   assert.match(readme, /not a complete idempotency implementation/i);
   assert.match(readme, /reconcile an ambiguous provider outcome/i);
+});
+
+
+test("durable operation journal is tenant-scoped, fingerprint-bound, fenced, and key-rotation-safe", () => {
+  assert.match(operationJournalMigration, /primary key \(tenant_id, operation_id\)/i);
+  assert.match(operationJournalMigration, /on conflict \(tenant_id, operation_id\) do nothing/i);
+  assert.match(operationJournalMigration, /request_fingerprint bytea not null check \(pg_catalog\.octet_length\(request_fingerprint\) = 32\)/i);
+  assert.match(operationJournalMigration, /state in \('IN_PROGRESS', 'SUCCEEDED', 'OUTCOME_UNKNOWN', 'FAILED_FINAL'\)/i);
+  assert.match(operationJournalMigration, /state = 'OUTCOME_UNKNOWN'/i);
+  assert.match(operationJournalMigration, /operation_lease_fenced/i);
+  assert.match(operationJournalMigration, /RECONCILIATION_REQUIRED/);
+  assert.match(operationJournalMigration, /get_operation_result/);
+  assert.match(operationJournalMigration, /set search_path = ''/i);
+  assert.doesNotMatch(operationJournalMigration, /grant\s+.*service_role/i);
+  assert.match(operationJournalTests, /different request fingerprint is rejected/);
+  assert.match(operationJournalTests, /unknown provider outcome never triggers automatic redispatch/);
+  assert.match(operationJournalTests, /signing-key rotation cannot bypass tenant-scoped operation idempotency/);
+  assert.match(operationJournalTests, /foreign owner and tenant cannot recover the prior result/);
+  assert.match(operationJournalTests, /stale lease token is fenced/);
 });
