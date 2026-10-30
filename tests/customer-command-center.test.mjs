@@ -86,9 +86,30 @@ test('stable Cloudflare frontend deployment remains owner opt-in', () => {
 });
 
 
-test('staging sign-in forwards only an explicitly supplied CAPTCHA token', () => {
-  assert.ok(stagingIsolation.includes('NOVA_STAGING_CAPTCHA_TOKEN'));
+test('staging sign-in uses separate single-use CAPTCHA tokens for each test user', () => {
+  assert.ok(stagingIsolation.includes('NOVA_STAGING_CAPTCHA_TOKEN_A'));
+  assert.ok(stagingIsolation.includes('NOVA_STAGING_CAPTCHA_TOKEN_B'));
+  assert.ok(stagingIsolation.includes('createTestUser("a", captchaTokenA)'));
+  assert.ok(stagingIsolation.includes('createTestUser("b", captchaTokenB)'));
   assert.ok(stagingIsolation.includes('gotrue_meta_security: { captcha_token: captchaToken }'));
+  assert.match(stagingIsolation, /A single token cannot be reused for both test sign-ins/);
+});
+
+test('staging harness accepts modern Supabase secret keys without using them as Bearer JWTs', () => {
+  assert.match(stagingIsolation, /serviceRoleKey\.startsWith\("sb_secret_"\)/);
+  assert.match(stagingIsolation, /apikey: serviceRoleKey/);
+  assert.match(stagingIsolation, /\!serviceRoleKey\.startsWith\("sb_secret_"\) \? \{ Authorization: "Bearer " \+ serviceRoleKey \} : \{\}/);
+  assert.match(stagingIsolation, /serviceClaims\?\.role === "service_role"/);
+});
+
+test('command center restores owner-scoped pending reviews after a reload', () => {
+  assert.match(page, /const restorePendingApprovals = useCallback/);
+  assert.match(page, /\/api\/agent\/threads\?state=awaiting_review/);
+  assert.match(page, /\/api\/agent\/threads\/.*\/approvals/);
+  assert.match(page, /approval\?\.status === 'pending'/);
+  assert.match(page, /restoredReview: true/);
+  assert.match(page, /void restorePendingApprovals\(session\.access_token, userId\)/);
+  assert.match(page, /generation === requestGenerationRef\.current/);
 });
 
 test('Cloudflare deploy pins Wrangler whenever any backend Worker or opted-in UI Worker is deployed', () => {
