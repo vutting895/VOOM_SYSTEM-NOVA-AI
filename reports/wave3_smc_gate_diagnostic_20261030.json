@@ -1,0 +1,96 @@
+{
+  "status": "feature_diagnostic_only_not_full_oos_retest",
+  "generated_utc": "2026-10-30T03:00:28.324507+00:00",
+  "dataset": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "bar_count": 101076,
+    "usable_labeled_rows": 100965,
+    "oos_start_utc": "2026-07-01T00:00:00+00:00",
+    "oos_rows": 7942
+  },
+  "smc_diagnostics": {
+    "wave3_trigger_rows": 34,
+    "wave3_bos20_rows": 21,
+    "wave3_higher_lows_green_rows": 12,
+    "wave3_bullish_ob_within5_rows": 1,
+    "wave3_fvg_refill_rows": 7,
+    "wave3_rows_reaching_smc_85": 0,
+    "wave3_max_smc_score": 75.0,
+    "oos_bullish_ob_within5_rows": 708,
+    "oos_bullish_ob_zone_rows": 468,
+    "oos_rows_reaching_smc_85": 0,
+    "wave3_bos_higher_lows_fvg_rows": 1,
+    "bos_higher_lows_fvg_ob_alignment": [
+      {
+        "timestamp_utc": "2026-09-17T11:45:00+00:00",
+        "candidate_order_blocks": {
+          "8": {
+            "candidate_count": 0,
+            "latest_candidate": null,
+            "candidates_within_5": 0
+          },
+          "20": {
+            "candidate_count": 0,
+            "latest_candidate": null,
+            "candidates_within_5": 0
+          },
+          "48": {
+            "candidate_count": 3,
+            "latest_candidate": {
+              "age_bars": 36,
+              "distance_price": 60.529,
+              "range_pct": 0.003603
+            },
+            "candidates_within_5": 0
+          }
+        }
+      }
+    ]
+  },
+  "unchanged_strategy_contract": {
+    "ob_minimum_range_pct": 0.3,
+    "ob_max_distance_price": 5.0,
+    "smc_components": {
+      "BOS20": 30,
+      "three_higher_lows_and_green": 20,
+      "large_ob": 25,
+      "fvg_refill": 25
+    },
+    "smc_minimum": 85,
+    "xgb_buy_minimum": 0.75,
+    "lstm_buy_minimum": 0.8,
+    "ensemble_buy_minimum": 0.85,
+    "ensemble_weights": {
+      "xgb": 0.6,
+      "lstm": 0.4
+    }
+  },
+  "ob_validity_correction": {
+    "old_internal_expiry_bars": 24,
+    "new_bullish_invalidation": "candle close below OB low",
+    "new_bearish_invalidation": "candle close above OB high",
+    "diagnostic_columns_excluded_from_model_inputs": [
+      "bull_ob_age_bars",
+      "bull_ob_distance_price",
+      "bull_ob_range_pct"
+    ],
+    "result": "does_not_produce_any_wave3_signal_with_all_four_smc_components_in_final_oos"
+  },
+  "historical_news_calendar": {
+    "source": "MQL5 Economic Calendar API (CalendarValueHistory / CalendarEventById)",
+    "exporter_source": "tools/mt5_export_usd_high_impact_calendar.mq5",
+    "metaeditor_compile": "0 errors, 0 warnings",
+    "export_executed": false,
+    "csv_present": false,
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "policy": "fail_closed_until_csv_is_present_and_coverage_validated"
+  },
+  "production": {
+    "performance_gate": "blocked",
+    "production_eligible": false,
+    "live_trading_enabled": false,
+    "orders_submitted": false
+  }
+}

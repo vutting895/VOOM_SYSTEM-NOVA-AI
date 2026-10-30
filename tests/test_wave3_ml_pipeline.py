@@ -15,6 +15,9 @@ from wave3_ml_pipeline import (
     load_bars, make_labeled_frame, build_inner_validation_splits,
     generate_xgb_tuning_candidates, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
     _is_lstm_memory_error, _write_auto_tuning_history,
+    _bullish_ob_state, _bearish_ob_state,
+    PROBABILITY_THRESHOLD, XGB_MIN_CONFIDENCE, LSTM_MIN_CONFIDENCE,
+    ENSEMBLE_XGB_WEIGHT, ENSEMBLE_LSTM_WEIGHT,
 )
 
 
@@ -127,6 +130,85 @@ class TestWave3Pipeline(unittest.TestCase):
             self.assertIn(candidate["n_estimators"], (100, 120, 140, 160, 180))
             self.assertGreaterEqual(candidate["learning_rate"], 0.025)
             self.assertLessEqual(candidate["learning_rate"], 0.06)
+
+    def test_news_calendar_blocks_full_day_for_untimed_events_and_checks_coverage(self):
+        import tempfile
+        from wave3_ml_pipeline import load_news_calendar
+
+        frame = pd.DataFrame({
+            "timestamp": pd.to_datetime([
+                "2026-07-01T09:00:00Z",
+                "2026-07-01T14:00:00Z",
+                "2026-07-02T12:00:00Z",
+            ], utc=True)
+        })
+        calendar = pd.DataFrame({
+            "timestamp": ["2026-07-01T00:00:00Z", "2026-07-02T12:00:00Z"],
+            "impact": ["high", "high"],
+            "time_mode": ["notime", "datetime"],
+            "calendar_source": ["MQL5 Economic Calendar"] * 2,
+            "coverage_start_utc": ["2026-07-01T00:00:00Z"] * 2,
+            "coverage_end_exclusive_utc": ["2026-07-03T00:00:00Z"] * 2,
+        })
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "news.csv"
+            calendar.to_csv(path, index=False)
+            safe = load_news_calendar(path, frame)
+            self.assertEqual(safe.tolist(), [False, False, False])
+
+            calendar["coverage_end_exclusive_utc"] = "2026-07-02T00:00:00Z"
+            calendar.to_csv(path, index=False)
+            with self.assertRaises(ValueError):
+                load_news_calendar(path, frame)
+
+    def test_v6263_confidence_and_ensemble_gates_remain_locked(self):
+        self.assertEqual(PROBABILITY_THRESHOLD, 0.85)
+        self.assertEqual(XGB_MIN_CONFIDENCE, 0.75)
+        self.assertEqual(LSTM_MIN_CONFIDENCE, 0.80)
+        self.assertEqual(ENSEMBLE_XGB_WEIGHT, 0.60)
+        self.assertEqual(ENSEMBLE_LSTM_WEIGHT, 0.40)
+        features = build_causal_features(synthetic_bars(900))
+        expected = (features["smc_score_long"] >= 85).astype(float).to_numpy()
+        np.testing.assert_array_equal(features["smc_buy_gate"].to_numpy(), expected)
+
+    def test_order_block_validity_uses_price_invalidation_not_age(self):
+        # OB age is deliberately not an input to validity; the hard rules remain
+        # >=0.3% candidate size (detected upstream) and <=$5 proximity here.
+        bullish = _bullish_ob_state(2010.0, 2005.0, 2015.0)
+        self.assertTrue(bullish["valid"])
+        self.assertTrue(bullish["zone"])
+        self.assertTrue(bullish["within5"])
+        self.assertEqual(bullish["distance"], 0.0)
+
+        too_far = _bullish_ob_state(2021.0, 2005.0, 2015.0)
+        self.assertTrue(too_far["valid"])
+        self.assertFalse(too_far["within5"])
+        self.assertEqual(too_far["distance"], 6.0)
+
+        invalidated = _bullish_ob_state(2004.9, 2005.0, 2015.0)
+        self.assertFalse(invalidated["valid"])
+        self.assertFalse(invalidated["within5"])
+
+        bearish = _bearish_ob_state(2010.0, 2005.0, 2015.0)
+        self.assertTrue(bearish["valid"])
+        self.assertTrue(bearish["zone"])
+        invalid_bearish = _bearish_ob_state(2015.1, 2005.0, 2015.0)
+        self.assertFalse(invalid_bearish["valid"])
+
+    def test_news_calendar_rejects_empty_high_impact_dataset(self):
+        import tempfile
+        from wave3_ml_pipeline import load_news_calendar
+
+        frame = pd.DataFrame({"timestamp": pd.to_datetime(["2026-07-01T09:00:00Z"], utc=True)})
+        calendar = pd.DataFrame({
+            "timestamp": ["2026-07-01T09:00:00Z"],
+            "impact": ["medium"],
+        })
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "news.csv"
+            calendar.to_csv(path, index=False)
+            with self.assertRaises(ValueError):
+                load_news_calendar(path, frame)
 
     def test_lstm_cpu_memory_fallback_is_bounded_and_deterministic(self):
         self.assertEqual(LSTM_BATCH_SIZE_FALLBACKS, (256, 128, 64))

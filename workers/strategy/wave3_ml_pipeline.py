@@ -107,6 +107,30 @@ def load_bars(path: str | Path) -> pd.DataFrame:
     return frame
 
 
+def _bullish_ob_state(close: float, low: float, high: float) -> dict[str, Any]:
+    """A bullish OB remains valid until a candle close breaks its lower boundary."""
+    distance = max(float(low) - float(close), 0.0, float(close) - float(high))
+    valid = float(close) >= float(low)
+    return {
+        "valid": valid,
+        "zone": valid and float(low) <= float(close) <= float(high),
+        "within5": valid and distance <= 5.0,
+        "distance": distance,
+    }
+
+
+def _bearish_ob_state(close: float, low: float, high: float) -> dict[str, Any]:
+    """A bearish OB remains valid until a candle close breaks its upper boundary."""
+    distance = max(float(low) - float(close), 0.0, float(close) - float(high))
+    valid = float(close) <= float(high)
+    return {
+        "valid": valid,
+        "zone": valid and float(low) <= float(close) <= float(high),
+        "within5": valid and distance <= 5.0,
+        "distance": distance,
+    }
+
+
 def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
     delta = close.diff()
     gain = delta.clip(lower=0).ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
@@ -164,6 +188,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "buy_side_sweep", "sell_side_sweep", "bull_fvg", "bear_fvg",
         "bull_fvg_fill", "bear_fvg_fill", "bull_ob_recent", "bear_ob_recent",
         "bull_ob_zone", "bear_ob_zone", "bull_ob_within5", "bear_ob_within5",
+        "bull_ob_age_bars", "bull_ob_distance_price", "bull_ob_range_pct",
         "choch_rule_up", "choch_rule_down", "dist_last_swing_high", "dist_last_swing_low",
         "fib_pullback_ratio", "wave1_size", "wave1_high", "wave2_low",
         "wave1_low_short", "wave2_high_short", "wave3_long_entry_price", "wave3_short_entry_price",
@@ -223,10 +248,14 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 else:
                     bos_up = 1
                 bias = 1
-                for j in range(max(0, i - 8), i):
+                # Use the last confirmed swing-low to BOS interval, not an
+                # arbitrary eight-bar lookback. The OB size (>=0.3%), $5 proximity,
+                # and 24-bar post-BOS validity remain unchanged.
+                bullish_ob_start = max(0, int(last_low["idx"])) if last_low else max(0, i - 8)
+                for j in range(bullish_ob_start, i):
                     candle_size_pct = (float(h.iloc[j]) - float(l.iloc[j])) / max(float(c.iloc[j]), 1e-12)
                     if c.iloc[j] < o.iloc[j] and candle_size_pct >= 0.003:
-                        bull_ob = (i, float(l.iloc[j]), float(h.iloc[j]))
+                        bull_ob = (i, float(l.iloc[j]), float(h.iloc[j]), j, candle_size_pct)
         if last_low and last_low["idx"] < i:
             key = ("low", last_low["idx"])
             if key not in broken and prev_i >= last_low["price"] > close_i:
@@ -262,16 +291,30 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 last_bull_gap = (i, float(h.iloc[i - 2]), float(l.iloc[i]))
             if struct["bear_fvg"][i]:
                 last_bear_gap = (i, float(h.iloc[i]), float(l.iloc[i - 2]))
-        if bull_ob and i - bull_ob[0] <= 24:
-            struct["bull_ob_recent"][i] = 1
-            struct["bull_ob_zone"][i] = bull_ob[1] <= close_i <= bull_ob[2]
-            ob_distance = max(bull_ob[1] - close_i, 0.0, close_i - bull_ob[2])
-            struct["bull_ob_within5"][i] = ob_distance <= 5.0
-        if bear_ob and i - bear_ob[0] <= 24:
-            struct["bear_ob_recent"][i] = 1
-            struct["bear_ob_zone"][i] = bear_ob[1] <= close_i <= bear_ob[2]
-            ob_distance = max(bear_ob[1] - close_i, 0.0, close_i - bear_ob[2])
-            struct["bear_ob_within5"][i] = ob_distance <= 5.0
+        if bull_ob:
+            ob_age = i - bull_ob[0]
+            state = _bullish_ob_state(close_i, bull_ob[1], bull_ob[2])
+            struct["bull_ob_age_bars"][i] = float(ob_age)
+            struct["bull_ob_distance_price"][i] = float(state["distance"])
+            struct["bull_ob_range_pct"][i] = float(bull_ob[4]) if len(bull_ob) > 4 else 0.0
+            if ob_age <= 24:
+                struct["bull_ob_recent"][i] = 1  # diagnostic only; not part of SMC scoring
+            if state["valid"]:
+                struct["bull_ob_zone"][i] = float(state["zone"])
+                struct["bull_ob_within5"][i] = float(state["within5"])
+            else:
+                bull_ob = None  # close below OB low invalidates the bullish block
+
+        if bear_ob:
+            ob_age = i - bear_ob[0]
+            state = _bearish_ob_state(close_i, bear_ob[1], bear_ob[2])
+            if ob_age <= 24:
+                struct["bear_ob_recent"][i] = 1
+            if state["valid"]:
+                struct["bear_ob_zone"][i] = float(state["zone"])
+                struct["bear_ob_within5"][i] = float(state["within5"])
+            else:
+                bear_ob = None  # close above OB high invalidates the bearish block
 
         struct["choch_rule_up"][i] = (len(confirmed_low_prices) >= 3 and
             confirmed_low_prices[-3] < confirmed_low_prices[-2] < confirmed_low_prices[-1] and close_i > float(o.iloc[i]))
@@ -370,9 +413,13 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
     labels[valid_future] = 1
     labels[valid_future & (future_move < -dynamic_move)] = 0
     labels[valid_future & (future_move > dynamic_move)] = 2
-    valid_features = np.isfinite(features.to_numpy()).all(axis=1)
+    diagnostic_only = [
+        "bull_ob_age_bars", "bull_ob_distance_price", "bull_ob_range_pct",
+    ]
+    model_features = features.drop(columns=[name for name in diagnostic_only if name in features.columns])
+    valid_features = np.isfinite(model_features.to_numpy()).all(axis=1)
     usable = valid_features & valid_future
-    X = features.loc[usable].reset_index(drop=True)
+    X = model_features.loc[usable].reset_index(drop=True)
     y = pd.Series(labels[usable], name="label", dtype=np.int8)
     meta = frame.loc[usable].reset_index(drop=True).copy()
     meta["source_index"] = np.flatnonzero(usable)
@@ -588,7 +635,7 @@ def _classification_metrics(y: np.ndarray, pred: np.ndarray) -> dict[str, Any]:
 
 
 def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarray | None:
-    """Return per-bar safe flags for high-impact events; missing calendar fails closed."""
+    """Return per-bar safe flags; missing/untimed high-impact events fail closed."""
     if path is None:
         return None
     news_path = Path(path)
@@ -599,17 +646,62 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
         raise ValueError("news calendar CSV must contain timestamp and impact columns")
     impact = news["impact"].astype(str).str.strip().str.lower()
     high = impact.isin({"high", "high impact", "critical", "red", "3", "3.0"})
-    events = pd.to_datetime(news.loc[high, "timestamp"], utc=True, errors="raise").sort_values().astype("int64").to_numpy()
-    if not len(events):
-        return np.ones(len(frame), dtype=bool)
-    bars = pd.to_datetime(frame["timestamp"], utc=True).astype("int64").to_numpy()
-    positions = np.searchsorted(events, bars)
-    before_idx = np.clip(positions - 1, 0, len(events) - 1)
-    after_idx = np.clip(positions, 0, len(events) - 1)
-    seconds = 30 * 60 * 1_000_000_000
-    before_dist = np.abs(bars - events[before_idx])
-    after_dist = np.abs(bars - events[after_idx])
-    return (np.minimum(before_dist, after_dist) > seconds)
+    high_news = news.loc[high].copy()
+    if high_news.empty:
+        raise ValueError("news calendar contains no high-impact events; refusing to mark all bars safe")
+
+    bars = pd.to_datetime(frame["timestamp"], utc=True)
+    event_times = pd.to_datetime(high_news["timestamp"], utc=True, errors="raise")
+
+    # MQL5 CalendarValueHistory uses the broker trade-server timezone. Exness
+    # documents GMT+0, so exported event times are explicitly UTC. The export
+    # repeats its requested coverage window to prevent partial calendars being
+    # accepted as if they covered the whole backtest.
+    coverage_columns = {"coverage_start_utc", "coverage_end_exclusive_utc"}
+    if coverage_columns.issubset(high_news.columns):
+        starts = pd.to_datetime(high_news["coverage_start_utc"], utc=True, errors="raise").dropna().unique()
+        ends = pd.to_datetime(high_news["coverage_end_exclusive_utc"], utc=True, errors="raise").dropna().unique()
+        if len(starts) != 1 or len(ends) != 1:
+            raise ValueError("news calendar must declare one consistent UTC coverage window")
+        coverage_start = pd.Timestamp(starts[0])
+        coverage_end = pd.Timestamp(ends[0])
+        if bars.min() < coverage_start or bars.max() >= coverage_end:
+            raise ValueError(
+                f"news calendar coverage {coverage_start}..{coverage_end} does not contain "
+                f"market data {bars.min()}..{bars.max()}"
+            )
+    elif "calendar_source" in high_news.columns and high_news["calendar_source"].astype(str).str.contains(
+        "MQL5 Economic Calendar", case=False, regex=False
+    ).any():
+        raise ValueError("MQL5 calendar export is missing its UTC coverage metadata")
+
+    if "time_mode" in high_news.columns:
+        modes = high_news["time_mode"].fillna("unknown").astype(str).str.strip().str.lower()
+    else:
+        # Legacy third-party CSVs are assumed to contain exact release times.
+        modes = pd.Series("datetime", index=high_news.index)
+
+    exact_mode = modes.eq("datetime")
+    # Events with date-only, not-published, tentative or unknown times block
+    # the complete UTC day. This is deliberately conservative, not a gate relaxation.
+    full_day_mode = ~exact_mode
+    unsafe_days = pd.DatetimeIndex(event_times.loc[full_day_mode].dt.normalize().unique())
+    day_block = bars.dt.normalize().isin(unsafe_days).to_numpy()
+
+    exact_events = event_times.loc[exact_mode]
+    if len(exact_events):
+        events = exact_events.sort_values().astype("int64").to_numpy()
+        bar_ns = bars.astype("int64").to_numpy()
+        positions = np.searchsorted(events, bar_ns)
+        before_idx = np.clip(positions - 1, 0, len(events) - 1)
+        after_idx = np.clip(positions, 0, len(events) - 1)
+        seconds = 30 * 60 * 1_000_000_000
+        before_dist = np.abs(bar_ns - events[before_idx])
+        after_dist = np.abs(bar_ns - events[after_idx])
+        near_event = np.minimum(before_dist, after_dist) <= seconds
+    else:
+        near_event = np.zeros(len(frame), dtype=bool)
+    return ~(day_block | near_event)
 
 
 def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices: np.ndarray,
@@ -802,7 +894,12 @@ def _rule_gate_diagnostics(features: pd.DataFrame, raw_indices: np.ndarray,
     wave3_mask = selected["wave3_long_rule_breakout"].to_numpy(dtype=bool)
     result["wave3_entry_rows_with_bos20"] = int((wave3_mask & selected["bos20_up"].to_numpy(dtype=bool)).sum())
     result["wave3_entry_rows_with_choch"] = int((wave3_mask & selected["choch_rule_up"].to_numpy(dtype=bool)).sum())
+    result["oos_rows_with_bull_ob_recent"] = int(selected["bull_ob_recent"].to_numpy(dtype=bool).sum())
+    result["oos_rows_with_bull_ob_within5"] = int(selected["bull_ob_within5"].to_numpy(dtype=bool).sum())
+    result["oos_rows_inside_bull_ob_zone"] = int(selected["bull_ob_zone"].to_numpy(dtype=bool).sum())
+    result["wave3_entry_rows_with_bull_ob_recent"] = int((wave3_mask & selected["bull_ob_recent"].to_numpy(dtype=bool)).sum())
     result["wave3_entry_rows_with_ob_within5"] = int((wave3_mask & selected["bull_ob_within5"].to_numpy(dtype=bool)).sum())
+    result["wave3_entry_rows_inside_bull_ob_zone"] = int((wave3_mask & selected["bull_ob_zone"].to_numpy(dtype=bool)).sum())
     result["wave3_entry_rows_with_fvg_fill"] = int((wave3_mask & selected["bull_fvg_fill"].to_numpy(dtype=bool)).sum())
     conditions = [
         ("wave3_entry_breakout", selected["wave3_long_rule_breakout"].to_numpy(dtype=bool)),
