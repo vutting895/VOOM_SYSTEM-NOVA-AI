@@ -22,6 +22,9 @@ $roles$;
 -- The local migration runner receives SET membership so it can assign object ownership
 -- to the dedicated non-login owner. This is local-only proof setup, not a runtime grant.
 grant nova_vault_fn_owner to current_user with set true;
+-- The disposable test runner also needs SET (not INHERIT) to exercise the
+-- runtime role's exact privileges in pgTAP. This membership exists only locally.
+grant nova_vault_api to current_user with set true;
 
 create schema nova_vault_private authorization nova_vault_fn_owner;
 
