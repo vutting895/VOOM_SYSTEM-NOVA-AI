@@ -18,8 +18,9 @@ Add a customer-specific, authenticated Zero-Menu Command Center at `/command-cen
 
 ## Staging and deployment work added
 - Staging project `rovhmjeowracayicbqij` is isolated from production. Applied the existing `mt5_customer_connections` migration there so `broker_connections` and its owner-only RLS policies exist alongside the durable approval lifecycle.
-- Added `tests/staging-customer-isolation.mjs` and a PR #85-only Frontend CI job. It creates two temporary `system_test_only` Auth users, exercises the actual Next.js broker/thread/approval APIs against staging, attempts cross-user reads/writes/decisions, signs out and deletes both users, then verifies Auth users and owned rows are absent. It uses only the staging secrets and never prints their values.
-- Added Cloudflare OpenNext build validation to Frontend CI and a main-only Cloudflare UI Worker deploy/smoke-test path. Netlify remains the public production host; this Worker deployment is parallel validation and does not change DNS.
+- Added an exact-PR-SHA Cloudflare staging preview Worker (`voom-system-nova-ui-pr85-preview`) using only the staging Supabase project; disabled external AI/System Hub/proxy destinations on that preview. The existing `VOOM_SYSTEM_AUTH` Turnstile widget was extended by one hostname while preserving its existing allowlist.
+- Added `tests/staging-customer-isolation.mjs` and a PR #85-only Frontend CI job that runs against the Cloudflare preview. It creates two temporary `system_test_only` Auth users, exercises the actual broker/thread/approval APIs against staging, attempts cross-user reads/writes/decisions, signs out and deletes both users, then verifies Auth users and owned rows are absent. It uses only the staging secrets and never prints their values. The job is currently blocked because the configured staging Auth Admin secret equals the publishable key.
+- Added Cloudflare OpenNext build validation to Frontend CI and a main-only Cloudflare UI Worker deploy/smoke-test path. Netlify remains the public production host; the stable Cloudflare Worker deployment is parallel validation and does not change DNS.
 
 ## Important integration gaps (not claimed complete)
 1. Existing `/api/chat` is bounded request/response JSON, not AG-UI SSE streaming. LangGraph interrupt/resume is not wired into this route yet.
