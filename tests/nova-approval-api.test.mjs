@@ -10,6 +10,7 @@ const threads = source("../frontend/app/api/agent/threads/route.js");
 const approvals = source("../frontend/app/api/agent/threads/[threadId]/approvals/route.js");
 const decision = source("../frontend/app/api/agent/approvals/[approvalId]/decision/route.js");
 const serverHelper = source("../frontend/lib/agent-approval-server.js");
+const approvalCard = source("../frontend/components/approval-card.jsx");
 const chatPage = source("../frontend/app/chat/page.jsx");
 
 test("every protected approval route authenticates before reading POST body", () => {
@@ -52,4 +53,21 @@ test("review UI states explicitly that approval is research-only, never broker e
   assert.match(card, /onReviewEdited/);
   assert.match(serverHelper, /auth\.getUser\(accessToken\)/);
   assert.match(serverHelper, /Cache-Control": "no-store"/);
+});
+
+test("expired UI requests server-side expiry reconciliation, never a rejection", () => {
+  const expiredBlock = approvalCard.match(/\\{approval\\.status === 'pending' && expired && \\([\\s\\S]*?\\n      \\)\\}/);
+  assert.ok(expiredBlock, "expired approval UI must exist");
+  assert.match(expiredBlock[0], /submitDecision\\('expire'\\)/);
+  assert.doesNotMatch(expiredBlock[0], /submitDecision\\('reject'\\)/);
+  assert.match(decision, /approval_not_expired/);
+  assert.match(chatPage, /เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล/);
+});
+
+test("JSON request reader rejects oversized bodies before unbounded buffering", () => {
+  assert.match(serverHelper, /content-length/);
+  assert.match(serverHelper, /request\\.body\\?\\.getReader\\(\\)/);
+  assert.match(serverHelper, /totalBytes > maxBytes/);
+  assert.match(serverHelper, /reader\\.cancel\\(\\)/);
+  assert.doesNotMatch(serverHelper, /request\\.text\\(\\)/);
 });
