@@ -21,6 +21,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "workers/quant_engine/**"
       - "infra/**"
       - "supabase/verification/**"
   push:
@@ -40,6 +41,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "workers/quant_engine/**"
       - "infra/**"
       - "supabase/verification/**"
 
@@ -116,6 +118,9 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Test Internal Quant Engine research contracts
+        working-directory: .
+        run: python -m unittest discover -s tests -p "test_quant_engine.py" -v
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
