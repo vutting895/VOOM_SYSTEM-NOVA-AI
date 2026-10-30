@@ -18,6 +18,23 @@ const TIMEFRAMES = new Set(["5m", "15m", "1h", "4h", "1d"]);
 const RISKS = new Set(["low", "medium", "high"]);
 const MAX_BODY_BYTES = 16 * 1024;
 
+// Reject credential-like content at the Worker boundary. Frontend sanitization is
+// defense-in-depth only: authenticated clients can call these routes directly.
+const CREDENTIAL_PATTERNS = [
+  /\\bAuthorization\\s*:\\s*Basic\\s+[A-Za-z0-9+/]+={0,2}\\b/i,
+  /\\bBearer\\s+\\S+/i,
+  /\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b/,
+  /\\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\\b/,
+  /\\b(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[ _-]?key|password|passwd|secret|token)\\s*[:=]\\s*["']?[^\\s"'\x60,;]{3,}/i,
+  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\\s]+)/i,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
+  /(?:^|\\n)\\s*(?:cookie|set-cookie)\\s*:\\s*[^\\r\\n]+/im,
+];
+
+function containsCredentialLikeText(value) {
+  return typeof value === "string" && CREDENTIAL_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 function corsHeaders(origin) {
   if (!UI_ORIGINS.has(origin)) return {};
   return {
@@ -50,6 +67,7 @@ export function validateInput(value) {
   const timeframe = value.timeframe ?? "1h";
   const risk = value.risk ?? "medium";
   if (!prompt || prompt.length > 1200) throw Object.assign(new Error("invalid_prompt"), { status: 400 });
+  if (containsCredentialLikeText(prompt)) throw Object.assign(new Error("sensitive_input_blocked"), { status: 400 });
   if (!MARKETS.has(market)) throw Object.assign(new Error("unsupported_market"), { status: 400 });
   if (!TIMEFRAMES.has(timeframe)) throw Object.assign(new Error("unsupported_timeframe"), { status: 400 });
   if (!RISKS.has(risk)) throw Object.assign(new Error("invalid_risk_profile"), { status: 400 });
@@ -72,6 +90,7 @@ function validateChatInput(value) {
     if (!content || content.length > 1200) {
       throw Object.assign(new Error("invalid_message_length"), { status: 400 });
     }
+    if (containsCredentialLikeText(content)) throw Object.assign(new Error("sensitive_input_blocked"), { status: 400 });
     total += content.length;
     if (total > 8000) throw Object.assign(new Error("conversation_too_large"), { status: 413 });
   }
