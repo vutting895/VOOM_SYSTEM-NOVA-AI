@@ -69,6 +69,12 @@ jobs:
       - name: Test bounded NOVA chat history
         working-directory: .
         run: node --test tests/chat-history.test.mjs
+      - name: Test customer Zero-Menu Command Center contracts
+        working-directory: .
+        run: node --test tests/customer-command-center.test.mjs
+      - name: Test server-side chat secret redaction
+        working-directory: .
+        run: node --test tests/chat-secret-redaction.test.mjs
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
