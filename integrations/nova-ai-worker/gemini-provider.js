@@ -2,6 +2,13 @@ const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/intera
 const DEFAULT_MODEL = "gemini-flash-latest";
 const MAX_OUTPUT_CHARS = 10000;
 
+// The Worker uses this same resolver for returned provenance so it reports
+// the model that generateGeminiText actually places in the Interactions API request.
+export function resolveGeminiModel(env) {
+  return typeof env?.GEMINI_MODEL === "string" && /^[a-zA-Z0-9._-]{1,80}$/.test(env.GEMINI_MODEL)
+    ? env.GEMINI_MODEL : DEFAULT_MODEL;
+}
+
 export async function generateGeminiText(env, { systemInstruction, prompt, maxOutputTokens = 900 }) {
   if (typeof env?.GEMINI_API_KEY !== "string" || !env.GEMINI_API_KEY.trim()) throw new Error("gemini_not_configured");
   if (typeof prompt !== "string" || !prompt.trim() || prompt.length > 12000) throw new Error("invalid_gemini_prompt");
