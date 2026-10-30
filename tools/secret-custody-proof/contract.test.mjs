@@ -72,6 +72,8 @@ test("contract schemas are strict and match the selected separate custody API", 
   assert.match(apiContract, /OUTCOME_UNKNOWN/);
   assert.match(apiContract, /Idempotency-Key/);
   assert.match(apiContract, /Cache-Control: no-store/);
+  assert.match(apiContract, /Hyperdrive is not part of the selected Option C/i);
+  assert.match(apiContract, /no-cache behavior proven at every layer/i);
 });
 
 test("provider operation request accepts only connection, capability, policy and bounded parameters", () => {
