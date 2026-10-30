@@ -31,5 +31,5 @@ enabled = false
 [analytics]
 enabled = false
 
-[inbucket]
+[local_smtp]
 enabled = false
