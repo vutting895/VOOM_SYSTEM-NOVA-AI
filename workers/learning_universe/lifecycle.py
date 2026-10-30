@@ -29,6 +29,19 @@ _SENSITIVE_KEY_PARTS = (
     "order",
 )
 
+_ALLOWED_EVIDENCE_KEYS = {
+    "dataset_manifest_id", "dataset_sha256", "quality_report_id", "data_quality_passed",
+    "feature_contract_id", "feature_contract_version", "feature_contract_approved",
+    "label_contract_id", "label_contract_version", "label_contract_approved",
+    "code_revision", "evaluation_plan_id", "cost_model_id", "baseline_id",
+    "purge_bars", "embargo_bars", "seed", "final_oos_reserved",
+    "evaluation_report_id", "evaluation_report_sha256", "reproducibility_receipt_id",
+    "out_of_sample_windows", "final_oos_untouched", "cost_sensitivity_passed",
+    "baseline_comparison_passed", "risk_guardrails_passed",
+    "candidate_report_id", "review_packet_sha256", "human_review_id",
+    "review_rationale", "approval_scope", "shadow_plan_id",
+}
+
 
 class LearningLifecycleError(ValueError):
     """Raised when a learning-cycle transition violates its contract."""
@@ -107,7 +120,9 @@ def _require_fields(evidence: Mapping[str, Any], rules: Mapping[str, Any]) -> No
 
 
 def _validate_evidence_keys(evidence: Mapping[str, Any]) -> None:
-    for key in evidence:
+    if len(evidence) > len(_ALLOWED_EVIDENCE_KEYS):
+        raise LearningLifecycleError("Evidence contains too many fields")
+    for key, value in evidence.items():
         if not isinstance(key, str) or not key.strip():
             raise LearningLifecycleError("Evidence keys must be non-empty strings")
         normalized = key.lower()
@@ -115,6 +130,18 @@ def _validate_evidence_keys(evidence: Mapping[str, Any]) -> None:
             raise LearningLifecycleError(
                 "Sensitive broker, account, credential, or execution fields are not allowed"
             )
+        if key not in _ALLOWED_EVIDENCE_KEYS:
+            raise LearningLifecycleError("Unexpected evidence field: " + key)
+        if isinstance(value, str):
+            if not value.strip() or len(value) > 1024:
+                raise LearningLifecycleError("Evidence strings must be non-empty and at most 1024 characters")
+        elif isinstance(value, bool):
+            continue
+        elif isinstance(value, int):
+            if abs(value) > 1_000_000_000:
+                raise LearningLifecycleError("Evidence integer is outside the supported range")
+        else:
+            raise LearningLifecycleError("Evidence values must be bounded strings, integers, or booleans")
 
 
 def _parse_state(value: Any) -> LearningState:
@@ -170,6 +197,19 @@ def transition_cycle(
     """
     if not isinstance(cycle, Mapping) or cycle.get("contract") != CONTRACT_ID:
         raise LearningLifecycleError("Unsupported learning-cycle contract")
+    if not isinstance(cycle.get("cycle_id"), str) or not _CYCLE_ID.fullmatch(cycle["cycle_id"]):
+        raise LearningLifecycleError("cycle_id is invalid")
+    if not _is_positive_int(cycle.get("revision")):
+        raise LearningLifecycleError("cycle revision must be a positive integer")
+    if cycle.get("research_only") is not True:
+        raise LearningLifecycleError("Research-only invariant is missing")
+    for safety_flag in ("trade_authorized", "order_submission_enabled", "live_trading_enabled"):
+        if cycle.get(safety_flag) is not False:
+            raise LearningLifecycleError("Execution safety invariant is not disabled")
+    if not isinstance(cycle.get("history"), list) or len(cycle["history"]) > 1000:
+        raise LearningLifecycleError("Cycle history must be a bounded list")
+    if not isinstance(cycle.get("evidence"), Mapping):
+        raise LearningLifecycleError("Existing cycle evidence must be a mapping")
     current = _parse_state(cycle.get("state"))
     target = _parse_state(target_state.value if isinstance(target_state, LearningState) else target_state)
 
@@ -177,10 +217,10 @@ def transition_cycle(
         raise LearningLifecycleError(
             f"Transition not allowed: {current.value} -> {target.value}"
         )
-    if actor_type not in {"system", "service", "human"}:
+    if not isinstance(actor_type, str) or actor_type not in {"system", "service", "human"}:
         raise LearningLifecycleError("actor_type must be system, service, or human")
-    if not _nonempty_string(actor_id):
-        raise LearningLifecycleError("actor_id is required")
+    if not _nonempty_string(actor_id) or len(actor_id) > 128:
+        raise LearningLifecycleError("actor_id is required and must be at most 128 characters")
     if not _is_aware_timestamp(occurred_at):
         raise LearningLifecycleError("occurred_at must be an ISO-8601 timestamp with timezone")
     if not isinstance(evidence, Mapping):
@@ -188,8 +228,9 @@ def transition_cycle(
 
     incoming = dict(evidence)
     _validate_evidence_keys(incoming)
-    merged_evidence = dict(cycle.get("evidence") or {})
+    merged_evidence = dict(cycle["evidence"])
     merged_evidence.update(incoming)
+    _validate_evidence_keys(merged_evidence)
 
     gates = {
         LearningState.DATA_VALIDATED: {
