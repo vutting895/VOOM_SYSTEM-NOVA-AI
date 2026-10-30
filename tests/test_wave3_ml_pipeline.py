@@ -1,5 +1,8 @@
+import json
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +13,8 @@ sys.path.insert(0, str(ROOT / "workers" / "strategy"))
 from wave3_ml_pipeline import (
     HORIZON_BARS, _train_mask, backtest_window, build_causal_features,
     load_bars, make_labeled_frame, build_inner_validation_splits,
-    generate_xgb_tuning_candidates, HORIZON_BARS,
+    generate_xgb_tuning_candidates, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
+    _is_lstm_memory_error, _write_auto_tuning_history,
 )
 
 
@@ -123,6 +127,56 @@ class TestWave3Pipeline(unittest.TestCase):
             self.assertIn(candidate["n_estimators"], (100, 120, 140, 160, 180))
             self.assertGreaterEqual(candidate["learning_rate"], 0.025)
             self.assertLessEqual(candidate["learning_rate"], 0.06)
+
+    def test_lstm_cpu_memory_fallback_is_bounded_and_deterministic(self):
+        self.assertEqual(LSTM_BATCH_SIZE_FALLBACKS, (256, 128, 64))
+        self.assertTrue(_is_lstm_memory_error(RuntimeError(
+            "DefaultCPUAllocator: not enough memory"
+        )))
+        self.assertFalse(_is_lstm_memory_error(RuntimeError("shape mismatch")))
+
+        class DummyModel:
+            pass
+
+        X = pd.DataFrame(np.arange(300 * 3, dtype=float).reshape(300, 3))
+        y = pd.Series(np.tile(np.array([0, 1, 2]), 100), dtype=np.int64)
+        with patch(
+            "wave3_ml_pipeline._fit_lstm_once",
+            side_effect=[
+                RuntimeError("DefaultCPUAllocator: not enough memory"),
+                (DummyModel(), [0.9, 0.8, 0.7, 0.6]),
+            ],
+        ) as train_attempt:
+            _, model = _fit_lstm(X, y)
+        self.assertEqual([call.args[3] for call in train_attempt.call_args_list], [256, 128])
+        self.assertEqual(model._training_batch_size, 128)
+        self.assertEqual(len(model._training_losses), 4)
+
+    def test_auto_tuning_history_checkpoint_is_atomic_and_excludes_final_oos(self):
+        completed_fold = {
+            "name": "wf_2024_H1",
+            "status": "completed",
+            "auto_tuning": {
+                "status": "completed",
+                "selected_parameters": {"max_depth": 4},
+                "trials": [{"trial": 1, "robust_score": 0.25}],
+            },
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            report_path = Path(temp_dir) / "wave3_report.json"
+            history_path = _write_auto_tuning_history(
+                report_path, 4, [completed_fold], status="in_progress"
+            )
+            history = json.loads(history_path.read_text(encoding="utf-8"))
+            self.assertEqual(history["status"], "in_progress")
+            self.assertEqual(history["windows_completed"], 1)
+            self.assertFalse(history["final_oos_used_for_tuning"])
+            self.assertEqual(history["final_oos_start"], "2026-07-01T00:00:00+00:00")
+            self.assertEqual(
+                history["walk_forward_windows"][0]["auto_tuning"]["selected_parameters"]["max_depth"],
+                4,
+            )
+            self.assertFalse(history_path.with_suffix(".json.tmp").exists())
 
     def test_load_bars_rejects_bad_candle(self):
         frame = synthetic_bars(3500)

@@ -5,6 +5,7 @@ BUY entries are considered no earlier than the next bar and all strategy gates m
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import json
 import math
@@ -33,6 +34,8 @@ CONTRACT_SIZE = 100.0
 PROBABILITY_THRESHOLD = 0.85  # Fixed v6.2.6.3 gate; auto-tuning may not change strategy thresholds.
 AUTO_TUNING_TRIALS = 4
 AUTO_TUNING_FOLDS = ((0.62, 0.75), (0.82, 0.95))
+LSTM_TRAIN_BATCH_SIZE = 256
+LSTM_BATCH_SIZE_FALLBACKS = (256, 128, 64)
 PROBABILITY_MARGIN = 0.0
 XGB_MIN_CONFIDENCE = 0.75
 LSTM_MIN_CONFIDENCE = 0.80
@@ -52,7 +55,7 @@ MAX_DAILY_LOSS_USD = 500.0
 LABEL_NAMES = {0: "short", 1: "hold", 2: "long"}
 SEED = 6263
 
-torch.set_num_threads(4)
+torch.set_num_threads(2)
 torch.manual_seed(SEED)
 
 DEFAULT_DATA = "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv"
@@ -435,18 +438,22 @@ def _fit_xgb(X: pd.DataFrame, y: pd.Series, hyperparameters: dict[str, Any] | No
     return model, params
 
 
-def _fit_lstm(X: pd.DataFrame, y: pd.Series):
-    if set(np.unique(y)) != {0, 1, 2}:
-        raise ValueError(f"LSTM training split must contain all labels; found={sorted(np.unique(y).tolist())}")
+def _is_lstm_memory_error(error: BaseException) -> bool:
+    message = str(error).lower()
+    return (
+        "not enough memory" in message
+        or "out of memory" in message
+        or "defaultcpuallocator" in message
+    )
+
+
+def _fit_lstm_once(dataset: _SequenceDataset, y: pd.Series, input_size: int,
+                   batch_size: int) -> tuple[LSTMNet, list[float]]:
+    """Train one seeded LSTM attempt; isolate locals so a failed attempt can be reclaimed."""
     torch.manual_seed(SEED)
-    scaler = StandardScaler()
-    scaled = scaler.fit_transform(X).astype(np.float32)
-    dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64))
-    if len(dataset) < 200:
-        raise ValueError(f"not enough sequences for {LSTM_SEQUENCE_LENGTH}-bar LSTM: {len(dataset)}")
     generator = torch.Generator().manual_seed(SEED)
-    loader = DataLoader(dataset, batch_size=512, shuffle=True, num_workers=0, generator=generator)
-    lstm = LSTMNet(input_size=scaled.shape[1])
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, generator=generator)
+    lstm = LSTMNet(input_size=input_size)
     counts = np.bincount(y.to_numpy(dtype=int), minlength=3).astype(float)
     class_weights = len(y) / (3.0 * np.maximum(counts, 1.0))
     criterion = nn.CrossEntropyLoss(weight=torch.tensor(class_weights, dtype=torch.float32))
@@ -466,8 +473,34 @@ def _fit_lstm(X: pd.DataFrame, y: pd.Series):
             total_rows += len(batch_y)
         losses.append(round(total_loss / max(total_rows, 1.0), 6))
     lstm.eval()
-    setattr(lstm, "_training_losses", losses)
-    return scaler, lstm
+    return lstm, losses
+
+
+def _fit_lstm(X: pd.DataFrame, y: pd.Series):
+    if set(np.unique(y)) != {0, 1, 2}:
+        raise ValueError(f"LSTM training split must contain all labels; found={sorted(np.unique(y).tolist())}")
+    scaler = StandardScaler()
+    scaled = scaler.fit_transform(X).astype(np.float32)
+    dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64))
+    if len(dataset) < 200:
+        raise ValueError(f"not enough sequences for {LSTM_SEQUENCE_LENGTH}-bar LSTM: {len(dataset)}")
+    for attempt, batch_size in enumerate(LSTM_BATCH_SIZE_FALLBACKS):
+        try:
+            lstm, losses = _fit_lstm_once(dataset, y, scaled.shape[1], batch_size)
+            setattr(lstm, "_training_losses", losses)
+            setattr(lstm, "_training_batch_size", batch_size)
+            return scaler, lstm
+        except RuntimeError as exc:
+            gc.collect()
+            if not _is_lstm_memory_error(exc) or attempt == len(LSTM_BATCH_SIZE_FALLBACKS) - 1:
+                raise
+            next_batch_size = LSTM_BATCH_SIZE_FALLBACKS[attempt + 1]
+            print(
+                f"LSTM CPU memory pressure at batch_size={batch_size}; retrying "
+                f"deterministically at batch_size={next_batch_size}",
+                flush=True,
+            )
+    raise RuntimeError("LSTM training exhausted all CPU-memory batch-size fallbacks")
 
 
 def _build_models(X: pd.DataFrame, y: pd.Series,
@@ -955,6 +988,52 @@ def auto_tune_xgb(X_train: pd.DataFrame, y_train: pd.Series, meta_train: pd.Data
     }
 
 
+def _build_auto_tuning_history(
+    tuning_trials: int,
+    fold_results: list[dict[str, Any]],
+    final_model: dict[str, Any] | None = None,
+    status: str = "in_progress",
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "search": "seeded_random_search",
+        "trials_per_window": int(tuning_trials),
+        "windows_completed": sum(1 for item in fold_results if item.get("auto_tuning")),
+        "final_oos_start": "2026-07-01T00:00:00+00:00",
+        "final_oos_used_for_tuning": False,
+        "final_model": final_model,
+        "walk_forward_windows": [
+            {"name": item.get("name"), "status": item.get("status"), "auto_tuning": item.get("auto_tuning")}
+            for item in fold_results
+        ],
+        "fixed_strategy_gates": {
+            "xgb_buy_minimum": XGB_MIN_CONFIDENCE,
+            "lstm_buy_minimum": LSTM_MIN_CONFIDENCE,
+            "ensemble_buy_minimum": PROBABILITY_THRESHOLD,
+            "smc_minimum": 85,
+            "wave3_fib_minimum": 80,
+            "xgb_weight": ENSEMBLE_XGB_WEIGHT,
+            "lstm_weight": ENSEMBLE_LSTM_WEIGHT,
+        },
+    }
+
+
+def _write_auto_tuning_history(
+    report_path: str | Path,
+    tuning_trials: int,
+    fold_results: list[dict[str, Any]],
+    final_model: dict[str, Any] | None = None,
+    status: str = "in_progress",
+) -> Path:
+    target = Path(report_path).with_name("wave3_auto_tuning_history.json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(target.suffix + ".tmp")
+    payload = _build_auto_tuning_history(tuning_trials, fold_results, final_model, status)
+    temporary.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    temporary.replace(target)
+    return target
+
+
 def _fold_run(frame: pd.DataFrame, features: pd.DataFrame, X: pd.DataFrame, y: pd.Series,
               meta: pd.DataFrame, name: str, test_start: str, test_end: str,
               news_safe: np.ndarray | None, tuning_trials: int) -> dict[str, Any]:
@@ -1022,7 +1101,17 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     ]
     fold_results = []
     for name, start, end in folds:
-        fold_results.append(_fold_run(frame, features, X, y, meta, name, start, end, news_safe, tuning_trials))
+        fold_result = _fold_run(frame, features, X, y, meta, name, start, end, news_safe, tuning_trials)
+        fold_results.append(fold_result)
+        history_path = _write_auto_tuning_history(
+            report_path, tuning_trials, fold_results, status="in_progress"
+        )
+        print(
+            f"[AUTO_TUNING_CHECKPOINT] completed_windows="
+            f"{sum(1 for item in fold_results if item.get('auto_tuning'))} "
+            f"history={history_path}",
+            flush=True,
+        )
 
     final_start = pd.Timestamp("2026-07-01", tz="UTC")
     train_idx = np.flatnonzero(_train_mask(meta, final_start))
@@ -1034,6 +1123,10 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     sequence_context = X.iloc[max(0, int(test_idx[0]) - LSTM_SEQUENCE_LENGTH + 1):int(test_idx[0])]
     final_tuning = auto_tune_xgb(X_train, y_train, meta.iloc[train_idx].reset_index(drop=True),
                                  n_trials=tuning_trials, study_name="final_model_pre_2026_07_01")
+    _write_auto_tuning_history(
+        report_path, tuning_trials, fold_results, final_model=final_tuning,
+        status="final_model_tuned_pre_oos",
+    )
     print(f"[FINAL_OOS_2026_H2] train={len(train_idx)} test={len(test_idx)} "
           f"selected XGB from {final_tuning.get('trials_completed', 0)} auto-tuning trials; "
           "Final OOS is not used for tuning", flush=True)
@@ -1052,6 +1145,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "state_dict": models[2].state_dict(), "input_size": int(X.shape[1]), "hidden_size": 32,
         "scaler": models[1], "feature_columns": list(X.columns), "label_mapping": LABEL_NAMES,
         "sequence_length": LSTM_SEQUENCE_LENGTH, "seed": SEED,
+        "training_batch_size": getattr(models[2], "_training_batch_size", LSTM_TRAIN_BATCH_SIZE),
     }, model_path / "deep_lstm.pt")
     reloaded = load_saved_models(model_path)
     if reloaded[3] != list(X.columns):
@@ -1076,6 +1170,8 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "auto_tuning": final_tuning,
         "deep_model": {"type": "PyTorch LSTMClassifier", "sequence_length_bars": LSTM_SEQUENCE_LENGTH,
                        "layers": [32, 32], "epochs": 4,
+                       "training_batch_size": getattr(models[2], "_training_batch_size", LSTM_TRAIN_BATCH_SIZE),
+                       "cpu_batch_size_fallbacks": list(LSTM_BATCH_SIZE_FALLBACKS),
                        "training_loss_by_epoch": getattr(models[2], "_training_losses", []),
                        "ensemble_weight": ENSEMBLE_LSTM_WEIGHT},
         "artifact_round_trip_verification": {"passed": True, "held_out_rows_compared": check_count,
@@ -1185,22 +1281,9 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "historical_news_calendar_provided": news_safe is not None,
         },
         "walk_forward": fold_results,
-        "auto_tuning": {
-            "search": "seeded_random_search",
-            "trials_per_window": int(tuning_trials),
-            "final_model": final_tuning,
-            "walk_forward_windows": [
-                {"name": item.get("name"), "auto_tuning": item.get("auto_tuning")}
-                for item in fold_results
-            ],
-            "fixed_strategy_gates": {
-                "xgb_buy_minimum": XGB_MIN_CONFIDENCE,
-                "lstm_buy_minimum": LSTM_MIN_CONFIDENCE,
-                "ensemble_buy_minimum": PROBABILITY_THRESHOLD,
-                "smc_minimum": 85,
-                "wave3_fib_minimum": 80,
-            },
-        },
+        "auto_tuning": _build_auto_tuning_history(
+            tuning_trials, fold_results, final_model=final_tuning, status="completed"
+        ),
         "final_out_of_sample": final_result,
         "model_files": ["models/wave3_xgb_deep/xgb_model.json",
                         "models/wave3_xgb_deep/deep_lstm.pt",
