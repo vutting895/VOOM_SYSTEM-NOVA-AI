@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
 
-const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const env = {
+  SUPABASE_URL: "https://supabase.example",
+  SUPABASE_PUBLISHABLE_KEY: "public-test-key",
+  AI_RATE_LIMITER: { limit: async () => ({ success: true }) },
+};
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
@@ -290,4 +294,50 @@ test("configured Gemini failure returns 503 without silent provider switching", 
     assert.equal(response.status, 503);
     assert.equal((await response.json()).error, "ai_provider_unavailable");
   } finally { globalThis.fetch = original; }
+});
+
+test("AI rate limit fails closed when binding is unavailable", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+  }), { ...env, AI_RATE_LIMITER: undefined, GEMINI_API_KEY: "must-not-call" });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "ai_rate_limiter_unavailable");
+});
+
+test("AI rate limit rejects over-quota users before any provider call", async () => {
+  authFetch();
+  let providerCalled = false;
+  let limiterKey;
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "must-not-call",
+    AI_RATE_LIMITER: { limit: async ({ key }) => { limiterKey = key; return { success: false }; } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 429);
+  assert.equal(body.error, "ai_rate_limit_exceeded");
+  assert.equal(limiterKey, "user:user-test");
+  assert.equal(providerCalled, false);
+});
+
+test("AI rate limit keys are isolated by authenticated user id", async () => {
+  const keys = [];
+  const limiter = { limit: async ({ key }) => { keys.push(key); return { success: true }; } };
+  for (const userId of ["user-one", "user-two"]) {
+    authFetch(200, { id: userId });
+    const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+    }), { ...env, AI_RATE_LIMITER: limiter, AI: { run: async () => ({ response: "ok" }) } });
+    assert.equal(response.status, 200);
+  }
+  assert.deepEqual(keys, ["user:user-one", "user:user-two"]);
 });
