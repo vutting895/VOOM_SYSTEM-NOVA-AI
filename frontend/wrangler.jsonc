@@ -1,6 +1,6 @@
 {
-  // Legacy/rollback frontend configuration only; production hosting is Netlify.
-  // Cloudflare Workers in the production workflow host backend APIs only.
+  // OpenNext frontend Worker used for parallel Cloudflare validation after main CI.
+  // Netlify remains the public production host until a separately approved DNS cutover.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "voom-system-nova-ui",
   "main": ".open-next/worker.js",
