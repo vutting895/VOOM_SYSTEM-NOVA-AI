@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "cf:build": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build",
-    "cf:preview": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build && npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare preview",
-    "cf:deploy": "npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare build && npx --yes --package=@opennextjs/cloudflare --package=wrangler opennextjs-cloudflare deploy",
-    "cf:typegen": "npx --yes --package=wrangler wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf:build": "npm run cf:install && opennextjs-cloudflare build",
+    "cf:preview": "npm run cf:install && opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "npm run cf:install && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:typegen": "npm exec --yes --package=wrangler@4.156.0 -- wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "cf:install": "npm install --no-save --package-lock=false @opennextjs/cloudflare@1.20.14 wrangler@4.156.0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
