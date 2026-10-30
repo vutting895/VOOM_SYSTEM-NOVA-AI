@@ -8,6 +8,8 @@ on:
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
+      - "frontend/app/api/broker/status/**"
+      - "frontend/lib/broker-system-hub.*"
       - ".github/workflows/broker-adapter-contracts.yml"
   push:
     branches:
@@ -18,6 +20,8 @@ on:
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
+      - "frontend/app/api/broker/status/**"
+      - "frontend/lib/broker-system-hub.*"
       - ".github/workflows/broker-adapter-contracts.yml"
 
 permissions:
@@ -55,6 +59,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Run Broker Status System Hub client tests
+        run: node --test frontend/lib/broker-system-hub.test.mjs
 
       - name: Run System Hub, MT5 Proxy, and Bridge Relay tests
         run: node --experimental-default-type=module --test integrations/system-hub/tests/system-hub.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs integrations/mt5-bridge-relay/worker.test.mjs
