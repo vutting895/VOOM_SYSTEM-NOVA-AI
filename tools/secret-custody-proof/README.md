@@ -1,25 +1,25 @@
-# Secret Custody Contract Proof
+# Local Secret Custody Runtime Proof (synthetic only)
 
-This is a synthetic-only contract harness for the owner-selected separate Secret Custody Plane (Option C). It is not a running service and does not connect to a cloud provider, Supabase project, KMS/HSM, provider API, or customer account.
-
-Run locally:
+Run:
 
 ```sh
-node --test tools/secret-custody-proof/contract.test.mjs
+node --test tools/secret-custody-proof/*.test.mjs
 ```
 
-The request/response JSON Schemas and Node tests verify:
-- request fields cannot assert owner, tenant, secret reference/value, provider URL, access token, DB URL, or role;
-- response objects allow only bounded sanitized business result shapes and reject nested credential material;
-- operation identity is tenant + stable operation ID and is independent of signing key ID/nonce;
-- a changed request fingerprint is a hard conflict;
-- an ambiguous provider outcome remains reconciliation-required and cannot authorize automatic redispatch.
+`runtime.mjs` is a deliberately small, dependency-injected local proof harness. It exercises the request path in this order:
 
-The tests do not prove cryptographic implementation, actual Supabase JWT verification, mTLS, KMS/HSM policy, envelope encryption, tenant isolation in a deployed service, provider reconciliation, or availability/latency. Those require an implementation and independent review.
+1. Verify a bearer session through an injected verifier.
+2. Resolve the requested connection using the verified subject (never caller-supplied owner/tenant IDs).
+3. Resolve and match a custodian-owned binding, provider, environment, active state, and read-only capability.
+4. Atomically claim a file-backed operation record using a stable principal/binding/capability/idempotency key and a canonical request fingerprint.
+5. Invoke only an injected read-only provider adapter, passing trusted binding metadata and bounded intent—not credential bytes.
+6. Persist a sanitized result for replay; mark ambiguous provider outcomes `OUTCOME_UNKNOWN` and prohibit blind redispatch.
+7. Return `Cache-Control: no-store` and `Pragma: no-cache`.
 
-Do not put real secrets, access tokens, key material, connection strings, or customer data in fixtures. No secret values are required.
+The tests use synthetic identities, connection metadata, provider responses, and temporary local files. They include restart/replay, cross-owner denial, forbidden-field rejection, fingerprint conflict, ambiguous outcome, and response redaction checks.
 
+## Proof limitations
 
-The `crypto-proof.test.mjs` suite uses Node's built-in crypto module with ephemeral synthetic keys to exercise AES-256-GCM envelope-encryption mechanics, immutable associated-data binding, ciphertext/tag tamper rejection, DEK rewrap under a rotated KEK, and Ed25519 signature verification using only the public key at the verifier. The test does not persist key material or use a real KMS/HSM.
+This is **not a production custodian**. The injected session verifier is a test double, not Supabase JWT verification. The connection and binding resolvers are in-memory test doubles, not a real RLS-scoped Supabase lookup or separate custodian registry. The provider adapter is synthetic and does not connect to Exness/MT5 or any provider. The file-backed ledger is a local single-process proof, not a distributed transactional database with leases/fencing or multi-worker concurrency guarantees. No credentials are stored, encrypted, decrypted, or migrated. No KMS/HSM, mTLS/workload identity, production key custody, network isolation, deployment, staging, or independent security review is proven.
 
-**Proof boundary:** passing these tests proves only the selected library primitives and the local contract model. It does not prove KMS/HSM policy, non-exportable key custody, mTLS/workload identity, actual Supabase JWT verification, production key rotation/revocation, custodian runtime isolation, or independent security review.
+Do not treat a passing local proof as authorization to enable customer secret routes. Customer custody remains disabled; broker access remains read-only; order submission, execution, and live trading remain OFF.
