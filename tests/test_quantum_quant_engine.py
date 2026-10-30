@@ -26,8 +26,11 @@ class QuantumQuantEngineTests(unittest.TestCase):
         a.fit(self.features,self.labels); b.fit(self.features,self.labels)
         fa = a.run_quantum_regime_forecast("EURUSD","H1",[0.8,0.8,0.8,0.8])
         fb = b.run_quantum_regime_forecast("EURUSD","H1",[0.8,0.8,0.8,0.8])
-        self.assertEqual(fa["bullish_probability"],fb["bullish_probability"])
+        self.assertEqual(fa["bullish_score_01"],fb["bullish_score_01"])
         self.assertEqual(fa["trading_action"],"NONE")
+        self.assertFalse(fa["probability_calibrated"])
+        self.assertEqual(fa["score_semantics"], "uncalibrated_backend_score_mapped_to_0_1")
+        self.assertNotIn("bullish_probability", fa)
         self.assertFalse(fa["live_trading_enabled"])
 
     def test_pip_value_sizing_respects_risk_cap(self):
@@ -78,11 +81,11 @@ class QuantumQuantEngineTests(unittest.TestCase):
         engine.fit_classical(self.features, self.labels)
         before = engine.run_quantum_regime_forecast(
             "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
-        )["bullish_probability"]
+        )["bullish_score_01"]
         engine._fit_standardizer(self.features + 100.0, backend="quantum")
         after = engine.run_quantum_regime_forecast(
             "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
-        )["bullish_probability"]
+        )["bullish_score_01"]
         self.assertEqual(before, after)
 
     def test_broker_maximum_and_volume_step_are_respected(self):
@@ -120,7 +123,7 @@ class QuantumQuantEngineTests(unittest.TestCase):
         engine.fit_classical(self.features, self.labels)
         classical_before = engine.run_quantum_regime_forecast(
             "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8]
-        )["bullish_probability"]
+        )["bullish_score_01"]
 
         trained = engine.fit_quantum(
             self.features + 25.0, self.labels, epochs=2, learning_rate=0.01
@@ -141,7 +144,7 @@ class QuantumQuantEngineTests(unittest.TestCase):
 
         classical_after = engine.run_quantum_regime_forecast(
             "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8], backend="classical"
-        )["bullish_probability"]
+        )["bullish_score_01"]
         self.assertEqual(classical_before, classical_after)
 
 if __name__ == "__main__":
