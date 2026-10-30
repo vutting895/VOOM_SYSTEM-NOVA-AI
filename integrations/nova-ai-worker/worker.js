@@ -22,7 +22,8 @@ const MAX_BODY_BYTES = 16 * 1024;
 // defense-in-depth only: authenticated clients can call these routes directly.
 const CREDENTIAL_PATTERNS = [
   /\bAuthorization\s*:\s*Basic\s+[A-Za-z0-9+/]+={0,2}\b/i,
-  /\bBearer\s+\S+/i,
+  /\bAuthorization\s*:\s*Bearer\s+\S+/i,
+  /\bBearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}\b/i,
   /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
   /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\b/,
   /\b(?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[_ -]?key|password|passwd|secret|token)\s*[:=]\s*["']?[^\s"',;]{3,}/i,
