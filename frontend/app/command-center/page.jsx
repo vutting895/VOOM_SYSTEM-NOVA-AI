@@ -131,7 +131,7 @@ export default function CommandCenterPage() {
     [messages],
   );
 
-  async function createDraftReview(messageId, intent) {
+  async function createDraftReview(messageId, intent, revisedProposal = null) {
     if (!APPROVALS_ENABLED || !auth.token || intent?.intent !== 'draft_strategy') return;
     setApprovalBusy(messageId);
     try {
@@ -143,7 +143,7 @@ export default function CommandCenterPage() {
       });
       const thread = await threadResponse.json().catch(() => ({}));
       if (!threadResponse.ok || !thread.thread?.id) throw new Error('ระบบตรวจทานร่างยังไม่พร้อม');
-      const proposal = {
+      const proposal = revisedProposal || {
         title: 'NOVA Strategy Draft',
         summary: 'ร่างเพื่อการวิจัยเท่านั้น ยังไม่ผ่านการตรวจสอบย้อนหลังและไม่มีคำสั่งซื้อขาย',
         market: intent.parameters.market,
@@ -269,7 +269,7 @@ export default function CommandCenterPage() {
                 onReviewEdited={(edited) => createDraftReview(message.id, {
                   intent: 'draft_strategy',
                   parameters: { market: edited.market, timeframe: edited.timeframe, risk: edited.riskProfile },
-                })}
+                }, edited)}
               />}
             </article>)}
             {busy && <div className="cc-thinking">NOVA กำลังประมวลผล…</div>}
