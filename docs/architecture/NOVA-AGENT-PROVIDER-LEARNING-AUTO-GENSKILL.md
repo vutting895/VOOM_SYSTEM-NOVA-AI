@@ -22,11 +22,11 @@ This is not an autonomous self-modifying agent. Provider responses, agent transc
 
 | Existing component | Reuse responsibility | Extension boundary |
 |---|---|---|
-| NOVA AI Worker / Provider Gateway | Provider selection, fallback, normalized response and provenance | Emit a sanitized learning observation after a completed provider call |
-| Agent Orchestration | Run/step/tool lifecycle, bounded calls and checkpoints | Emit execution outcome events; do not copy transcripts or trusted identity into model checkpoints |
+| NOVA AI request surface / future Provider Gateway | Existing authenticated API-to-Worker request boundary; PR #86 contains a Gemini adapter candidate but is 105 commits behind current main and must not be merged as-is | After a current-main provider adapter is reviewed, emit sanitized learning observations with actual provider/model/fallback provenance |
+| Agent Orchestration contract candidate (PR #106) | Bounded run/step/tool contracts are proposed on an open Draft branch, not yet part of main | Rebase/review and accept the contracts before wiring event emission; do not treat the PR as a deployed runtime |
 | System Integration Hub | Authentication, owner/tenant authorization, idempotency and audit | Authorize all ingestion, reads, publication and Skill invocation |
 | Deep Research Core (#96) | Source snapshots, claims, hypotheses and research tasks | Supply evidence references; do not create a second evidence ledger |
-| Learning Universe / Auto-Learning (#117) | Candidate lifecycle and human review | Add agent/provider/skill candidate types through an additive, reviewed contract |
+| Learning Universe / Auto-Learning (Draft PR #117) | Branch-only catalog and fail-closed lifecycle primitive; not yet merged and has no persistence/scheduler/trainer | Add agent/provider/skill candidate types only after #117 is reviewed and its accepted contracts are available on the integration base |
 | Quant Engine | Deterministic experiment execution and evaluation | Evaluate skill behavior where numerical or time-series evidence is required |
 | NOVA AI Chat | User-facing intent and agent entry point | Invoke only published skills through typed server-owned routes |
 
@@ -226,3 +226,15 @@ A design document, passing unit tests or green CI alone does not prove a Skill i
 - Existing NOVA AI Worker Provider Gateway and Gemini-primary / Cloudflare fallback.
 - Existing Agent Orchestration contracts and System Integration Hub.
 - Existing approval lifecycle and server-owned tool allowlists.
+
+
+## 12. Source baseline reconciliation — 2026-10-31
+
+The following distinctions are mandatory when implementing this design:
+
+- Current `main` is `a2acfd8ec9b598e6593413549bef760e8f596a72`. Its `frontend/app/api/chat/route.js` and `frontend/app/api/gen-ai/generate/route.js` provide authenticated request boundaries, but this is not evidence of a full multi-provider learning gateway.
+- PR #86 proposes a Gemini Provider Adapter and Cloudflare Workers AI fallback. It is open and targets an older base (`ca25d39ee1f58e4d53bc173be268cffc962fcdc4)); comparing its head with current main shows 31 commits ahead and 105 behind, with a divergent history. **Do not merge or stack new work on #86 as-is.** Rebuild/port its useful changes onto current main in a fresh branch, then re-run exact-head tests and review before describing Gemini as active.
+- PR #106 proposes bounded Agent Orchestration contracts but remains an open Draft and is not on main. Its contracts are a future integration dependency, not a deployed workflow runtime.
+- PR #117 proposes Learning Universe 16 and the learning lifecycle but remains an open Draft and is not on main. Its code does not include persistence, scheduler, trainer, source ingestion or runtime activation.
+- Legacy prototypes such as `integrations/nova-ai-mcp-full-clean/workers/feature/agentic_selfplay.py`, `learning_control.py`, and `continual_learning.py` contain random/mock/simulated behavior. They are not accepted training evidence, provider observations, production Agent Learning, or a source for automatic promotion.
+- Therefore Issue #122 is staged: first reconcile and review #117; separately port/review provider and agent contracts against current main; then add strict observation/skill contracts and isolated evaluation. No learning event collector or provider adapter is assumed active until exact source, CI and runtime evidence establish it.
