@@ -6,9 +6,9 @@ This package currently provides deterministic, standard-library-only primitives:
 - canonical SHA-256 fingerprinting for normalized dataset content;
 - deterministic experiment-run fingerprinting over dataset, code, strategy, parameters, evaluation plan and seed;
 - chronological train/validation/test partitioning with purge bars;
-- expanding and rolling walk-forward fold construction.
+- expanding and rolling walk-forward fold construction;\n- strict `nova.quant-experiment.v1` validation for immutable dataset, strategy/feature, code/runtime, fold, purge/embargo, cost, baseline and evaluator references.
 
-The package does not fetch market data, connect to brokers, train models, persist runs, or submit orders. It is not a production Quant Engine service yet. Heavy calculations must run in a separately authenticated compute process; Cloudflare Workers remain the routing/control plane.
+The experiment validator checks a bounded specification only; it does not execute folds or prove that referenced artifacts exist. The package does not fetch market data, connect to external accounts, train models, persist runs, or submit orders. It is not a production Quant Engine service yet. Heavy calculations must run in a separately authenticated compute process; Cloudflare Workers remain the routing/control plane.
 
 Run contract tests from the repository root:
 
