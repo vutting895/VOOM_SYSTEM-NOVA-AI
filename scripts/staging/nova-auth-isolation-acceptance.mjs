@@ -293,7 +293,7 @@ try {
     evidence.cleanup.owned_approvals_removed;
 }
 
-const testsPassed = evidence.checks.length === 10 && evidence.checks.every(x => x.passed);
+const testsPassed = evidence.checks.length === 12 && evidence.checks.every(x => x.passed);
 evidence.failure_code = failureCode;
 evidence.status = !failureCode && testsPassed && evidence.cleanup.verified ? "PASS" : "FAIL";
 writeEvidence();
