@@ -34,6 +34,9 @@ The project uses its own supabase/config.toml, a non-default local database port
 - It does not create a production migration, change hosted grants, configure Hyperdrive, add a System Hub route, accept customer credentials, or deploy a Worker.
 - Exness MT5 remains on its existing per-tenant Bridge path. Order submission and Live Trading remain disabled.
 
+
+- The migration runner receives explicit SET-only membership to the function-owner and runtime roles inside this disposable database so pgTAP can exercise the real effective privileges. These grants are local test scaffolding only and must not be copied into a hosted migration.
+
 ## Important unresolved identity boundary
 
 The SQL function accepts an owner and tenant identity supplied by its trusted caller. PostgreSQL can prove that those values match the registered connection; this local proof **cannot prove that an arbitrary caller is entitled to assert those identity values**. The System Hub must establish that identity from the verified Supabase session, and a separate security review must decide whether a signed, short-lived internal assertion or another cryptographically verifiable binding is required before staging.
