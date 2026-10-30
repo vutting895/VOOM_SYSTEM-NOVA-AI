@@ -14,13 +14,23 @@ Add a customer-specific, authenticated Zero-Menu Command Center at `/command-cen
 - Chart, equity, margin, and drawdown remain explicitly unavailable until a verified owner-scoped data source supplies them. No illustrative values are presented as live data.
 - Activity panel labels its entries as local UI activity, not FastMCP/Worker server logs.
 - Responsive layout collapses to one column on tablet/mobile.
-- The command center is added to shared navigation but the navigation itself is hidden on the command-center route.
+- Added authenticated `/strategies` onboarding with a fixed catalog (SMC Precision, Wave3 Confluence, AI Market Scout), market, risk-profile and analysis-style preferences.
+- Strategy preferences are schema-validated and stored locally using a Supabase Auth user UUID scoped key. This is a browser-local display preference only; it is not an authorization attribute, does not change backend policy/strategy execution, and does not sync across devices.
+- The existing `/command-center` becomes the selected customer's private dashboard, reads only that user's allowlisted preference, shows the selected strategy and offers research prompt shortcuts to their authenticated NOVA chat.
+- Customers without a valid selected strategy are sent to `/strategies`; the command center remains the single private workspace route (no duplicate dashboard).
+- Both customer onboarding and the command center own their branded header and hide the global navigation.
 
 ## Staging and deployment work added
 - Staging project `rovhmjeowracayicbqij` is isolated from production. Applied the existing `mt5_customer_connections` migration there so `broker_connections` and its owner-only RLS policies exist alongside the durable approval lifecycle.
 - Added an exact-PR-SHA Cloudflare staging preview Worker (`voom-system-nova-ui-pr85-preview`) using only the staging Supabase project; disabled external AI/System Hub/proxy destinations on that preview. The existing `VOOM_SYSTEM_AUTH` Turnstile widget was extended by one hostname while preserving its existing allowlist.
 - Added `tests/staging-customer-isolation.mjs` and a PR #85-only Frontend CI job that runs against the Cloudflare preview. It creates two temporary `system_test_only` Auth users, exercises the actual broker/thread/approval APIs against staging, attempts cross-user reads/writes/decisions, signs out and deletes both users, then verifies Auth users and owned rows are absent. It uses only the staging secrets and never prints their values. The job is currently blocked because the configured staging Auth Admin secret equals the publishable key.
 - Added Cloudflare OpenNext build validation to Frontend CI and an exact-SHA staging preview deployment/smoke-test path. Updating the stable Cloudflare UI Worker from `main` is opt-in via `DEPLOY_CLOUDFLARE_FRONTEND_MAIN=true`; Netlify remains the public production host and DNS is unchanged.
+
+## Customer strategy onboarding — current boundary
+- `/strategies` requires a valid Supabase Auth session and exposes only the three code-defined strategies and enumerated market/risk/analysis options.
+- Browser storage is namespaced by the authenticated user's UUID to keep preferences separate in the same browser profile. Browser storage can be cleared or unavailable and is not a cross-device profile store.
+- The selected strategy is shown in the dashboard and used to compose quick-research prompts only. The existing `/api/chat` interface remains request/response and does not currently receive a separately verified server-side preference profile; do not claim this setting tunes the AI model or changes any trading controls.
+- Do not use browser preferences as tenant authorization. If durable cross-device preferences are required, add a dedicated owner-scoped table, minimal Data API grants and RLS policies in a separately reviewed migration, then verify cross-user deny cases in staging.
 
 ## Important integration gaps (not claimed complete)
 1. Existing `/api/chat` is bounded request/response JSON, not AG-UI SSE streaming. LangGraph interrupt/resume is not wired into this route yet.
