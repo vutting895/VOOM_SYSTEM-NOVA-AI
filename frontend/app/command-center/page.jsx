@@ -98,6 +98,56 @@ export default function CommandCenterPage() {
     }
   }, [appendLog]);
 
+  const restorePendingApprovals = useCallback(async (token, expectedUserId) => {
+    if (!APPROVALS_ENABLED || !token || !expectedUserId || identityRef.current !== expectedUserId) return;
+    const generation = requestGenerationRef.current;
+    const isCurrent = () => generation === requestGenerationRef.current
+      && identityRef.current === expectedUserId;
+
+    try {
+      const threadResponse = await fetch('/api/agent/threads?state=awaiting_review', {
+        cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!threadResponse.ok) return;
+      const threadPayload = await threadResponse.json().catch(() => ({}));
+      if (!isCurrent()) return;
+      const threads = Array.isArray(threadPayload.threads) ? threadPayload.threads : [];
+      const approvalsByThread = await Promise.all(threads
+        .filter((thread) => typeof thread?.id === 'string')
+        .map(async (thread) => {
+          const response = await fetch('/api/agent/threads/' + encodeURIComponent(thread.id) + '/approvals', {
+            cache: 'no-store',
+            headers: { Authorization: 'Bearer ' + token },
+          });
+          if (!response.ok) return [];
+          const payload = await response.json().catch(() => ({}));
+          return (Array.isArray(payload.approvals) ? payload.approvals : [])
+            .filter((approval) => approval?.status === 'pending' && typeof approval.id === 'string')
+            .map((approval) => ({
+              id: 'restored-approval-' + approval.id,
+              role: 'assistant',
+              content: 'มีร่างกลยุทธ์ที่บันทึกไว้รอการตรวจทาน',
+              approval,
+              threadId: thread.id,
+              restoredReview: true,
+            }));
+        }));
+      if (!isCurrent()) return;
+
+      const restored = approvalsByThread.flat();
+      if (!restored.length) return;
+      setMessages((current) => {
+        if (!isCurrent()) return current;
+        const existingIds = new Set(current.map((message) => message.approval?.id).filter(Boolean));
+        return [...current, ...restored.filter((message) => !existingIds.has(message.approval.id))];
+      });
+      appendLog('Restored ' + restored.length + ' pending research review(s)');
+    } catch {
+      if (isCurrent()) appendLog('Pending review restoration unavailable', 'warning');
+    }
+  }, [appendLog]);
+
   useEffect(() => {
     let active = true;
     const supabase = getSupabaseBrowserClient();
@@ -122,6 +172,7 @@ export default function CommandCenterPage() {
         resetCustomerState();
         appendLog('Customer identity changed; previous customer state discarded');
         void loadBroker(session.access_token, userId);
+        void restorePendingApprovals(session.access_token, userId);
       }
       setAuth({
         state: 'ready',
@@ -148,7 +199,7 @@ export default function CommandCenterPage() {
       listener.subscription.unsubscribe();
       requestGenerationRef.current += 1;
     };
-  }, [router, loadBroker, appendLog, resetCustomerState]);
+  }, [router, loadBroker, restorePendingApprovals, appendLog, resetCustomerState]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
