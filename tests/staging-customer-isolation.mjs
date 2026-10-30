@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID, createHash } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 const base = process.env.NOVA_STAGING_SUPABASE_URL || "";
 const publishableKey = process.env.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY || "";
@@ -30,15 +30,20 @@ function headers(apiKey, bearer, extra = {}) {
   };
 }
 
-async function jsonRequest(url, init, label) {
+async function anyJsonRequest(url, init) {
   const response = await fetch(url, { cache: "no-store", ...init });
   const raw = await response.text();
   let payload = null;
   try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
-  if (!response.ok) {
-    throw new Error(label + " failed (HTTP " + response.status + "). Response body suppressed.");
-  }
   return { response, payload };
+}
+
+async function jsonRequest(url, init, label) {
+  const result = await anyJsonRequest(url, init);
+  if (!result.response.ok) {
+    throw new Error(label + " failed (HTTP " + result.response.status + "). Response body suppressed.");
+  }
+  return result;
 }
 
 async function adminRequest(path, method, body, label) {
@@ -53,7 +58,7 @@ async function adminRequest(path, method, body, label) {
 }
 
 async function apiRequest(path, token, method = "GET", body = undefined, label = path) {
-  return jsonRequest(appUrl + path, {
+  return anyJsonRequest(appUrl + path, {
     method,
     headers: {
       ...(token ? { Authorization: "Bearer " + token } : {}),
@@ -200,7 +205,6 @@ async function runTests() {
     timeframe: "15m",
     riskProfile: "low",
   };
-  const proposalHash = createHash("sha256").update(JSON.stringify(proposal), "utf8").digest("hex");
   const foreignCreate = await apiRequest(
     "/api/agent/threads/" + encodeURIComponent(threadA) + "/approvals",
     userB.token,
