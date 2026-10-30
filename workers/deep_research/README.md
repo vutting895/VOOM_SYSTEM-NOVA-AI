@@ -16,6 +16,7 @@ The validators reject unknown fields, enforce bounded payloads and identifiers, 
 - `validate_research_evidence_graph` checks that source, passage, claim and hypothesis references resolve within one research task; it rejects orphan references, cross-research links, duplicate passage IDs and contradictory reuse of the same passage/claim as both support and counter-evidence.
 - `append_evidence_event` creates the next sequence-numbered `nova.evidence-event.v1` envelope. The event includes a UTC timestamp, trusted owner/research identifiers, previous-event SHA-256 and its own SHA-256 over canonical JSON. `event_id` is the idempotency key: an exact retry returns the previously recorded event, while reuse with changed content is rejected.
 - `verify_evidence_event_chain` verifies sequence continuity, hash links, stable owner/research scope, unique event IDs and chronological recording time. Payloads are bounded JSON metadata; known secret-bearing field names are rejected.
+- `EvidenceLedgerStore` specifies the future adapter boundary: owner/research-scoped chain reads and atomic compare-and-swap append by expected head hash. `append_event_to_store` retries bounded head conflicts and relies on `event_id` idempotency. A production adapter must enforce this contract in a database transaction with a unique event constraint and least-privilege insert policy. The current tests use only an in-memory test double; no durable adapter is included.
 
 **Integrity limitation:** a hash chain makes edits, deletion and reordering detectable against a retained trusted head/checkpoint. It does not stop an administrator who can rewrite the entire chain and its checkpoint, authenticate the caller, enforce RLS, provide durable storage, or replace an external immutable backup/anchor. The future persistence adapter must enforce insert-only access, owner isolation, idempotency and independently retained checkpoints. Do not place raw credentials or broker tokens in event payloads.
 
@@ -24,4 +25,5 @@ Run tests from the repository root:
 ```bash
 python -m unittest discover -s tests -p "test_deep_research_contracts.py" -v
 python -m unittest discover -s tests -p "test_deep_research_ledger.py" -v
+python -m unittest discover -s tests -p "test_deep_research_store.py" -v
 ```
