@@ -6,6 +6,7 @@ read-only check/account/quotes routes.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 import math
 import re
