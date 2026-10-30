@@ -3,7 +3,7 @@
 **Repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Canonical branch:** `main`  
 **Control plane:** existing Cloudflare System Integration Hub  
-**Current phase:** Vault privilege verification; customer credential storage remains disabled  
+**Current phase:** Local Vault least-privilege proof passed (PR #112); signed identity assertion remains design-only; customer credential storage remains disabled  
 **Safety:** read-only broker integrations only; order submission and Live Trading remain OFF
 
 ## 1. Architecture decision
@@ -109,7 +109,7 @@ Cloudflare Workers are developed and deployed from their existing integration di
 ## 7. Next implementation sequence
 
 1. Review the staging Vault privilege snapshot and confirm which existing consumers, if any, rely on `service_role` Vault access; decide explicitly whether the product threat model accepts Supabase's platform-managed `service_role` grants or requires a separate secret-custody service.
-2. Design a dedicated non-public database role and a restricted server-only access path. Prove how authenticated user identity is bound to the exact connection owner; do not rely on a free-form user ID supplied by the request.
+2. Design a dedicated non-public database role and a restricted server-only access path. Prove how authenticated user identity is bound to the exact connection owner; do not rely on a free-form user ID supplied by the request. The current candidate is documented in [NOVA-VAULT-SIGNED-IDENTITY-ASSERTION.md](NOVA-VAULT-SIGNED-IDENTITY-ASSERTION.md); it is not yet implemented or approved.
 3. Build and test the SQL role/function design in an isolated local database first, including privilege assertions and two-owner isolation tests.
 4. Apply the reviewed migration only to staging after approval; run the read-only audit SQL again and Supabase security advisors.
 5. Integrate the approved access path into the existing System Hub, then add credential create/use/rotate/revoke APIs with strict size, provider, scope, and audit controls.
@@ -134,3 +134,26 @@ The absence of policies currently filters ordinary RLS-protected access, but bro
 **Do not read credential rows, assume the table is empty, expose this table through new APIs, or drop/migrate these columns as part of this PR.** Before cleanup, identify all consumers and any existing credential records using an approved controlled process, design a customer-safe migration into the approved vault, verify backups and rollback, and obtain separate review. Never copy credential values into logs, reports, fixtures, or chat.
 
 The read-only audit reports only table existence, RLS flags, policy count, sensitive column names, and role/column/privilege metadata. It does not select from `public.user_brokers`.
+
+## 9. Local Vault proof milestone and remaining activation gates
+
+PR #112 has a successful exact-head disposable local proof:
+
+- Branch: `security/vault-local-isolation-proof-20261031`
+- Tested head: `308984a2d497443280b37e08b4e7112686346bd7`
+- GitHub Actions run: [Vault Local Isolation Proof #14](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41129449854)
+- Result: local-only Node contract checks 5/5 and pgTAP 42/42 passed; local stack stopped successfully.
+- Scope: synthetic local fixtures and local database role/function grants only.
+
+This milestone does not prove caller identity. The local accessor still accepts owner and tenant identifiers as SQL parameters; a holder of the database login could attempt to assert another customer's full identifiers. The Signed Identity Assertion document is the next design/proof gate. The candidate currently uses HMAC-SHA-256, a fixed canonical message, a short expiry, key IDs, nonce replay protection, and re-checks against the current connection registry. It remains a design candidate, not an approved protocol or implementation.
+
+Still not completed:
+- Cross-runtime HMAC known-answer proof and claim-tampering/replay/expiry tests.
+- Actual tenant resolution from the canonical repository schema; do not invent a tenant ID where the schema has only owner_id.
+- Worker signer and database verifier integration.
+- Cache-disabled Hyperdrive configuration and Supabase Free network compatibility.
+- Hosted role/grant review, independent staging Customer A/B acceptance, sanitized runtime audit/log/trace checks, and independent security review.
+- Provider-specific rotation/revoke and recovery tests.
+
+Do not enable customer credential reads/writes or create customer credential intake routes until these gates pass. Keep Exness MT5 Demo read-only; Order Submission and Live Trading remain OFF.
+
