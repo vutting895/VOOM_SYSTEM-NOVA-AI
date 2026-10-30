@@ -1,5 +1,7 @@
 name: Frontend CI
 
+# Includes the synthetic-only Option C Secret Custody contract proof.
+
 concurrency:
   group: nova-frontend-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
