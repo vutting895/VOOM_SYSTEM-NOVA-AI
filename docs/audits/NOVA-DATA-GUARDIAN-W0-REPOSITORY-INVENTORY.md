@@ -152,3 +152,24 @@ The repository documentation and search identify Supabase project `rovhmjeowraca
 6. Local Windows disks, NAS, Netlify environment settings and other cloud storage remain outside the inspected evidence.
 
 No provider settings, buckets, policies, migrations, secrets or data were modified. All provider calls in this section were read-only.
+
+
+## 11. Local Windows device — drive-level metadata only (2026-10-31)
+
+A read-only Windows logical-disk query was run on the connected workstation. No directory traversal, file-content read, file deletion, move, compression, or cleanup was performed.
+
+| Drive | Label | File system | Capacity | Free | Free percentage |
+|---|---|---|---:|---:|---:|
+| C: | — | NTFS | 39.51 GB | 0.44 GB | 1.1% |
+| G: | Google Drive | FAT32 | 15.00 GB | 0.42 GB | 2.8% |
+
+Both listed fixed volumes are critically low on free space. This is a drive-level observation only; it does not identify which files are safe to remove, and the G: label does not prove whether its contents are locally synchronized, virtualized or cloud-only.
+
+### Required next local inspection
+
+- Inventory only approved application, cache and temporary roots first; keep user documents, system files, backups, cloud-sync placeholders and unknown data excluded.
+- Record folder sizes, file counts, age bands and file extensions without opening file contents.
+- Identify candidates and expected space recovery; do not delete, move, compress or uninstall anything until a separate review/approval.
+- Preserve at least one rollback path and verify free space after any later approved cleanup.
+
+**Local W0 status:** Drive metadata observed; file/folder inventory not yet run. No cleanup was performed.
