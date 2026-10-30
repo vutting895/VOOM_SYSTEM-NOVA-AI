@@ -65,6 +65,6 @@ test('customer identity changes clear tenant state and invalidate stale async re
   assert.match(page, /setLogs\(\[\]\)/);
   assert.match(page, /setBroker\(\{ status: 'checking'/);
   assert.match(page, /const identityChanged = identityRef\.current !== userId/);
-  assert.match(page, /if \(requestGenerationRef\.current !== generation\) return/);
+  assert.match(page, /if \(generation !== requestGenerationRef\.current\) return/);
   assert.match(page, /identityRef\.current !== expectedUserId/);
 });
