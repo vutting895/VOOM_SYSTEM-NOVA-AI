@@ -44,6 +44,13 @@ function validateResponse(value) {
   if (!/^[0-9a-f-]{36}$/i.test(value.operation_id)) return false;
   if (!["SUCCEEDED", "FAILED_FINAL", "IN_PROGRESS", "OUTCOME_UNKNOWN"].includes(value.state)) return false;
   if (value.safe_error_code && !/^[A-Z0-9_]{1,64}$/.test(value.safe_error_code)) return false;
+  if (value.result !== undefined) {
+    if (!hasOnlyKeys(value.result, ["account", "quotes", "positions", "rotation"])) return false;
+    if (value.result.account && !hasOnlyKeys(value.result.account, ["balance", "equity", "margin", "free_margin", "currency"])) return false;
+    if (value.result.rotation && !hasOnlyKeys(value.result.rotation, ["state", "generation"])) return false;
+    if (value.result.quotes && (!Array.isArray(value.result.quotes) || value.result.quotes.some(item => !hasOnlyKeys(item, ["symbol", "bid", "ask", "timestamp"])))) return false;
+    if (value.result.positions && (!Array.isArray(value.result.positions) || value.result.positions.some(item => !hasOnlyKeys(item, ["symbol", "side", "volume", "unrealized_pnl"])))) return false;
+  }
   return !hasForbiddenKey(value);
 }
 
@@ -53,7 +60,7 @@ test("custody request and response schemas reject undeclared fields by default",
   assert.equal(responseSchema.additionalProperties, false);
   assert.equal(responseSchema.properties.result.additionalProperties, false);
   assert.match(adr, /custodian independently validates the Supabase token/i);
-  assert.match(adr, /does not expose a general-purpose plaintext secret-retrieval endpoint/i);
+  assert.match(adr, /do not expose a general-purpose plaintext secret-retrieval endpoint/i);
 });
 
 test("valid operation request uses only connection reference and non-secret operation data", () => {
