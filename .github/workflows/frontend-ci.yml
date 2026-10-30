@@ -76,6 +76,9 @@ jobs:
       - name: Test customer Zero-Menu Command Center contracts
         working-directory: .
         run: node --test tests/customer-command-center.test.mjs
+      - name: Syntax-check staging customer isolation harness
+        working-directory: .
+        run: node --check tests/staging-customer-isolation.mjs
       - name: Test server-side chat secret redaction
         working-directory: .
         run: node --test tests/chat-secret-redaction.test.mjs
