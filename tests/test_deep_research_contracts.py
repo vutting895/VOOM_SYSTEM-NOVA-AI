@@ -170,7 +170,14 @@ class DeepResearchContractTests(unittest.TestCase):
             "https://example.org:invalid/research",
             "https://example.org/research?access_token=secret",
             "https://example.org/research?X-Amz-Credential=secret",
+            "https://example.org/research?X-Goog-Signature=secret",
+            "https://example.org/research?X-Amz-Security-Token=secret",
             "https://[::1/research",
+            "https://research.local/path",
+            "https://worker.internal/path",
+            "https://example.org:/path",
+            "https://@example.org/path",
+            "https://bad_host.example.org/path"
         ):
             payload = self.source()
             payload["uri"] = uri
