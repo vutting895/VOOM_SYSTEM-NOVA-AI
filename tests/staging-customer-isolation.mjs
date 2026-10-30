@@ -15,7 +15,28 @@ for (const [name, value] of [
   if (!value) throw new Error("Missing staging-only environment value: " + name);
 }
 if (base !== expectedBase) throw new Error("Refusing to run customer-isolation tests outside the approved staging Supabase project.");
-if (serviceRoleKey === publishableKey) throw new Error("Staging secret NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY matches the publishable key. Replace it with the staging project\u0027s legacy service_role JWT; values are never printed.");
+
+function decodeLegacyJwt(key) {
+  const parts = key.split(".");
+  if (parts.length !== 3) return null;
+  try { return JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")); } catch { return null; }
+}
+
+if (publishableKey.startsWith("sb_secret_")) {
+  throw new Error("NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY is a secret key, not a publishable key. Use the staging project's publishable/anon key.");
+}
+if (publishableKey.startsWith("sb_publishable_")) {
+  // New-format publishable keys are non-JWT; the staging Auth settings request below verifies project binding.
+} else {
+  const publishableClaims = decodeLegacyJwt(publishableKey);
+  if (publishableClaims?.role !== "anon" || publishableClaims?.ref !== "rovhmjeowracayicbqij") {
+    throw new Error("NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY must be the staging project's anon JWT or sb_publishable key. No value is printed.");
+  }
+}
+const serviceClaims = decodeLegacyJwt(serviceRoleKey);
+if (serviceRoleKey === publishableKey || serviceClaims?.role !== "service_role" || serviceClaims?.ref !== "rovhmjeowracayicbqij") {
+  throw new Error("NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY must be the staging project's legacy service_role JWT. The current key is missing, mismatched, or not an admin JWT; values are never printed.");
+}
 
 const users = [];
 const checks = [];
