@@ -4,16 +4,14 @@
   "title": "NOVA Secret Custody Provider Operation Request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["connection_id", "provider", "environment", "operation", "request"],
+  "required": ["connection_id", "capability", "parameters", "policy_version"],
   "properties": {
     "connection_id": { "type": "string", "format": "uuid" },
-    "provider": { "type": "string", "pattern": "^[a-z0-9_-]{1,64}$" },
-    "environment": { "type": "string", "enum": ["demo", "sandbox", "production"] },
-    "operation": {
+    "capability": {
       "type": "string",
-      "enum": ["account.read", "positions.read", "quotes.read", "secret.rotate", "secret.revoke"]
+      "enum": ["account.summary.read", "balances.read", "positions.read", "orders.read", "quotes.read", "credential.status.read"]
     },
-    "request": {
+    "parameters": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -25,6 +23,8 @@
         "since": { "type": "string", "format": "date-time" },
         "limit": { "type": "integer", "minimum": 1, "maximum": 500 }
       }
-    }
+    },
+    "policy_version": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,40}$" },
+    "client_correlation_id": { "type": "string", "maxLength": 64, "pattern": "^[A-Za-z0-9._:-]{1,64}$" }
   }
 }
