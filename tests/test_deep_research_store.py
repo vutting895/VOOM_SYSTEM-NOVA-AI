@@ -42,7 +42,7 @@ class FakeCompareAndSwapStore:
                 research_id=research_id,
                 owner_id=owner_id,
                 event_type="source_snapshot_registered",
-                recorded_at="2026-10-31T09:00:30Z",
+                recorded_at="2026-10-31T02:00:30Z",
                 payload={"source_id": "source-race"},
             )
             self.events.append(competing)
