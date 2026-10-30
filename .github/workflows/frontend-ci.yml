@@ -167,6 +167,26 @@ jobs:
             exit 1
           fi
           echo "Cloudflare preview configuration is present."
+          if [[ "$NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY" == sb_secret_* ]]; then
+            echo "Refusing to embed a Supabase secret key in the public Cloudflare preview."
+            exit 1
+          fi
+          if [[ "$NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY" != sb_publishable_* ]]; then
+            node - <<'NODE'
+          const key = process.env.NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY;
+          const parts = key.split('.');
+          if (parts.length !== 3) throw new Error('Staging Supabase publishable key format is invalid.');
+          const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+          if (claims.role !== 'anon' || claims.ref !== 'rovhmjeowracayicbqij') {
+            throw new Error('Staging preview key must be the anon key for the approved staging project. Key values are not printed.');
+          }
+          NODE
+          fi
+          code="$(curl --silent --show-error --max-time 15 -o /tmp/nova-staging-auth-settings.json -w '%{http_code}' -H "apikey: $NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY" "$NOVA_STAGING_SUPABASE_URL/auth/v1/settings" || true)"
+          if [ "$code" != "200" ]; then
+            echo "The configured publishable key is not accepted by the approved staging Supabase project (HTTP $code)."
+            exit 1
+          fi
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
