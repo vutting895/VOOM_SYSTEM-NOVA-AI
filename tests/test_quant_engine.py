@@ -51,6 +51,16 @@ class QuantQualityTests(unittest.TestCase):
         self.assertEqual(report.irregular_interval_count, 1)
         self.assertIn("non-aligned", report.warnings[0])
 
+    def test_shorter_than_expected_interval_is_reported_as_irregular(self):
+        rows = sample_rows(2)
+        rows[1]["timestamp"] = "2026-01-01T00:30:00Z"
+        report = validate_ohlcv(rows, expected_interval_seconds=3600)
+        self.assertEqual(report.observed_gap_count, 0)
+        self.assertEqual(report.irregular_interval_count, 1)
+        self.assertTrue(any("non-aligned" in warning for warning in report.warnings))
+        with self.assertRaises(DatasetValidationError):
+            validate_ohlcv(rows, expected_interval_seconds=3600, reject_gaps=True)
+
     def test_rejects_naive_timestamp_and_bad_ohlc(self):
         rows = sample_rows(2)
         rows[0]["timestamp"] = "2026-01-01T00:00:00"
