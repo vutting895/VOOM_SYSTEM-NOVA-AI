@@ -16,7 +16,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 _DATE_ONLY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "password", "secret", "signature", "token", "x-amz-signature"}
+_SENSITIVE_QUERY_KEYS = {"access_token", "api_key", "apikey", "auth", "authorization", "client_secret", "code", "credential", "password", "private_key", "refresh_token", "secret", "signature", "sig", "token", "x-amz-credential", "x-amz-signature"}
 _CLASSIFICATIONS = {"observed", "corroborated", "inferred", "hypothesis", "disputed", "unsupported", "rejected"}
 _SOURCE_TYPES = {"official_documentation", "academic_paper", "repository", "market_data", "user_file", "other"}
 _TASK_STATES = {
@@ -148,7 +148,10 @@ def validate_research_source(payload: Any) -> dict[str, Any]:
     result = dict(obj)
     result["source_id"] = _id(obj["source_id"], "source_id")
     uri = _text(obj["uri"], "uri", maximum=2_048)
-    parsed = urlparse(uri)
+    try:
+        parsed = urlparse(uri)
+    except ValueError as exc:
+        raise ContractValidationError("uri is malformed") from exc
     host = parsed.hostname or ""
     try:
         port = parsed.port
