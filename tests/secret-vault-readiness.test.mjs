@@ -72,7 +72,9 @@ test("next use requires lease, successor, validation, switch, retirement, then e
     "Revoke the previous credential version",
     "Execute the requested operation with the new active version",
   ];
-  const positions = steps.map((step) => rotationPolicy.toLowerCase().indexOf(step.toLowerCase()));
+  const sequenceStart = rotationPolicy.indexOf("When the state is `ROTATION_REQUIRED`, the Hub must:");
+  assert.ok(sequenceStart >= 0, "Rotation state-machine section must exist");
+  const positions = steps.map((step) => rotationPolicy.toLowerCase().indexOf(step.toLowerCase(), sequenceStart));
   assert.ok(positions.every((position) => position >= 0), "All rotation state-machine steps must exist");
   for (let index = 1; index < positions.length; index += 1) {
     assert.ok(positions[index] > positions[index - 1], "Rotation step out of order: " + steps[index]);
@@ -107,14 +109,14 @@ test("Vault access design requires cache-disabled Hyperdrive and no secret leaka
   has(accessDesign, /all Vault\/auth\/permission\/rotation calls/i);
   has(accessDesign, /Cache-Control: no-store/i);
   has(accessDesign, /query caching/i);
-  has(accessDesign, /must never reach browser code, generated UI, the AI model, MCP/i);
+  has(accessDesign, /must never return secret material to the client or AI\/MCP/i);
 });
 
 test("Hyperdrive network, pooling and activation gates are explicitly documented", () => {
   has(accessDesign, /Free plan is IPv6-only/i);
   has(accessDesign, /minimum origin connection pool of five connections/i);
   has(accessDesign, /transaction pooling/i);
-  has(accessDesign, /do not depend on session-level state/i);
+  has(accessDesign, /session-level state is reset when a connection returns to the pool/i);
   has(accessDesign, /Do not upgrade Supabase/i);
   has(accessDesign, /candidate, not a green light/i);
   has(accessDesign, /Do not create Hyperdrive resources/i);
