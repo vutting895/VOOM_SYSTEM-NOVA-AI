@@ -176,7 +176,9 @@ jobs:
       - name: Deploy exact PR SHA to isolated staging Cloudflare Worker
         working-directory: frontend
         run: |
+          sha="$(git rev-parse HEAD)"
           npx wrangler deploy --config wrangler.jsonc --name voom-system-nova-ui-pr85-preview \
+            --var "NOVA_BUILD_SHA:$sha" \
             --var "SUPABASE_URL:$NOVA_STAGING_SUPABASE_URL" \
             --var "SUPABASE_PUBLISHABLE_KEY:$NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY" \
             --var "SUPABASE_ANON_KEY:$NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY" \
