@@ -62,3 +62,20 @@ The replay guard now enforces uniqueness for both key_id + nonce and key_id + op
 The HMAC verifier is symmetric: compromise of the Worker signing environment can mint assertions. Supabase-managed service_role Vault grants also remain a privileged boundary. This design does not protect against those compromises; evaluate a separate secret-custody service if that is outside the accepted threat model.
 
 This proof therefore does not authorize customer Secret reads/writes, staging grants, Hyperdrive creation, or production activation. Actual cache-disabled Hyperdrive configuration, System Hub session-to-owner resolution, Worker signer/verifier key provisioning, sanitized audit/log/trace integration, provider-aware rotation/revoke, independent security review, and staging-only A/B acceptance remain separate gates.
+
+
+## Durable operation journal — local proof only
+
+Migration `20261031000400_durable_operation_journal.sql` adds a durable operation record keyed by **(tenant_id, operation_id)**, not by signing key. A signing-key rotation therefore cannot make an already accepted logical operation appear new. The request fingerprint is fixed at 32 bytes and bound to the owner, tenant, connection, provider and environment. Reusing an operation ID with a different fingerprint or identity fails closed.
+
+The proof exercises these transitions:
+
+- `IN_PROGRESS`: a fenced 30-second lease is claimed before any provider dispatch. A concurrent duplicate receives `IN_PROGRESS`, never a second dispatch grant.
+- `SUCCEEDED`: the sanitized provider outcome is persisted. A duplicate receives `REPLAY_SUCCEEDED` and can retrieve the prior sanitized result only with the matching owner and tenant.
+- `OUTCOME_UNKNOWN`: a timeout after a possible external dispatch is recorded explicitly. Repeated requests receive `RECONCILIATION_REQUIRED`; lease expiry also transitions to this state and **never authorizes automatic redispatch**.
+- `FAILED_FINAL`: a definitively reconciled failure remains terminal.
+- Lease tokens fence stale workers from completing an operation after ownership has changed.
+
+Only a small allow-listed result object is accepted; arbitrary response payloads, credentials, tokens and secret fields are not accepted by the local result contract. Reconciliation is a separate privileged function and is not granted to the runtime login. Provider-specific lookup, retry policy, outbox delivery, operational alerting and real API integration remain unimplemented until a separate reviewed System Hub PR.
+
+This local database proof is not production idempotency. It does not yet demonstrate real concurrent provider calls, durable Worker integration, provider idempotency-key support, or crash recovery across the actual Cloudflare/Hyperdrive runtime.
