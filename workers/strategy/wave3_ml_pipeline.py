@@ -1407,7 +1407,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "Spread uses the recorded MT5 bar spread; slippage remains an assumption.",
             "Maximum drawdown uses closed-trade equity, not tick-level intratrade drawdown.",
             "The symbol available on this demo terminal is XAUUSDm; no symbol literally named XAUUSDM was found.",
-            "A historical event calendar is required for the +/-30 minute high-impact news exclusion; with no calendar the backtest fails closed and trade count remains zero.",
+            ("A validated historical high-impact news calendar was supplied and applied to this run; bars within +/-30 minutes are excluded." if news_safe is not None else "No historical high-impact news calendar was supplied; the +/-30 minute news guard fails closed and no entries are permitted."),
             "The requested rules contain an SL conflict (Wave2 Low - $5 versus a locked $5 entry distance); research uses the explicit fixed $5 stop and $11 target example.",
             "Only BUY rules were specified in the supplied checklist; SELL signal generation is deliberately disabled.",
             "The 61.8% Fib tolerance is not specified in the user rule; research assumes +/-5 percentage points and records that assumption.",
