@@ -5,8 +5,8 @@ const ENDPOINTS = {
 };
 const DEFAULT_MODELS = {
   gemini: "gemini-flash-latest",
-  openai: "gpt-4.1-mini",
-  anthropic: "claude-3-5-haiku-latest",
+  openai: "gpt-5.5",
+  anthropic: "claude-haiku-4-5-20251001",
   cloudflare: "@cf/meta/llama-3.2-3b-instruct",
 };
 const MAX_OUTPUT_CHARS = 10000;
@@ -71,7 +71,7 @@ async function requestOpenAI(env, messages) {
   const response = await fetch(ENDPOINTS.openai, {
     method: "POST",
     headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, max_tokens: 1000, temperature: 0.2, store: false }),
+    body: JSON.stringify({ model, messages, max_completion_tokens: 1000, store: false }),
     signal: AbortSignal.timeout(20000), redirect: "error",
   });
   if (!response.ok) throw new Error("openai_request_failed");
