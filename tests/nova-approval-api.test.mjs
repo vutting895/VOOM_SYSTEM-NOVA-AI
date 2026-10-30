@@ -64,6 +64,10 @@ test("expired UI requests server-side expiry reconciliation, never a rejection",
   assert.ok(expiredBlock.includes("submitDecision('expire')"));
   assert.equal(expiredBlock.includes("submitDecision('reject')"), false);
   assert.ok(decision.includes("approval_not_expired"));
+  assert.ok(decision.includes('serverConfirmedPending: result.result_code === "invalid_decision" && decision.decision === "expire"'));
+  assert.ok(chatPage.includes("payload.serverConfirmedPending === true"));
+  assert.ok(chatPage.includes("server_confirmed_pending: true"));
+  assert.ok(approvalCard.includes("approval.server_confirmed_pending !== true"));
   assert.ok(chatPage.includes("เวลาในอุปกรณ์เร็วกว่าฐานข้อมูล"));
 });
 
