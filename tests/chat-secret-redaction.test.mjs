@@ -12,18 +12,20 @@ test('redacts labeled API keys, passwords and access tokens', () => {
 });
 
 test('redacts bearer credentials, JWTs, provider tokens and URL query secrets', () => {
-  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 Authorization: Basic dXNlcjpwYXNzd29yZA== https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890';
+  const source = 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz123456 Authorization: Basic dXNlcjpwYXNzd29yZA== https://example.test/?token=token-value-123&ok=1 ghp_abcdefghijklmnopqrstuvwxyz1234567890 NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY=service-role-private-value';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /Bearer abcdefghijklmnopqrstuvwxyz123456/);
   assert.doesNotMatch(result, /Basic dXNlcjpwYXNzd29yZA==/);
   assert.doesNotMatch(result, /token-value-123/);
   assert.doesNotMatch(result, /ghp_abcdefghijklmnopqrstuvwxyz1234567890/);
+  assert.doesNotMatch(result, /service-role-private-value/);
 });
 
 test('redacts PEM private keys and preserves ordinary prose', () => {
-  const source = 'Please review this setup. -----BEGIN PRIVATE KEY-----\\nprivate-material\\n-----END PRIVATE KEY----- Thank you.';
+  const source = 'Please review this setup. Cookie: sessionid=private-cookie-value; auth=secret. -----BEGIN PRIVATE KEY-----\\nprivate-material\\n-----END PRIVATE KEY----- Thank you.';
   const result = redactSensitiveText(source);
   assert.doesNotMatch(result, /private-material/);
+  assert.doesNotMatch(result, /private-cookie-value/);
   assert.match(result, /Please review this setup/);
   assert.match(result, /Thank you/);
 });
