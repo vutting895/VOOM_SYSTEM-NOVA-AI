@@ -122,6 +122,13 @@ class LearningObservationContractTests(unittest.TestCase):
         with self.assertRaises(LearningObservationError):
             validate_observation(value)
 
+    def test_rejects_unhashable_enum_values_without_crashing(self):
+        for key in ("source_type", "outcome", "task_class", "provider_id", "fallback_from"):
+            value = observation()
+            value[key] = {"unexpected": "object"}
+            with self.subTest(key=key), self.assertRaises(LearningObservationError):
+                validate_observation(value)
+
     def test_rejects_untrusted_sanitization_claim(self):
         value = observation()
         value["data_minimized"] = False
@@ -164,6 +171,12 @@ class AutoGenSkillContractTests(unittest.TestCase):
     def test_rejects_unregistered_schema(self):
         value = skill()
         value["output_schema_ref"] = "arbitrary.schema"
+        with self.assertRaises(SkillSpecError):
+            validate_skill_spec(value, allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS)
+
+    def test_rejects_unhashable_data_scope_without_crashing(self):
+        value = skill()
+        value["data_scope"] = {"tenant": "all"}
         with self.assertRaises(SkillSpecError):
             validate_skill_spec(value, allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS)
 
