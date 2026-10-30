@@ -33,6 +33,37 @@ class QuantumQuantEngineTests(unittest.TestCase):
         self.assertNotIn("bullish_probability", fa)
         self.assertFalse(fa["live_trading_enabled"])
 
+    def test_fit_rejects_invalid_epoch_and_learning_rate_types(self):
+        engine = QuantumQuantEngine()
+        for epochs in (True, 0, "2"):
+            with self.subTest(epochs=epochs):
+                with self.assertRaises(ValueError):
+                    engine.fit(self.features, self.labels, backend="quantum", epochs=epochs)
+        for learning_rate in (True, 0, "fast"):
+            with self.subTest(learning_rate=learning_rate):
+                with self.assertRaises(ValueError):
+                    engine.fit(self.features, self.labels, backend="quantum", learning_rate=learning_rate)
+
+    def test_training_data_rejects_boolean_features_and_labels(self):
+        engine = QuantumQuantEngine()
+        boolean_features = self.features.astype(object)
+        boolean_features[0, 0] = True
+        with self.assertRaisesRegex(ValueError, "not boolean"):
+            engine.fit_classical(boolean_features, self.labels)
+        boolean_labels = self.labels.astype(object)
+        boolean_labels[0] = True
+        with self.assertRaisesRegex(ValueError, "not booleans"):
+            engine.fit_classical(self.features, boolean_labels)
+
+    def test_neutral_band_cannot_exceed_expectation_range(self):
+        engine = QuantumQuantEngine()
+        engine.fit_classical(self.features, self.labels)
+        result = engine.run_quantum_regime_forecast(
+            "EURUSD", "H1", [0.8, 0.8, 0.8, 0.8], neutral_band=1.01
+        )
+        self.assertEqual(result["status"], "INVALID_INPUT")
+        self.assertIn("neutral_band", result["reason"])
+
     def test_pip_value_sizing_respects_risk_cap(self):
         result = QuantumQuantEngine().run_risk_filter(
             "EURUSD",10000,50,pip_value_per_lot=10,pip_value_currency="USD",**self.risk_meta())
