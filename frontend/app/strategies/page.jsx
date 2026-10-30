@@ -176,6 +176,8 @@ export default function StrategySelectionPage() {
                   <span className="strategy-card-index">0{index + 1}</span>
                   <strong>{strategy.name}</strong>
                   <p>{strategy.description}</p>
+                  <span className={'strategy-card-status ' + strategy.status}>{strategy.statusLabel}</span>
+                  <p className="strategy-card-status-detail">{strategy.statusDetail}</p>
                   <div className="strategy-card-focus">{strategy.focus}</div>
                   <div className="strategy-card-meta"><span>{strategy.markets}</span><span>{strategy.timeframe}</span></div>
                 </button>
@@ -192,7 +194,7 @@ export default function StrategySelectionPage() {
 
           <div className="strategy-selected-preview">
             <span className="strategy-preview-orb" aria-hidden="true">V</span>
-            <div><small>YOUR SELECTION</small><strong>{selectedStrategy?.name || 'ยังไม่ได้เลือกกลยุทธ์'}</strong><p>{selectedStrategy?.focus || 'เลือกการ์ดกลยุทธ์เพื่อดูสรุป'}</p></div>
+            <div><small>YOUR SELECTION</small><strong>{selectedStrategy?.name || 'ยังไม่ได้เลือกกลยุทธ์'}</strong><p>{selectedStrategy?.focus || 'เลือกการ์ดกลยุทธ์เพื่อดูสรุป'}</p>{selectedStrategy && <span className={'strategy-preview-status ' + selectedStrategy.status}>{selectedStrategy.statusLabel}</span>}</div>
           </div>
 
           <label className="strategy-field">

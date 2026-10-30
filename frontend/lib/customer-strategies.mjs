@@ -1,56 +1,22 @@
-export const CUSTOMER_MARKETS = Object.freeze([
-  Object.freeze({ value: 'XAU/USD', label: 'XAUUSD · Gold' }),
-  Object.freeze({ value: 'BTC/USDT', label: 'BTC / USDT' }),
-  Object.freeze({ value: 'ETH/USDT', label: 'ETH / USDT' }),
-  Object.freeze({ value: 'EUR/USD', label: 'EUR / USD' }),
-  Object.freeze({ value: 'US30', label: 'US30 Index' }),
-]);
+import strategyCatalog from '../data/nova-strategy-catalog.v1.json' with { type: 'json' };
 
-export const CUSTOMER_RISK_PROFILES = Object.freeze([
-  Object.freeze({ value: 'low', label: 'Conservative', detail: 'เน้นการคัดกรองและความระมัดระวัง' }),
-  Object.freeze({ value: 'medium', label: 'Balanced', detail: 'สมดุลระหว่างโอกาสและความเสี่ยง' }),
-  Object.freeze({ value: 'high', label: 'Advanced', detail: 'สำหรับการวิจัยเชิงลึก ไม่ใช่การเพิ่มความเสี่ยงอัตโนมัติ' }),
-]);
+const freezeOptions = (items) => Object.freeze(items.map((item) => Object.freeze({ ...item })));
 
-export const CUSTOMER_ANALYSIS_STYLES = Object.freeze([
-  Object.freeze({ value: 'guided', label: 'Guided · อธิบายเป็นขั้นตอน' }),
-  Object.freeze({ value: 'technical', label: 'Technical · เน้นข้อมูลเชิงเทคนิค' }),
-]);
+export const CUSTOMER_MARKETS = freezeOptions(strategyCatalog.markets);
+export const CUSTOMER_RISK_PROFILES = freezeOptions(strategyCatalog.riskProfiles);
+export const CUSTOMER_ANALYSIS_STYLES = freezeOptions(strategyCatalog.analysisStyles);
+export const CUSTOMER_STRATEGY_CATALOG_VERSION = strategyCatalog.catalogVersion;
 
-export const CUSTOMER_STRATEGIES = Object.freeze([
-  Object.freeze({
-    id: 'smc-precision',
-    code: 'STRATEGY 001',
-    name: 'SMC Precision',
-    description: 'อ่านโครงสร้างตลาดและสภาพคล่อง เพื่อจัดทำแผนวิจัยที่อธิบายเหตุผลได้',
-    focus: 'BOS · CHoCH · Order Blocks · FVG',
-    markets: 'Forex · Metals · Crypto',
-    defaultMarket: 'XAU/USD',
-    timeframe: 'H1 · H4',
-  }),
-  Object.freeze({
-    id: 'wave3-confluence',
-    code: 'STRATEGY 002',
-    name: 'Wave3 Confluence',
-    description: 'ผสาน Wave Structure, Fibonacci Retracement และ SMC เพื่อค้นหาจังหวะที่มี confluence',
-    focus: 'Wave 1/2 · Fibonacci · SMC',
-    markets: 'XAUUSD · BTCUSD',
-    defaultMarket: 'XAU/USD',
-    timeframe: 'H1 · H4',
-  }),
-  Object.freeze({
-    id: 'ai-market-scout',
-    code: 'STRATEGY 003',
-    name: 'AI Market Scout',
-    description: 'ผู้ช่วยสำรวจบริบทตลาดและจัดลำดับสินทรัพย์ที่ควรศึกษาต่อ โดยไม่สร้างสัญญาณซื้อขายขึ้นเอง',
-    focus: 'Market Context · Research · Watchlist',
-    markets: 'Cross-market research',
-    defaultMarket: 'BTC/USDT',
-    timeframe: 'Multi-timeframe',
-  }),
-]);
+export const CUSTOMER_STRATEGIES = Object.freeze(strategyCatalog.strategies.map((strategy) => Object.freeze({
+  ...strategy,
+  supportedMarkets: Object.freeze([...strategy.supportedMarkets]),
+  supportedTimeframes: Object.freeze([...strategy.supportedTimeframes]),
+  researchOperations: Object.freeze([...strategy.researchOperations]),
+  engine: Object.freeze({ ...strategy.engine }),
+  evidence: Object.freeze({ ...strategy.evidence }),
+  safety: Object.freeze({ ...strategy.safety }),
+})));
 
-const MARKET_VALUES = new Set(CUSTOMER_MARKETS.map((market) => market.value));
 const RISK_VALUES = new Set(CUSTOMER_RISK_PROFILES.map((profile) => profile.value));
 const ANALYSIS_VALUES = new Set(CUSTOMER_ANALYSIS_STYLES.map((style) => style.value));
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,10 +31,15 @@ export function normalizeCustomerWorkspacePreferences(value) {
   const strategy = getCustomerStrategy(value.strategyId);
   if (!strategy) return null;
 
+  const requestedMarket = typeof value.market === 'string' ? value.market : '';
+  const market = strategy.supportedMarkets.includes(requestedMarket)
+    ? requestedMarket
+    : strategy.defaultMarket;
+
   return Object.freeze({
     schemaVersion: 'nova.customer-workspace.v1',
     strategyId: strategy.id,
-    market: MARKET_VALUES.has(value.market) ? value.market : strategy.defaultMarket,
+    market,
     riskProfile: RISK_VALUES.has(value.riskProfile) ? value.riskProfile : 'low',
     analysisStyle: ANALYSIS_VALUES.has(value.analysisStyle) ? value.analysisStyle : 'guided',
   });

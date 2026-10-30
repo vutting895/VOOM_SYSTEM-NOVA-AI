@@ -13,7 +13,7 @@ const selectionStyles = await readFile(new URL('../frontend/app/strategies/strat
 const commandCenter = await readFile(new URL('../frontend/app/command-center/page.jsx', import.meta.url), 'utf8');
 const navigation = await readFile(new URL('../frontend/components/nova-navigation.jsx', import.meta.url), 'utf8');
 
-test('strategy catalog exposes only the three approved customer research strategies', () => {
+test('strategy catalog exposes three customer strategies with evidence-backed lifecycle states', () => {
   assert.deepEqual(CUSTOMER_STRATEGIES.map((strategy) => strategy.id), [
     'smc-precision',
     'wave3-confluence',
@@ -21,6 +21,9 @@ test('strategy catalog exposes only the three approved customer research strateg
   ]);
   assert.equal(getCustomerStrategy('wave3-confluence').name, 'Wave3 Confluence');
   assert.equal(getCustomerStrategy('untrusted-component'), null);
+  assert.equal(getCustomerStrategy('smc-precision').status, 'research-only');
+  assert.equal(getCustomerStrategy('wave3-confluence').status, 'blocked');
+  assert.equal(getCustomerStrategy('ai-market-scout').status, 'catalog-only');
 });
 
 test('customer preferences normalize to allowlisted market, risk and analysis values', () => {
@@ -51,6 +54,10 @@ test('customer preferences normalize to allowlisted market, risk and analysis va
     riskProfile: 'root',
     analysisStyle: 'arbitrary-code',
   }).riskProfile, 'low');
+  assert.equal(normalizeCustomerWorkspacePreferences({
+    strategyId: 'wave3-confluence',
+    market: 'EUR/USD',
+  }).market, 'XAU/USD');
 });
 
 test('workspace browser-storage keys are scoped to a valid Supabase Auth user UUID', () => {
@@ -69,6 +76,8 @@ test('strategy selection requires Supabase Auth and persists only validated pref
   assert.match(selectionPage, /customerWorkspaceStorageKey\(auth\.userId\)/);
   assert.match(selectionPage, /localStorage\.setItem\(storageKey, JSON\.stringify\(preferences\)\)/);
   assert.match(selectionPage, /Create my private dashboard/);
+  assert.match(selectionPage, /strategy-card-status/);
+  assert.match(selectionPage, /strategy\.statusDetail/);
 });
 
 test('private dashboard loads customer strategy preferences and redirects new customers to selection', () => {
