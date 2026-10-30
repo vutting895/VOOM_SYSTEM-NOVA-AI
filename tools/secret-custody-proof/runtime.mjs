@@ -33,14 +33,38 @@ function containsForbidden(value) {
 }
 
 function safeResult(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || containsForbidden(value)) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
   }
-  const allowedTop = new Set(["account", "quotes", "positions"]);
-  if (Object.keys(value).some(key => !allowedTop.has(key)) || containsForbidden(value)) {
+  const only = (object, keys) => object && typeof object === "object" &&
+    !Array.isArray(object) && Object.keys(object).every(key => keys.has(key));
+  if (!only(value, new Set(["account", "quotes", "positions"]))) throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.account && (!only(value.account, new Set(["balance", "equity", "margin", "free_margin", "currency"])) ||
+      Object.entries(value.account).some(([key, item]) =>
+        key === "currency" ? typeof item !== "string" || item.length > 12 : typeof item !== "number" || !Number.isFinite(item)))) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
   }
+  if (value.quotes && (!Array.isArray(value.quotes) || value.quotes.length > 500 ||
+      value.quotes.some(item => !only(item, new Set(["symbol", "bid", "ask", "timestamp"])) ||
+        typeof item.symbol !== "string" || typeof item.bid !== "number" || !Number.isFinite(item.bid) ||
+        typeof item.ask !== "number" || !Number.isFinite(item.ask)))) throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.positions && (!Array.isArray(value.positions) || value.positions.length > 500 ||
+      value.positions.some(item => !only(item, new Set(["symbol", "side", "volume", "unrealized_pnl"])) ||
+        typeof item.symbol !== "string" || !["long", "short"].includes(item.side) ||
+        typeof item.volume !== "number" || !Number.isFinite(item.volume)))) throw new Error("UNSAFE_PROVIDER_RESULT");
   return structuredClone(value);
+}
+
+function validParameters(parameters) {
+  if (Object.keys(parameters).some(key => !["symbols", "since", "limit"].includes(key))) return false;
+  if (parameters.symbols !== undefined &&
+      (!Array.isArray(parameters.symbols) || parameters.symbols.length > 50 ||
+       parameters.symbols.some(symbol => typeof symbol !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(symbol)))) return false;
+  if (parameters.since !== undefined &&
+      (typeof parameters.since !== "string" || Number.isNaN(Date.parse(parameters.since)))) return false;
+  if (parameters.limit !== undefined &&
+      (!Number.isInteger(parameters.limit) || parameters.limit < 1 || parameters.limit > 500)) return false;
+  return true;
 }
 
 function response(status, body) {
@@ -111,7 +135,8 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
           typeof body.connection_id !== "string" ||
           !READ_ONLY.has(body.capability) ||
           !body.parameters || typeof body.parameters !== "object" || Array.isArray(body.parameters) ||
-          typeof body.policy_version !== "string" ||
+          !validParameters(body.parameters) ||
+          typeof body.policy_version !== "string" || !/^[A-Za-z0-9._-]{1,40}$/.test(body.policy_version) ||
           typeof idempotencyKey !== "string" || !/^[A-Za-z0-9._:-]{8,128}$/.test(idempotencyKey)) {
         return response(400, { state: "FAILED_FINAL", result_code: "INVALID_REQUEST" });
       }
