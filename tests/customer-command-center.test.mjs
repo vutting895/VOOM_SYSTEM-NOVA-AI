@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 const page = await readFile(new URL('../frontend/app/command-center/page.jsx', import.meta.url), 'utf8');
 const styles = await readFile(new URL('../frontend/app/command-center/command-center.css', import.meta.url), 'utf8');
 const navigation = await readFile(new URL('../frontend/components/nova-navigation.jsx', import.meta.url), 'utf8');
+const chatRoute = await readFile(new URL('../frontend/app/api/chat/route.js', import.meta.url), 'utf8');
 
 test('customer command center requires an authenticated Supabase session', () => {
   assert.match(page, /getSupabaseBrowserClient/);
@@ -41,4 +42,17 @@ test('command center is menu-free and responsive on smaller screens', () => {
   assert.match(styles, /@media\(max-width:900px\)/);
   assert.match(styles, /@media\(max-width:520px\)/);
   assert.match(styles, /grid-template-columns:minmax\(300px,7fr\) minmax\(0,13fr\)/);
+});
+
+test('customer identity changes clear customer-scoped state and invalidate stale responses', () => {
+  assert.match(page, /identityRef\.current !== userId/);
+  assert.match(page, /resetCustomerState\(\)/);
+  assert.match(page, /requestGenerationRef\.current/);
+  assert.match(page, /generation !== requestGenerationRef\.current/);
+});
+
+test('chat API redacts credentials server-side before forwarding to the AI Worker', () => {
+  assert.match(chatRoute, /redactSensitiveText/);
+  assert.match(chatRoute, /const safeMessages = messages\.map/);
+  assert.match(chatRoute, /messages: safeMessages/);
 });
