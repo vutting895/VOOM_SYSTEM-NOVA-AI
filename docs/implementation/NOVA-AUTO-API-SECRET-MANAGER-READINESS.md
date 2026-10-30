@@ -108,3 +108,11 @@ Cloudflare Workers are developed and deployed from their existing integration di
 7. Production activation remains a separate approval gate.
 
 No staging grants, secrets, production data, Cloudflare configuration, Worker deployments, broker routes, or trading flags were changed during this readiness step.
+
+## 9. Dedicated Vault access design candidate — 2026-10-31
+
+A separate architecture candidate is documented at `docs/implementation/NOVA-DEDICATED-VAULT-ACCESS-DESIGN.md`. It evaluates the existing System Hub plus a dedicated server-side PostgreSQL login through a cache-disabled Cloudflare Hyperdrive binding and private restricted Vault functions. This does not change the current block on customer Secret reads/writes.
+
+Additional proof gates were identified for the existing Supabase Free plan: Cloudflare's Supabase-specific Hyperdrive guide recommends a direct connection; Supabase documents the Free-plan direct endpoint as IPv6-only. The actual staging project's Cloudflare-to-Supabase network reachability must be tested before any configuration is created. Hyperdrive's transaction pool has a minimum of five origin connections, so connection budgets and session-state assumptions must be tested. Secret/permission/rotation queries require a dedicated `--caching-disabled` binding because Hyperdrive query caching is enabled by default and may serve stale read results.
+
+The candidate design explicitly trusts the existing System Hub as the JWT-verification boundary; the database function does not independently verify the customer's Supabase JWT. That trust assumption and a possible signed internal assertion alternative require security review. No role, grant, SQL migration, Hyperdrive resource, Worker binding, route, secret, or deployment was changed by this design note.
