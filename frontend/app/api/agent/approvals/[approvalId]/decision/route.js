@@ -64,6 +64,7 @@ export async function POST(request, context) {
     return agentApiJson({
       error: failure[0],
       status: result.status || undefined,
+      serverConfirmedPending: result.result_code === "invalid_decision" && decision.decision === "expire",
       executionEnabled: false,
       liveTradingEnabled: false,
     }, failure[1]);
