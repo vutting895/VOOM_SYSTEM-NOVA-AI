@@ -21,7 +21,7 @@ export function authenticateNovaCodeServiceRequest(request) {
 
   const configuredToken = process.env.NOVA_CODE_BASE44_SERVICE_TOKEN;
   const tenantId = process.env.NOVA_CODE_BASE44_TENANT_ID;
-  if (!configuredToken || configuredToken.length < 32 || configuredToken.length > 4096 || !tenantId) {
+  if (!configuredToken || configuredToken.length < 32 || configuredToken.length > 4096 || typeof tenantId !== "string" || !tenantId.trim() || tenantId.length > 128) {
     return { attempted: true, ok: false, status: 503, error: "nova_code_service_auth_not_configured" };
   }
 
