@@ -156,6 +156,113 @@ test("bad input and oversized payload fail closed", async () => {
   assert.equal(oversized.status, 413);
 });
 
+const workflowModelDraft = {
+  schemaVersion: "nova.workflow.v1",
+  title: "Customer onboarding review",
+  description: "Prepare a safe onboarding review preview.",
+  nodes: [
+    { id: "start", type: "trigger.manual", config: {} },
+    { id: "fields", type: "data.select_fields", config: { fields: ["customerId", "email"] } },
+    { id: "review", type: "gate.review_required", config: { reason: "A staff member must verify the customer identity before any later work." } },
+    { id: "preview", type: "output.preview", config: { label: "Onboarding preview" } },
+  ],
+  edges: [
+    { from: "start", to: "fields" },
+    { from: "fields", to: "review" },
+    { from: "review", to: "preview" },
+  ],
+};
+
+test("workflow draft generation requires a verified Supabase session", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Create onboarding flow" }),
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "authentication_required");
+});
+
+test("workflow draft endpoint validates the exact bounded prompt shape", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Create a flow", execute: true }),
+  }), env);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "invalid_workflow_prompt");
+});
+
+test("AI workflow generation returns only a validated non-executable draft", async () => {
+  authFetch();
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (model, input) => {
+        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
+        assert.match(input.messages[0].content, /untrusted data/);
+        assert.match(input.messages[0].content, /Never create provider actions/);
+        assert.equal(input.messages.at(-1).content, "Create a customer onboarding review flow");
+        return { response: JSON.stringify(workflowModelDraft) };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer valid-token",
+      "Content-Type": "application/json",
+      Origin: "https://voomsystem.netlify.app",
+    },
+    body: JSON.stringify({ prompt: "Create a customer onboarding review flow" }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.validation.ok, true);
+  assert.equal(body.draft.schemaVersion, "nova.workflow.v1");
+  assert.equal(body.draft.executionMode, "draft_only");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.externalEffectsAllowed, false);
+  assert.equal(body.brokerWritesAllowed, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(Object.hasOwn(body, "userId"), false);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voomsystem.netlify.app");
+});
+
+test("AI workflow generation rejects unknown executable nodes and cycles", async () => {
+  authFetch();
+  const unsafe = structuredClone(workflowModelDraft);
+  unsafe.nodes[2] = { id: "review", type: "http.request", config: { url: "https://example.com" } };
+  const aiEnv = { ...env, AI: { run: async () => ({ response: JSON.stringify(unsafe) }) } };
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Call a webhook when onboarding finishes" }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(body.error, "workflow_draft_rejected");
+  assert.equal(body.validationError, "unknown_node_type");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("workflow generation fails closed when AI binding is unavailable", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Create a review flow" }),
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error, "ai_unavailable");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.externalEffectsAllowed, false);
+  assert.equal(body.brokerWritesAllowed, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
 test("chat requires a valid bearer session", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/chat", {
     method: "POST", headers: { "Content-Type": "application/json" },
