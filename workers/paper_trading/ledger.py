@@ -41,6 +41,7 @@ class PaperLedger:
         self.positions: dict[str, dict[str, Decimal]] = {}
         self.events: list[dict[str, Any]] = []
         self._idempotency: dict[str, tuple[str, dict[str, Any]]] = {}
+        self._proposals: dict[str, tuple[str, dict[str, Any]]] = {}
 
     @staticmethod
     def _decimal(value: Any, label: str, *, positive: bool = False,
@@ -106,6 +107,12 @@ class PaperLedger:
                 raise PaperLedgerError("idempotency_key_payload_conflict")
             return deepcopy(prior[1])
 
+        prior_proposal = self._proposals.get(proposal_id)
+        if prior_proposal:
+            if prior_proposal[0] != fingerprint:
+                raise PaperLedgerError("proposal_id_payload_conflict")
+            return deepcopy(prior_proposal[1])
+
         slip = self.slippage_bps / Decimal("10000")
         fee_rate = self.fee_bps / Decimal("10000")
         fill_price = self._money(reference * (Decimal("1") + slip if normalized_side == "BUY" else Decimal("1") - slip))
@@ -153,6 +160,7 @@ class PaperLedger:
         }
         self.events.append(deepcopy(result))
         self._idempotency[idempotency_key] = (fingerprint, deepcopy(result))
+        self._proposals[proposal_id] = (fingerprint, deepcopy(result))
         return deepcopy(result)
 
     def snapshot(self) -> dict[str, Any]:
