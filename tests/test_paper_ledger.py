@@ -79,6 +79,14 @@ class PaperLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(PaperLedgerError, "paper_position_insufficient"):
             PaperLedger().submit_proposal(**proposal(side="SELL"))
 
+    def test_notional_limit_applies_to_adverse_simulated_fill_price(self):
+        ledger = PaperLedger(
+            initial_cash="10000", fee_bps="0", slippage_bps="10",
+            max_order_notional="2001"
+        )
+        with self.assertRaisesRegex(PaperLedgerError, "order_notional_limit"):
+            ledger.submit_proposal(**proposal())
+
     def test_rejects_invalid_numbers_and_symbols(self):
         with self.assertRaisesRegex(PaperLedgerError, "quantity_invalid"):
             PaperLedger().submit_proposal(**proposal(quantity="NaN"))
