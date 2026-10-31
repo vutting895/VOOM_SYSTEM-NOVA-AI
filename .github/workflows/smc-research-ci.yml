@@ -9,6 +9,7 @@ on:
       - "tests/test_wave3_ml_pipeline.py"
       - "tests/test_wave3_calendar_hash.py"
       - "tests/test_wave3_news_calendar_validation.py"
+      - "datasets/exness-demo/news/**"
       - "tools/train_wave3_models.py"
       - "tools/verify_wave3_news_calendar.py"
       - "tools/validate_wave3_news_calendar.py"
@@ -60,5 +61,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_wave3_calendar_hash.py" -v
       - name: Run historical news calendar validation tests
         run: python -m unittest discover -s tests -p "test_wave3_news_calendar_validation.py" -v
+      - name: Validate canonical historical news calendar
+        run: python tools/validate_wave3_news_calendar.py datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
