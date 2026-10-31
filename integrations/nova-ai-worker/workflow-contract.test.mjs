@@ -130,3 +130,61 @@ test("rejects unsafe graph sizes, invalid node config and non-object inputs", ()
   tooMany.edges = tooMany.nodes.slice(1).map((node, i) => ({ from: "node_" + i, to: node.id }));
   assert.equal(validateWorkflowDraft(tooMany).error, "invalid_node_count");
 });
+
+
+import { simulateWorkflowDraft } from "./workflow-contract.js";
+
+test("simulates a valid draft deterministically without execution or persistence", () => {
+  const draft = validDraft();
+  const sample = { customerId: "cust-001", email: "person@example.test", ignored: "not selected" };
+  const first = simulateWorkflowDraft(draft, sample);
+  const second = simulateWorkflowDraft(draft, sample);
+  assert.deepEqual(first, second);
+  assert.equal(first.ok, true);
+  assert.equal(first.value.simulationMode, "in_memory_preview_only");
+  assert.deepEqual(first.value.preview, {
+    label: "Onboarding preview",
+    data: { customerId: "cust-001", email: "person@example.test" },
+    approvalRequired: true,
+  });
+  assert.deepEqual(first.value.trace.map((step) => step.kind), [
+    "manual_trigger", "field_projection", "review_marker", "preview_output",
+  ]);
+  assert.equal(first.value.executionEnabled, false);
+  assert.equal(first.value.persistenceEnabled, false);
+  assert.equal(first.value.externalEffectsAllowed, false);
+  assert.equal(first.value.brokerWritesAllowed, false);
+  assert.equal(first.value.liveTradingEnabled, false);
+});
+
+test("simulator rejects invalid drafts and unsafe or oversized sample data", () => {
+  const invalid = validDraft();
+  invalid.nodes[1].type = "http.request";
+  assert.equal(simulateWorkflowDraft(invalid).error, "invalid_workflow_draft");
+
+  for (const sample of [
+    { accessToken: "should-not-enter-preview" },
+    { private_key: "should-not-enter-preview" },
+    { amount: { nested: true } },
+    { amount: ["not", "scalar"] },
+  ]) {
+    assert.equal(simulateWorkflowDraft(validDraft(), sample).error, "invalid_simulation_data");
+  }
+  assert.equal(simulateWorkflowDraft(validDraft(), Object.fromEntries(
+    Array.from({ length: 51 }, (_, index) => ["field" + index, index]),
+  )).error, "invalid_simulation_data");
+  assert.equal(simulateWorkflowDraft(validDraft(), { note: "x".repeat(8001) }).error, "simulation_data_too_large");
+});
+
+test("simulator never invents approval or data and handles missing projected fields", () => {
+  const draft = validDraft();
+  draft.nodes = draft.nodes.filter((node) => node.type !== "gate.review_required");
+  draft.edges = [
+    { from: "start", to: "project" },
+    { from: "project", to: "preview" },
+  ];
+  const result = simulateWorkflowDraft(draft, { customerId: "cust-002" });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value.preview.data, { customerId: "cust-002" });
+  assert.equal(result.value.preview.approvalRequired, false);
+});
