@@ -1,7 +1,12 @@
-# VOOM_SYSTEM on Cloudflare
+# VOOM_SYSTEM backend on Cloudflare
 
-## Deployed Workers
-- UI: https://voom-system-nova-ui.suwapat787.workers.dev
+## Hosting boundary
+- Customer-facing frontend: Netlify — https://voomsystem.netlify.app/
+- Cloudflare hosts backend APIs, the MT5 read-only proxy/relay, System Hub, and Remote MCP.
+- The former UI Worker remains only as a rollback option; the production workflow must not deploy the customer-facing frontend to Cloudflare.
+
+## Backend Workers
+- Legacy UI rollback: https://voom-system-nova-ui.suwapat787.workers.dev
 - API: https://voom-system-nova-ai.suwapat787.workers.dev
 - API health: /health
 - AI strategy draft: POST /api/gen-ai/generate

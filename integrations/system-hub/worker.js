@@ -1,4 +1,5 @@
-const DEFAULT_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
+const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
@@ -8,7 +9,7 @@ const BASE_HEADERS = {
 const CONNECTION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function allowedOrigins(env) {
-  const configured = String(env.ALLOWED_ORIGINS || DEFAULT_UI_ORIGIN)
+  const configured = String(env.ALLOWED_ORIGINS || (DEFAULT_UI_ORIGIN + "," + CLOUDFLARE_FALLBACK_ORIGIN))
     .split(",").map((value) => value.trim()).filter(Boolean);
   return new Set(configured);
 }

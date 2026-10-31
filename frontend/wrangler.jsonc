@@ -1,6 +1,6 @@
 {
-  // Canonical customer-facing frontend runtime; deploy this Worker, not Vercel.
-  // Keep this name aligned with the Cloudflare Worker: voom-system-nova-ui.
+  // OpenNext frontend Worker used for parallel Cloudflare validation after main CI.
+  // Netlify remains the public production host until a separately approved DNS cutover.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "voom-system-nova-ui",
   "main": ".open-next/worker.js",

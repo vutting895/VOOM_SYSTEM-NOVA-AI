@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../worker.js";
 
-const UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const UI_ORIGIN = "https://voomsystem.netlify.app";
+const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "test-user-access-token";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
 const env = {
   SUPABASE_URL: "https://supabase.test",
   SUPABASE_PUBLISHABLE_KEY: "publishable-test-key",
-  ALLOWED_ORIGINS: UI_ORIGIN,
+  ALLOWED_ORIGINS: UI_ORIGIN + "," + FALLBACK_UI_ORIGIN,
   MT5_READONLY_PROXY_URL: "https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
 };
 const originalFetch = globalThis.fetch;
@@ -427,4 +428,12 @@ test("account read does not reach proxy while a connection remains pending", asy
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test("Cloudflare fallback frontend origin remains allowed during Netlify cutover", async () => {
+  const response = await worker.fetch(request("/health", {
+    headers: { Origin: FALLBACK_UI_ORIGIN }
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
