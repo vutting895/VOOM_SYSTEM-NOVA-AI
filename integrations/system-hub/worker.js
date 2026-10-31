@@ -332,7 +332,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/symbols", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
@@ -450,6 +450,64 @@ async function readAccount(request, env, user, row, origin) {
     liveTradingEnabled: false
   }, 200, origin, env);
 }
+async function readSymbols(request, env, user, row, origin) {
+  const url = new URL(request.url);
+  const qValues = url.searchParams.getAll("q");
+  const limitValues = url.searchParams.getAll("limit");
+  if (qValues.length > 1 || limitValues.length > 1) {
+    return json({ error: "duplicate_query_parameter" }, 400, origin, env);
+  }
+  const query = (qValues[0] || "").trim();
+  const limit = limitValues.length ? Number(limitValues[0]) : 100;
+  if (query.length > 40 || (query && !/^[A-Za-z0-9._-]+$/.test(query))) {
+    return json({ error: "invalid_symbol_filter" }, 400, origin, env);
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+    return json({ error: "limit_must_be_between_1_and_500" }, 400, origin, env);
+  }
+
+  const result = await requestMt5Proxy(env, user, row, "/api/symbols", { q: query, limit });
+  if (!result.ok) {
+    return json({
+      connectionId: row.id,
+      state: result.error,
+      detail: result.detail,
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  const data = result.body;
+  if (!Array.isArray(data.symbols)) {
+    return json({ connectionId: row.id, state: "mt5_proxy_invalid_response", dataVerified: false }, 502, origin, env);
+  }
+  const symbols = data.symbols
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item) &&
+      typeof item.name === "string" && MT5_SYMBOL.test(item.name))
+    .slice(0, limit)
+    .map((item) => ({
+      name: item.name,
+      description: typeof item.description === "string" ? item.description.slice(0, 160) : null,
+      visible: typeof item.visible === "boolean" ? item.visible : null,
+      digits: safeNumber(item.digits),
+      baseCurrency: typeof item.base_currency === "string" ? item.base_currency.slice(0, 10) : null,
+      profitCurrency: typeof item.profit_currency === "string" ? item.profit_currency.slice(0, 10) : null
+    }));
+  return json({
+    connectionId: row.id,
+    state: "data_verified",
+    dataVerified: true,
+    symbols,
+    count: symbols.length,
+    truncated: data.truncated === true || (Number.isInteger(data.count) && data.count > symbols.length),
+    asOf: typeof data.as_of === "string" ? data.as_of : null,
+    mode: "read-only",
+    order_submission_enabled: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, 200, origin, env);
+}
+
 async function readQuotes(request, env, user, row, origin) {
   const url = new URL(request.url);
   const symbol = String(url.searchParams.get("symbol") || "").trim();
@@ -552,9 +610,9 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|symbols|quotes)$/.exec(url.pathname);
     if (match && (
-      (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
+      (["status", "account", "symbols", "quotes"].includes(match[2]) && request.method === "GET") ||
       (match[2] === "check" && request.method === "POST")
     )) {
       const auth = await authenticate(request, env);
@@ -565,6 +623,10 @@ export default {
       if (match[2] === "account") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
         return readAccount(request, env, auth, result.row, origin);
+      }
+      if (match[2] === "symbols") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readSymbols(request, env, auth, result.row, origin);
       }
       if (match[2] === "quotes") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
