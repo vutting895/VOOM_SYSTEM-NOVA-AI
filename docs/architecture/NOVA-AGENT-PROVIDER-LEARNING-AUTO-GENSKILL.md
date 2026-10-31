@@ -474,3 +474,14 @@ Accordingly, the server-derived authorization context now requires an opaque own
 Implementation evidence: PR #106 Team Lead contract head `6156380131d9980ba3f2a721db6b3d9c846f1f10` adds owner-scope validation, optional verified tenant scope, and tests for owner-only authorization and child owner-scope escalation. The NOVA Agent Orchestration Contracts workflow passed on that exact head: [run #41179271525](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179271525). Frontend CI remains separately pending/in progress at the time of this update.
 
 This is still a pure contract/validation milestone. It does not establish a tenant registry, durable task persistence, an authenticated Hub adapter, a scheduler, or an active Team Lead runtime. Runtime delegation remains blocked until the identity and migration gates are independently verified.
+
+
+## 13.11 Synthetic four-team shadow planner — 2026-10-31
+
+PR #106 now adds a pure in-memory shadow planning primitive for the initial Coordinator → Research / Engineering / Review / QA handoff. It requires all four child teams exactly once, validates each child against the server-owned registry and Hub-derived owner/capability/resource/deadline context, enforces distinct Coordinator/Engineering/Review/QA lead identities, and constrains the aggregate child budget to the parent task budget. Child input references must also be a subset of the parent task's declared inputs.
+
+The returned plan is explicitly `shadow_only`; execution, persistence and external I/O flags are false. The module has no database, scheduler, tool, agent invocation or customer-data adapter. Synthetic tests cover complete planning, missing teams, parent-input scope, aggregate budget overrun, actor changes and independent reviewer/QA lead identities.
+
+Implementation head: PR #106 commit `816fd707d4b54837583c47565cb5405261ea5dfb`. The NOVA Agent Orchestration Contracts workflow passed on that exact head: [run #41179501242](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179501242). Frontend CI is a separate check and must be re-polled before claiming all checks complete.
+
+This advances the contract-only shadow planning milestone. It is not a durable task queue, a live Coordinator, a tenant registry, or an activated AI Team Lead runtime.
