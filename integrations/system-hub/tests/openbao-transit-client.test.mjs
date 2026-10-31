@@ -59,7 +59,7 @@ test("invalid sizes, contexts, ciphertexts, and malformed responses fail closed"
   await assert.rejects(client.encrypt("x".repeat(33), CONTEXT), /size_invalid/);
   await assert.rejects(client.encrypt("secret", ""), /context_size_invalid/);
   await assert.rejects(client.decrypt("not-ciphertext", CONTEXT), /ciphertext_invalid/);
-  await assert.rejects(client.encrypt("secret", CONTEXT), /invalid_response/);
+  await assert.rejects(client.encrypt("secret", "ctx"), /invalid_response/);
 });
 
 test("transport failures are sanitized and do not expose the token or upstream error", async () => {
