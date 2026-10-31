@@ -29,3 +29,23 @@ __all__ = [
     "validate_tool_call",
     "validate_tool_registry",
 ]
+
+from .team_leads import (
+    TEAM_LEAD_SCHEMA,
+    TeamDefinition,
+    TeamLeadTask,
+    TeamTaskAuthorization,
+    TeamTaskBudget,
+    validate_team_lead_task,
+    validate_team_registry,
+)
+
+__all__ += [
+    "TEAM_LEAD_SCHEMA",
+    "TeamDefinition",
+    "TeamLeadTask",
+    "TeamTaskAuthorization",
+    "TeamTaskBudget",
+    "validate_team_lead_task",
+    "validate_team_registry",
+]
