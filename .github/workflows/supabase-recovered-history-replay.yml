@@ -55,7 +55,10 @@ jobs:
         run: |
           set -euo pipefail
           cd "$REPLAY_WORKDIR"
-          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          if ! supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit > "$REPLAY_WORKDIR/start.log" 2>&1; then
+            sed -E 's/sb_(publishable|secret)_[A-Za-z0-9_-]+/[REDACTED]/g; s#(postgres(ql)?://[^:[:space:]]+):[^@[:space:]]+@#\1:[REDACTED]@#g' "$REPLAY_WORKDIR/start.log" | tail -n 80
+            exit 1
+          fi
           supabase migration list --local
           supabase status -o env > "$REPLAY_WORKDIR/status.env"
           set -a
