@@ -257,3 +257,88 @@ References:
 6. Keep sandbox-only until a separate explicit approval and exact verification evidence. Live payments, refunds, payouts and production tax issuance remain OFF.
 
 **W0 status:** merchant-of-record/funds-flow choice is now owner-decided (A). Finance W0 remains in progress pending tenant-owned provider eligibility/onboarding evidence, remaining repository pattern inventory, migration/identity reconciliation ownership and professional tax review.
+
+
+## 13. Tenant-owned gateway capability review and Sandbox test plan (2026-10-31)
+
+This section uses current public provider documentation. It does not verify any VOOM/Tenant merchant account, contract, KYC approval, test credentials or live capability.
+
+### 13.1 Provider capability disposition
+
+| Candidate | Publicly documented evidence | Tenant-owned v1 assessment | Open verification |
+|---|---|---|---|
+| Stripe Thailand | Thailand account support matrix lists Google Pay and PromptPay; PromptPay is THB-only. Eligible Dashboard accounts have PromptPay automatically enabled. | **Primary Sandbox candidate.** The documented Thailand account methods fit the requested web checkout scope. Do not require Connect or platform custody for the selected A model. | Verify each Tenant's own Thailand account eligibility, Google Pay activation/merchant prerequisites, THB settlement account, test-mode availability, refunds, disputes, webhook signature and reconciliation exports. |
+| 2C2P / Antom | Public channel catalogue lists Thai PromptPay QR (PPQR) and Google Pay (GOOGLEPAY). Google Pay guide requires Google Merchant ID/production access and shows a sample payment request in SGD. | **Secondary candidate only.** The catalogue establishes channel identifiers, not a Thai tenant's contractual enablement or THB settlement capability. | Obtain written confirmation for independent tenant merchant accounts, Thailand + THB + both methods, KYC, direct settlement, fee/refund/dispute rules, sandbox credentials, webhook verification and reconciliation reports. |
+| Omise / Opn | Thailand PromptPay guide documents test-mode charge creation, webhook completion and independent status retrieval. PromptPay must be requested and terms accepted. Current guide states PromptPay charges cannot be voided/refunded through Omise and sets THB 20–150,000 limits. | **PromptPay fallback only.** It does not satisfy Google Pay by the evidence collected here; its PromptPay refund limitation is a material operational constraint. | Verify each Tenant's account activation, test keys, settlement bank/account ownership, webhook signature secret, event retry behavior, fees, disputes and manual refund process outside Omise. |
+
+Public documentation:
+- Stripe Thailand supported methods: https://support.stripe.com/questions/supported-payment-methods-currencies-and-businesses-for-stripe-accounts-in-thailand
+- Stripe PromptPay enablement: https://support.stripe.com/questions/how-to-enable-promptpay
+- Stripe Thailand Connect marketplace constraints (reference only; not the chosen A funds flow): https://support.stripe.com/questions/stripe-thailand-support-for-marketplaces
+- 2C2P payment channel catalogue: https://developer.2c2p.com/docs/reference-payment-channels
+- 2C2P Google Pay integration: https://developer.2c2p.com/docs/google-pay
+- Omise PromptPay: https://docs.omise.co/promptpay
+- Omise webhook signature verification: https://docs.omise.co/api-webhooks/thailand
+
+**Important distinction:** provider documentation showing a payment-method code or general integration is not proof that every Thai tenant account is eligible. Stripe's Thailand Connect Direct Charges table documents a supported Thailand-platform/Thailand-connected-account combination for cards, debit cards and PromptPay, but A does not use VOOM as a Connect platform. Do not use that Connect table as a substitute for testing each Tenant's own independent merchant account. Google Pay eligibility must be verified separately for the tenant's actual Stripe account and Google Pay merchant setup.
+
+### 13.2 Sandbox test plan (no credentials or provider account connected yet)
+
+Run the following only after an individual Tenant voluntarily supplies its own test-mode merchant account through a secure onboarding flow. Never request credentials in chat, issues, logs or browser-visible configuration. Until that secure path exists, this is a test specification, not an executed test.
+
+1. **Merchant ownership and onboarding**
+   - Record provider, legal merchant identity, tenant owner reference, country, currency, test/live environment and enabled method capabilities.
+   - Prove the provider account belongs to the authenticated Tenant; client-supplied tenant/account IDs are never authorization.
+   - Prove tenant A cannot read, use, disconnect or inspect tenant B's gateway account.
+   - Fail closed when KYC/onboarding, capability or ownership state is unknown, disabled or revoked.
+
+2. **Payment creation and pricing integrity**
+   - Create a THB test PaymentIntent using integer minor units and an immutable order/pricing/tax snapshot.
+   - Enforce amount/currency equality between order, intent, provider request and verified provider result.
+   - Enforce unique idempotency across tenant + merchant account + operation; same key/same payload returns the same logical result, while same key/different payload is rejected.
+   - Expired, cancelled, duplicate and out-of-order attempts must not grant entitlement.
+
+3. **PromptPay**
+   - Create a test QR/payment attempt through the provider's server-side adapter.
+   - Display QR/expiry and pending status only; browser return, uploaded slip or client callback never marks paid.
+   - Test provider test-mode success, failure, expiry, duplicate webhook, delayed webhook and provider status re-fetch.
+   - Mark paid only after verified provider event plus authoritative provider status check where supported.
+
+4. **Google Pay web checkout**
+   - Validate Google Pay merchant prerequisites and tokenization in test mode.
+   - Keep payment token processing server-side and out of logs/analytics.
+   - Test supported/unsupported browser/device, user cancellation, token failure, payment failure, duplicate callback and delayed final status.
+   - Treat Google Pay as online web checkout only; do not include NFC terminal acceptance in this scope.
+
+5. **Webhook and replay safety**
+   - Verify provider signature against the exact raw request body using the provider's documented algorithm; compare signatures in constant time.
+   - Validate timestamp/replay window where supported, persist provider event ID/dedupe key before processing, and make processing idempotent.
+   - Reject invalid signature, malformed payload, unknown merchant account, amount/currency mismatch and event-to-tenant mismatch.
+   - Support retry, duplicate delivery, out-of-order events and dead-letter/manual recovery without duplicate ledger posting.
+
+6. **Settlement, fees and reconciliation**
+   - Confirm settlement beneficiary is the Tenant's own bank/merchant account, not VOOM.
+   - Import provider settlement/test report and match gross, fees, refunds, reserves/adjustments and net by currency.
+   - Unmatched or conflicting rows remain exceptions; no silent auto-adjustment or cross-tenant netting.
+
+7. **Refund and dispute boundaries**
+   - Refund execution remains disabled in NOVA until a separate approved workflow and provider-specific tests exist.
+   - Record provider refund capability, partial/full refund rules, fees, chargeback/dispute events and manual fallback per provider.
+   - Omise PromptPay's documented no-void/no-refund limitation must be disclosed before choosing it for a Tenant's checkout.
+
+8. **Evidence and exit gate**
+   - Save sanitized request/response fixtures, test account ownership evidence, test run IDs, webhook signature/replay results, reconciliation output and provider documentation version/date.
+   - No PAN, wallet token, secret key, webhook secret, bank login or unnecessary customer PII in evidence.
+   - Sandbox readiness passes only per Tenant + provider + method; it does not imply production eligibility or approval.
+
+### 13.3 Current execution status
+
+- [x] Public docs compared for Stripe Thailand, 2C2P/Antom channels and Omise PromptPay.
+- [x] Sandbox test specification and tenant-isolation requirements recorded.
+- [ ] Tenant-owned test merchant account supplied through a secure provider onboarding path.
+- [ ] Provider confirms tenant-specific method/currency capability and direct settlement.
+- [ ] Sandbox payment and webhook tests executed with sanitized evidence.
+- [ ] Settlement/reconciliation test evidence reviewed.
+- [ ] Thai accountant/legal review of issuer and tax treatment completed.
+
+**Disposition:** Stripe is the preferred first Sandbox candidate, subject to per-Tenant account confirmation. 2C2P/Antom is not yet proven for Thai THB tenant-owned Google Pay checkout. Omise is a PromptPay fallback with a documented refund limitation. No live provider, charge, refund, payout, tax issuance or hosted database change is enabled or authorized.
