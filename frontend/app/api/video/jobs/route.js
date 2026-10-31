@@ -72,6 +72,17 @@ export async function POST(request) {
     .select("id,project_id,task_type,status,prompt,execution_mode,estimated_cost,created_at")
     .single();
 
+  if (error?.code === "23505") {
+    const { data: existing, error: lookupError } = await auth.supabase
+      .from("nova_video_jobs")
+      .select("id,project_id,task_type,status,prompt,execution_mode,estimated_cost,created_at")
+      .eq("user_id", auth.user.id)
+      .eq("idempotency_key", body.idempotency_key)
+      .maybeSingle();
+    if (!lookupError && existing) {
+      return agentApiJson({ job: existing, executionEnabled: false, idempotentReplay: true }, 200);
+    }
+  }
   if (error) return agentApiJson({ error: "video_job_create_unavailable" }, 503);
   return agentApiJson({
     job: data,
