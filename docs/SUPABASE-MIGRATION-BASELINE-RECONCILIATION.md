@@ -330,3 +330,90 @@ The migration baseline is ready only when:
 - the Evidence Ledger schema is then introduced in a separate focused migration and PR.
 
 Until all exit criteria are evidenced, the Evidence Ledger database milestone remains **blocked**, not done.
+
+
+## 9. M0.1 source recovery log — 2026-10-31
+
+This section extends the existing reconciliation record in-place. It does not create a new migration baseline, PR, tracker or automation.
+
+### 9.1 Repositories and refs inspected
+
+| Repository/ref | Commit/tree SHA | Result |
+|---|---|---|
+| `vutting895/VOOM_SYSTEM-NOVA-AI` `main` | `a2acfd8ec9b598e6593413549bef760e8f596a72` | Four checked-in SQL migration files under `supabase/migrations/`. |
+| `vutting895/Voom_system` `main` | `188d060bb4f28557603c6f448dc680b1ee5ca8f6` | Eight SQL files under `Supabase/migrations/`. |
+| Old repo `feature/ai-learning-engine-architecture` | `dc21a9857c2ba4ce79d6c80551d276bb2a871c7e` | Same eight SQL files; no additional historical migration source found. |
+| Old repo `fix-main-b3dbc0b0063b` | `ac8bfd778708b37c80cb208c5999179830809746` | Seven SQL files; no additional source beyond the common set. |
+| Old repo `base44/setup-9fe2f052` | `a41dddaf02071ade90318247befdf2a28bfe9b64` | Seven SQL files; no additional source beyond the common set. |
+
+The old repository's checked-in migration files were read directly. Blob SHA values below identify the exact Git objects inspected. They prove source-file identity, not byte-for-byte equality with the SQL originally applied to the remote database.
+
+### 9.2 Old repository source manifest
+
+| Source file | Blob SHA | Applied-ledger mapping / disposition |
+|---|---|---|
+| [`20261023_000001_voom_core.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261023_000001_voom_core.sql) | `1bacf7e8a781c0a946e8376511b0c81d48e17628` | Candidate source for `voom_system_core_schema`; exact applied body and later alterations still need comparison. |
+| [`20261023_000002_voom_system_security_hardening.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261023_000002_voom_system_security_hardening.sql) | `207f92d639e365a0a09fe76fed050eb3a62258d5` | Candidate source for `voom_system_security_hardening`; verify applied body. |
+| [`20261023_000003_voom_auth_roles.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261023_000003_voom_auth_roles.sql) | `c879b328437a84dc9cc1e00510feebaa648fd4ba` | Candidate source for `voom_auth_roles`; verify applied body. |
+| [`20261023_000004_ai_marketplace.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261023_000004_ai_marketplace.sql) | `2b5670b3b7a8e159065c595c49a7f6d0c8e453d1` | Aggregate candidate for `voom_ai_strategies_registry`, `voom_customer_ai_subscriptions`, and `voom_signal_delivery_log`; not a one-file/one-migration equivalence. |
+| [`20261023_000005_source1_test_registry.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261023_000005_source1_test_registry.sql) | `15a78ce5675335c6e2126fe9d3be76cf392bc2c0` | Auxiliary seed/registry file; no matching name in the 24-row older Production ledger. Do not infer it was applied. |
+| [`20261024_000001_customer_signup_profile_trigger.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261024_000001_customer_signup_profile_trigger.sql) | `7707801cb9f73fb30e8b7d2958f2d3a62fbb1184` | Candidate source for `customer_signup_profile_trigger`; verify applied body and trigger history. |
+| [`20261024_000002_security_policy_indexes.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261024_000002_security_policy_indexes.sql) | `bb208bcfca686a8ccf5b2f714ce28c6fe7e3239b` | Aggregate/partial candidate for `remove_duplicate_profile_policy_and_index_foreign_keys`; also contains policy/grant/index changes that need exact migration attribution. |
+| [`20261024_000003_customer_paper_trading.sql`](https://github.com/vutting895/Voom_system/blob/main/Supabase/migrations/20261024_000003_customer_paper_trading.sql) | `cdb090f136d5dd801f337b25753d7db01e901d16` | Auxiliary paper-orders migration, added in later old-repo history; no matching name in the 24-row older Production ledger. Do not infer it was applied or replay it. |
+
+### 9.3 Canonical NOVA repository migration manifest
+
+| Canonical file | Blob SHA on reviewed `main` | Runtime ledger observation |
+|---|---|---|
+| [`202610240001_alpaca_oauth.sql`](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/blob/main/supabase/migrations/202610240001_alpaca_oauth.sql) | `86deecba8cdbac633b4402f47382f0aeba8ad165` | Older Production ledger contains `alpaca_oauth`; source body still needs comparison. |
+| [`202610270001_mt5_customer_connections.sql`](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/blob/main/supabase/migrations/202610270001_mt5_customer_connections.sql) | `2bd91023da515d0c6aa4e139e714828f6f47b639` | Older Production applied version `20261027160402`; newer NOVA/Staging applied version `20261030125402`. Filename prefix is not the recorded applied version. |
+| [`202610290001_security_definer_marketplace_hardening.sql`](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/blob/main/supabase/migrations/202610290001_security_definer_marketplace_hardening.sql) | `c14be5891252f6a247ccdfb3cd6cf6e7af955663` | Older Production applied version `20261029084244`; depends on Marketplace objects in the older project. |
+| [`202610300001_nova_durable_approval_lifecycle.sql`](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/blob/main/supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql) | `0d793079e23dfea2ba8f2cbe1c65b85ad8128e06` | Applied in newer NOVA/Staging as `20261030052224`; absent from older Production's 24-row ledger. PR #67 remains the mandatory regression dependency. |
+
+### 9.4 Applied Production migration source-coverage disposition
+
+The 24-row older Production ledger is classified as follows. “Candidate source” means a plausible checked-in source file was located; it does not mean equivalence to the applied SQL has been proven.
+
+| Applied migration name | Current source disposition |
+|---|---|
+| `voom_system_core_schema` | Candidate source found: old repo core SQL. |
+| `voom_system_security_hardening` | Candidate source found: old repo security-hardening SQL. |
+| `voom_auth_roles` | Candidate source found: old repo auth-roles SQL. |
+| `voom_ai_strategies_registry` | Aggregate candidate: old repo AI marketplace SQL. |
+| `voom_customer_ai_subscriptions` | Aggregate candidate: same AI marketplace SQL. |
+| `voom_signal_delivery_log` | Aggregate candidate: same AI marketplace SQL. |
+| `voom_customer_marketplace_read_rpcs` | Not recovered as original migration SQL; current function catalog is not a historical source substitute. |
+| `voom_customer_marketplace_activation_rpcs` | Not recovered as original migration SQL; current function catalog is not a historical source substitute. |
+| `voom_marketplace_resume_paused_subscription` | Not recovered. |
+| `voom_dashboard_readonly_rls_v1` | Not recovered as original migration SQL; current policy catalog is not a historical source substitute. |
+| `voom_staff_dashboard_read_policies_v2` | Partial role/security evidence only; exact migration source not recovered. |
+| `voom_signal_delivery_log_deny_client_v1` | Not recovered as original migration SQL; current policy catalog is not a historical source substitute. |
+| `customer_signup_profile_trigger` | Candidate source found: old repo signup-trigger SQL. |
+| `customer_profiles_select_own_policy` | Partial policy evidence in old repo core SQL; exact migration source not recovered. |
+| `remove_redundant_customer_profile_select_policy` | Not recovered. |
+| `remove_duplicate_profile_policy_and_index_foreign_keys` | Aggregate/partial candidate: old repo security-policy-indexes SQL; exact applied body/order not proven. |
+| `nova_governance_tables` | Not recovered. |
+| `nova_governance_rls_and_seed` | Not recovered; seed contents must not be reconstructed by guesswork. |
+| `alpaca_oauth` | Candidate source found in canonical NOVA repo; exact applied body still needs comparison. |
+| `secure_alpaca_secret_tables` | Not recovered as a distinct hardening migration. |
+| `enable_rls_ai_strategies` | Partial evidence in old repo AI marketplace SQL; exact applied migration body not recovered. |
+| `index_alpaca_oauth_states_user_id` | Not recovered. |
+| `mt5_customer_connections` | Candidate source found in canonical NOVA repo; applied version differs from filename prefix. |
+| `security_definer_marketplace_hardening` | Candidate source found in canonical NOVA repo; applied version differs from filename prefix. |
+
+**Coverage count for the older Production ledger:** 7 rows have a direct candidate source file, 7 rows have only aggregate/partial source evidence, and 10 rows have no original migration source recovered. These are source-discovery counts, not migration-equivalence or replay-readiness counts.
+
+The old repository's `source1_test_registry` and `customer_paper_trading` files are explicitly outside the named 24-row Production ledger mapping. The newer NOVA/Staging approval migration is a separate project/version mapping and must not be silently inserted into the older Production history.
+
+### 9.5 M0.1 exit status and next evidence required
+
+- [x] Re-inspected canonical `main` SHA and all four current migration files.
+- [x] Inspected old repository `main` and three available branch trees; no additional SQL migration files were found beyond the eight-file source set.
+- [x] Retrieved the eight old-repository SQL source files and recorded their blob SHAs.
+- [x] Mapped all 24 older Production ledger names to source availability/disposition.
+- [ ] Recover the original SQL for the 10 missing migrations from Git commit history, Supabase migration artifacts/backups or owner-controlled archives.
+- [ ] Obtain authoritative applied SQL or a schema-only export with functions, triggers, policies, grants and extensions; compare candidate files to the actual applied definitions.
+- [ ] Resolve the 7 aggregate/partial mappings and prove migration ordering/chronology.
+- [ ] Preserve evidence for out-of-band changes and distinguish them from applied migration effects.
+
+**M0.1 disposition: PARTIALLY COMPLETE — source discovery and mapping inventory recorded; original SQL recovery and equivalence verification remain open.** No hosted database writes, migration repair/reset, project/branch creation, secret reads or deployments were performed in this work.
