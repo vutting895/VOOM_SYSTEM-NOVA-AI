@@ -417,3 +417,49 @@ The old repository's `source1_test_registry` and `customer_paper_trading` files 
 - [ ] Preserve evidence for out-of-band changes and distinguish them from applied migration effects.
 
 **M0.1 disposition: PARTIALLY COMPLETE — source discovery and mapping inventory recorded; original SQL recovery and equivalence verification remain open.** No hosted database writes, migration repair/reset, project/branch creation, secret reads or deployments were performed in this work.
+
+
+## 8. M0.1 recovery result — exact applied SQL recovered (2026-10-31)
+
+The earlier source-recovery gap is now closed at the **applied-ledger SQL** level. The Supabase migration ledger stores the SQL statement payloads in `supabase_migrations.schema_migrations.statements`; this field was present in both inspected projects and was read without changing either database.
+
+- Production runtime project `tlyyxufuiimrbaksoitf`: **24/24** applied migration records exported, each with one recorded SQL statement.
+- Staging/candidate project `rovhmjeowracayicbqij`: **2/2** applied migration records exported, each with one recorded SQL statement.
+- Total: **26 exact ledger SQL files** archived under `supabase/recovered-history/{production,staging}/`.
+- `supabase/recovered-history/manifest.json` records version, name, source project, path, statement count and byte length.
+- The recovered ledger records have no rollback statements.
+
+This supersedes the earlier count of ten missing original SQL sources: all eleven rows previously marked “not recovered” or only partially sourced now have their exact applied SQL payload recovered from the database ledger. The eight SQL files in the old `Voom_system` repository were compared against the ledger and none is byte/whitespace-normalized equivalent to an applied production statement; they remain historical context, not replay authority. In the canonical NOVA repository, the MT5 connection and Marketplace hardening migrations exactly match their applied ledger payloads; the NOVA approval migration exactly matches the Staging ledger payload. The Alpaca migration needs a separate content reconciliation.
+
+**Important distinction:** a SQL payload recovered from the applied ledger is the exact statement recorded by Supabase, but is not proof of the original Git commit or of later out-of-band SQL changes. The archive is deliberately outside `supabase/migrations/` and must not be applied to either hosted project.
+
+### 8.1 Current clean-replay validation
+
+A new PR-only, secretless local replay workflow is being added. It starts a disposable local Supabase stack for each environment, replays the corresponding recovered SQL files in timestamp order, and runs catalog assertions. Production and Staging histories are tested separately; the Staging replay bootstraps `extensions.pgcrypto` because the approval migration calls `extensions.digest`.
+
+Acceptance assertions:
+- Production: all 19 expected public tables exist, each has RLS enabled, all 24 migration records replay, and critical Marketplace RPCs/functions exist.
+- Staging: the approval, thread and MT5 tables exist with RLS; both recorded migrations replay; approval RPCs and `extensions.digest` exist.
+- No hosted project, migration history, customer row or secret is changed or used by this workflow.
+
+A passing replay validates the archived migration sequences in a clean local Supabase environment. It does **not** by itself prove the hosted schemas are equivalent.
+
+### 8.2 Remaining environment parity facts (not to be papered over)
+
+- Production currently has 19 public tables and 24 migration records.
+- Staging currently has 8 public tables and 2 migration records. Only three of those tables (`nova_agent_threads`, `nova_approval_requests`, `broker_connections`) are produced by its two recorded migrations. Five legacy tables (`user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, `latest_signal`) have no source in the two-row Staging ledger and must be classified as out-of-band/legacy before any parity claim.
+- Production has Marketplace, customer profile, governance and broker schema but lacks `nova_agent_threads` and `nova_approval_requests`; Staging has those approval tables but does not have the Production Marketplace/customer schema.
+- Therefore neither current hosted project is a complete superset of the other. Do not reset Staging, merge migration histories, or apply the Production archive to Staging as-is. A reviewed target baseline/cutover migration plan is still required after local replay and catalog comparison.
+- Supabase's 2026-10-30 Data API exposure change means newly created public tables are not automatically exposed to Data/GraphQL APIs. Any future additive migration must explicitly validate API exposure/grants separately from RLS.
+
+### 8.3 Current P0 gate
+
+| Gate | Status |
+|---|---|
+| Recover missing applied SQL | **Complete — 26/26 ledger statements archived** |
+| Reconcile Production and Staging migration provenance | **Complete at ledger level; Staging's five untracked legacy tables remain classified as out-of-band candidates** |
+| Clean local Supabase replay | **Pending exact-head CI result** |
+| Full schema-only equivalence against hosted catalogs | **Pending replay fingerprints and object-level comparison** |
+| Decide/publish one canonical forward migration baseline | **Blocked pending object diff and explicit approval for any hosted DDL** |
+
+No hosted DDL, migration repair, reset, data write, project/branch creation, deployment or broker write was performed.

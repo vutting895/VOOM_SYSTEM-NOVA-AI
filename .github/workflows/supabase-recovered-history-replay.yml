@@ -1,0 +1,90 @@
+name: Supabase Recovered History Replay
+
+on:
+  pull_request:
+    paths:
+      - "supabase/recovered-history/**"
+      - "tests/sql/recovered-*-history-assertions.sql"
+      - ".github/workflows/supabase-recovered-history-replay.yml"
+  push:
+    branches:
+      - main
+      - docs/supabase-migration-baseline-reconciliation-20261031
+    paths:
+      - "supabase/recovered-history/**"
+      - "tests/sql/recovered-*-history-assertions.sql"
+      - ".github/workflows/supabase-recovered-history-replay.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  clean-replay:
+    name: Clean replay — ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [production, staging]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: latest
+
+      - name: Ensure PostgreSQL client is available
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Prepare isolated replay workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d /tmp/nova-recovered-${{ matrix.environment }}.XXXXXX)"
+          echo "REPLAY_WORKDIR=$workdir" >> "$GITHUB_ENV"
+          mkdir -p "$workdir/supabase/migrations"
+          cd "$workdir"
+          supabase init
+
+          cp "$GITHUB_WORKSPACE"/supabase/recovered-history/${{ matrix.environment }}/*.sql "$workdir/supabase/migrations/"
+
+          if [ "${{ matrix.environment }}" = "staging" ]; then
+            cat > "$workdir/supabase/migrations/20261030000000_ci_extensions.sql" <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+          SQL
+          fi
+
+      - name: Start disposable local Supabase and replay every recovered migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REPLAY_WORKDIR"
+          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          supabase migration list --local
+          supabase status -o env > "$REPLAY_WORKDIR/status.env"
+          set -a
+          source "$REPLAY_WORKDIR/status.env"
+          set +a
+          test -n "${DB_URL:-}"
+          if [ "${{ matrix.environment }}" = "production" ]; then
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-history-assertions.sql"
+          else
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-staging-history-assertions.sql"
+          fi
+
+      - name: Stop disposable local Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${REPLAY_WORKDIR:-}" ] && [ -d "$REPLAY_WORKDIR" ]; then
+            cd "$REPLAY_WORKDIR"
+            supabase stop --no-backup || true
+          fi
