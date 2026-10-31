@@ -366,7 +366,7 @@ async function explainMarketWithAI(env, features, input) {
       : typeof result?.response === "string" ? result.response
         : typeof result?.result?.response === "string" ? result.result.response : "";
     const trimmed = text.trim();
-    const containsTradeInstruction = /\\b(?:buy now|sell now|place an order|execute a trade|go long now|go short now)\\b|ซื้อเลย|ขายเลย|เปิดออเดอร์|ส่งคำสั่งเทรด/i.test(trimmed);
+    const containsTradeInstruction = /\b(?:buy now|sell now|place an order|execute a trade|go long now|go short now)\b|ซื้อเลย|ขายเลย|เปิดออเดอร์|ส่งคำสั่งเทรด/i.test(trimmed);
     if (!trimmed || trimmed.length > 2000 || containsTradeInstruction) throw new Error("invalid_model_explanation");
     return { text: trimmed, provider: "cloudflare-workers-ai", model };
   } catch {
