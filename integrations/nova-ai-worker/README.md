@@ -33,3 +33,8 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The existing Cloudflare Workers AI binding generates a data-only `nova.workflow.v1` proposal. Every result is validated against the server-owned node registry and graph validator before return.
 - This endpoint does not persist or execute workflows. Unsupported node types or invalid graphs are rejected; unavailable AI fails closed.
 - External effects, broker writes, order submission and Live Trading remain disabled.
+
+
+## Deterministic draft simulator
+
+The workflow contract exports \`simulateWorkflowDraft(draft, sampleData)\` for local, in-memory preview only. It revalidates input and emits a stable trace/output without persistence, schedules, provider calls, external effects, or broker actions. It is not a workflow runtime or production data connector.
