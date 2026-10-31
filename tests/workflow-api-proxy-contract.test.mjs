@@ -19,7 +19,7 @@ const navSource = await readFile(
 
 test("workflow proxy authenticates before reading or parsing request content", () => {
   const auth = proxyPost.indexOf("const auth = await authenticateRequest(request);");
-  const bodyRead = proxyPost.indexOf("raw = await request.text();");
+  const bodyRead = proxyPost.indexOf("const boundedBody = await readBoundedRequestBody(request);");
   const parse = proxyPost.indexOf("body = JSON.parse(raw);");
   const authFailure = proxyPost.indexOf("if (!auth.ok)", auth);
   assert.notEqual(auth, -1);
