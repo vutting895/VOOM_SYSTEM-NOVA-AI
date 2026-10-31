@@ -110,6 +110,9 @@ jobs:
       - name: Test NOVA CODE AI exact-origin CORS policy
         working-directory: .
         run: node --test tests/nova-code-ai-cors.test.mjs
+      - name: Test NOVA CODE AI Base44 service authentication
+        working-directory: .
+        run: node --test tests/nova-code-ai-service-auth.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
