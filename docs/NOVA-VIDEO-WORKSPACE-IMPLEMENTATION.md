@@ -1,4 +1,4 @@
-# NOVA Video Workspace — CPU-only vertical slice
+# NOVA Video API — metadata-only vertical slice
 
 Date: 2026-10-31
 Related architecture: `docs/NOVA-AI-VIDEO-PLATFORM-SPEC.md`
@@ -6,13 +6,15 @@ Delivery branch: `feat/nova-video-cpu-workspace-20261031`
 
 ## What this slice implements
 
-- Authenticated NOVA route at `/video`, linked from the existing global navigation.
+- Authenticated external API routes `GET/POST /api/video/projects` and `GET/POST /api/video/jobs`.
+- Exact-origin CORS preflight and response handling for independently hosted frontend clients (configured through `NOVA_VIDEO_ALLOWED_ORIGINS`).
+- OpenAPI contract at `docs/openapi/nova-video-api.yaml` and external integration guide at `docs/NOVA-VIDEO-API-INTEGRATION.md`.
 - Owner-scoped project metadata through `GET/POST /api/video/projects`.
 - Owner-scoped job request metadata through `GET/POST /api/video/jobs`.
 - Supabase migration for `nova_video_projects` and `nova_video_jobs`, with RLS and composite project-owner foreign key.
 - Explicit free-only policy at the database boundary: `execution_mode='free_only'`, `estimated_cost=0`.
 - Idempotency key uniqueness per user.
-- UI clearly explains that jobs are recorded but not executed.
+- Existing `/video` page is a legacy/demo client only; the external consumer frontend is out of scope and can call the API directly.
 
 ## Deliberate blockers
 
@@ -53,11 +55,11 @@ References:
 3. Confirm `NOVA Video Migration CI` applies the migration to ephemeral PostgreSQL and passes the two-tenant RLS, foreign-project denial, no-update-grant, blocked-status and zero-cost constraint checks.
 4. Run the migration only in an approved isolated Supabase local/staging environment; do not apply it to the production Supabase Free project as part of this PR.
 5. Use two isolated Supabase Auth test users to prove API-level project/job owner reads and cross-tenant denial.
-6. Verify `/video` authentication, create/list project, record blocked job, and confirm no worker/network dispatch.
+6. Verify API authentication, CORS from the allowlisted external frontend origin, create/list project, record blocked job, and confirm no worker/network dispatch.
 7. Confirm Netlify Preview corresponds to the reviewed PR SHA.
 
 The PostgreSQL integration suite is a disposable CI database test, not evidence that the hosted Supabase project has received the migration or that the hosted API has passed tenant-isolation acceptance.
 
 ## Completion status
 
-The authenticated metadata workspace is implemented in this branch pending CI/review. End-to-end video production is **not complete**. It remains blocked on a verified zero-cost GPU, approved private media storage, worker runtime, model/checkpoint license review, and full integration tests. Do not represent the platform as production-ready or video generation as functional until those gates pass.
+The authenticated metadata API is implemented in this branch pending CI/review. End-to-end video production is **not complete**. It remains blocked on a verified zero-cost GPU, approved private media storage, worker runtime, model/checkpoint license review, and full integration tests. Do not represent the platform as production-ready or video generation as functional until those gates pass.
