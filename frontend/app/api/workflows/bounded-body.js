@@ -12,7 +12,7 @@ export async function readBoundedRequestBody(request, maxBytes = DEFAULT_MAX_BOD
 
   const declaredLength = request.headers.get('content-length');
   if (declaredLength !== null) {
-    if (!/^\\d+$/.test(declaredLength)) {
+    if (!/^\d+$/.test(declaredLength)) {
       return { ok: false, status: 400, error: 'invalid_content_length' };
     }
     if (Number(declaredLength) > maxBytes) {
