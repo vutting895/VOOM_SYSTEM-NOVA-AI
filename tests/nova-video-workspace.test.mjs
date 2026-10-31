@@ -62,5 +62,6 @@ test("workspace page is session-gated and exposes its blocked free-only state", 
   assert.match(page, /router\.replace\("\/login"\)/);
   assert.match(page, /GPU Generation ยังไม่เปิดใช้งาน/);
   assert.match(page, /Metadata workspace เท่านั้น/);
+  assert.match(page, /if \(!response\.ok\) throw new Error\(payload\.error \|\| "บันทึกงานไม่สำเร็จ"\)/);
   assert.match(navigation, /href: '\/video'/);
 });
