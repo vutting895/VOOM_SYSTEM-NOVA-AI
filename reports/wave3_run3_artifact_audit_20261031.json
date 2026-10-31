@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "status": "artifact_audited_performance_gate_blocked",
+  "audited_utc": "2026-10-31",
+  "source": {
+    "workflow_run_id": 41163353027,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41163353027",
+    "training_commit": "70fa601ebfaf8b992f80c5b27a60247979e7bceb",
+    "artifact_id": 13028341403,
+    "artifact_sha256": "218e15c46b8db53c37d263482d96845fa90addab0e292f04c53a91b694b20c17",
+    "report_sha256": "5ebc3f23bdd2c80c110c717920381480692af73cfe7e7cb33d2a001b382f4892",
+    "manifest_sha256": "2d95aad984a434412b947f38259df8cae0ea5c8c97395171550bf49c8c91ca1c"
+  },
+  "data": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "bars": 101076,
+    "usable_labeled_rows": 100965,
+    "symbol": "XAUUSDm",
+    "timeframe": "M15"
+  },
+  "calendar": {
+    "path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "canonical_git_bytes": 386146,
+    "canonical_git_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "events": 2166,
+    "high_impact_usd_events": 2166,
+    "time_mode_counts": {
+      "datetime": 2166
+    },
+    "source": "MQL5 Economic Calendar",
+    "timezone": "UTC (Exness trade server GMT+0)",
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "total_market_bars": 101076,
+    "news_safe_bars": 95099,
+    "blocked_bars": 5977,
+    "final_oos_bars": 7942,
+    "final_oos_news_safe_bars": 7421,
+    "final_oos_news_blocked_bars": 521,
+    "terminal_raw_bytes_verification": "pending",
+    "terminal_raw_sha256_claim_from_pr": "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c",
+    "terminal_sha256_claim_valid": false,
+    "terminal_bytes_claim_from_pr": 388313,
+    "byte_delta_vs_canonical_git_file": 2167,
+    "note": "The terminal digest string in the PR description is 58 hex characters, not a valid SHA-256. The 2167-byte difference is consistent with line-ending normalization but does not prove raw terminal bytes are identical."
+  },
+  "final_oos": {
+    "start_utc": "2026-07-01T00:00:00Z",
+    "end_inclusive_utc": "2026-10-29T13:45:00Z",
+    "rows": 7942,
+    "accuracy_pct": 41.3246,
+    "majority_baseline_accuracy_pct": 45.9708,
+    "balanced_accuracy_pct": 39.1057,
+    "macro_f1_pct": 37.6761,
+    "actual_classes": {
+      "short": 2198,
+      "hold": 3651,
+      "long": 2093
+    },
+    "predicted_classes": {
+      "short": 3567,
+      "hold": 3239,
+      "long": 1136
+    },
+    "long_recall_pct": 16.5313,
+    "closed_trades": 0,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "performance_gate": "blocked"
+  },
+  "walk_forward": [
+    {
+      "name": "wf_2024_H1",
+      "accuracy_pct": 42.7243,
+      "baseline_pct": 47.4667,
+      "beats_baseline": false
+    },
+    {
+      "name": "wf_2024_H2",
+      "accuracy_pct": 42.0872,
+      "baseline_pct": 47.0338,
+      "beats_baseline": false
+    },
+    {
+      "name": "wf_2025_H1",
+      "accuracy_pct": 38.6348,
+      "baseline_pct": 44.6871,
+      "beats_baseline": false
+    },
+    {
+      "name": "wf_2025_H2",
+      "accuracy_pct": 33.8427,
+      "baseline_pct": 46.3677,
+      "beats_baseline": false
+    },
+    {
+      "name": "wf_2026_H1",
+      "accuracy_pct": 36.1176,
+      "baseline_pct": 46.5584,
+      "beats_baseline": false
+    }
+  ],
+  "smc": {
+    "wave3_entry_rows": 34,
+    "max_score_on_wave3_entry_rows": 75,
+    "smc_ge_85_rows": 0,
+    "bos20_rows": 21,
+    "three_higher_lows_green_rows": 12,
+    "bullish_ob_within_5_rows": 1,
+    "inside_bullish_ob_zone_rows": 0,
+    "fvg_refill_rows": 7,
+    "xgb_buy_ge_75_and_agrees_rows": 0,
+    "lstm_buy_ge_80_diagnostic_rows": 87,
+    "lstm_surviving_prior_mandatory_gates_rows": 0,
+    "ensemble_buy_ge_85_and_agrees_rows": 0,
+    "frozen_scoring": {
+      "bos20": 30,
+      "three_higher_lows_green": 20,
+      "qualifying_ob": 25,
+      "fvg_refill": 25
+    },
+    "causal_alignment_audit": "pending",
+    "gate_contract_changed": false
+  },
+  "methodology": {
+    "walk_forward_folds": 5,
+    "inner_validation_folds_per_tuning_window": 2,
+    "xgb_trials_per_window": 4,
+    "purge_bars": 12,
+    "final_oos_used_for_tuning": false,
+    "probability_calibration": "not present; raw direction probabilities only; Brier/ECE/reliability unavailable"
+  },
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false,
+    "production_eligible": false
+  }
+}
