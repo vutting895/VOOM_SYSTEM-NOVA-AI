@@ -2,7 +2,7 @@
 
 **Status:** Architecture is in this PR branch; P1 Workforce UI is implemented in PR #148 (ready for review, stacked on PR #146). Both UI PRs remain unmerged.  
 **Canonical repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
-**Base chain:** `main` → Draft PR #143 (Adaptive NOVA Main Dashboard) → this proposal  
+**Base chain:** `main` → PR #143 (Adaptive NOVA Main Dashboard) → this proposal  
 **Main baseline SHA:** `a2acfd8ec9b598e6593413549bef760e8f596a72`  
 **Dashboard design parent head:** `043b69a5efa5960de35279ea0148d4c2aab63ba1`  
 **Primary frontend:** `frontend/` (Next.js; Netlify)  
