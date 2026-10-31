@@ -57,7 +57,7 @@ export async function POST(request) {
   if (!UUID.test(connectionId)) return json({ error: 'valid_connection_id_required' }, 400);
   if (!SYMBOL.test(symbol)) return json({ error: 'valid_mt5_symbol_required' }, 400);
   if (!TIMEFRAMES.has(timeframe)) return json({ error: 'unsupported_mt5_timeframe' }, 400);
-  if (!Number.isInteger(count) || count < 60 || count > 500) return json({ error: 'count_must_be_between_60_and_500' }, 400);
+  if (!Number.isInteger(count) || count < 61 || count > 500) return json({ error: 'count_must_be_between_61_and_500' }, 400);
 
   let workerUrl;
   try {
