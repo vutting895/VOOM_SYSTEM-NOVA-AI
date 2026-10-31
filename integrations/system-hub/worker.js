@@ -517,6 +517,7 @@ async function readQuotes(request, env, user, row, origin) {
     state: "data_verified",
     dataVerified: true,
     quote: {
+      environment: row.environment,
       symbol: typeof data.symbol === "string" ? data.symbol : symbol,
       timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
       digits: safeNumber(data.digits),
