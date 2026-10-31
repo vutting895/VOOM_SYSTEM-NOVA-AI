@@ -31,3 +31,5 @@
 .trading-market-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:25px;padding-top:13px;border-top:1px solid #203541;color:#678491;font-size:8px;font-weight:850;letter-spacing:.1em}
 @media(max-width:760px){.trading-market-header{align-items:flex-start;flex-direction:column}.trading-market-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trading-market-mode{grid-template-columns:repeat(3,auto);align-items:center}.trading-market-mode strong{grid-column:1/-1}}
 @media(max-width:420px){.trading-market-controls{align-items:stretch;flex-direction:column}.trading-market-controls label,.trading-market-controls input,.trading-market-controls select,.trading-market-controls button{width:100%}.trading-market-status{align-items:flex-start;flex-direction:column}}
+
+.trading-market-request{display:inline-flex;min-height:38px;align-items:center;margin:8px 12px 0 0;padding:0 14px;border:1px solid #347b83;border-radius:8px;background:#12323a;color:#dffaff;font-size:10px;font-weight:850;cursor:pointer}.trading-market-request:disabled{opacity:.55;cursor:wait}
