@@ -33,3 +33,13 @@ No provider actions, arbitrary HTTP, shell, SQL, JavaScript, loops, schedules, q
 - The endpoint does not persist the draft, infer tenant authority from the prompt, call external providers, or create an execution.
 
 This is not Gemini integration: it uses the Worker’s existing Cloudflare Workers AI binding. A Gemini provider can be added only behind the same validator and after separate provider/security review.
+
+
+## Deterministic Mock Simulator (M3 foundation)
+
+The exported \`simulateWorkflowDraft(draft, sampleData)\` function validates the draft again, accepts only bounded scalar sample data, and returns a stable in-memory trace plus preview output. It supports only the server-owned draft-safe nodes. Review nodes become an approval-required marker; they do not create an approval request.
+
+- No database persistence, queue, schedule, provider call, credential lookup, external side effect, or workflow execution.
+- Sample data is limited to 50 scalar fields, 8 KB total, and 500 characters per string; secret-like keys and nested objects/arrays are rejected.
+- Output always reports execution, persistence, external effects, broker writes, and Live Trading disabled.
+- This is a deterministic contract simulator, not evidence of a deployed runtime or tenant-specific data access.
