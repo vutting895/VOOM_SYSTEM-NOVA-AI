@@ -572,3 +572,12 @@ Additional advisor findings from the read-only inventory:
 - Staging: five legacy tables have RLS enabled without policies. Preserve them while external ownership and usage are investigated; do not add permissive policies merely to silence the advisor.
 
 **Current disposition:** the durable approval migration is present in Production and Staging, and the exact Production ledger SQL matches canonical `main`. Production local replay equivalence is awaiting the new 21-table fingerprint CI. Staging legacy-table classification and cross-environment parity remain open. This is not authorization for Team Lead task persistence or runtime delegation.
+
+
+### 8.11 Staging legacy-table grant exposure — read-only confirmation
+
+A separate read-only query of `information_schema.role_table_grants` confirms **105 table privilege rows** across the five Staging-only legacy tables. Each table has the full seven table privileges (`DELETE`, `INSERT`, `REFERENCES`, `SELECT`, `TRIGGER`, `TRUNCATE`, `UPDATE`) granted to each of `anon`, `authenticated`, and `service_role`.
+
+All five tables currently report RLS enabled and zero RLS policies. Under PostgreSQL RLS this means the absence of policies is default-deny for browser roles; it does not make the broad grants harmless. The broad grants create a latent exposure if RLS is ever disabled or bypassed and are why the Security Advisor flags these tables. No row contents were queried and no grant/policy was changed.
+
+**Required decision before Staging reuse or cutover:** preserve and classify these tables, then use a reviewed least-privilege plan to revoke unnecessary browser-role grants and/or retire them only after backup, external-integration checks and data-owner approval. Do not add permissive policies just to clear the Advisor finding, and do not delete or reset the tables as part of migration recovery.
