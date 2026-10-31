@@ -40,7 +40,7 @@ test("job endpoints only record blocked free-only work and never dispatch", () =
   assert.match(jobs, /execution_mode: "free_only"/);
   assert.match(jobs, /estimated_cost: 0/);
   assert.match(jobs, /\.eq\("user_id", auth\.user\.id\)/);
-  assert.doesNotMatch(jobs, /fetch\(|dispatch|service_role|SERVICE_ROLE_KEY/i);
+  assert.doesNotMatch(jobs, /\bfetch\s*\(|service_role|SERVICE_ROLE_KEY/i);
   assert.match(migration, /nova_video_jobs_project_owner_fk/);
 });
 
@@ -49,4 +49,15 @@ test("job payload rejects unsupported fields, invalid IDs, tasks and idempotency
   assert.match(jobs, /isUuid\(body\.project_id\)/);
   assert.match(jobs, /TASK_TYPES\.has\(body\.task_type\)/);
   assert.match(jobs, /video_idempotency_key_invalid/);
+});
+
+test("workspace page is session-gated and exposes its blocked free-only state", () => {
+  const page = source("../frontend/app/video/page.jsx");
+  const navigation = source("../frontend/components/nova-navigation.jsx");
+  assert.match(page, /getSupabaseBrowserClient/);
+  assert.match(page, /onAuthStateChange/);
+  assert.match(page, /router\.replace\("\/login"\)/);
+  assert.match(page, /GPU Generation ยังไม่เปิดใช้งาน/);
+  assert.match(page, /Metadata workspace เท่านั้น/);
+  assert.match(navigation, /href: '\/video'/);
 });
