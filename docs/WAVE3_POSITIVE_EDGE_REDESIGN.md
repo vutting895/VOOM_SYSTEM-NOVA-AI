@@ -106,3 +106,16 @@ Every run should include:
 ## 7. Safety and release status
 
 Research-only. Order Submission OFF. Live Trading OFF. Deployment OFF. No secrets in repository or logs. No claim of positive performance until supported by a reproducible untouched OOS artifact. This document is a research architecture proposal, not evidence of profitability.
+
+
+## Implementation status update — 2026-10-31
+
+P0 has a first implementation on the separate benchmark branch in [Draft PR #66](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/66):
+- `tools/verify_wave3_news_calendar.py` independently hashes the raw bytes of the canonical Git-tracked news CSV and fails closed against the pinned 64-character SHA-256.
+- The Wave3 training workflow runs this check before schema, coverage, and model-training steps.
+- A focused regression test covers the canonical input, modified bytes, and malformed expected digest; SMC/Wave3 CI now includes it.
+- The downloaded run #3 artifact (#13028341403) confirms the same canonical CSV digest in both report and model manifest.
+
+This does **not** close terminal-source provenance: the old PR description's terminal digest is only 58 hex characters and the claimed terminal byte count differs from the canonical Git file. Raw MT5 Common Files CSV and Experts log verification remains required. P0 should be considered partially implemented until this terminal evidence is reconciled and exact-head CI passes.
+
+Run #3 remains a failed strategy-performance evaluation (41.3246% accuracy vs 45.9708% majority baseline, 0 closed trades, $0 net, PF unavailable). No benchmark gate or strategy parameter was changed. PR #147 remains design-only and Draft; P1 causal SMC traces, P2 outcome labels, P3 calibration/model comparison, P4 execution-cost robustness, and P5 untouched OOS are still pending.
