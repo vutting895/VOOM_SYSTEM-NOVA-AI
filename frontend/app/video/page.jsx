@@ -124,7 +124,7 @@ export default function VideoWorkspacePage() {
         }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (response.status !== 202) throw new Error(payload.error || "บันทึกงานไม่สำเร็จ");
+      if (!response.ok) throw new Error(payload.error || "บันทึกงานไม่สำเร็จ");
       setPrompt("");
       await loadWorkspace(token);
       setNotice(payload.explanation || "บันทึกคำขอแล้ว");
