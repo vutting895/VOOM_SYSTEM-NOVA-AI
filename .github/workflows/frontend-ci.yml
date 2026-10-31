@@ -43,6 +43,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/secret-custody-worker/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
