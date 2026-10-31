@@ -430,3 +430,36 @@ Required handoff packet:
 The architecture milestone is complete when team responsibilities, reporting line, contracts, inheritance rules, handoff packets, independence gates, escalation and rollout criteria are reviewed in the canonical PR. Runtime readiness remains separate and requires Hub-backed identity, server-owned team/agent registry, tenant isolation, durable events, budget enforcement, independent evaluation, audit, human approvals and tested rollback.
 
 This model adds Team Leads to the existing Agent Orchestration / Learning Universe architecture. It does not create a parallel agent platform, task tracker, memory store, approval system or Skill registry.
+
+
+## 13.9 Team Lead implementation gate — repository evidence, 2026-10-31
+
+A repository-first inspection of current `main` confirms the following implementation facts:
+
+- `integrations/system-hub/worker.js` authenticates through Supabase Auth and scopes broker connection reads by the authenticated `user_id`. It does not expose a verified tenant-registry lookup or a server-owned tenant membership contract.
+- `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql` defines owner-scoped `nova_agent_threads` and `nova_approval_requests`, with `user_id`, RLS, and atomic owner-bound approval RPCs. It does not define a general-purpose team task queue, team registry, delegation records, immutable task-event ledger, or task idempotency store.
+- `frontend/app/api/agent/threads/route.js` and the approval routes use the authenticated Supabase user and the existing approval lifecycle. They are not a Team Lead runtime or general task scheduler.
+- The existing approval lifecycle is a separate human-review primitive. Team Leads must call or hand off to that existing lifecycle when a supported approval is required; they must not create another approval table or infer approval from a Lead recommendation.
+
+### Required identity decision before durable delegation
+
+Until a tenant registry and membership contract are found and accepted on the canonical base:
+
+1. Treat the authenticated Supabase `user.id` as the verified owner/actor identifier for owner-scoped records.
+2. Do not manufacture a `tenant_ref`, infer a tenant from a connection, or treat a model-supplied tenant string as authorization.
+3. Keep tenant-scoped delegation disabled. A future tenant identifier may be introduced only by an additive, reviewed identity/membership migration with RLS and two-principal allow/deny tests.
+4. Do not persist Team Lead tasks or events yet. The current thread/approval tables do not provide the required parent-child delegation, immutable event, idempotency, cancellation, retry, or recovery semantics.
+5. Before adding persistence, map the exact existing migration history and staging/production parity, then design the smallest additive schema that reuses `nova_agent_threads` and the existing approval RPCs without weakening their owner checks.
+
+### Revised next implementation sequence
+
+| Step | Deliverable | Gate |
+|---|---|---|
+| TL-0A | Identity source map: Auth user, owner-scoped rows, any existing tenant membership source | Exact schema/API evidence; no inferred tenant |
+| TL-0B | Migration inventory and environment parity | Clean replay and source mapping evidence |
+| TL-1 | Server-owned Team/Agent registry design | Immutable version, trusted lead-agent mapping, capability ceiling |
+| TL-2 | Additive durable task/event schema proposal | Owner/RLS, idempotency, append-only events, parent-child inheritance, expiry and recovery tests |
+| TL-3 | Server adapter and shadow-mode coordinator | Synthetic fixtures only; no customer data or external side effects |
+| TL-4 | Independent Review, QA and Security gates | Exact-head CI and positive/negative owner-isolation evidence |
+
+**Stop condition:** if identity ownership, migration parity, or the existing approval contract cannot be verified, keep the Team Lead runtime in design/contract-only mode. Passing Python contract tests does not authorize database writes, delegation execution, customer-data access, merge or deployment.
