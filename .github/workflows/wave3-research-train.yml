@@ -37,6 +37,7 @@ jobs:
           datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
       - name: Validate historical USD high-impact calendar
         run: |
+          python - <<'PY'
           import csv
           from datetime import datetime
           from pathlib import Path
@@ -74,6 +75,7 @@ jobs:
                   raise SystemExit(f"duplicate calendar event/value id: {key}")
               seen.add(key)
           print(f"Validated {len(rows)} unique high-impact USD events; UTC coverage complete.")
+          PY
       - name: Train models and run walk-forward / final OOS backtest
         run: >-
           python tools/train_wave3_models.py
