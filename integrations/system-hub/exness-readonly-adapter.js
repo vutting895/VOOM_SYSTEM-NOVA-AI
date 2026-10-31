@@ -236,20 +236,48 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
       const fromDate = typeof from === "string" ? Date.parse(from) : NaN;
       if (typeof instrument !== "string" || !INSTRUMENT.test(instrument) ||
           !timeframes.has(timeframe) || !Number.isFinite(fromDate) || fromDate >= Date.now() ||
-          !Number.isInteger(count) || count < 1 || count > 500 ||
+          !Number.isSafeInteger(count) || count < 1 ||
           !["bid","ask","both"].includes(priceType)) {
         throw fail("exness_candle_query_invalid", 400);
       }
-      const instruments = await this.getInstruments(context);
-      if (!instruments.includes(instrument)) throw fail("exness_instrument_not_available", 403);
+
       const c = await credentialsFor(context);
+      const accessPoint = await discover(c);
+      const readAtAccessPoint = (path) => signedGet({
+        baseUrl: accessPoint, apiKey: c.apiKey, privateKey: c.privateKey,
+        path, fetchImpl
+      });
+
+      const instrumentResult = await readAtAccessPoint(accountPath(c.accountId, "/instruments"));
+      if (!instrumentResult || !Array.isArray(instrumentResult.instruments) ||
+          !instrumentResult.instruments.every((name) => typeof name === "string" && INSTRUMENT.test(name))) {
+        throw fail("exness_instrument_response_invalid", 502);
+      }
+      if (!instrumentResult.instruments.includes(instrument)) {
+        throw fail("exness_instrument_not_available", 403);
+      }
+
+      const limitsResponse = await readAtAccessPoint(accountPath(c.accountId, "/limits"));
+      const candleMethod = limitsResponse?.limits?.rest?.methods?.find((method) =>
+        method?.http_method === "GET" &&
+        method?.path === "/v1/market-data/accounts/{account_id}/candles");
+      const maxCandles = candleMethod?.limits?.max_candles_per_request;
+      const historyAgeDays = candleMethod?.limits?.history_age_days;
+      if (!Number.isSafeInteger(maxCandles) || maxCandles < 1 ||
+          !Number.isSafeInteger(historyAgeDays) || historyAgeDays < 1) {
+        throw fail("exness_candle_limits_unavailable", 503);
+      }
+      if (count > maxCandles || fromDate < Date.now() - historyAgeDays * 86400000) {
+        throw fail("exness_candle_query_outside_account_limits", 400);
+      }
+
       const path = "/v1/market-data/accounts/" + c.accountId + "/candles" +
         "?instrument=" + encodeURIComponent(instrument) +
         "&timeframe=" + encodeURIComponent(timeframe) +
         "&from=" + encodeURIComponent(new Date(fromDate).toISOString()) +
         "&count=" + encodeURIComponent(String(count)) +
         "&price_type=" + encodeURIComponent(priceType);
-      const result = await read(c, path);
+      const result = await readAtAccessPoint(path);
       if (!result || !Array.isArray(result.candles) || result.candles.length > count) {
         throw fail("exness_candle_response_invalid", 502);
       }
