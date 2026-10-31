@@ -6,18 +6,6 @@ on:
       - "supabase/recovered-history/**"
       - "tests/sql/recovered-*-history-assertions.sql"
       - ".github/workflows/supabase-recovered-history-replay.yml"
-  push:
-    branches:
-      - main
-      - docs/supabase-migration-baseline-reconciliation-20261031
-    paths:
-      - "supabase/recovered-history/**"
-      - "tests/sql/recovered-*-history-assertions.sql"
-      - ".github/workflows/supabase-recovered-history-replay.yml"
-
-permissions:
-  contents: read
-
 jobs:
   clean-replay:
     name: Clean replay — ${{ matrix.environment }}
