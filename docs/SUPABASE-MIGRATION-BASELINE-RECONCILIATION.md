@@ -411,12 +411,14 @@ The old repository's `source1_test_registry` and `customer_paper_trading` files 
 - [x] Inspected old repository `main` and three available branch trees; no additional SQL migration files were found beyond the eight-file source set.
 - [x] Retrieved the eight old-repository SQL source files and recorded their blob SHAs.
 - [x] Mapped all 24 older Production ledger names to source availability/disposition.
-- [ ] Recover the original SQL for the 10 missing migrations from Git commit history, Supabase migration artifacts/backups or owner-controlled archives.
-- [ ] Obtain authoritative applied SQL or a schema-only export with functions, triggers, policies, grants and extensions; compare candidate files to the actual applied definitions.
-- [ ] Resolve the 7 aggregate/partial mappings and prove migration ordering/chronology.
-- [ ] Preserve evidence for out-of-band changes and distinguish them from applied migration effects.
+- [x] Recover exact applied SQL payloads for all 26 ledger records from the two Supabase migration ledgers.
+- [x] Replay the 24-row historical Production sequence and 2-row Staging sequence in disposable local Supabase.
+- [x] Replay Production plus the NOVA approval migration and compare its full catalog fingerprint to current hosted Production.
+- [ ] Recover original Git commit attribution where available; distinguish source provenance from applied-ledger SQL recovery.
+- [ ] Classify the five Staging-only legacy tables, their external consumers, backup ownership and broad grants.
+- [ ] Approve a common target baseline and non-destructive Production/Staging cutover plan before any hosted change.
 
-**M0.1 disposition: PARTIALLY COMPLETE — source discovery and mapping inventory recorded; original SQL recovery and equivalence verification remain open.** No hosted database writes, migration repair/reset, project/branch creation, secret reads or deployments were performed in this work.
+**M0.1 disposition: APPLIED-LEDGER SQL RECOVERY COMPLETE; environment parity remains BLOCKED.** Exact SQL payloads for all 26 recorded migrations are archived and clean replay/current-Production catalog comparison passed. Original Git commit attribution is not established, and Staging's five legacy tables still require source/consumer ownership classification and a reviewed common target baseline. No hosted database writes, migration repair/reset, project/branch creation, secret reads or deployments were performed.
 
 
 ## 8. M0.1 recovery result — exact applied SQL recovered (2026-10-31)
@@ -446,21 +448,22 @@ A passing replay validates the archived migration sequences in a clean local Sup
 
 ### 8.2 Remaining environment parity facts (not to be papered over)
 
-- Production currently has 19 public tables and 24 migration records.
-- Staging currently has 8 public tables and 2 migration records. Only three of those tables (`nova_agent_threads`, `nova_approval_requests`, `broker_connections`) are produced by its two recorded migrations. Five legacy tables (`user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, `latest_signal`) have no source in the two-row Staging ledger and must be classified as out-of-band/legacy before any parity claim.
-- Production has Marketplace, customer profile, governance and broker schema but lacks `nova_agent_threads` and `nova_approval_requests`; Staging has those approval tables but does not have the Production Marketplace/customer schema.
-- Therefore neither current hosted project is a complete superset of the other. Do not reset Staging, merge migration histories, or apply the Production archive to Staging as-is. A reviewed target baseline/cutover migration plan is still required after local replay and catalog comparison.
+- Production currently has **21 public tables and 25 migration records**, including the owner-scoped NOVA approval lifecycle at ledger version `20261031070311`.
+- Staging currently has **8 public tables and 2 migration records**. Three tables (`nova_agent_threads`, `nova_approval_requests`, `broker_connections`) are produced by its two recorded migrations. Five legacy tables (`user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, `latest_signal`) remain outside that ledger and require ownership/consumer classification.
+- Production has Marketplace, customer profile, governance, broker and NOVA approval schema. Staging has the approval and broker tables plus five legacy tables, but lacks the Production Marketplace/customer schema.
+- Neither hosted project is a complete superset of the other. Do not reset Staging, merge migration histories, or apply the Production archive to Staging as-is. A reviewed common target baseline/cutover plan is still required.
 - Supabase's 2026-10-30 Data API exposure change means newly created public tables are not automatically exposed to Data/GraphQL APIs. Any future additive migration must explicitly validate API exposure/grants separately from RLS.
 
 ### 8.3 Current P0 gate
 
 | Gate | Status |
 |---|---|
-| Recover missing applied SQL | **Complete — 26/26 ledger statements archived** |
-| Reconcile Production and Staging migration provenance | **Complete at ledger level; Staging's five untracked legacy tables remain classified as out-of-band candidates** |
-| Clean local Supabase replay | **Complete** — 24/24 Production + 2/2 Staging replayed in disposable local Supabase; run #41175375858 passed |
-| Production schema-only equivalence against hosted catalog | **In progress** — full 9-category catalog fingerprint comparison is running in #41175729533; Staging's five untracked legacy tables remain excluded from replay equivalence |
-| Candidate forward baseline (Production history + NOVA approval) | **Locally validated** — run #41175585645 passed 25-migration / 21-table / RLS / policy / RPC / grant assertions; hosted application still requires explicit approval |
+| Recover exact applied SQL | **Complete — 26/26 Production + Staging ledger statements archived** |
+| Reconcile migration provenance | **Complete at applied-ledger level**; original Git commit attribution and five Staging legacy-table ownership decisions remain open |
+| Clean local Supabase replay | **Passed** — 24-migration historical Production lane, 2-migration Staging lane and 25-migration Production-plus-approval lane |
+| Current Production schema equivalence | **Passed on code head a9022c33d11de22930f8ed995382bab4dca83304** — 21-table current Production fingerprint compared structurally with the 25-migration disposable replay; run #41179596316 |
+| Staging legacy classification / parity | **Blocked** — five out-of-ledger tables have no policies and broad grants; no common target baseline/cutover is approved |
+| Hosted migration / cutover | **Not authorized** — no hosted write was performed or approved |
 
 No hosted DDL, migration repair, reset, data write, project/branch creation, deployment or broker write was performed.
 
@@ -471,19 +474,19 @@ The two projects were queried independently through PostgreSQL catalogs. Counts 
 
 | Catalog object | Production | Staging |
 |---|---:|---:|
-| Public tables | 19 | 8 |
-| Public columns | 171 | 72 |
-| RLS-enabled public tables | 19 | 8 |
+| Public tables | 21 | 8 |
+| Public columns | 193 | 72 |
+| RLS-enabled public tables | 21 | 8 |
 | FORCE RLS tables | 0 | 0 |
-| Public RLS policies | 21 | 5 |
-| Public indexes | 60 | 17 |
-| Public constraints | 89 | 31 |
-| Public non-internal triggers | 4 | 2 |
-| Functions in public/private | 15 | 8 |
-| SECURITY DEFINER functions in public/private | 8 | 4 |
-| Applied migration rows | 24 | 2 |
+| Public RLS policies | 24 | 5 |
+| Public indexes | 66 | 17 |
+| Public constraints | 104 | 31 |
+| Public non-internal triggers | 5 | 2 |
+| Functions in public/private | 21 | 8 |
+| Applied migration rows | 25 | 2 |
+| Role-table grant rows | 199 | 131 |
 
-Extensions also differ: Production has `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`, `uuid-ossp`; Staging additionally has `hypopg` and `index_advisor`.
+Extensions also differ: Production has 5 installed extensions; Staging has 7, additionally including `hypopg` and `index_advisor`.
 
 **Grant/RLS caution:** table-level grants and row-level policies are separate controls. The catalog shows table grants to `anon` on five public tables in each environment, while RLS is enabled on every public table. In Staging, the five legacy tables have no explicit public RLS policies (default-deny under RLS), but broad table grants remain and must be reviewed before Data API exposure. In Production, the two Alpaca tables have explicit browser-deny policies; other anonymous grants are not themselves proof of readable rows. The Oct 30 Data API exposure default is a third, separate platform control and must be verified in the target project settings.
 
@@ -492,7 +495,7 @@ These fingerprints are now the comparison baseline; do not claim schema parity f
 
 ### 8.5 Forward target replay: Production baseline + NOVA approval migration
 
-A third clean-replay lane is being added to test the proposed additive target: all 24 recovered Production migrations followed by the canonical repository migration `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql`. That approval SQL is byte-equivalent to the Staging ledger's recorded `nova_durable_approval_lifecycle` statement. The test expects 21 public tables, RLS on all 21, 25 local migration records, three approval policies, `extensions.digest`, least-privilege RPC grants, and SECURITY INVOKER public wrappers over SECURITY DEFINER private implementations.
+The third clean-replay lane tests the proposed additive target: all 24 recovered historical Production migrations followed by the canonical repository migration `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql`. That approval SQL is an exact text match to both the Staging ledger statement and Production ledger version `20261031070311` (different ledger timestamps). The replay expects 21 public tables, RLS on all 21, 25 local migration records, three approval policies, `extensions.digest`, least-privilege RPC grants, and SECURITY INVOKER public wrappers over SECURITY DEFINER private implementations.
 
 This is a **local forward-replay proof only**. If it passes, it supports a candidate migration path for Production; it does not authorize or perform applying the migration to Production, changing the Staging project, or claiming hosted parity. The Staging five legacy tables still require an explicit preserve/archive/retire decision and a non-destructive cutover plan.
 
@@ -506,7 +509,7 @@ This supports classifying the five tables as **unreferenced legacy candidates**,
 
 ### 8.7 Full Production catalog fingerprint replay
 
-A schema-only Production fingerprint has been captured from PostgreSQL catalogs (no row data) and stored at `supabase/recovered-history/catalog-fingerprints/production.json`. It includes 19 table definitions/RLS flags, 171 column definitions/defaults, 89 constraints, 60 indexes, 21 policies, four triggers, 15 public/private functions with security/search-path metadata, 190 table grants, and five extension/schema assignments. The Production replay lane now computes the same fingerprint from the disposable clean-replay database and compares it structurally against the hosted snapshot. This is stricter than checking only object counts. Result is pending CI.
+The original `production.json` is retained as the historical 24-migration / 19-table catalog baseline. A second read-only snapshot, `supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json`, captures current Production after the approval migration: 21 tables, 193 columns, 104 constraints, 66 indexes, 24 policies, five triggers, 21 public/private functions, 199 role-table grant rows and five extensions. The disposable 25-migration Production-plus-approval replay compares against this current snapshot. The comparison passed on code head `a9022c33d11de22930f8ed995382bab4dca83304` in run #41179596316.
 
 
 **Forward-replay evidence:** the separate Production 24-migration history plus canonical NOVA approval migration was replayed from empty local Supabase and passed all assertions in [run #41175585645](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175585645). This demonstrates that the NOVA approval migration can be layered additively over the Production baseline in a clean environment. It is not a hosted deployment or a Staging rebuild.
