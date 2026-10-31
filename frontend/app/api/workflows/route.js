@@ -7,6 +7,18 @@ export const dynamic = 'force-dynamic';
 const aiWorkerBase = (process.env.NOVA_AI_API_URL || 'https://voom-system-nova-ai.suwapat787.workers.dev').replace(/\/$/, '');
 const MAX_BODY_BYTES = 16 * 1024;
 
+function buildWorkerUrl(path) {
+  try {
+    const base = new URL(aiWorkerBase);
+    if (base.protocol !== 'https:' || base.username || base.password || base.search || base.hash) {
+      return null;
+    }
+    return new URL(path, base.origin);
+  } catch {
+    return null;
+  }
+}
+
 async function authenticateRequest(request) {
   const match = /^Bearer\s+(.+)$/i.exec(request.headers.get('authorization') || '');
   const accessToken = match?.[1]?.trim();
@@ -86,8 +98,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'unsupported_workflow_operation' }, { status: 400 });
   }
 
+  const workerUrl = buildWorkerUrl(path);
+  if (!workerUrl) {
+    return NextResponse.json({ error: 'workflow_worker_unavailable' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    });
+  }
+
   try {
-    const response = await fetch(aiWorkerBase + path, {
+    const response = await fetch(workerUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
