@@ -6,11 +6,11 @@ const panel = await readFile(new URL('../frontend/components/auth-panel.jsx', im
 const login = await readFile(new URL('../frontend/app/login/page.jsx', import.meta.url), 'utf8');
 const register = await readFile(new URL('../frontend/app/register/page.jsx', import.meta.url), 'utf8');
 
-test('NOVA exposes Google and Facebook OAuth through Supabase Auth', () => {
+test('NOVA exposes Google OAuth through Supabase Auth', () => {
   assert.match(panel, /signInWithOAuth\(\{\s*provider,/);
   assert.match(panel, /signInWithProvider\('google'\)/);
-  assert.match(panel, /signInWithProvider\('facebook'\)/);
   assert.match(panel, /\/auth\/callback/);
+  assert.doesNotMatch(panel, /facebook/i);
 });
 
 test('email login and registration use separate account-creation policy', () => {
