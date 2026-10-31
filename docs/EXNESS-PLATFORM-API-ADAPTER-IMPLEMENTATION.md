@@ -13,7 +13,7 @@
 - Support for Exness-generated 128-character hex private keys (64 bytes; first 32 bytes are the Ed25519 seed) and PKCS#8 PEM private keys.
 - Signed account Access Point discovery through `GET /v1/trading/access-point?account_id=...`.
 - Account details, account limits and available-instrument GET reads.
-- Bounded candle-history GET reads, constrained to the instrument list returned for the account, documented timeframes, a bounded count, and validated chronological OHLC responses.
+- Bounded candle-history GET reads, constrained to the account instrument list and the live `max_candles_per_request` / `history_age_days` returned by the account limits endpoint; missing limit metadata fails closed. OHLC responses are validated for chronology and price consistency.
 - Fixed HTTPS Exness host suffix checks, strict endpoint/query allowlists, redirect rejection, no-store requests, timeouts, and sanitized upstream errors.
 - Synthetic RFC 8032 / Exness test-vector coverage and adapter fail-closed tests.
 
@@ -37,7 +37,8 @@ The current secret-manager readiness record blocks customer credential reads/wri
 | Account details | `GET /v1/configuration/accounts/{account_id}/account` |
 | Account limits | `GET /v1/configuration/accounts/{account_id}/limits` |
 | Available instruments | `GET /v1/configuration/accounts/{account_id}/instruments` |
-| Candle history | `GET /v1/market-data/accounts/{account_id}/candles` |
+| Effective account/API limits | `GET /v1/configuration/accounts/{account_id}/limits` |
+| Candle history | `GET /v1/market-data/accounts/{account_id}/candles` (count and history age must be within the current account limits) |
 
 No order, position mutation, account switch, transfer, deposit, withdrawal, or payment method exists in the adapter. Tick WebSocket support is deferred to a separate runtime design and test because the current Hub does not yet own a persistent streaming lifecycle.
 
