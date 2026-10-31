@@ -76,3 +76,14 @@ Classification also remains below baseline: 41.3246% accuracy versus 45.9708%; a
 ## Data and diagnostic snapshot provenance
 
 The older `reports/wave3_smc_gate_diagnostic_20261030.json` is preserved as a pre-calendar-export snapshot and still records `export_executed=false`; do not use its news-calendar section as current status. The current calendar-filtered SMC snapshot is `reports/wave3_smc_gate_diagnostic_20261031.json`, derived from training artifact #2 and the separately rechecked active Exness MT5 Common Files CSV/Experts log. The CSV SHA-256 is `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c`.
+
+
+## SMC score field semantics — do not conflate event labels
+
+The implementation's scored components are more specific than the report's legacy field names:
+- The 30-point BOS component is `bos20_up` (close above the previous 20-bar high), not the separate structural `bos_up` event.
+- The 20-point component is `choch_rule_up`: the three latest confirmed swing lows are strictly ascending and the current closed candle is green. It is **not** the separate structural `choch_up` event. The legacy report field `wave3_entry_rows_with_choch` currently counts `choch_rule_up`; interpret it as three-higher-lows + green.
+- The 25-point OB component is a valid bullish OB within $5. Price need not be inside the OB zone; `bull_ob_zone` is a separate diagnostic.
+- The 25-point FVG component is the current candle intersecting the active bullish FVG within the existing 48-bar validity window.
+
+Because the four weights total 100 and the gate is >=85, **all four components must be present on the same signal row**; missing any one caps the score at 75. The current 75/100 maximum is therefore consistent with at least one missing component. OB-within-$5 is rare (1/34 Wave3 triggers), but marginal counts alone do not prove OB is the only blocker. Candidate-level causal alignment is still required. Do not change the weights, 48-bar FVG window, OB size/proximity rules, or SMC threshold.

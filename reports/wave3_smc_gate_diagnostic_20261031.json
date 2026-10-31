@@ -219,7 +219,17 @@
       "verify BOS/CHoCH, three-higher-lows+green, OB and FVG were all available on the same closed signal bar",
       "record OB zone distance and close-through invalidation timing without extending lookback",
       "distinguish actual structure CHoCH event fields from the separate three-higher-lows+green scoring rule"
-    ]
+    ],
+    "scoring_semantics": {
+      "bos_component": "bos20_up = current close above the prior 20-bar high; structural bos_up is not the scored 30-point field.",
+      "higher_lows_component": "choch_rule_up = three latest confirmed swing lows strictly ascending plus a green current candle; this is not the structural choch_up event.",
+      "ob_component": "bull_ob_within5 requires a valid bullish OB no more than $5 away; the price need not be inside the OB zone. Zone membership is a separate diagnostic.",
+      "fvg_component": "bull_fvg_fill is current-bar range intersection with the active bullish FVG, limited to the existing 48-bar validity window.",
+      "threshold_logic": "SMC >=85 requires all four components (30+20+25+25); any one missing component caps the score at 75.",
+      "actual_structural_choch_scored": false,
+      "legacy_report_field_mapping": "wave3_entry_rows_with_choch counts choch_rule_up (three-higher-lows plus green), not choch_up."
+    },
+    "causal_interpretation": "The observed maximum score of 75 is consistent with at least one of the four mandatory components missing. OB-within-$5 is rare on Wave3 triggers (1/34), but the counts alone do not prove that OB is the sole cause; candidate-level simultaneous alignment is still required."
   },
   "backtest": {
     "closed_oos_trades": 0,
