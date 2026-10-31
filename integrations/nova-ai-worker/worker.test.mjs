@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
+import { validateWorkflowDraft } from "./workflow-contract.js";
 
 const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
@@ -311,7 +312,8 @@ test("workflow simulator returns a deterministic in-memory preview with all effe
       Origin: "https://voomsystem.netlify.app",
     },
     body: JSON.stringify({
-      draft: workflowModelDraft,
+      // Flow Studio receives and sends back the server-normalized envelope.
+      draft: validateWorkflowDraft(workflowModelDraft).value,
       sampleData: { customerId: "demo-001", email: "demo@example.invalid", plan: "starter" },
     }),
   }), env);
