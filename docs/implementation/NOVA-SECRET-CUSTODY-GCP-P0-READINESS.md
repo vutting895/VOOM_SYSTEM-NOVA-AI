@@ -134,3 +134,43 @@ During this assessment:
 - [Supabase Free plan and quotas](https://supabase.com/docs/guides/platform/billing-on-supabase)
 - [Google Cloud KMS billing requirement](https://docs.cloud.google.com/kms/docs/restrictions)
 - [Google Cloud Billing requirements](https://docs.cloud.google.com/billing/docs/how-to/manage-billing-account)
+
+
+## 9. Follow-up repository and Worker inspection — 2026-10-31
+
+### Repository and contract proof
+
+- Re-confirmed canonical `main` at `a2acfd8ec9b598e6593413549bef760e8f596a72`; no implementation was written to `main`.
+- Re-inspected `integrations/system-hub/worker.js` (blob `6d371e4bd619a84fa8d7010309ff517de15bc33e`), `wrangler.jsonc` (blob `31b057ed9fe9a94520ff35d9c3671e9703e15e55`) and its README.
+- The current System Hub is an authenticated control plane for Supabase-owned connection metadata and Exness MT5 read-only operations. It has no customer Secret Custody API, encrypted credential persistence, or custodian binding registry. Keep it as the control plane; do not add customer credential storage or decryption to it.
+- The existing Hub uses the customer's Supabase bearer token for Auth verification and RLS-scoped PostgREST reads. The separate custodian must independently validate the session and ownership; the Hub's authentication result is not a substitute for the custodian's own checks.
+- The existing Hub configuration contains no custody D1 binding. Its current Worker config is not a deployment template for a custody service.
+
+### Cloudflare read-only follow-up
+
+- Confirmed the connected account identifier by listing accounts; exactly one account was returned.
+- Read-only GET of `/accounts/{account_id}/d1/database` returned `count=0`.
+- Read-only GET of Worker script settings for `voom-system-hub` and `voom-system-nova-ai` returned:
+  - Observability enabled.
+  - Invocation logs enabled and persisted.
+  - `redact_query_string=false`.
+  - Traces disabled.
+- These settings are observations of the existing Workers only. They do not prove that a credential is currently logged or that request bodies are captured. They do establish that a new custody Worker must have a separately reviewed observability policy: no request-body/Authorization/Cookie capture, query-string redaction enabled, no plaintext/ciphertext/key material in logs, and persistence disabled unless the audit content is proven sanitized.
+- The read-only account billing usage endpoint returned HTTP 403 because the connected OAuth grant has no `Billing Read` scope. The exact account plan and current quota remain unverified. Do not provision D1 or a new Worker until plan/quota is confirmed in the dashboard or a properly scoped read-only connection.
+
+### Exact-head CI evidence for Option C proof
+
+- PR #130 remains Draft/Open/Unmerged; its reported head is `24bd3f9ed55817178dbfc3ce23cf07617f2a9f15`.
+- Frontend CI run [41149189308](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41149189308) is completed with conclusion `success` for that head. Its build job reports success for the Secret Custody contract tests, Type-check, Next.js build, and Cloudflare OpenNext Worker bundle validation.
+- The PR's `netlify-production-smoke-test` job was skipped for the pull-request event. This CI result is not a hosted custodian deployment, real Supabase integration, KMS/HSM proof, mTLS proof, or independent security review.
+- PR #151 remains Draft/Open/Unmerged at `8086fdebf6cfa40c50c07c6cbffe620d57a3828c`. No Actions workflow run was returned for that documentation-only head. The Netlify Deploy Preview was cancelled; this is neither a build failure nor a successful preview.
+
+### Next safe implementation gate
+
+1. Obtain read-only confirmation of the Cloudflare account's actual plan and remaining Workers/D1 quota. Do not grant write or billing-management permission.
+2. On a feature branch stacked on the reviewed Option C contract, add only a synthetic-only custody Worker scaffold and D1 schema/tests; no production routes, secret values, or deployment bindings.
+3. Add tests for log redaction/no-body-capture configuration, Auth issuer/audience/expiry, owner binding, AEAD/AAD tamper, replay/idempotency, key versioning, quota exhaustion, and safe failure.
+4. Keep real customer credential intake disabled. Worker Secret + D1 remains a prototype trust boundary, not an independent KMS/HSM custody plane.
+5. Require a separate owner approval before creating D1, Worker, bindings, secrets, routes, or any hosted resource.
+
+No Cloudflare, Supabase, GCP, broker, or trading configuration was changed during this follow-up inspection.
