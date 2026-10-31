@@ -32,9 +32,9 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 
 `POST /api/market/analyze` accepts only `connectionId`, exact MT5 `symbol`, `timeframe` and bounded `count`. The Worker forwards the signed-in user's Supabase bearer token to the fixed System Integration Hub origin; it does not accept a client-selected URL, tenant ID, account ID or upstream host. The Hub enforces owner-scoped connection access and the Bridge/Proxy verify the actual Demo/Live terminal environment.
 
-- Requires a Hub response with `dataVerified=true`, exact requested symbol/timeframe, at least 60 chronologically ordered valid OHLC candles, and a broker tick no older than 120 seconds.
-- Calculates EMA20, EMA50, Wilder RSI14 and ATR14 from the verified candles. It emits `bullish_watch`, `bearish_watch` or `neutral` as a research classification only.
-- Cloudflare Workers AI explains the computed indicators when available; if the AI binding fails, a deterministic explanation is returned. The model does not choose the classification or control any side effect.
+- Requires a Hub response with `dataVerified=true`, exact requested symbol/timeframe, at least 61 returned, chronologically ordered OHLC candles; the final MT5 forming candle is excluded so at least 60 completed candles remain, and a broker tick no older than 120 seconds.
+- Calculates EMA20, EMA50, Wilder RSI14 and ATR14 from completed candles. It also runs a deterministic SMC research port for confirmed BOS/CHoCH, FVG, order-block, liquidity-sweep and confluence candidates. The EMA/RSI watch classification is research-only; SMC setup candidates are context, not executable signals.
+- Cloudflare Workers AI explains the computed indicators when available; if the AI binding fails, a deterministic explanation is returned. The model does not choose the classification or control any side effect. The current forming candle is excluded to avoid intra-bar signal changes.
 - The response includes source environment, provider timestamp, data freshness, indicator values and `riskStatus=not_evaluated`.
 - No entry price, lot size, stop/target order instruction, order authorization or broker mutation is produced. `executionEnabled`, `ordersEnabled` and `liveTradingEnabled` remain false.
 
