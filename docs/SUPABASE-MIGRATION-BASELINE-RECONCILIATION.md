@@ -522,3 +522,34 @@ The Production job failed only at the full catalog comparison. Eight catalog cat
 A narrowly scoped test-only normalization was added at tests/sql/normalize-local-replay-default-grants.sql. It revokes only those four local bootstrap extras before the Production fingerprint is generated. The file is outside supabase/migrations/, runs only inside the disposable local Production replay, and is never applied to a hosted project or used to rewrite recovered ledger SQL. This preserves the exact historical migration archive while making the comparison account for the known local-bootstrap ACL difference.
 
 **Revalidation required:** the normalization change is not considered successful until the new exact-head Production fingerprint comparison passes. If any other catalog category differs, preserve the mismatch and investigate rather than weakening the comparator or excluding the category.
+
+### 8.8 Execution and corrected clean-replay result (2026-10-31)
+
+The owner approved the explicitly described Production additive migration and the non-destructive Staging alignment work.
+
+**Production additive migration — APPLIED and verified**
+- Applied the exact canonical repository SQL `202610300001_nova_durable_approval_lifecycle.sql` to Production project `tlyyxufuiimrbaksoitf` as migration `nova_durable_approval_lifecycle`.
+- Read-only post-apply verification returned: 21 public tables; all 21 have RLS enabled; three policies across the two NOVA approval tables; four expected approval functions; exactly one matching migration-history row.
+- Production's `broker_connections` grants were not broadened. Production has no `service_role` DELETE/INSERT/SELECT/UPDATE privileges on this table. The migration itself grants browser access only to `authenticated` for SELECT/INSERT and uses owner-scoped RLS.
+- Production Security Advisor reports one warning: leaked-password protection is disabled. This is an Auth configuration action, separate from the migration and not changed here.
+
+**Corrected clean replay — ALL THREE JOBS PASSED**
+- [Run #41179163419](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179163419), on PR head `db51655c7064fdbe9bf54c2250864ac9cd3c81d4`: Production recovered history, Staging recovered history, and Production-plus-NOVA all completed successfully.
+- The Production fingerprint now matches all catalog categories, including columns, constraints, indexes, RLS policies, triggers, functions, grants and extensions.
+- The earlier grant mismatch was diagnosed precisely: Supabase CLI's disposable local bootstrap adds four `service_role` DML grants on `broker_connections` that are absent in hosted Production. The CI-only normalizer revokes those four grants only inside the disposable local replay before comparison. It is not in `supabase/migrations/` and was never applied to a hosted project.
+- The earlier run #41175911154 used a prior workflow revision and is superseded by the passing corrected run.
+
+**Staging — PRESERVED; alignment still gated**
+- No hosted Staging DDL, reset, migration repair, data write, table drop or schema cutover was performed.
+- Five Staging-only legacy tables remain in place. Read-only row counts: `ai_strategy_state` 2, `bot_config` 1, `latest_signal` 1, `user_brokers` 0, `video_histories` 0.
+- The five tables have no references found in the two inspected repositories, but that does not rule out external clients or historical consumers. Staging Security Advisor also reports five RLS-enabled tables without policies (default-deny under RLS); review grants and Data API exposure before any retirement or client use.
+- Staging currently grants `service_role` broader privileges on `broker_connections` than Production. This is a real hosted difference, not something to silently normalize. Review actual backend/bridge use before changing it.
+- A verified, owner-controlled database dump/export destination and external-consumer review are not available through the current connected actions. Therefore the legacy rows have not been exported to chat, GitHub, or another unapproved location, and no destructive retirement is authorized by this record. Keep all five tables unchanged until backup and consumer review are evidenced.
+
+**Current disposition**
+- Applied Production additive NOVA Approval migration: **COMPLETE**.
+- Exact 26/26 applied-ledger SQL recovery: **COMPLETE**.
+- Clean replay and full Production fingerprint: **PASS**.
+- Staging legacy preservation: **COMPLETE — unchanged**.
+- Staging schema alignment/cutover: **OPEN — requires secure backup/export and review of out-of-band legacy tables and broker service-role permissions**.
+- PR #109 remains Draft/open/unmerged. No merge or production frontend deployment occurred. Exness Demo remains read-only; Order Submission OFF; Live Trading OFF.
