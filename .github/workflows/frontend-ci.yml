@@ -101,6 +101,9 @@ jobs:
       - name: Test NOVA Video Workspace tenant and free-only contracts
         working-directory: .
         run: node --test tests/nova-video-workspace.test.mjs
+      - name: Test NOVA Video API external-origin CORS contract
+        working-directory: .
+        run: node --test tests/nova-video-api-cors.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
