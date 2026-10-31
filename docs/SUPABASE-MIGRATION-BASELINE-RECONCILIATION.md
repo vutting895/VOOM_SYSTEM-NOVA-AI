@@ -512,3 +512,13 @@ A schema-only Production fingerprint has been captured from PostgreSQL catalogs 
 **Forward-replay evidence:** the separate Production 24-migration history plus canonical NOVA approval migration was replayed from empty local Supabase and passed all assertions in [run #41175585645](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175585645). This demonstrates that the NOVA approval migration can be layered additively over the Production baseline in a clean environment. It is not a hosted deployment or a Staging rebuild.
 
 The new exact-head full Production catalog fingerprint comparison is running in [run #41175729533](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175729533).
+
+### 8.9 Exact-head replay failure analysis and local-only ACL normalization
+
+The full Production replay in run [#41175911154](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175911154) replayed all 24 recovered migrations and passed the 19-table/RLS/function assertions. The Staging 2-migration lane and Production-plus-NOVA 25-migration lane also passed.
+
+The Production job failed only at the full catalog comparison. Eight catalog categories matched exactly (tables, columns, constraints, indexes, policies, triggers, functions and extensions). The grant category differed by four rows: the disposable Supabase CLI bootstrap granted service_role DELETE, INSERT, SELECT and UPDATE on broker_connections, while the captured hosted Production catalog did not. The three hosted grants that do exist for this table (REFERENCES, TRIGGER and TRUNCATE) were present in both.
+
+A narrowly scoped test-only normalization was added at tests/sql/normalize-local-replay-default-grants.sql. It revokes only those four local bootstrap extras before the Production fingerprint is generated. The file is outside supabase/migrations/, runs only inside the disposable local Production replay, and is never applied to a hosted project or used to rewrite recovered ledger SQL. This preserves the exact historical migration archive while making the comparison account for the known local-bootstrap ACL difference.
+
+**Revalidation required:** the normalization change is not considered successful until the new exact-head Production fingerprint comparison passes. If any other catalog category differs, preserve the mismatch and investigate rather than weakening the comparator or excluding the category.
