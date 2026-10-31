@@ -291,6 +291,72 @@ test("workflow generation fails closed when AI binding is unavailable", async ()
   assert.equal(body.liveTradingEnabled, false);
 });
 
+test("workflow simulator requires a verified Supabase session", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/simulate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draft: workflowModelDraft, sampleData: {} }),
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "authentication_required");
+});
+
+test("workflow simulator returns a deterministic in-memory preview with all effects disabled", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/simulate", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer valid-token",
+      "Content-Type": "application/json",
+      Origin: "https://voomsystem.netlify.app",
+    },
+    body: JSON.stringify({
+      draft: workflowModelDraft,
+      sampleData: { customerId: "demo-001", email: "demo@example.invalid", plan: "starter" },
+    }),
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.simulationEnabled, true);
+  assert.equal(body.simulation.simulationMode, "in_memory_preview_only");
+  assert.equal(body.simulation.preview.approvalRequired, true);
+  assert.deepEqual(body.simulation.preview.data, {
+    customerId: "demo-001",
+    email: "demo@example.invalid",
+  });
+  assert.equal(body.simulation.executionEnabled, false);
+  assert.equal(body.simulation.persistenceEnabled, false);
+  assert.equal(body.simulation.externalEffectsAllowed, false);
+  assert.equal(body.simulation.brokerWritesAllowed, false);
+  assert.equal(body.simulation.liveTradingEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(Object.hasOwn(body, "userId"), false);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://voomsystem.netlify.app");
+});
+
+test("workflow simulator rejects extra request fields and unsafe sample data", async () => {
+  authFetch();
+  const extra = await worker.fetch(new Request("https://worker.test/api/workflows/simulate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ draft: workflowModelDraft, sampleData: {}, execute: true }),
+  }), env);
+  assert.equal(extra.status, 400);
+  assert.equal((await extra.json()).error, "invalid_workflow_simulation");
+
+  authFetch();
+  const unsafe = await worker.fetch(new Request("https://worker.test/api/workflows/simulate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ draft: workflowModelDraft, sampleData: { accessToken: "must-not-pass" } }),
+  }), env);
+  assert.equal(unsafe.status, 422);
+  const body = await unsafe.json();
+  assert.equal(body.error, "invalid_simulation_data");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
 test("chat requires a valid bearer session", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/chat", {
     method: "POST", headers: { "Content-Type": "application/json" },
