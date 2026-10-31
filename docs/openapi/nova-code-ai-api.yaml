@@ -76,6 +76,8 @@ paths:
       summary: Validate an agent request (execution currently disabled)
       security:
         - SupabaseBearer: []
+        - Base44ServiceBearer: []
+          Base44ClientAppId: []
       requestBody:
         required: true
         content:
@@ -113,3 +115,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: Supabase access token
+    Base44ServiceBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: NOVA server-to-server service token
+    Base44ClientAppId:
+      type: apiKey
+      in: header
+      name: X-NOVA-Client-App-Id
