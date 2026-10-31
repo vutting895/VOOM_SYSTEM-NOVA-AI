@@ -112,7 +112,7 @@ function accountPath(accountId, suffix) {
 }
 
 function allowedRequest(path) {
-  if (path === "/v1/trading/access-point" && /^\?account_id=[0-9]{1,20}$/.test(path.slice(path.indexOf("?")))) return true;
+  if (/^\/v1\/trading\/access-point\?account_id=[0-9]{1,20}$/.test(path)) return true;
   return /^\/v1\/configuration\/accounts\/[0-9]{1,20}\/(account|limits|instruments)$/.test(path);
 }
 
