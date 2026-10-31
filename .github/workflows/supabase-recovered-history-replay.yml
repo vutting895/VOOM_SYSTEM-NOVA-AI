@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/recovered-history/**"
       - "tests/sql/recovered-*-history-assertions.sql"
+      - "tests/sql/normalize-local-replay-default-grants.sql"
       - "tests/supabase-catalog-fingerprint-compare.mjs"
       - ".github/workflows/supabase-recovered-history-replay.yml"
 jobs:
@@ -72,6 +73,8 @@ jobs:
           set +a
           test -n "${DB_URL:-}"
           if [ "${{ matrix.environment }}" = "production" ]; then
+            # Normalize only Supabase CLI bootstrap ACLs in this disposable local replay.
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/normalize-local-replay-default-grants.sql"
             psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-history-assertions.sql"
             psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/production-catalog-fingerprint.sql" > "$REPLAY_WORKDIR/production-fingerprint.json"
             node "$GITHUB_WORKSPACE/tests/supabase-catalog-fingerprint-compare.mjs" "$GITHUB_WORKSPACE/supabase/recovered-history/catalog-fingerprints/production.json" "$REPLAY_WORKDIR/production-fingerprint.json"
