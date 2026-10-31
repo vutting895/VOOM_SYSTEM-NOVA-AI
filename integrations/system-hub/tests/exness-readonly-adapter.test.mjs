@@ -180,6 +180,7 @@ test("candle request rejects unlisted instruments, invalid ranges and oversized 
         return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
       }
       if (parsed.pathname.endsWith("/instruments")) return Response.json({ instruments: ["EURUSD"] });
+      if (parsed.pathname.endsWith("/limits")) return Response.json({ limits: { rest: { methods: [{ http_method: "GET", path: "/v1/market-data/accounts/{account_id}/candles", limits: { max_candles_per_request: 100, history_age_days: 365 } }] } } });
       throw new Error("Candle request must not run");
     }
   });
@@ -188,6 +189,6 @@ test("candle request rejects unlisted instruments, invalid ranges and oversized 
   }), /exness_instrument_not_available/);
   await assert.rejects(adapter.getCandles(CONTEXT, {
     instrument: "EURUSD", timeframe: "M5", from: "2026-10-31T00:00:00.000Z", count: 501
-  }), /exness_candle_query_invalid/);
-  assert.equal(upstreamCalls, 2);
+  }), /exness_candle_query_outside_account_limits/);
+  assert.equal(upstreamCalls, 5);
 });
