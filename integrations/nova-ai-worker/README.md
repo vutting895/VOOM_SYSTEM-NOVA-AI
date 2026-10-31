@@ -38,3 +38,6 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 ## Deterministic draft simulator
 
 The workflow contract exports \`simulateWorkflowDraft(draft, sampleData)\` for local, in-memory preview only. It revalidates input and emits a stable trace/output without persistence, schedules, provider calls, external effects, or broker actions. It is not a workflow runtime or production data connector.
+
+
+- Workflow prompt and model-generated text fields pass through credential-pattern redaction before AI submission/return. Do not enter secrets; redaction is defense-in-depth and is not exhaustive.
