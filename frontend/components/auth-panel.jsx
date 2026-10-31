@@ -121,7 +121,7 @@ export default function AuthPanel({ mode = 'login' }) {
       });
       if (authError) throw authError;
     } catch {
-      setError(`ไม่สามารถเชื่อมต่อ ${provider === 'google' ? 'Google' : 'Facebook'} ได้ กรุณาตรวจการเปิด Provider ใน Supabase Auth`);
+      setError('ไม่สามารถเชื่อมต่อ Google ได้ กรุณาตรวจการเปิด Provider ใน Supabase Auth');
       setBusy(false);
     }
   }
@@ -145,10 +145,6 @@ export default function AuthPanel({ mode = 'login' }) {
           <button className="nova-auth-provider" type="button" onClick={() => signInWithProvider('google')} disabled={busy}>
             <span className="nova-provider-mark nova-google-mark" aria-hidden="true">G</span>
             ดำเนินการต่อด้วย Google
-          </button>
-          <button className="nova-auth-provider" type="button" onClick={() => signInWithProvider('facebook')} disabled={busy}>
-            <span className="nova-provider-mark nova-facebook-mark" aria-hidden="true">f</span>
-            ดำเนินการต่อด้วย Facebook
           </button>
         </div>
 
@@ -193,7 +189,7 @@ export default function AuthPanel({ mode = 'login' }) {
         <div className="nova-actions">
           <Link className="nova-link-button" href="/">กลับ Dashboard</Link>
         </div>
-        <p className="nova-small">การใช้ Google/Facebook ต้องเปิด Provider และกำหนด OAuth Client/Redirect URL ใน Supabase Auth ก่อนใช้งานจริง</p>
+        <p className="nova-small">การใช้ Google ต้องเปิด Provider และกำหนด OAuth Client/Redirect URL ใน Supabase Auth ก่อนใช้งานจริง</p>
         <p className="nova-small">ห้ามใส่ OAuth Client Secret หรือ Turnstile Secret Key ลงใน Git หรือโค้ดฝั่ง Browser</p>
       </section>
     </main>
