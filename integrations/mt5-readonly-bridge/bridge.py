@@ -92,6 +92,18 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         return terminal, account
 
 
+def account_environment(trade_mode: Any) -> str | None:
+    # MetaTrader 5: 0 = demo, 1 = contest, 2 = real.
+    # Contest and unknown modes are deliberately not mapped to a customer environment.
+    if isinstance(trade_mode, bool) or not isinstance(trade_mode, int):
+        return None
+    if trade_mode == 0:
+        return "demo"
+    if trade_mode == 2:
+        return "live"
+    return None
+
+
 def timeframe_value(name: str) -> int:
     values = {
         "M1": mt5.TIMEFRAME_M1,
@@ -118,6 +130,7 @@ def health(authorization: str | None = Header(default=None), tenant_id: str | No
             "status": "ok",
             "terminal_connected": bool(terminal.connected),
             "account_session_available": account is not None,
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "mode": "read-only",
             "order_submission_enabled": False,
             "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -131,6 +144,7 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         terminal, account = get_terminal_and_account()
         return {
             "connected": bool(terminal.connected),
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "server": str(getattr(account, "server", "")),
             "currency": str(getattr(account, "currency", "")),
             "balance": float(account.balance),
@@ -187,7 +201,7 @@ def quotes(
 ):
     require_token(authorization, tenant_id)
     with LOCK:
-        get_terminal_and_account()
+        _, account = get_terminal_and_account()
         info = mt5.symbol_info(symbol)
         if info is None:
             raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
@@ -212,6 +226,7 @@ def quotes(
             })
         return {
             "symbol": symbol,
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "timeframe": timeframe.upper(),
             "digits": int(info.digits),
             "tick": None if tick is None else {
