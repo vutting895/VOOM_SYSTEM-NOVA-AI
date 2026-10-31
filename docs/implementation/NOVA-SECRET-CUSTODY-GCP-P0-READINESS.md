@@ -174,3 +174,15 @@ During this assessment:
 5. Require a separate owner approval before creating D1, Worker, bindings, secrets, routes, or any hosted resource.
 
 No Cloudflare, Supabase, GCP, broker, or trading configuration was changed during this follow-up inspection.
+
+
+## 10. Synthetic Worker scaffold opened — 2026-10-31
+
+- Created Draft PR [#156](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/156), branch `feat/nova-custody-synthetic-worker-p0-20261031`, stacked on PR #130's Option C head `24bd3f9ed55817178dbfc3ce23cf07617f2a9f15`.
+- Added `integrations/secret-custody-worker/worker.mjs`, `worker.test.mjs`, `schema.synthetic.sql`, and README. Added a Frontend CI path and test step.
+- The Worker health route reports customer intake/provider operations disabled; all `/v1/*` routes fail closed. The only write route accepts a fixed fixture ID and is guarded by both synthetic-mode flags and a dedicated test token. It creates synthetic data internally, encrypts it with AES-256-GCM using a fresh per-record DEK, wraps the DEK, and persists ciphertext/metadata only.
+- The SQL schema is a proposal only. No D1 database/binding, Worker Secret, Wrangler deployment configuration, route, or hosted resource was created. No customer credentials or provider APIs are accepted.
+- The P0 Worker wrapping key is a prototype Worker Secret candidate, not an independent KMS/HSM boundary. It does not meet production Option C acceptance criteria.
+- Initial Frontend CI run [41190511354](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41190511354) failed before a runner was allocated: GitHub reported the build job completed in seconds with `runner_id=0`, no runner name and no steps. A single failed-job rerun produced the same pre-runner failure. Therefore no test assertion result is available; do not label this a code/test failure or a passing test run. Investigate GitHub Actions runner/usage availability, then rerun CI or execute the Node 22 test command in a trusted local environment.
+- PR #156 remains Draft/Open/Unmerged and mergeable after refresh. It must not merge before PR #130 is accepted and independent review is complete.
+- Account Free plan/quota remains unverified; do not deploy or create Cloudflare resources until that gate is resolved and separately approved.
