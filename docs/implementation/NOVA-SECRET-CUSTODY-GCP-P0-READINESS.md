@@ -18,7 +18,15 @@ Cloudflare Workers Free currently documents 100,000 requests/day and 10 ms CPU t
 
 This document does not authorize enabling a paid plan, adding a payment method, enabling GCP billing, provisioning GCP resources, or accepting real customer credentials.
 
-## 2. Verified Google Cloud baseline
+## 2. Existing Cloudflare account — read-only inventory
+
+A read-only Cloudflare API inspection found one authorized account, multiple existing Workers, and **zero D1 databases** at inspection time.
+
+Relevant existing Workers include `voom-system-hub`, `voom-system-api`, `voom-system-nova-ai`, `voom-mt5-bridge-relay` and `voom-mt5-readonly-proxy`. The existing System Hub should remain the orchestration/control plane; do not add credential persistence to it. A separate custody Worker would be a new logical boundary and must be reviewed against the current repository before creation.
+
+The Cloudflare API connection did not have the `Billing Read` OAuth scope, so account billing usage and exact plan status could not be read. Therefore the Cloudflare Free plan is **not yet independently verified for this account**. Do not create a D1 database, Worker, binding, secret, route or deployment until the account dashboard confirms the Free plan and the repository implementation plan is reviewed. Existing Worker inventory is evidence of deployed resources, not proof of the account's subscription tier or remaining free quota.
+
+## 3. Verified Google Cloud baseline
 
 Commands were run remotely with Google Cloud CLI 591.0.0 after interactive Google authentication.
 
