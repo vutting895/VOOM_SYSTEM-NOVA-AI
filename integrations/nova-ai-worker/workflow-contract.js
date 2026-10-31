@@ -22,7 +22,11 @@ const NODE_TYPES = Object.freeze({
       if (
         config.fields.length < 1 ||
         config.fields.length > WORKFLOW_LIMITS.maxFieldsPerProjection ||
-        config.fields.some((field) => typeof field !== "string" || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(field)) ||
+        config.fields.some((field) =>
+          typeof field !== "string" ||
+          !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(field) ||
+          /(?:^|_)(?:api_?key|secret|token|password|credential|authorization|private_?key)(?:_|$)/i.test(field)
+        ) ||
         new Set(config.fields).size !== config.fields.length
       ) return "invalid_node_config";
       return null;
