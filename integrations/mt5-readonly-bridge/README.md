@@ -1,6 +1,6 @@
 # VOOM_SYSTEM MT5 Read-only Bridge
 
-This Windows process reads data from the MT5 terminal session already logged in to the intended **Exness Demo** account. Cloudflare Workers cannot run the Windows MT5 terminal itself.
+This Windows process reads data from the MT5 terminal session already logged in to the intended **Exness Demo or Live** account. Cloudflare Workers cannot run the Windows MT5 terminal itself.
 
 ## Safety boundary
 
@@ -16,7 +16,7 @@ This Windows process reads data from the MT5 terminal session already logged in 
 
 The Windows bridge uses two private environment variables:
 
-- `MT5_TENANT_ID`: opaque route ID assigned by the trusted administrator for this one Demo terminal.
+- `MT5_TENANT_ID`: opaque route ID assigned by the trusted administrator for this one dedicated Demo or Live terminal.
 - `MT5_BRIDGE_TOKEN`: unique random bearer token for this tenant. It must be the same token referenced by this tenant's entry in the Cloudflare secret `MT5_TENANT_ROUTES`.
 
 The Cloudflare proxy verifies the caller's Supabase Auth session, selects only that caller's `broker_connections` row under RLS, and routes by the row's unique `bridge_route_id` to the stable `voom-mt5-bridge-relay` Worker on `workers.dev`. The relay and proxy both validate the tenant ID and matching token. The legacy per-tenant URL is ignored. A pending customer request has no route and cannot reach the bridge.
@@ -32,7 +32,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Keep the terminal session dedicated to the one tenant. This bridge reads the account already logged in through MT5; it does not accept a customer MT5 password.
+Keep the terminal session dedicated to the one tenant and the exact environment requested by its connection record. The Bridge derives the environment from MT5 `account_info().trade_mode` (`0=demo`, `2=live`); contest and unknown modes are not mapped. This bridge reads the account already logged in through MT5; it does not accept a customer MT5 password.
 
 Place private tenant configuration under:
 
@@ -62,7 +62,7 @@ Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol
 
 ## Validation before marking a customer connected
 
-1. Confirm the chosen MT5 terminal is the intended Exness Demo account, not another broker/account.
+1. Confirm the chosen MT5 terminal is the intended Exness Demo or Live account and its actual MT5 `trade_mode` matches the connection environment; never infer environment from the server name alone.
 2. Confirm a unique tenant ID and token were provisioned privately and the matching Cloudflare route-map entry exists.
 3. Confirm requests without a bearer token return 401, an invalid token returns 401, a tenant mismatch returns 403 and absent tenant configuration returns 503.
 4. Confirm the proxy checks the Supabase JWT and only returns the authenticated user's own connection row.
@@ -70,4 +70,4 @@ Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol
 6. Confirm cross-customer connection IDs fail closed.
 7. Confirm no order method exists and every layer keeps order execution disabled.
 
-A passing CI build, a healthy relay Worker, an active local process, or an MT5 terminal connection alone does not prove that a specific customer connection has been provisioned. Do not mark a connection as connected until the entire authenticated path is tested.
+The System Hub rejects an environment mismatch between the connection row and the Bridge's actual account mode. A passing CI build, a healthy relay Worker, an active local process, or an MT5 terminal connection alone does not prove that a specific customer connection has been provisioned. Do not mark a connection as connected until the entire authenticated path is tested.
