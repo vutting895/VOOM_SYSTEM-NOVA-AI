@@ -203,3 +203,30 @@ The GitHub recursive tree was inspected at the same main SHA `a2acfd8ec9b598e659
 | Hosted migrations and RLS | Defer | Production/Staging ledger drift and PR #131 security findings remain blockers |
 | Live payment/refunds | Defer | Explicit owner gate; no provider account or operational authorization |
 
+
+
+## 11. Additional multi-gateway candidate research
+
+Official provider documentation reviewed after the initial comparison:
+
+| Provider | Verified public documentation signal | Current decision |
+|---|---|---|
+| Stripe | Thailand support matrix lists PromptPay (THB) and Google Pay; connected-account PromptPay capability must be requested | Primary sandbox candidate for one provider covering both requested online methods; connected-account eligibility remains a blocker to verify |
+| 2C2P / Antom | Developer channel reference lists Thai PromptPay QR and Google Pay card-token channels; Google Pay integration guide documents its payment-token flow; sandbox onboarding is documented | Secondary candidate for merchant/tenant fit and regional method coverage; commercial pricing, merchant eligibility, exact Google Pay availability, settlement and connected-account model require written confirmation |
+| Omise / Opn | Official PromptPay integration guide documents Thai PromptPay QR and says merchants must request enablement and accept terms | PromptPay-focused alternative/fallback candidate; no Google Pay capability is asserted by this research |
+
+References:
+- 2C2P payment channels: https://developer.2c2p.com/docs/reference-payment-channels
+- 2C2P Google Pay integration: https://developer.2c2p.com/docs/google-pay
+- 2C2P sandbox/onboarding overview: https://developer.2c2p.com/docs/general
+- Omise PromptPay: https://docs.omise.co/promptpay
+- Stripe Thailand method support: https://support.stripe.com/questions/supported-payment-methods-currencies-and-businesses-for-stripe-accounts-in-thailand
+
+### Provider selection recommendation (not a commitment)
+
+- Keep the adapter contract provider-neutral.
+- Run Sandbox proof-of-capability first with Stripe for PromptPay + Google Pay in a VOOM-owned test merchant account if eligible.
+- In parallel, request a 2C2P proposal and verify sandbox capabilities, account model, tenant sub-merchant onboarding, settlement ownership, fees, refunds, chargebacks, webhook signature/replay and reconciliation exports.
+- Retain Omise as a PromptPay-only fallback candidate only if commercial onboarding, API and settlement terms are preferable.
+- Do not implement automatic failover between gateways for an in-flight payment. Route only new PaymentIntents using an explicit provider selection and immutable attempt history. A gateway outage must never cause the same charge to be silently created at a second provider.
+
