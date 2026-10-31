@@ -3,161 +3,162 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '../lib/supabase-browser';
+import './dashboard.css';
 
-const navigation = [
-  { label: 'OVERVIEW', href: '/', code: '01' },
-  { label: 'MARKETS', href: '/markets', code: '02' },
-  { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
-  { label: 'BROKER HUB', href: '/broker', code: '04' },
-  { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
-  { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
+const workspaces = [
+  { label: 'AI Workspace', description: 'Chat, research and agent-assisted work', href: '/chat', tag: 'INTELLIGENCE', icon: '✦' },
+  { label: 'Market Intelligence', description: 'Multi-asset context and verified market feeds', href: '/markets', tag: 'MARKETS', icon: '⌁' },
+  { label: 'Strategy Research', description: 'Explore strategy logic and evidence', href: '/gen-ai', tag: 'RESEARCH', icon: '◇' },
+  { label: 'Backtest Lab', description: 'Review reproducible strategy evaluations', href: '/backtest', tag: 'QUANT', icon: '▥' },
+  { label: 'Broker Hub', description: 'Review broker connection and read-only access', href: '/broker', tag: 'CONNECTIVITY', icon: '⌘' },
+  { label: 'Learning Universe', description: 'Learning modules and governed feedback loops', href: '/learning-universe', tag: 'LEARNING', icon: '◎' },
+  { label: 'Workforce & AI Agents', description: 'Organization, approved Agent roles and human review', href: '/workforce', tag: 'OPERATIONS', icon: '◈' },
+  { label: 'Marketplace', description: 'Browse strategy and capability catalogues', href: '/marketplace', tag: 'ECOSYSTEM', icon: '▦' },
+  { label: 'Customer Workspace', description: 'Open your personal command center', href: '/command-center', tag: 'WORKSPACE', icon: '↗' },
 ];
 
-const watchlist = [
-  { symbol: 'EUR / USD', market: 'FOREX', note: 'Awaiting verified feed' },
-  { symbol: 'BTC / USD', market: 'CRYPTO', note: 'Awaiting verified feed' },
-  { symbol: 'XAU / USD', market: 'METALS', note: 'Awaiting verified feed' },
-  { symbol: 'SPX 500', market: 'INDEX', note: 'Awaiting verified feed' },
-];
-
-const modules = [
-  { name: 'AI CHAT', detail: 'Conversational research assistant', href: '/chat', icon: '✦' },
-  { name: 'AI ANALYSIS', detail: 'Strategy research and explainable insights', href: '/gen-ai', icon: '◈' },
-  { name: 'BROKER HUB', detail: 'Connection status and account access', href: '/broker', icon: '⌘' },
-  { name: 'LEARNING UNIVERSE 16', detail: 'Learning modules and feedback loop', href: '/learning-universe', icon: '◎' },
-  { name: 'STRATEGY MARKETPLACE', detail: 'Explore strategy templates', href: '/marketplace', icon: '▦' },
-];
-
-function Orb() {
-  return (
-    <div className="jarvis-orb-wrap" aria-label="NOVA AI visual indicator">
-      <div className="orb-ring orb-ring-a" />
-      <div className="orb-ring orb-ring-b" />
-      <div className="orb-ring orb-ring-c" />
-      <div className="orb-cross orb-cross-x" />
-      <div className="orb-cross orb-cross-y" />
-      <div className="orb-core"><span>N</span></div>
-      <span className="orb-point orb-point-one" />
-      <span className="orb-point orb-point-two" />
-      <span className="orb-point orb-point-three" />
-    </div>
-  );
+function StatusPill({ children, tone = 'neutral' }) {
+  return <span className={'nova-dash-pill is-' + tone}><i aria-hidden="true" />{children}</span>;
 }
 
-function ChartPlaceholder() {
+function SectionHeading({ eyebrow, title, action }) {
   return (
-    <div className="chart-placeholder">
-      <div className="chart-grid" />
-      <svg viewBox="0 0 700 190" role="img" aria-label="Illustrative chart graphic, not live market data" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="novaChartFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#48e4ed" stopOpacity=".25" />
-            <stop offset="100%" stopColor="#48e4ed" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d="M0 150 L38 140 L64 151 L94 115 L123 127 L151 94 L180 107 L209 75 L238 90 L265 63 L297 82 L328 48 L356 70 L389 60 L418 83 L451 42 L481 58 L512 31 L545 50 L576 24 L604 44 L636 18 L666 35 L700 10 L700 190 L0 190 Z" fill="url(#novaChartFill)" />
-        <path d="M0 150 L38 140 L64 151 L94 115 L123 127 L151 94 L180 107 L209 75 L238 90 L265 63 L297 82 L328 48 L356 70 L389 60 L418 83 L451 42 L481 58 L512 31 L545 50 L576 24 L604 44 L636 18 L666 35 L700 10" fill="none" stroke="#57e5ee" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div className="chart-watermark">ILLUSTRATIVE VIEW · NO LIVE FEED CONFIRMED</div>
+    <div className="nova-dash-section-heading">
+      <div><span className="nova-dash-eyebrow">{eyebrow}</span><h2>{title}</h2></div>
+      {action || null}
     </div>
   );
 }
 
 export default function Home() {
-  const [brokerStatus, setBrokerStatus] = useState('CHECKING');
-  const [brokerDetail, setBrokerDetail] = useState('Checking the broker status endpoint…');
+  const [broker, setBroker] = useState({
+    state: 'checking',
+    detail: 'Checking the authenticated broker status endpoint.',
+    checkedAt: null,
+  });
 
   useEffect(() => {
     let active = true;
-    const supabase = getSupabaseBrowserClient();
-      const requestStatus = async () => {
+    const checkBroker = async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
         const sessionResult = supabase ? await supabase.auth.getSession() : { data: { session: null } };
         const token = sessionResult.data?.session?.access_token;
-        return fetch('/api/broker/status?broker=mt5', { cache: 'no-store', headers: token ? { Authorization: 'Bearer ' + token } : {} });
-      };
-      requestStatus()
-      .then(async (response) => {
-        const data = await response.json();
+        const response = await fetch('/api/broker/status?broker=mt5', {
+          cache: 'no-store',
+          headers: token ? { Authorization: 'Bearer ' + token } : {},
+        });
+        const data = await response.json().catch(() => ({}));
         if (!active) return;
-        setBrokerStatus(data.accountConnected ? 'REPORTED CONNECTED' : 'NOT VERIFIED');
-        setBrokerDetail(data.detail || 'The endpoint did not provide verified MT5 account details.');
-      })
-      .catch(() => {
-        if (active) {
-          setBrokerStatus('STATUS UNAVAILABLE');
-          setBrokerDetail('The broker status API did not respond; account connection cannot be confirmed.');
-        }
-      });
+        const verified = response.ok && data.accountConnected === true;
+        setBroker({
+          state: verified ? 'reported' : 'unverified',
+          detail: data.detail || (response.ok
+            ? 'The endpoint did not confirm an owner-scoped broker connection.'
+            : 'The broker status endpoint did not return a successful response.'),
+          checkedAt: new Date().toISOString(),
+        });
+      } catch {
+        if (active) setBroker({
+          state: 'unavailable',
+          detail: 'The broker status API did not respond. Account connectivity cannot be confirmed.',
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    };
+    checkBroker();
     return () => { active = false; };
   }, []);
 
+  const brokerLabel = broker.state === 'checking'
+    ? 'CHECKING'
+    : broker.state === 'reported'
+      ? 'REPORTED BY API · NOT INDEPENDENTLY VERIFIED'
+      : broker.state === 'unavailable'
+        ? 'STATUS UNAVAILABLE'
+        : 'NOT VERIFIED';
+
   return (
-    <main className="jarvis-layout">
-      <aside className="jarvis-sidebar">
-        <Link className="jarvis-brand" href="/" aria-label="VOOM NOVA home">
-          <span className="brand-emblem">V<span>✦</span></span>
-          <span><strong>VOOM<span> / NOVA</span></strong><small>INTELLIGENCE SYSTEMS</small></span>
-        </Link>
-        <div className="side-section-label">COMMAND DECK</div>
-        <nav className="jarvis-nav" aria-label="Main navigation">
-          {navigation.map((item, index) => (
-            <Link className={index === 0 ? 'jarvis-nav-link active' : 'jarvis-nav-link'} href={item.href} key={item.label}>
-              <span className="nav-code">{item.code}</span><span>{item.label}</span>{index === 0 && <span className="nav-active-dot" />}
+    <main className="nova-dashboard">
+      <section className="nova-dash-hero">
+        <div className="nova-dash-hero-copy">
+          <div className="nova-dash-eyebrow"><span /> NOVA / INTELLIGENCE SYSTEMS</div>
+          <h1>Your command surface<span>.</span></h1>
+          <p>One place to understand system readiness, continue research and open the workspace you need.</p>
+          <div className="nova-dash-hero-actions">
+            <Link className="nova-dash-primary-action" href="/chat">Open NOVA AI <span aria-hidden="true">↗</span></Link>
+            <Link className="nova-dash-secondary-action" href="/markets">Explore markets</Link>
+          </div>
+        </div>
+        <div className="nova-dash-hero-status" aria-label="Execution safety status">
+          <div className="nova-dash-status-icon">⌑</div>
+          <div><span className="nova-dash-eyebrow">EXECUTION POLICY</span><strong>Read-only mode</strong><small>Order submission OFF · Live trading OFF</small></div>
+          <StatusPill tone="safe">LOCKED</StatusPill>
+        </div>
+      </section>
+
+      <section className="nova-dash-safety" aria-label="Safety notice">
+        <span className="nova-dash-safety-mark">!</span>
+        <div><strong>Safe mode is active</strong><p>This dashboard is for monitoring and AI-assisted research. It does not submit broker orders or enable live trading.</p></div>
+        <span className="nova-dash-safety-code">POLICY / READ-ONLY</span>
+      </section>
+
+      <section className="nova-dash-overview" aria-label="System overview">
+        <article className="nova-dash-overview-card nova-dash-overview-primary">
+          <div className="nova-dash-card-top"><span className="nova-dash-eyebrow">AI WORKSPACE</span><span className="nova-dash-card-symbol">✦</span></div>
+          <h2>Think, research, build.</h2>
+          <p>Continue with NOVA AI Chat and your available research tools.</p>
+          <Link href="/chat" className="nova-dash-card-link">GO TO AI WORKSPACE <span>↗</span></Link>
+        </article>
+
+        <article className="nova-dash-overview-card">
+          <div className="nova-dash-card-top"><span className="nova-dash-eyebrow">BROKER CONNECTIVITY</span><span className="nova-dash-card-symbol">⌘</span></div>
+          <div className="nova-dash-status-line"><StatusPill tone={broker.state === 'reported' ? 'caution' : broker.state === 'checking' ? 'neutral' : 'warning'}>{brokerLabel}</StatusPill></div>
+          <h2>Exness · MT5 Demo</h2>
+          <p>{broker.detail}</p>
+          <Link href="/broker" className="nova-dash-card-link">OPEN BROKER HUB <span>↗</span></Link>
+        </article>
+
+        <article className="nova-dash-overview-card">
+          <div className="nova-dash-card-top"><span className="nova-dash-eyebrow">MARKET DATA</span><span className="nova-dash-card-symbol">⌁</span></div>
+          <StatusPill tone="warning">FEED NOT VERIFIED</StatusPill>
+          <h2>Market intelligence</h2>
+          <p>Live prices and chart values are withheld until a trusted feed and freshness are confirmed.</p>
+          <Link href="/markets" className="nova-dash-card-link">VIEW MARKET WORKSPACE <span>↗</span></Link>
+        </article>
+      </section>
+
+      <section className="nova-dash-workspaces">
+        <SectionHeading eyebrow="YOUR NOVA ECOSYSTEM" title="Workspaces" action={<span className="nova-dash-section-meta">{workspaces.length} destinations</span>} />
+        <div className="nova-dash-workspace-grid">
+          {workspaces.map((item, index) => (
+            <Link className="nova-dash-workspace-card" href={item.href} key={item.href}>
+              <div className="nova-dash-workspace-top"><span className="nova-dash-workspace-icon">{item.icon}</span><span className="nova-dash-workspace-index">0{index + 1}</span></div>
+              <span className="nova-dash-workspace-tag">{item.tag}</span>
+              <h3>{item.label}</h3>
+              <p>{item.description}</p>
+              <span className="nova-dash-workspace-open">OPEN WORKSPACE <b>↗</b></span>
             </Link>
           ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="side-section-label">SECURITY PROTOCOL</div>
-          <div className="security-card"><span className="security-led" /><div><strong>READ-ONLY MODE</strong><small>Order execution locked</small></div><span className="lock-icon">⌑</span></div>
-          <Link className="profile-link" href="/profile"><span className="profile-avatar">U</span><span><strong>USER ACCESS</strong><small>Login / Profile</small></span><span className="profile-arrow">↗</span></Link>
         </div>
-      </aside>
-
-      <section className="jarvis-main">
-        <header className="command-header">
-          <div><div className="eyebrow"><span className="eyebrow-line" /> NOVA INTELLIGENCE / SYSTEM OVERVIEW</div><h1>Command <span>Center</span></h1><p>Market intelligence. Strategy research. Risk-aware decisions.</p></div>
-          <div className="header-right"><span className="system-clock-label">SYSTEM MODE</span><span className="live-off-pill"><i /> LIVE TRADING OFF</span><Link className="header-profile" href="/login" aria-label="Login and profile">↗</Link></div>
-        </header>
-
-        <div className="system-strip"><span className="strip-icon">◈</span><span><strong>SAFE MODE ACTIVE</strong><small>Read-only + AI Analysis · No trade orders will be sent from this dashboard.</small></span><span className="strip-right">PROTOCOL 01 <b>●</b></span></div>
-
-        <div className="command-grid">
-          <section className="hud-panel ai-core-panel">
-            <div className="panel-heading"><span><i className="panel-marker" /> NOVA AI CORE</span><span className="panel-code">CORE / 001</span></div>
-            <div className="ai-core-content"><Orb /><div className="core-copy"><span className="micro-label">INTELLIGENCE ENGINE</span><h2>Ready to <em>analyze.</em></h2><p>Use AI research tools to review strategies and market context. No verified live market feed is displayed here.</p><Link className="hud-button" href="/chat">OPEN NOVA AI CHAT <span>↗</span></Link></div></div>
-            <div className="core-foot"><span><i className="tiny-led" /> UI ONLINE</span><span>AI PROVIDER STATUS REQUIRES CHECK</span></div>
-          </section>
-
-          <section className="hud-panel broker-panel">
-            <div className="panel-heading"><span><i className="panel-marker" /> BROKER LINK</span><span className="panel-code">LINK / 004</span></div>
-            <div className="broker-name-row"><div className="broker-monogram">XM</div><div><h2>Exness / MetaTrader 5 Demo</h2><p>Broker connection monitor</p></div></div>
-            <div className="broker-state"><span className="state-ring" /><div><strong>{brokerStatus}</strong><small>{brokerDetail}</small></div></div>
-            <div className="read-only-row"><span>ACCESS SCOPE</span><strong>READ-ONLY</strong></div>
-            <Link className="panel-text-link" href="/broker">OPEN BROKER HUB <span>→</span></Link>
-          </section>
-
-          <section className="hud-panel market-panel">
-            <div className="panel-heading"><span><i className="panel-marker" /> MARKET TELEMETRY</span><span className="panel-code">DATA / 002</span></div>
-            <div className="market-title-row"><div><h2>Market overview</h2><p>Multi-asset intelligence feed</p></div><span className="unverified-tag"><i /> FEED UNVERIFIED</span></div>
-            <ChartPlaceholder />
-            <div className="watchlist">
-              {watchlist.map((item) => <div className="watch-row" key={item.symbol}><span className="watch-symbol">{item.symbol}</span><span className="watch-market">{item.market}</span><span className="watch-note">{item.note}</span></div>)}
-            </div>
-            <Link className="panel-text-link" href="/markets">OPEN MARKETS <span>→</span></Link>
-          </section>
-
-          <section className="hud-panel risk-panel">
-            <div className="panel-heading"><span><i className="panel-marker" /> RISK &amp; EXECUTION GUARD</span><span className="panel-code">SAFE / 003</span></div>
-            <div className="guard-visual"><div className="guard-icon">⌑</div><div><span className="micro-label">ORDER ROUTING</span><h2>LOCKED</h2><p>Live execution is disabled by design.</p></div><div className="guard-seal">OFF</div></div>
-            <div className="guard-list"><div><span>Live order submission</span><strong className="state-off">DISABLED</strong></div><div><span>Verified portfolio values</span><strong>NOT AVAILABLE</strong></div><div><span>Risk engine status</span><strong>REQUIRES VALIDATION</strong></div></div>
-            <div className="risk-note">No real balances, returns, or account metrics are shown until a trusted source is connected and verified.</div>
-          </section>
-        </div>
-
-        <section className="modules-section"><div className="section-title-row"><div><div className="eyebrow"><span className="eyebrow-line" /> SYSTEM MODULES</div><h2>Intelligence <span>Modules</span></h2></div><span className="panel-code">MODULES / 04</span></div><div className="module-grid">{modules.map((module, i) => <Link className="module-card" href={module.href} key={module.name}><span className="module-icon">{module.icon}</span><span className="module-number">0{i + 1}</span><h3>{module.name}</h3><p>{module.detail}</p><span className="module-open">ACCESS MODULE ↗</span></Link>)}</div></section>
-
-        <footer className="jarvis-footer"><span>VOOM_SYSTEM <b>·</b> NOVA AI</span><span>INTERFACE CONCEPT / VERIFIED DATA ONLY</span><span>LIVE TRADING <strong>OFF</strong></span></footer>
       </section>
+
+      <section className="nova-dash-bottom-grid">
+        <article className="nova-dash-info-panel">
+          <SectionHeading eyebrow="TRUST & SAFETY" title="Execution guard" />
+          <div className="nova-dash-guard-row"><span>Order submission</span><strong className="is-off">OFF</strong></div>
+          <div className="nova-dash-guard-row"><span>Live trading</span><strong className="is-off">OFF</strong></div>
+          <div className="nova-dash-guard-row"><span>Broker access</span><strong>READ-ONLY INTENT</strong></div>
+          <p className="nova-dash-footnote">A displayed policy is not proof of broker-side enforcement. Runtime permissions remain authoritative.</p>
+        </article>
+        <article className="nova-dash-info-panel nova-dash-next-panel">
+          <SectionHeading eyebrow="CONTINUE YOUR WORK" title="Pick up where you left off" />
+          <p>Open a workspace to continue a task. Module availability and data access are governed by the authenticated application and its server-side permissions.</p>
+          <Link href="/command-center" className="nova-dash-primary-action">Open personal workspace <span>↗</span></Link>
+        </article>
+      </section>
+
+      <footer className="nova-dash-footer"><span>VOOM / NOVA</span><span>ADAPTIVE COMMAND DASHBOARD</span><span>READ-ONLY · LIVE TRADING OFF</span></footer>
     </main>
   );
 }
