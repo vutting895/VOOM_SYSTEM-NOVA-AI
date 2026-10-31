@@ -106,7 +106,7 @@ paths:
                   executionEnabled: { const: false }
                   estimatedCost: { const: 0 }
         "400": { description: Invalid request }
-        "401": { description: Missing, invalid or expired Supabase access token }
+        "401": { description: Missing or invalid bearer token }\n        "403": { description: Client App ID is not allowed }
 components:
   securitySchemes:
     SupabaseBearer:
