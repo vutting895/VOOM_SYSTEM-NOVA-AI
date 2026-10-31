@@ -127,7 +127,12 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
       let principal;
       try {
         principal = await verifySession(authorization.slice(7));
-      } catch {
+      } catch (error) {
+        // A rejected/expired JWT is an authentication failure; an Auth/PostgREST
+        // outage is transient infrastructure failure and must remain retryable.
+        if (error?.message === "SUPABASE_UNAVAILABLE") {
+          return response(503, { state: "FAILED_FINAL", result_code: "SUPABASE_UNAVAILABLE" });
+        }
         return response(401, { state: "FAILED_FINAL", result_code: "INVALID_SESSION" });
       }
       if (!principal || typeof principal.subject !== "string" || !principal.subject) {
