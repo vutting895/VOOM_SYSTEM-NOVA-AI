@@ -20,7 +20,7 @@ This checklist is the acceptance record for the remaining work. It does not auth
 |---|---|---|
 | OpenBao Staging architecture and security gates | PR [#155](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/155), merged as `8f72d7218d8c16e9a0444bfc7b04610540c9a307`; document `docs/architecture/NOVA-OPENBAO-STAGING-INTEGRATION.md` | Merged — design only |
 | Isolated Transit client scaffold | PR [#158](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/158), merged as `aad16f6c62ace703624845780e46110ca9a4beda`; files under `integrations/system-hub/` | Merged — not wired into `worker.js`, not exposed, not active |
-| Transit client test fixture correction | PR [#159](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/159), head `0a9d4a2219bd2e2feb36859fdff305930a904535` | Open — Frontend CI run #609 failed; job had no reported steps and the job-log artifact was unavailable |
+| Transit client test fixture correction | PR [#159](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/159), head `0a9d4a2219bd2e2feb36859fdff305930a904535` | Open — Frontend CI run #609 (`41193273615`), attempt 2, still failed; the build job returned no steps and the job-log artifact was unavailable |
 | Exact-head local test report for PR #159 | PR #159 author comment reports 6/6 isolated tests passed locally | Reported, not independently reproduced in this closure pass; not a substitute for hosted CI |
 | Netlify Deploy Preview for PR #159 | Netlify bot comment reports Preview ready for exact head `0a9d4a2219bd2e2feb36859fdff305930a904535` | Preview only; does not validate OpenBao runtime or Workforce UI |
 | Private VM / OpenBao service | No OCI instance RUNNING evidence, instance ID, Private IP, or approved private administration path was attached to this verification | Not verified — provisioning/install blocked |
@@ -28,7 +28,7 @@ This checklist is the acceptance record for the remaining work. It does not auth
 | System Hub VPC binding | No verified VPC Service ID or binding/deployment evidence | Not implemented |
 | Tenant custody and two-owner isolation | No live Staging identity, key policy, or two-owner acceptance evidence | Not tested |
 
-The prior Frontend CI failure was retried through the GitHub integration; the retry request was accepted, but a passing rerun has not yet been observed. Do not update this row to passed without the exact new run and head SHA.
+Frontend CI run #609 (`41193273615`) was retried. The GitHub run record now shows `run_attempt=2` and the overall conclusion remains `failure`; its build job returned an empty step list and the job-log download returned `BlobNotFound`. The cause is therefore still unknown — this is neither evidence of a test assertion failure nor a pass. Do not merge PR #159 or mark CI passed until a diagnostic, successful exact-head run is available.
 
 ## 3. Current infrastructure blockers
 
