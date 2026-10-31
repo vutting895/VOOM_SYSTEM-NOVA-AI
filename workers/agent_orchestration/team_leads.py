@@ -67,11 +67,12 @@ class TeamTaskAuthorization:
 
     task_id: str
     actor_ref: str
-    tenant_ref: str
+    owner_ref: str
     capability_ceiling: frozenset[str]
     allowed_input_refs: frozenset[str]
     deadline: datetime
     budget_ceiling: TeamTaskBudget
+    tenant_ref: str | None = None
 
 
 def _uuid(value: str, field_name: str) -> None:
@@ -193,7 +194,9 @@ def validate_team_lead_task(
         raise ContractError("Hub authorization context is required")
     _uuid(authorization.task_id, "Hub task_id")
     _ref(authorization.actor_ref, "actor_ref")
-    _ref(authorization.tenant_ref, "tenant_ref")
+    _ref(authorization.owner_ref, "owner_ref")
+    if authorization.tenant_ref is not None:
+        _ref(authorization.tenant_ref, "tenant_ref")
     if authorization.task_id != task.task_id:
         raise ContractError("Hub authorization task binding mismatch")
     if not isinstance(authorization.capability_ceiling, frozenset):
@@ -218,6 +221,8 @@ def validate_team_lead_task(
             raise ContractError("parent authorization context is invalid")
         if task.parent_task_id is None or task.parent_task_id != parent_authorization.task_id:
             raise ContractError("delegated child task must bind to its parent task")
+        if authorization.owner_ref != parent_authorization.owner_ref:
+            raise ContractError("child task cannot change owner scope")
         if authorization.tenant_ref != parent_authorization.tenant_ref:
             raise ContractError("child task cannot change tenant scope")
         if not authorization.capability_ceiling.issubset(parent_authorization.capability_ceiling):
