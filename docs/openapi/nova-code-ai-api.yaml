@@ -1,0 +1,115 @@
+openapi: 3.1.0
+info:
+  title: NOVA CODE AI API
+  version: 1.0.0
+  description: >-
+    Read-only agent and skill discovery API with a guarded request contract.
+    Agent execution is disabled until a reviewed runtime and tenant-scoped job store are deployed.
+servers:
+  - url: https://voomsystem.netlify.app
+    description: Intended Netlify API host; verify deployed commit before production use.
+paths:
+  /api/code/agents:
+    options:
+      security: []
+      responses:
+        "204": { description: Allowlisted CORS preflight }
+        "403": { description: Origin is not allowlisted }
+    get:
+      summary: List NOVA CODE AI agents
+      security: []
+      responses:
+        "200":
+          description: Public agent capability metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product, agentCount, agents, policy]
+                properties:
+                  product: { const: NOVA CODE AI }
+                  agentCount: { const: 6 }
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, status, executionEnabled, estimatedCost]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        status: { type: string }
+                        executionEnabled: { const: false }
+                        estimatedCost: { const: 0 }
+                  policy: { type: object }
+  /api/code/skills:
+    options:
+      security: []
+      responses:
+        "204": { description: Allowlisted CORS preflight }
+        "403": { description: Origin is not allowlisted }
+    get:
+      summary: List NOVA Code skill groups
+      security: []
+      responses:
+        "200":
+          description: Public skill capability metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [product, skillCount, groups, policy]
+                properties:
+                  product: { const: NOVA CODE AI }
+                  skillCount: { const: 46 }
+                  groups:
+                    type: array
+                    minItems: 4
+                    items: { type: object }
+                  policy: { type: object }
+  /api/code/requests:
+    options:
+      security: []
+      responses:
+        "204": { description: Allowlisted CORS preflight }
+        "403": { description: Origin is not allowlisted }
+    post:
+      summary: Validate an agent request (execution currently disabled)
+      security:
+        - SupabaseBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [agent_id, task, idempotency_key]
+              properties:
+                agent_id:
+                  type: string
+                  enum: [code_generator, code_reviewer, debugging_agent, testing_agent, security_agent, devops_agent]
+                task: { type: string, minLength: 10, maxLength: 8000 }
+                repository: { type: string, pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' }
+                base_ref: { type: string, maxLength: 120 }
+                idempotency_key: { type: string, pattern: '^[A-Za-z0-9_-]{12,100}$' }
+      responses:
+        "503":
+          description: Runtime not enabled; request is not accepted or executed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, requestAccepted, executionEnabled, estimatedCost]
+                properties:
+                  error: { const: nova_code_agent_runtime_not_enabled }
+                  requestAccepted: { const: false }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+        "400": { description: Invalid request }
+        "401": { description: Missing, invalid or expired Supabase access token }
+components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase access token
