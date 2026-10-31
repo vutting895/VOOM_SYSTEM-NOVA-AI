@@ -23,3 +23,15 @@ The tests use synthetic identities, connection metadata, provider responses, and
 This is **not a production custodian**. The injected session verifier is a test double, not Supabase JWT verification. The connection and binding resolvers are in-memory test doubles, not a real RLS-scoped Supabase lookup or separate custodian registry. The provider adapter is synthetic and does not connect to Exness/MT5 or any provider. The file-backed ledger is a local single-process proof, not a distributed transactional database with leases/fencing or multi-worker concurrency guarantees. No credentials are stored, encrypted, decrypted, or migrated. No KMS/HSM, mTLS/workload identity, production key custody, network isolation, deployment, staging, or independent security review is proven.
 
 Do not treat a passing local proof as authorization to enable customer secret routes. Customer custody remains disabled; broker access remains read-only; order submission, execution, and live trading remain OFF.
+
+
+## Supabase Auth and owner-resolution adapter proof
+
+`supabase-adapters.mjs` adds a concrete, synthetic-fetch-tested adapter for two boundaries:
+
+- Supabase Auth `/auth/v1/user` independently validates the bearer session and derives the subject.
+- PostgREST reads `broker_connections` using the same verified user's JWT, filtering by both connection ID and canonical `user_id`. This preserves the existing RLS policy; it does not use a service-role key or invent `tenant_id`.
+
+The runtime now passes the verified principal to the connection resolver so the adapter can perform the RLS-scoped request. The access token is not written to the operation ledger or passed to the binding/provider adapter.
+
+These are adapter contract tests with mocked HTTP responses, not a live Supabase Auth/PostgREST integration. The separate custodian binding registry, distributed operation ledger, asymmetric signer/KMS, and provider execution remain unimplemented and blocked.
