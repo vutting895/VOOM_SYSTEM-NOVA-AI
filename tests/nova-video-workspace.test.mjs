@@ -49,6 +49,8 @@ test("job payload rejects unsupported fields, invalid IDs, tasks and idempotency
   assert.match(jobs, /isUuid\(body\.project_id\)/);
   assert.match(jobs, /TASK_TYPES\.has\(body\.task_type\)/);
   assert.match(jobs, /video_idempotency_key_invalid/);
+  assert.match(jobs, /idempotentReplay: true/);
+  assert.match(jobs, /\.eq\("idempotency_key", body\.idempotency_key\)/);
 });
 
 test("workspace page is session-gated and exposes its blocked free-only state", () => {
