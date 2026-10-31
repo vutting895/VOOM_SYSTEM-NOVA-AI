@@ -30,3 +30,15 @@ Before the control plane can report an Exness connection as data-verified, the a
 - No order-placement endpoint is implemented.
 - No broker password, access token, account payload, or bridge token is returned by the Hub.
 - The former `voom-alpaca-oauth` implementation is not used by this Hub and its source folder is retired by a separate reviewed repository cleanup. This does not delete/disable a Worker in the Cloudflare account or drop any Supabase table/data; confirm provider-side consumers and retention before decommissioning. Keep applied Alpaca migration files as historical schema records.
+
+## Exness Trader API adapter (isolated, not yet activated)
+
+`exness-api.js` contains a server-side, dependency-injected Exness Trader API client for the official Ed25519 signed-GET flow. It currently supports only:
+- Signed Gateway discovery: `GET /v1/trading/access-point?account_id=...`
+- Signed account snapshot: `GET /v1/configuration/accounts/{account_id}/account` on the discovered Access Point.
+
+The client validates HTTPS Exness hosts, uint64 account IDs, the returned Access Point/account identity, response size, and the Ed25519 key format. It does not accept caller-provided URLs or arbitrary paths. It exposes no trading, order mutation, withdrawal, transfer, or Live Trading capability. The account read is bound to the Access Point discovered for the same account.
+
+This module is intentionally **not wired to public Worker routes or customer records yet**. Customer credential retrieval remains blocked by `docs/implementation/NOVA-AUTO-API-SECRET-MANAGER-READINESS.md`; do not place a customer's private key in a shared Worker secret, generic `service_role` Vault access, frontend variables, GitHub, or chat. The next integration gate is a reviewed per-tenant secret-custody path, followed by owner-bound API account metadata and two-customer isolation tests.
+
+The API client must receive its key material from an approved server-only credential provider at runtime. Its injected dependencies make signing and transport testable with synthetic credentials without contacting Exness or requiring real customer secrets.
