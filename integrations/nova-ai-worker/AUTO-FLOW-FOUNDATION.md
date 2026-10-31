@@ -45,6 +45,14 @@ The exported \`simulateWorkflowDraft(draft, sampleData)\` function validates the
 - This is a deterministic contract simulator, not evidence of a deployed runtime or tenant-specific data access.
 
 
+## Authenticated simulator endpoint and Flow Studio (M3 UI slice)
+
+`POST /api/workflows/simulate` accepts exactly `draft` and `sampleData` after the existing Supabase bearer check. The Worker revalidates the draft and runs the deterministic in-memory simulator; invalid graphs or sample data return HTTP 422. The response explicitly keeps execution, persistence, external effects, broker writes, and Live Trading disabled.
+
+The existing NOVA frontend exposes the studio at `/flows`. Its same-origin `POST /api/workflows` server route authenticates the session before reading the request body, accepts only the `draft` or `simulate` operation, and forwards the verified bearer token to the Worker. The page can generate and inspect node/edge drafts, copy draft JSON, and submit bounded demo sample data to the simulator.
+
+Flow Studio is an authoring and preview surface only: no save/publish operation, database persistence, queue, scheduler, durable runtime, or approval lifecycle integration is included. The review node is only a marker, not an approval request.
+
 ## Prompt and model-output secret redaction
 
 Before the workflow prompt is forwarded to Cloudflare Workers AI, common credential patterns (Bearer values, key/token/password assignments, JWTs, AWS access-key IDs, GitHub tokens, and API-style secret tokens) are redacted. The same text redaction is applied to user-visible workflow title, description, review reason, and preview label fields returned by the model. This is defense-in-depth, not a substitute for never entering secrets; no guarantee is made that every proprietary credential format is recognized.
