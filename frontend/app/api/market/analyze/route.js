@@ -89,9 +89,14 @@ export async function POST(request) {
       return json({ error, executionEnabled: false, ordersEnabled: false, liveTradingEnabled: false }, status);
     }
     if (
+      payload?.source?.provider !== 'exness_mt5' ||
       payload?.source?.dataVerified !== true ||
       !['demo', 'live'].includes(payload?.source?.environment) ||
+      payload?.source?.symbol !== symbol ||
+      payload?.source?.timeframe !== timeframe ||
       !['bullish_watch', 'bearish_watch', 'neutral'].includes(payload?.analysis?.signal) ||
+      typeof payload?.analysis?.rationale !== 'string' ||
+      payload.analysis.rationale.length > 2000 ||
       payload?.analysis?.riskStatus !== 'not_evaluated' ||
       payload.executionEnabled !== false ||
       payload.ordersEnabled !== false ||
