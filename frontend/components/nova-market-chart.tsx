@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickSeries,
+  ColorType,
   createChart,
   type IChartApi,
   type UTCTimestamp,
@@ -158,6 +159,7 @@ export default function NovaMarketChart() {
 
   useEffect(() => {
     if (!accessToken || !connection?.connectionId || !symbol) return;
+    const connectionId = connection.connectionId;
     const controller = new AbortController();
     let active = true;
     async function loadCandles() {
@@ -166,7 +168,7 @@ export default function NovaMarketChart() {
       try {
         const query = new URLSearchParams({ symbol, timeframe, count: "300" });
         const response = await fetch(
-          `${HUB_URL}/v1/connections/${encodeURIComponent(connection.connectionId)}/quotes?${query.toString()}`,
+          `${HUB_URL}/v1/connections/${encodeURIComponent(connectionId)}/quotes?${query.toString()}`,
           { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" }, cache: "no-store", signal: controller.signal }
         );
         const payload = await response.json().catch(() => ({})) as QuotePayload;
@@ -204,7 +206,7 @@ export default function NovaMarketChart() {
       autoSize: true,
       height: 440,
       layout: {
-        background: { type: "solid", color: "#07131d" },
+        background: { type: ColorType.Solid, color: "#07131d" },
         textColor: "#9bb7c4",
         attributionLogo: true,
       },
