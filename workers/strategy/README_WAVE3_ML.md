@@ -7,7 +7,7 @@ This implementation belongs to the VOOM_SYSTEM-NOVA-AI feature branch. It is a r
 From the repository root, using Python 3.11:
 
     python -m pip install -r requirements-wave3.txt
-    python tools/train_wave3_models.py --news-calendar datasets/news/high_impact_utc.csv
+    python tools/train_wave3_models.py --news-calendar datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
 
 Omit `--news-calendar` only for a fail-closed diagnostic run; without the historical calendar no trades are permitted in the simulation.
 
