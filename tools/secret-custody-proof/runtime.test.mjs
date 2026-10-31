@@ -171,3 +171,22 @@ test("concurrent duplicate requests publish one complete claim and invoke provid
   assert.equal(first.status, 200);
   assert.equal(calls.length, 1);
 });
+
+
+test("Supabase auth outage is retryable and distinct from an invalid session", async t => {
+  let connectionLookups = 0;
+  const { calls, deps } = await fixture(t, {
+    verifySession: async () => { throw new Error("SUPABASE_UNAVAILABLE"); },
+    resolveConnection: async (...args) => {
+      connectionLookups++;
+      return deps.resolveConnection(...args);
+    }
+  });
+  const runtime = createCustodyRuntime(deps);
+  const result = await invoke(runtime);
+  assert.equal(result.status, 503);
+  assert.equal(result.body.state, "FAILED_FINAL");
+  assert.equal(result.body.result_code, "SUPABASE_UNAVAILABLE");
+  assert.equal(connectionLookups, 0);
+  assert.equal(calls.length, 0);
+});
