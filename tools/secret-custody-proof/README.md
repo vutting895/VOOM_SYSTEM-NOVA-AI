@@ -9,14 +9,14 @@ node --test tools/secret-custody-proof/*.test.mjs
 `runtime.mjs` is a deliberately small, dependency-injected local proof harness. It exercises the request path in this order:
 
 1. Verify a bearer session through an injected verifier.
-2. Resolve the requested connection using the verified subject (never caller-supplied owner/tenant IDs).
+2. Resolve the requested connection using the verified subject (never caller-supplied owner/tenant IDs). The current canonical migration uses `broker_connections.user_id` referencing `auth.users.id`; it does not define `tenant_id`. The production adapter must map that owner field and use a separate trusted custodian binding registry rather than inventing a tenant column.
 3. Resolve and match a custodian-owned binding, provider, environment, active state, and read-only capability.
 4. Atomically publish a file-backed operation claim (write a complete temporary record, then hard-link it into place) using a stable principal/binding/capability/idempotency key and a canonical request fingerprint.
 5. Invoke only an injected read-only provider adapter, passing trusted binding metadata and bounded intent—not credential bytes.
 6. Persist a sanitized result for replay; mark ambiguous provider outcomes `OUTCOME_UNKNOWN` and prohibit blind redispatch.
 7. Return `Cache-Control: no-store` and `Pragma: no-cache`.
 
-The tests use synthetic identities, connection metadata, provider responses, and temporary local files. They include restart/replay, cross-owner denial, forbidden-field rejection, fingerprint conflict, ambiguous outcome, and response redaction checks.
+The tests use synthetic identities, connection metadata, provider responses, and temporary local files. They include restart/replay, cross-owner denial, forbidden-field rejection, fingerprint conflict, concurrent duplicate claims, ambiguous outcome, response redaction, and a schema contract against the existing `broker_connections.user_id` + RLS migration.
 
 ## Proof limitations
 
