@@ -49,3 +49,17 @@ __all__ += [
     "validate_team_lead_task",
     "validate_team_registry",
 ]
+
+from .shadow_plan import (
+    TEAM_SHADOW_PLAN_SCHEMA,
+    ShadowChildProposal,
+    ShadowDelegationPlan,
+    build_shadow_delegation_plan,
+)
+
+__all__ += [
+    "TEAM_SHADOW_PLAN_SCHEMA",
+    "ShadowChildProposal",
+    "ShadowDelegationPlan",
+    "build_shadow_delegation_plan",
+]
