@@ -85,7 +85,7 @@ Run applicable checks from a clean checkout. Record links to actual workflow run
 
 ### Phase 6 — Controlled release and post-release checks
 
-- [ ] Confirm Phases 0–5 required for the release are passed, all PR reviews are complete, and CI refers to the exact candidate commit.
+- [ ] Confirm Phases 0–5 required for the release are passed, the Three-AI Review Gate in Section 12 is complete for the exact candidate commit, and required CI refers to that same commit. Any repository/organization policy that explicitly requires human approval remains a separate mandatory gate.
 - [ ] Obtain explicit approval before production deployment; never turn a documentation or test task into an unrequested production cutover.
 - [ ] Deploy through the designated provider workflow; record deployment ID/URL, provider result, commit SHA, and timestamp.
 - [ ] Run post-deploy route, authentication-denial, Worker health, and safe read-only smoke tests.
@@ -266,3 +266,44 @@ This section records changes after the previous evidence snapshot. It distinguis
 - PR #67 is ready for review but remains unmerged. `main` uses Netlify as the primary frontend host; the Cloudflare deployment workflow is backend-only. A merge can start the Netlify Git-integrated Production build, so production release remains a separate approval gate.
 - Supabase Free limitations (including the plan-gated leaked-password protection setting) remain plan-gated; do not upgrade the plan or add billing to close this test.
 - Preserve the mandatory safety invariant: Exness Demo only, Read-only + AI Analysis, no broker order submission or position mutation, Live Trading OFF.
+
+
+## 12. Three-AI Review Gate — 2026-10-31
+
+This is NOVA's default technical review process when an independent human reviewer is unavailable. It is an internal engineering control; it does not impersonate a human reviewer, create GitHub review approvals, or satisfy a GitHub/organization ruleset that explicitly requires human approval.
+
+### Independent review roles
+
+Run three separate review passes against the exact PR head SHA and complete diff. Each pass must receive the same scope, base/head SHAs, relevant tests, and acceptance criteria, but use a distinct review mandate:
+
+1. **AI-A — Code and Architecture**
+   - Correctness, maintainability, architecture boundaries, backward compatibility, unintended scope expansion, data flow, and migration compatibility.
+   - Identify concrete file/line evidence and reproducible failure scenarios.
+
+2. **AI-B — Security and Governance**
+   - Authentication/authorization, tenant isolation and RLS, least privilege, secrets exposure, input validation, approval expiry/replay protection, auditability, privacy, and unsafe state-changing paths.
+   - Treat any credible critical/high security finding as a hard stop.
+
+3. **AI-C — QA and Release**
+   - Test coverage, deterministic/reproducible behavior, CI results on the exact head SHA, build/deploy evidence, route/runtime checks, rollback readiness, documentation, and release-gate compliance.
+   - A skipped, cancelled, stale, unrelated, or missing check is not a pass.
+
+### Decision protocol
+
+- Each reviewer returns **PASS**, **PASS WITH NON-BLOCKING NOTES**, or **FAIL**, with severity, file/line references, evidence, and required remediation.
+- Internal technical approval requires **3/3 PASS** (PASS WITH NON-BLOCKING NOTES is allowed only when no unresolved blocker or high/critical finding remains).
+- Any FAIL, unresolved disagreement, missing evidence, or high/critical finding blocks the PR until corrected and all three passes are rerun on the new exact head SHA.
+- The review record must include repository, PR, base SHA, head SHA, reviewer role/model identity, review timestamp, findings, test evidence, and final decision. Do not present three passes from the same undifferentiated review as independent review.
+- Re-run all three reviews whenever the PR head changes materially, especially changes to auth, tenant boundaries, migrations, secrets, approvals, broker access, or release configuration.
+- Keep automated CI and provider/runtime verification as separate required gates. AI review cannot convert a failed/skipped CI or unverified deployment into a pass.
+
+### GitHub and human-approval boundary
+
+- Record AI findings in a clearly labeled PR comment or review artifact. Do not submit an AI-generated GitHub **APPROVE** under a human identity or claim that AI approval is a human review.
+- If branch protection/rulesets or applicable law, contract, security policy, or organizational policy requires a human approval, that requirement remains in force and must be met by an authorized person.
+- Where no such requirement applies, the repository owner may use the documented 3/3 AI technical gate as the project's internal review decision, while retaining CI, security, staging, and explicit production-release approvals.
+- Never relax branch protection or bypass required checks merely to make a PR mergeable.
+
+### Scope and safety
+
+The Three-AI Review Gate does not authorize production deployment, database migration, employee-data loading, Agent provisioning/activation, broker credential changes, broker writes, or trading. Preserve Exness Demo read-only mode, `order_submission_enabled=false`, and Live Trading OFF.
