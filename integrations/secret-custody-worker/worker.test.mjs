@@ -166,5 +166,23 @@ test("synthetic route rejects query strings and oversized bodies", async () => {
   });
   const tooLarge = await worker.fetch(large, e);
   assert.equal(tooLarge.status, 413);
+
+  let cancelled = false;
+  const chunked = new Request("https://custody.invalid/_test/synthetic/seed", {
+    method: "POST",
+    headers: { "x-nova-synthetic-test-token": testToken, "content-type": "application/json" },
+    body: new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(1024));
+      },
+      cancel() {
+        cancelled = true;
+      }
+    }),
+    duplex: "half"
+  });
+  const chunkedTooLarge = await worker.fetch(chunked, e);
+  assert.equal(chunkedTooLarge.status, 413);
+  assert.equal(cancelled, true);
   assert.equal(e.CUSTODY_DB.rows.length, 0);
 });
