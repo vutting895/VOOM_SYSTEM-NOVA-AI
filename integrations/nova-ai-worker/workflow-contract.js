@@ -25,7 +25,7 @@ const NODE_TYPES = Object.freeze({
         config.fields.some((field) =>
           typeof field !== "string" ||
           !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(field) ||
-          /(?:^|_)(?:api_?key|secret|token|password|credential|authorization|private_?key)(?:_|$)/i.test(field)
+          isSensitiveFieldName(field)
         ) ||
         new Set(config.fields).size !== config.fields.length
       ) return "invalid_node_config";
@@ -60,6 +60,16 @@ function isPlainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
+}
+
+function isSensitiveFieldName(field) {
+  // Normalize separators and camelCase alike so accessToken/apiKey/privateKey
+  // cannot bypass the selector denylist through alternate identifier styles.
+  const normalized = field.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+  return [
+    "apikey", "secret", "token", "password", "credential",
+    "authorization", "privatekey", "accesskey", "signingkey",
+  ].some((term) => normalized.includes(term));
 }
 
 function exactKeys(value, expected) {
