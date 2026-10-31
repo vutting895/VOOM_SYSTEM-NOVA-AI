@@ -1,6 +1,6 @@
 # NOVA HR & AI Workforce — Architecture and Delivery Plan
 
-**Status:** Architecture approved in the PR branch; P1 UI implementation in progress (Draft PR #148, stacked on Dashboard PR #146)  
+**Status:** Architecture is in this PR branch; P1 Workforce UI is implemented in PR #148 (ready for review, stacked on PR #146). Both UI PRs remain unmerged.  
 **Canonical repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Base chain:** `main` → Draft PR #143 (Adaptive NOVA Main Dashboard) → this proposal  
 **Main baseline SHA:** `a2acfd8ec9b598e6593413549bef760e8f596a72`  
@@ -225,11 +225,11 @@ Existing NOVA invariant remains: Exness Demo only; read-only + AI analysis; orde
 
 ## 15. Immediate next actions
 
-1. Review and merge parent PR #143 only after its own dashboard architecture review.
-2. Capture current Dashboard behavior at desktop/tablet/mobile and resolve the single navigation owner in a separate implementation PR.
-3. Review this Workforce architecture with the owner and security reviewer.
-4. Close the PR #109 migration-baseline gate before any Workforce schema PR.
-5. **P1 started:** Draft PR #148 adds the Workforce dashboard entry and a read-only `/workforce` UI foundation on top of Dashboard implementation PR #146. Exact-head CI and Netlify Preview remain pending; do not add employee or Agent data until a trusted API exists.
+1. Review and merge PR #143 only after its architecture documentation and dependency chain are approved.
+2. **Dashboard UI implemented:** PR #146 consolidates the root Dashboard shell/navigation and adds responsive workspace cards; exact-head Frontend CI and Netlify Preview passed. Human review remains open.
+3. **Workforce P1 implemented:** PR #148 adds the Workforce destination and read-only `/workforce` foundation on top of #146; exact-head Frontend CI passed. Exact-head Netlify Preview and human review remain open.
+4. Close the PR #109 migration-baseline gate before any Workforce schema/API PR.
+5. Review the architecture and UI at desktop/tablet/mobile; keep all data unavailable until trusted, permission-aware services are connected.
 6. Create the HR Core schema/API PR only after P0/P1 review and migration parity evidence.
 
-**Current status (2026-10-31):** Architecture documentation is in the PR #143 branch. P1 UI foundation is proposed in Draft PR #148, stacked on Draft PR #146; neither PR is merged to `main`. The UI uses explicit unavailable states only. No migration, provider setting, secret, employee record, Agent runtime, or production deployment has been changed.
+**Current status (2026-10-31):** Architecture documentation is in the PR #143 branch (PR #144 was merged into that branch, not `main`). Dashboard UI PR #146 and Workforce P1 UI PR #148 are open and ready for review; #148 is stacked on #146. Exact-head CI passed on both UI PRs; Netlify Preview is ready for #146, while exact-head Preview for #148 remains outstanding. The UI uses explicit unavailable states only. No migration, provider setting, secret, employee record, Agent runtime, or production deployment has been changed.
