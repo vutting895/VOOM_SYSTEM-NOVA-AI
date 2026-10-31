@@ -173,7 +173,10 @@ test("simulator rejects invalid drafts and unsafe or oversized sample data", () 
   assert.equal(simulateWorkflowDraft(validDraft(), Object.fromEntries(
     Array.from({ length: 51 }, (_, index) => ["field" + index, index]),
   )).error, "invalid_simulation_data");
-  assert.equal(simulateWorkflowDraft(validDraft(), { note: "x".repeat(8001) }).error, "simulation_data_too_large");
+  const largeSample = Object.fromEntries(
+    Array.from({ length: 20 }, (_, index) => ["field" + index, "x".repeat(500)]),
+  );
+  assert.equal(simulateWorkflowDraft(validDraft(), largeSample).error, "simulation_data_too_large");
 });
 
 test("simulator never invents approval or data and handles missing projected fields", () => {
