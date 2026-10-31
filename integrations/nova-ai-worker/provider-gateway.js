@@ -4,7 +4,7 @@ const ENDPOINTS = {
   anthropic: "https://api.anthropic.com/v1/messages",
 };
 const DEFAULT_MODELS = {
-  gemini: "gemini-flash-latest",
+  gemini: "gemini-3.8-flash",
   openai: "gpt-5.5",
   anthropic: "claude-haiku-4-5-20251001",
   cloudflare: "@cf/meta/llama-3.2-3b-instruct",
@@ -12,6 +12,26 @@ const DEFAULT_MODELS = {
 const MAX_OUTPUT_CHARS = 10000;
 const MAX_PROMPT_CHARS = 12000;
 const PROVIDERS = new Set(["gemini", "openai", "anthropic"]);
+const CREDENTIAL_PATTERNS = [
+  /\bAuthorization\s*:\s*Basic\s+[A-Za-z0-9+/]+={0,2}/gi,
+  /\bAuthorization\s*:\s*Bearer\s+\S+/gi,
+  /\bBearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}\b/gi,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+  /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\b/g,
+  /\b((?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[_ -]?key|password|passwd|secret|token)\s*[:=]\s*)["']?[^\s"',;]+/gi,
+  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\s]+)/gi,
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi,
+  /(?:^|\n)\s*(?:cookie|set-cookie)\s*:\s*[^\r\n]+/gim,
+];
+
+export function redactProviderText(value) {
+  if (typeof value !== "string") return "";
+  return CREDENTIAL_PATTERNS.reduce((text, pattern) => text.replace(pattern, "[REDACTED]"), value);
+}
+
+function sanitizeMessages(messages) {
+  return messages.map(({ role, content }) => ({ role, content: redactProviderText(content) }));
+}
 
 function resolveModel(env, provider) {
   const configured = env?.[provider.toUpperCase() + "_MODEL"];
@@ -46,11 +66,12 @@ async function requestGemini(env, messages) {
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
   const prompt = messages.filter((m) => m.role !== "system")
     .map((m) => (m.role === "assistant" ? "Assistant: " : "User: ") + m.content).join("\n\n");
+  const model = resolveModel(env, "gemini");
   const response = await fetch(ENDPOINTS.gemini, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": key },
     body: JSON.stringify({
-      model: resolveModel(env, "gemini"), input: prompt,
+      model, input: prompt,
       system_instruction: system, store: false,
       generation_config: { max_output_tokens: 1000 },
     }),
@@ -61,7 +82,7 @@ async function requestGemini(env, messages) {
   if (data?.status && data.status !== "completed") throw new Error("gemini_interaction_incomplete");
   const text = extractGeminiText(data);
   if (!text) throw new Error("invalid_gemini_response");
-  return { text, provider: "gemini", model: resolveModel(env, "gemini") };
+  return { text, provider: "gemini", model };
 }
 
 async function requestOpenAI(env, messages) {
@@ -118,27 +139,23 @@ async function requestCloudflare(env, messages) {
   return { text: text.trim(), provider: "cloudflare-workers-ai", model };
 }
 
-/**
- * Platform AI keys are Cloudflare Worker Secrets. The NOVA customer Vault is
- * intentionally not queried here: its trusted caller / least-privilege gate
- * is still blocked. Never accept key material from request data or a model.
- */
 export async function generateWithProviderGateway(env, messages) {
   validateMessages(messages);
+  const safeMessages = sanitizeMessages(messages);
   const configured = typeof env?.NOVA_AI_PROVIDER === "string" ? env.NOVA_AI_PROVIDER.toLowerCase() : "gemini";
   const primary = PROVIDERS.has(configured) ? configured : "gemini";
   let primaryFailure = null;
   try {
-    const result = primary === "openai" ? await requestOpenAI(env, messages)
-      : primary === "anthropic" ? await requestAnthropic(env, messages)
-        : await requestGemini(env, messages);
+    const result = primary === "openai" ? await requestOpenAI(env, safeMessages)
+      : primary === "anthropic" ? await requestAnthropic(env, safeMessages)
+        : await requestGemini(env, safeMessages);
     if (!result.text || result.text.length > MAX_OUTPUT_CHARS) throw new Error("invalid_provider_response");
     return { ...result, fallbackFrom: null };
   } catch {
     primaryFailure = primary;
   }
   try {
-    const result = await requestCloudflare(env, messages);
+    const result = await requestCloudflare(env, safeMessages);
     if (!result.text || result.text.length > MAX_OUTPUT_CHARS) throw new Error("invalid_provider_response");
     return { ...result, fallbackFrom: primaryFailure };
   } catch {
