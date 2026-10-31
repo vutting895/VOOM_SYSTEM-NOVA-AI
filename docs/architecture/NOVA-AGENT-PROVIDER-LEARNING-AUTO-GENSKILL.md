@@ -463,3 +463,14 @@ Until a tenant registry and membership contract are found and accepted on the ca
 | TL-4 | Independent Review, QA and Security gates | Exact-head CI and positive/negative owner-isolation evidence |
 
 **Stop condition:** if identity ownership, migration parity, or the existing approval contract cannot be verified, keep the Team Lead runtime in design/contract-only mode. Passing Python contract tests does not authorize database writes, delegation execution, customer-data access, merge or deployment.
+
+
+## 13.10 Owner-first Team Lead contract alignment — 2026-10-31
+
+The Team Lead contract implementation was tightened after the current-main Hub and migration inspection. The current repository proves authenticated owner identity through Supabase Auth and owner-scoped rows, but it does not prove a tenant registry or tenant membership source.
+
+Accordingly, the server-derived authorization context now requires an opaque owner reference and permits a tenant reference only when a trusted Hub tenant registry has actually resolved one. Owner-only scope is valid for the current owner-scoped model; a task payload may never supply either reference. Parent/child delegation must preserve owner scope and, when present, the exact verified tenant scope. No test fixture should invent a tenant identity merely to satisfy the contract.
+
+Implementation evidence: PR #106 Team Lead contract head `6156380131d9980ba3f2a721db6b3d9c846f1f10` adds owner-scope validation, optional verified tenant scope, and tests for owner-only authorization and child owner-scope escalation. The NOVA Agent Orchestration Contracts workflow passed on that exact head: [run #41179271525](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179271525). Frontend CI remains separately pending/in progress at the time of this update.
+
+This is still a pure contract/validation milestone. It does not establish a tenant registry, durable task persistence, an authenticated Hub adapter, a scheduler, or an active Team Lead runtime. Runtime delegation remains blocked until the identity and migration gates are independently verified.
