@@ -83,6 +83,34 @@ async function encryptFixture(fixture, env, id) {
   };
 }
 
+async function readBoundedBody(request, maxBytes) {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw new RangeError("REQUEST_TOO_LARGE");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
 async function seedSyntheticFixture(request, env) {
   if (env.CUSTODY_MODE !== "synthetic" || env.ALLOW_SYNTHETIC_TEST_ROUTES !== "true") {
     return json(404, { error: "NOT_FOUND" });
@@ -95,13 +123,17 @@ async function seedSyntheticFixture(request, env) {
     return json(503, { error: "SYNTHETIC_RUNTIME_UNAVAILABLE" });
   }
   const length = Number(request.headers.get("content-length") || "0");
-  if (!Number.isFinite(length) || length > 256) return json(413, { error: "REQUEST_TOO_LARGE" });
+  if (!Number.isFinite(length) || length < 0 || length > 256) {
+    return json(413, { error: "REQUEST_TOO_LARGE" });
+  }
   let body;
   try {
-    const raw = await request.text();
-    if (raw.length > 256) return json(413, { error: "REQUEST_TOO_LARGE" });
+    const raw = await readBoundedBody(request, 256);
     body = JSON.parse(raw);
-  } catch {
+  } catch (error) {
+    if (error instanceof RangeError && error.message === "REQUEST_TOO_LARGE") {
+      return json(413, { error: "REQUEST_TOO_LARGE" });
+    }
     return json(400, { error: "INVALID_REQUEST" });
   }
   if (!body || typeof body !== "object" || Array.isArray(body) ||
