@@ -697,7 +697,7 @@ button:disabled { cursor: wait; opacity: .65; }
 /* NOVA unified sign-in and registration */
 .nova-auth-card { max-width: 560px; }
 .nova-auth-card > .nova-pill { margin-top: 13px; }
-.nova-auth-providers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 22px; }
+.nova-auth-providers { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 22px; }
 .nova-auth-provider {
   min-width: 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 10px 12px; border: 1px solid rgba(130, 166, 190, .25); border-radius: 11px;
@@ -707,7 +707,6 @@ button:disabled { cursor: wait; opacity: .65; }
 .nova-auth-provider:disabled { opacity: .55; cursor: wait; }
 .nova-provider-mark { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 50%; background: #fff; font-size: 15px; font-weight: 900; }
 .nova-google-mark { color: #4285f4; }
-.nova-facebook-mark { color: #1877f2; font-family: Arial, sans-serif; font-size: 19px; }
 .nova-auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 6px; color: #7593a5; font-size: 10px; }
 .nova-auth-divider::before, .nova-auth-divider::after { content: ""; height: 1px; flex: 1; background: rgba(80, 209, 231, .17); }
 .nova-auth-consent { display: flex; align-items: flex-start; gap: 9px; margin: 15px 0; color: #9eb4c5; font-size: 11px; line-height: 1.7; }
