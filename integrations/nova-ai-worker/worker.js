@@ -1,4 +1,5 @@
 import { classifyResearchIntent } from "./intent-contract.js";
+import { analyzeMarketBars } from "./market-analysis.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
   "https://voom-system-nova-ui.suwapat787.workers.dev"
@@ -16,6 +17,10 @@ const MARKETS = new Set(["BTC/USDT", "ETH/USDT", "EUR/USD", "XAU/USD", "US30"]);
 const TIMEFRAMES = new Set(["5m", "15m", "1h", "4h", "1d"]);
 const RISKS = new Set(["low", "medium", "high"]);
 const MAX_BODY_BYTES = 16 * 1024;
+const SYSTEM_HUB_ORIGIN = "https://voom-system-hub.suwapat787.workers.dev";
+const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
+const MT5_TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
+const CONNECTION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function corsHeaders(origin) {
   if (!UI_ORIGINS.has(origin)) return {};
@@ -94,6 +99,27 @@ function safeAuthDiagnostic(error) {
   return "NOVA AI Worker could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
 }
 
+export function validateMarketAnalysisInput(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw Object.assign(new Error("invalid_json_object"), { status: 400 });
+  }
+  const allowed = new Set(["connectionId", "symbol", "timeframe", "count"]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) {
+    throw Object.assign(new Error("unknown_market_analysis_field"), { status: 400 });
+  }
+  const connectionId = typeof value.connectionId === "string" ? value.connectionId.trim() : "";
+  const symbol = typeof value.symbol === "string" ? value.symbol.trim() : "";
+  const timeframe = typeof value.timeframe === "string" ? value.timeframe.toUpperCase() : "M5";
+  const count = value.count === undefined ? 200 : value.count;
+  if (!CONNECTION_ID.test(connectionId)) throw Object.assign(new Error("valid_connection_id_required"), { status: 400 });
+  if (!MT5_SYMBOL.test(symbol)) throw Object.assign(new Error("valid_mt5_symbol_required"), { status: 400 });
+  if (!MT5_TIMEFRAMES.has(timeframe)) throw Object.assign(new Error("unsupported_mt5_timeframe"), { status: 400 });
+  if (!Number.isInteger(count) || count < 60 || count > 500) {
+    throw Object.assign(new Error("count_must_be_between_60_and_500"), { status: 400 });
+  }
+  return { connectionId, symbol, timeframe, count };
+}
+
 export async function authenticateRequest(request, env) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
@@ -150,7 +176,7 @@ export async function authenticateRequest(request, env) {
     if (!user || typeof user.id !== "string" || !user.id) {
       return { ok: false, status: 401, error: "invalid_or_expired_session" };
     }
-    return { ok: true, userId: user.id };
+    return { ok: true, userId: user.id, token: match[1] };
   } catch {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
@@ -270,6 +296,125 @@ async function generateChat(env, messages) {
   }
 }
 
+async function fetchVerifiedMarketData(auth, input) {
+  const target = new URL("/v1/connections/" + encodeURIComponent(input.connectionId) + "/quotes", SYSTEM_HUB_ORIGIN);
+  target.searchParams.set("symbol", input.symbol);
+  target.searchParams.set("timeframe", input.timeframe);
+  target.searchParams.set("count", String(input.count));
+  let response;
+  try {
+    response = await fetch(target, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + auth.token, Accept: "application/json" },
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch {
+    throw Object.assign(new Error("system_hub_unavailable"), { status: 503 });
+  }
+  if (!response.ok) {
+    const mapped = response.status === 401 ? "connection_authentication_failed"
+      : response.status === 404 ? "connection_not_found"
+        : response.status === 409 ? "connection_not_ready"
+          : "market_data_unavailable";
+    throw Object.assign(new Error(mapped), { status: response.status === 401 || response.status === 404 || response.status === 409 ? response.status : 502 });
+  }
+  let payload;
+  try { payload = await response.json(); }
+  catch { throw Object.assign(new Error("invalid_system_hub_response"), { status: 502 }); }
+  if (
+    payload?.dataVerified !== true ||
+    payload?.quote?.symbol !== input.symbol ||
+    payload?.quote?.timeframe !== input.timeframe ||
+    !Array.isArray(payload?.quote?.bars)
+  ) {
+    throw Object.assign(new Error("market_data_not_verified"), { status: 409 });
+  }
+  return payload.quote;
+}
+
+function deterministicMarketExplanation(features) {
+  return "EMA20 " + features.indicators.ema20 + " เทียบ EMA50 " + features.indicators.ema50
+    + " ให้แนวโน้ม " + features.trend + "; RSI14 " + features.indicators.rsi14
+    + " ให้โมเมนตัม " + features.momentum + "; ATR14 " + features.indicators.atr14
+    + " (" + features.indicators.atrPct + "% ของราคาปิด). ผลนี้เป็น market-research watch เท่านั้น ไม่ใช่คำสั่งซื้อขาย.";
+}
+
+async function explainMarketWithAI(env, features, input) {
+  const fallback = deterministicMarketExplanation(features);
+  if (!env.AI || typeof env.AI.run !== "function") {
+    return { text: fallback, provider: "deterministic_fallback", model: null };
+  }
+  const model = "@cf/meta/llama-3.2-3b-instruct";
+  try {
+    const result = await env.AI.run(model, {
+      messages: [
+        {
+          role: "system",
+          content: "You are NOVA market research analyst. Explain only the supplied verified technical features in the user's language. Do not invent prices, news, account data, probabilities, backtest results or order instructions. Do not tell the user to buy or sell. Clearly state that the classification is a research watch, not an order."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ symbol: input.symbol, timeframe: input.timeframe, features })
+        }
+      ],
+      max_tokens: 350,
+      temperature: 0.15
+    });
+    const text = typeof result === "string" ? result
+      : typeof result?.response === "string" ? result.response
+        : typeof result?.result?.response === "string" ? result.result.response : "";
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length > 2000) throw new Error("invalid_model_explanation");
+    return { text: trimmed, provider: "cloudflare-workers-ai", model };
+  } catch {
+    return { text: fallback, provider: "deterministic_fallback", model: null };
+  }
+}
+
+async function analyzeVerifiedMarket(env, auth, input) {
+  const quote = await fetchVerifiedMarketData(auth, input);
+  const sourceTime = Date.parse(quote.tick?.time || "");
+  const now = Date.now();
+  if (!Number.isFinite(sourceTime) || sourceTime > now + 30000 || now - sourceTime > 120000) {
+    throw Object.assign(new Error("market_data_stale"), { status: 409 });
+  }
+  const features = analyzeMarketBars(quote.bars);
+  if (!features.ok) throw Object.assign(new Error(features.error), { status: 422 });
+  const explanation = await explainMarketWithAI(env, features, input);
+  return {
+    analysisId: crypto.randomUUID(),
+    source: {
+      provider: "exness_mt5",
+      environment: quote.environment || "environment_unreported",
+      symbol: input.symbol,
+      timeframe: input.timeframe,
+      sourceTimestamp: quote.tick.time,
+      receivedAt: quote.as_of || null,
+      dataVerified: true
+    },
+    analysis: {
+      signal: features.signal,
+      bias: features.bias,
+      trend: features.trend,
+      momentum: features.momentum,
+      confluence: features.confluence,
+      indicators: features.indicators,
+      barsAnalyzed: features.barCount,
+      lastClose: features.lastClose,
+      rationale: explanation.text,
+      explanationProvider: explanation.provider,
+      explanationModel: explanation.model,
+      riskStatus: "not_evaluated",
+      classification: "research_only_not_an_order"
+    },
+    executionEnabled: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  };
+}
+
 function backtest(body) {
   const candles = Array.isArray(body.candles) ? body.candles.slice(0, 5000) : [];
   if (candles.length < 3) return { error: "provide_at_least_3_ohlc_candles" };
@@ -320,7 +465,7 @@ export default {
       }, 200, origin);
     }
     if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);
-    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest"].includes(url.pathname)) {
+    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", "/api/market/analyze"].includes(url.pathname)) {
       return fail("not_found", 404, origin);
     }
     const auth = await authenticateRequest(request, env);
@@ -358,6 +503,16 @@ export default {
         return json(await generateChat(env, messages), 200, origin);
       } catch (error) {
         return fail(error.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
+      }
+    }
+    if (url.pathname === "/api/market/analyze") {
+      let input;
+      try { input = validateMarketAnalysisInput(body); }
+      catch (error) { return fail(error.message || "invalid_market_analysis_input", error.status || 400, origin); }
+      try {
+        return json(await analyzeVerifiedMarket(env, auth, input), 200, origin);
+      } catch (error) {
+        return fail(error.message || "market_analysis_unavailable", error.status || 503, origin);
       }
     }
     const result = backtest(body);
