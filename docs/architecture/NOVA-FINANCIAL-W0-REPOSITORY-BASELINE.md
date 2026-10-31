@@ -168,3 +168,38 @@ Public references:
 - [ ] Review this Draft PR before any implementation or provider onboarding.
 
 **Updated disposition:** Public research is complete for the initial Stripe/PromptPay/Google Pay and Thai e-Tax/VAT design questions. Finance W0 remains in progress. No code, schema, hosted database, credentials, provider account, deployment, charge, refund or tax document was changed or activated.
+
+
+## 10. Additional exact-main repository inventory
+
+The GitHub recursive tree was inspected at the same main SHA `a2acfd8ec9b598e6593413549bef760e8f596a72`. Relevant paths include:
+
+- `frontend/app/auth/callback/page.jsx` and `frontend/lib/supabase-browser.ts`: existing frontend authentication integration to preserve; finance APIs must use the established server-authenticated route pattern rather than trust client-supplied tenant IDs.
+- `supabase/migrations/` contains exactly the four migration files reported by PR #131:
+  - `202610240001_alpaca_oauth.sql`
+  - `202610270001_mt5_customer_connections.sql`
+  - `202610290001_security_definer_marketplace_hardening.sql`
+  - `202610300001_nova_durable_approval_lifecycle.sql`
+- No finance-specific migration appears in this directory on the inspected main SHA.
+- Existing tests include `tests/chat-api-auth-order.test.mjs`, `tests/frontend-gen-ai-auth-order.test.mjs`, `tests/supabase-marketplace-security-migration.test.mjs`, and a local approval integration test. These may provide patterns, but must be inspected before reuse; they do not constitute finance contract coverage.
+- `integrations/mt5-readonly-bridge/test_tenant_guard.py` is broker-bridge tenant guard coverage, not proof of finance tenant isolation.
+- Repository search found the term `idempotency` in `workers/execution/README.md` and prompt/research documentation. The execution worker README explicitly says the worker is disabled and lists idempotency, risk approvals and audit logging as prerequisites. No reusable production payment idempotency implementation was identified.
+- Searches for an outbox, payment webhook inbox, finance audit log, private finance document storage or a finance ledger did not identify a reusable implementation. Search absence is not proof that no general-purpose helper exists; those helpers must be verified by code inspection before implementation.
+
+### Reuse / extend / new / defer matrix
+
+| Area | Decision | Reason / gate |
+|---|---|---|
+| Frontend and auth session | Reuse | Existing Next.js app and Supabase auth path; no second frontend |
+| Tenant authorization | Extend only after schema/identity contract review | Must reconcile canonical tenant identity and membership model; never accept client tenant IDs as authority |
+| Commercial catalog/order concepts | Reuse/align with PR #129 | Avoid duplicate commerce domain; PR is draft and requires review |
+| Approval | Reuse only through a typed, reviewed extension | PR #67 is strategy-draft scoped; do not silently convert it into finance approval |
+| Gateway adapters | New bounded module | No current payment integration identified; provider-neutral contract |
+| Payment event inbox/idempotency | New bounded module unless a verified common helper is found | No production payment/event dedupe implementation identified |
+| Ledger/accounting | New bounded module | No finance ledger or double-entry model identified |
+| Tax identity and document engine | New bounded module | No issuer-specific tax/e-Tax implementation identified |
+| e-Tax submission/signing | Defer to authorized route/provider | Requires issuer eligibility, certificate/authorization and RD-compatible XML/signing/retention |
+| Reconciliation | New bounded module | No payment settlement/bank reconciliation implementation identified |
+| Hosted migrations and RLS | Defer | Production/Staging ledger drift and PR #131 security findings remain blockers |
+| Live payment/refunds | Defer | Explicit owner gate; no provider account or operational authorization |
+
