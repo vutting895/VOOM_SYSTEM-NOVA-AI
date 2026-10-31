@@ -26,3 +26,22 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## Auto Flow draft endpoint
+
+- `POST /api/workflows/draft` requires a verified Supabase bearer session and accepts only `{"prompt":"..."}` (maximum 1,200 characters).
+- The existing Cloudflare Workers AI binding generates a data-only `nova.workflow.v1` proposal. Every result is validated against the server-owned node registry and graph validator before return.
+- This endpoint does not persist or execute workflows. Unsupported node types or invalid graphs are rejected; unavailable AI fails closed.
+- External effects, broker writes, order submission and Live Trading remain disabled.
+
+
+## Deterministic draft simulator
+
+The workflow contract exports \`simulateWorkflowDraft(draft, sampleData)\` for local, in-memory preview only. It revalidates input and emits a stable trace/output without persistence, schedules, provider calls, external effects, or broker actions. It is not a workflow runtime or production data connector.
+
+
+- `POST /api/workflows/simulate` accepts exactly a validated `draft` and bounded `sampleData` object after Supabase bearer authentication; it returns a deterministic in-memory preview only.
+- The NOVA frontend Flow Studio is available at `/flows`. Its same-origin `POST /api/workflows` proxy authenticates before parsing request content and forwards only the supported draft/simulate operations.
+- Flow Studio does not save, publish, schedule, or execute workflows. A `gate.review_required` node is a visual review marker only; it is not wired to durable approvals.
+
+- Workflow prompt and model-generated text fields pass through credential-pattern redaction before AI submission/return. Do not enter secrets; redaction is defense-in-depth and is not exhaustive.

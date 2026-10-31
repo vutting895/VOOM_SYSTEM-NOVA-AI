@@ -11,9 +11,10 @@ const items = [
   { label: 'Markets', href: '/markets', code: '03' },
   { label: 'AI Analysis', href: '/gen-ai', code: '04' },
   { label: 'Backtest', href: '/backtest', code: '05' },
-  { label: 'Learning Universe', href: '/learning-universe', code: '06' },
-  { label: 'Broker Hub', href: '/broker', code: '07' },
-  { label: 'Marketplace', href: '/marketplace', code: '08' },
+  { label: 'Flow Studio', href: '/flows', code: '06' },
+  { label: 'Learning Universe', href: '/learning-universe', code: '07' },
+  { label: 'Broker Hub', href: '/broker', code: '08' },
+  { label: 'Marketplace', href: '/marketplace', code: '09' },
 ];
 
 export default function NovaNavigation() {
