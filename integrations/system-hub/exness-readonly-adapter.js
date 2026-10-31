@@ -180,8 +180,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
     return credentials;
   }
 
-  async function discover(context) {
-    const c = await credentialsFor(context);
+  async function discover(c) {
     const path = "/v1/trading/access-point?account_id=" + c.accountId;
     const result = await signedGet({
       baseUrl: c.discoveryBaseUrl, apiKey: c.apiKey, privateKey: c.privateKey,
@@ -195,7 +194,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
 
   async function read(context, path) {
     const c = await credentialsFor(context);
-    const accessPoint = await discover(context);
+    const accessPoint = await discover(c);
     return signedGet({
       baseUrl: accessPoint, apiKey: c.apiKey, privateKey: c.privateKey,
       path, fetchImpl
