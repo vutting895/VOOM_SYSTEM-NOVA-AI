@@ -1,0 +1,33 @@
+.trading-market-page{width:min(1440px,100%);margin:0 auto;padding:clamp(20px,3vw,42px);color:#e7f3f7}
+.trading-market-header{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:20px}
+.trading-market-brand{color:#e9f8fb;text-decoration:none;font-size:12px;font-weight:900;letter-spacing:.12em}.trading-market-brand span{color:#73cbd4}
+.trading-market-eyebrow{margin:24px 0 8px;color:#79c8d2;font-size:9px;font-weight:900;letter-spacing:.18em}
+.trading-market-header h1{margin:0;font-size:clamp(32px,5vw,56px);letter-spacing:-.05em}.trading-market-header h1 em{color:#66d5df;font-style:normal;font-weight:500}
+.trading-market-intro{max-width:720px;color:#91aab6;font-size:12px;line-height:1.8}
+.trading-market-mode{display:grid;gap:7px;padding:14px 17px;border:1px solid #2b6257;border-radius:12px;background:#0d211f;color:#9fe3d0;font-size:9px;letter-spacing:.08em}.trading-market-mode strong{font-size:12px}
+.trading-market-guard{display:flex;gap:14px;align-items:center;margin:18px 0;padding:14px 17px;border:1px solid #655331;border-radius:11px;background:#211b12;color:#e6c994;font-size:11px;line-height:1.7}.trading-market-guard strong{white-space:nowrap}
+.trading-market-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:16px;border:1px solid #203847;border-radius:13px;background:#0b1722}
+.trading-market-controls label{display:grid;gap:6px;color:#83a4b1;font-size:9px;font-weight:850;letter-spacing:.1em}
+.trading-market-controls input,.trading-market-controls select{min-width:150px;padding:10px 12px;border:1px solid #355061;border-radius:8px;background:#07111b;color:#e8f5f8;font:inherit;font-size:12px}
+.trading-market-controls button{min-height:38px;padding:0 16px;border:1px solid #347b83;border-radius:8px;background:#12323a;color:#dffaff;font-size:10px;font-weight:850;cursor:pointer}.trading-market-controls button:disabled{opacity:.55;cursor:wait}
+.trading-market-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0;padding:12px 14px;border:1px solid #273b49;border-radius:10px;background:#0a151f}
+.trading-market-status p{flex:1;min-width:180px;margin:0;color:#b5c8d0;font-size:11px}.trading-market-status small{color:#76919e;font-size:9px}
+.trading-market-state{display:inline-flex;padding:6px 9px;border:1px solid #52616b;border-radius:30px;color:#b9cbd2;font-size:8px;font-weight:900;letter-spacing:.07em}
+.state-verified,.state-fresh{border-color:#28685a;color:#9be5ce}.state-pending,.state-stale{border-color:#745a31;color:#e8c58d}.state-not_configured,.state-unavailable,.state-invalid,.state-unknown{border-color:#704247;color:#efb0b5}
+.trading-market-price-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:15px 0}
+.trading-market-price-grid article{min-width:0;padding:16px;border:1px solid #263e4c;border-radius:12px;background:linear-gradient(145deg,#102330,#0a1722)}
+.trading-market-price-grid article span,.trading-market-price-grid article small{display:block;color:#7e9eaa;font-size:9px;letter-spacing:.08em}
+.trading-market-price-grid article strong{display:block;margin:9px 0;color:#e5f5f7;font-size:clamp(18px,2vw,25px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.trading-market-chart-panel{padding:18px;border:1px solid #27414f;border-radius:14px;background:#091620}
+.trading-market-chart-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.trading-market-chart-heading>div>span{color:#77b7c4;font-size:8px;font-weight:900;letter-spacing:.12em}.trading-market-chart-heading h2{margin:6px 0 0;color:#e5f5f7;font-size:17px}
+.market-candles{display:block;width:100%;height:clamp(240px,42vw,420px);margin-top:14px;overflow:visible}
+.market-grid-line{stroke:#233b49;stroke-width:1;stroke-dasharray:3 6}
+.market-candle-up line,.market-candle-up rect{stroke:#5bd3ad;fill:#5bd3ad;stroke-width:1}
+.market-candle-down line,.market-candle-down rect{stroke:#e38c8c;fill:#e38c8c;stroke-width:1}
+.market-chart-axis{fill:#6f8c99;font-size:11px}
+.market-chart-empty{display:grid;place-items:center;min-height:240px;color:#7996a2;font-size:11px}
+.trading-market-chart-foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:12px;border-top:1px solid #1e3542;color:#7896a2;font-size:9px}
+.trading-market-empty{margin-top:15px;padding:28px;border:1px dashed #52616b;border-radius:13px;background:#0b1721}.trading-market-empty strong{color:#e4c58f;font-size:15px}.trading-market-empty p{color:#9ab0ba;font-size:11px;line-height:1.8}.trading-market-empty a{color:#85dce4;font-size:10px;font-weight:850;text-decoration:none}
+.trading-market-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:25px;padding-top:13px;border-top:1px solid #203541;color:#678491;font-size:8px;font-weight:850;letter-spacing:.1em}
+@media(max-width:760px){.trading-market-header{align-items:flex-start;flex-direction:column}.trading-market-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.trading-market-mode{grid-template-columns:repeat(3,auto);align-items:center}.trading-market-mode strong{grid-column:1/-1}}
+@media(max-width:420px){.trading-market-controls{align-items:stretch;flex-direction:column}.trading-market-controls label,.trading-market-controls input,.trading-market-controls select,.trading-market-controls button{width:100%}.trading-market-status{align-items:flex-start;flex-direction:column}}
