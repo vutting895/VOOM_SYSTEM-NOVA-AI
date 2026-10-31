@@ -29,6 +29,7 @@ on:
       - "docs/security/NOVA-SEPARATE-SECRET-CUSTODY-THREAT-MODEL.md"
       - "docs/architecture/NOVA-SECRET-CUSTODY-API-DATA-CONTRACT.md"
       - "tools/secret-custody-proof/**"
+      - "integrations/secret-custody-worker/**"
   push:
     branches: [main]
     paths:
@@ -87,6 +88,9 @@ jobs:
       - name: Test separate Secret Custody API and idempotency contract
         working-directory: .
         run: node --test tools/secret-custody-proof/*.test.mjs
+      - name: Test synthetic-only Secret Custody Worker
+        working-directory: .
+        run: node --test integrations/secret-custody-worker/*.test.mjs
       - name: Test AI API authentication precedes payload validation
         working-directory: .
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
