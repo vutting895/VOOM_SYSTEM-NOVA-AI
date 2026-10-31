@@ -114,7 +114,7 @@ function accountPath(accountId, suffix) {
 function allowedRequest(path) {
   if (/^\/v1\/trading\/access-point\?account_id=[0-9]{1,20}$/.test(path)) return true;
   if (/^\/v1\/configuration\/accounts\/[0-9]{1,20}\/(account|limits|instruments)$/.test(path)) return true;
-  if (/^\/v1\/market-data\/accounts\/[0-9]{1,20}\/candles\?instrument=[A-Za-z0-9._-]{1,11}&timeframe=(S1|S5|S15|M1|M3|M5|M10|M15|M30|H1|H2|H4|D1|W1|MN)&from=[0-9A-Fa-fTZ.:%-]+&count=[1-9][0-9]{0,2}&price_type=(bid|ask|both)$/.test(path)) return true;
+  if (/^\/v1\/market-data\/accounts\/[0-9]{1,20}\/candles\?instrument=[A-Za-z0-9._-]{1,11}&timeframe=(S1|S5|S15|M1|M3|M5|M10|M15|M30|H1|H2|H4|D1|W1|MN)&from=[0-9A-Fa-fTZ.:%-]+&count=[1-9][0-9]{0,15}&price_type=(bid|ask|both)$/.test(path)) return true;
   return false;
 }
 
