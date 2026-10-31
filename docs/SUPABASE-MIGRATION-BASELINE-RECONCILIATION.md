@@ -495,3 +495,10 @@ These fingerprints are now the comparison baseline; do not claim schema parity f
 A third clean-replay lane is being added to test the proposed additive target: all 24 recovered Production migrations followed by the canonical repository migration `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql`. That approval SQL is byte-equivalent to the Staging ledger's recorded `nova_durable_approval_lifecycle` statement. The test expects 21 public tables, RLS on all 21, 25 local migration records, three approval policies, `extensions.digest`, least-privilege RPC grants, and SECURITY INVOKER public wrappers over SECURITY DEFINER private implementations.
 
 This is a **local forward-replay proof only**. If it passes, it supports a candidate migration path for Production; it does not authorize or perform applying the migration to Production, changing the Staging project, or claiming hosted parity. The Staging five legacy tables still require an explicit preserve/archive/retire decision and a non-destructive cutover plan.
+
+
+### 8.6 Staging legacy-table usage triage
+
+GitHub code search against the canonical NOVA repository `main` and the old `Voom_system/main` returned no code references for the five Staging-only legacy table names: `user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, and `latest_signal`. The current NOVA repository does reference the shared `broker_connections` table and the two approval tables.
+
+This supports classifying the five tables as **unreferenced legacy candidates**, not as proven safe to drop. Before any retirement, preserve a schema/data backup, check external integrations and historical logs, confirm row counts/ownership with the data owner, and obtain explicit approval. No table was dropped or altered.
