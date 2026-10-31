@@ -39,7 +39,10 @@ test("workflow proxy accepts only explicit draft and simulator operations", () =
 
 test("workflow proxy forwards only the verified bearer session to fixed Worker paths", () => {
   assert.match(proxyPost, /Authorization: request\.headers\.get\('authorization'\) \|\| ''/);
-  assert.match(proxyPost, /fetch\(aiWorkerBase \+ path/);
+  assert.match(proxyPost, /fetch\(workerUrl/);
+  assert.match(proxySource, /base\.protocol !== 'https:'/);
+  assert.match(proxySource, /base\.username \|\| base\.password \|\| base\.search \|\| base\.hash/);
+  assert.match(proxyPost, /const workerUrl = buildWorkerUrl\(path\)/);
   assert.match(proxyPost, /redirect: 'error'/);
   assert.match(proxyPost, /cache: 'no-store'/);
   assert.match(proxyPost, /AbortSignal\.timeout\(20000\)/);
