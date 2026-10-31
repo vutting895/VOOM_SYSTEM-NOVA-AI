@@ -34,7 +34,7 @@ test("workflow proxy accepts only explicit draft and simulator operations", () =
   assert.match(proxyPost, /exactKeys\(body, \['operation', 'draft', 'sampleData'\]\)/);
   assert.match(proxyPost, /path = '\/api\/workflows\/simulate'/);
   assert.match(proxyPost, /unsupported_workflow_operation/);
-  assert.match(proxyPost, /MAX_BODY_BYTES = 16 \* 1024/);
+  assert.match(proxySource, /MAX_BODY_BYTES = 16 \* 1024/);
 });
 
 test("workflow proxy forwards only the verified bearer session to fixed Worker paths", () => {
