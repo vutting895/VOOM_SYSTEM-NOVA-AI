@@ -26,3 +26,16 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+
+## Verified MT5 market analysis endpoint
+
+`POST /api/market/analyze` accepts only `connectionId`, exact MT5 `symbol`, `timeframe` and bounded `count`. The Worker forwards the signed-in user's Supabase bearer token to the fixed System Integration Hub origin; it does not accept a client-selected URL, tenant ID, account ID or upstream host. The Hub enforces owner-scoped connection access and the Bridge/Proxy verify the actual Demo/Live terminal environment.
+
+- Requires a Hub response with `dataVerified=true`, exact requested symbol/timeframe, at least 60 chronologically ordered valid OHLC candles, and a broker tick no older than 120 seconds.
+- Calculates EMA20, EMA50, Wilder RSI14 and ATR14 from the verified candles. It emits `bullish_watch`, `bearish_watch` or `neutral` as a research classification only.
+- Cloudflare Workers AI explains the computed indicators when available; if the AI binding fails, a deterministic explanation is returned. The model does not choose the classification or control any side effect.
+- The response includes source environment, provider timestamp, data freshness, indicator values and `riskStatus=not_evaluated`.
+- No entry price, lot size, stop/target order instruction, order authorization or broker mutation is produced. `executionEnabled`, `ordersEnabled` and `liveTradingEnabled` remain false.
+
+This is the first verified-data analysis slice. It is **not** the complete Wave3 + XGBoost + PyTorch LSTM + SMC production model stack, does not prove profitability, and is not a substitute for chronological out-of-sample evaluation or the deterministic Risk Engine.
