@@ -58,6 +58,20 @@ class PaperLedgerTests(unittest.TestCase):
         with self.assertRaisesRegex(PaperLedgerError, "idempotency_key_payload_conflict"):
             ledger.submit_proposal(**proposal(side="SELL"))
 
+    def test_proposal_id_replay_with_new_idempotency_key_does_not_double_fill(self):
+        ledger = PaperLedger()
+        first = ledger.submit_proposal(**proposal())
+        replay = ledger.submit_proposal(**proposal(idempotency_key="idem-duplicate"))
+        self.assertEqual(first, replay)
+        self.assertEqual(ledger.snapshot()["event_count"], 1)
+        self.assertEqual(ledger.snapshot()["positions"]["XAUUSD"]["quantity"], "1")
+
+    def test_proposal_id_cannot_be_reused_for_different_payload(self):
+        ledger = PaperLedger()
+        ledger.submit_proposal(**proposal())
+        with self.assertRaisesRegex(PaperLedgerError, "proposal_id_payload_conflict"):
+            ledger.submit_proposal(**proposal(idempotency_key="idem-002", side="SELL"))
+
     def test_rejects_unapproved_risk_decision(self):
         with self.assertRaisesRegex(PaperLedgerError, "risk_decision_not_approved_for_paper"):
             PaperLedger().submit_proposal(**proposal(risk_decision=DENIED))
