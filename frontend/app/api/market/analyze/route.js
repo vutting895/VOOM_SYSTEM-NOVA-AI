@@ -98,6 +98,10 @@ export async function POST(request) {
       typeof payload?.analysis?.rationale !== 'string' ||
       payload.analysis.rationale.length > 2000 ||
       payload?.analysis?.riskStatus !== 'not_evaluated' ||
+      payload?.analysis?.currentBarExcluded !== true ||
+      payload?.analysis?.smc?.ok !== true ||
+      payload?.analysis?.smc?.ordersSubmitted !== false ||
+      payload?.analysis?.smc?.liveTradingEnabled !== false ||
       payload.executionEnabled !== false ||
       payload.ordersEnabled !== false ||
       payload.liveTradingEnabled !== false
