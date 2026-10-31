@@ -1,4 +1,3 @@
-import hashlib
 import sys
 import tempfile
 import unittest
@@ -22,7 +21,7 @@ class Wave3CalendarHashTests(unittest.TestCase):
     def test_rejects_modified_calendar_bytes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "calendar.csv"
-            path.write_bytes(b"timestamp,impact\\n2026-01-01T00:00:00Z,high\\n")
+            path.write_bytes(b"timestamp,impact\n2026-01-01T00:00:00Z,high\n")
             with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):
                 verify_calendar_sha256(path)
 
@@ -34,5 +33,5 @@ class Wave3CalendarHashTests(unittest.TestCase):
                 verify_calendar_sha256(path, "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c")
 
 
-if __call__ == "__main__":
+if __name__ == "__main__":
     unittest.main()
