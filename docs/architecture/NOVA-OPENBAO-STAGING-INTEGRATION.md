@@ -90,6 +90,29 @@ The System Hub currently runs as a Cloudflare Worker. A private connection must 
 
 No Cloudflare tunnel, VPC service, hostname, Access policy, or Worker binding is created by this PR.
 
+### Verified low-cost hosting and private-connectivity assessment (2026-10-31)
+
+**Candidate host: OCI Always Free Ampere A1, subject to the tenancy Home Region and live capacity check.**
+
+Oracle documents up to 1,500 OCPU-hours and 9,000 GB-hours per month for Ampere A1, equivalent for an Always Free tenancy to 2 OCPUs and 12 GB RAM, plus 200 GB total Always Free block-volume storage. Always Free compute must be provisioned in the tenancy Home Region. The Console must explicitly label the selected shape and boot/block volumes as Always Free before creation. An `out of host capacity` error means capacity is temporarily unavailable; do not upgrade the tenancy or select a paid shape to work around it.
+
+**Important availability limitation:** Oracle documents reclamation of idle Always Free compute when CPU, network, and (for A1) memory utilization all remain below 20% at the 95th percentile over a 7-day period. An OpenBao Staging service with low traffic could meet this idle definition. Therefore OCI Always Free is a no-cost lab candidate, not a dependable always-on service or production host. Do not generate artificial load to evade reclamation. If the tenancy cannot accept this availability risk, stop and obtain approval for a budgeted host instead of silently enabling paid resources.
+
+**Private connectivity candidate: Cloudflare Workers VPC + Tunnel.**
+
+Cloudflare's current documentation states Workers VPC is in beta and available free on all Workers plans. It uses a Cloudflare Tunnel from the private network and a VPC Service binding from the Worker; this avoids exposing an inbound public port or public IP. The tunnel daemon must use QUIC (UDP port 7844 outbound) for Workers VPC. Beta availability and behavior can change, so validate the feature in the actual account before relying on it.
+
+**Proposed Staging shape if the availability risk is accepted:** one OCI Ampere A1 VM with 2 OCPUs / 12 GB RAM, persistent Always Free block storage within the account quota, OpenBao Raft single-node, and `cloudflared` on the same private host. Keep OpenBao bound to a private interface; expose only the VPC Service through the Workers VPC binding. Use a separate VPC Service for a minimal non-secret health endpoint during the connectivity proof. This is not HA and is not production-ready.
+
+**Decision:** OCI A1 + Workers VPC is the first option to test because its documented compute quota and beta VPC service may avoid recurring platform charges. It is conditional on Home Region capacity, the Console's Always Free labels, and explicit acceptance of idle reclamation. No resources are created by this assessment.
+
+References:
+- OCI Always Free compute and idle reclamation: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
+- OCI Free Tier FAQ and capacity notes: https://www.oracle.com/cloud/free/faq/
+- Cloudflare Workers VPC plan availability: https://developers.cloudflare.com/workers-vpc/
+- Cloudflare Workers VPC setup: https://developers.cloudflare.com/workers-vpc/get-started/
+- Cloudflare Tunnel QUIC requirements: https://developers.cloudflare.com/workers-vpc/configuration/tunnel/
+
 ## 5. Transit data model
 
 - Use a dedicated AES-256-GCM Transit key for the NOVA Staging credential purpose.
