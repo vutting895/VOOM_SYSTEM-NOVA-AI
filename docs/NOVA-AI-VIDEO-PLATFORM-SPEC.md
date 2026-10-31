@@ -5,6 +5,10 @@ Repository: vutting895/VOOM_SYSTEM-NOVA-AI
 Canonical branch: main
 Target: Cloud-first; GPU availability unknown; all video workflows.
 
+## Product delivery model — API service only
+
+NOVA AI Video Platform is delivered as a backend API service. The consumer-facing website/UI is independently built and hosted by the product owner and is outside this repository's Video Platform delivery scope. The API must support external web clients through bearer-token authentication and an exact-origin CORS allowlist. Do not add or redesign a NOVA Video frontend as a dependency of API delivery. Any existing `/video` page is a legacy/demo client only.
+
 ## Product scope
 
 One NOVA workspace for:
@@ -27,8 +31,8 @@ One NOVA workspace for:
 
 ## Proposed architecture
 
-1. NOVA Video Workspace: projects, assets, prompt/brief, job queue, results, export history and quota status.
-2. Control plane: existing NOVA Cloudflare Worker/API conventions and Supabase Auth/RLS.
+1. External client frontend: independently owned and hosted; consumes the documented NOVA Video API.
+2. API control plane: project/job/asset contracts, authentication, tenant isolation, quota checks and status responses using NOVA Supabase Auth/RLS.
 3. Job orchestration: provider-neutral adapter, idempotent dispatch, bounded retries and status callbacks.
 4. CPU lane: metadata validation, job coordination, scene detection, transcription orchestration and practical FFmpeg tasks.
 5. GPU lane: generation and accelerated vision; disabled until free compute is proven.
