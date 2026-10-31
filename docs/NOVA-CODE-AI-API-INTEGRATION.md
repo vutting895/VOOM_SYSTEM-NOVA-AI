@@ -23,7 +23,7 @@ The exact Base44 published origin is allowlisted in the code CORS helper. CORS i
 
 For the Base44 server-side adapter only, NOVA accepts `Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>` and `X-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62`. NOVA verifies the exact App ID and compares the configured token using a constant-time digest comparison. The tenant identity is read only from `NOVA_CODE_BASE44_TENANT_ID` in the server environment; caller-supplied tenant IDs are not trusted. Missing token or tenant configuration fails closed with 503; invalid credentials return 401; an unapproved App ID returns 403.
 
-Configure `NOVA_CODE_BASE44_SERVICE_TOKEN` (random secret, at least 32 characters) and `NOVA_CODE_BASE44_TENANT_ID` in the NOVA server environment. Never place either value in browser JavaScript, Git, public build variables or chat.
+Configure `NOVA_CODE_BASE44_SERVICE_TOKEN` (random secret, at least 32 characters) and `NOVA_CODE_BASE44_TENANT_ID` in the Netlify server-side environment for the NOVA API runtime. Never place either value in browser JavaScript, Git, public build variables or chat.
 
 ## Request example
 
