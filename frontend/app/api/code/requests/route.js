@@ -3,6 +3,7 @@ import {
   authenticateAgentRequest,
   readAgentJson,
 } from "../../../../lib/agent-approval-server.js";
+import { authenticateNovaCodeServiceRequest } from "../../../../lib/nova-code-ai-service-auth.js";
 import { novaCodeApiOptions, withNovaCodeCors } from "../../../../lib/nova-code-api-cors.js";
 
 export const runtime = "nodejs";
@@ -25,8 +26,17 @@ export async function OPTIONS(request) {
 }
 
 export async function POST(request) {
-  const auth = await authenticateAgentRequest(request);
-  if (!auth.ok) return withNovaCodeCors(request, auth.response);
+  // Base44 must call from a server-side adapter using the service token.
+  // Requests without the app identity retain the existing Supabase user-session path.
+  const serviceAuth = authenticateNovaCodeServiceRequest(request);
+  let auth;
+  if (serviceAuth.attempted) {
+    if (!serviceAuth.ok) return json(request, { error: serviceAuth.error }, serviceAuth.status);
+    auth = serviceAuth;
+  } else {
+    auth = await authenticateAgentRequest(request);
+    if (!auth.ok) return withNovaCodeCors(request, auth.response);
+  }
 
   const parsed = await readAgentJson(request, 12000);
   if (!parsed.ok) return withNovaCodeCors(request, parsed.response);
@@ -41,7 +51,7 @@ export async function POST(request) {
     return json(request, { error: "nova_code_task_invalid" }, 400);
   }
   if (body.repository !== undefined
-    && (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(body.repository))) {
+    && (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$/.test(body.repository))) {
     return json(request, { error: "nova_code_repository_invalid" }, 400);
   }
   if (body.base_ref !== undefined
@@ -52,8 +62,8 @@ export async function POST(request) {
     return json(request, { error: "nova_code_idempotency_key_invalid" }, 400);
   }
 
-  // This endpoint validates and acknowledges the request shape but deliberately does not enqueue,
-  // execute code, access a repository, or invoke a model until a reviewed runtime is deployed.
+  // Auth is implemented, but no durable job store or reviewed runtime exists yet.
+  // Never accept, enqueue, execute code, access repositories, or invoke a model at this stage.
   return json(request, {
     error: "nova_code_agent_runtime_not_enabled",
     requestAccepted: false,
