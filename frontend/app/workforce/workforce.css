@@ -1,0 +1,41 @@
+.nova-workforce{width:min(1420px,100%);margin:0 auto;padding:clamp(22px,3.5vw,48px) clamp(16px,3vw,42px) 34px;color:#e8f5fa}
+.nova-workforce-header{display:flex;align-items:flex-end;justify-content:space-between;gap:22px;margin-bottom:24px}
+.nova-workforce-eyebrow,.nova-workforce-kicker{display:inline-flex;align-items:center;gap:9px;color:#75b9c9;font-size:9px;font-weight:850;letter-spacing:.16em}
+.nova-workforce-eyebrow>span{width:18px;height:1px;background:#62e6f3}
+.nova-workforce-header h1{margin:15px 0 9px;color:#f1fbff;font-size:clamp(34px,5vw,58px);line-height:1.04;letter-spacing:-.055em}
+.nova-workforce-header h1 em{color:#62e6f3;font-style:normal;font-weight:450}
+.nova-workforce-header p{max-width:680px;margin:0;color:#91aebc;font-size:13px;line-height:1.8}
+.nova-workforce-back{flex:0 0 auto;padding:10px 13px;border:1px solid rgba(98,230,243,.22);color:#b8eaf0;background:rgba(7,20,33,.65);font-size:10px;font-weight:800}
+.nova-workforce-notice{display:flex;align-items:flex-start;gap:12px;padding:15px 17px;border:1px solid rgba(255,189,159,.24);background:rgba(54,39,18,.36)}
+.nova-workforce-notice-icon{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;border:1px solid rgba(255,189,159,.35);border-radius:50%;color:#f1c6a8;font-size:12px;font-weight:800}
+.nova-workforce-notice strong{display:block;color:#f1c6a8;font-size:11px}
+.nova-workforce-notice p{margin:5px 0 0;color:#c3a88f;font-size:11px;line-height:1.75}
+.nova-workforce-preview-tag{margin-left:auto;color:#9d8875;font-size:8px;font-weight:850;letter-spacing:.1em;white-space:nowrap}
+.nova-workforce-readiness{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0 34px}
+.nova-workforce-readiness-card{min-width:0;padding:15px 16px;border:1px solid rgba(80,209,231,.15);background:linear-gradient(145deg,rgba(9,31,43,.8),rgba(5,17,27,.88))}
+.nova-workforce-readiness-card>span{display:block;color:#8eb0bc;font-size:10px;font-weight:750}
+.nova-workforce-readiness-card>strong{display:block;margin:11px 0 5px;color:#d6e8ed;font-size:27px;font-weight:500}
+.nova-workforce-readiness-card>small{color:#688b99;font-size:9px;line-height:1.6}
+.nova-workforce-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:15px}
+.nova-workforce-section-heading h2{margin:8px 0 0;color:#e8f7fa;font-size:clamp(20px,2.5vw,27px);letter-spacing:-.035em}
+.nova-workforce-section-meta{color:#648997;font-size:9px;line-height:1.6;text-align:right}
+.nova-workforce-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.nova-workforce-card{display:flex;flex-direction:column;min-width:0;min-height:220px;padding:18px;border:1px solid rgba(80,209,231,.16);background:linear-gradient(145deg,rgba(9,31,43,.83),rgba(5,17,27,.92))}
+.nova-workforce-card-top{display:flex;align-items:center;justify-content:space-between}
+.nova-workforce-card-icon{display:grid;place-items:center;width:35px;height:35px;border:1px solid rgba(98,230,243,.22);color:#8de7ef;background:rgba(14,90,107,.17);font-size:18px}
+.nova-workforce-card-code{color:#4f7888;font-size:9px;letter-spacing:.12em}
+.nova-workforce-card h3{margin:16px 0 7px;color:#dff5f8;font-size:14px}
+.nova-workforce-card>p{margin:0 0 13px;color:#87a6b2;font-size:10px;line-height:1.75}
+.nova-workforce-card-state{display:flex;align-items:center;gap:7px;margin-top:auto;padding-top:11px;border-top:1px solid rgba(80,209,231,.1);color:#c3aa8f;font-size:8px;font-weight:900;letter-spacing:.1em}
+.nova-workforce-card-state>span{width:5px;height:5px;border-radius:50%;background:#d2a77d}
+.nova-workforce-card>small{margin-top:7px;color:#648491;font-size:9px;line-height:1.55}
+.nova-workforce-governance{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px;margin-top:18px;padding:clamp(18px,3vw,27px);border:1px solid rgba(80,209,231,.17);background:linear-gradient(120deg,rgba(8,27,39,.92),rgba(6,17,29,.9))}
+.nova-workforce-governance h2{margin:9px 0;color:#e5f7fa;font-size:clamp(18px,2.4vw,25px);letter-spacing:-.035em}
+.nova-workforce-governance p{margin:0;color:#89a7b2;font-size:11px;line-height:1.8}
+.nova-workforce-governance ul{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.nova-workforce-governance li{display:grid;gap:4px;padding:10px 12px;border-left:2px solid rgba(98,230,243,.45);background:rgba(3,14,23,.45)}
+.nova-workforce-governance li strong{color:#bdebf0;font-size:10px}
+.nova-workforce-governance li span{color:#7898a4;font-size:9px;line-height:1.6}
+.nova-workforce-footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px;padding-top:13px;border-top:1px solid rgba(80,209,231,.12);color:#547988;font-size:8px;font-weight:800;letter-spacing:.1em}
+@media(max-width:980px){.nova-workforce-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.nova-workforce-readiness{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.nova-workforce-header{align-items:flex-start;flex-direction:column}.nova-workforce-notice{flex-wrap:wrap}.nova-workforce-preview-tag{margin-left:36px}.nova-workforce-section-heading{align-items:flex-start;flex-direction:column}.nova-workforce-section-meta{text-align:left}.nova-workforce-grid{grid-template-columns:minmax(0,1fr)}.nova-workforce-governance{grid-template-columns:minmax(0,1fr);gap:18px}}
