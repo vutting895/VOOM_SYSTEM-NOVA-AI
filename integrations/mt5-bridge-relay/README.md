@@ -4,7 +4,7 @@ This Worker removes the custom-domain and named-Tunnel dependency from the Windo
 
 https://voom-mt5-bridge-relay.suwapat787.workers.dev
 
-The Windows process opens an outbound authenticated WSS connection to /connect. A Durable Object holds one session per opaque tenant ID and forwards only allowlisted GET requests to that tenant's loopback-only FastAPI service at 127.0.0.1:8787. The Windows origin never needs a public DNS record, custom domain, public port, or cloudflared process.
+The Windows process opens an outbound authenticated WSS connection to /connect. A Durable Object holds one session per opaque tenant ID and forwards only allowlisted GET requests to that tenant's loopback-only FastAPI service at 127.0.0.1:8787. A Demo connection and a Live connection must use distinct connection records, tenant IDs, route tokens and the correct logged-in terminal environment. The Windows origin never needs a public DNS record, custom domain, public port, or cloudflared process.
 
 ## Safety properties
 
@@ -25,14 +25,14 @@ For the current single-tenant setup only, run tools/windows/provision-mt5-relay-
 
 ## Windows startup
 
-Use tools/windows/run-bridge-from-git.ps1 from the same Windows user session as the intended Exness Demo MT5 terminal. The bootstrap refreshes the source from main, installs requirements, and runs run-bridge.ps1. That script launches the local Bridge and maintains the outbound relay connection with retry/backoff. It does not use a custom domain, named Cloudflare Tunnel, or expose port 8787 publicly.
+Use tools/windows/run-bridge-from-git.ps1 from the same Windows user session as the intended Exness Demo or Live MT5 terminal. The bootstrap refreshes the source from main, installs requirements, and runs run-bridge.ps1. That script launches the local Bridge and maintains the outbound relay connection with retry/backoff. It does not use a custom domain, named Cloudflare Tunnel, or expose port 8787 publicly.
 
 ## Verification required before connecting the database row
 
 1. Confirm the relay Worker health returns status relay_ready and all order/live execution flags are false.
 2. Confirm unauthenticated requests return 401 and invalid/mismatched tenant credentials fail closed.
 3. Provision MT5_TENANT_ROUTES privately and start the Windows bridge relay client.
-4. Confirm one authenticated Bridge session is live for the intended tenant and authenticated read-only health returns terminal_connected=true and account_session_available=true.
+4. Confirm one authenticated Bridge session is live for the intended tenant and authenticated read-only health returns terminal_connected=true, account_session_available=true and the expected environment. The System Hub separately compares the actual MT5 trade_mode to the stored Demo/Live environment.
 5. Confirm the signed-in user's request reaches only their own route and can read account/quote data.
 6. Only then assign the matching bridge_route_id and change the broker_connections row from pending to connected.
 
