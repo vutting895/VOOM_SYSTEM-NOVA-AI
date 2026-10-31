@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '../lib/supabase-browser';
+import './dashboard.css';
 
 const workspaces = [
   { label: 'AI Workspace', description: 'Chat, research and agent-assisted work', href: '/chat', tag: 'INTELLIGENCE', icon: '✦' },
