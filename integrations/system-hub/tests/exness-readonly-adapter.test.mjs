@@ -147,6 +147,7 @@ test("candles are bounded, account-instrument scoped, chronologically validated 
       if (parsed.pathname.endsWith("/instruments")) {
         return Response.json({ instruments: ["EURUSD"] });
       }
+      if (parsed.pathname.endsWith("/limits")) return Response.json({ limits: { rest: { methods: [{ http_method: "GET", path: "/v1/market-data/accounts/{account_id}/candles", limits: { max_candles_per_request: 100, history_age_days: 365 } }] } } });
       if (parsed.pathname.endsWith("/candles")) {
         assert.equal(parsed.searchParams.get("instrument"), "EURUSD");
         assert.equal(parsed.searchParams.get("timeframe"), "M5");
