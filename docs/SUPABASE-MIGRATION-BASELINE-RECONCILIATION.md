@@ -581,3 +581,13 @@ A separate read-only query of `information_schema.role_table_grants` confirms **
 All five tables currently report RLS enabled and zero RLS policies. Under PostgreSQL RLS this means the absence of policies is default-deny for browser roles; it does not make the broad grants harmless. The broad grants create a latent exposure if RLS is ever disabled or bypassed and are why the Security Advisor flags these tables. No row contents were queried and no grant/policy was changed.
 
 **Required decision before Staging reuse or cutover:** preserve and classify these tables, then use a reviewed least-privilege plan to revoke unnecessary browser-role grants and/or retire them only after backup, external-integration checks and data-owner approval. Do not add permissive policies just to clear the Advisor finding, and do not delete or reset the tables as part of migration recovery.
+
+
+### 8.12 Exact-head verification after current Production fingerprint capture
+
+On PR #109 head `d716e06af990cc65180932f24c720dca9691a000`, both required repository checks completed successfully:
+
+- [Supabase Recovered History Replay — run #41179424376](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179424376): Production 24-migration historical replay, Staging 2-migration replay, and Production-plus-NOVA 25-migration replay with full comparison against the captured current 21-table Production catalog all passed.
+- [Frontend CI — run #41179424354](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179424354): passed on the same head.
+
+The full current Production fingerprint comparison is therefore verified on that exact head. This proves local replay equivalence to the captured Production catalog at that point in time; it does not make Staging equivalent, approve any hosted database write, or authorize a cutover. PR #109 remains Draft/unmerged pending review of the Staging legacy grants, out-of-band table disposition and delivery-plan acceptance.
