@@ -95,6 +95,9 @@ jobs:
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
+      - name: Test Flow Studio authenticated proxy and draft-only UI contracts
+        working-directory: .
+        run: node --test tests/workflow-api-proxy-contract.test.mjs
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-*.test.mjs
