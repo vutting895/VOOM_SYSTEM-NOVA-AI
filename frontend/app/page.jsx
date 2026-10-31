@@ -12,6 +12,7 @@ const workspaces = [
   { label: 'Backtest Lab', description: 'Review reproducible strategy evaluations', href: '/backtest', tag: 'QUANT', icon: '▥' },
   { label: 'Broker Hub', description: 'Review broker connection and read-only access', href: '/broker', tag: 'CONNECTIVITY', icon: '⌘' },
   { label: 'Learning Universe', description: 'Learning modules and governed feedback loops', href: '/learning-universe', tag: 'LEARNING', icon: '◎' },
+  { label: 'Workforce & AI Agents', description: 'Organization, approved Agent roles and human review', href: '/workforce', tag: 'OPERATIONS', icon: '◈' },
   { label: 'Marketplace', description: 'Browse strategy and capability catalogues', href: '/marketplace', tag: 'ECOSYSTEM', icon: '▦' },
   { label: 'Customer Workspace', description: 'Open your personal command center', href: '/command-center', tag: 'WORKSPACE', icon: '↗' },
 ];
