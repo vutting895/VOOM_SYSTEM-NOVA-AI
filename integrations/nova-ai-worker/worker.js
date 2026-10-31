@@ -1,5 +1,5 @@
 import { classifyResearchIntent } from "./intent-contract.js";
-import { generateWithProviderGateway } from "./provider-gateway.js";
+import { generateWithProviderGateway, redactProviderText } from "./provider-gateway.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
   "https://voom-system-nova-ui.suwapat787.workers.dev"
@@ -45,7 +45,7 @@ export function validateInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw Object.assign(new Error("invalid_json_object"), { status: 400 });
   }
-  const prompt = typeof value.prompt === "string" ? value.prompt.trim() : "";
+  const prompt = typeof value.prompt === "string" ? redactProviderText(value.prompt.trim()) : "";
   const market = typeof value.market === "string" ? value.market.trim() : "BTC/USDT";
   const timeframe = value.timeframe ?? "1h";
   const risk = value.risk ?? "medium";
@@ -78,7 +78,7 @@ function validateChatInput(value) {
   if (messages[messages.length - 1].role !== "user" || !messages.some((message) => message.role === "user")) {
     throw Object.assign(new Error("invalid_conversation_order"), { status: 400 });
   }
-  return messages.map(({ role, content }) => ({ role, content: content.trim() }));
+  return messages.map(({ role, content }) => ({ role, content: redactProviderText(content.trim()) }));
 }
 
 function safeAuthDiagnostic(error) {
@@ -156,6 +156,23 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
 }
+
+async function enforceAiRateLimit(env, userId) {
+  const limiter = env?.AI_RATE_LIMITER;
+  if (typeof userId !== "string" || !userId || !limiter || typeof limiter.limit !== "function") {
+    return { ok: false, status: 503, error: "ai_rate_limiter_unavailable" };
+  }
+  try {
+    const result = await limiter.limit({ key: "user:" + userId });
+    if (!result || result.success !== true) {
+      return { ok: false, status: 429, error: "ai_rate_limit_exceeded" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, status: 503, error: "ai_rate_limiter_unavailable" };
+  }
+}
+
 function fallback(input, reason = "AI binding unavailable") {
   const prompt = input.prompt.toLowerCase();
   const key = input.risk === "low" ? "conservative"
@@ -301,6 +318,10 @@ export default {
     }
     const auth = await authenticateRequest(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin);
+    if (request.method === "POST" && ["/api/chat", "/api/gen-ai/generate"].includes(url.pathname)) {
+      const rate = await enforceAiRateLimit(env, auth.userId);
+      if (!rate.ok) return fail(rate.error, rate.status, origin);
+    }
     if (request.method === "GET" && url.pathname === "/api/marketplace") {
       return json({ items: catalog, count: catalog.length, source: "built-in-starter-catalog", liveTrading: false }, 200, origin);
     }
