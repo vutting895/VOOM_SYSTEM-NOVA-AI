@@ -40,10 +40,10 @@ CAPS = {
     "qa_test": "capability.qa_plan",
 }
 INPUTS = {
-    "research": "evidence.research_1",
-    "engineering": "repo.snapshot_1",
-    "review": "repo.diff_1",
-    "qa_test": "test.fixture_1",
+    "research": "synthetic.evidence.research_1",
+    "engineering": "synthetic.repo.snapshot_1",
+    "review": "synthetic.repo.diff_1",
+    "qa_test": "synthetic.test.fixture_1",
 }
 
 
@@ -90,7 +90,7 @@ class TeamLeadShadowPlanTests(unittest.TestCase):
             actor_ref="actor.user_123",
             owner_ref="owner.user_123",
             capability_ceiling=frozenset({"capability.coordinate", *CAPS.values()}),
-            allowed_input_refs=frozenset(set(INPUTS.values()) | {"evidence.extra"}),
+            allowed_input_refs=frozenset(set(INPUTS.values()) | {"synthetic.evidence.extra"}),
             deadline=DEADLINE,
             budget_ceiling=PARENT_BUDGET,
             tenant_ref=None,
@@ -157,7 +157,22 @@ class TeamLeadShadowPlanTests(unittest.TestCase):
         self.assertFalse(plan.execution_enabled)
         self.assertFalse(plan.persistence_enabled)
         self.assertFalse(plan.external_io_enabled)
+        self.assertFalse(plan.customer_data_enabled)
         self.assertEqual(plan.reserved_budget, PARENT_BUDGET)
+
+    def test_rejects_non_synthetic_parent_input(self):
+        task = replace(self.parent_task, input_refs=("customer.record_1",))
+        authorization = replace(
+            self.parent_auth,
+            allowed_input_refs=frozenset({"customer.record_1"}),
+        )
+        with self.assertRaisesRegex(ContractError, "synthetic fixture references only"):
+            build_shadow_delegation_plan(
+                task,
+                parent_authorization=authorization,
+                child_proposals=self.children,
+                team_registry=self.registry,
+            )
 
     def test_rejects_incomplete_team_plan(self):
         with self.assertRaisesRegex(ContractError, "exactly four"):
@@ -170,8 +185,8 @@ class TeamLeadShadowPlanTests(unittest.TestCase):
 
     def test_rejects_child_input_outside_parent_task_scope(self):
         child = self.children[0]
-        changed_task = replace(child.task, input_refs=("evidence.extra",))
-        changed_auth = replace(child.authorization, allowed_input_refs=frozenset({"evidence.extra"}))
+        changed_task = replace(child.task, input_refs=("synthetic.evidence.extra",))
+        changed_auth = replace(child.authorization, allowed_input_refs=frozenset({"synthetic.evidence.extra"}))
         proposals = (replace(child, task=changed_task, authorization=changed_auth), *self.children[1:])
         with self.assertRaisesRegex(ContractError, "included in the parent task scope"):
             build_shadow_delegation_plan(
