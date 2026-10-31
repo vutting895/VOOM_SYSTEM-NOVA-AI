@@ -114,8 +114,8 @@ export function validateMarketAnalysisInput(value) {
   if (!CONNECTION_ID.test(connectionId)) throw Object.assign(new Error("valid_connection_id_required"), { status: 400 });
   if (!MT5_SYMBOL.test(symbol)) throw Object.assign(new Error("valid_mt5_symbol_required"), { status: 400 });
   if (!MT5_TIMEFRAMES.has(timeframe)) throw Object.assign(new Error("unsupported_mt5_timeframe"), { status: 400 });
-  if (!Number.isInteger(count) || count < 60 || count > 500) {
-    throw Object.assign(new Error("count_must_be_between_60_and_500"), { status: 400 });
+  if (!Number.isInteger(count) || count < 61 || count > 500) {
+    throw Object.assign(new Error("count_must_be_between_61_and_500"), { status: 400 });
   }
   return { connectionId, symbol, timeframe, count };
 }
@@ -338,7 +338,8 @@ function deterministicMarketExplanation(features) {
   return "EMA20 " + features.indicators.ema20 + " เทียบ EMA50 " + features.indicators.ema50
     + " ให้แนวโน้ม " + features.trend + "; RSI14 " + features.indicators.rsi14
     + " ให้โมเมนตัม " + features.momentum + "; ATR14 " + features.indicators.atr14
-    + " (" + features.indicators.atrPct + "% ของราคาปิด). ผลนี้เป็น market-research watch เท่านั้น ไม่ใช่คำสั่งซื้อขาย.";
+    + " (" + features.indicators.atrPct + "% ของราคาปิด); SMC structure " + features.smc.structureBias
+    + " และ confluence " + features.smc.confluenceCount + ". ผลนี้เป็น market-research watch เท่านั้น ไม่ใช่คำสั่งซื้อขาย.";
 }
 
 async function explainMarketWithAI(env, features, input) {
@@ -352,7 +353,7 @@ async function explainMarketWithAI(env, features, input) {
       messages: [
         {
           role: "system",
-          content: "You are NOVA market research analyst. Explain only the supplied verified technical features in the user's language. Do not invent prices, news, account data, probabilities, backtest results or order instructions. Do not tell the user to buy or sell. Clearly state that the classification is a research watch, not an order."
+          content: "You are NOVA market research analyst. Explain only the supplied verified EMA/RSI/ATR and SMC structure, FVG, order-block, liquidity-sweep and confluence features in the user's language. Do not invent prices, news, account data, probabilities, backtest results or order instructions. Do not tell the user to buy or sell. Clearly state that the classification is a research watch, not an order."
         },
         {
           role: "user",
