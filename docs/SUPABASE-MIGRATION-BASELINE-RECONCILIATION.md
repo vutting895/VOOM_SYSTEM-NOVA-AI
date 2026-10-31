@@ -553,3 +553,22 @@ The owner approved the explicitly described Production additive migration and th
 - Staging legacy preservation: **COMPLETE — unchanged**.
 - Staging schema alignment/cutover: **OPEN — requires secure backup/export and review of out-of-band legacy tables and broker service-role permissions**.
 - PR #109 remains Draft/open/unmerged. No merge or production frontend deployment occurred. Exness Demo remains read-only; Order Submission OFF; Live Trading OFF.
+
+
+### 8.10 Refreshed hosted state after durable approval rollout — 2026-10-31
+
+A fresh read-only Supabase MCP inventory after the prior replay work shows the Production runtime has advanced since the original 24-migration snapshot:
+
+- Production project `tlyyxufuiimrbaksoitf`: **25 migration rows and 21 public tables**. The additional row is version `20261031070311`, name `nova_durable_approval_lifecycle`.
+- The Production ledger statement for that row was retrieved read-only and compared with `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql` from canonical `main`: **exact text match, 15,377 characters**. The current Production schema therefore contains the same approval migration content as the canonical repository file, with a different applied-ledger timestamp/version.
+- Production now includes `nova_agent_threads` and `nova_approval_requests`; both are RLS-enabled. Their current row counts are zero. No row contents were read.
+- Staging/candidate project `rovhmjeowracayicbqij` remains at **2 migration rows and 8 public tables**. Five tables (`user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, `latest_signal`) remain outside the two-row migration history. All five have RLS enabled but no policies, and the Supabase Security Advisor reports them as `rls_enabled_no_policy`. Their current row counts are zero; this does not prove that no external integration or archive depends on them.
+- Production and Staging remain structurally different. This update does not claim parity or authorize deleting, resetting, merging, or migrating either hosted project.
+
+A fresh schema-only Production fingerprint was captured read-only and added as `supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json` (21 tables, 193 columns, 24 policies, 21 public/private functions, and 199 role-table grant rows). The older `production.json` remains the historical 24-migration / 19-table baseline. The `production-plus-nova` disposable replay lane now normalizes only local Supabase bootstrap ACL differences and compares the resulting fingerprint against the new current-Production snapshot. This exact-head comparison is pending CI; no hosted write was performed.
+
+Additional advisor findings from the read-only inventory:
+- Production: Auth leaked-password protection is not enabled; enablement requires an explicit provider-console decision. The `nova_approval_owner_thread_fk` has no covering index; this is an informational performance finding and should be addressed only through a reviewed additive migration after baseline approval.
+- Staging: five legacy tables have RLS enabled without policies. Preserve them while external ownership and usage are investigated; do not add permissive policies merely to silence the advisor.
+
+**Current disposition:** the durable approval migration is present in Production and Staging, and the exact Production ledger SQL matches canonical `main`. Production local replay equivalence is awaiting the new 21-table fingerprint CI. Staging legacy-table classification and cross-environment parity remain open. This is not authorization for Team Lead task persistence or runtime delegation.
