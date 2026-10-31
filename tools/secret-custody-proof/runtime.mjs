@@ -149,7 +149,7 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
       let connection;
       let binding;
       try {
-        connection = await resolveConnection(principal.subject, body.connection_id);
+        connection = await resolveConnection(principal.subject, body.connection_id, principal);
         if (!connection || connection.ownerId !== principal.subject ||
             connection.connectionId !== body.connection_id) {
           return response(404, { state: "FAILED_FINAL", result_code: "NOT_FOUND" });
