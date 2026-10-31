@@ -23,6 +23,7 @@ test("Gemini is primary by default and sends key only in the header", async () =
   assert.equal(result.fallbackFrom, null);
   assert.equal(result.text, "Gemini answer");
   assert.equal(request.url, "https://generativelanguage.googleapis.com/v1beta/interactions");
+  assert.equal(JSON.parse(request.init.body).model, "gemini-3.8-flash");
   assert.equal(request.init.headers["x-goog-api-key"], "test-gemini-secret");
   assert.equal(request.url.includes("test-gemini-secret"), false);
   assert.equal(JSON.stringify(result).includes("test-gemini-secret"), false);
@@ -58,6 +59,25 @@ test("Anthropic adapter is selected only by server-side provider config", async 
   assert.equal(request.url, "https://api.anthropic.com/v1/messages");
   assert.equal(request.init.headers["x-api-key"], "test-anthropic-secret");
   assert.equal(JSON.stringify(result).includes("test-anthropic-secret"), false);
+});
+
+test("credential-like user content is redacted before any provider receives it", async () => {
+  let requestBody = "";
+  globalThis.fetch = async (_url, init) => {
+    requestBody = init.body;
+    return new Response(JSON.stringify({
+      status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "text", text: "Safe response" }] }],
+    }), { status: 200 });
+  };
+  const secret = "AIzaSyDUMMYKEY12345678901234567890";
+  await generateWithProviderGateway({ GEMINI_API_KEY: "provider-test-key" }, [
+    { role: "system", content: "Research only." },
+    { role: "user", content: "Please inspect this api_key=" + secret + " and Bearer abcdefghijklmnopqrstuvwxyz123456" },
+  ]);
+  assert.equal(requestBody.includes(secret), false);
+  assert.equal(requestBody.includes("abcdefghijklmnopqrstuvwxyz123456"), false);
+  assert.match(requestBody, /\[REDACTED\]/);
 });
 
 test("failed Gemini request falls back to Cloudflare AI with provenance", async () => {
