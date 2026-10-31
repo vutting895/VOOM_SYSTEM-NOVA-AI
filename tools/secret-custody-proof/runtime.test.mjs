@@ -177,9 +177,9 @@ test("Supabase auth outage is retryable and distinct from an invalid session", a
   let connectionLookups = 0;
   const { calls, deps } = await fixture(t, {
     verifySession: async () => { throw new Error("SUPABASE_UNAVAILABLE"); },
-    resolveConnection: async (...args) => {
+    resolveConnection: async () => {
       connectionLookups++;
-      return deps.resolveConnection(...args);
+      return null;
     }
   });
   const runtime = createCustodyRuntime(deps);
