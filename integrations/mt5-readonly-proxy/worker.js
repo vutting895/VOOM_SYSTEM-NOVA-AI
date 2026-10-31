@@ -141,7 +141,7 @@ async function loadConnection(request, env, user) {
     const rows = await response.json();
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row) return { ok: false, status: 404, error: "connection_not_found" };
-    if (row.provider !== "exness_mt5" || row.environment !== "demo") {
+    if (row.provider !== "exness_mt5" || !["demo", "live"].includes(row.environment)) {
       return { ok: false, status: 403, error: "broker_or_environment_not_allowed" };
     }
     if (row.status !== "connected" || !row.bridge_route_id) {
