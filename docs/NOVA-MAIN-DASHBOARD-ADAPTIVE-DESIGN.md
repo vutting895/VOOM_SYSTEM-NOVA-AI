@@ -1,6 +1,6 @@
 # NOVA Main Dashboard — Adaptive Design and Delivery Plan
 
-**Status:** Dashboard implementation is in PR #146 (ready for review); Workforce P1 UI is in PR #148 (ready for review, stacked on #146). Neither implementation PR is merged to `main`.  
+**Status:** Dashboard and Workforce P1 UI are tracked in implementation PR #146. PR #148 was merged into PR #146's feature branch, not into `main`; PR #146 remains the active implementation review. Always use the current PR head SHA and latest checks as the verification source.
 **Canonical repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Base:** `main` at `a2acfd8ec9b598e6593413549bef760e8f596a72`  
 **Primary frontend:** `frontend/` (Next.js; Netlify target)  
@@ -161,7 +161,7 @@ AI must not change authorization, RLS, tenant routing, broker capabilities, exec
 - `/` has a responsive command-dashboard layout with workspace shortcuts and explicit unavailable market-data states.
 - The existing `/command-center` route remains unchanged and owner-scoped.
 - Exness / MT5 Demo presentation is corrected without changing broker runtime configuration.
-- Exact-head Frontend CI passed and the Netlify Preview is ready; human review remains required.
+- CI, Preview and visual-review status are mutable evidence; use the latest exact-head results recorded on PR #146 rather than carrying forward earlier SHA results.
 
 ### D2 — Widget and module registry
 - Introduce typed, versioned module/widget manifests.
@@ -180,8 +180,9 @@ AI must not change authorization, RLS, tenant routing, broker capabilities, exec
 - Allow AI to propose composition changes, never auto-publish them.
 
 ### D5 — Verification and release
-- PR #146 exact-head Frontend CI passed and Netlify Preview is ready for review.
-- PR #148 exact-head Frontend CI passed; its Netlify Preview is not yet available because it is stacked on #146 and no exact-head Netlify deploy/check has been produced.
+- Dashboard and Workforce P1 UI are now combined on PR #146's feature branch after PR #148 was merged into that branch; neither change is in `main` until PR #146 itself merges.
+- Re-run and record Frontend CI and Netlify Preview against the current exact PR #146 head after every material branch update.
+- A skipped smoke test, canceled/no-content-change Preview, or stale Preview is not a successful runtime verification.
 - Human visual review at desktop/tablet/mobile and any required accessibility/route checks remain open.
 - Do not release to Production until exact-head evidence, human approval and the canonical delivery plan's release gates are satisfied.
 
