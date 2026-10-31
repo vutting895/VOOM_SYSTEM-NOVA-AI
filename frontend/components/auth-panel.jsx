@@ -172,7 +172,7 @@ export default function AuthPanel({ mode = 'login' }) {
           {isRegister && (
             <label className="nova-auth-consent">
               <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} disabled={busy} />
-              <span>ฉันยืนยันว่าต้องการสร้างบัญชี NOVA และยอมรับข้อกำหนดการใช้บริการที่แสดงในระบบ</span>
+              <span>ฉันยืนยันว่ามีสิทธิ์ใช้อีเมลนี้และต้องการสร้างบัญชี NOVA</span>
             </label>
           )}
           <div className="nova-label">ยืนยัน CAPTCHA</div>
