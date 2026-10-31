@@ -4,7 +4,7 @@ $secretRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\secrets'
 $tenantPath = Join-Path $secretRoot 'mt5-tenant-id.txt'
 
 if (-not (Test-Path $tenantPath)) {
-    throw 'Bridge tenant ID file is missing. Provision one dedicated Demo account before starting.'
+    throw 'Bridge tenant ID file is missing. Provision one dedicated Demo or Live account before starting.'
 }
 $env:MT5_TENANT_ID = [System.IO.File]::ReadAllText($tenantPath).Trim()
 if ($env:MT5_TENANT_ID -notmatch '^[A-Za-z0-9_-]{8,100}$') {
