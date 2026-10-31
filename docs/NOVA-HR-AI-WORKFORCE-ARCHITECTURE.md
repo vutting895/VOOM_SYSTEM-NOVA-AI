@@ -1,6 +1,6 @@
 # NOVA HR & AI Workforce — Architecture and Delivery Plan
 
-**Status:** Architecture proposal; implementation not started  
+**Status:** Architecture approved in the PR branch; P1 UI implementation in progress (Draft PR #148, stacked on Dashboard PR #146)  
 **Canonical repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Base chain:** `main` → Draft PR #143 (Adaptive NOVA Main Dashboard) → this proposal  
 **Main baseline SHA:** `a2acfd8ec9b598e6593413549bef760e8f596a72`  
@@ -229,7 +229,7 @@ Existing NOVA invariant remains: Exness Demo only; read-only + AI analysis; orde
 2. Capture current Dashboard behavior at desktop/tablet/mobile and resolve the single navigation owner in a separate implementation PR.
 3. Review this Workforce architecture with the owner and security reviewer.
 4. Close the PR #109 migration-baseline gate before any Workforce schema PR.
-5. Start P1 as a focused dashboard-only implementation, using verified states and mock-free empty states; do not add employee or Agent data until a trusted API exists.
+5. **P1 started:** Draft PR #148 adds the Workforce dashboard entry and a read-only `/workforce` UI foundation on top of Dashboard implementation PR #146. Exact-head CI and Netlify Preview remain pending; do not add employee or Agent data until a trusted API exists.
 6. Create the HR Core schema/API PR only after P0/P1 review and migration parity evidence.
 
-**Current status:** design only. No application code, migration, provider setting, secret, employee record, Agent runtime, or production deployment is changed by this document.
+**Current status (2026-10-31):** Architecture documentation is in the PR #143 branch. P1 UI foundation is proposed in Draft PR #148, stacked on Draft PR #146; neither PR is merged to `main`. The UI uses explicit unavailable states only. No migration, provider setting, secret, employee record, Agent runtime, or production deployment has been changed.
