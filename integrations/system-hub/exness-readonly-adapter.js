@@ -243,7 +243,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
       const instruments = await this.getInstruments(context);
       if (!instruments.includes(instrument)) throw fail("exness_instrument_not_available", 403);
       const c = await credentialsFor(context);
-      const path = accountPath(c.accountId, "/candles") +
+      const path = "/v1/market-data/accounts/" + c.accountId + "/candles" +
         "?instrument=" + encodeURIComponent(instrument) +
         "&timeframe=" + encodeURIComponent(timeframe) +
         "&from=" + encodeURIComponent(new Date(fromDate).toISOString()) +
