@@ -1,6 +1,6 @@
 # NOVA Main Dashboard — Adaptive Design and Delivery Plan
 
-**Status:** Architecture proposal; implementation not yet started  
+**Status:** Dashboard implementation is in PR #146 (ready for review); Workforce P1 UI is in PR #148 (ready for review, stacked on #146). Neither implementation PR is merged to `main`.  
 **Canonical repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Base:** `main` at `a2acfd8ec9b598e6593413549bef760e8f596a72`  
 **Primary frontend:** `frontend/` (Next.js; Netlify target)  
@@ -156,12 +156,12 @@ AI must not change authorization, RLS, tenant routing, broker capabilities, exec
 - Identify every duplicated nav owner and hard-coded module list.
 - No destructive changes.
 
-### D1 — Main Dashboard shell consolidation
-- Make the root layout/shared shell the sole owner of global navigation.
-- Refactor `/` to use the shared shell and one trusted navigation registry.
-- Preserve the current NOVA visual identity while aligning spacing, typography, status and card patterns.
-- Keep `/command-center` as the separately authenticated personal workspace during this phase.
-- Correct Exness provider presentation without changing broker runtime configuration.
+### D1 — Main Dashboard shell consolidation (implemented in PR #146; review pending)
+- The root Dashboard now uses the shared global navigation instead of a competing page-local sidebar.
+- `/` has a responsive command-dashboard layout with workspace shortcuts and explicit unavailable market-data states.
+- The existing `/command-center` route remains unchanged and owner-scoped.
+- Exness / MT5 Demo presentation is corrected without changing broker runtime configuration.
+- Exact-head Frontend CI passed and the Netlify Preview is ready; human review remains required.
 
 ### D2 — Widget and module registry
 - Introduce typed, versioned module/widget manifests.
@@ -180,10 +180,10 @@ AI must not change authorization, RLS, tenant routing, broker capabilities, exec
 - Allow AI to propose composition changes, never auto-publish them.
 
 ### D5 — Verification and release
-- Run exact-head Frontend CI, accessibility checks, responsive visual regression and route smoke tests.
-- Verify owner and foreign-user access behavior for any private widget.
-- Verify Netlify Preview against the exact PR SHA.
-- Do not release to Production until explicit approval and the canonical delivery plan's release gates are satisfied.
+- PR #146 exact-head Frontend CI passed and Netlify Preview is ready for review.
+- PR #148 exact-head Frontend CI passed; its Netlify Preview is not yet available because it is stacked on #146 and no exact-head Netlify deploy/check has been produced.
+- Human visual review at desktop/tablet/mobile and any required accessibility/route checks remain open.
+- Do not release to Production until exact-head evidence, human approval and the canonical delivery plan's release gates are satisfied.
 
 ## 9. Acceptance criteria
 
