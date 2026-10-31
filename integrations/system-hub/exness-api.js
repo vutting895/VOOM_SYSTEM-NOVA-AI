@@ -69,16 +69,28 @@ export async function importExnessEd25519PrivateKey(value, cryptoProvider = glob
   if (!cryptoProvider?.subtle) throw new Error("webcrypto_unavailable");
   const text = String(value ?? "").trim();
   let der;
+  let expectedPublicKey = null;
   if (text.startsWith("-----BEGIN PRIVATE KEY-----")) {
     der = pemToDer(text);
   } else {
     const raw = fromHex(text);
+    expectedPublicKey = raw.subarray(32);
     // Exness hex format is seed (32 bytes) followed by the public key (32 bytes).
-    // WebCrypto imports the RFC 8410 PKCS#8 seed wrapper; the provider validates the pair.
     const prefix = Uint8Array.from(PKCS8_ED25519_PREFIX.match(/../g), (part) => Number.parseInt(part, 16));
     der = concatBytes(prefix, raw.subarray(0, 32));
   }
   try {
+    if (expectedPublicKey) {
+      const validationKey = await cryptoProvider.subtle.importKey(
+        "pkcs8", der, { name: "Ed25519" }, true, ["sign"]
+      );
+      const jwk = await cryptoProvider.subtle.exportKey("jwk", validationKey);
+      if (typeof jwk.x !== "string" ||
+          base64Url(fromBase64(jwk.x)).length === 0 ||
+          base64Url(fromBase64(jwk.x)) !== base64Url(expectedPublicKey)) {
+        throw new Error("key_pair_mismatch");
+      }
+    }
     return await cryptoProvider.subtle.importKey(
       "pkcs8", der, { name: "Ed25519" }, false, ["sign"]
     );
