@@ -60,9 +60,11 @@ test("rejects arbitrary executable or credential-bearing config", () => {
   shell.nodes[1].config = { fields: ["customerId"], command: "rm -rf /" };
   assert.equal(validateWorkflowDraft(shell).error, "invalid_node_config");
 
-  const secret = validDraft();
-  secret.nodes[1].config = { fields: ["api_key"] };
-  assert.equal(validateWorkflowDraft(secret).ok, true); // field names are selectors, never values or credentials
+  for (const field of ["api_key", "refresh_token", "password_hash", "private_key"]) {
+    const secret = validDraft();
+    secret.nodes[1].config = { fields: [field] };
+    assert.equal(validateWorkflowDraft(secret).error, "invalid_node_config");
+  }
 });
 
 test("rejects duplicate IDs, unknown endpoints, duplicate edges and self-loops", () => {
@@ -85,8 +87,8 @@ test("rejects duplicate IDs, unknown endpoints, duplicate edges and self-loops",
 
 test("rejects cycles, disconnected nodes and nodes that cannot reach preview", () => {
   const cycle = validDraft();
-  cycle.edges.push({ from: "preview", to: "project" });
-  assert.equal(validateWorkflowDraft(cycle).error, "preview_output_must_be_terminal");
+  cycle.edges.push({ from: "review", to: "project" });
+  assert.equal(validateWorkflowDraft(cycle).error, "workflow_cycle_not_allowed");
 
   const disconnected = validDraft();
   disconnected.nodes.push({ id: "orphan", type: "data.select_fields", config: { fields: ["name"] } });
