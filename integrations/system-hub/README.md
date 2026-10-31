@@ -13,6 +13,7 @@ This is the control plane for viewing integration metadata, listing the signed-i
 - `GET /v1/connections/:connectionId/status` — status of the current user's record; deliberately does not claim live connectivity.
 - `POST /v1/connections/:connectionId/check` — verifies a read-only account request through the MT5 proxy. The account response is discarded; only a sanitized status is returned.
 - `GET /v1/connections/:connectionId/account` — returns a small, credential-free account summary only after the authenticated Proxy read succeeds.
+- `GET /v1/connections/:connectionId/symbols?q=XAU&limit=100` — discovers exact symbol names and bounded metadata from the signed-in user's connected Demo terminal through the MT5 Proxy.
 - `GET /v1/connections/:connectionId/quotes?symbol=XAUUSDm&timeframe=M1&count=3` — reads bounded quotes/candles from the user's connected Demo terminal through the MT5 Proxy.
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
