@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "workers/agent_orchestration/**"
-      - "tests/test_agent_orchestration_contracts.py"
+      - "tests/test_agent_*.py"
       - ".github/workflows/agent-orchestration-contracts.yml"
   push:
     branches: [main]
@@ -25,6 +25,6 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile contracts
-        run: python -m compileall -q workers/agent_orchestration tests/test_agent_orchestration_contracts.py
+        run: python -m compileall -q workers/agent_orchestration tests/test_agent_*.py
       - name: Run contract tests
-        run: python -m unittest discover -s tests -p 'test_agent_orchestration_contracts.py' -v
+        run: python -m unittest discover -s tests -p 'test_agent_*.py' -v
