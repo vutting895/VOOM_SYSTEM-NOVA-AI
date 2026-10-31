@@ -50,6 +50,7 @@ test("job payload rejects unsupported fields, invalid IDs, tasks and idempotency
   assert.match(jobs, /TASK_TYPES\.has\(body\.task_type\)/);
   assert.match(jobs, /video_idempotency_key_invalid/);
   assert.match(jobs, /idempotentReplay: true/);
+  assert.match(jobs, /video_idempotency_key_reused/);
   assert.match(jobs, /\.eq\("idempotency_key", body\.idempotency_key\)/);
 });
 
