@@ -19,13 +19,18 @@ The registry endpoints disclose capability metadata only. They do not expose sou
 
 ## CORS
 
-The exact Base44 published origin is allowlisted in the code CORS helper. CORS is not authentication. Do not use wildcard origins or credentialed cookies. The existing Supabase user-session path remains supported. Base44's access token is not a Supabase JWT and must never be sent as one.\n\nFor the Base44 server-side adapter only, NOVA accepts `Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>` and `X-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62`. NOVA verifies the exact App ID and compares the configured token using a constant-time digest comparison. The tenant identity is read only from `NOVA_CODE_BASE44_TENANT_ID` in the server environment; caller-supplied tenant IDs are not trusted. Missing token or tenant configuration fails closed with 503; invalid credentials return 401; an unapproved App ID returns 403.\n\nConfigure `NOVA_CODE_BASE44_SERVICE_TOKEN` (random secret, at least 32 characters) and `NOVA_CODE_BASE44_TENANT_ID` in the NOVA server environment. Never place either value in browser JavaScript, Git, public build variables or chat.
+The exact Base44 published origin is allowlisted in the code CORS helper. CORS is not authentication. Do not use wildcard origins or credentialed cookies. The existing Supabase user-session path remains supported. Base44's access token is not a Supabase JWT and must never be sent as one.
+
+For the Base44 server-side adapter only, NOVA accepts `Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>` and `X-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62`. NOVA verifies the exact App ID and compares the configured token using a constant-time digest comparison. The tenant identity is read only from `NOVA_CODE_BASE44_TENANT_ID` in the server environment; caller-supplied tenant IDs are not trusted. Missing token or tenant configuration fails closed with 503; invalid credentials return 401; an unapproved App ID returns 403.
+
+Configure `NOVA_CODE_BASE44_SERVICE_TOKEN` (random secret, at least 32 characters) and `NOVA_CODE_BASE44_TENANT_ID` in the NOVA server environment. Never place either value in browser JavaScript, Git, public build variables or chat.
 
 ## Request example
 
 ```http
 POST /api/code/requests
-Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>\nX-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62
+Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>
+X-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62
 Content-Type: application/json
 Origin: https://voom-studio-ai.base44.app
 ```
@@ -45,7 +50,8 @@ Until the agent runtime, tenant-scoped durable job store, and approval lifecycle
 ## Base44 integration requirements
 
 1. Call GET `/api/code/agents` and GET `/api/code/skills` from a Base44 backend function or server-side integration; do not embed service credentials in browser code.
-2. Store the service token only in a Base44 server-side secret store; never expose it to the browser.\n3. Keep the tenant mapping server-side and provision a distinct tenant identity before allowing another app/customer.
+2. Store the service token only in a Base44 server-side secret store; never expose it to the browser.
+3. Keep the tenant mapping server-side and provision a distinct tenant identity before allowing another app/customer.
 
 4. Keep repository writes, test execution, secret access and deployments disabled until each action has explicit scopes and human approval.
 5. Production activation requires exact-head CI, independent security review, tenant isolation tests and explicit release approval.
