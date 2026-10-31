@@ -6,11 +6,13 @@ workers_dev = true
 [ai]
 binding = "AI"
 
-[[unsafe.bindings]]
+[[ratelimits]]
 name = "AI_RATE_LIMITER"
-type = "ratelimit"
-namespace_id = "1001"
-simple = { limit = 30, period = 60 }
+namespace_id = "1432314564"
+
+[ratelimits.simple]
+limit = 30
+period = 60
 
 [observability]
 enabled = true
