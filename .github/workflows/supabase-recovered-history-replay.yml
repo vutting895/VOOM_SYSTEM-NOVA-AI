@@ -81,7 +81,10 @@ jobs:
           elif [ "${{ matrix.environment }}" = "staging" ]; then
             psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-staging-history-assertions.sql"
           else
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/normalize-local-replay-default-grants.sql"
             psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-plus-nova-assertions.sql"
+            psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/production-catalog-fingerprint.sql" > "$REPLAY_WORKDIR/production-after-nova-fingerprint.json"
+            node "$GITHUB_WORKSPACE/tests/supabase-catalog-fingerprint-compare.mjs" "$GITHUB_WORKSPACE/supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json" "$REPLAY_WORKDIR/production-after-nova-fingerprint.json"
           fi
 
       - name: Stop disposable local Supabase
