@@ -165,7 +165,7 @@ test("candles are bounded, account-instrument scoped, chronologically validated 
   });
   assert.equal(candles.length, 2);
   assert.equal(paths.length, 4);
-  assert.ok(paths.some((path) => path.includes("/candles?")));
+  assert.ok(paths.some((path) => path.startsWith("/v1/market-data/accounts/123456/candles?")));
 });
 
 test("candle request rejects unlisted instruments, invalid ranges and oversized counts", async () => {
