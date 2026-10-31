@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
 
-const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const env = {
+  SUPABASE_URL: "https://supabase.example",
+  SUPABASE_PUBLISHABLE_KEY: "public-test-key",
+  AI_RATE_LIMITER: { limit: async () => ({ success: true }) },
+};
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
@@ -250,4 +254,81 @@ test("Cloudflare rollback UI origin remains allowed", async () => {
   }), {});
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+
+test("AI routes fail closed when the per-user rate limiter is missing", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+  }), { SUPABASE_URL: env.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: env.SUPABASE_PUBLISHABLE_KEY });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "ai_rate_limiter_unavailable");
+});
+
+test("AI rate limiting is isolated by authenticated user and blocks over-quota calls", async () => {
+  const keys = [];
+  let providerCalls = 0;
+  const rateEnv = {
+    ...env,
+    AI_RATE_LIMITER: {
+      limit: async ({ key }) => {
+        keys.push(key);
+        return { success: key === "user:user-a" };
+      },
+    },
+    AI: { run: async () => { providerCalls += 1; return { response: "Safe research answer" }; } },
+  };
+  authFetch(200, { id: "user-a" });
+  const allowed = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer user-a-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA" }] }),
+  }), rateEnv);
+  assert.equal(allowed.status, 200);
+
+  authFetch(200, { id: "user-b" });
+  const denied = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer user-b-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA" }] }),
+  }), rateEnv);
+  assert.equal(denied.status, 429);
+  assert.equal((await denied.json()).error, "ai_rate_limit_exceeded");
+  assert.deepEqual(keys, ["user:user-a", "user:user-b"]);
+  assert.equal(providerCalls, 1);
+});
+
+test("AI limiter errors fail closed before provider invocation", async () => {
+  authFetch();
+  let providerCalls = 0;
+  const failingEnv = {
+    ...env,
+    AI_RATE_LIMITER: { limit: async () => { throw new Error("limiter unavailable"); } },
+    AI: { run: async () => { providerCalls += 1; return { response: "must not run" }; } },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+  }), failingEnv);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "ai_rate_limiter_unavailable");
+  assert.equal(providerCalls, 0);
+});
+
+test("strategy prompts are redacted before they are returned or passed to a provider", async () => {
+  authFetch();
+  const secret = "AIzaSyDUMMYKEY12345678901234567890";
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Analyze this api_key=" + secret, market: "XAU/USD", timeframe: "1h", risk: "low" }),
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.strategy.userGoal.includes(secret), false);
+  assert.match(body.strategy.userGoal, /\[REDACTED\]/);
 });
