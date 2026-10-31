@@ -223,6 +223,51 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
         throw fail("exness_instrument_response_invalid", 502);
       }
       return result.instruments;
+    },
+    async getCandles(context, query) {
+      if (!query || typeof query !== "object") throw fail("exness_candle_query_invalid", 400);
+      const instrument = query.instrument;
+      const timeframe = query.timeframe;
+      const from = query.from;
+      const count = query.count;
+      const priceType = query.priceType || "bid";
+      const timeframes = new Set(["S1","S5","S15","M1","M3","M5","M10","M15","M30","H1","H2","H4","D1","W1","MN"]);
+      const fromDate = typeof from === "string" ? Date.parse(from) : NaN;
+      if (typeof instrument !== "string" || !INSTRUMENT.test(instrument) ||
+          !timeframes.has(timeframe) || !Number.isFinite(fromDate) || fromDate >= Date.now() ||
+          !Number.isInteger(count) || count < 1 || count > 500 ||
+          !["bid","ask","both"].includes(priceType)) {
+        throw fail("exness_candle_query_invalid", 400);
+      }
+      const instruments = await this.getInstruments(context);
+      if (!instruments.includes(instrument)) throw fail("exness_instrument_not_available", 403);
+      const c = await credentialsFor(context);
+      const path = accountPath(c.accountId, "/candles") +
+        "?instrument=" + encodeURIComponent(instrument) +
+        "&timeframe=" + encodeURIComponent(timeframe) +
+        "&from=" + encodeURIComponent(new Date(fromDate).toISOString()) +
+        "&count=" + encodeURIComponent(String(count)) +
+        "&price_type=" + encodeURIComponent(priceType);
+      const result = await read(context, path);
+      if (!result || !Array.isArray(result.candles) || result.candles.length > count) {
+        throw fail("exness_candle_response_invalid", 502);
+      }
+      let previousTime = -Infinity;
+      for (const candle of result.candles) {
+        const time = Date.parse(candle?.time || "");
+        if (!Number.isFinite(time) || time <= previousTime) throw fail("exness_candle_response_invalid", 502);
+        previousTime = time;
+        const legs = priceType === "both" ? [candle.bid, candle.ask] : [candle];
+        for (const leg of legs) {
+          if (!leg || ["open","high","low","close"].some((key) =>
+            typeof leg[key] !== "number" || !Number.isFinite(leg[key])) ||
+            leg.high < Math.max(leg.open, leg.close, leg.low) ||
+            leg.low > Math.min(leg.open, leg.close, leg.high)) {
+            throw fail("exness_candle_response_invalid", 502);
+          }
+        }
+      }
+      return result.candles;
     }
   });
 }
