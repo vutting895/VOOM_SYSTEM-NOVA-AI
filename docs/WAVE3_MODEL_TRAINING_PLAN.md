@@ -129,3 +129,25 @@ Both completed calendar-filtered training artifacts (workflow runs [41022129986]
 Final-model XGBoost gain importance (training fit diagnostic, not causal evidence): `hour_sin` 101.51, `volume_gate` 63.98, `hour_cos` 38.95, `log_volume` 22.86, `realized_vol_24` 22.28, `atr_price` 21.50, `weekday_sin` 21.18, `bear_ob_within5` 21.00, `wave3_long_zone` 19.77, `spread_price` 18.02. The model uses 73 of 89 feature columns. Time-of-day, volume, volatility and spread features rank prominently; gain importance does not establish causal predictive value and must not be used as a reason to remove hard gates.
 
 Class proportions: training labels short/hold/long = 24.93% / 46.62% / 28.45%; final OOS actual = 27.68% / 45.97% / 26.35%; final OOS predictions = 44.91% / 40.78% / 14.30%. This shows a strong prediction skew toward short and underprediction of long despite class-weighted training. No probability calibration is applied; Brier/ECE/reliability diagnostics are not yet recorded. Any future calibration study must use inner/validation folds only and must not use final OOS to select or tune a calibrator.
+
+
+## Run #3 artifact audit and pinned calendar preflight — 2026-10-31
+
+Source: [GitHub Actions run #41163353027](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41163353027), training commit `70fa601ebfaf8b992f80c5b27a60247979e7bceb`, artifact #13028341403, archive SHA-256 `218e15c46b8db53c37d263482d96845fa90addab0e292f04c53a91b694b20c17`. The run's calendar validation and training/backtest steps completed successfully. This is a successful research execution, not a passed performance gate.
+
+The downloaded artifact's `model_manifest.json` and report both record:
+- Candle CSV SHA-256 `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`, 101,076 XAUUSDm M15 bars, 100,965 usable labeled rows.
+- Canonical Git-tracked news CSV SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, 2,166 high-impact USD events, all `datetime`, source MQL5 Economic Calendar, Exness GMT+0, coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z). The Git-tracked file's byte length is 386,146.
+- 95,099/101,076 total market bars were news-safe; in final OOS 7,421/7,942 bars were news-safe and 521 were blocked.
+
+Final OOS remains untouched from 2026-07-01: 7,942 samples, accuracy 41.3246%, balanced accuracy 39.1057%, macro-F1 37.6761%, versus 45.9708% majority baseline. All five walk-forward folds are below their fold baselines. The final model used two inner chronological validation folds per tuning window, four seeded XGB candidates, and a 12-bar purge; report methodology says `final_oos_used_for_tuning=false`. The artifact has zero closed trades, $0 net profit, and null/unavailable PF. SMC maximum on Wave3 entry rows is 75, with zero rows passing >=85. The gate remains blocked.
+
+### Calendar byte provenance distinction
+
+The canonical Git-tracked file was independently fetched as base64 and SHA-256 computed over its decoded bytes; the result matches the run #3 manifest/report. A prior PR description states the terminal-side CSV was 388,313 bytes and gives `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c` as its SHA-256, but that string is only 58 hexadecimal characters and is not a valid SHA-256 digest. The 2,167-byte size delta equals the number of CSV lines including the header and is consistent with CRLF-to-LF normalization, but does not prove that the original terminal bytes are identical. Do not overwrite either value or claim raw-terminal byte equivalence. Obtain the original Common Files CSV and Experts log to complete that verification.
+
+### Independent preflight
+
+The research branch now contains `tools/verify_wave3_news_calendar.py`, which computes SHA-256 from raw file bytes and fails closed unless it equals the pinned canonical Git-file digest above. `.github/workflows/wave3-research-train.yml` runs this preflight before schema/coverage validation and training. `tests/test_wave3_calendar_hash.py` covers the canonical file, modified bytes, and malformed digest; SMC/Wave3 Research CI includes that test. This check protects the exact tracked input bytes; it does not substitute for re-verifying the original MT5 terminal file.
+
+No frozen strategy weights, lookbacks, thresholds, entry/risk/news gates, or 12-bar purge were changed. No orders were submitted; Live Trading and deployment remain OFF.
