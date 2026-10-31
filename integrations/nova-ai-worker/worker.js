@@ -1,5 +1,5 @@
 import { classifyResearchIntent } from "./intent-contract.js";
-import { validateWorkflowDraft } from "./workflow-contract.js";
+import { simulateWorkflowDraft, validateWorkflowDraft } from "./workflow-contract.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
   "https://voom-system-nova-ui.suwapat787.workers.dev"
@@ -411,7 +411,7 @@ export default {
       }, 200, origin);
     }
     if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);
-    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", "/api/workflows/draft"].includes(url.pathname)) {
+    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", "/api/workflows/draft", "/api/workflows/simulate"].includes(url.pathname)) {
       return fail("not_found", 404, origin);
     }
     const auth = await authenticateRequest(request, env);
@@ -431,6 +431,34 @@ export default {
     let body;
     try { body = JSON.parse(raw); } catch { return fail("invalid_json", 400, origin); }
     if (!body || typeof body !== "object" || Array.isArray(body)) return fail("invalid_json_object", 400, origin);
+    if (url.pathname === "/api/workflows/simulate") {
+      const keys = Object.keys(body).sort();
+      if (keys.length !== 2 || keys[0] !== "draft" || keys[1] !== "sampleData") {
+        return fail("invalid_workflow_simulation", 400, origin);
+      }
+      const result = simulateWorkflowDraft(body.draft, body.sampleData);
+      if (!result.ok) {
+        return json({
+          error: result.error,
+          details: result.details || undefined,
+          simulationEnabled: false,
+          executionEnabled: false,
+          persistenceEnabled: false,
+          externalEffectsAllowed: false,
+          brokerWritesAllowed: false,
+          liveTradingEnabled: false,
+        }, 422, origin);
+      }
+      return json({
+        simulation: result.value,
+        simulationEnabled: true,
+        executionEnabled: false,
+        persistenceEnabled: false,
+        externalEffectsAllowed: false,
+        brokerWritesAllowed: false,
+        liveTradingEnabled: false,
+      }, 200, origin);
+    }
     if (url.pathname === "/api/workflows/draft") {
       let prompt;
       try { prompt = validateWorkflowPrompt(body); }
