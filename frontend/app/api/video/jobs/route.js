@@ -80,6 +80,11 @@ export async function POST(request) {
       .eq("idempotency_key", body.idempotency_key)
       .maybeSingle();
     if (!lookupError && existing) {
+      if (existing.project_id !== body.project_id
+        || existing.task_type !== body.task_type
+        || existing.prompt !== body.prompt) {
+        return agentApiJson({ error: "video_idempotency_key_reused" }, 409);
+      }
       return agentApiJson({ job: existing, executionEnabled: false, idempotentReplay: true }, 200);
     }
   }
