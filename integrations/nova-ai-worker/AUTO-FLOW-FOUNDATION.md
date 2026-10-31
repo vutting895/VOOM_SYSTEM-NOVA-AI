@@ -21,3 +21,15 @@ Run `npm test` from this directory with Node.js 22+. These tests are local, dete
 
 ## Deliberate non-goals
 No provider actions, arbitrary HTTP, shell, SQL, JavaScript, loops, schedules, queues, durable execution, tenant identity, or approval RPC integration are exposed here. Those require separately reviewed contracts and runtime gates.
+
+## Authenticated AI draft generation (M1 follow-on)
+
+`POST /api/workflows/draft` accepts exactly one JSON field: `prompt` (1–1200 characters). The route requires the existing Supabase bearer authentication used by the Worker. It calls the existing Cloudflare Workers AI binding, then passes the model response through `validateWorkflowDraft` before returning anything to the client.
+
+- Model output is untrusted and never executed.
+- Unknown fields, nodes, graph cycles, unreachable nodes, and invalid node configuration are rejected.
+- A rejected model draft returns HTTP 422; unavailable AI returns HTTP 503.
+- Successful responses remain `draft_only` with external effects, broker writes, and live trading disabled.
+- The endpoint does not persist the draft, infer tenant authority from the prompt, call external providers, or create an execution.
+
+This is not Gemini integration: it uses the Worker’s existing Cloudflare Workers AI binding. A Gemini provider can be added only behind the same validator and after separate provider/security review.
