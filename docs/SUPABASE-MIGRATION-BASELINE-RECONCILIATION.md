@@ -591,3 +591,20 @@ On PR #109 head `d716e06af990cc65180932f24c720dca9691a000`, both required reposi
 - [Frontend CI — run #41179424354](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41179424354): passed on the same head.
 
 The full current Production fingerprint comparison is therefore verified on that exact head. This proves local replay equivalence to the captured Production catalog at that point in time; it does not make Staging equivalent, approve any hosted database write, or authorize a cutover. PR #109 remains Draft/unmerged pending review of the Staging legacy grants, out-of-band table disposition and delivery-plan acceptance.
+
+
+### 8.13 Staging-only legacy table schema classification — read-only
+
+A verbose metadata-only inspection was performed for the five Staging-only tables. No row contents, API keys, encrypted secrets, or customer records were queried.
+
+| Table | Schema signals | Current disposition |
+|---|---|---|
+| user_brokers | Contains user_id, broker_id/name, api_key, api_secret_encrypted, passphrase_encrypted, MT5 server/login and connection status fields | **Sensitive legacy broker-secret table.** Do not read, reuse, export or migrate its secret columns. Keep isolated; require source recovery, custody/security review, backup and data-owner approval before any remediation. |
+| ai_strategy_state | Symbol, ai_bias, wave_context, active_strategy | Legacy strategy-state candidate; no current-main code-search references were found. Preserve pending owner/source classification. |
+| bot_config | execution_mode, strategy_module, max_risk_per_trade and model tuning fields | Legacy runtime/risk configuration candidate. Keep execution disabled; do not reuse as NOVA risk authority. |
+| latest_signal | Module/type and entry/SL/TP fields | Legacy signal snapshot candidate. Do not treat as a current broker signal or execution instruction. |
+| video_histories | product_url, headline, script and video_url | Legacy content/video history candidate; preserve pending archive and ownership decision. |
+
+All five reported zero rows in the current metadata snapshot, but zero rows do not prove that backups, external consumers, logs, or older project instances do not depend on them. GitHub code search against the current repository returned no indexed code hits for these five table names or api_secret_encrypted; this is not proof that no external consumer exists.
+
+All five remain absent from the two-row Staging migration ledger, have RLS enabled with no policies, and retain broad anon/authenticated/service_role table grants (105 privilege rows total). The secret-bearing user_brokers table is the highest-priority legacy security classification. Do not query secret values, create permissive policies, add these tables to the NOVA schema, revoke grants or drop tables until a reviewed backup/recovery plan and owner approval exist. The correct next step is source/consumer ownership recovery, not schema mutation.
