@@ -43,3 +43,8 @@ The exported \`simulateWorkflowDraft(draft, sampleData)\` function validates the
 - Sample data is limited to 50 scalar fields, 8 KB total, and 500 characters per string; secret-like keys and nested objects/arrays are rejected.
 - Output always reports execution, persistence, external effects, broker writes, and Live Trading disabled.
 - This is a deterministic contract simulator, not evidence of a deployed runtime or tenant-specific data access.
+
+
+## Prompt and model-output secret redaction
+
+Before the workflow prompt is forwarded to Cloudflare Workers AI, common credential patterns (Bearer values, key/token/password assignments, JWTs, AWS access-key IDs, GitHub tokens, and API-style secret tokens) are redacted. The same text redaction is applied to user-visible workflow title, description, review reason, and preview label fields returned by the model. This is defense-in-depth, not a substitute for never entering secrets; no guarantee is made that every proprietary credential format is recognized.
