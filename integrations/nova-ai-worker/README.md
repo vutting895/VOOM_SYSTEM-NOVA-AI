@@ -40,4 +40,8 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 The workflow contract exports \`simulateWorkflowDraft(draft, sampleData)\` for local, in-memory preview only. It revalidates input and emits a stable trace/output without persistence, schedules, provider calls, external effects, or broker actions. It is not a workflow runtime or production data connector.
 
 
+- `POST /api/workflows/simulate` accepts exactly a validated `draft` and bounded `sampleData` object after Supabase bearer authentication; it returns a deterministic in-memory preview only.
+- The NOVA frontend Flow Studio is available at `/flows`. Its same-origin `POST /api/workflows` proxy authenticates before parsing request content and forwards only the supported draft/simulate operations.
+- Flow Studio does not save, publish, schedule, or execute workflows. A `gate.review_required` node is a visual review marker only; it is not wired to durable approvals.
+
 - Workflow prompt and model-generated text fields pass through credential-pattern redaction before AI submission/return. Do not enter secrets; redaction is defense-in-depth and is not exhaustive.
