@@ -38,6 +38,7 @@ class ShadowDelegationPlan:
     execution_enabled: bool = False
     persistence_enabled: bool = False
     external_io_enabled: bool = False
+    customer_data_enabled: bool = False
 
 
 def _sum_child_budgets(children: Sequence[ShadowChildProposal]) -> TeamTaskBudget:
@@ -70,6 +71,8 @@ def build_shadow_delegation_plan(
         raise ContractError("team registry keys must match registered team IDs")
     if parent_task.team_id != "delivery_coordinator":
         raise ContractError("shadow plan parent must be the delivery coordinator")
+    if any(not ref.startswith("synthetic.") for ref in parent_task.input_refs):
+        raise ContractError("shadow plan accepts synthetic fixture references only")
     validate_team_lead_task(
         parent_task,
         team_registry=registry,
