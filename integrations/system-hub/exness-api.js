@@ -169,6 +169,9 @@ export function createExnessReadOnlyClient({
   if (typeof fetchImpl !== "function") throw new Error("fetch_unavailable");
   const gateway = normalizeExnessBaseUrl(gatewayUrl);
 
+  let resolvedAccessPoint = "";
+  let resolvedAccountId = "";
+
   async function resolveAccessPoint(accountId) {
     const id = validateAccountId(accountId);
     const path = "/v1/trading/access-point?account_id=" + id;
@@ -178,15 +181,19 @@ export function createExnessReadOnlyClient({
     if (String(result.account_id ?? "") !== id || typeof result.access_point !== "string") {
       throw new Error("exness_access_point_mismatch");
     }
-    return normalizeExnessBaseUrl(result.access_point);
+    resolvedAccessPoint = normalizeExnessBaseUrl(result.access_point);
+    resolvedAccountId = id;
+    return resolvedAccessPoint;
   }
 
-  async function readAccount(accountId, accessPoint) {
+  async function readAccount(accountId) {
     const id = validateAccountId(accountId);
-    const host = normalizeExnessBaseUrl(accessPoint);
+    if (!resolvedAccessPoint || resolvedAccountId !== id) {
+      throw new Error("exness_access_point_not_resolved");
+    }
     const path = "/v1/configuration/accounts/" + id + "/account";
     const result = await signedGet({
-      host, path, apiKey, privateKey, fetchImpl, now, cryptoProvider
+      host: resolvedAccessPoint, path, apiKey, privateKey, fetchImpl, now, cryptoProvider
     });
     if (String(result.account_id ?? "") !== id) {
       throw new Error("exness_account_identity_mismatch");
