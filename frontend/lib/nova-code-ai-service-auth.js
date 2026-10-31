@@ -25,7 +25,7 @@ export function authenticateNovaCodeServiceRequest(request) {
     return { attempted: true, ok: false, status: 503, error: "nova_code_service_auth_not_configured" };
   }
 
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("authorization") || "");
+  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") || "");
   if (!match || !tokenMatches(configuredToken, match[1])) {
     return { attempted: true, ok: false, status: 401, error: "nova_code_service_auth_invalid" };
   }
