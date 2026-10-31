@@ -27,3 +27,7 @@ jobs:
       - name: Run NOVA AI Worker and provider gateway tests
         working-directory: integrations/nova-ai-worker
         run: node --test
+      - name: Install Wrangler for Worker configuration validation
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+      - name: Validate NOVA AI Worker configuration without deploying
+        run: npx wrangler deploy --dry-run --config integrations/nova-ai-worker/wrangler.toml
