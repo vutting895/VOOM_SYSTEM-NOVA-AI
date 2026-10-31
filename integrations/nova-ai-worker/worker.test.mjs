@@ -323,6 +323,9 @@ test("market analysis uses only authenticated System Hub candles and returns res
     assert.equal(body.source.dataVerified, true);
     assert.equal(body.analysis.signal, "bullish_watch");
     assert.equal(body.analysis.riskStatus, "not_evaluated");
+    assert.equal(body.analysis.currentBarExcluded, true);
+    assert.equal(body.analysis.smc.ok, true);
+    assert.equal(body.analysis.smc.ordersSubmitted, false);
     assert.match(body.analysis.rationale, /research watch/);
     assert.equal(body.executionEnabled, false);
     assert.equal(body.ordersEnabled, false);
