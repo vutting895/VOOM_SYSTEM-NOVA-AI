@@ -502,3 +502,8 @@ This is a **local forward-replay proof only**. If it passes, it supports a candi
 GitHub code search against the canonical NOVA repository `main` and the old `Voom_system/main` returned no code references for the five Staging-only legacy table names: `user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, and `latest_signal`. The current NOVA repository does reference the shared `broker_connections` table and the two approval tables.
 
 This supports classifying the five tables as **unreferenced legacy candidates**, not as proven safe to drop. Before any retirement, preserve a schema/data backup, check external integrations and historical logs, confirm row counts/ownership with the data owner, and obtain explicit approval. No table was dropped or altered.
+
+
+### 8.7 Full Production catalog fingerprint replay
+
+A schema-only Production fingerprint has been captured from PostgreSQL catalogs (no row data) and stored at `supabase/recovered-history/catalog-fingerprints/production.json`. It includes 19 table definitions/RLS flags, 171 column definitions/defaults, 89 constraints, 60 indexes, 21 policies, four triggers, 15 public/private functions with security/search-path metadata, 190 table grants, and five extension/schema assignments. The Production replay lane now computes the same fingerprint from the disposable clean-replay database and compares it structurally against the hosted snapshot. This is stricter than checking only object counts. Result is pending CI.
