@@ -463,3 +463,28 @@ A passing replay validates the archived migration sequences in a clean local Sup
 | Decide/publish one canonical forward migration baseline | **Blocked pending object diff and explicit approval for any hosted DDL** |
 
 No hosted DDL, migration repair, reset, data write, project/branch creation, deployment or broker write was performed.
+
+
+### 8.4 Refreshed hosted catalog fingerprints (read-only)
+
+The two projects were queried independently through PostgreSQL catalogs. Counts below exclude customer row values:
+
+| Catalog object | Production | Staging |
+|---|---:|---:|
+| Public tables | 19 | 8 |
+| Public columns | 171 | 72 |
+| RLS-enabled public tables | 19 | 8 |
+| FORCE RLS tables | 0 | 0 |
+| Public RLS policies | 21 | 5 |
+| Public indexes | 60 | 17 |
+| Public constraints | 89 | 31 |
+| Public non-internal triggers | 4 | 2 |
+| Functions in public/private | 15 | 8 |
+| SECURITY DEFINER functions in public/private | 8 | 4 |
+| Applied migration rows | 24 | 2 |
+
+Extensions also differ: Production has `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`, `uuid-ossp`; Staging additionally has `hypopg` and `index_advisor`.
+
+**Grant/RLS caution:** table-level grants and row-level policies are separate controls. The catalog shows table grants to `anon` on five public tables in each environment, while RLS is enabled on every public table. In Staging, the five legacy tables have no explicit public RLS policies (default-deny under RLS), but broad table grants remain and must be reviewed before Data API exposure. In Production, the two Alpaca tables have explicit browser-deny policies; other anonymous grants are not themselves proof of readable rows. The Oct 30 Data API exposure default is a third, separate platform control and must be verified in the target project settings.
+
+These fingerprints are now the comparison baseline; do not claim schema parity from table names or migration counts alone.
