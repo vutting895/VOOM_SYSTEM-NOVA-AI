@@ -514,7 +514,7 @@ The original `production.json` is retained as the historical 24-migration / 19-t
 
 **Forward-replay evidence:** the separate Production 24-migration history plus canonical NOVA approval migration was replayed from empty local Supabase and passed all assertions in [run #41175585645](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175585645). This demonstrates that the NOVA approval migration can be layered additively over the Production baseline in a clean environment. It is not a hosted deployment or a Staging rebuild.
 
-The new exact-head full Production catalog fingerprint comparison is running in [run #41175729533](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175729533).
+The earlier run #41175729533 was superseded by the corrected current-catalog comparison. The 25-migration replay now matches the current 21-table Production fingerprint on code head a9022c33d11de22930f8ed995382bab4dca83304; see run #41179596316.
 
 ### 8.9 Exact-head replay failure analysis and local-only ACL normalization
 
@@ -524,7 +524,7 @@ The Production job failed only at the full catalog comparison. Eight catalog cat
 
 A narrowly scoped test-only normalization was added at tests/sql/normalize-local-replay-default-grants.sql. It revokes only those four local bootstrap extras before the Production fingerprint is generated. The file is outside supabase/migrations/, runs only inside the disposable local Production replay, and is never applied to a hosted project or used to rewrite recovered ledger SQL. This preserves the exact historical migration archive while making the comparison account for the known local-bootstrap ACL difference.
 
-**Revalidation required:** the normalization change is not considered successful until the new exact-head Production fingerprint comparison passes. If any other catalog category differs, preserve the mismatch and investigate rather than weakening the comparator or excluding the category.
+**Revalidation passed:** after the local-only ACL normalization, the corrected exact-head Production fingerprint comparison passed on code head a9022c33d11de22930f8ed995382bab4dca83304 in run #41179596316. All nine catalog categories matched. The comparator was not weakened and no category was excluded.
 
 ### 8.8 Execution and corrected clean-replay result (2026-10-31)
 
@@ -568,13 +568,13 @@ A fresh read-only Supabase MCP inventory after the prior replay work shows the P
 - Staging/candidate project `rovhmjeowracayicbqij` remains at **2 migration rows and 8 public tables**. Five tables (`user_brokers`, `ai_strategy_state`, `video_histories`, `bot_config`, `latest_signal`) remain outside the two-row migration history. All five have RLS enabled but no policies, and the Supabase Security Advisor reports them as `rls_enabled_no_policy`. A fresh read-only COUNT(*) query returned: ai_strategy_state=2, bot_config=1, latest_signal=1, user_brokers=0, video_histories=0. No row contents were read.
 - Production and Staging remain structurally different. This update does not claim parity or authorize deleting, resetting, merging, or migrating either hosted project.
 
-A fresh schema-only Production fingerprint was captured read-only and added as `supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json` (21 tables, 193 columns, 24 policies, 21 public/private functions, and 199 role-table grant rows). The older `production.json` remains the historical 24-migration / 19-table baseline. The `production-plus-nova` disposable replay lane now normalizes only local Supabase bootstrap ACL differences and compares the resulting fingerprint against the new current-Production snapshot. This exact-head comparison is pending CI; no hosted write was performed.
+A fresh schema-only Production fingerprint was captured read-only and added as `supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json` (21 tables, 193 columns, 104 constraints, 66 indexes, 24 policies, five triggers, 21 public/private functions, 199 role-table grant rows and five extensions). The older `production.json` remains the historical 24-migration / 19-table baseline. The `production-plus-nova` disposable replay normalizes only local Supabase bootstrap ACL differences and compares the resulting fingerprint against the new current-Production snapshot. This full comparison passed on code head a9022c33d11de22930f8ed995382bab4dca83304 in run #41179596316; the later fd355d01ab813149f9aeec082f76642d51ec00e4 commit changes documentation only and its rerun is queued. No hosted write was performed.
 
 Additional advisor findings from the read-only inventory:
 - Production: Auth leaked-password protection is not enabled; enablement requires an explicit provider-console decision. The `nova_approval_owner_thread_fk` has no covering index; this is an informational performance finding and should be addressed only through a reviewed additive migration after baseline approval.
 - Staging: five legacy tables have RLS enabled without policies. Preserve them while external ownership and usage are investigated; do not add permissive policies merely to silence the advisor.
 
-**Current disposition:** the durable approval migration is present in Production and Staging, and the exact Production ledger SQL matches canonical `main`. Production local replay equivalence is awaiting the new 21-table fingerprint CI. Staging legacy-table classification and cross-environment parity remain open. This is not authorization for Team Lead task persistence or runtime delegation.
+**Current disposition:** the durable approval migration is present in Production and Staging, and the exact Production ledger SQL matches canonical `main`. The 25-migration disposable replay matches the current 21-table Production fingerprint. Staging legacy-table ownership/security classification and cross-environment parity remain open. This is not authorization for Team Lead task persistence or runtime delegation.
 
 
 ### 8.11 Staging legacy-table grant exposure — read-only confirmation
