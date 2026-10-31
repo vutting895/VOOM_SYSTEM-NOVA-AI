@@ -14,7 +14,7 @@ This folder is the source of truth for the deployed `voom-system-nova-ai` Cloudf
 `provider-gateway.js` is the only AI provider dispatch layer used by authenticated chat and strategy draft generation.
 
 Default order:
-1. Gemini is the primary provider when `GEMINI_API_KEY` is configured.
+1. Gemini 3.8 Flash is the primary provider when `GEMINI_API_KEY` is configured (override with the non-secret `GEMINI_MODEL` setting).
 2. Cloudflare Workers AI is the explicit fallback when Gemini is missing, fails, or returns invalid output.
 3. OpenAI and Anthropic are optional server-selected adapters. Set the non-secret Worker variable `NOVA_AI_PROVIDER=openai` or `NOVA_AI_PROVIDER=anthropic` to select one as the primary for a controlled evaluation; failures fall back to Cloudflare AI. They are never silently tried as a fallback and are not browser-selectable.
 
@@ -33,6 +33,8 @@ The Supabase customer Vault is a separate system for future customer-owned provi
 
 ## Provider request controls
 - Provider calls run server-side with fixed HTTPS endpoints, bounded messages, a 20-second timeout, redirect rejection, and no tools/function calling.
+- Credential-like content is redacted again inside the Worker provider gateway; frontend redaction is only defense-in-depth.
+- Chat and strategy generation require the authenticated-user Cloudflare rate-limit binding (30 requests / 60 seconds). Missing or failing limiter configuration blocks billable model calls; Cloudflare's limiter is approximate and provider-side spend controls remain required.
 - Gemini sends the key in `x-goog-api-key`; OpenAI sends it in the Authorization header; Anthropic sends it in `x-api-key`.
 - Provider errors are reduced to fixed internal error codes. Provider response bodies and keys are not logged or returned.
 - Responses include the actual provider/model and `fallbackFrom` provenance, never credentials.
