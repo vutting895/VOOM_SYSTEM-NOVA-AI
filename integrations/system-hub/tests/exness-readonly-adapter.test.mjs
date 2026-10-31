@@ -192,3 +192,30 @@ test("candle request rejects unlisted instruments, invalid ranges and oversized 
   }), /exness_candle_query_outside_account_limits/);
   assert.equal(upstreamCalls, 5);
 });
+
+
+test("accepts account-configured candle limits above 999 without a hardcoded three-digit cap", async () => {
+  let candleRequested = false;
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
+      }
+      if (parsed.pathname.endsWith("/instruments")) return Response.json({ instruments: ["EURUSD"] });
+      if (parsed.pathname.endsWith("/limits")) return Response.json({ limits: { rest: { methods: [{ http_method: "GET", path: "/v1/market-data/accounts/{account_id}/candles", limits: { max_candles_per_request: 1000, history_age_days: 365 } }] } } });
+      if (parsed.pathname.endsWith("/candles")) {
+        candleRequested = true;
+        assert.equal(parsed.searchParams.get("count"), "1000");
+        return Response.json({ candles: [] });
+      }
+      throw new Error("Unexpected upstream path");
+    }
+  });
+  const candles = await adapter.getCandles(CONTEXT, {
+    instrument: "EURUSD", timeframe: "M5", from: "2026-10-31T00:00:00.000Z", count: 1000
+  });
+  assert.deepEqual(candles, []);
+  assert.equal(candleRequested, true);
+});
