@@ -11,7 +11,7 @@ node --test tools/secret-custody-proof/*.test.mjs
 1. Verify a bearer session through an injected verifier.
 2. Resolve the requested connection using the verified subject (never caller-supplied owner/tenant IDs).
 3. Resolve and match a custodian-owned binding, provider, environment, active state, and read-only capability.
-4. Atomically claim a file-backed operation record using a stable principal/binding/capability/idempotency key and a canonical request fingerprint.
+4. Atomically publish a file-backed operation claim (write a complete temporary record, then hard-link it into place) using a stable principal/binding/capability/idempotency key and a canonical request fingerprint.
 5. Invoke only an injected read-only provider adapter, passing trusted binding metadata and bounded intent—not credential bytes.
 6. Persist a sanitized result for replay; mark ambiguous provider outcomes `OUTCOME_UNKNOWN` and prohibit blind redispatch.
 7. Return `Cache-Control: no-store` and `Pragma: no-cache`.
