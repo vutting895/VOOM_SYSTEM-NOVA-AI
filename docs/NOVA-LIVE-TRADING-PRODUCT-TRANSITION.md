@@ -154,3 +154,37 @@ No automatic activation follows from passing CI, merging a PR, demo fills or das
 - All order mutations are disabled by default and enforced server-side until P5 activation approval.
 - The AI cannot authorize itself or modify risk/tenant/capability policy.
 - Never claim AI, dashboard, broker connectivity, strategy profitability or live trading is ready without exact-head code, CI, runtime and provider evidence.
+
+
+## Owner decision addendum — dual Exness Live adapters
+
+**Confirmed by owner on 2026-10-31:** use both Exness MT5 Bridge and Exness Trader API; an existing Exness Live account is available. Continue AI and Dashboard development. Do not send any real-money order before a separate Production activation approval.
+
+### Adapter boundaries
+
+- **MT5 Bridge Live:** a dedicated, owner-bound MT5 Live connection and route. This is separate from the existing Demo connection. The current main schema, Hub and MT5 Proxy explicitly allow only `environment=demo`; they must not be relabeled or bypassed. Add Live support only through a reviewed additive schema/API change with explicit environment capability, separate tenant route, separate account verification, and tests proving Demo/Live route isolation. Read-only account/quotes are the first acceptance; order methods remain absent.
+- **Exness Trader API:** separate account eligibility, API key, Ed25519 key custody and Gateway/Access Point discovery. Never reuse MT5 login/password, bridge token or connection ID as Trader API credentials. The API account may be different from the MT5 account; do not require or assume same-account identity.
+- **System Integration Hub:** remains the only identity, connection registry, authorization, policy and audit control plane. No parallel gateway.
+- **Account state:** the owner says an existing Live account is available, but NOVA has not yet verified its platform type, API eligibility, account identity or authenticated connection. Keep account state `owner_reported_existing` until verified by the relevant adapter. Do not copy an old Demo account identifier into a Live connection.
+
+### Implementation sequence for both channels
+
+1. Preserve current Exness MT5 Demo flow and its tenant route as-is.
+2. Add an isolated MT5 Live connection contract and schema review; do not expand the current Demo-only constraint in place without an additive migration and rollback plan.
+3. Extend the Broker Hub UI to show separate Demo MT5, Live MT5 and Trader API cards, each with its own environment, connection state, verification timestamp and capabilities.
+4. Keep Trader API client isolated behind reviewed tenant credential custody. The existing client is only a synthetic/read-only prototype and has no customer route.
+5. Verify the existing Live account privately through MT5 Live if it is an MT account. Separately inspect Exness Key Management for API eligibility and account selection. If eligible, register a separate Trader API connection.
+6. Add live-capable order lifecycle only after risk, secret custody, tenant isolation, Demo order lifecycle and production operations gates pass.
+
+### Dashboard truthfulness
+
+The UI must never collapse the two adapters into one generic "Exness connected" status. It must distinguish `owner_reported`, `configured`, `authenticated`, `data_verified`, `stale`, `unavailable`, and `not_eligible`. Live account balance, quotes, positions and P&L are not displayed as verified until that adapter returns authenticated, owner-bound data with provider timestamps.
+
+### Explicit current limitations
+
+- Current main migration `202610270001_mt5_customer_connections.sql` constrains both provider and environment to `exness_mt5` / `demo`.
+- Current MT5 Proxy rejects every environment other than Demo.
+- Current System Hub registry exposes only `exness-mt5-demo`.
+- Current frontend Broker Status endpoint creates/reads only an Exness MT5 Demo connection.
+- Current Trader API PR #152 contains signed GET client code only; no market-data read, credential custody, customer route or order API.
+- Therefore the existing Live account has not been connected or verified by this decision. No production credentials or orders were used.
