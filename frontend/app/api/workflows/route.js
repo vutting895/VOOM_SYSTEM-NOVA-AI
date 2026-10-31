@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { readBoundedRequestBody } from './bounded-body.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const aiWorkerBase = (process.env.NOVA_AI_API_URL || 'https://voom-system-nova-ai.suwapat787.workers.dev').replace(/\/$/, '');
-const MAX_BODY_BYTES = 16 * 1024;
 
 function buildWorkerUrl(path) {
   try {
@@ -57,15 +57,14 @@ export async function POST(request) {
     });
   }
 
-  let raw;
-  try {
-    raw = await request.text();
-  } catch {
-    return NextResponse.json({ error: 'invalid_request_body' }, { status: 400 });
+  const boundedBody = await readBoundedRequestBody(request);
+  if (!boundedBody.ok) {
+    return NextResponse.json({ error: boundedBody.error }, {
+      status: boundedBody.status,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    });
   }
-  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: 'request_too_large' }, { status: 413 });
-  }
+  const raw = boundedBody.raw;
 
   let body;
   try {
