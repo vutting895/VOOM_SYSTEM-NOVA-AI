@@ -224,8 +224,57 @@ export function validateWorkflowDraft(input) {
  * and returns a preview trace. It never persists, schedules, calls providers,
  * resolves credentials, or performs external/broker effects.
  */
+function unwrapSimulatorDraft(input) {
+  if (!isPlainObject(input)) return { ok: true, value: input };
+  const hasNormalizedEnvelope = [
+    "executionMode", "externalEffectsAllowed", "brokerWritesAllowed", "liveTradingEnabled",
+  ].some((key) => Object.hasOwn(input, key)) ||
+    (Array.isArray(input.nodes) && input.nodes.some((node) => isPlainObject(node) && Object.hasOwn(node, "sideEffect")));
+
+  if (!hasNormalizedEnvelope) return { ok: true, value: input };
+
+  const envelopeKeys = [
+    "schemaVersion", "title", "description", "nodes", "edges",
+    "executionMode", "externalEffectsAllowed", "brokerWritesAllowed", "liveTradingEnabled",
+  ];
+  if (!exactKeys(input, envelopeKeys) ||
+    input.executionMode !== "draft_only" ||
+    input.externalEffectsAllowed !== false ||
+    input.brokerWritesAllowed !== false ||
+    input.liveTradingEnabled !== false ||
+    !Array.isArray(input.nodes)) {
+    return failure("invalid_workflow_envelope");
+  }
+
+  const nodes = [];
+  for (const node of input.nodes) {
+    if (!exactKeys(node, ["id", "type", "config", "sideEffect"])) {
+      return failure("invalid_workflow_envelope");
+    }
+    const expectedSideEffect = NODE_TYPES[node.type]?.sideEffect;
+    if (typeof expectedSideEffect !== "string" || node.sideEffect !== expectedSideEffect) {
+      return failure("invalid_workflow_envelope");
+    }
+    // sideEffect is server-derived metadata, not an input to validation or execution.
+    nodes.push({ id: node.id, type: node.type, config: node.config });
+  }
+
+  return {
+    ok: true,
+    value: {
+      schemaVersion: input.schemaVersion,
+      title: input.title,
+      description: input.description,
+      nodes,
+      edges: input.edges,
+    },
+  };
+}
+
 export function simulateWorkflowDraft(input, sampleData = {}) {
-  const checked = validateWorkflowDraft(input);
+  const unwrapped = unwrapSimulatorDraft(input);
+  if (!unwrapped.ok) return unwrapped;
+  const checked = validateWorkflowDraft(unwrapped.value);
   if (!checked.ok) return failure("invalid_workflow_draft", { validationError: checked.error });
 
   if (!isPlainObject(sampleData) || Object.keys(sampleData).length > 50) {
