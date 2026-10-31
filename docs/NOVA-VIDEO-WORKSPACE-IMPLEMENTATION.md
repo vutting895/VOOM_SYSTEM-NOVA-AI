@@ -33,6 +33,19 @@ This is a metadata-only vertical slice. It does not upload or store media binari
 - Only an allowlisted task type and a bounded idempotency key are accepted.
 - No service-role key or broker integration is used.
 
+## Free cloud video-analysis candidate — not enabled
+
+Cloudflare Workers AI now offers `@cf/cloudflare/clef-omni`, a hosted multimodal decision model that accepts MP4/WebM inputs (up to two videos per request, 16 MiB and 60 seconds per clip; combined audio/video media is limited to 16 MiB decoded). It samples video at 2 frames/second and returns probability-scored answers to typed questions. It is useful for bounded clip classification (for example, scene/action/speech-presence checks), but it is **not** a freeform video summarizer, video generator, editor, or export engine.
+
+The Workers AI documentation lists a daily no-charge allocation of 10,000 Neurons. On Workers Free, operations fail after the allocation is exhausted; on Workers Paid, usage above the allocation is billed. The current deployed `voom-system-nova-ai` Worker reports `usage_model=standard` through the read-only Cloudflare API. Cloudflare documents Standard usage for Workers Paid accounts; the connected session does not have Billing Read permission to independently verify the account subscription or billing state. Therefore this PR must not call Clef-Omni or claim that it is eligible for the user's Free-only constraint. No video was sent to Workers AI and no inference was run.
+
+Revisit this option only after the account owner verifies the Workers plan, billing state and AI usage allowance in the Cloudflare dashboard. If verified as eligible, implement a separately gated, short-clip analysis capability with strict media limits, tenant auth, no persistence by default, and an explicit daily quota ceiling. This does not solve text/image-to-video generation or editing.
+
+References:
+- https://developers.cloudflare.com/workers-ai/models/clef-omni/
+- https://developers.cloudflare.com/workers-ai/platform/pricing/
+- https://developers.cloudflare.com/workers/platform/pricing/
+
 ## Required verification before staging
 
 1. Review the migration, API, UI and CI diff.
