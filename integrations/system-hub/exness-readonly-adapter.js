@@ -57,7 +57,7 @@ async function importSigningKey(privateKey) {
 }
 
 export async function createExnessGetHeaders({ apiKey, privateKey, path, timestamp = Date.now() }) {
-  if (typeof apiKey !== "string" || !apiKey.trim() || apiKey.length > 256) {
+  if (typeof apiKey !== "string" || apiKey !== apiKey.trim() || !/^[A-Za-z0-9_-]{1,256}$/.test(apiKey)) {
     throw fail("exness_api_key_unavailable");
   }
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || path.includes("#")) {
@@ -206,7 +206,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
     providerId: "exness_trader_api",
     supportedEnvironments: Object.freeze(["demo", "live"]),
     capabilities: Object.freeze([
-      "account.summary.read", "account.limits.read", "market.instruments.read"
+      "account.summary.read", "account.limits.read", "market.instruments.read", "market.candles.read"
     ]),
     async getAccount(context) {
       const c = await credentialsFor(context);
