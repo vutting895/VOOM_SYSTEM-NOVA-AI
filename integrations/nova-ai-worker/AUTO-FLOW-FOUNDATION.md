@@ -1,0 +1,23 @@
+# NOVA Auto Flow Foundation — draft-only contract
+
+This module is a first M1 foundation slice. It is deliberately a validator, not a runtime.
+
+## Contract
+- Schema version: `nova.workflow.v1`.
+- Inputs are untrusted, data-only drafts. Unknown keys and unknown node types are rejected.
+- Node types are server-owned: `trigger.manual`, `data.select_fields`, `gate.review_required`, and `output.preview`.
+- Graphs are bounded, acyclic, fully reachable from one manual trigger, and all nodes must lead to one terminal preview output.
+- The validator does not evaluate expressions, execute code, call APIs, resolve credentials, write databases, or authorize actions.
+- The normalized result forces `executionMode=draft_only`, `externalEffectsAllowed=false`, `brokerWritesAllowed=false`, and `liveTradingEnabled=false`.
+
+## Limits
+- At most 30 nodes and 60 edges.
+- At most 5 incoming and 5 outgoing edges per node.
+- At most 20 projected field names per projection node.
+- Node IDs and projected field names use restricted identifier syntax.
+
+## Local test
+Run `npm test` from this directory with Node.js 22+. These tests are local, deterministic, and do not contact production services.
+
+## Deliberate non-goals
+No provider actions, arbitrary HTTP, shell, SQL, JavaScript, loops, schedules, queues, durable execution, tenant identity, or approval RPC integration are exposed here. Those require separately reviewed contracts and runtime gates.
