@@ -13,19 +13,19 @@ All responses are JSON and use `Cache-Control: no-store`.
 |---|---|---|---|
 | GET | `/api/code/agents` | Public metadata | List six NOVA CODE AI agents |
 | GET | `/api/code/skills` | Public metadata | List Video, Affiliate, API and Social Media skills |
-| POST | `/api/code/requests` | Supabase Bearer token | Validate a proposed agent request; returns 503 until a reviewed runtime is enabled |
+| POST | `/api/code/requests` | Supabase JWT or Base44 server-to-server Bearer token + App ID header | Validate an agent request; returns 503 until a reviewed runtime is enabled |
 
 The registry endpoints disclose capability metadata only. They do not expose source code, repository data, customer information or secrets.
 
 ## CORS
 
-The exact Base44 published origin is allowlisted in the code CORS helper. CORS is not authentication. Do not use wildcard origins or credentialed cookies. The request API still requires a valid Supabase access token; a Base44 session token is not interchangeable with a Supabase JWT.
+The exact Base44 published origin is allowlisted in the code CORS helper. CORS is not authentication. Do not use wildcard origins or credentialed cookies. The existing Supabase user-session path remains supported. Base44's access token is not a Supabase JWT and must never be sent as one.\n\nFor the Base44 server-side adapter only, NOVA accepts `Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>` and `X-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62`. NOVA verifies the exact App ID and compares the configured token using a constant-time digest comparison. The tenant identity is read only from `NOVA_CODE_BASE44_TENANT_ID` in the server environment; caller-supplied tenant IDs are not trusted. Missing token or tenant configuration fails closed with 503; invalid credentials return 401; an unapproved App ID returns 403.\n\nConfigure `NOVA_CODE_BASE44_SERVICE_TOKEN` (random secret, at least 32 characters) and `NOVA_CODE_BASE44_TENANT_ID` in the NOVA server environment. Never place either value in browser JavaScript, Git, public build variables or chat.
 
 ## Request example
 
 ```http
 POST /api/code/requests
-Authorization: Bearer <SUPABASE_ACCESS_TOKEN>
+Authorization: Bearer <NOVA_CODE_BASE44_SERVICE_TOKEN>\nX-NOVA-Client-App-Id: 6ae5de7da764c8825610ef62
 Content-Type: application/json
 Origin: https://voom-studio-ai.base44.app
 ```
@@ -45,8 +45,8 @@ Until the agent runtime, tenant-scoped durable job store, and approval lifecycle
 ## Base44 integration requirements
 
 1. Call GET `/api/code/agents` and GET `/api/code/skills` from a Base44 backend function or server-side integration; do not embed service credentials in browser code.
-2. Do not send the Base44 access token as a Supabase Bearer token.
-3. Before enabling POST requests, provision a supported service-to-service identity mapped to the Base44 app tenant, or integrate a verified Supabase Auth session. Do not share a user's token across tenants.
+2. Store the service token only in a Base44 server-side secret store; never expose it to the browser.\n3. Keep the tenant mapping server-side and provision a distinct tenant identity before allowing another app/customer.
+
 4. Keep repository writes, test execution, secret access and deployments disabled until each action has explicit scopes and human approval.
 5. Production activation requires exact-head CI, independent security review, tenant isolation tests and explicit release approval.
 
