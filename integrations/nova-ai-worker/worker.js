@@ -156,6 +156,29 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
 }
+export function redactWorkflowSensitiveText(value) {
+  return String(value)
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, "$1[REDACTED]")
+    .replace(/\b((?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|secret|private[_-]?key|authorization)\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;]+)/gi, "$1[REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[REDACTED_JWT]")
+    .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[REDACTED_AWS_KEY]")
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,})\b/g, "[REDACTED_TOKEN]");
+}
+
+function redactWorkflowDraftText(draft) {
+  const safe = structuredClone(draft);
+  safe.title = redactWorkflowSensitiveText(safe.title);
+  safe.description = redactWorkflowSensitiveText(safe.description);
+  for (const node of safe.nodes) {
+    for (const key of ["reason", "label"]) {
+      if (typeof node.config?.[key] === "string") {
+        node.config[key] = redactWorkflowSensitiveText(node.config[key]);
+      }
+    }
+  }
+  return safe;
+}
+
 function validateWorkflowPrompt(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw Object.assign(new Error("invalid_workflow_prompt"), { status: 400 });
@@ -187,7 +210,7 @@ export async function generateWorkflowDraft(env, prompt) {
     const result = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: [
         { role: "system", content: system },
-        { role: "user", content: prompt },
+        { role: "user", content: redactWorkflowSensitiveText(prompt) },
       ],
       max_tokens: 1000,
       temperature: 0.1,
@@ -203,7 +226,7 @@ export async function generateWorkflowDraft(env, prompt) {
     } catch {
       throw Object.assign(new Error("invalid_workflow_model_output"), { status: 502 });
     }
-    const validation = validateWorkflowDraft(parsed);
+    const validation = validateWorkflowDraft(redactWorkflowDraftText(parsed));
     if (!validation.ok) {
       throw Object.assign(new Error("workflow_draft_rejected"), { status: 422, validationError: validation.error });
     }
