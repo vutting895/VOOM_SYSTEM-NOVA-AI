@@ -194,8 +194,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
     return checkedAccessPoint(result.access_point);
   }
 
-  async function read(context, path) {
-    const c = await credentialsFor(context);
+  async function read(c, path) {
     const accessPoint = await discover(c);
     return signedGet({
       baseUrl: accessPoint, apiKey: c.apiKey, privateKey: c.privateKey,
@@ -211,15 +210,15 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
     ]),
     async getAccount(context) {
       const c = await credentialsFor(context);
-      return read(context, accountPath(c.accountId, "/account"));
+      return read(c, accountPath(c.accountId, "/account"));
     },
     async getLimits(context) {
       const c = await credentialsFor(context);
-      return read(context, accountPath(c.accountId, "/limits"));
+      return read(c, accountPath(c.accountId, "/limits"));
     },
     async getInstruments(context) {
       const c = await credentialsFor(context);
-      const result = await read(context, accountPath(c.accountId, "/instruments"));
+      const result = await read(c, accountPath(c.accountId, "/instruments"));
       if (!result || !Array.isArray(result.instruments) ||
           !result.instruments.every((name) => typeof name === "string" && INSTRUMENT.test(name))) {
         throw fail("exness_instrument_response_invalid", 502);
@@ -250,7 +249,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
         "&from=" + encodeURIComponent(new Date(fromDate).toISOString()) +
         "&count=" + encodeURIComponent(String(count)) +
         "&price_type=" + encodeURIComponent(priceType);
-      const result = await read(context, path);
+      const result = await read(c, path);
       if (!result || !Array.isArray(result.candles) || result.candles.length > count) {
         throw fail("exness_candle_response_invalid", 502);
       }
