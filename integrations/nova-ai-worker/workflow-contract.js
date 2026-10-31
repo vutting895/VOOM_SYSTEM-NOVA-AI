@@ -215,3 +215,99 @@ export function validateWorkflowDraft(input) {
     },
   };
 }
+
+/**
+ * Run a deterministic, in-memory preview of a validated workflow draft.
+ *
+ * This is intentionally not an execution runtime: it accepts only bounded
+ * scalar sample data, walks the validated DAG in stable topological order,
+ * and returns a preview trace. It never persists, schedules, calls providers,
+ * resolves credentials, or performs external/broker effects.
+ */
+export function simulateWorkflowDraft(input, sampleData = {}) {
+  const checked = validateWorkflowDraft(input);
+  if (!checked.ok) return failure("invalid_workflow_draft", { validationError: checked.error });
+
+  if (!isPlainObject(sampleData) || Object.keys(sampleData).length > 50) {
+    return failure("invalid_simulation_data");
+  }
+  for (const [key, value] of Object.entries(sampleData)) {
+    if (
+      !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(key) ||
+      isSensitiveFieldName(key) ||
+      !(value === null || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) ||
+        (typeof value === "string" && value.length <= 500))
+    ) return failure("invalid_simulation_data");
+  }
+  if (new TextEncoder().encode(JSON.stringify(sampleData)).byteLength > 8000) {
+    return failure("simulation_data_too_large");
+  }
+
+  const nodes = new Map(checked.value.nodes.map((node) => [node.id, node]));
+  const adjacency = new Map([...nodes.keys()].map((id) => [id, []]));
+  const indegree = new Map([...nodes.keys()].map((id) => [id, 0]));
+  for (const edge of checked.value.edges) {
+    adjacency.get(edge.from).push(edge.to);
+    indegree.set(edge.to, indegree.get(edge.to) + 1);
+  }
+
+  // Stable Kahn traversal makes identical input produce identical traces.
+  const ready = [...indegree].filter(([, degree]) => degree === 0).map(([id]) => id).sort();
+  const ordered = [];
+  while (ready.length) {
+    const id = ready.shift();
+    ordered.push(id);
+    for (const next of [...adjacency.get(id)].sort()) {
+      indegree.set(next, indegree.get(next) - 1);
+      if (indegree.get(next) === 0) {
+        ready.push(next);
+        ready.sort();
+      }
+    }
+  }
+  if (ordered.length !== nodes.size) return failure("invalid_workflow_draft");
+
+  let projected = {};
+  let approvalRequired = false;
+  let preview = null;
+  const trace = [];
+  for (const id of ordered) {
+    const node = nodes.get(id);
+    switch (node.type) {
+      case "trigger.manual":
+        trace.push({ nodeId: id, status: "previewed", kind: "manual_trigger" });
+        break;
+      case "data.select_fields":
+        projected = Object.fromEntries(node.config.fields
+          .filter((field) => Object.hasOwn(sampleData, field))
+          .map((field) => [field, sampleData[field]]));
+        trace.push({ nodeId: id, status: "previewed", kind: "field_projection", fieldCount: Object.keys(projected).length });
+        break;
+      case "gate.review_required":
+        approvalRequired = true;
+        trace.push({ nodeId: id, status: "approval_required", kind: "review_marker", reason: node.config.reason });
+        break;
+      case "output.preview":
+        preview = { label: node.config.label, data: projected, approvalRequired };
+        trace.push({ nodeId: id, status: "preview_ready", kind: "preview_output" });
+        break;
+      default:
+        return failure("unsupported_simulation_node");
+    }
+  }
+
+  return {
+    ok: true,
+    value: {
+      schemaVersion: checked.value.schemaVersion,
+      simulationMode: "in_memory_preview_only",
+      trace,
+      preview,
+      executionEnabled: false,
+      persistenceEnabled: false,
+      externalEffectsAllowed: false,
+      brokerWritesAllowed: false,
+      liveTradingEnabled: false,
+    },
+  };
+}
