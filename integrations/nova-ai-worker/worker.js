@@ -459,7 +459,7 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
-        ok: true, service: "voom-system-nova-ai", version: "1.1.0",
+        ok: true, service: "voom-system-nova-ai", version: "1.2.0",
         aiBinding: Boolean(env.AI), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
