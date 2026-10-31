@@ -3,7 +3,7 @@
 **Repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Canonical branch:** `main`  
 **Baseline:** `a2acfd8ec9b598e6593413549bef760e8f596a72`  
-**Status:** P0 design and access-readiness; no Meta account connected  
+**Status:** P0 design and access-readiness; no Meta account connected; Option C custody architecture remains Draft  
 **Frontend:** Netlify (`voomsystem.netlify.app`)  
 **Backend control plane:** existing Cloudflare System Integration Hub  
 **Database:** existing Supabase project (Free plan)  
@@ -28,7 +28,7 @@ Extend the existing NOVA application and authenticated Cloudflare System Integra
 - Browser: initiate OAuth and display sanitized connection state only.
 - OAuth callback: dedicated same-origin Next.js route on the Netlify frontend, with the exact redirect URI registered in Meta and validated against server configuration.
 - Backend: existing System Hub owns state validation, code exchange, Page discovery, permission checks, owner binding, and audit correlation. Never exchange app secrets in browser code.
-- Persistence: store only Page metadata and opaque credential references in application tables. Do not persist Meta user/Page tokens until the approved server-only secret-storage path is available and passes its security gates.
+- Persistence: store only Page metadata and an opaque custody reference in Supabase. Meta user/Page tokens and all provider credentials must be held by the separately isolated Secret Custody Plane selected under Option C; the System Hub, AI Worker, MCP server, and browser must never receive plaintext credentials or custody keys. Option C remains a Draft architecture proposal in PR #130, not a deployed service.
 - AI: research and draft content only. Model output is untrusted input and cannot invoke publish actions.
 
 ## 3. Meta OAuth permission stages
@@ -50,17 +50,18 @@ Request the minimum permission set for each stage. Do not request advertising, m
 
 The app must display requested permissions and their purpose before the user proceeds. Handle partial grants and denied scopes without failing open.
 
-## 4. OAuth and token security requirements
+## 4. OAuth and token custody security requirements
 
 - Use Meta's supported Facebook Login / Login for Business flow and a currently supported Graph API version selected at implementation time.
 - Generate high-entropy, single-use `state`; bind it to the authenticated NOVA user, session, redirect URI, and short expiry. Validate it server-side and reject replay, mismatch, expiry, or missing state.
 - Use PKCE if supported by the selected Meta login configuration; keep App Secret and code exchange server-side.
 - Validate redirect URIs against a fixed allowlist. Never accept a client-supplied callback URL or arbitrary Graph API host.
-- Exchange authorization codes only on the server; never log authorization codes, access tokens, app secrets, or full callback query strings.
-- Bind the returned Page to the authenticated NOVA owner. Do not trust a client-supplied user ID, tenant ID, Page ID, or task list as proof of ownership.
-- Encrypt tokens at rest using an approved server-only secret store. The current Vault readiness record blocks credential reads/writes until a dedicated least-privilege access path and two-owner isolation tests pass. Do not bypass this with `service_role`, browser storage, local storage, KV plaintext, logs, or browser-exposed environment variables.
-- Support disconnect/revoke, token expiry/re-authentication, permission changes, Page role removal, and deletion requests.
-- Return only sanitized connection state and non-secret Page metadata to the browser and AI.
+- Exchange authorization codes only inside the approved server-side custody boundary; never log authorization codes, access tokens, app secrets, or full callback query strings.
+- Bind the returned Page to the authenticated NOVA owner. The custodian must independently validate the customer Supabase session and resolve the Page/connection binding from trusted metadata and its own registry. Do not trust a client-supplied user ID, tenant ID, Page ID, custody reference, or task list as proof of ownership.
+- Follow owner-selected **Option C — Separate Secret Custody**. Supabase is metadata-only; it is not the customer token store. Do not implement a Supabase Vault/Hyperdrive fallback. PR #130 (`docs/separate-secret-custody-option-c-20261031`) is the current Draft architecture/API/threat-model proposal; it has no deployed custodian, selected provider, KMS/HSM, mTLS workload identity, or live integration.
+- The custodian must use a separate cloud security boundary, non-exportable KMS/HSM key hierarchy, envelope encryption, independent customer-session validation, owner/connection binding, read-only provider adapter allowlists, durable idempotency/reconciliation, and no-cache behavior. The System Hub may orchestrate but must not receive plaintext credentials, custody master keys, or bulk secret-read capability.
+- Support disconnect/revoke, token expiry/re-authentication, permission changes, Page role removal, and deletion requests through the custodian lifecycle contract.
+- Return only sanitized connection state and non-secret Page metadata to the browser and AI. Use `Cache-Control: no-store` and `Pragma: no-cache` throughout the custody path.
 
 ## 5. Content Studio workflow
 
@@ -88,7 +89,7 @@ The app must display requested permissions and their purpose before the user pro
 | P0-1 Repository baseline | Main SHA and relevant paths inspected | Passed for documentation baseline |
 | P0-2 Page identity | Canonical Page URL + Page ID + returned Page name | Blocked: OAuth not connected |
 | P0-3 Admin authorization | OAuth user identity and Page tasks verified server-side | Blocked |
-| P0-4 Token custody | Dedicated secret-store path; least privilege; two-owner isolation; revoke test | Blocked by Vault readiness gate |
+| P0-4 Token custody | Option C custodian deployed in a separate security boundary; KMS/HSM, workload identity, independent session validation, no-cache, durable operation ledger, redaction and revoke tests | Blocked: PR #130 is Draft design/proof only; no provider or runtime selected |
 | P0-5 Read-only discovery | Exact Page metadata and allowed read-only endpoint smoke tests | Not started |
 | P0-6 Content workflow | Draft-only pipeline, provenance, rights, quality and disclosure checks | Design only |
 | P0-7 Durable approval | Approval bound to content hash/Page/action/expiry; replay and cross-owner denial tests | Not started |
@@ -97,12 +98,14 @@ The app must display requested permissions and their purpose before the user pro
 ## 8. Implementation sequence
 
 1. Review this P0 document and confirm the exact Page identity after OAuth; do not infer it from profile/share URLs.
-2. Inspect existing frontend auth callback, System Hub routing, audit model, and migration baseline before implementation.
-3. Add an isolated Meta OAuth read-only branch with fixed callback, state validation, permission minimization, and no token persistence until Vault is approved.
-4. Run contract tests for state replay/expiry/mismatch, callback allowlist, denied scopes, foreign-owner Page IDs, token redaction, and disconnect.
-5. Verify with the owner's Meta account in a staging/test app using a Page the owner controls; record sanitized Page ID/name/tasks and exact commit/CI evidence.
-6. Implement draft-only content records and media lifecycle as a separate reviewed PR; do not mix it with OAuth.
-7. Consider publishing permissions only in a later PR after durable approval and Meta App Review gates pass.
+2. Reconcile this PR with Option C architecture PR #130 and review its ADR, API contract, threat model, and synthetic proof limitations. Do not build against the superseded Supabase Vault/Hyperdrive candidate (#105/#112).
+3. Inspect existing frontend auth callback, System Hub routing, audit model, canonical connection schema, and migration baseline before implementation.
+4. Select a custodian provider only after read-only existing-account discovery and explicit owner approval; prove a separate cloud boundary, KMS/HSM policy, workload identity/mTLS, and independent session validation with synthetic data first.
+5. Add an isolated Meta OAuth read-only branch only after the custody boundary is independently reviewed; use fixed callback, state validation, permission minimization, and server-side code exchange.
+6. Run contract tests for state replay/expiry/mismatch, callback allowlist, denied scopes, foreign-owner Page IDs, token redaction, custody no-cache, idempotency, revoke and ambiguous outcomes.
+7. Verify with the owner's Meta account in a staging/test app using a Page the owner controls; record sanitized Page ID/name/tasks and exact commit/CI evidence.
+8. Implement draft-only content records and media lifecycle as a separate reviewed PR; do not mix it with OAuth.
+9. Consider publishing permissions only in a later PR after durable approval and Meta App Review gates pass.
 
 ## 9. Non-negotiable safety rules
 
@@ -110,7 +113,7 @@ The app must display requested permissions and their purpose before the user pro
 - No secrets in chat, source, PRs, logs, browser storage, or AI prompts.
 - No automatic publishing, scheduling, deleting, boosting, or advertising in P0.
 - No production Page mutation during tests.
-- No duplicate Dashboard, auth gateway, or secret store.
+- No duplicate Dashboard, auth gateway, or secret store. Follow Option C; do not revive Supabase Vault/Hyperdrive as customer credential custody.
 - Keep NOVA's existing tenant isolation, RLS, Netlify frontend / Cloudflare backend split, and delivery verification plan.
 - Do not claim a Page is connected until Meta OAuth, Page discovery, owner binding, and sanitized read-only verification all pass.
 - No production activation without a separate explicit approval.
