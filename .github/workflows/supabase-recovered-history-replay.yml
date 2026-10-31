@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [production, staging]
+        environment: [production, staging, production-plus-nova]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +41,12 @@ jobs:
           cd "$workdir"
           supabase init
 
-          cp "$GITHUB_WORKSPACE"/supabase/recovered-history/${{ matrix.environment }}/*.sql "$workdir/supabase/migrations/"
+          if [ "${{ matrix.environment }}" = "production-plus-nova" ]; then
+            cp "$GITHUB_WORKSPACE"/supabase/recovered-history/production/*.sql "$workdir/supabase/migrations/"
+            cp "$GITHUB_WORKSPACE"/supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+          else
+            cp "$GITHUB_WORKSPACE"/supabase/recovered-history/${{ matrix.environment }}/*.sql "$workdir/supabase/migrations/"
+          fi
 
           if [ "${{ matrix.environment }}" = "staging" ]; then
             cat > "$workdir/supabase/migrations/20261030000000_ci_extensions.sql" <<'SQL'
@@ -67,8 +72,10 @@ jobs:
           test -n "${DB_URL:-}"
           if [ "${{ matrix.environment }}" = "production" ]; then
             psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-history-assertions.sql"
-          else
+          elif [ "${{ matrix.environment }}" = "staging" ]; then
             psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-staging-history-assertions.sql"
+          else
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-plus-nova-assertions.sql"
           fi
 
       - name: Stop disposable local Supabase

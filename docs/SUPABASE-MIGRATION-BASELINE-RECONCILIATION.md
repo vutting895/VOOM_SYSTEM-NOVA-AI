@@ -488,3 +488,10 @@ Extensions also differ: Production has `pg_stat_statements`, `pgcrypto`, `plpgsq
 **Grant/RLS caution:** table-level grants and row-level policies are separate controls. The catalog shows table grants to `anon` on five public tables in each environment, while RLS is enabled on every public table. In Staging, the five legacy tables have no explicit public RLS policies (default-deny under RLS), but broad table grants remain and must be reviewed before Data API exposure. In Production, the two Alpaca tables have explicit browser-deny policies; other anonymous grants are not themselves proof of readable rows. The Oct 30 Data API exposure default is a third, separate platform control and must be verified in the target project settings.
 
 These fingerprints are now the comparison baseline; do not claim schema parity from table names or migration counts alone.
+
+
+### 8.5 Forward target replay: Production baseline + NOVA approval migration
+
+A third clean-replay lane is being added to test the proposed additive target: all 24 recovered Production migrations followed by the canonical repository migration `supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql`. That approval SQL is byte-equivalent to the Staging ledger's recorded `nova_durable_approval_lifecycle` statement. The test expects 21 public tables, RLS on all 21, 25 local migration records, three approval policies, `extensions.digest`, least-privilege RPC grants, and SECURITY INVOKER public wrappers over SECURITY DEFINER private implementations.
+
+This is a **local forward-replay proof only**. If it passes, it supports a candidate migration path for Production; it does not authorize or perform applying the migration to Production, changing the Staging project, or claiming hosted parity. The Staging five legacy tables still require an explicit preserve/archive/retire decision and a non-destructive cutover plan.
