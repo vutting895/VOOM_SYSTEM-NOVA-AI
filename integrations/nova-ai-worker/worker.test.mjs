@@ -193,6 +193,34 @@ test("workflow draft endpoint validates the exact bounded prompt shape", async (
   assert.equal((await response.json()).error, "invalid_workflow_prompt");
 });
 
+test("workflow prompt secrets are redacted before AI and from returned draft text", async () => {
+  authFetch();
+  const echoed = structuredClone(workflowModelDraft);
+  echoed.description = "Draft from accessToken: leaked-value and Bearer abc.def.ghi";
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        const prompt = input.messages.at(-1).content;
+        assert.match(prompt, /accessToken: \[REDACTED\]/);
+        assert.match(prompt, /Bearer \[REDACTED\]/);
+        assert.doesNotMatch(prompt, /leaked-value|abc\.def\.ghi/);
+        return { response: JSON.stringify(echoed) };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/workflows/draft", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Create a flow with accessToken: leaked-value and Bearer abc.def.ghi" }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.match(body.draft.description, /accessToken: \[REDACTED\]/);
+  assert.match(body.draft.description, /Bearer \[REDACTED\]/);
+  assert.doesNotMatch(JSON.stringify(body.draft), /leaked-value|abc\.def\.ghi/);
+});
+
 test("AI workflow generation returns only a validated non-executable draft", async () => {
   authFetch();
   const aiEnv = {
