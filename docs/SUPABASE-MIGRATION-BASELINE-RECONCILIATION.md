@@ -611,3 +611,31 @@ A verbose metadata-only inspection was performed for the five Staging-only table
 Supabase's compact table metadata returned zero estimates for all five, but a separate exact read-only COUNT(*) query returned ai_strategy_state=2, bot_config=1, latest_signal=1, user_brokers=0 and video_histories=0. No row contents were queried. These counts do not prove that backups, external consumers, logs, or older project instances do not depend on them. GitHub code search against the current repository returned no indexed code hits for these five table names or api_secret_encrypted; this is not proof that no external consumer exists.
 
 All five remain absent from the two-row Staging migration ledger, have RLS enabled with no policies, and retain broad anon/authenticated/service_role table grants (105 privilege rows total). bot_config and latest_signal currently contain 1 row each; ai_strategy_state contains 2 rows. The secret-bearing user_brokers table is the highest-priority legacy security classification. Do not query secret values, create permissive policies, add these tables to the NOVA schema, revoke grants or drop tables until a reviewed backup/recovery plan and owner approval exist. The correct next step is source/consumer ownership recovery, not schema mutation.
+
+### 8.14 Staging dependency and access review — read-only, 2026-10-31
+
+A second metadata-only review was completed before considering any Staging grant change or retirement:
+
+- **Foreign keys:** no foreign-key constraints reference or originate from the five legacy tables.
+- **Views:** no public view definition references any of the five.
+- **Database routines:** none of the eight current public/private routines contains a reference to the five legacy tables.
+- **Triggers:** no trigger is attached to a legacy table; the only Staging triggers are on `broker_connections` and `nova_approval_requests`.
+- **Realtime publication:** none of the five legacy tables is in a publication.
+- **Edge Functions:** the only deployed Staging Edge Function is `nova-staging-auth-isolation-once`; its current code returns HTTP 410 with `staging_test_endpoint_disabled` and does not access legacy tables.
+- **Repository references:** earlier code search across the canonical NOVA repo and legacy repo found no references to the five legacy names. Repository search does not cover external clients, private deployments, direct database clients, or unindexed code.
+
+**Important permission clarification:** all five legacy tables have 7 table privileges each (`DELETE`, `INSERT`, `REFERENCES`, `SELECT`, `TRIGGER`, `TRUNCATE`, `UPDATE`) granted to each of `anon`, `authenticated`, and `service_role` (105 grant rows total). RLS is enabled with no policies, so browser roles are currently default-denied by RLS. However, `service_role` bypasses RLS and retains direct table privileges. Treat this as a latent backend access path, not as harmless merely because there are no policies. The secret-bearing `user_brokers` schema currently has zero rows; no secret values were queried.
+
+**Proposed least-privilege sequence (not yet executed):**
+1. Obtain a complete Staging logical backup to an owner-approved destination outside Git, with SHA-256 manifest.
+2. Restore the backup into a disposable local Supabase instance and verify table row counts, constraints, indexes, policies and grants before touching Staging.
+3. Confirm with the owner whether any private service, customer integration, automation, or older deployment uses the five table names.
+4. If no browser clients should use these legacy tables, prepare a reviewed additive Staging-only change to revoke `anon` and `authenticated` table grants while keeping RLS enabled and adding no policies. Keep `service_role` access unchanged until backend consumers are positively ruled out.
+5. Only after a separate owner decision and verified recovery proof, consider revoking `service_role` access and archiving/retiring the tables. Do not drop or reset them as part of this phase.
+
+**Backup availability and current workstation capability:**
+- Supabase's official [Database Backups documentation](https://supabase.com/docs/guides/platform/backups) says automatic daily backups are provided for Pro, Team and Enterprise projects; Free projects should regularly export data using Supabase CLI `db dump` and keep off-site backups.
+- The connected Windows workstation has Docker available, but no Supabase CLI and no `SUPABASE_ACCESS_TOKEN` in its current process environment. No database password or access token was read, requested in chat, or exposed. Therefore no backup was attempted and no backup artifact is claimed.
+- The supported export method is the official [Supabase CLI db dump](https://supabase.com/docs/reference/cli/supabase-db-dump). Use a locally configured credential/environment variable and a protected destination outside the repository; export roles, schema and data, hash the artifacts, and perform a disposable restore test before any Staging DDL.
+
+**Current decision:** dependency review is clear for in-database objects and the one deployed Edge Function, but external-consumer review and verified backup/restore are still outstanding. Preserve all five tables unchanged. No Staging grants, policies, schema, data, or project settings were modified.
