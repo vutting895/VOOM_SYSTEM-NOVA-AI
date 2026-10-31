@@ -7,6 +7,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from account_environment import account_environment
 import MetaTrader5 as mt5
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -90,18 +91,6 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         if account is None:
             raise HTTPException(status_code=503, detail="No MT5 account session detected")
         return terminal, account
-
-
-def account_environment(trade_mode: Any) -> str | None:
-    # MetaTrader 5: 0 = demo, 1 = contest, 2 = real.
-    # Contest and unknown modes are deliberately not mapped to a customer environment.
-    if isinstance(trade_mode, bool) or not isinstance(trade_mode, int):
-        return None
-    if trade_mode == 0:
-        return "demo"
-    if trade_mode == 2:
-        return "live"
-    return None
 
 
 def timeframe_value(name: str) -> int:
