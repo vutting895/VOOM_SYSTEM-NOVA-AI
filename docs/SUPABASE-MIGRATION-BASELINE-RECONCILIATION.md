@@ -458,9 +458,9 @@ A passing replay validates the archived migration sequences in a clean local Sup
 |---|---|
 | Recover missing applied SQL | **Complete — 26/26 ledger statements archived** |
 | Reconcile Production and Staging migration provenance | **Complete at ledger level; Staging's five untracked legacy tables remain classified as out-of-band candidates** |
-| Clean local Supabase replay | **Pending exact-head CI result** |
-| Full schema-only equivalence against hosted catalogs | **Pending replay fingerprints and object-level comparison** |
-| Decide/publish one canonical forward migration baseline | **Blocked pending object diff and explicit approval for any hosted DDL** |
+| Clean local Supabase replay | **Complete** — 24/24 Production + 2/2 Staging replayed in disposable local Supabase; run #41175375858 passed |
+| Production schema-only equivalence against hosted catalog | **In progress** — full 9-category catalog fingerprint comparison is running in #41175729533; Staging's five untracked legacy tables remain excluded from replay equivalence |
+| Candidate forward baseline (Production history + NOVA approval) | **Locally validated** — run #41175585645 passed 25-migration / 21-table / RLS / policy / RPC / grant assertions; hosted application still requires explicit approval |
 
 No hosted DDL, migration repair, reset, data write, project/branch creation, deployment or broker write was performed.
 
@@ -507,3 +507,8 @@ This supports classifying the five tables as **unreferenced legacy candidates**,
 ### 8.7 Full Production catalog fingerprint replay
 
 A schema-only Production fingerprint has been captured from PostgreSQL catalogs (no row data) and stored at `supabase/recovered-history/catalog-fingerprints/production.json`. It includes 19 table definitions/RLS flags, 171 column definitions/defaults, 89 constraints, 60 indexes, 21 policies, four triggers, 15 public/private functions with security/search-path metadata, 190 table grants, and five extension/schema assignments. The Production replay lane now computes the same fingerprint from the disposable clean-replay database and compares it structurally against the hosted snapshot. This is stricter than checking only object counts. Result is pending CI.
+
+
+**Forward-replay evidence:** the separate Production 24-migration history plus canonical NOVA approval migration was replayed from empty local Supabase and passed all assertions in [run #41175585645](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175585645). This demonstrates that the NOVA approval migration can be layered additively over the Production baseline in a clean environment. It is not a hosted deployment or a Staging rebuild.
+
+The new exact-head full Production catalog fingerprint comparison is running in [run #41175729533](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41175729533).
