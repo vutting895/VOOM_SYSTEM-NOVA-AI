@@ -7,7 +7,7 @@ test("NOVA Video skill registry is versioned and exposes all 20 skills", () => {
   assert.equal(VIDEO_SKILL_REGISTRY_VERSION, "1.0.0");
   assert.equal(registry.registryVersion, "1.0.0");
   assert.equal(registry.deliveryModel, "api_only");
-  assert.equal(registry.skillCount, 20);
+  assert.equal(registry.skillCount, 22);
   assert.deepEqual(registry.skillGroups.map((group) => group.id), ["generation", "analysis", "editing", "production"]);
 });
 
