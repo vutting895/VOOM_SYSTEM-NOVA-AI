@@ -61,8 +61,16 @@ def build_shadow_delegation_plan(
     team_registry: Mapping[str, TeamDefinition],
 ) -> ShadowDelegationPlan:
     """Validate a coordinator's complete four-team shadow plan without side effects."""
+    if not isinstance(parent_task, TeamLeadTask):
+        raise ContractError("shadow plan parent must be a TeamLeadTask")
     if not isinstance(child_proposals, tuple) or len(child_proposals) != len(SHADOW_ONLY_TEAMS):
         raise ContractError("shadow plan requires exactly four child team proposals")
+    if any(
+        not isinstance(child, ShadowChildProposal)
+        or not isinstance(child.task, TeamLeadTask)
+        for child in child_proposals
+    ):
+        raise ContractError("shadow plan contains an invalid child proposal")
     if not isinstance(team_registry, Mapping):
         raise ContractError("server-owned team registry is required")
 
