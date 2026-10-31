@@ -34,7 +34,7 @@ paths:
                   registryVersion: { type: string }
                   product: { const: NOVA AI Video Platform }
                   deliveryModel: { const: api_only }
-                  skillCount: { type: integer, const: 20 }
+                  skillCount: { type: integer, const: 22 }
                   policy:
                     type: object
                     required: [costMode, paidApiAllowed, paidGpuAllowed, trialCreditsQualifyAsFree, executionEnabled, productionActivationRequiresExplicitApproval]
