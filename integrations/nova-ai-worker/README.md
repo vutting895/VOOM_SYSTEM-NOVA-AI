@@ -26,3 +26,10 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## Auto Flow draft endpoint
+
+- `POST /api/workflows/draft` requires a verified Supabase bearer session and accepts only `{"prompt":"..."}` (maximum 1,200 characters).
+- The existing Cloudflare Workers AI binding generates a data-only `nova.workflow.v1` proposal. Every result is validated against the server-owned node registry and graph validator before return.
+- This endpoint does not persist or execute workflows. Unsupported node types or invalid graphs are rejected; unavailable AI fails closed.
+- External effects, broker writes, order submission and Live Trading remain disabled.
