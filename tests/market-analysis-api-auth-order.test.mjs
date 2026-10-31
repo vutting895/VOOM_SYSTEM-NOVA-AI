@@ -28,4 +28,6 @@ test("market analysis API rejects unverified, environment-ambiguous or execution
   assert.match(handler, /payload\.executionEnabled !== false/);
   assert.match(handler, /payload\.ordersEnabled !== false/);
   assert.match(handler, /payload\.liveTradingEnabled !== false/);
+  assert.match(handler, /payload\?\.analysis\?\.currentBarExcluded !== true/);
+  assert.match(handler, /payload\?\.analysis\?\.smc\?\.ordersSubmitted !== false/);
 });
