@@ -692,3 +692,32 @@ button:disabled { cursor: wait; opacity: .65; }
   .nova-approval-actions button { width: 100%; }
   .nova-approval-state { max-width: 80px; }
 }
+
+
+/* NOVA unified sign-in and registration */
+.nova-auth-card { max-width: 560px; }
+.nova-auth-card > .nova-pill { margin-top: 13px; }
+.nova-auth-providers { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 22px; }
+.nova-auth-provider {
+  min-width: 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid rgba(130, 166, 190, .25); border-radius: 11px;
+  background: rgba(9, 23, 39, .86); color: #e8f4fb; font-size: 12px; font-weight: 750;
+}
+.nova-auth-provider:hover { border-color: rgba(98, 230, 243, .55); background: rgba(18, 52, 68, .8); }
+.nova-auth-provider:disabled { opacity: .55; cursor: wait; }
+.nova-provider-mark { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 50%; background: #fff; font-size: 15px; font-weight: 900; }
+.nova-google-mark { color: #4285f4; }
+.nova-auth-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 6px; color: #7593a5; font-size: 10px; }
+.nova-auth-divider::before, .nova-auth-divider::after { content: ""; height: 1px; flex: 1; background: rgba(80, 209, 231, .17); }
+.nova-auth-consent { display: flex; align-items: flex-start; gap: 9px; margin: 15px 0; color: #9eb4c5; font-size: 11px; line-height: 1.7; }
+.nova-auth-consent input { margin-top: 3px; accent-color: #31cdbd; }
+.nova-auth-error, .nova-auth-success { padding: 10px 12px; border-radius: 9px; font-size: 11px !important; }
+.nova-auth-error { border: 1px solid rgba(255, 145, 132, .3); background: rgba(94, 36, 39, .2); color: #ffc0b7 !important; }
+.nova-auth-success { border: 1px solid rgba(74, 208, 164, .28); background: rgba(20, 104, 83, .18); color: #9ae8c9 !important; }
+.nova-auth-submit { width: 100%; margin-top: 14px; min-height: 46px; }
+.nova-auth-switch { margin: 18px 0 0; text-align: center; font-size: 12px !important; }
+.nova-auth-switch a { color: var(--nova-cyan); font-weight: 800; }
+@media (max-width: 520px) {
+  .nova-auth-providers { grid-template-columns: 1fr; }
+  .nova-auth-provider { justify-content: flex-start; padding-left: 18px; }
+}
