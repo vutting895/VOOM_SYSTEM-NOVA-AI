@@ -35,12 +35,15 @@ This is a metadata-only vertical slice. It does not upload or store media binari
 
 ## Required verification before staging
 
-1. Review the migration and API diff.
+1. Review the migration, API, UI and CI diff.
 2. Confirm Frontend CI runs `tests/nova-video-workspace.test.mjs` on the exact PR head.
-3. Run the migration only in an approved isolated Supabase local/staging environment; do not apply it to the production Supabase Free project as part of this PR.
-4. Use two isolated test users to prove project/job owner reads and cross-tenant denial.
-5. Verify `/video` authentication, create/list project, record blocked job, and confirm no worker/network dispatch.
-6. Confirm Netlify Preview corresponds to the reviewed PR SHA.
+3. Confirm `NOVA Video Migration CI` applies the migration to ephemeral PostgreSQL and passes the two-tenant RLS, foreign-project denial, no-update-grant, blocked-status and zero-cost constraint checks.
+4. Run the migration only in an approved isolated Supabase local/staging environment; do not apply it to the production Supabase Free project as part of this PR.
+5. Use two isolated Supabase Auth test users to prove API-level project/job owner reads and cross-tenant denial.
+6. Verify `/video` authentication, create/list project, record blocked job, and confirm no worker/network dispatch.
+7. Confirm Netlify Preview corresponds to the reviewed PR SHA.
+
+The PostgreSQL integration suite is a disposable CI database test, not evidence that the hosted Supabase project has received the migration or that the hosted API has passed tenant-isolation acceptance.
 
 ## Completion status
 
