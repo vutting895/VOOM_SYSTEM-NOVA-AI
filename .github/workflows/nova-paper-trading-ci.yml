@@ -1,0 +1,32 @@
+name: NOVA Paper Trading CI
+
+on:
+  pull_request:
+    paths:
+      - "workers/paper_trading/**"
+      - "tests/test_paper_ledger.py"
+      - ".github/workflows/nova-paper-trading-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workers/paper_trading/**"
+      - "tests/test_paper_ledger.py"
+      - ".github/workflows/nova-paper-trading-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  paper-ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile paper ledger
+        run: python -m py_compile workers/paper_trading/ledger.py
+      - name: Run paper ledger safety and accounting tests
+        run: python -m unittest discover -s tests -p "test_paper_ledger.py" -v
