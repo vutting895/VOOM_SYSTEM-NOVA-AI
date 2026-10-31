@@ -92,15 +92,15 @@ export default function Home() {
         </div>
         <div className="nova-dash-hero-status" aria-label="Execution safety status">
           <div className="nova-dash-status-icon">⌑</div>
-          <div><span className="nova-dash-eyebrow">EXECUTION POLICY</span><strong>Read-only mode</strong><small>Order submission OFF · Live trading OFF</small></div>
+          <div><span className="nova-dash-eyebrow">EXECUTION POLICY</span><strong>Live-capable development</strong><small>Execution locked · Order submission OFF</small></div>
           <StatusPill tone="safe">LOCKED</StatusPill>
         </div>
       </section>
 
       <section className="nova-dash-safety" aria-label="Safety notice">
         <span className="nova-dash-safety-mark">!</span>
-        <div><strong>Safe mode is active</strong><p>This dashboard is for monitoring and AI-assisted research. It does not submit broker orders or enable live trading.</p></div>
-        <span className="nova-dash-safety-code">POLICY / READ-ONLY</span>
+        <div><strong>Safe mode is active</strong><p>This dashboard is being developed for AI-assisted live trading. Broker orders remain disabled until production approval and verified risk/execution gates pass.</p></div>
+        <span className="nova-dash-safety-code">POLICY / EXECUTION LOCKED</span>
       </section>
 
       <section className="nova-dash-overview" aria-label="System overview">
@@ -114,7 +114,7 @@ export default function Home() {
         <article className="nova-dash-overview-card">
           <div className="nova-dash-card-top"><span className="nova-dash-eyebrow">BROKER CONNECTIVITY</span><span className="nova-dash-card-symbol">⌘</span></div>
           <div className="nova-dash-status-line"><StatusPill tone={broker.state === 'reported' ? 'caution' : broker.state === 'checking' ? 'neutral' : 'warning'}>{brokerLabel}</StatusPill></div>
-          <h2>Exness · MT5 Demo</h2>
+          <h2>Exness · MT5 Demo status</h2>
           <p>{broker.detail}</p>
           <Link href="/broker" className="nova-dash-card-link">OPEN BROKER HUB <span>↗</span></Link>
         </article>
@@ -158,7 +158,7 @@ export default function Home() {
         </article>
       </section>
 
-      <footer className="nova-dash-footer"><span>VOOM / NOVA</span><span>ADAPTIVE COMMAND DASHBOARD</span><span>READ-ONLY · LIVE TRADING OFF</span></footer>
+      <footer className="nova-dash-footer"><span>VOOM / NOVA</span><span>ADAPTIVE COMMAND DASHBOARD</span><span>LIVE EXECUTION LOCKED · ORDERS OFF</span></footer>
     </main>
   );
 }
