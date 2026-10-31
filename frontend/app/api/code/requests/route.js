@@ -51,7 +51,7 @@ export async function POST(request) {
     return json(request, { error: "nova_code_task_invalid" }, 400);
   }
   if (body.repository !== undefined
-    && (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$/.test(body.repository))) {
+    && (typeof body.repository !== "string" || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(body.repository))) {
     return json(request, { error: "nova_code_repository_invalid" }, 400);
   }
   if (body.base_ref !== undefined
