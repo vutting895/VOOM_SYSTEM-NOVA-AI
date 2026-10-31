@@ -35,7 +35,6 @@ The current secret-manager readiness record blocks customer credential reads/wri
 |---|---|
 | Access Point discovery | `GET /v1/trading/access-point?account_id={account_id}` |
 | Account details | `GET /v1/configuration/accounts/{account_id}/account` |
-| Account limits | `GET /v1/configuration/accounts/{account_id}/limits` |
 | Available instruments | `GET /v1/configuration/accounts/{account_id}/instruments` |
 | Effective account/API limits | `GET /v1/configuration/accounts/{account_id}/limits` |
 | Candle history | `GET /v1/market-data/accounts/{account_id}/candles` (count and history age must be within the current account limits) |
@@ -61,6 +60,7 @@ No order, position mutation, account switch, transfer, deposit, withdrawal, or p
 - Access Point discovery: https://www.exness-api.com/documentation/access-point-host-discovery
 - Account details: https://www.exness-api.com/reference/trading/get-account-details
 - Account limits: https://www.exness-api.com/reference/trading/get-limits
+- Effective API request limits: https://www.exness-api.com/trading/guides/api-configuration-and-limits
 - Available instruments: https://www.exness-api.com/reference/trading/get-available-instrument-list
 - Candle history: https://www.exness-api.com/reference/get-candle-history
 
