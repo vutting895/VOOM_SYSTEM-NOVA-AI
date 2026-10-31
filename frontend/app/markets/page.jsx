@@ -60,7 +60,35 @@ export default function MarketsPage() {
   const [connectionState, setConnectionState] = useState('checking');
   const [detail, setDetail] = useState('กำลังตรวจสอบ Exness Demo และ MT5 Bridge');
   const [busy, setBusy] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  const requestDemoConnection = useCallback(async () => {
+    setRequestBusy(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) throw new Error('Supabase Auth ยังไม่ได้ตั้งค่า');
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw new Error('อ่าน Supabase session ไม่สำเร็จ');
+      const token = data.session?.access_token;
+      if (!token) throw new Error('กรุณาเข้าสู่ระบบก่อนส่งคำขอ');
+      const response = await fetch(HUB_URL + '/v1/connections', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(12000),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'สร้างคำขอ Exness Demo ไม่สำเร็จ');
+      setConnectionState('pending');
+      setDetail('สร้างหรือพบคำขอ Exness MT5 Demo แล้ว รอผู้ดูแลจัดสรร Dedicated Bridge และ Tenant Route');
+    } catch (error) {
+      setConnectionState('unavailable');
+      setDetail(error instanceof Error ? error.message : 'ส่งคำขอไม่สำเร็จ');
+    } finally {
+      setRequestBusy(false);
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     const requestedSymbol = symbol.trim();
@@ -193,6 +221,11 @@ export default function MarketsPage() {
         <section className="trading-market-empty">
           <strong>{connectionState === 'pending' ? 'MT5 Bridge ยังไม่พร้อม' : connectionState === 'not_configured' ? 'ยังไม่มี Demo Connection' : 'รอข้อมูลตลาดที่ยืนยันได้'}</strong>
           <p>{detail}</p>
+          {connectionState === 'not_configured' && (
+            <button type="button" className="trading-market-request" onClick={requestDemoConnection} disabled={requestBusy}>
+              {requestBusy ? 'กำลังส่งคำขอ…' : 'ขอเชื่อม Exness MT5 Demo'}
+            </button>
+          )}
           <Link href="/broker">เปิด Exness Broker Hub ↗</Link>
         </section>
       )}
