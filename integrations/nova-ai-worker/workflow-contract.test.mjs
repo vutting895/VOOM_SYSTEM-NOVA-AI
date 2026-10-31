@@ -157,6 +157,25 @@ test("simulates a valid draft deterministically without execution or persistence
   assert.equal(first.value.liveTradingEnabled, false);
 });
 
+test("simulator accepts canonical normalized drafts and rejects altered safety metadata", () => {
+  const normalized = validateWorkflowDraft(validDraft()).value;
+  const accepted = simulateWorkflowDraft(normalized, { customerId: "normalized-001" });
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.value.preview.data.customerId, "normalized-001");
+  assert.equal(accepted.value.executionEnabled, false);
+  assert.equal(accepted.value.persistenceEnabled, false);
+  assert.equal(accepted.value.brokerWritesAllowed, false);
+  assert.equal(accepted.value.liveTradingEnabled, false);
+
+  const elevated = structuredClone(normalized);
+  elevated.liveTradingEnabled = true;
+  assert.equal(simulateWorkflowDraft(elevated).error, "invalid_workflow_envelope");
+
+  const forgedMetadata = structuredClone(normalized);
+  forgedMetadata.nodes[0].sideEffect = "broker_write";
+  assert.equal(simulateWorkflowDraft(forgedMetadata).error, "invalid_workflow_envelope");
+});
+
 test("simulator rejects invalid drafts and unsafe or oversized sample data", () => {
   const invalid = validDraft();
   invalid.nodes[1].type = "http.request";
