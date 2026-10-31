@@ -9,6 +9,8 @@ const USER_TOKEN = "supabase_test_access_token";
 const BRIDGE_TOKEN = "bridge_test_token_long_enough_for_route_validation_123";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
 const TENANT_ID = "tenant_12345678";
+const LIVE_TENANT_ID = "tenant_live_1234";
+const LIVE_BRIDGE_TOKEN = "live_bridge_test_token_long_enough_for_route_validation_456";
 
 function envWithRoutes() {
   return {
@@ -19,6 +21,11 @@ function envWithRoutes() {
         tenantId: TENANT_ID,
         token: BRIDGE_TOKEN,
         url: "https://stale-origin.invalid"
+      },
+      [LIVE_TENANT_ID]: {
+        tenantId: LIVE_TENANT_ID,
+        token: LIVE_BRIDGE_TOKEN,
+        url: "https://stale-live-origin.invalid"
       }
     })
   };
@@ -207,4 +214,80 @@ test("Cloudflare rollback UI remains CORS-allowed while Netlify is primary", asy
   ), envWithRoutes());
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+
+test("Live MT5 connection uses its own tenant route and stays GET-only", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-live" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("user_id"), "eq.user-live");
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-live",
+        provider: "exness_mt5",
+        environment: "live",
+        status: "connected",
+        bridge_route_id: LIVE_TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({ connected: true, environment: "live", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 200);
+    assert.equal(new URL(relayRequest.url).origin, RELAY_ORIGIN);
+    assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + LIVE_BRIDGE_TOKEN);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), LIVE_TENANT_ID);
+    assert.equal(relayRequest.headers.get("Authorization") === "Bearer " + BRIDGE_TOKEN, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Proxy rejects MT5 contest environment before forwarding", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-contest" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-contest",
+        provider: "exness_mt5",
+        environment: "contest",
+        status: "connected",
+        bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) relayCalls += 1;
+    throw new Error("Unsupported environment must not reach relay");
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).error, "broker_or_environment_not_allowed");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
