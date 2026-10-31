@@ -1,4 +1,3 @@
-import copy
 import unittest
 
 from workers.learning_universe.recompile import (
@@ -7,7 +6,34 @@ from workers.learning_universe.recompile import (
     lint_compiled_skill,
     recompile_skill_candidate,
 )
-from tests.test_learning_skill_contracts import SCHEMAS, TOOLS, skill
+
+TOOLS = {"research.search_public", "research.read_approved_source", "knowledge.retrieve_owner"}
+SCHEMAS = {"research.query.v1", "research.result.v1"}
+
+
+def skill():
+    return {
+        "contract": "nova.skill.v1",
+        "skill_id": "research-summarizer",
+        "version": "1.0.0",
+        "display_name": "Research Summarizer",
+        "description": "Summarizes approved research sources into a typed draft.",
+        "task_intents": ["research"],
+        "input_schema_ref": "research.query.v1",
+        "output_schema_ref": "research.result.v1",
+        "tool_refs": ["research.search_public", "research.read_approved_source"],
+        "data_scope": "public_research",
+        "preconditions": ["user_authenticated", "sources_allowlisted"],
+        "postconditions": ["summary_has_source_refs"],
+        "failure_modes": ["source_unavailable", "schema_invalid"],
+        "timeout_ms": 15000,
+        "max_steps": 6,
+        "max_tool_calls": 4,
+        "evidence_refs": ["research-source:abc123"],
+        "evaluation_report_ref": None,
+        "policy_version": "skill-policy.v1",
+        "research_only": True,
+    }
 
 
 class DeterministicSkillRecompileTests(unittest.TestCase):
@@ -31,17 +57,13 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
     def test_compile_is_deterministic_for_reordered_input(self):
         spec = skill()
         reordered = dict(reversed(list(spec.items())))
-        first = self.compile(spec)
-        second = self.compile(reordered)
-        self.assertEqual(first, second)
+        self.assertEqual(self.compile(spec), self.compile(reordered))
 
     def test_recompile_skips_when_content_and_compiler_are_unchanged(self):
         previous = self.compile()
         result = recompile_skill_candidate(
-            skill(),
-            previous_manifest=previous,
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            skill(), previous_manifest=previous,
+            allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
         )
         self.assertFalse(result["changed"])
         self.assertEqual(result["reason"], "content_and_compiler_unchanged")
@@ -51,10 +73,8 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
         changed = skill()
         changed["description"] = "A revised deterministic research workflow."
         result = recompile_skill_candidate(
-            changed,
-            previous_manifest=previous,
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            changed, previous_manifest=previous,
+            allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
         )
         self.assertTrue(result["changed"])
         self.assertEqual(result["reason"], "content_or_compiler_changed")
@@ -63,10 +83,8 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
     def test_recompile_runs_when_compiler_version_changes(self):
         previous = self.compile()
         result = recompile_skill_candidate(
-            skill(),
-            previous_manifest=previous,
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            skill(), previous_manifest=previous,
+            allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
             compiler_version="1.1.0",
         )
         self.assertTrue(result["changed"])
@@ -76,20 +94,15 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
         previous = self.compile()
         previous["artifact"]["description"] = "tampered"
         result = recompile_skill_candidate(
-            skill(),
-            previous_manifest=previous,
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            skill(), previous_manifest=previous,
+            allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
         )
         self.assertTrue(result["changed"])
         self.assertEqual(result["manifest"], self.compile())
 
     def test_lint_blocks_missing_evaluation_report(self):
-        manifest = self.compile()
         report = lint_compiled_skill(
-            manifest,
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            self.compile(), allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
         )
         self.assertFalse(report["passed"])
         self.assertEqual(report["findings"][0]["code"], "EVALUATION_REPORT_MISSING")
@@ -98,9 +111,7 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
         spec = skill()
         spec["evaluation_report_ref"] = "evaluation-report-001"
         report = lint_compiled_skill(
-            self.compile(spec),
-            allowed_tool_refs=TOOLS,
-            registered_schema_refs=SCHEMAS,
+            self.compile(spec), allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
         )
         self.assertTrue(report["passed"])
         self.assertEqual(report["findings"], [])
@@ -110,9 +121,7 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
         manifest["artifact"]["description"] = "tampered"
         with self.assertRaises(SkillBuildError):
             lint_compiled_skill(
-                manifest,
-                allowed_tool_refs=TOOLS,
-                registered_schema_refs=SCHEMAS,
+                manifest, allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
             )
 
     def test_lint_rejects_execution_or_publication_enablement(self):
@@ -121,9 +130,7 @@ class DeterministicSkillRecompileTests(unittest.TestCase):
             manifest[field] = True
             with self.subTest(field=field), self.assertRaises(SkillBuildError):
                 lint_compiled_skill(
-                    manifest,
-                    allowed_tool_refs=TOOLS,
-                    registered_schema_refs=SCHEMAS,
+                    manifest, allowed_tool_refs=TOOLS, registered_schema_refs=SCHEMAS,
                 )
 
     def test_compiler_rejects_unregistered_tool(self):
