@@ -30,7 +30,8 @@ class TeamLeadContractTests(unittest.TestCase):
         self.auth = TeamTaskAuthorization(
             task_id=TASK_ID,
             actor_ref="actor.user_123",
-            tenant_ref="tenant.tenant_123",
+            owner_ref="owner.user_123",
+            tenant_ref=None,
             capability_ceiling=frozenset({"capability.research_read"}),
             allowed_input_refs=frozenset({"evidence.source_1"}),
             deadline=DEADLINE,
@@ -107,10 +108,46 @@ class TeamLeadContractTests(unittest.TestCase):
                 team_registry=self.registry, authorization=self.auth
             )
 
+    def test_owner_only_scope_does_not_require_a_tenant_registry(self):
+        task = self.task()
+        self.assertIsNone(self.auth.tenant_ref)
+        self.assertIs(validate_team_lead_task(
+            task, team_registry=self.registry, authorization=self.auth
+        ), task)
+
+    def test_rejects_child_owner_scope_escalation(self):
+        child_auth = TeamTaskAuthorization(
+            task_id=TASK_ID,
+            actor_ref=self.auth.actor_ref,
+            owner_ref="owner.other_user",
+            capability_ceiling=self.auth.capability_ceiling,
+            allowed_input_refs=self.auth.allowed_input_refs,
+            deadline=self.auth.deadline,
+            budget_ceiling=self.auth.budget_ceiling,
+            tenant_ref=None,
+        )
+        parent_auth = TeamTaskAuthorization(
+            task_id=PARENT_ID,
+            actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
+            capability_ceiling=self.auth.capability_ceiling,
+            allowed_input_refs=self.auth.allowed_input_refs,
+            deadline=self.auth.deadline,
+            budget_ceiling=self.auth.budget_ceiling,
+            tenant_ref=None,
+        )
+        with self.assertRaisesRegex(ContractError, "cannot change owner scope"):
+            validate_team_lead_task(
+                self.task(parent_task_id=PARENT_ID),
+                team_registry=self.registry, authorization=child_auth,
+                parent_authorization=parent_auth,
+            )
+
     def test_rejects_child_tenant_escalation(self):
         child_auth = TeamTaskAuthorization(
             task_id=TASK_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref="owner.user_123",
             tenant_ref="tenant.foreign",
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -120,6 +157,7 @@ class TeamLeadContractTests(unittest.TestCase):
         parent_auth = TeamTaskAuthorization(
             task_id=PARENT_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -137,6 +175,7 @@ class TeamLeadContractTests(unittest.TestCase):
         child_auth = TeamTaskAuthorization(
             task_id=TASK_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=frozenset({"capability.research_read", "capability.admin"}),
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -146,6 +185,7 @@ class TeamLeadContractTests(unittest.TestCase):
         parent_auth = TeamTaskAuthorization(
             task_id=PARENT_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -163,6 +203,7 @@ class TeamLeadContractTests(unittest.TestCase):
         child_auth = TeamTaskAuthorization(
             task_id=TASK_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -172,6 +213,7 @@ class TeamLeadContractTests(unittest.TestCase):
         parent_auth = TeamTaskAuthorization(
             task_id=PARENT_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
@@ -189,6 +231,7 @@ class TeamLeadContractTests(unittest.TestCase):
         parent_auth = TeamTaskAuthorization(
             task_id=PARENT_ID,
             actor_ref=self.auth.actor_ref,
+            owner_ref=self.auth.owner_ref,
             tenant_ref=self.auth.tenant_ref,
             capability_ceiling=self.auth.capability_ceiling,
             allowed_input_refs=self.auth.allowed_input_refs,
