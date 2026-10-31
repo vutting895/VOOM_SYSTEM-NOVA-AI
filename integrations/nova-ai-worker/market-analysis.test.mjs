@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeMarketBars, validateMarketBars } from "./market-analysis.js";
+import { analyzeMarketBars, analyzeSmcResearch, validateMarketBars } from "./market-analysis.js";
 
 function candles(direction = "up", count = 120) {
   const start = Date.now() - (count - 1) * 60_000;
@@ -29,7 +29,10 @@ test("verified rising candles produce a research-only bullish watch", () => {
   assert.equal(result.bias, "bullish");
   assert.equal(result.signal, "bullish_watch");
   assert.equal(result.classification, "research_only_not_an_order");
-  assert.equal(result.barCount, 120);
+  assert.equal(result.barCount, 119);
+  assert.equal(result.currentBarExcluded, true);
+  assert.equal(result.smc.ok, true);
+  assert.equal(result.smc.ordersSubmitted, false);
   assert.ok(result.indicators.ema20 > result.indicators.ema50);
   assert.ok(result.indicators.rsi14 > 55);
 });
@@ -70,4 +73,36 @@ test("invalid OHLC bounds and non-finite values are rejected", () => {
   const result = validateMarketBars(rows);
   assert.equal(result.ok, false);
   assert.equal(result.error, "invalid_market_candle");
+});
+
+
+function smcSampleBars() {
+  const closes = [10, 9, 8, 9, 11, 10, 9, 12, 13, 11, 10, 14, 15, 13, 12, 16, 17, 15, 14, 18];
+  return closes.map((close, index) => {
+    const open = index % 2 ? close - 0.4 : close + 0.4;
+    return { open, high: Math.max(open, close) + 0.5, low: Math.min(open, close) - 0.5, close };
+  });
+}
+
+test("SMC research port returns deterministic structure and never an order", () => {
+  const bars = smcSampleBars();
+  const first = analyzeSmcResearch(bars);
+  const second = analyzeSmcResearch(bars);
+  assert.equal(first.ok, true);
+  assert.equal(first.version, "smc-js-research-1.0.0");
+  assert.equal(first.signal, null);
+  assert.equal(first.ordersSubmitted, false);
+  assert.equal(first.liveTradingEnabled, false);
+  assert.deepEqual(first, second);
+  assert.ok(Array.isArray(first.structureEvents));
+  assert.ok(Array.isArray(first.fairValueGaps));
+  assert.ok(Array.isArray(first.orderBlocks));
+  assert.ok(Array.isArray(first.liquiditySweeps));
+});
+
+test("SMC research port rejects malformed or short candle history", () => {
+  assert.equal(analyzeSmcResearch(smcSampleBars().slice(0, 9)).ok, false);
+  const invalid = smcSampleBars();
+  invalid[0].high = invalid[0].low - 1;
+  assert.equal(analyzeSmcResearch(invalid).ok, false);
 });
