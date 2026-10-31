@@ -119,3 +119,9 @@ P0 has a first implementation on the separate benchmark branch in [Draft PR #66]
 This does **not** close terminal-source provenance: the old PR description's terminal digest is only 58 hex characters and the claimed terminal byte count differs from the canonical Git file. Raw MT5 Common Files CSV and Experts log verification remains required. P0 should be considered partially implemented until this terminal evidence is reconciled and exact-head CI passes.
 
 Run #3 remains a failed strategy-performance evaluation (41.3246% accuracy vs 45.9708% majority baseline, 0 closed trades, $0 net, PF unavailable). No benchmark gate or strategy parameter was changed. PR #147 remains design-only and Draft; P1 causal SMC traces, P2 outcome labels, P3 calibration/model comparison, P4 execution-cost robustness, and P5 untouched OOS are still pending.
+
+## Repository revalidation addendum — 2026-10-31
+
+The baseline SHA above is the historical `main` snapshot used when this research branch was created; it is not the current `main` head. On 2026-10-31, current `main` advanced to `8f72d7218d8c16e9a0444bfc7b04610540c9a307` after merge of PR #155 (OpenBao Staging integration design). This PR remains documentation-only and does not modify the OpenBao architecture document or runtime integration.
+
+At revalidation, this branch is 2 commits ahead and 3 commits behind current `main`. The only PR-specific changed path is this document. Do not treat the historical baseline SHA as current, and do not merge/update the branch until the intervening main commits and exact-head checks have been reviewed. The v6.2.6.3 benchmark remains immutable; no threshold, gate, weight, lookback, data, model, or execution behavior is changed by this addendum.
