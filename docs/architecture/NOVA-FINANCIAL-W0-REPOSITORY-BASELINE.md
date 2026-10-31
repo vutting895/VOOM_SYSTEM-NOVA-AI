@@ -230,3 +230,30 @@ References:
 - Retain Omise as a PromptPay-only fallback candidate only if commercial onboarding, API and settlement terms are preferable.
 - Do not implement automatic failover between gateways for an in-flight payment. Route only new PaymentIntents using an explicit provider selection and immutable attempt history. A gateway outage must never cause the same charge to be silently created at a second provider.
 
+
+
+## 12. Owner decision: separate merchant accounts (2026-10-31)
+
+**Decision: Option A — separate merchant accounts for v1.** This is an owner-selected product/funds-flow boundary, not a provider eligibility or legal determination.
+
+- VOOM is merchant only for VOOM's own SaaS subscription charges.
+- Each Tenant is the merchant for its own sales to its end customers and connects its own eligible gateway merchant account.
+- Tenant receives its own gateway settlement directly under its provider agreement; NOVA must not pool, custody, split or transfer tenant sales proceeds in this v1 model.
+- Tenant is the legal issuer of receipts and tax documents for its own sales, subject to its actual tax/VAT registration and applicable law.
+- VOOM separately issues its own SaaS billing documents for VOOM subscription charges.
+- NOVA provides provider-neutral payment orchestration, verified provider-event handling, tenant-scoped transaction visibility, ledger/reconciliation records and issuer-specific document workflows. Tenant identity and gateway-account ownership must be derived and enforced server-side.
+- This decision does not make every tenant eligible for every gateway. Per-tenant merchant onboarding, country/currency/method capability, KYC, settlement ownership, fees, refunds, chargebacks, webhook signing/replay and reconciliation exports remain provider-specific verification gates.
+- Stripe remains a sandbox proof-of-capability candidate, not a selected or connected production provider. In particular, verify whether a tenant's own Thailand merchant account can enable PromptPay and Google Pay without relying on a VOOM Connect/platform account. 2C2P/Antom remains a secondary candidate; Omise/Opn remains a PromptPay-focused fallback candidate.
+- Google Pay phase-one scope remains **online web checkout only** for planning purposes; physical NFC terminal acceptance is explicitly out of scope unless separately approved.
+- No payment provider is connected, no tenant credentials are collected, and no live charge, refund, payout or tax document is authorized by this decision.
+
+### Consequences and next gates
+
+1. Replace the unresolved merchant-of-record decision in the Finance W0 checklist with this owner decision; do not design a platform/Connect split-settlement flow for v1.
+2. Produce a tenant-owned gateway onboarding/capability matrix and sandbox test plan for Stripe, 2C2P/Antom and the PromptPay fallback. Confirm that settlement goes directly to the tenant's merchant account.
+3. Define separate platform SaaS billing and tenant-commerce ledgers/issuer identities; prohibit cross-tenant pooling and cross-tenant gateway-account access.
+4. Obtain Thai accountant/legal review of tenant issuer responsibilities, VOOM SaaS tax documents, VAT status, tax point, withholding tax, corrections and retention before freezing tax rules.
+5. Keep hosted schema work blocked until the existing Production/Staging migration ledger and identity/RLS baseline are reconciled and reviewed. Preserve PR #67 approval semantics; any finance approval extension must be separately typed and reviewed.
+6. Keep sandbox-only until a separate explicit approval and exact verification evidence. Live payments, refunds, payouts and production tax issuance remain OFF.
+
+**W0 status:** merchant-of-record/funds-flow choice is now owner-decided (A). Finance W0 remains in progress pending tenant-owned provider eligibility/onboarding evidence, remaining repository pattern inventory, migration/identity reconciliation ownership and professional tax review.
