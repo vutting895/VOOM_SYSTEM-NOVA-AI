@@ -132,3 +132,61 @@ test("unsupported account IDs and mutating methods are not exposed by the adapte
   assert.equal("modifyOrder" in adapter, false);
   assert.equal("closePosition" in adapter, false);
 });
+
+test("candles are bounded, account-instrument scoped, chronologically validated GET reads", async () => {
+  const paths = [];
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async (url, init) => {
+      const parsed = new URL(url);
+      paths.push(parsed.pathname + parsed.search);
+      assert.equal(init.method, "GET");
+      if (parsed.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
+      }
+      if (parsed.pathname.endsWith("/instruments")) {
+        return Response.json({ instruments: ["EURUSD"] });
+      }
+      if (parsed.pathname.endsWith("/candles")) {
+        assert.equal(parsed.searchParams.get("instrument"), "EURUSD");
+        assert.equal(parsed.searchParams.get("timeframe"), "M5");
+        assert.equal(parsed.searchParams.get("count"), "2");
+        assert.equal(parsed.searchParams.get("price_type"), "bid");
+        return Response.json({ candles: [
+          { time: "2026-10-31T00:00:00.000Z", open: 1.1, high: 1.2, low: 1.0, close: 1.15, volume: 10 },
+          { time: "2026-10-31T00:05:00.000Z", open: 1.15, high: 1.25, low: 1.1, close: 1.2, volume: 11 }
+        ] });
+      }
+      throw new Error("Unexpected upstream path");
+    }
+  });
+  const candles = await adapter.getCandles(CONTEXT, {
+    instrument: "EURUSD", timeframe: "M5", from: "2026-10-31T00:00:00.000Z", count: 2
+  });
+  assert.equal(candles.length, 2);
+  assert.equal(paths.length, 4);
+  assert.ok(paths.some((path) => path.includes("/candles?")));
+});
+
+test("candle request rejects unlisted instruments, invalid ranges and oversized counts", async () => {
+  let upstreamCalls = 0;
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async (url) => {
+      upstreamCalls += 1;
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
+      }
+      if (parsed.pathname.endsWith("/instruments")) return Response.json({ instruments: ["EURUSD"] });
+      throw new Error("Candle request must not run");
+    }
+  });
+  await assert.rejects(adapter.getCandles(CONTEXT, {
+    instrument: "XAUUSD", timeframe: "M5", from: "2026-10-31T00:00:00.000Z", count: 5
+  }), /exness_instrument_not_available/);
+  await assert.rejects(adapter.getCandles(CONTEXT, {
+    instrument: "EURUSD", timeframe: "M5", from: "2026-10-31T00:00:00.000Z", count: 501
+  }), /exness_candle_query_invalid/);
+  assert.equal(upstreamCalls, 2);
+});
