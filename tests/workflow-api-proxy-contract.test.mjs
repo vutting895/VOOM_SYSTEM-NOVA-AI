@@ -79,6 +79,17 @@ test("bounded body reader rejects oversized declared Content-Length before readi
   assert.deepEqual(result, { ok: false, status: 413, error: "request_too_large" });
 });
 
+test("bounded body reader rejects malformed Content-Length", async () => {
+  const request = {
+    headers: new Headers({ "content-length": "not-a-number" }),
+    body: new ReadableStream({
+      start(controller) { controller.enqueue(new TextEncoder().encode("x")); },
+    }),
+  };
+  const result = await readBoundedRequestBody(request, 16384);
+  assert.deepEqual(result, { ok: false, status: 400, error: "invalid_content_length" });
+});
+
 test("bounded body reader enforces the cap while streaming when Content-Length is absent", async () => {
   let cancelled = false;
   const request = {
