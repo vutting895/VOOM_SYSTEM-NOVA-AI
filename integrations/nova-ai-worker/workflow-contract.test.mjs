@@ -60,7 +60,10 @@ test("rejects arbitrary executable or credential-bearing config", () => {
   shell.nodes[1].config = { fields: ["customerId"], command: "rm -rf /" };
   assert.equal(validateWorkflowDraft(shell).error, "invalid_node_config");
 
-  for (const field of ["api_key", "refresh_token", "password_hash", "private_key"]) {
+  for (const field of [
+    "api_key", "refresh_token", "password_hash", "private_key",
+    "apiKey", "accessToken", "refreshToken", "passwordHash", "privateKey", "clientSecret",
+  ]) {
     const secret = validDraft();
     secret.nodes[1].config = { fields: [field] };
     assert.equal(validateWorkflowDraft(secret).error, "invalid_node_config");
