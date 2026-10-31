@@ -147,7 +147,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     }
     if (url.origin === RELAY_ORIGIN) {
       relayRequest = { url, headers: new Headers(init.headers || {}) };
-      return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
+      return Response.json({ status: "ok", environment: "demo", mode: "read-only", order_submission_enabled: false });
     }
     throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
   };
@@ -287,6 +287,47 @@ test("Proxy rejects MT5 contest environment before forwarding", async () => {
     assert.equal(response.status, 403);
     assert.equal((await response.json()).error, "broker_or_environment_not_allowed");
     assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("Proxy rejects a Live connection routed to a Demo terminal before returning account data", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-live" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-live",
+        provider: "exness_mt5",
+        environment: "live",
+        status: "connected",
+        bridge_route_id: LIVE_TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayCalls += 1;
+      return Response.json({ connected: true, environment: "demo", balance: 1000000 });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    const body = await response.json();
+    assert.equal(response.status, 409);
+    assert.equal(body.error, "account_environment_mismatch");
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+    assert.equal(relayCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
   }
