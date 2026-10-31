@@ -262,7 +262,7 @@ export default function NovaMarketChart() {
         <span>{asOf ? `Provider as-of: ${asOf}` : "Provider timestamp not yet received"}</span>
         <span>SMC overlays: NEXT VALIDATION PHASE · Wave3: BLOCKED</span>
       </div>
-      <p className="nmc-meta">Chart engine: TradingView Lightweight Charts · <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a></p>
+      <p className="nmc-meta">Chart engine: TradingView Lightweight Charts · <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView</a> · <a href="/THIRD_PARTY_NOTICES.txt">Third-party notices</a></p>
     </section>
   );
 }
