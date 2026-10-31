@@ -174,6 +174,15 @@ class TeamLeadShadowPlanTests(unittest.TestCase):
                 team_registry=self.registry,
             )
 
+    def test_rejects_malformed_child_proposal(self):
+        with self.assertRaisesRegex(ContractError, "invalid child proposal"):
+            build_shadow_delegation_plan(
+                self.parent_task,
+                parent_authorization=self.parent_auth,
+                child_proposals=(object(), *self.children[1:]),
+                team_registry=self.registry,
+            )
+
     def test_rejects_incomplete_team_plan(self):
         with self.assertRaisesRegex(ContractError, "exactly four"):
             build_shadow_delegation_plan(
