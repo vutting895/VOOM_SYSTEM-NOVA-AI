@@ -12,6 +12,68 @@ servers:
 security:
   - SupabaseBearer: []
 paths:
+  /api/video/skills:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    get:
+      summary: Get the authenticated NOVA Video skill registry
+      description: Read-only catalog. Every skill is non-executable and reports zero estimated cost; listing a skill does not imply an available runtime.
+      responses:
+        '200':
+          description: Versioned skill registry and free-only execution policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, registryVersion, product, deliveryModel, policy, statusVocabulary, skillCount, skillGroups]
+                properties:
+                  schemaVersion: { type: string }
+                  registryVersion: { type: string }
+                  product: { const: NOVA AI Video Platform }
+                  deliveryModel: { const: api_only }
+                  skillCount: { type: integer, const: 20 }
+                  policy:
+                    type: object
+                    required: [costMode, paidApiAllowed, paidGpuAllowed, trialCreditsQualifyAsFree, executionEnabled, productionActivationRequiresExplicitApproval]
+                    properties:
+                      costMode: { const: free_only }
+                      paidApiAllowed: { const: false }
+                      paidGpuAllowed: { const: false }
+                      trialCreditsQualifyAsFree: { const: false }
+                      executionEnabled: { const: false }
+                      productionActivationRequiresExplicitApproval: { const: true }
+                  statusVocabulary:
+                    type: array
+                    items: { type: string }
+                  skillGroups:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, skills]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        skills:
+                          type: array
+                          items:
+                            type: object
+                            required: [id, name, description, candidateEngines, computeLane, status, apiTaskType, executionEnabled, estimatedCost]
+                            properties:
+                              id: { type: string }
+                              name: { type: string }
+                              description: { type: string }
+                              candidateEngines:
+                                type: array
+                                items: { type: string }
+                              computeLane: { type: string }
+                              status: { type: string }
+                              apiTaskType: { type: string }
+                              executionEnabled: { const: false }
+                              estimatedCost: { const: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/video/projects:
     options:
       security: []
