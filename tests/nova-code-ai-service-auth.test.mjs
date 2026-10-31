@@ -42,6 +42,8 @@ test("service authentication fails closed when server secrets are absent", () =>
     const result = authenticateNovaCodeServiceRequest(makeRequest());
     assert.equal(result.ok, false);
     assert.equal(result.status, 503);
+    process.env.NOVA_CODE_BASE44_TENANT_ID = "   ";
+    assert.equal(authenticateNovaCodeServiceRequest(makeRequest()).status, 503);
   } finally { restore(); }
 });
 
