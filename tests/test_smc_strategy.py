@@ -95,6 +95,25 @@ class TestSMCStrategy(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_smc_backtest(sample_bars(), reward_risk=0)
 
+    def test_historical_order_block_qualification_is_not_changed_by_future_volatility(self):
+        bars = sample_bars() * 5
+        prefix_len = len(bars)
+        baseline = analyze_smc(bars, include_full_history=True)
+        extended = bars + [
+            {"open": 10.0, "high": 1000.0, "low": 1.0, "close": 900.0},
+            {"open": 900.0, "high": 1200.0, "low": 800.0, "close": 1100.0},
+            {"open": 1100.0, "high": 1500.0, "low": 1000.0, "close": 1400.0},
+        ]
+        with_future_volatility = analyze_smc(extended, include_full_history=True)
+        def prior_ob_signature(result):
+            return [
+                (ob["type"], ob["index"], ob["confirmed_at"], ob["lower"],
+                 ob["upper"], ob["structure_event"], ob["displacement"],
+                 ob["atr_at_analysis"])
+                for ob in result["order_blocks"] if ob["confirmed_at"] < prefix_len
+            ]
+        self.assertEqual(prior_ob_signature(baseline), prior_ob_signature(with_future_volatility))
+
 
 if __name__ == "__main__":
     unittest.main()
