@@ -52,7 +52,6 @@ Until the agent runtime, tenant-scoped durable job store, and approval lifecycle
 1. Call GET `/api/code/agents` and GET `/api/code/skills` from a Base44 backend function or server-side integration; do not embed service credentials in browser code.
 2. Store the service token only in a Base44 server-side secret store; never expose it to the browser.
 3. Keep the tenant mapping server-side and provision a distinct tenant identity before allowing another app/customer.
-
 4. Keep repository writes, test execution, secret access and deployments disabled until each action has explicit scopes and human approval.
 5. Production activation requires exact-head CI, independent security review, tenant isolation tests and explicit release approval.
 
