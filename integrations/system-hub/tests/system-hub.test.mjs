@@ -437,3 +437,123 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+test("symbols endpoint discovers bounded terminal symbols through the authenticated user's own connection", async () => {
+  const original = globalThis.fetch;
+  let requestedSymbols = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/symbols") {
+      requestedSymbols = {
+        connectionId: url.searchParams.get("connection_id"),
+        q: url.searchParams.get("q"),
+        limit: url.searchParams.get("limit"),
+        authorization: init.headers.Authorization
+      };
+      return Response.json({
+        symbols: [
+          { name: "XAUUSDm", description: "Gold vs US Dollar", visible: true, digits: 3, base_currency: "XAU", profit_currency: "USD" },
+          { name: "EURUSD", description: "Euro vs US Dollar", visible: false, digits: 5, base_currency: "EUR", profit_currency: "USD" },
+          { name: "bad symbol", description: "must be dropped", visible: true, digits: 2 }
+        ],
+        count: 3, truncated: false, as_of: "2026-10-31T04:00:00Z",
+        private_token: "must-not-leak"
+      });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/symbols?q=XAU&limit=20",
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), env);
+    const bodyText = await response.text();
+    const body = JSON.parse(bodyText);
+    assert.equal(response.status, 200);
+    assert.equal(body.state, "data_verified");
+    assert.deepEqual(body.symbols.map((item) => item.name), ["XAUUSDm", "EURUSD"]);
+    assert.equal(body.symbols[0].baseCurrency, "XAU");
+    assert.equal(body.mode, "read-only");
+    assert.equal(body.order_submission_enabled, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+    assert.doesNotMatch(bodyText, /must-not-leak|private_token|bridge_route_id/);
+    assert.deepEqual(requestedSymbols, {
+      connectionId: CONNECTION_ID, q: "XAU", limit: "20",
+      authorization: "Bearer " + USER_TOKEN
+    });
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("symbols endpoint rejects invalid filters, duplicate parameters, and excessive limits before proxy access", async () => {
+  const original = globalThis.fetch;
+  let proxyCalled = false;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    proxyCalled = true;
+    throw new Error("Invalid symbol query must not reach the proxy");
+  };
+  try {
+    for (const query of ["q=gold%20pair", "limit=501", "q=XAU&q=EUR"]) {
+      const response = await worker.fetch(request(
+        "/v1/connections/" + CONNECTION_ID + "/symbols?" + query,
+        { headers: { Authorization: "Bearer " + USER_TOKEN } }
+      ), env);
+      assert.equal(response.status, 400);
+    }
+    assert.equal(proxyCalled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("symbols endpoint does not call the proxy for an unowned connection", async () => {
+  const original = globalThis.fetch;
+  let proxyCalled = false;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([]);
+    }
+    proxyCalled = true;
+    throw new Error("Unowned connection must not reach the proxy");
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/symbols",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "connection_not_found");
+    assert.equal(proxyCalled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
