@@ -12,7 +12,7 @@
   "current_incomplete_bar_excluded": true,
   "duplicate_timestamps_removed": true,
   "account_identifier_stored": false,
-  "sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+  "sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
   "size_bytes": 8584488,
   "symbol_specs": {
     "digits": 3,
@@ -33,5 +33,13 @@
     "MT5 history export only; not an account/deal export.",
     "Historical spread is saved per bar.",
     "Commission schedule was not verifiable from the small observed deal sample; the backtest states its assumption."
-  ]
+  ],
+  "sha256_evidence": {
+    "computed_by": "workers/strategy/wave3_ml_pipeline.py from dataset bytes",
+    "consistent_training_runs": [
+      41022129986,
+      41051313086
+    ],
+    "note": "Both completed calendar-filtered training artifacts reported this same data SHA-256; prior metadata value 7d16e543... belonged to an earlier diagnostic snapshot."
+  }
 }

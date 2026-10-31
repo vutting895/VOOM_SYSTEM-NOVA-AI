@@ -71,3 +71,8 @@ On the 34 final-OOS Wave3 entry-trigger rows:
 This remains a component-alignment bottleneck, not evidence to relax the scoring contract. Keep BOS20=30, three-higher-lows+green=20, qualifying OB=25, FVG refill=25, OB size >=0.3%, proximity <=$5, and SMC >=85 unchanged. Audit causal timestamp ordering, OB candidate origin, close-through invalidation, zone distance, and whether BOS/CHoCH/FVG/OB were simultaneously available on the signal bar. Do not expand lookback or change weights to make the single OOS candidate pass.
 
 Classification also remains below baseline: 41.3246% accuracy versus 45.9708%; all five walk-forward folds below their own majority baselines. Final OOS trades: 0; PF undefined. The strategy is not performance-qualified.
+
+
+## Data and diagnostic snapshot provenance
+
+The older `reports/wave3_smc_gate_diagnostic_20261030.json` is preserved as a pre-calendar-export snapshot and still records `export_executed=false`; do not use its news-calendar section as current status. The current calendar-filtered SMC snapshot is `reports/wave3_smc_gate_diagnostic_20261031.json`, derived from training artifact #2 and the separately rechecked active Exness MT5 Common Files CSV/Experts log. The CSV SHA-256 is `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c`.

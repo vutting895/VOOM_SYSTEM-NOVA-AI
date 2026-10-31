@@ -120,3 +120,12 @@ The validated calendar was applied: 2,166 high-impact USD events, all `datetime`
 - All five walk-forward periods and final OOS remain below baseline; final OOS closed trades remain below the minimum 30.
 
 Do not tune on final OOS, lower thresholds, change SMC weights/lookback, or enable orders. Next research work is causal event alignment for OB/FVG/BOS/CHoCH, training-only class/feature analysis, and calibration using inner/validation folds only, followed by a fresh untouched OOS evaluation.
+
+
+## Dataset hash reconciliation and feature diagnostics — 2026-10-31
+
+Both completed calendar-filtered training artifacts (workflow runs [41022129986](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41022129986) and [41051313086](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41051313086)) report the same trainer-computed dataset SHA-256: `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`. The older `datasets/exness-demo/metadata.json` value `7d16e543...` did not match either training artifact and has been reconciled to the repeated trainer result. A workflow preflight that independently recomputes and asserts the dataset hash remains a follow-up safeguard.
+
+Final-model XGBoost gain importance (training fit diagnostic, not causal evidence): `hour_sin` 101.51, `volume_gate` 63.98, `hour_cos` 38.95, `log_volume` 22.86, `realized_vol_24` 22.28, `atr_price` 21.50, `weekday_sin` 21.18, `bear_ob_within5` 21.00, `wave3_long_zone` 19.77, `spread_price` 18.02. The model uses 73 of 89 feature columns. Time-of-day, volume, volatility and spread features rank prominently; gain importance does not establish causal predictive value and must not be used as a reason to remove hard gates.
+
+Class proportions: training labels short/hold/long = 24.93% / 46.62% / 28.45%; final OOS actual = 27.68% / 45.97% / 26.35%; final OOS predictions = 44.91% / 40.78% / 14.30%. This shows a strong prediction skew toward short and underprediction of long despite class-weighted training. No probability calibration is applied; Brier/ECE/reliability diagnostics are not yet recorded. Any future calibration study must use inner/validation folds only and must not use final OOS to select or tune a calibrator.
