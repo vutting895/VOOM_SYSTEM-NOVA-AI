@@ -20,6 +20,19 @@ if (!isDeepStrictEqual(actual, expected)) {
   ]));
   process.stderr.write("Production schema fingerprint mismatch by catalog category:\n");
   process.stderr.write(JSON.stringify(summary, null, 2) + "\n");
+  for (const key of differences) {
+    if (!Array.isArray(expected[key]) || !Array.isArray(actual[key])) continue;
+    const expectedSet = new Set(expected[key].map((item) => JSON.stringify(item)));
+    const actualSet = new Set(actual[key].map((item) => JSON.stringify(item)));
+    const missing = expected[key].filter((item) => !actualSet.has(JSON.stringify(item)));
+    const extra = actual[key].filter((item) => !expectedSet.has(JSON.stringify(item)));
+    if (missing.length || extra.length) {
+      process.stderr.write("\n" + key + " missing from replay (max 12):\n");
+      process.stderr.write(JSON.stringify(missing.slice(0, 12), null, 2) + "\n");
+      process.stderr.write(key + " extra in replay (max 12):\n");
+      process.stderr.write(JSON.stringify(extra.slice(0, 12), null, 2) + "\n");
+    }
+  }
   process.exit(1);
 }
 process.stdout.write("Production schema fingerprint matches all columns, constraints, indexes, RLS policies, triggers, functions, grants and extensions.\n");
