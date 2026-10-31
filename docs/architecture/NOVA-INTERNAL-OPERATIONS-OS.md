@@ -186,3 +186,67 @@ These papers provide design hypotheses and reported approaches, not validation o
 - No tests or production behavior are claimed as passed.
 - Implementation remains blocked on M0 inventory and architecture review.
 - Exness Demo remains read-only; `ordersEnabled=false`, `executionEnabled=false`, `order_submission_enabled=false`, Live Trading OFF.
+
+
+## 14. Evidence-backed repository inventory — 2026-10-31
+
+This appendix records concrete source ownership at canonical `main@a2acfd8ec9b598e6593413549bef760e8f596a72`. Candidate-branch evidence is labeled separately. A source path or CI result is not proof that a hosted runtime is currently serving that code.
+
+### 14.1 Existing API and frontend ownership
+
+| Responsibility | Source path / contract | Current evidence and boundary |
+|---|---|---|
+| Integration registry, connection requests/status and read-only account/quotes | `integrations/system-hub/worker.js`; `integrations/system-hub/README.md` | Existing authenticated System Hub is the control-plane owner. It derives the user from Supabase Auth, scopes connection reads to that user, uses fixed upstream URLs and exposes read-only broker reads. Do not create a parallel operations gateway. |
+| System Hub deployment manifest | `integrations/system-hub/wrangler.jsonc` | Declares `voom-system-hub`, allowed UI origins and fixed MT5 proxy URL. No general workflow Queue binding is declared in this manifest. |
+| AI intent/draft API | `integrations/nova-ai-worker/worker.js`; `integrations/nova-ai-worker/intent-contract.js` | Existing NOVA AI Worker is the AI proposal boundary. Its AI binding is not durable workflow storage or execution authority. |
+| AI Worker deployment manifest | `integrations/nova-ai-worker/wrangler.toml` | Declares Worker `voom-system-nova-ai` and Workers AI binding `AI`; no workflow Queue or workflow Durable Object binding is declared here. |
+| Current customer-facing operations/chat console | `frontend/app/command-center/page.jsx`; `frontend/app/command-center/command-center.css` | Reuse this existing authenticated NOVA frontend surface; do not create a second app or infer authoritative status from local UI state. |
+| Durable approval thread list/create | `frontend/app/api/agent/threads/route.js` | Existing authenticated route derives `user.id`, scopes reads/inserts by that owner, and is feature-flagged. |
+| Approval request list/create | `frontend/app/api/agent/threads/[threadId]/approvals/route.js` | Existing route checks owner-scoped thread access and calls the existing `nova_create_approval` RPC. |
+| Approval decision | `frontend/app/api/agent/approvals/[approvalId]/decision/route.js` | Existing route calls `nova_resolve_approval`; no broker/account action is performed by the approval lifecycle. |
+| Approval contracts/auth helpers | `frontend/lib/agent-approval-contract.mjs`; `frontend/lib/agent-approval-server.js` | Existing bounded proposal/decision schemas, SHA-256 proposal digest and Supabase bearer-session authentication. Reuse rather than invent a second approval contract. |
+
+### 14.2 Existing tests and CI ownership
+
+- Approval API/contract/migration tests: `tests/nova-approval-api.test.mjs`, `tests/nova-approval-contract.test.mjs`, `tests/nova-approval-migration.test.mjs`, and `tests/sql/nova-approval-migration.integration.sql`.
+- Approval migration workflow: `.github/workflows/nova-approval-migration-ci.yml`.
+- General frontend/Worker checks: `.github/workflows/frontend-ci.yml`.
+- Cloudflare deployment workflow: `.github/workflows/cloudflare-deploy.yml`.
+- The merged durable approval implementation is PR #67. Its historical workflow runs #40984360803 (NOVA Approval Migration CI) and #40984360767 (Frontend CI) completed successfully for PR #67's head. These runs validate that historical head only; they do not prove current Production schema parity or live approval activation.
+
+### 14.3 Database and migration evidence
+
+- Canonical `main` contains four checked-in SQL migration files under `supabase/migrations/`: Alpaca OAuth, MT5 customer connections, Marketplace SECURITY DEFINER hardening, and NOVA durable approval lifecycle.
+- Read-only project inspection found the older configured runtime Production project with 24 migration records and 19 public tables, while the newer NOVA candidate/Staging project has 2 migration records and 8 public tables.
+- The Production project does not expose the `nova_agent_threads` / `nova_approval_requests` tables or inspected `nova_*approval*` RPCs. The candidate/Staging project does expose the owner-scoped approval tables and RPC wrappers.
+- The repository's configured Netlify and inspected Cloudflare Worker Supabase endpoint metadata point to the older Production project. This is configuration evidence, not a live route failure test.
+- Existing reconciliation work is PR #109, `docs/SUPABASE-MIGRATION-BASELINE-RECONCILIATION.md`. It maps the 24-row legacy ledger to 7 direct source candidates, 7 aggregate/partial candidates and 10 unrecovered original SQL sources. It explicitly does not authorize replay or migration-history repair.
+- **M0 database acceptance remains BLOCKED** until original SQL/source provenance, exact applied definitions, ordering, grants, RLS, functions, triggers, extensions and storage definitions are reconciled. Do not run `db push`, migration repair/reset, DDL or DML as a shortcut.
+
+### 14.4 Queue, checkpoint and runtime capability boundary
+
+- The inspected System Hub manifest declares no generic workflow Queue.
+- The inspected NOVA AI Worker manifest declares only the Workers AI binding; it does not declare workflow persistence, a workflow Queue or a workflow Durable Object.
+- A separate MT5 BridgeSession Durable Object is broker-bridge infrastructure and must not be repurposed as generic workflow storage.
+- No queue delivery guarantee, durable workflow checkpoint store, lease/fencing implementation or dead-letter facility is accepted as provisioned by the evidence above. These remain M2 design/implementation gates pending a wider provider-resource inventory and approved cost assessment.
+
+### 14.5 Auto Flow candidate PR evidence — not merged
+
+PR #134 (`feat/nova-auto-flow-foundation-20261031`) at head `a9262c73dc326783e535d7b97d0bdc900c999d12` contains:
+- Strict `nova.workflow.v1` draft validation with a server-owned allowlist of manual trigger, field projection, review marker and preview output nodes.
+- Authenticated `POST /api/workflows/draft` using the existing Workers AI binding; model output is validated and credential-pattern redaction is applied.
+- A deterministic, in-memory simulator using bounded scalar fixtures.
+
+Exact-head Frontend CI run #41152088686 completed successfully (build job #124390702370). Its `netlify-production-smoke-test` job #124391152000 was skipped. Netlify Deploy Preview status is successful for the PR head. Legacy Vercel deployment checks remain failed due to the free daily deployment quota and are not evidence of a Vercel deployment.
+
+This candidate is a draft generator/validator/simulator only. It does **not** provide persistent workflow definitions/runs, schedules, queues, checkpoint recovery, tenant-bound execution, approval integration for arbitrary workflow actions, or a production workflow runtime. Keep PR #134 Draft until full review and additional contracts are complete.
+
+### 14.6 M0 disposition and exit criteria
+
+**M0 = PARTIAL / BLOCKED.** The source-path ownership map is now concrete for the main Hub, approval API, frontend, manifests and CI. Remaining M0 blockers:
+1. Finish PR #109's migration-source recovery and exact applied-SQL/schema reconciliation.
+2. Inventory all provider-side Worker/Queue/DO/storage resources and deployment versions; distinguish configuration from live runtime proof.
+3. Complete route-to-schema/RLS/grant/function mapping and identify the canonical active Supabase project/contract for the approval routes.
+4. Complete architecture review for tenant isolation, action authority, failure/recovery and duplicate ownership.
+
+No hosted schema mutation, provider setting/secret change, project/branch creation, merge, production deployment or workflow execution was performed for this appendix. Exness Demo remains read-only; order submission and Live Trading remain OFF.
