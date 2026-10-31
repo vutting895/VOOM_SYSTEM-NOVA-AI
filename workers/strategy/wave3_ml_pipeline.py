@@ -708,6 +708,72 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
     return ~(day_block | near_event)
 
 
+def _news_backtest_assumption(news_safe: np.ndarray | None) -> str:
+    """Describe the actual news-filter state recorded in the model manifest."""
+    if news_safe is None:
+        return "no historical high-impact calendar supplied; entries fail closed"
+    safe_count = int(np.asarray(news_safe, dtype=bool).sum())
+    total_count = int(len(news_safe))
+    return (
+        "validated historical high-impact calendar applied; "
+        f"{safe_count}/{total_count} market bars passed exact-time +/-30-minute "
+        "and untimed-event full-day exclusions"
+    )
+
+
+def _news_calendar_manifest(path: str | Path | None,
+                            news_safe: np.ndarray | None,
+                            total_bars: int) -> dict[str, Any]:
+    """Record the exact calendar source and the market-bar exclusion result."""
+    total = int(total_bars)
+    if path is None or news_safe is None:
+        return {
+            "provided": False,
+            "path": None,
+            "sha256": None,
+            "event_rows": 0,
+            "high_impact_event_rows": 0,
+            "time_mode_counts": {},
+            "calendar_source": [],
+            "calendar_timezone": [],
+            "coverage_start_utc": None,
+            "coverage_end_exclusive_utc": None,
+            "market_bars_total": total,
+            "market_bars_news_safe": 0,
+            "market_bars_blocked": total,
+        }
+
+    calendar_path = Path(path)
+    calendar = pd.read_csv(calendar_path)
+    impact = calendar.get("impact", pd.Series("", index=calendar.index)).astype(str).str.strip().str.lower()
+    high = impact.isin({"high", "high impact", "critical", "red", "3", "3.0"})
+    high_calendar = calendar.loc[high]
+    if "time_mode" in high_calendar.columns:
+        modes = high_calendar["time_mode"].fillna("unknown").astype(str).str.strip().str.lower()
+    else:
+        modes = pd.Series("datetime", index=high_calendar.index)
+    safe_count = int(np.asarray(news_safe, dtype=bool).sum())
+    source_values = sorted(high_calendar["calendar_source"].dropna().astype(str).unique().tolist()) if "calendar_source" in high_calendar.columns else []
+    timezone_values = sorted(high_calendar["calendar_timezone"].dropna().astype(str).unique().tolist()) if "calendar_timezone" in high_calendar.columns else []
+    starts = sorted(high_calendar["coverage_start_utc"].dropna().astype(str).unique().tolist()) if "coverage_start_utc" in high_calendar.columns else []
+    ends = sorted(high_calendar["coverage_end_exclusive_utc"].dropna().astype(str).unique().tolist()) if "coverage_end_exclusive_utc" in high_calendar.columns else []
+    return {
+        "provided": True,
+        "path": calendar_path.as_posix(),
+        "sha256": hashlib.sha256(calendar_path.read_bytes()).hexdigest(),
+        "event_rows": int(len(calendar)),
+        "high_impact_event_rows": int(len(high_calendar)),
+        "time_mode_counts": {str(key): int(value) for key, value in modes.value_counts(dropna=False).sort_index().items()},
+        "calendar_source": source_values,
+        "calendar_timezone": timezone_values,
+        "coverage_start_utc": starts[0] if len(starts) == 1 else None,
+        "coverage_end_exclusive_utc": ends[0] if len(ends) == 1 else None,
+        "market_bars_total": total,
+        "market_bars_news_safe": safe_count,
+        "market_bars_blocked": max(total - safe_count, 0),
+    }
+
+
 def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices: np.ndarray,
                     probabilities: np.ndarray, start_equity: float = 10000.0,
                     contract_size: float = CONTRACT_SIZE,
@@ -1181,6 +1247,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
                    tuning_trials: int = AUTO_TUNING_TRIALS) -> dict[str, Any]:
     frame = load_bars(data_path)
     news_safe = load_news_calendar(news_calendar_path, frame)
+    news_provenance = _news_calendar_manifest(news_calendar_path, news_safe, len(frame))
     raw_hash = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
     if news_safe is None:
         print("NEWS GUARD: no historical high-impact calendar provided; entries will fail closed", flush=True)
@@ -1269,6 +1336,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
         "strategy": "VOOM v6.2.6.3 Wave3 + SMC XGB/60-bar LSTM BUY research", "version": "6.2.6.3-research",
         "model_artifacts": model_artifacts,
         "data_sha256": raw_hash, "symbol": "XAUUSDm", "timeframe": "M15", "timezone": "UTC",
+        "news_calendar": news_provenance,
         "bar_count": len(frame), "usable_labeled_rows": len(X),
         "data_first_bar": ts0.isoformat(), "data_last_bar": tsn.isoformat(),
         "model_training_last_timestamp": meta["timestamp"].iloc[train_idx[-1]].isoformat(),
@@ -1316,7 +1384,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "swap": "omitted; maximum holding period is 12 M15 bars",
             "spread": "per-candle MT5 historical spread_price; XAU entry must be <= 0.35 price units",
             "fills": "BUY trigger checked on next bar; conservative stop-first when SL and TP touch the same OHLC bar",
-            "news": "entries fail closed when no historical high-impact calendar is provided",
+            "news": _news_backtest_assumption(news_safe),
         },
         "safety": {"orders_submitted": False, "live_trading_enabled": False,
                    "market_data_access": "read-only MT5 history export"},
@@ -1390,6 +1458,7 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
             "signal_rule": "v6.2.6.3 BUY-only strict gates: Wave3/Fib, SMC >=85, XGB >=75%, LSTM >=80%, ensemble >=85%, RSI/volume/momentum/Fib61.8/discount/H1/ATR/spread, plus high-impact news blackout +/-30m",
             "historical_news_calendar_provided": news_safe is not None,
         },
+        "news_calendar": news_provenance,
         "walk_forward": fold_results,
         "auto_tuning": _build_auto_tuning_history(
             tuning_trials, fold_results, final_model=final_tuning, status="completed"

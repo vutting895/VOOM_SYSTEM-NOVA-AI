@@ -11,37 +11,46 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 - ML examples under `workers/feature` are research prototypes, not a production pipeline.
 
 ## Frontend hosting and deployment
-- Canonical frontend target: Cloudflare Worker `voom-system-nova-ui`; the Vercel project is not the intended deployment path.
-- Broker Settings uses the central `voom-system-hub` endpoint via `NEXT_PUBLIC_SYSTEM_HUB_URL` (default: `https://voom-system-hub.suwapat787.workers.dev`) for Exness Demo account and quotes. The browser sends the signed-in user's Supabase access token; it does not call the MT5 Proxy directly.
-- `.github/workflows/frontend-ci.yml` runs worker tests, type-check, the Next.js build, and the Cloudflare OpenNext build.
-- `.github/workflows/cloudflare-deploy.yml` deploys only changed backend Workers and, when `frontend/**` changes, builds and deploys the canonical Cloudflare frontend and smoke-tests the home and broker routes.
-- The presence of `voom-system-nova-ui` in Cloudflare is not alone proof that a particular source commit is deployed. Use the workflow run and live route checks as evidence.
-- Required GitHub Actions secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Never print secret values.
 
-### Local frontend checks (optional)
-Run from the repository root:
-```powershell
-Set-Location .\frontend
-npm ci
-npm run typecheck
-npm run build
-```
-Cloudflare build scripts remain available for a separately approved frontend cutover. Do not change the active host or claim a deployment succeeded unless the provider deployment/version and live routes have been verified.
+- **Primary customer-facing frontend: Netlify** at `https://voomsystem.netlify.app/`. After PR #74 merged as `a53623063d8cf9ebcc30f6c508d2a44b7ba8d9fd`, main-branch smoke tests returned HTTP 200 for `/`, `/login`, and `/settings/broker`; however, the connected Netlify project API still reports published deploy `6ae38a561eb1efe24a5a1105` on older commit `f8845887ebf2619e2723727735634246a4a54be9`. Exact Production commit reconciliation remains open.
+- Netlify Observability recorded HTTP 200 for the production root, Next.js RSC requests for `/login`, `/profile`, and `/broker`, and static frontend assets after that deployment. The anonymous broker-status endpoint returned HTTP 401 as expected. These observations do not prove a real OTP login/session or the complete broker route.
+- The legacy Cloudflare UI `voom-system-nova-ui` is retained temporarily as a rollback option, not the desired production target. The deployment workflow change to backend-only Cloudflare deploys and the root `netlify.toml` are in review in the Netlify alignment PR; do not describe that repository cutover as merged until it is.
+- A historical Netlify Deploy Preview failed in the UI-installed `netlify-plugin-checklinks` post-build phase. Later previews for PRs #69 and #71 succeeded. The new hosting-alignment PR still needs its own Preview and logs verified; do not assume older failures or successes transfer to a new commit.
+- Required Netlify dashboard variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only), `NEXT_PUBLIC_SYSTEM_HUB_URL`, and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. Configure them in site settings and never commit their values.
+- `.github/workflows/frontend-ci.yml` validates worker/security tests, type-check, and the Next.js build. Its production smoke-test job checks Netlify routes on a push to `main`. `.github/workflows/cloudflare-deploy.yml` is being aligned to deploy backend Workers only.
+
+## Unified frontend and NOVA Chat
+
+- Use this repository's `frontend/` as the single web application; integrate Chat into NOVA rather than merging the separate Eve Chat repository.
+- The shared navigation links Dashboard, AI Chat, AI Analysis and other existing routes.
+- Chat calls a same-origin authenticated Next.js API route. That route verifies the Supabase session before forwarding a bounded conversation to the NOVA AI Worker; the Worker returns an error rather than inventing a response when the provider is unavailable.
+- Structured intent is a data-only `nova.intent.v1` envelope with a strict allow-list of intents, parameters and component types. Both the Worker and the API boundary validate it. The frontend renders only the fixed React component catalog; it does not evaluate model-supplied HTML or JavaScript.
+- The current classifier is deterministic first-pass routing, not yet a model-generated Zod/Pydantic structured output parser. Intent cards are research-only and have no execution controls.
+- Chat history is page-memory only and is not persisted across refreshes. Durable threads, LangGraph checkpoint/resume, approval lifecycle and real two-user session tests remain open.
+- The current Backtest page reports a buy-and-hold baseline, not a strategy backtest. Do not describe baseline metrics as evidence of EMA/RSI performance.
 
 ## Environment
-Configure frontend build variables in the intended Vercel project and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit their values:
+Configure frontend variables in the selected Netlify site and backend secrets in Cloudflare/GitHub Actions as appropriate. Never commit secret values:
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_MT5_READONLY_PROXY_URL` (optional until its authenticated endpoint is implemented and verified)
-- GitHub Actions deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only; never a service-role key)
+- `NEXT_PUBLIC_SYSTEM_HUB_URL`
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+- GitHub Actions backend deployment secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
 
-Never print secret values in logs or chat. Cloudflare and Supabase runtime configuration must be complete before the authenticated broker path is considered ready. The UI must show unavailable rather than claim a connection when the optional MT5 proxy URL is absent.
+Never print secret values in logs or chat. The UI must show unavailable rather than claim a broker connection when authenticated System Hub or owner-session reads are not verified.
 
 ## Current deployment verification limits
-A Cloudflare Worker existing or responding to its settings endpoint does not prove that the latest source is deployed or that the live UI works. Verify the intended Vercel project/alias and browser routes, plus the Cloudflare backend Worker versions and authenticated no-login rejection tests, before marking the cutover complete.
+
+The current Netlify Production deploy is ready on the expected main-branch application commit, and Observability records HTTP 200 for the root, login/profile/broker Next.js RSC routes, and static assets after deployment. Remaining checks are still material: a direct `/settings/broker` response was not observed in the reviewed log window, no post-deploy direct `/auth/callback` request was observed, and the user's real email OTP/session flow has not been demonstrated.
+
+The actual Supabase owner-session path through System Hub/MT5 Proxy is not yet verified with a signed-in browser session. A valid owner connection read and a foreign connection-ID denial are still required. Anonymous HTTP 401 checks are only negative unauthenticated evidence, not proof of cross-user isolation.
+
+Netlify Observability also recorded repeated `PUT /api/inngest` HTTP 404 requests; current repository search found no Inngest handler/reference. Identify the source before changing application routes. Historical preview 401 responses are expected because non-production Netlify deploys require SSO; old preview 404/500 entries are not evidence of a current Production failure.
+
+Do not change Supabase Site URL/redirect settings or mark cutover fully accepted until the route smoke test, real OTP session persistence/logout, owner access, and foreign-connection denial have passed against a commit/deploy recorded in evidence. Keep Exness Demo/MT5 read-only, and keep order submission and Live Trading disabled.
 
 ## Architecture
-- `frontend/`: Next.js UI, currently built for Vercel by the frontend workflow.
+- `frontend/`: Next.js UI; Netlify is the selected target, and Cloudflare remains the verified fallback until cutover gates pass.
 - `integrations/remote-mcp-worker/`: primary Cloudflare Remote MCP endpoint; read-only research tools and paper-risk validation.
 - `integrations/mt5-readonly-proxy/`: authenticated Cloudflare proxy for the per-tenant read-only bridge.
 - `workers/data-ingestion/`: public market-data adapter.
@@ -67,15 +76,10 @@ OAuth end-to-end verification, leaked-password protection, review of SECURITY DE
 - The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
 
 
-## VOOM v6.2.6.3 Wave3 + SMC model research (XGBoost + 60-bar LSTM)
+## Wave3 + SMC research (PR #66; feature branch only)
 
-A reproducible training and backtest pipeline is available in the feature branch. It uses the redacted MT5 Demo XAUUSDm M15 history at datasets/exness-demo/, includes time-purged walk-forward folds, an untouched final OOS period, and training-artifact reload checks.
+The v6.2.6.3 Wave3/Fibonacci + SMC + XGBoost/60-bar PyTorch LSTM research pipeline is isolated in [Draft PR #66](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/66), not yet part of `main`. Historical Exness Demo XAUUSDm M15 bars and the validated USD high-impact calendar are research inputs only. The calendar CSV is `datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv` (2,166 high-impact USD events; coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z)).
 
-Run from the repository root with Python 3.11:
+Latest completed calendar-filtered training artifact: [workflow run #2](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41051313086), training SHA `817b0d328d49e2cd80de139fe08183ada8c7cd29`, artifact SHA-256 `565d40daadc58f4e7216dd47a0373d9fa093b9c476fdde21645d10478ddc5267`. Final OOS accuracy 41.3246% versus 45.9708% majority baseline; 0 closed trades; PF unavailable; all five walk-forward folds below their baselines; maximum SMC on Wave3 entry rows 75/100. The performance gate is blocked.
 
-    python -m pip install -r requirements-wave3.txt
-    python tools/train_wave3_models.py --news-calendar datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
-
-Omit `--news-calendar` only for a fail-closed diagnostic run; without a genuine historical high-impact calendar the +/-30 minute news filter denies every entry.
-
-Pre-calendar baseline (historical only): reports/wave3_auto_tuned_20261030_report.json recorded 41.5135% accuracy versus a 45.9708% majority baseline and 0 trades. The newer calendar-filtered run is recorded in the Wave3 research workflow artifact; it applied the Exness historical calendar and remains below performance gates. See the current report artifact linked from PR #66. No deployment or trading is enabled; artifacts are research-only.
+Keep Fib >=80, SMC >=85, XGB BUY >=75%, LSTM BUY >=80%, ensemble BUY >=85%, XGB/LSTM weights 60/40, all RSI/volume/momentum/trend/spread/news rules and fixed risk limits unchanged. No broker orders, deployment or Live Trading. The branch must be reviewed against current `main` before any merge; the PR remains Draft.

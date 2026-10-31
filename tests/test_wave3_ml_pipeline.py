@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "workers" / "strategy"))
 from wave3_ml_pipeline import (
     HORIZON_BARS, _train_mask, backtest_window, build_causal_features,
     load_bars, make_labeled_frame, build_inner_validation_splits,
+    _news_backtest_assumption, _news_calendar_manifest,
     generate_xgb_tuning_candidates, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
     _is_lstm_memory_error, _write_auto_tuning_history,
     _bullish_ob_state, _bearish_ob_state,
@@ -238,6 +239,40 @@ class TestWave3Pipeline(unittest.TestCase):
             calendar.to_csv(path, index=False)
             with self.assertRaises(ValueError):
                 load_news_calendar(path, frame)
+
+    def test_news_manifest_records_actual_calendar_provenance(self):
+        import tempfile
+
+        calendar = pd.DataFrame({
+            "timestamp": ["2026-07-01T12:30:00Z", "2026-07-02T12:30:00Z"],
+            "impact": ["high", "high"],
+            "time_mode": ["datetime", "datetime"],
+            "calendar_source": ["MQL5 Economic Calendar", "MQL5 Economic Calendar"],
+            "calendar_timezone": ["UTC (Exness trade server GMT+0)"] * 2,
+            "coverage_start_utc": ["2026-07-01T00:00:00Z"] * 2,
+            "coverage_end_exclusive_utc": ["2026-07-03T00:00:00Z"] * 2,
+        })
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "news.csv"
+            calendar.to_csv(path, index=False)
+            safe = np.array([True, False, True], dtype=bool)
+            manifest = _news_calendar_manifest(path, safe, total_bars=3)
+
+        self.assertTrue(manifest["provided"])
+        self.assertEqual(manifest["event_rows"], 2)
+        self.assertEqual(manifest["high_impact_event_rows"], 2)
+        self.assertEqual(manifest["time_mode_counts"], {"datetime": 2})
+        self.assertEqual(manifest["market_bars_total"], 3)
+        self.assertEqual(manifest["market_bars_news_safe"], 2)
+        self.assertEqual(manifest["market_bars_blocked"], 1)
+        self.assertEqual(len(manifest["sha256"]), 64)
+        self.assertIn("applied", _news_backtest_assumption(safe))
+
+        missing = _news_calendar_manifest(None, None, total_bars=3)
+        self.assertFalse(missing["provided"])
+        self.assertEqual(missing["market_bars_news_safe"], 0)
+        self.assertEqual(missing["market_bars_blocked"], 3)
+        self.assertIn("fail closed", _news_backtest_assumption(None))
 
     def test_lstm_cpu_memory_fallback_is_bounded_and_deterministic(self):
         self.assertEqual(LSTM_BATCH_SIZE_FALLBACKS, (256, 128, 64))

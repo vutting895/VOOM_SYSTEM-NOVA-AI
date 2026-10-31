@@ -55,3 +55,19 @@ The calendar is now connected to the research workflow through an explicit --new
 The prior full-model OOS result remains blocked: accuracy 41.5135% versus 45.9708% majority baseline, 0 closed trades, and no supported profit factor. This result predates the OB-validity correction and is not a fresh performance result.
 
 Do not lower XGB >=75%, LSTM >=80%, ensemble >=85%, SMC >=85, Fib/RSI/volume/spread/news requirements, fixed 60:40 model weights, or risk controls to increase trade count. The model is not production-eligible. Orders remain disabled and Live Trading remains OFF.
+
+
+## Latest calendar-filtered causal gate review — artifact #2
+
+The completed report in [workflow run 41051313086](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41051313086) confirms the historical calendar was applied: 7,421/7,942 final OOS bars passed the news exclusion; all 2,166 exported events are `datetime` mode.
+
+On the 34 final-OOS Wave3 entry-trigger rows:
+- BOS20: 21 rows.
+- CHoCH / three-higher-lows diagnostic: 12 rows.
+- FVG refill: 7 rows.
+- Active bullish OB within $5: 1 row; inside the OB zone: 0 rows.
+- Maximum SMC score on Wave3 entry rows: 75/100; SMC >=85 survivors: 0.
+
+This remains a component-alignment bottleneck, not evidence to relax the scoring contract. Keep BOS20=30, three-higher-lows+green=20, qualifying OB=25, FVG refill=25, OB size >=0.3%, proximity <=$5, and SMC >=85 unchanged. Audit causal timestamp ordering, OB candidate origin, close-through invalidation, zone distance, and whether BOS/CHoCH/FVG/OB were simultaneously available on the signal bar. Do not expand lookback or change weights to make the single OOS candidate pass.
+
+Classification also remains below baseline: 41.3246% accuracy versus 45.9708%; all five walk-forward folds below their own majority baselines. Final OOS trades: 0; PF undefined. The strategy is not performance-qualified.

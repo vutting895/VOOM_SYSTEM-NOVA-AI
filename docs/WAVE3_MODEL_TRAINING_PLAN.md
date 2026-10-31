@@ -88,3 +88,35 @@ The 92.3% win-rate and PF 5.10 figures in the original strategy brief remain unv
 ### Latest calendar-filtered OOS update — 2026-10-30
 
 The newer run supersedes the older pre-calendar limitation and baseline as the latest measured result. Workflow: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41022129986 (commit 80c503750a9db669e615b13b3c0006daf158c641). The validated Exness calendar was applied (7,421 news-safe rows). Final OOS: 7,942 samples, accuracy 41.3246%, balanced accuracy 39.1057%, macro-F1 37.6761%, versus 45.9708% majority baseline. All five walk-forward folds remained below their majority baselines. Closed trades: 0; PF undefined. On 34 Wave3 entry rows, maximum SMC was 75; XGB BUY >=75% agreement and ensemble BUY >=85% agreement counts were 0. The run is not performance-qualified. The generated report contained stale no-calendar wording; the report generator was corrected to describe calendar availability from the actual run state. A fresh run is required to verify the corrected report text.
+
+## Latest calendar-filtered run — artifact #2 (2026-10-30)
+
+The report-generator correction was exercised by a completed, push-triggered training run:
+- Workflow: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41051313086
+- Training code SHA: `817b0d328d49e2cd80de139fe08183ada8c7cd29`
+- Artifact ID: `12974688556`; artifact SHA-256: `565d40daadc58f4e7216dd47a0373d9fa093b9c476fdde21645d10478ddc5267`
+- The report's `limitations` now correctly states that the validated historical high-impact calendar was supplied and applied. The model manifest still had a stale `backtest_assumptions.news` sentence and did not record the calendar file hash; the current source correction adds conditional wording and full calendar provenance for the next run.
+
+### Current measured result
+
+Final OOS (2026-07-01 through 2026-10-29 13:45 UTC): 7,942 rows; accuracy **41.3246%**, balanced accuracy **39.1057%**, macro-F1 **37.6761%**, below the 45.9708% majority/always-hold baseline. Closed trades **0**, net profit $0, profit factor unavailable (no closed trades). Production eligibility remains false.
+
+All five walk-forward folds remained below their respective majority baselines:
+- 2024-H1: 42.7243% vs 47.4667%
+- 2024-H2: 42.0872% vs 47.0338%
+- 2025-H1: 38.6348% vs 44.6871%
+- 2025-H2: 33.8427% vs 46.3677%
+- 2026-H1: 36.1176% vs 46.5584%
+
+Training labels: short 23,193; hold 43,363; long 26,459. Final OOS actual labels: short 2,198 / hold 3,651 / long 2,093; predictions: short 3,567 / hold 3,239 / long 1,136. The model overpredicts short and materially underpredicts long (OOS long recall 16.53%). No probability calibration method, reliability curve, Brier score or expected calibration error is recorded. XGB/LSTM outputs remain raw direction-class probabilities, not calibrated trade-win probabilities. LSTM training loss falls from 1.0685 to 0.8993 over four epochs, but no independent probability-calibration evidence is present.
+
+The validated calendar was applied: 2,166 high-impact USD events, all `datetime` mode; 7,421 of 7,942 final OOS bars passed the news exclusion. The final OOS was not used for tuning.
+
+### Current gate blockers
+
+- 34 Wave3 entry-trigger rows; max SMC on those rows 75/100; SMC >=85 survivors 0.
+- BOS20 on 21 triggers; CHoCH/three-higher-lows diagnostic on 12; FVG refill on 7; only 1 trigger had an active bullish OB within $5 and none was inside the OB zone.
+- XGB BUY >=75% with agreement: 0; LSTM BUY >=80% and agreement: 87 diagnostic rows, but 0 survive the preceding mandatory gates; ensemble BUY >=85% with agreement: 0.
+- All five walk-forward periods and final OOS remain below baseline; final OOS closed trades remain below the minimum 30.
+
+Do not tune on final OOS, lower thresholds, change SMC weights/lookback, or enable orders. Next research work is causal event alignment for OB/FVG/BOS/CHoCH, training-only class/feature analysis, and calibration using inner/validation folds only, followed by a fresh untouched OOS evaluation.
