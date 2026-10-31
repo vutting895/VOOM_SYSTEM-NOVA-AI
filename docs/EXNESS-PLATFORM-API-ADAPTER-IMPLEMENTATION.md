@@ -3,7 +3,7 @@
 **Base:** `main` at `574466a9ccce545ea8ff81ad8cc11f3bc0f0675e`  
 **Implementation branch:** `feat/exness-trader-api-readonly-adapter-20261031`  
 **Runtime target:** existing System Integration Hub  
-**Activation:** blocked until dedicated customer-secret custody is reviewed and implemented  
+**Activation:** blocked until OpenBao Staging custody and owner-isolation gates are implemented and reviewed  
 **Trading safety:** read-only only; every trading/execution flag remains false
 
 ## Implemented in this branch
@@ -21,13 +21,15 @@
 
 The adapter accepts credentials only from an injected server-side `resolveCredentials({ ownerId, connectionId, provider })` function. It does not expose a credential-ingress route, read request-body credentials, persist secrets, or connect directly to Supabase Vault.
 
-The current secret-manager readiness record blocks customer credential reads/writes because the inspected Vault `service_role` has broad access and the dedicated least-privilege owner-bound role/path is not yet available. Therefore:
+**Custody architecture is aligned to the existing OpenBao decision in canonical main** (`docs/architecture/NOVA-OPENBAO-STAGING-INTEGRATION.md` and `docs/implementation/NOVA-OPENBAO-STAGING-CLOSURE-CHECKLIST.md`). Do not build a parallel Supabase Vault credential path and do not wire the resolver to generic Supabase `service_role`. OpenBao Staging is not yet provisioned or privately reachable. Therefore:
 
-- Do not wire a resolver to the current generic Supabase `service_role`.
+- Do not wire any resolver until the OpenBao private-health, pinned Staging deployment, TLS, workload identity, least-privilege Transit policy, context-binding, and fail-closed gates pass.
+- Prove synthetic two-owner isolation for read/decrypt, rotate, revoke and delete, plus leakage and lifecycle tests.
 - Do not place the private key in a generic Worker secret, frontend/Netlify variables, browser storage, Git, logs, chat, or a client-readable table.
-- Do not enable an API-key submission endpoint.
-- Keep the adapter disconnected from public Hub routes until the dedicated secret-custody gate and two-owner isolation tests pass.
+- Do not enable an API-key submission endpoint before the dedicated Tenant Credential Provider is separately reviewed.
 - The owner may retain the API key and private signing key in their own approved secure storage. Never send either value to ChatGPT or GitHub.
+
+Supabase Vault readiness findings remain a prohibition against the currently broad `service_role` path; they are not an instruction to implement a second credential-vault architecture.
 
 ## Exact currently supported upstream operations
 
@@ -45,12 +47,18 @@ No order, position mutation, account switch, transfer, deposit, withdrawal, or p
 
 1. Run the System Hub Node test suite on this exact PR head; confirm the Ed25519 vector against the official Exness sample.
 2. Review Cloudflare Workers WebCrypto Ed25519 compatibility on the deployed compatibility date.
-3. Implement and review a dedicated owner-bound Vault access path; prove user A can retrieve only user A's connection secret and user B is denied.
-4. Connect the resolver only to that approved path.
-5. Use the owner's own secure setup to configure the credential reference and account ID; no credential value enters GitHub or chat.
-6. Run authenticated staging reads for discovery, account details, limits, instruments and candles. Record sanitized status, response schema and source timestamps only.
-7. Add negative tests for revoked/expired key, invalid signature, insufficient scope, unsupported instrument, stale data, malformed candles, rate limiting and cross-tenant access.
-8. Update the System Hub integration registry and Dashboard only after staging proof. Keep the existing MT5 Bridge path as a separate legacy adapter and rollback.
+3. Complete the existing OpenBao Staging closure checklist using synthetic data only; no paid infrastructure or Staging mutation is implied by this PR.
+4. Implement and review a dedicated server-only Tenant Credential Provider using a short-lived least-privilege OpenBao identity and canonical owner/connection context.
+5. Prove two-owner isolation, context mismatch rejection, rotation, revocation, rollback, and absence of secret leakage in responses/logs/traces.
+6. Connect the resolver only to that approved provider after its separate PR passes CI and security review.
+7. Use the owner's own secure setup to configure the credential reference and account ID; no credential value enters GitHub or chat.
+8. Run authenticated staging reads for discovery, account details, limits, instruments and candles. Record sanitized status, response schema and source timestamps only.
+9. Add negative tests for revoked/expired key, invalid signature, insufficient scope, unsupported instrument, stale data, malformed candles, rate limiting and cross-tenant access.
+10. Update the System Hub integration registry and Dashboard only after staging proof. Keep the existing MT5 Bridge path as a separate legacy adapter and rollback.
+
+## CI diagnostic
+
+GitHub Actions run #671 failed on three attempts with an empty step list and unavailable job logs (`BlobNotFound`). This is not evidence that application tests ran, failed, or passed. Do not merge on this evidence and do not mask the runner/job-provisioning problem with application changes. Require a fresh exact-head run with visible steps and logs.
 
 ## Official references
 
@@ -64,4 +72,4 @@ No order, position mutation, account switch, transfer, deposit, withdrawal, or p
 - Available instruments: https://www.exness-api.com/reference/trading/get-available-instrument-list
 - Candle history: https://www.exness-api.com/reference/get-candle-history
 
-**Status rule:** source code in this branch is not proof of a connected account. Until the credential-custody and authenticated staging gates pass, the Dashboard must show setup/verification pending, not Connected or live prices.
+**Status rule:** source code in this branch is not proof of a connected account. Until credential custody and authenticated staging gates pass, the Dashboard must show setup/verification pending, not Connected or live prices.
