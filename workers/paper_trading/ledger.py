@@ -106,12 +106,12 @@ class PaperLedger:
                 raise PaperLedgerError("idempotency_key_payload_conflict")
             return deepcopy(prior[1])
 
-        if self._money(qty * reference) > self.max_order_notional:
-            raise PaperLedgerError("order_notional_limit")
         slip = self.slippage_bps / Decimal("10000")
         fee_rate = self.fee_bps / Decimal("10000")
         fill_price = self._money(reference * (Decimal("1") + slip if normalized_side == "BUY" else Decimal("1") - slip))
         notional = self._money(qty * fill_price)
+        if notional > self.max_order_notional:
+            raise PaperLedgerError("order_notional_limit")
         fee = self._money(notional * fee_rate)
         realized_pnl = Decimal("0")
 
