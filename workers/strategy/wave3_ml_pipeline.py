@@ -206,6 +206,11 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
         "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_ob_search_start_index",
         "bull_ob_search_end_exclusive_index",
+        "bull_ob_last_invalidated_origin_index", "bull_ob_last_invalidated_confirmation_index",
+        "bull_ob_last_invalidated_at_index", "bull_ob_last_invalidated_low", "bull_ob_last_invalidated_high",
+        "bull_ob_last_invalidated_range_pct", "bull_ob_last_invalidated_distance_price",
+        "bull_ob_last_invalidated_candidate_count", "bull_ob_last_invalidated_search_start_index",
+        "bull_ob_last_invalidated_search_end_exclusive_index",
         "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
@@ -221,6 +226,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     broken: set[tuple[str, int]] = set()
     bias = 0
     bull_ob = bear_ob = None
+    last_bull_ob_invalidated = None
     last_bull_gap = last_bear_gap = None
     last_bull_gap_first_fill_index = None
 
@@ -378,7 +384,31 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 struct["bull_ob_zone"][i] = float(state["zone"])
                 struct["bull_ob_within5"][i] = float(state["within5"])
             else:
+                last_bull_ob_invalidated = {
+                    "origin_index": int(bull_ob[3]) if len(bull_ob) > 3 else None,
+                    "confirmation_index": int(bull_ob[0]),
+                    "invalidated_at_index": int(i),
+                    "low": float(bull_ob[1]),
+                    "high": float(bull_ob[2]),
+                    "range_pct": float(bull_ob[4]) if len(bull_ob) > 4 else None,
+                    "distance_price": float(state["distance"]),
+                    "candidate_count": int(bull_ob[5]) if len(bull_ob) > 5 else 1,
+                    "search_start_index": int(bull_ob[6]) if len(bull_ob) > 6 else None,
+                    "search_end_exclusive_index": int(bull_ob[7]) if len(bull_ob) > 7 else None,
+                }
                 bull_ob = None  # close below OB low invalidates the bullish block
+
+        if last_bull_ob_invalidated is not None:
+            trace["bull_ob_last_invalidated_origin_index"][i] = float(last_bull_ob_invalidated["origin_index"]) if last_bull_ob_invalidated["origin_index"] is not None else np.nan
+            trace["bull_ob_last_invalidated_confirmation_index"][i] = float(last_bull_ob_invalidated["confirmation_index"])
+            trace["bull_ob_last_invalidated_at_index"][i] = float(last_bull_ob_invalidated["invalidated_at_index"])
+            trace["bull_ob_last_invalidated_low"][i] = float(last_bull_ob_invalidated["low"])
+            trace["bull_ob_last_invalidated_high"][i] = float(last_bull_ob_invalidated["high"])
+            trace["bull_ob_last_invalidated_range_pct"][i] = float(last_bull_ob_invalidated["range_pct"]) if last_bull_ob_invalidated["range_pct"] is not None else np.nan
+            trace["bull_ob_last_invalidated_distance_price"][i] = float(last_bull_ob_invalidated["distance_price"])
+            trace["bull_ob_last_invalidated_candidate_count"][i] = float(last_bull_ob_invalidated["candidate_count"])
+            trace["bull_ob_last_invalidated_search_start_index"][i] = float(last_bull_ob_invalidated["search_start_index"]) if last_bull_ob_invalidated["search_start_index"] is not None else np.nan
+            trace["bull_ob_last_invalidated_search_end_exclusive_index"][i] = float(last_bull_ob_invalidated["search_end_exclusive_index"]) if last_bull_ob_invalidated["search_end_exclusive_index"] is not None else np.nan
 
         if bear_ob:
             ob_age = i - bear_ob[0]
@@ -501,7 +531,12 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
         "bull_ob_origin_range_pct", "bull_ob_age_from_origin_bars", "bull_ob_age_from_confirmation_bars",
         "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
         "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_ob_search_start_index",
-        "bull_ob_search_end_exclusive_index", "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
+        "bull_ob_search_end_exclusive_index", "bull_ob_last_invalidated_origin_index",
+        "bull_ob_last_invalidated_confirmation_index", "bull_ob_last_invalidated_at_index",
+        "bull_ob_last_invalidated_low", "bull_ob_last_invalidated_high", "bull_ob_last_invalidated_range_pct",
+        "bull_ob_last_invalidated_distance_price", "bull_ob_last_invalidated_candidate_count",
+        "bull_ob_last_invalidated_search_start_index", "bull_ob_last_invalidated_search_end_exclusive_index",
+        "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
@@ -1182,6 +1217,20 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
                 "inside_zone_on_signal_bar": bool(number(rowf, "bull_ob_zone_trace")) if number(rowf, "bull_ob_zone_trace") is not None else None,
                 "within_5_on_signal_bar": bool(number(rowf, "bull_ob_within5_trace")) if number(rowf, "bull_ob_within5_trace") is not None else None,
                 "invalidated_on_signal_bar": bool(number(rowf, "bull_ob_invalidated_now")) if number(rowf, "bull_ob_invalidated_now") is not None else None,
+                "last_invalidated": {
+                    "origin_index": integer(rowf, "bull_ob_last_invalidated_origin_index"),
+                    "origin_timestamp_utc": frame["timestamp"].iloc[integer(rowf, "bull_ob_last_invalidated_origin_index")].isoformat() if integer(rowf, "bull_ob_last_invalidated_origin_index") is not None else None,
+                    "confirmation_index": integer(rowf, "bull_ob_last_invalidated_confirmation_index"),
+                    "invalidated_at_index": integer(rowf, "bull_ob_last_invalidated_at_index"),
+                    "invalidated_at_timestamp_utc": frame["timestamp"].iloc[integer(rowf, "bull_ob_last_invalidated_at_index")].isoformat() if integer(rowf, "bull_ob_last_invalidated_at_index") is not None else None,
+                    "low": number(rowf, "bull_ob_last_invalidated_low"),
+                    "high": number(rowf, "bull_ob_last_invalidated_high"),
+                    "range_pct": number(rowf, "bull_ob_last_invalidated_range_pct"),
+                    "distance_price_at_invalidation": number(rowf, "bull_ob_last_invalidated_distance_price"),
+                    "candidate_count": integer(rowf, "bull_ob_last_invalidated_candidate_count"),
+                    "search_start_index": integer(rowf, "bull_ob_last_invalidated_search_start_index"),
+                    "search_end_exclusive_index": integer(rowf, "bull_ob_last_invalidated_search_end_exclusive_index"),
+                },
             },
             "fair_value_gap": {
                 "active_origin_index": integer(rowf, "bull_fvg_active_origin_index"),
