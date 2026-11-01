@@ -137,8 +137,46 @@ async function signedGet({ baseUrl, apiKey, privateKey, path, fetchImpl = fetch,
   if (response.status === 429) throw fail("exness_rate_limited", 429);
   if (response.status === 401 || response.status === 403) throw fail("exness_permission_denied", response.status);
   if (!response.ok) throw fail("exness_upstream_rejected", 502);
+
+  const contentLength = Number(response.headers.get("Content-Length") || 0);
+  const maxResponseBytes = 64 * 1024;
+  if (contentLength > maxResponseBytes) {
+    try { await response.body?.cancel("response_size_limit_exceeded"); } catch {}
+    throw fail("exness_response_too_large", 502);
+  }
+  if (!response.body || typeof response.body.getReader !== "function") {
+    throw fail("exness_invalid_upstream_response", 502);
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
   try {
-    return await response.json();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxResponseBytes) {
+        try { await reader.cancel("response_size_limit_exceeded"); } catch {}
+        throw fail("exness_response_too_large", 502);
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error?.code) throw error;
+    throw fail("exness_invalid_upstream_response", 502);
+  } finally {
+    try { reader.releaseLock(); } catch {}
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     throw fail("exness_invalid_upstream_response", 502);
   }

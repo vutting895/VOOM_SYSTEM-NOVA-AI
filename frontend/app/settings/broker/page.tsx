@@ -221,7 +221,7 @@ export default function BrokerSettingsPage() {
     <main className="broker-page">
       <style>{`
         .broker-page{max-width:850px;margin:0 auto;padding:38px 20px 70px;min-height:100vh;background:#090b12;color:#eef3fa;font-family:Inter,system-ui,sans-serif}
-        .back{color:#c9f36a;text-decoration:none;font-size:13px}.eyebrow{display:block;color:#a99aff;font-size:10px;letter-spacing:2px;font-weight:800;margin-top:34px}
+        .back{color:#c9f36a;text-decoration:none;font-size:13px}.api-entry{display:inline-block;margin-left:14px;color:#c9f36a;font-size:12px;font-weight:800;text-decoration:none}.eyebrow{display:block;color:#a99aff;font-size:10px;letter-spacing:2px;font-weight:800;margin-top:34px}
         h1{font-size:clamp(30px,5vw,42px);letter-spacing:-1.2px;margin:10px 0}.intro{color:#a1adbf;line-height:1.8;font-size:14px}
         .card{margin-top:22px;border:1px solid #293142;border-radius:17px;padding:22px;background:#111620}
         .heading{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.mark{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#c9f36a;color:#10150a;font-weight:900;font-size:18px}
@@ -237,9 +237,10 @@ export default function BrokerSettingsPage() {
         .foot{font-size:11px;color:#8c99ac;line-height:1.8;margin-top:20px}
       `}</style>
       <a className="back" href="/">← กลับหน้า Dashboard</a>
-      <span className="eyebrow">CONNECTIONS / EXNESS MT5</span>
-      <h1>เชื่อมต่อบัญชี Exness MT5</h1>
-      <p className="intro">ระยะแรกใช้ Exness Demo ผ่าน MT5 บนเครื่อง Windows/VPS และอ่านข้อมูลบัญชีกับตลาดเท่านั้น หน้านี้ไม่รับรหัสผ่าน MT5 และไม่มีคำสั่งซื้อขาย</p>
+      <a className="api-entry" href="/settings/broker/exness">ไม่ใช้ Windows? ตั้งค่า Exness API ที่นี่ →</a>
+      <span className="eyebrow">LEGACY CONNECTION / EXNESS MT5</span>
+      <h1>การเชื่อมต่อ Exness MT5 เดิม</h1>
+      <p className="intro">หน้านี้เป็นช่องทาง MT5 Bridge เดิม ซึ่งต้องใช้ Terminal แยกต่างหาก หากต้องการเชื่อมผ่าน API โดยไม่ใช้ Windows หรือ VPS ให้ใช้หน้า Exness Trader API ใหม่</p>
       <section className="card">
         <div className="heading"><span className="mark">MT5</span><div><h2>Exness Demo · Read-only</h2><p className="muted">Windows MT5 Bridge · NOVA System Integration Hub · Supabase Auth</p></div><span className="pill">{account?.connected ? "DATA RECEIVED" : "READ-ONLY"}</span></div>
         {!supabase && <p className="warning">ยังไม่ได้ตั้งค่า Supabase URL และ publishable/anon key ใน Netlify</p>}
