@@ -8,6 +8,7 @@ const navigation = [
   { label: 'OVERVIEW', href: '/', code: '01' },
   { label: 'MARKETS', href: '/markets', code: '02' },
   { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
+  { label: 'TRADING INTELLIGENCE', href: '/trading-intelligence', code: '03T' },
   { label: 'BROKER HUB', href: '/broker', code: '04' },
   { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
   { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
@@ -23,6 +24,7 @@ const watchlist = [
 const modules = [
   { name: 'AI CHAT', detail: 'Conversational research assistant', href: '/chat', icon: '✦' },
   { name: 'AI ANALYSIS', detail: 'Strategy research and explainable insights', href: '/gen-ai', icon: '◈' },
+  { name: 'TRADING INTELLIGENCE', detail: 'Verified price, chart and strategy analysis', href: '/trading-intelligence', icon: '⌁' },
   { name: 'BROKER HUB', detail: 'Connection status and account access', href: '/broker', icon: '⌘' },
   { name: 'LEARNING UNIVERSE 16', detail: 'Learning modules and feedback loop', href: '/learning-universe', icon: '◎' },
   { name: 'STRATEGY MARKETPLACE', detail: 'Explore strategy templates', href: '/marketplace', icon: '▦' },
