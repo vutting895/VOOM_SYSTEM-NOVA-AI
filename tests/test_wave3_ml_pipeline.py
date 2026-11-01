@@ -362,7 +362,8 @@ class TestWave3Pipeline(unittest.TestCase):
             "structure_break_pivot_index", "higher_low_1_index", "higher_low_1_confirmation_index",
             "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_distance_price_trace",
             "bull_ob_last_invalidated_origin_index", "bull_ob_last_invalidated_at_index",
-            "bull_fvg_fill_origin_index", "bull_fvg_active_origin_index", "bos20_prior_20_high",
+            "bull_fvg_fill_origin_index", "bull_fvg_active_origin_index", "bull_fvg_first_fill_index",
+            "bull_fvg_first_full_mitigation_index", "bull_fvg_fully_mitigated_now", "bos20_prior_20_high",
         }
         self.assertTrue(diagnostic_columns.isdisjoint(set(X.columns)))
 
@@ -425,6 +426,53 @@ class TestWave3Pipeline(unittest.TestCase):
         self.assertEqual(row["order_block"]["last_invalidated"]["origin_index"], 660)
         self.assertEqual(row["order_block"]["last_invalidated"]["invalidated_at_index"], 670)
         self.assertEqual(row["fair_value_gap"]["refill_origin_index"], 680)
+
+
+    def test_bull_fvg_trace_distinguishes_first_overlap_from_full_mitigation_and_retests(self):
+        frame = synthetic_bars(900)
+        base = float(frame["close"].iloc[702])
+
+        # Create a deterministic bullish FVG at bar 702: [high[700], low[702]].
+        frame.loc[700, ["open", "high", "low", "close"]] = [base - 2.0, base, base - 5.0, base - 1.0]
+        frame.loc[701, ["open", "high", "low", "close"]] = [base + 5.0, base + 20.0, base + 2.0, base + 10.0]
+        frame.loc[702, ["open", "high", "low", "close"]] = [base + 12.0, base + 18.0, base + 10.0, base + 15.0]
+        # Bar 703 overlaps the gap but does not reach its lower boundary.
+        frame.loc[703, ["open", "high", "low", "close"]] = [base + 7.0, base + 12.0, base + 5.0, base + 8.0]
+        # Bar 704 reaches the lower boundary: first full mitigation.
+        frame.loc[704, ["open", "high", "low", "close"]] = [base + 1.0, base + 2.0, base - 1.0, base + 1.5]
+        # Bar 705 overlaps the same gap again after full mitigation.
+        frame.loc[705, ["open", "high", "low", "close"]] = [base + 6.0, base + 8.0, base + 4.0, base + 7.0]
+
+        features = build_causal_features(frame)
+        self.assertEqual(features.loc[702, "bull_fvg_created_now"], 1.0)
+        self.assertEqual(features.loc[703, "bull_fvg_fill"], 1.0)
+        self.assertEqual(features.loc[703, "bull_fvg_first_fill_index"], 703.0)
+        self.assertTrue(np.isnan(features.loc[703, "bull_fvg_first_full_mitigation_index"]))
+        self.assertEqual(features.loc[703, "bull_fvg_fully_mitigated_now"], 0.0)
+
+        self.assertEqual(features.loc[704, "bull_fvg_fill"], 1.0)
+        self.assertEqual(features.loc[704, "bull_fvg_first_full_mitigation_index"], 704.0)
+        self.assertEqual(features.loc[704, "bull_fvg_fully_mitigated_now"], 1.0)
+
+        # The frozen overlap flag remains unchanged and can still be true on a later
+        # re-touch; the diagnostic fields make that post-mitigation re-touch explicit.
+        self.assertEqual(features.loc[705, "bull_fvg_fill"], 1.0)
+        self.assertEqual(features.loc[705, "bull_fvg_first_fill_index"], 703.0)
+        self.assertEqual(features.loc[705, "bull_fvg_first_full_mitigation_index"], 704.0)
+        self.assertEqual(features.loc[705, "bull_fvg_fully_mitigated_now"], 0.0)
+
+        features.loc[705, "wave3_long_rule_breakout"] = 1.0
+        features.loc[705, "wave3_long_entry_price"] = float(frame["close"].iloc[705])
+        trace = smc_candidate_trace(frame, features, np.array([705]))
+        self.assertEqual(trace["summary"]["candidate_rows"], 1)
+        gap = trace["rows"][0]["fair_value_gap"]
+        self.assertEqual(gap["first_refill_index"], 703)
+        self.assertEqual(gap["first_full_mitigation_index"], 704)
+        self.assertTrue(gap["overlap_is_retest_after_full_mitigation"])
+
+        X, _, _ = make_labeled_frame(frame, features)
+        self.assertNotIn("bull_fvg_first_full_mitigation_index", X.columns)
+        self.assertNotIn("bull_fvg_fully_mitigated_now", X.columns)
 
 
 
