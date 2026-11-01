@@ -5,13 +5,13 @@ const steps = [
     number: "01",
     title: "ตรวจชนิดบัญชี",
     description: "ต้องเป็นบัญชี Exness Platform ที่รองรับ Trader API ไม่ใช่บัญชี MT4 หรือ MT5",
-    state: "ยืนยันจากผู้ใช้แล้ว"
+    state: "ตรวจสอบใน Exness Personal Area"
   },
   {
     number: "02",
     title: "เตรียม API แบบอ่านอย่างเดียว",
     description: "สร้าง API Key สำหรับ Trader API และเลือกสิทธิ์อ่านข้อมูลเท่านั้น เตรียม Account ID และ Private Signing Key ไว้ด้วย",
-    state: "ผู้ใช้ยืนยันว่าเป็น Read-only"
+    state: "ตรวจสอบสิทธิ์ Read-only ก่อนเริ่ม"
   },
   {
     number: "03",
@@ -57,7 +57,7 @@ export default function ExnessApiSetupPage() {
           <span aria-hidden="true">●</span>
           <div>
             <strong>เตรียมการเชื่อมต่อแล้วบางส่วน · ยังไม่เชื่อมบัญชีจริง</strong>
-            <p>ยืนยันชนิดบัญชี Exness Platform และสิทธิ์ API แบบ Read-only แล้ว แต่ระบบยังไม่เปิดรับ Private Signing Key จนกว่าพื้นที่เก็บกุญแจลับแบบแยกเจ้าของจะผ่านการตรวจสอบความปลอดภัย</p>
+            <p>หน้านี้ยังไม่ได้ตรวจสอบบัญชีหรือ API Key กับ Exness จริง กรุณาตรวจชนิดบัญชีและสิทธิ์ Read-only ใน Personal Area ก่อน ระบบยังไม่เปิดรับ Private Signing Key จนกว่าพื้นที่เก็บกุญแจลับแบบแยกเจ้าของจะผ่านการตรวจสอบความปลอดภัย</p>
           </div>
         </section>
 
