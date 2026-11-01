@@ -9,7 +9,7 @@ This increment adds a bounded chat-model runtime adapter, opt-in persistent memo
 - Model calls remain server-side in the existing NOVA AI Worker.
 - The runtime currently calls the configured Cloudflare Workers AI model @cf/meta/llama-3.2-3b-instruct.
 - Browser input cannot select a model or provider. Model identifiers are restricted by a server-side allowlist.
-- Inputs and outputs have strict message-count, character and timeout boundaries.
+- Inputs and outputs have strict message-count and character boundaries; persisted history is compacted to six messages of at most 1,800 characters each before inference.
 - Model/provider/runtime provenance is returned for every response.
 - Provider errors and invalid outputs fail closed; no fabricated answer or silent fallback is presented as model output.
 - This runtime does not enable tool calling, MCP invocation, broker actions or financial execution.
@@ -21,7 +21,7 @@ Memory is disabled by default and requires per-user opt-in.
 - Threads and messages are scoped to the authenticated Supabase user; the user ID is derived from the verified bearer session, never from browser payload.
 - The AI Worker uses the user's bearer token and the public Supabase publishable key. No service-role key is used.
 - Postgres RLS protects settings, threads, messages, saved facts and feedback.
-- Only user/assistant text is stored. System prompts, access tokens, provider keys, broker secrets and tool payloads are not persisted.
+- Only user/assistant text is stored. Credential-pattern detection suppresses persistence of an exchange if either message resembles a bearer token, API key, password assignment, common provider token or private key. System prompts, access tokens, provider keys, broker secrets and tool payloads are not intentionally persisted.
 - User-authored facts have narrow categories and size limits; they are untrusted context, never instructions.
 - Retention is selectable as 30, 90 or 365 days. Expired messages and threads are purged during authenticated memory reads.
 - Turning memory off deletes the user's stored threads and facts before saving the disabled setting.
