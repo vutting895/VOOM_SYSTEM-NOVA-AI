@@ -7,6 +7,7 @@ validated model, connect to a broker, or create executable trading signals.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import io
 import json
 import math
@@ -266,7 +267,7 @@ def train_candidate(
 def load_candidate(artifact: bytes, expected_sha256: str, expected_symbol: str, expected_timeframe: str) -> tuple[LSTMRegimeModel, dict[str, Any]]:
     """Load only hash-matched research candidates; never promote them implicitly."""
     digest = hashlib.sha256(artifact).hexdigest()
-    if not isinstance(expected_sha256, str) or not hashlib.compare_digest(digest, expected_sha256):
+    if not isinstance(expected_sha256, str) or not hmac.compare_digest(digest, expected_sha256):
         raise ValueError("model artifact SHA-256 mismatch")
     payload = torch.load(io.BytesIO(artifact), map_location="cpu", weights_only=True)
     manifest = payload["manifest"]
