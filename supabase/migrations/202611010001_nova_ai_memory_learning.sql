@@ -126,6 +126,12 @@ begin
   elsif coalesce(v_memory_enabled, false) is not true then
     raise exception 'memory_disabled' using errcode = '42501';
   end if;
+
+  -- Enforce secret screening at the database boundary too, not only in Worker routes.
+  if coalesce(to_jsonb(new)->>'content', to_jsonb(new)->>'title', '') ~*
+    '(bearer[[:space:]]+[A-Za-z0-9._~+/-]{16,}|(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' then
+    raise exception 'sensitive_content_not_persisted' using errcode = '22023';
+  end if;
   return new;
 end;
 $nova_guard$;
@@ -142,6 +148,26 @@ create trigger nova_ai_memory_facts_write_guard before insert on public.nova_ai_
 drop trigger if exists nova_ai_learning_feedback_write_guard on public.nova_ai_learning_feedback;
 create trigger nova_ai_learning_feedback_write_guard before insert on public.nova_ai_learning_feedback
   for each row execute function public.nova_ai_guard_memory_write();
+
+
+create or replace function public.nova_ai_cleanup_on_settings_update() returns trigger
+language plpgsql security invoker set search_path = public, pg_temp as $nova_cleanup$
+begin
+  if not new.memory_enabled then
+    delete from public.nova_ai_memory_threads where user_id = new.user_id;
+    delete from public.nova_ai_memory_facts where user_id = new.user_id;
+  end if;
+  if not new.feedback_enabled then
+    delete from public.nova_ai_learning_feedback where user_id = new.user_id;
+  end if;
+  return new;
+end;
+$nova_cleanup$;
+
+drop trigger if exists nova_ai_memory_settings_cleanup on public.nova_ai_memory_settings;
+create trigger nova_ai_memory_settings_cleanup
+  before update of memory_enabled, feedback_enabled on public.nova_ai_memory_settings
+  for each row execute function public.nova_ai_cleanup_on_settings_update();
 
 create or replace function public.nova_ai_update_memory_settings(
   p_memory_enabled boolean, p_feedback_enabled boolean, p_retention_days integer
@@ -172,8 +198,10 @@ end;
 $nova_settings$;
 
 revoke all on function public.nova_ai_guard_memory_write() from public, anon;
+revoke all on function public.nova_ai_cleanup_on_settings_update() from public, anon;
 revoke all on function public.nova_ai_update_memory_settings(boolean, boolean, integer) from public, anon;
 grant execute on function public.nova_ai_guard_memory_write() to authenticated;
+grant execute on function public.nova_ai_cleanup_on_settings_update() to authenticated;
 grant execute on function public.nova_ai_update_memory_settings(boolean, boolean, integer) to authenticated;
 
 create or replace function public.nova_ai_purge_expired_memory() returns void
