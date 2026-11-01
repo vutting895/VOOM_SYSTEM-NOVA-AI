@@ -1,131 +1,122 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
-
-const sampleCandles = [
-  { open: 100, high: 103, low: 99, close: 102 },
-  { open: 102, high: 104, low: 101, close: 103 },
-  { open: 103, high: 104, low: 98, close: 99 },
-  { open: 99, high: 101, low: 97, close: 100 },
-  { open: 100, high: 106, low: 99, close: 105 },
-];
+import './backtest.css';
 
 export default function BacktestPage() {
   const router = useRouter();
   const [authState, setAuthState] = useState('checking');
-  const [raw, setRaw] = useState(JSON.stringify(sampleCandles, null, 2));
+  const [symbol, setSymbol] = useState('XAUUSDm');
+  const [timeframe, setTimeframe] = useState('M5');
+  const [strategy, setStrategy] = useState('wave3-smc');
+  const [raw, setRaw] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setAuthState('misconfigured');
-      return;
-    }
+    if (!supabase) { setAuthState('misconfigured'); return; }
     let active = true;
     void supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) return;
-      if (sessionError) {
-        setAuthState('error');
-        setError('ตรวจสอบเซสชันไม่สำเร็จ');
-      } else if (data.session?.access_token) {
-        setAuthState('ready');
-      } else {
-        router.replace('/login');
-      }
-    });
+      if (sessionError) setAuthState('error');
+      else if (data.session?.access_token) setAuthState('ready');
+      else router.replace('/login');
+    }).catch(() => { if (active) setAuthState('error'); });
     return () => { active = false; };
   }, [router]);
 
   async function runBaseline(event) {
-    event.preventDefault();
-    setError('');
-    setResult(null);
+    event.preventDefault(); setError(''); setResult(null);
     let candles;
-    try {
-      candles = JSON.parse(raw);
-    } catch {
-      setError('รูปแบบ JSON ไม่ถูกต้อง');
-      return;
-    }
+    try { candles = JSON.parse(raw); } catch { setError('ข้อมูล OHLC ต้องเป็น JSON array ที่ถูกต้อง'); return; }
     if (!Array.isArray(candles) || candles.length < 3 || candles.length > 120) {
-      setError('ต้องใส่แท่ง OHLC จำนวน 3–120 แท่ง');
-      return;
+      setError('Baseline รับข้อมูล 3–120 แท่งเท่านั้น'); return;
     }
     setBusy(true);
     try {
       const supabase = getSupabaseBrowserClient();
       const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !data.session?.access_token) {
-        router.replace('/login');
-        return;
-      }
+      if (sessionError || !data.session?.access_token) { router.replace('/login'); return; }
       const response = await fetch('/api/backtest', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + data.session.access_token,
-        },
-        body: JSON.stringify({ candles }),
-        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+        body: JSON.stringify({ candles }), cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'คำนวณ baseline ไม่สำเร็จ');
+      if (!response.ok) throw new Error(payload.error || 'Baseline service unavailable');
       setResult(payload);
-    } catch (err) {
-      setError(err?.message || 'ไม่สามารถเรียกบริการ Backtest ได้');
-    } finally {
-      setBusy(false);
-    }
+    } catch (err) { setError(err?.message || 'ไม่สามารถเรียก Baseline API ได้'); }
+    finally { setBusy(false); }
   }
 
-  const percent = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString('th-TH', { maximumFractionDigits: 4 }) + '%' : '—';
+  const fmt = (v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 3 }) + '%' : '—';
 
   return (
-    <main className="nova-backtest-page">
-      <header className="nova-backtest-heading">
-        <div><div className="nova-chat-kicker"><span /> NOVA INTELLIGENCE / SIMULATION</div><h1>Backtest <em>Baseline</em></h1><p>ทดสอบการคำนวณกับข้อมูล OHLC ที่ส่งเข้าเองอย่างโปร่งใส</p></div>
-        <div className="nova-chat-safety"><span /> READ-ONLY <b>·</b> LIVE TRADING OFF</div>
+    <main className="nova-backtest-lab">
+      <header className="nova-bt-top">
+        <div><div className="nova-bt-kicker">NOVA INTELLIGENCE / RESEARCH WORKSPACE</div><h1>Backtest <span>& Strategy Lab</span></h1><p>ออกแบบการทดลอง ตรวจสอบความเสี่ยง และประเมินกลยุทธ์จากข้อมูลย้อนหลัง</p></div>
+        <div className="nova-bt-safety"><i /> READ-ONLY · LIVE TRADING OFF</div>
       </header>
 
-      <div className="nova-backtest-warning">
-        <strong>สำคัญ: นี่ไม่ใช่ Strategy Backtest</strong>
-        <p>Engine ปัจจุบันคำนวณ buy-and-hold baseline จากราคาปิดที่ให้มาเท่านั้น ไม่จำลอง EMA/RSI, ไม่ใช่การคาดการณ์ และไม่รวมค่าธรรมเนียม spread, slippage, funding หรือ latency ตัวอย่างด้านล่างเป็นข้อมูลสมมติ ไม่ใช่ราคาตลาด</p>
-      </div>
+      <div className="nova-bt-alert" role="note"><strong>สถานะ Engine: Strategy Backtest ยังไม่เปิดใช้งาน</strong> — บริการปัจจุบันคำนวณได้เฉพาะ Buy-and-hold baseline จาก OHLC 3–120 แท่งเท่านั้น ยังไม่มีการจำลองคำสั่งเข้า/ออก, position sizing, spread, commission, swap หรือ slippage จึงห้ามตีความเป็นผลกลยุทธ์จริง</div>
+      {authState === 'checking' && <div className="nova-bt-alert" role="status">กำลังตรวจสอบ Login…</div>}
+      {authState === 'misconfigured' && <div className="nova-bt-alert" role="alert">Supabase ยังไม่ได้ตั้งค่า</div>}
+      {authState === 'error' && <div className="nova-bt-alert" role="alert">ตรวจสอบเซสชันไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่</div>}
 
-      {authState === 'checking' && <div className="nova-chat-info" role="status">กำลังตรวจสอบสถานะ Login…</div>}
-      {authState === 'misconfigured' && <div className="nova-chat-alert" role="alert">ยังไม่ได้ตั้งค่า Supabase จึงเรียก Backtest API ไม่ได้</div>}
-      {authState === 'error' && <div className="nova-chat-alert" role="alert">{error}</div>}
-
-      <form className="nova-backtest-form" onSubmit={runBaseline}>
-        <label htmlFor="nova-candles">OHLC candles — JSON array</label>
-        <textarea id="nova-candles" rows={14} value={raw} onChange={(event) => setRaw(event.target.value)} spellCheck="false" disabled={busy || authState !== 'ready'} />
-        <div className="nova-backtest-actions">
-          <span>3–120 แท่ง · ต้องมี open, high, low, close เป็นตัวเลข</span>
-          <button type="submit" disabled={busy || authState !== 'ready'}>{busy ? 'กำลังคำนวณ…' : 'คำนวณ Baseline'}</button>
-        </div>
-      </form>
-
-      {error && <div className="nova-chat-alert" role="alert">{error}</div>}
-      {result && !result.error && (
-        <section className="nova-backtest-results" aria-live="polite">
-          <div className="nova-backtest-result-head"><div><span>RESULT TYPE</span><h2>{result.mode === 'buy-and-hold-baseline' ? 'Buy-and-hold baseline' : 'Baseline output'}</h2></div><span className="nova-backtest-tag">NOT STRATEGY TEST</span></div>
-          <div className="nova-backtest-metrics">
-            <article><small>INPUT CANDLES</small><strong>{result.candleCount ?? '—'}</strong></article>
-            <article><small>BASELINE RETURN</small><strong>{percent(result.totalReturnPct)}</strong></article>
-            <article><small>MAX DRAWDOWN</small><strong>{percent(result.maxDrawdownPct)}</strong></article>
-            <article><small>VOLATILITY ESTIMATE</small><strong>{percent(result.volatilityPct)}</strong></article>
+      <div className="nova-bt-grid">
+        <section className="nova-bt-panel">
+          <div className="nova-bt-panel-head"><div><small>01 / EXPERIMENT CONFIGURATION</small><h2>กำหนดการทดสอบกลยุทธ์</h2></div><span className="nova-bt-tag">CONFIG PREVIEW</span></div>
+          <div className="nova-bt-fields">
+            <div className="nova-bt-field"><label htmlFor="bt-symbol">Instrument</label><select id="bt-symbol" value={symbol} onChange={e=>setSymbol(e.target.value)}><option value="XAUUSDm">XAUUSDm · Exness Demo</option><option value="BTCUSDT">BTCUSDT · Binance</option><option value="EURUSDm">EURUSDm · Exness Demo</option></select></div>
+            <div className="nova-bt-field"><label htmlFor="bt-timeframe">Timeframe</label><select id="bt-timeframe" value={timeframe} onChange={e=>setTimeframe(e.target.value)}>{['M5','M15','M30','H1','H4','D1'].map(x=><option key={x}>{x}</option>)}</select></div>
+            <div className="nova-bt-field"><label htmlFor="bt-strategy">Strategy Profile</label><select id="bt-strategy" value={strategy} onChange={e=>setStrategy(e.target.value)}><option value="wave3-smc">Wave3 + SMC + Fibonacci</option><option value="neural-hybrid">Neural Network + XGBoost</option><option value="smc-only">SMC v6.2.6.3</option><option value="baseline">Buy-and-hold baseline</option></select></div>
+            <div className="nova-bt-field"><label htmlFor="bt-capital">Starting Capital (USD)</label><input id="bt-capital" type="number" min="100" step="100" defaultValue="10000" /></div>
+            <div className="nova-bt-field"><label htmlFor="bt-start">Start Date</label><input id="bt-start" type="date" defaultValue="2024-01-01" /></div>
+            <div className="nova-bt-field"><label htmlFor="bt-end">End Date</label><input id="bt-end" type="date" defaultValue="2026-10-31" /></div>
+            <div className="nova-bt-field"><label htmlFor="bt-risk">Risk per Trade (%)</label><input id="bt-risk" type="number" min="0.1" max="2" step="0.1" defaultValue="1" /></div>
+            <div className="nova-bt-field"><label>Evaluation Mode</label><input value="Purged Walk-forward + Final OOS" readOnly /></div>
           </div>
-          <p>{result.note || 'Baseline only; not predictive.'}</p>
+          <div className="nova-bt-models"><span className="nova-bt-model active">Wave3</span><span className="nova-bt-model active">SMC / Fibonacci</span><span className="nova-bt-model active">PyTorch LSTM</span><span className="nova-bt-model active">XGBoost Comparator</span></div>
+          <div className="nova-bt-engine-note"><span>⚠</span><div><strong>ยังไม่ส่งคำสั่ง Backtest</strong> ค่าที่เลือกเป็น configuration preview ในหน้าเว็บเท่านั้น ยังไม่มี Strategy Simulation API และไม่มีการบันทึกค่าลงระบบ</div></div>
+          <button className="nova-bt-disabled" type="button" disabled>Strategy Backtest · Waiting for Engine & Evaluation API</button>
         </section>
-      )}
 
-      <div className="nova-backtest-links"><Link href="/gen-ai">AI Analysis →</Link><Link href="/markets">Markets →</Link></div>
+        <aside className="nova-bt-side">
+          <section className="nova-bt-panel"><div className="nova-bt-panel-head"><div><small>02 / ACCEPTANCE GATES</small><h2>เกณฑ์ผ่านการประเมิน</h2></div></div>
+            <div className="nova-bt-checks">
+              <div className="nova-bt-check"><span>Final OOS trades</span><b>≥ 30 closed trades</b></div>
+              <div className="nova-bt-check"><span>Net profit after costs</span><b>Positive</b></div>
+              <div className="nova-bt-check"><span>Profit Factor</span><b>&gt; 1.0</b></div>
+              <div className="nova-bt-check"><span>Walk-forward folds</span><b>≥ 5</b></div>
+              <div className="nova-bt-check"><span>Model calibration</span><b>Brier / ECE</b></div>
+              <div className="nova-bt-check"><span>Final OOS leakage</span><b>Must be zero</b></div>
+            </div>
+          </section>
+          <section className="nova-bt-panel"><div className="nova-bt-panel-head"><div><small>03 / CURRENT ENGINE</small><h2>Baseline Service</h2></div><span className="nova-bt-tag">LIMITED</span></div>
+            <div className="nova-bt-metrics">
+              <div className="nova-bt-metric"><small>INPUT BARS</small><strong>{result?.candleCount ?? '—'}</strong><em>3–120 OHLC bars</em></div>
+              <div className="nova-bt-metric"><small>RETURN</small><strong>{result ? fmt(result.totalReturnPct) : '—'}</strong><em>Buy-and-hold only</em></div>
+              <div className="nova-bt-metric"><small>MAX DRAWDOWN</small><strong>{result ? fmt(result.maxDrawdownPct) : '—'}</strong><em>Baseline calculation</em></div>
+              <div className="nova-bt-metric"><small>VOLATILITY</small><strong>{result ? fmt(result.volatilityPct) : '—'}</strong><em>Baseline estimate</em></div>
+            </div>
+          </section>
+        </aside>
+
+        <section className="nova-bt-panel nova-bt-wide">
+          <div className="nova-bt-panel-head"><div><small>04 / VERIFIED BASELINE TOOL</small><h2>ทดสอบข้อมูล OHLC ที่มีอยู่</h2></div><span className="nova-bt-tag">NOT A STRATEGY TEST</span></div>
+          <form onSubmit={runBaseline}>
+            <div className="nova-bt-field"><label htmlFor="bt-ohlc">OHLC JSON array · ใส่ข้อมูลจริง 3–120 แท่ง</label><textarea id="bt-ohlc" value={raw} onChange={e=>setRaw(e.target.value)} placeholder={'[\n  {"open": 2000, "high": 2005, "low": 1998, "close": 2003},\n  ...\n]'} spellCheck="false" disabled={busy || authState !== 'ready'} /></div>
+            <div className="nova-bt-actions"><span>ส่งข้อมูลไปยัง authenticated baseline API เท่านั้น<br/>ไม่ได้ดึงราคาตลาดอัตโนมัติ</span><button className="nova-bt-run" type="submit" disabled={busy || authState !== 'ready' || !raw.trim()}>{busy ? 'กำลังคำนวณ…' : 'Run Baseline Check'}</button></div>
+          </form>
+          {error && <div className="nova-bt-error" role="alert">{error}</div>}
+          {result && <div className="nova-bt-result" aria-live="polite"><h3>Baseline response received</h3><p>{result.note || 'Baseline calculation completed. This is not strategy performance or evidence of profitability.'}</p></div>}
+        </section>
+      </div>
+      <p className="nova-bt-foot">Research safety: read-only market data; ordersEnabled=false; executionEnabled=false; liveTradingEnabled=false. No broker writes. Configuration fields are local UI state only until a reviewed Strategy Simulation API is implemented.</p>
     </main>
   );
 }
