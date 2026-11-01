@@ -44,6 +44,7 @@ The intended processing hierarchy is:
 
 - `workers/trading_intelligence/neural_runtime.py` adds a CPU-capable, unidirectional PyTorch LSTM research candidate trainer and shadow inference function.
 - Input validation requires timezone-aware, strictly increasing OHLCV bars and exact timeframe alignment. Strict contiguous mode remains the default. An explicit `allow_session_gaps=True` mode treats every timeframe-aligned gap as a hard segment boundary, restarts causal feature warm-up, and prevents both sequence windows and forward labels from crossing the boundary. No synthetic candles are inserted; duplicate, reversed, non-aligned and impossible OHLCV still fail closed. Training and shadow inference must use the same declared gap policy.
+- Optional broker spread points are validated and retained in the canonical dataset hash and manifest (unit: symbol points). Spread is preserved for provenance/cost evaluation but is not an LSTM input feature; commission, swap and slippage remain separate evaluation inputs.
 - Causal features are calculated from current/past bars only: log returns, realized volatility, RSI, EMA gap, volume z-score, candle body and range.
 - Training uses chronological train/validation partitions with horizon purge. The final 15% partition is explicitly reserved; its labels are not consumed by candidate fitting or early stopping.
 - Candidate artifacts are hash-checked and bound to one symbol/timeframe. The output includes bullish/bearish/sideways probabilities and normalized predictive entropy.
