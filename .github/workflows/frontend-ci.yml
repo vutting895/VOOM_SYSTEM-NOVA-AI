@@ -80,6 +80,9 @@ jobs:
       - name: Test bounded NOVA chat history
         working-directory: .
         run: node --test tests/chat-history.test.mjs
+      - name: Test Trading Intelligence read-only market-data and analysis contracts
+        working-directory: .
+        run: node --test tests/trading-intelligence.test.mjs
       - name: Test customer Zero-Menu Command Center contracts
         working-directory: .
         run: node --test tests/customer-command-center.test.mjs
