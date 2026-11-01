@@ -361,6 +361,7 @@ class TestWave3Pipeline(unittest.TestCase):
         diagnostic_columns = {
             "structure_break_pivot_index", "higher_low_1_index", "higher_low_1_confirmation_index",
             "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_distance_price_trace",
+            "bull_ob_last_invalidated_origin_index", "bull_ob_last_invalidated_at_index",
             "bull_fvg_fill_origin_index", "bull_fvg_active_origin_index", "bos20_prior_20_high",
         }
         self.assertTrue(diagnostic_columns.isdisjoint(set(X.columns)))
@@ -396,6 +397,16 @@ class TestWave3Pipeline(unittest.TestCase):
         features.loc[i, "bull_ob_within5_trace"] = 0.0
         features.loc[i, "bull_ob_invalidated_now"] = 0.0
         features.loc[i, "bull_ob_candidate_count"] = 3.0
+        features.loc[i, "bull_ob_last_invalidated_origin_index"] = 660.0
+        features.loc[i, "bull_ob_last_invalidated_confirmation_index"] = 665.0
+        features.loc[i, "bull_ob_last_invalidated_at_index"] = 670.0
+        features.loc[i, "bull_ob_last_invalidated_low"] = 1898.0
+        features.loc[i, "bull_ob_last_invalidated_high"] = 1902.0
+        features.loc[i, "bull_ob_last_invalidated_range_pct"] = 0.0035
+        features.loc[i, "bull_ob_last_invalidated_distance_price"] = 5.4
+        features.loc[i, "bull_ob_last_invalidated_candidate_count"] = 2.0
+        features.loc[i, "bull_ob_last_invalidated_search_start_index"] = 650.0
+        features.loc[i, "bull_ob_last_invalidated_search_end_exclusive_index"] = 665.0
         features.loc[i, "bull_fvg_fill_origin_index"] = 680.0
         features.loc[i, "bull_fvg_fill_lower"] = 1901.0
         features.loc[i, "bull_fvg_fill_upper"] = 1903.0
@@ -411,6 +422,8 @@ class TestWave3Pipeline(unittest.TestCase):
         self.assertEqual(row["order_block"]["selected_origin_index"], 690)
         self.assertEqual(row["order_block"]["candidate_count_at_confirmation"], 3)
         self.assertEqual(row["order_block"]["age_from_origin_bars"], 10)
+        self.assertEqual(row["order_block"]["last_invalidated"]["origin_index"], 660)
+        self.assertEqual(row["order_block"]["last_invalidated"]["invalidated_at_index"], 670)
         self.assertEqual(row["fair_value_gap"]["refill_origin_index"], 680)
 
 
