@@ -6,6 +6,7 @@ connects to a terminal, handles credentials, or submits broker operations.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 from typing import Any
 
 TIMEFRAME_SECONDS = {
@@ -71,14 +72,14 @@ def normalize_mt5_quote_payload(
                 value = float(row.get(key))
             except (TypeError, ValueError, OverflowError) as exc:
                 raise MarketDataError(f"bar[{index}].{key} must be numeric") from exc
-            if not __import__("math").isfinite(value) or value <= 0:
+            if not math.isfinite(value) or value <= 0:
                 raise MarketDataError(f"bar[{index}].{key} must be finite and positive")
             values[key] = value
         try:
             volume = float(row.get("volume", row.get("tick_volume", row.get("real_volume", 0))))
         except (TypeError, ValueError, OverflowError) as exc:
             raise MarketDataError(f"bar[{index}].volume must be numeric") from exc
-        if not __import__("math").isfinite(volume) or volume < 0:
+        if not math.isfinite(volume) or volume < 0:
             raise MarketDataError(f"bar[{index}].volume must be finite and non-negative")
         if values["high"] < max(values["open"], values["close"], values["low"]):
             raise MarketDataError(f"bar[{index}] has inconsistent high")
