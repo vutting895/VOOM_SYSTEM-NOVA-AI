@@ -10,6 +10,7 @@ const items = [
   { label: 'AI Chat', href: '/chat', code: '02' },
   { label: 'Markets', href: '/markets', code: '03' },
   { label: 'AI Analysis', href: '/gen-ai', code: '04' },
+  { label: 'Trading Intelligence', href: '/trading-intelligence', code: '04T' },
   { label: 'Video Workspace', href: '/video', code: '04V' },
   { label: 'Backtest', href: '/backtest', code: '05' },
   { label: 'Learning Universe', href: '/learning-universe', code: '06' },
