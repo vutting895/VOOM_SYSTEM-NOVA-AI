@@ -156,7 +156,7 @@ No frozen strategy weights, lookbacks, thresholds, entry/risk/news gates, or 12-
 ## Revalidated evidence — 2026-11-01
 
 ### Repository synchronization
-Current `main` is `99d474038e19a6eab884c5c891b21770c50fefa5`. The benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; it is now 39 commits ahead / 0 behind current `main`. The separate redesign branch was also synced; neither PR was merged.
+Current `main` is `99d474038e19a6eab884c5c891b21770c50fefa5`. The benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; its latest compare at this documentation snapshot is 46 commits ahead / 0 behind current `main`. The separate redesign branch was also synced; neither PR was merged.
 
 ### Exness MT5 calendar byte-level provenance
 The active terminal's `Common/Files/VOOM_USD_High_Impact_2022_2026.csv` is 388,313 bytes, CRLF-only (2,167 CRLF sequences), with raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. `MQL5/Logs/20261030.log` contains two `NEWS_EXPORT_SUCCESS` markers; each reports 2,166 high events, 15,853 queried values and zero unknown time modes. Normalizing only CRLF to LF yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, which exactly matches the committed canonical CSV and the pinned verifier. Therefore the prior mismatch was line-ending normalization plus a truncated 58-character digest in the old PR note; it was not evidence of different event content.
