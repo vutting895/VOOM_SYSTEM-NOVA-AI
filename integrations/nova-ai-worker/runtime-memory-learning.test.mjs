@@ -119,3 +119,9 @@ test("memory GET handlers invoke retention purge and database writes are seriali
   assert.match(migration, /delete from public\.nova_ai_memory_threads where user_id = v_user_id/);
   assert.match(migration, /delete from public\.nova_ai_learning_feedback where user_id = v_user_id/);
 });
+
+test("feedback retention remains enforced when chat memory is disabled", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/202611010001_nova_ai_memory_learning.sql", import.meta.url), "utf8");
+  assert.match(migration, /select retention_days, memory_enabled into v_retention_days, v_memory_enabled/);
+  assert.match(migration, /if v_memory_enabled then[\s\S]*delete from public\.nova_ai_memory_facts[\s\S]*end if;[\s\S]*delete from public\.nova_ai_learning_feedback/);
+});
