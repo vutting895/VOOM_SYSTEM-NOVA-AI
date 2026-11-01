@@ -233,7 +233,7 @@ test("Neural inference contract rejects weak OOS evidence and broker instruction
 test("Neural inference requires bounded uncertainty and an inference time after the last closed bar", () => {
   const noUncertainty = validNeuralResult();
   delete noUncertainty.output.uncertainty;
-  assert.throws(() => validateNeuralInferenceResult(noUncertainty), /unexpected or missing uncertainty/);
+  assert.throws(() => validateNeuralInferenceResult(noUncertainty), /unexpected or missing output fields/);
 
   const futureMismatch = validNeuralResult();
   futureMismatch.output.generatedAt = "2026-11-01T04:59:59.000Z";
