@@ -46,6 +46,9 @@ class StrategyBacktestTests(unittest.TestCase):
         costly = StrategyBacktestEngine(fee_bps=10, spread_bps=4, slippage_bps=3).run(candles, signals)
         self.assertGreater(free["net_profit"], costly["net_profit"])
         self.assertGreater(costly["total_fees"], 0)
+        self.assertGreater(costly["total_spread_slippage_cost"], 0)
+        self.assertIn("winning_net_pnl", costly)
+        self.assertIn("losing_net_pnl", costly)
 
     def test_rejects_timezone_naive_and_non_chronological_data(self):
         candles = sample_candles()
