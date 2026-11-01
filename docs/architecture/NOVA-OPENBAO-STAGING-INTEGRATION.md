@@ -3,12 +3,16 @@
 **Repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Base:** `main`  
 **Control plane:** existing Cloudflare System Integration Hub (`integrations/system-hub`)  
-**Scope:** design-only Staging integration proposal; no runtime activation  
+**Scope:** historical Staging integration proposal; superseded for customer credential custody  
 **Safety posture:** Exness Demo/read-only only; order submission and Live Trading remain OFF
 
-## 1. Decision
+**Current architecture authority:** Option C — Separate Secret Custody Plane, defined in `docs/architecture/NOVA-SEPARATE-SECRET-CUSTODY-ADR.md`. This document is retained as historical candidate analysis only. Do not implement the earlier System-Hub-authoritative or Supabase-ciphertext flow for customer secrets.
 
-Use OpenBao as the candidate self-hosted secrets and cryptographic service for NOVA Staging. Start with its Transit secrets engine for envelope-encryption operations and its Integrated Storage (Raft) backend for OpenBao's own state.
+The remaining sections preserve the prior proposal for traceability. Where they conflict with Option C, Option C governs.
+
+## 1. Historical proposal (superseded for customer custody)
+
+Earlier proposal (not selected): use OpenBao as a self-hosted secrets and cryptographic service for NOVA Staging, with Transit and Integrated Storage (Raft). This is not the selected customer-custody architecture. OpenBao may be reconsidered only as a cryptographic component inside a separately administered custody plane that independently validates customer sessions, owns the binding registry, and keeps plaintext credentials out of the System Hub. The current `integrations/system-hub/openbao-transit-client.js` is an isolated library scaffold, not a deployed runtime; because `decrypt()` returns plaintext bytes to its caller, it must not be wired into the System Hub customer request path.
 
 OpenBao is open-source software; this does **not** make its hosting, persistent storage, network connectivity, backups, monitoring, or operational support free. No hosting provider, instance size, or paid service is selected by this document.
 

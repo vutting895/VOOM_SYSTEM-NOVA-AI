@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voom.invalid/contracts/secret-custody/provider-operation.response.schema.json",
+  "title": "NOVA Secret Custody Provider Operation Response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation_id",
+    "state"
+  ],
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "RECEIVED",
+        "AUTHENTICATING",
+        "AUTHORIZED",
+        "RESERVED",
+        "RUNNING",
+        "SUCCEEDED",
+        "FAILED_FINAL",
+        "OUTCOME_UNKNOWN",
+        "RECONCILING",
+        "MANUAL_REVIEW",
+        "CANCELLED_BEFORE_SEND"
+      ]
+    },
+    "result_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]{1,64}$"
+    },
+    "retry_after_ms": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 30000
+    },
+    "provider_reference": {
+      "type": "string",
+      "maxLength": 128
+    },
+    "reconciliation_required": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "balance": {
+              "type": "number"
+            },
+            "equity": {
+              "type": "number"
+            },
+            "margin": {
+              "type": "number"
+            },
+            "free_margin": {
+              "type": "number"
+            },
+            "currency": {
+              "type": "string",
+              "maxLength": 12
+            }
+          }
+        },
+        "quotes": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "symbol",
+              "bid",
+              "ask"
+            ],
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "maxLength": 32
+              },
+              "bid": {
+                "type": "number"
+              },
+              "ask": {
+                "type": "number"
+              },
+              "timestamp": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        "positions": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "maxLength": 32
+              },
+              "side": {
+                "type": "string",
+                "enum": [
+                  "long",
+                  "short"
+                ]
+              },
+              "volume": {
+                "type": "number"
+              },
+              "unrealized_pnl": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "rotation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "ROTATION_REQUIRED",
+                "ROTATING",
+                "ROTATED",
+                "ROTATION_UNSUPPORTED",
+                "REVOKED"
+              ]
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
