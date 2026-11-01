@@ -176,3 +176,27 @@ Final OOS: 7,942 rows; accuracy 41.0602% vs 45.9708% majority/always-hold baseli
 SMC final-OOS diagnostics: 34 Wave3 triggers; maximum score on trigger rows 75/100; BOS20=21, three confirmed higher lows + green=12, active bullish OB within $5=1 (inside zone=0), FVG refill=7; XGB BUY >=75% with agreement=0; LSTM BUY >=80% diagnostic=120 but none survive prior mandatory gates; ensemble BUY >=85% with agreement=0. This is still aggregate evidence only. Candidate-level traces must record same-closed-bar availability, structural BOS/CHoCH separately from `bos20_up`/`choch_rule_up`, OB origin/zone/range/distance/invalidation, and FVG creation/refill/mitigation. Do not infer that OB alone causes the score ceiling.
 
 The artifact manifest confirms model round-trip verification on 256 held-out rows with maximum probability difference <=1e-6. Commission remains assumed zero due insufficient verified account schedule; slippage remains an assumption. Performance gate remains blocked and production eligibility false. No frozen gate, weight, lookback, threshold or 12-bar purge changed.
+
+## P1 candidate-level causal audit and FVG mitigation follow-up — 2026-11-01
+
+The exact-head SMC/Wave3 Research CI #84 completed the diagnostic-only candidate trace and uploaded artifact #13070220119 (archive SHA-256 `f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e`). The summarized, provenance-bound result is committed at `reports/wave3_smc_candidate_trace_audit_20261101.json`. The run used the Exness XAUUSDm M15 dataset SHA-256 `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266` and canonical LF news-calendar SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`. It selected 7,942 already-labeled final-OOS rows only to reproduce the existing holdout row mask; no model was trained and no final-OOS value was used for tuning.
+
+### Same-closed-bar result
+
+- 34 Wave3 BUY trigger rows; all-four SMC components aligned on the same signal bar: **0**; SMC >=85: **0**; maximum score: **75**.
+- BOS20=21, three confirmed higher lows + green candle=12, qualifying OB within $5=1, FVG overlap/refill=7.
+- Pairwise intersections: BOS20+rule-CHoCH=9; BOS20+OB=0; BOS20+FVG=3; rule-CHoCH+OB=0; rule-CHoCH+FVG=3; OB+FVG=0.
+- Eleven candidate rows had a selected OB, all remained valid; only one was within $5 and none was inside the zone. That one candidate (2026-08-25 05:15 UTC) scored 25 because BOS20, the scored higher-lows rule and FVG were absent. This shows OB is a necessary blocker in this candidate set but not the only failing component.
+- Structural BOS/CHoCH are kept separate from scored BOS20 and the three-higher-lows+green rule. Four structural CHoCH-up rows did not intersect the 12 scored higher-lows-rule rows; this is a semantic distinction, not a reason to silently substitute one field for the other.
+
+### FVG first touch versus full mitigation
+
+Diagnostic-only fields now record first overlap, first full mitigation (closed-bar low reaching the bullish gap's lower boundary), current-bar full mitigation and post-mitigation re-touch. The existing `bull_fvg_fill` scoring flag is unchanged: it still reports any bar-range overlap with the most recent bullish gap during its 48-bar active window. In the 7 FVG-positive Wave3 candidate rows, all had first overlap before the candidate bar; **5/7** had already reached full mitigation on an earlier bar, while 2/7 first reached full mitigation on the candidate bar. The current implementation retains the gap after full mitigation, so later overlaps can still score. This is an unresolved strategy-definition/implementation semantic and must be reviewed before changing signal logic. The diagnostic convention is not a new entry gate.
+
+No-lookahead tests for confirmed pivots, OB origin/confirmation/invalidation and FVG origin passed; the new regression test confirms the first-touch/full-mitigation trace is diagnostic-only and leaves the existing overlap flag unchanged. Diagnostic columns remain excluded from model features.
+
+### Benchmark remains unchanged and blocked
+
+The latest completed training result is still run #6 (commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, artifact #13036729349): OOS accuracy 41.0602% vs 45.9708% majority baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds below baseline. Calibration remains absent. No new full training was run. The run #6 model manifest remains bound to that training artifact and is intentionally not rewritten by this diagnostic-only audit.
+
+**Next:** review and preregister the intended FVG refill/mitigation semantics; then proceed to P2 first-hit/triple-barrier net-outcome labels and simple baselines. Do not tune on final OOS, alter frozen v6.2.6.3 weights/lookbacks/thresholds/gates, submit orders, merge, deploy or enable Live Trading.
