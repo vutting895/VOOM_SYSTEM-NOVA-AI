@@ -50,7 +50,7 @@ export default function ExnessApiSetupPage() {
         <h1>เชื่อม Exness แบบง่าย</h1>
         <p className="intro">
           ไม่ต้องติดตั้ง MT5 ไม่ต้องเปิดคอมพิวเตอร์ Windows หรือเช่า VPS
-          NOVA จะอ่านข้อมูลบัญชีและราคาโดยตรงจาก Exness Trader API ผ่านระบบเซิร์ฟเวอร์ที่ปลอดภัย
+          NOVA จะอ่านข้อมูลบัญชี รายการสินทรัพย์ และกราฟแท่งราคาย้อนหลังจาก Exness Trader API ผ่านระบบเซิร์ฟเวอร์ที่ปลอดภัย
         </p>
 
         <section className="status" role="status">
@@ -89,7 +89,8 @@ export default function ExnessApiSetupPage() {
             <ul>
               <li>ตรวจสอบการเชื่อมต่อและบัญชีที่ผูกไว้</li>
               <li>ค้นหา Gateway ของ Exness อัตโนมัติ</li>
-              <li>อ่านข้อมูลบัญชี รายการสินทรัพย์ และกราฟแท่งราคา</li>
+              <li>อ่านข้อมูลบัญชี รายการสินทรัพย์ และกราฟแท่งราคาย้อนหลัง</li>
+              <li>ราคา Bid/Ask แบบสดจะเปิดเพิ่มหลังพัฒนาระบบรับ Tick โดยเฉพาะ</li>
               <li>แสดงสถานะและข้อผิดพลาดเป็นภาษาไทย</li>
             </ul>
           </section>
