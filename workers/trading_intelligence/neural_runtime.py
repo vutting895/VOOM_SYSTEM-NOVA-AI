@@ -182,9 +182,6 @@ def train_candidate(
     ]
     partitions = chronological_windows(sample_indices, horizon, sequence_length, len(bars))
     close = np.asarray([r["close"] for r in bars], dtype=np.float64)
-    labels = np.full(len(bars), -1, dtype=np.int64)
-    forward_returns = np.log(close[horizon:] / close[:-horizon])
-    labels[:len(forward_returns)] = np.where(forward_returns > 0.0002, 0, np.where(forward_returns < -0.0002, 1, 2))
 
     random.seed(seed)
     np.random.seed(seed)
@@ -196,8 +193,11 @@ def train_candidate(
     loss_fn = nn.CrossEntropyLoss()
 
     def tensors(indices: list[int]) -> tuple[torch.Tensor, torch.Tensor]:
+        # Access labels only for the requested train/validation indices.
+        # final_oos_reserved indices are never passed to this function.
         x = np.stack([features[i - sequence_length + 1:i + 1] for i in indices])
-        y = np.asarray([labels[i] for i in indices], dtype=np.int64)
+        forward_returns = np.log(close[np.asarray(indices) + horizon] / close[np.asarray(indices)])
+        y = np.where(forward_returns > 0.0002, 0, np.where(forward_returns < -0.0002, 1, 2)).astype(np.int64)
         return torch.tensor(x, dtype=torch.float32), torch.tensor(y, dtype=torch.long)
 
     train_x, train_y = tensors(partitions["train"])
@@ -247,6 +247,9 @@ def train_candidate(
             "seed": seed, "epochsRequested": epochs, "bestEpoch": best_epoch,
             "bestValidationCrossEntropy": best_loss, "trainSamples": len(partitions["train"]),
             "validationSamples": len(partitions["validation"]), "finalOosSamplesReserved": len(partitions["final_oos_reserved"]),
+            "finalOosFirstDecisionAt": bars[partitions["final_oos_reserved"][0]]["time"],
+            "finalOosLastTargetAt": bars[partitions["final_oos_reserved"][-1] + horizon]["time"],
+            "finalOosBarsSha256": _canonical_hash(bars[partitions["final_oos_reserved"][0]:]),
             "finalOosTouched": False,
         },
         "featureManifest": feature_manifest,
@@ -288,10 +291,8 @@ def infer_research_candidate(
     """Return a shadow-only regime estimate from a hash-verified candidate."""
     bars = validate_ohlcv(rows, timeframe)
     model, manifest = load_candidate(artifact, expected_sha256, symbol, timeframe)
-    if _canonical_hash(bars) != manifest["data"]["datasetSha256"]:
-        # Inference may use a longer/newer series; provenance is returned separately.
-        if bars[-1]["time"] <= manifest["data"]["lastClosedBarAt"]:
-            raise ValueError("inference data must advance beyond the candidate training snapshot")
+    if bars[-1]["time"] <= manifest["data"]["lastClosedBarAt"]:
+        raise ValueError("inference data must advance beyond the candidate training snapshot")
     features, valid = build_causal_features(bars)
     sequence_length = manifest["featureManifest"]["sequence_length"]
     usable = [i for i in valid if i >= sequence_length - 1]
