@@ -37,6 +37,12 @@ def run_vectorbt_benchmark(
     except ImportError:
         from .strategy_engine import StrategyBacktestEngine
 
+    StrategyBacktestEngine(
+        initial_cash=initial_cash,
+        fee_bps=fee_bps,
+        spread_bps=spread_bps,
+        slippage_bps=slippage_bps,
+    )
     bars, timestamps = StrategyBacktestEngine._validate(candles, signals)
     index = pd.to_datetime(timestamps, utc=True)
     close = pd.Series([bar["close"] for bar in bars], index=index, name="close")
@@ -64,6 +70,8 @@ def run_vectorbt_benchmark(
         freq=None,
     )
     final_value = float(portfolio.value().iloc[-1])
+    trade_count = int(portfolio.trades.count())
+    win_rate = float(portfolio.trades.win_rate()) if trade_count else 0.0
     return {
         "status": "completed",
         "benchmark": "vectorbt_vectorized_signal_screen",
@@ -71,8 +79,8 @@ def run_vectorbt_benchmark(
         "candles": len(bars),
         "total_return_pct": round(float(portfolio.total_return()) * 100, 6),
         "max_drawdown_pct": round(abs(float(portfolio.max_drawdown())) * 100, 6),
-        "total_trades": int(portfolio.trades.count()),
-        "win_rate_pct": round(float(portfolio.trades.win_rate()) * 100, 6),
+        "total_trades": trade_count,
+        "win_rate_pct": round(win_rate * 100, 6),
         "final_value": round(final_value, 8),
         "fees_rate": fee_rate,
         "slippage_rate_includes_half_spread": slippage_rate,
