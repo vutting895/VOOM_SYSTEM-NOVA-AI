@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { compactChatHistory, DEFAULT_CHAT_MODEL, MODEL_RUNTIME_VERSION, ModelRuntimeError, runChatModel } from "./runtime-core.js";
 import { containsCredentialLikeContent, MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings, validateMemoryThreadTitle } from "./memory-learning.js";
 
@@ -99,3 +100,22 @@ test("memory facts and thread titles reject credential-like content", () => {
   assert.equal(validateMemoryThreadTitle("NOVA project notes"), "NOVA project notes");
 });
 
+
+test("memory persistence uses stable sequence ordering and newest bounded message window", () => {
+  const source = readFileSync(new URL("./memory-learning.js", import.meta.url), "utf8");
+  assert.match(source, /order=sequence_no\.desc&limit=12/);
+  assert.match(source, /order=sequence_no\.desc&limit=100/);
+  assert.match(source, /Array\.isArray\(rows\) \? rows\.reverse\(\) : \[\]/);
+});
+
+test("memory GET handlers invoke retention purge and database writes are serialized with opt-out", () => {
+  const source = readFileSync(new URL("./memory-learning.js", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../../supabase/migrations/202611010001_nova_ai_memory_learning.sql", import.meta.url), "utf8");
+  assert.ok((source.match(/await purgeExpiredMemory\(request, env, auth\)/g) || []).length >= 5);
+  assert.match(migration, /sequence_no bigint generated always as identity/);
+  assert.match(migration, /for each row execute function public\.nova_ai_guard_memory_write\(\)/);
+  assert.match(migration, /for update;/i);
+  assert.match(migration, /create or replace function public\.nova_ai_update_memory_settings/);
+  assert.match(migration, /delete from public\.nova_ai_memory_threads where user_id = v_user_id/);
+  assert.match(migration, /delete from public\.nova_ai_learning_feedback where user_id = v_user_id/);
+});
