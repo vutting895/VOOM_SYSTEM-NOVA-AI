@@ -190,3 +190,37 @@ test("Supabase auth outage is retryable and distinct from an invalid session", a
   assert.equal(connectionLookups, 0);
   assert.equal(calls.length, 0);
 });
+
+
+test("sanitizer accepts schema-valid rotation, quote timestamps, and position PnL", async t => {
+  const { runtime } = await fixture(t, {
+    provider: { executeReadOnly: async () => ({
+      quotes: [{ symbol: "XAUUSD", bid: 2300.1, ask: 2300.2, timestamp: "2026-11-01T05:00:00.000Z" }],
+      positions: [{ symbol: "XAUUSD", side: "long", volume: 0.1, unrealized_pnl: 12.5 }],
+      rotation: { state: "ROTATION_REQUIRED", generation: 2 }
+    }) }
+  });
+  const result = await invoke(runtime);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.result.rotation.state, "ROTATION_REQUIRED");
+  assert.equal(result.body.result.quotes[0].timestamp, "2026-11-01T05:00:00.000Z");
+  assert.equal(result.body.result.positions[0].unrealized_pnl, 12.5);
+});
+
+test("sanitizer rejects invalid timestamps, non-finite PnL, and overlong symbols", async t => {
+  for (const resultValue of [
+    { quotes: [{ symbol: "XAUUSD", bid: 1, ask: 2, timestamp: "not-a-date" }] },
+    { positions: [{ symbol: "XAUUSD", side: "long", volume: 1, unrealized_pnl: Infinity }] },
+    { quotes: [{ symbol: "X".repeat(33), bid: 1, ask: 2 }] },
+    { positions: [{ symbol: "X".repeat(33), side: "short", volume: 1 }] },
+    { rotation: { state: "UNKNOWN_STATE", generation: 1 } },
+    { rotation: { state: "ROTATED", generation: 0 } }
+  ]) {
+    const { runtime } = await fixture(t, {
+      provider: { executeReadOnly: async () => resultValue }
+    });
+    const response = await invoke(runtime);
+    assert.equal(response.status, 502);
+    assert.equal(response.body.result, undefined);
+  }
+});
