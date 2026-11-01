@@ -13,6 +13,7 @@ on:
       - "tools/train_wave3_models.py"
       - "tools/verify_wave3_news_calendar.py"
       - "tools/validate_wave3_news_calendar.py"
+      - "tools/audit_wave3_smc_candidates.py"
       - "requirements-wave3.txt"
       - "integrations/remote-mcp-worker/src/index.js"
       - "integrations/remote-mcp-worker/tests/**"
@@ -54,7 +55,7 @@ jobs:
       - name: Install Wave3 research dependencies
         run: python -m pip install -r requirements-wave3.txt
       - name: Compile SMC and Wave3 research modules
-        run: python -m py_compile workers/feature/smc_wave/smc_strategy.py workers/strategy/wave3_ml_pipeline.py tools/train_wave3_models.py tools/verify_wave3_news_calendar.py tools/validate_wave3_news_calendar.py
+        run: python -m py_compile workers/feature/smc_wave/smc_strategy.py workers/strategy/wave3_ml_pipeline.py tools/train_wave3_models.py tools/verify_wave3_news_calendar.py tools/validate_wave3_news_calendar.py tools/audit_wave3_smc_candidates.py
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
       - name: Run Wave3 ML pipeline tests
@@ -67,3 +68,16 @@ jobs:
         run: python tools/validate_wave3_news_calendar.py datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
+      - name: Generate causal SMC candidate trace (diagnostic only; no model training)
+        run: >-
+          python tools/audit_wave3_smc_candidates.py
+          --data datasets/exness-demo/XAUUSDm_M15_2022-2026.csv
+          --calendar datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv
+          --output reports/wave3_smc_candidate_trace_20261101.json
+      - name: Upload causal SMC candidate trace
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave3-smc-candidate-trace-${{ github.sha }}
+          path: reports/wave3_smc_candidate_trace_20261101.json
+          if-no-files-found: error
+          retention-days: 30
