@@ -9,7 +9,7 @@ Status: architecture contract + UI configuration preview. A full strategy simula
 - The new Strategy Lab controls are configuration preview only; they are not persisted and do not submit a strategy job.
 
 ## Existing implementation audit
-- `workers/backtest/engine_prototype.py` contains a deterministic EMA-crossover research prototype with fee/slippage parameters and an equity curve. It is not yet connected to the authenticated `/api/backtest` route or the Strategy Lab UI.
+- `workers/backtest/engine_prototype.py` contains a deterministic SMA-crossover research prototype with fee/slippage parameters and an equity curve. It is not yet connected to the authenticated `/api/backtest` route or the Strategy Lab UI.
 - The SMC feature area has a separate research backtest path with unit tests, but it is not yet composed into one versioned experiment runner with shared data provenance, cost assumptions, walk-forward folds, and immutable result records.
 - The existing API/UI baseline remains a separate buy-and-hold calculation. Do not present either prototype as a verified Wave3/SMC/XGBoost/LSTM result or enable the Strategy Backtest button until the integration and acceptance gates below are implemented and tested.
 
