@@ -214,7 +214,7 @@ jobs:
           fi
 
           code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$mcp/health" || true)"
-          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"toolCount":13' "$body"; then
+          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"toolCount":15' "$body"; then
             echo "Remote MCP health or read-only tool contract failed (HTTP $code)."
             exit 1
           fi
