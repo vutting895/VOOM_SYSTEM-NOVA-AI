@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_CHAT_MODEL, MODEL_RUNTIME_VERSION, ModelRuntimeError, runChatModel } from "./runtime-core.js";
+import { compactChatHistory, DEFAULT_CHAT_MODEL, MODEL_RUNTIME_VERSION, ModelRuntimeError, runChatModel } from "./runtime-core.js";
 import { MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings } from "./memory-learning.js";
 
 test("model runtime exposes a fixed server-owned default model", () => {
@@ -72,4 +72,14 @@ test("feedback is evaluation evidence and can never promote a model", () => {
   const enough = evaluateFeedbackRows(Array.from({ length: 30 }, () => ({ rating: 5, category: "helpfulness" })));
   assert.equal(enough.evidenceStatus, "feedback_sample_available");
   assert.equal(enough.promotionEligible, false);
+});
+
+test("memory history is bounded before it reaches the model context", () => {
+  const messages = Array.from({ length: 10 }, (_, index) => ({
+    role: index % 2 ? "assistant" : "user", content: String(index).repeat(2500),
+  }));
+  const compacted = compactChatHistory(messages);
+  assert.equal(compacted.length, 6);
+  assert.equal(compacted[0].content.length, 1800);
+  assert.equal(compacted.at(-1).content[0], "9");
 });
