@@ -200,3 +200,29 @@ No-lookahead tests for confirmed pivots, OB origin/confirmation/invalidation and
 The latest completed training result is still run #6 (commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, artifact #13036729349): OOS accuracy 41.0602% vs 45.9708% majority baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds below baseline. Calibration remains absent. No new full training was run. The run #6 model manifest remains bound to that training artifact and is intentionally not rewritten by this diagnostic-only audit.
 
 **Next:** review and preregister the intended FVG refill/mitigation semantics; then proceed to P2 first-hit/triple-barrier net-outcome labels and simple baselines. Do not tune on final OOS, alter frozen v6.2.6.3 weights/lookbacks/thresholds/gates, submit orders, merge, deploy or enable Live Trading.
+
+## Run #6 XGBoost/LSTM imbalance and feature diagnostics — 2026-11-01
+
+The serialized run #6 artifact was inspected without retraining or using final OOS for tuning. Full provenance and results are in `reports/wave3_run6_model_diagnostics_20261101.json` (training workflow #6, commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, artifact #13036729349, archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`). The run's final OOS begins 2026-07-01 and contains 7,942 labeled rows; tuning used only pre-OOS data with two inner chronological validation folds and a 12-bar purge.
+
+### Label and prediction distribution
+
+| Class | Train | OOS actual | OOS predicted |
+|---|---:|---:|---:|
+| Short | 24.93% | 27.68% | 41.37% |
+| Hold | 46.62% | 45.97% | 40.81% |
+| Long | 28.45% | 26.35% | 17.82% |
+
+The training and OOS label priors are broadly similar. The larger visible issue is prediction skew: Short is over-predicted by 13.69 percentage points and Long is under-predicted by 8.53 points; Long recall is 20.1147%. Final OOS confusion matrix and class precision/recall/F1 are preserved in the diagnostic JSON.
+
+### XGBoost feature-gain diagnostic
+
+The final pre-2026-07-01 serialized XGB model has 89 features. Top gain contributors are `hour_sin` (10.26%), `volume_gate` (6.47%), `hour_cos` (3.94%), `log_volume` (2.31%), `realized_vol_24` (2.25%), `atr_price` (2.17%), `weekday_sin` (2.14%), `bear_ob_within5` (2.12%), `wave3_long_zone` (2.00%) and `spread_price` (1.82%). Grouped gain shares are time features 17.635%, volume/spread 16.889%, and structural/Wave3/SMC/Fib features 22.280%. Gain importance is descriptive only, not causal; confirm with chronological inner-fold permutation/ablation before changing feature design.
+
+### LSTM, calibration and chronological degradation
+
+The active deep model is a two-layer 32-unit PyTorch LSTM over 60 bars, trained for four epochs; training loss decreases from 1.068531 to 0.897545. The artifact does not provide an LSTM validation-loss curve, LSTM feature attribution, Brier score, ECE or reliability curve. Therefore overfitting and probability calibration cannot be established. Raw direction-class probabilities are not trade-win probabilities.
+
+All five expanding walk-forward folds remain below their own majority baselines. Accuracy/baseline gaps are -4.7680 pp (2024-H1), -5.0218 pp (2024-H2), -6.0351 pp (2025-H1), -11.3477 pp (2025-H2), and -9.9424 pp (2026-H1). Final OOS accuracy is 41.0602% versus 45.9708% baseline, balanced accuracy 38.8382%, macro-F1 38.0253%; closed trades 0, net profit $0, PF unavailable.
+
+**Next:** perform class-wise and grouped feature permutation/ablation plus XGB/LSTM calibration only on chronological inner-validation folds. Keep labels, gates and final OOS untouched; proceed to P2 first-hit/triple-barrier labels before any new full training.
