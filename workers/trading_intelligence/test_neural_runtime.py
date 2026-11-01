@@ -39,7 +39,7 @@ class NeuralRuntimeTests(unittest.TestCase):
             validate_ohlcv(duplicate, "M5")
         missing = [*bars]
         missing.pop(90)
-        with self.assertRaisesRegex(ValueError, "missing or irregular"):
+        with self.assertRaisesRegex(ValueError, "missing, irregular or ambiguous session gap"):
             validate_ohlcv(missing, "M5")
 
     def test_ohlcv_validation_rejects_impossible_bars_and_naive_timestamps(self):
@@ -60,15 +60,19 @@ class NeuralRuntimeTests(unittest.TestCase):
         bars = make_bars(320)
         for index, row in enumerate(bars):
             row["spread"] = 160 + (index % 7)
-        for row in bars[150:]:
+        for row in bars[80:]:
             stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=1)
             row["time"] = stamp.isoformat().replace("+00:00", "Z")
+        for row in bars[150:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=48)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
 
-        with self.assertRaisesRegex(ValueError, "missing or irregular"):
+        with self.assertRaisesRegex(ValueError, "missing, irregular or ambiguous session gap"):
             validate_ohlcv(bars, "M5")
 
         accepted = validate_ohlcv(bars, "M5", allow_session_gaps=True)
         features, valid = build_causal_features(accepted, timeframe="M5")
+        self.assertAlmostEqual(float(features[80][-1]), math.log1p(12), places=6)
         self.assertTrue(math.isnan(float(features[150][0])))
         self.assertNotIn(150, valid)
         self.assertIn(170, valid)
@@ -77,17 +81,22 @@ class NeuralRuntimeTests(unittest.TestCase):
             bars, "XAUUSDm", "M5", sequence_length=16, horizon=3,
             epochs=1, hidden_size=8, seed=11, allow_session_gaps=True,
         )
-        self.assertEqual(manifest["data"]["gapPolicy"], "segment_on_interval_gap")
-        self.assertEqual(manifest["data"]["intervalGaps"]["intervalGapCount"], 1)
-        self.assertEqual(manifest["data"]["intervalGaps"]["gapIntervals"], [13])
+        self.assertEqual(manifest["data"]["gapPolicy"], "intraday_gap_feature_long_gap_segmentation")
+        self.assertEqual(manifest["data"]["intervalGaps"]["intervalGapCount"], 2)
+        self.assertEqual(manifest["data"]["intervalGaps"]["intradayGapCount"], 1)
+        self.assertEqual(manifest["data"]["intervalGaps"]["segmentBoundaryCount"], 1)
+        self.assertEqual(manifest["data"]["intervalGaps"]["gapIntervals"], [13, 577])
         self.assertTrue(manifest["data"]["spread"]["present"])
         self.assertEqual(manifest["data"]["spread"]["unit"], "symbol_points")
         self.assertEqual(manifest["data"]["spread"]["count"], 320)
         self.assertFalse(manifest["training"]["finalOosTouched"])
 
         newer = make_bars(321)
-        for row in newer[150:]:
+        for row in newer[80:]:
             stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=1)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
+        for row in newer[150:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=48)
             row["time"] = stamp.isoformat().replace("+00:00", "Z")
         result = infer_research_candidate(
             artifact, hashlib.sha256(artifact).hexdigest(), newer,
@@ -106,8 +115,15 @@ class NeuralRuntimeTests(unittest.TestCase):
         for row in irregular[50:]:
             stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(seconds=3610)
             row["time"] = stamp.isoformat().replace("+00:00", "Z")
-        with self.assertRaisesRegex(ValueError, "missing or irregular"):
+        with self.assertRaisesRegex(ValueError, "missing, irregular or ambiguous session gap"):
             validate_ohlcv(irregular, "M5", allow_session_gaps=True)
+
+        ambiguous = make_bars(100)
+        for row in ambiguous[50:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=12)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
+        with self.assertRaisesRegex(ValueError, "missing, irregular or ambiguous session gap"):
+            validate_ohlcv(ambiguous, "M5", allow_session_gaps=True)
 
     def test_features_are_causal_and_have_a_fixed_schema(self):
         bars = make_bars()
