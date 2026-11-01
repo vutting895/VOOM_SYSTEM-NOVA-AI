@@ -122,10 +122,23 @@ export async function loadMemoryContext(request, env, auth, threadId) {
     facts: Array.isArray(facts) ? facts.map(({ category, content }) => ({ category, content: String(content || "").slice(0, 500) })) : [] };
 }
 
+export function containsCredentialLikeContent(value) {
+  if (typeof value !== "string") return false;
+  return [
+    /\\bBearer\\s+[A-Za-z0-9._~+\\/-]{16,}={0,2}/i,
+    /\\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\\s*[:=]\\s*[^\\s]{6,}/i,
+    /\\b(?:sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\\b/,
+    /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+  ].some((pattern) => pattern.test(value));
+}
+
 export async function persistChatExchange(request, env, auth, threadId, userContent, assistantContent) {
   if (typeof threadId !== "string" || !UUID.test(threadId)) throw new MemoryServiceError("invalid_memory_thread", 400);
   if (typeof userContent !== "string" || !userContent.trim() || typeof assistantContent !== "string" || !assistantContent.trim()) {
     throw new MemoryServiceError("invalid_memory_exchange", 400);
+  }
+  if (containsCredentialLikeContent(userContent) || containsCredentialLikeContent(assistantContent)) {
+    return { persisted: false, reason: "sensitive_content_not_persisted" };
   }
   await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_messages", {
     method: "POST", prefer: "return=minimal",
@@ -138,6 +151,7 @@ export async function persistChatExchange(request, env, auth, threadId, userCont
     + "&user_id=eq." + encodeURIComponent(auth.userId), {
     method: "PATCH", prefer: "return=minimal", body: { updated_at: new Date().toISOString() },
   });
+  return { persisted: true };
 }
 
 async function handleSettings(request, env, auth, json) {
