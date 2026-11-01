@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import './backtest.css';
@@ -15,6 +15,11 @@ export default function BacktestPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [marketData, setMarketData] = useState(null);
+  const [marketBusy, setMarketBusy] = useState(false);
+  const [marketError, setMarketError] = useState('');
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const marketBusyRef = useRef(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -28,6 +33,52 @@ export default function BacktestPage() {
     }).catch(() => { if (active) setAuthState('error'); });
     return () => { active = false; };
   }, [router]);
+
+
+  const refreshMarketData = useCallback(async (quiet = false) => {
+    if (marketBusyRef.current) return;
+    marketBusyRef.current = true;
+    setMarketBusy(true);
+    if (!quiet) setMarketError('');
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) {
+        router.replace('/login');
+        return;
+      }
+      const params = new URLSearchParams({ symbol, timeframe, count: '120' });
+      const response = await fetch('/api/market-data?' + params.toString(), {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + data.session.access_token, Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.state !== 'data_verified') {
+        throw new Error(payload.error || 'market_data_unavailable');
+      }
+      setMarketData(payload);
+      if (!quiet) {
+        // MT5 position zero is the currently forming candle. Keep it out of
+        // historical backtest input; the independent tick remains live.
+        const closedBars = payload.bars.slice(0, -1);
+        if (closedBars.length < 3) throw new Error('not_enough_closed_candles');
+        setRaw(JSON.stringify(closedBars, null, 2));
+      }
+    } catch (err) {
+      if (!quiet) setMarketError(err?.message || 'ไม่สามารถดึงข้อมูลตลาดได้');
+    } finally {
+      marketBusyRef.current = false;
+      setMarketBusy(false);
+    }
+  }, [symbol, timeframe, router]);
+
+  useEffect(() => {
+    if (!autoRefresh || authState !== 'ready') return undefined;
+    void refreshMarketData(true);
+    const timer = setInterval(() => { void refreshMarketData(true); }, 5000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, authState, refreshMarketData]);
 
   async function runBaseline(event) {
     event.preventDefault(); setError(''); setResult(null);
@@ -68,6 +119,26 @@ export default function BacktestPage() {
       {authState === 'error' && <div className="nova-bt-alert" role="alert">ตรวจสอบเซสชันไม่สำเร็จ กรุณาเข้าสู่ระบบใหม่</div>}
 
       <div className="nova-bt-grid">
+
+        <section className="nova-bt-panel nova-bt-wide">
+          <div className="nova-bt-panel-head"><div><small>LIVE / EXNESS MT5 DEMO · READ ONLY</small><h2>ข้อมูลตลาดเรียลไทม์</h2></div><span className="nova-bt-tag">{marketData?.freshness === 'fresh' ? 'LIVE FEED' : marketData ? 'STALE / DELAYED' : 'NOT CONNECTED'}</span></div>
+          <div className="nova-bt-actions">
+            <span>ดึง Tick ล่าสุดและแท่ง OHLCV ผ่าน NOVA System Hub<br/>ใช้เฉพาะ Exness Demo connection ของบัญชีที่ Login อยู่</span>
+            <button className="nova-bt-run" type="button" onClick={() => refreshMarketData(false)} disabled={marketBusy || authState !== 'ready'}>{marketBusy ? 'กำลังดึงข้อมูล…' : 'ดึงข้อมูลตลาดล่าสุด'}</button>
+          </div>
+          <label className="nova-bt-live-toggle"><input type="checkbox" checked={autoRefresh} onChange={event => setAutoRefresh(event.target.checked)} disabled={authState !== 'ready'} /> อัปเดตอัตโนมัติทุก 5 วินาที</label>
+          {marketError && <div className="nova-bt-error" role="alert">{marketError}</div>}
+          {marketData?.tick && <div className="nova-bt-live-grid" aria-live="polite">
+            <div className="nova-bt-metric"><small>{marketData.symbol} · BID</small><strong>{marketData.tick.bid.toLocaleString('en-US')}</strong><em>{marketData.timeframe}</em></div>
+            <div className="nova-bt-metric"><small>ASK</small><strong>{marketData.tick.ask.toLocaleString('en-US')}</strong><em>Spread {(marketData.tick.ask - marketData.tick.bid).toFixed(3)}</em></div>
+            <div className="nova-bt-metric"><small>LAST / MID</small><strong>{marketData.tick.last > 0 ? marketData.tick.last.toLocaleString('en-US') : ((marketData.tick.bid + marketData.tick.ask) / 2).toLocaleString('en-US')}</strong><em>{marketData.freshness === 'fresh' ? 'ข้อมูลสด ≤ 60 วินาที' : 'ข้อมูลอาจล่าช้า / ตลาดปิด'}</em></div>
+            <div className="nova-bt-metric"><small>HISTORICAL BARS</small><strong>{marketData.count}</strong><em>แท่งล่าสุดแยกออกจาก Backtest input</em></div>
+          </div>}
+          {marketData?.tick?.time && <p className="nova-bt-foot">เวลาของ Tick: {new Date(marketData.tick.time).toLocaleString()} · รับข้อมูลจาก Hub: {new Date(marketData.receivedAt).toLocaleString()} · Source: {marketData.source}</p>}
+          {!marketData && <p className="nova-bt-foot">ยังไม่มีข้อมูลจริงในหน้านี้ กดปุ่มดึงข้อมูลเพื่อตรวจสอบการเชื่อมต่อ Exness Demo</p>}
+          <p className="nova-bt-foot">การอัปเดตเป็น polling ทุก 5 วินาทีผ่าน endpoint แบบ authenticated ไม่ใช่ WebSocket streaming; ถ้า Bridge/Hub ยังไม่พร้อมจะแสดง error แทนข้อมูลจำลอง</p>
+        </section>
+
         <section className="nova-bt-panel">
           <div className="nova-bt-panel-head"><div><small>01 / EXPERIMENT CONFIGURATION</small><h2>กำหนดการทดสอบกลยุทธ์</h2></div><span className="nova-bt-tag">CONFIG PREVIEW</span></div>
           <div className="nova-bt-fields">
