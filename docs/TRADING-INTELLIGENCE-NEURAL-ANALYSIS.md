@@ -40,6 +40,18 @@ The intended processing hierarchy is:
 6. **Report:** display regime probabilities as model outputs only after evidence gates pass, with model id/version, artifact hash, dataset/feature hashes, last closed bar, inference timestamp, validation manifest and limitations.
 7. **Risk boundary:** deterministic risk policy is authoritative. Model output cannot choose a broker route, modify policy, approve itself, or invoke broker writes.
 
+## Neural runtime implementation added in this branch
+
+- `workers/trading_intelligence/neural_runtime.py` adds a CPU-capable, unidirectional PyTorch LSTM research candidate trainer and shadow inference function.
+- Input validation requires timezone-aware, strictly increasing OHLCV bars at the exact requested timeframe interval. Duplicate, missing, irregular and impossible bars are rejected.
+- Causal features are calculated from current/past bars only: log returns, realized volatility, RSI, EMA gap, volume z-score, candle body and range.
+- Training uses chronological train/validation partitions with horizon purge. The final 15% partition is explicitly reserved; its labels are not consumed by candidate fitting or early stopping.
+- Candidate artifacts are hash-checked and bound to one symbol/timeframe. The output includes bullish/bearish/sideways probabilities and normalized predictive entropy.
+- Candidate lifecycle is hard-coded to `research_candidate` / `not_evaluated`; shadow inference cannot mark a model validated or promotable. It has no broker integration and all execution flags remain false.
+- `.github/workflows/trading-intelligence-neural-ci.yml` installs CPU-only PyTorch and runs deterministic code-path, leakage-boundary, artifact-integrity and fail-closed tests.
+
+This is a first runtime slice, not a trained production model. No real Exness dataset was supplied to this job, no Final OOS results were generated, no strategy-level net-of-cost metrics exist, and the frontend continues to display `INFERENCE NOT VERIFIED`.
+
 ## Runtime decision
 
 Model training and full historical evaluation must run outside latency-sensitive Cloudflare Worker request handlers. Current repository evidence describes ML examples under `workers/feature` as research prototypes with no production feature registry wired. This branch does not introduce a new paid GPU service, hosted model endpoint, or cloud billing dependency.
