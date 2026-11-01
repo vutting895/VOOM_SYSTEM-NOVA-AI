@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compactChatHistory, DEFAULT_CHAT_MODEL, MODEL_RUNTIME_VERSION, ModelRuntimeError, runChatModel } from "./runtime-core.js";
-import { containsCredentialLikeContent, MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings } from "./memory-learning.js";
+import { containsCredentialLikeContent, MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings, validateMemoryThreadTitle } from "./memory-learning.js";
 
 test("model runtime exposes a fixed server-owned default model", () => {
   assert.equal(DEFAULT_CHAT_MODEL, "@cf/meta/llama-3.2-3b-instruct");
@@ -90,3 +90,12 @@ test("memory persistence detects common credential patterns", () => {
   assert.equal(containsCredentialLikeContent("ghp_abcdefghijklmnopqrstuvwxyz123456"), true);
   assert.equal(containsCredentialLikeContent("I prefer concise Thai explanations for NOVA."), false);
 });
+
+test("memory facts and thread titles reject credential-like content", () => {
+  assert.throws(() => validateMemoryFact({ category: "project", content: "api_key=sk_test_123456789" }),
+    (error) => error.code === "invalid_memory_fact");
+  assert.throws(() => validateMemoryThreadTitle("Bearer abcdefghijklmnopqrstuvwxyz012345"),
+    (error) => error.code === "invalid_memory_thread_title");
+  assert.equal(validateMemoryThreadTitle("NOVA project notes"), "NOVA project notes");
+});
+
