@@ -151,3 +151,28 @@ The canonical Git-tracked file was independently fetched as base64 and SHA-256 c
 The research branch now contains `tools/verify_wave3_news_calendar.py`, which computes SHA-256 from raw file bytes and fails closed unless it equals the pinned canonical Git-file digest above. `.github/workflows/wave3-research-train.yml` runs this preflight before schema/coverage validation and training. `tests/test_wave3_calendar_hash.py` covers the canonical file, modified bytes, and malformed digest; SMC/Wave3 Research CI includes that test. This check protects the exact tracked input bytes; it does not substitute for re-verifying the original MT5 terminal file.
 
 No frozen strategy weights, lookbacks, thresholds, entry/risk/news gates, or 12-bar purge were changed. No orders were submitted; Live Trading and deployment remain OFF.
+
+
+## Revalidated evidence — 2026-11-01
+
+### Repository synchronization
+Current `main` is `99d474038e19a6eab884c5c891b21770c50fefa5`. The benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; it is now 39 commits ahead / 0 behind current `main`. The separate redesign branch was also synced; neither PR was merged.
+
+### Exness MT5 calendar byte-level provenance
+The active terminal's `Common/Files/VOOM_USD_High_Impact_2022_2026.csv` is 388,313 bytes, CRLF-only (2,167 CRLF sequences), with raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. `MQL5/Logs/20261030.log` contains two `NEWS_EXPORT_SUCCESS` markers; each reports 2,166 high events, 15,853 queried values and zero unknown time modes. Normalizing only CRLF to LF yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, which exactly matches the committed canonical CSV and the pinned verifier. Therefore the prior mismatch was line-ending normalization plus a truncated 58-character digest in the old PR note; it was not evidence of different event content.
+
+The raw file and canonical normalized file both validate to 2,166 unique high-impact USD/US rows, 12 expected headers, all `datetime` mode, no blank/extra/missing/duplicate rows, no out-of-range timestamps, first event 2022-07-21T12:30:00Z and last event 2026-10-29T12:30:00Z. Coverage metadata remains [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z), Exness server GMT+0. The workflow's independent SHA preflight is correctly pinned to the normalized Git bytes, not the raw CRLF terminal bytes.
+
+### Latest completed artifact — run #6
+- Workflow: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320
+- Training commit: `5fda3b8eb502d5694639a3afef354de0876ff2de`
+- Artifact: #13036729349; archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`
+- Report SHA-256 `3d1642375fe92b5232caf192945266056b100fa90f305bcf97ec4ccf7a2a8acc`; model-manifest SHA-256 `7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550`.
+- Data SHA-256 `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`; 101,076 XAUUSDm M15 bars; final OOS starts 2026-07-01 and was excluded from tuning; 12-bar purge retained.
+- Calendar SHA-256 in artifact `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`; 2,166 events; 95,099/101,076 total bars news-safe; 7,421/7,942 final-OOS bars news-safe.
+
+Final OOS: 7,942 rows; accuracy 41.0602% vs 45.9708% majority/always-hold baseline; balanced accuracy 38.8382%; macro-F1 38.0253%; closed trades 0; net profit $0; PF unavailable. All five walk-forward accuracies (42.6987%, 42.0120%, 38.6520%, 35.0200%, 36.6160%) remain below their fold baselines (47.4667%, 47.0338%, 44.6871%, 46.3677%, 46.5584%). Training labels short/hold/long: 23,193 / 43,363 / 26,459. Final OOS actual: 2,198 / 3,651 / 2,093; predicted: 3,286 / 3,241 / 1,415. Long recall is 20.1147%; the model overpredicts short and underpredicts long. Probability calibration remains `not_calibrated`; Brier, ECE and reliability curve are null.
+
+SMC final-OOS diagnostics: 34 Wave3 triggers; maximum score on trigger rows 75/100; BOS20=21, three confirmed higher lows + green=12, active bullish OB within $5=1 (inside zone=0), FVG refill=7; XGB BUY >=75% with agreement=0; LSTM BUY >=80% diagnostic=120 but none survive prior mandatory gates; ensemble BUY >=85% with agreement=0. This is still aggregate evidence only. Candidate-level traces must record same-closed-bar availability, structural BOS/CHoCH separately from `bos20_up`/`choch_rule_up`, OB origin/zone/range/distance/invalidation, and FVG creation/refill/mitigation. Do not infer that OB alone causes the score ceiling.
+
+The artifact manifest confirms model round-trip verification on 256 held-out rows with maximum probability difference <=1e-6. Commission remains assumed zero due insufficient verified account schedule; slippage remains an assumption. Performance gate remains blocked and production eligibility false. No frozen gate, weight, lookback, threshold or 12-bar purge changed.
