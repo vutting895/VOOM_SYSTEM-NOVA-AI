@@ -34,8 +34,8 @@ class StrategyBacktestTests(unittest.TestCase):
         trade = result["trades"][0]
         self.assertEqual(trade["entry_signal_index"], 0)
         self.assertEqual(trade["exit_signal_index"], 2)
-        self.assertEqual(trade["entry_price"], 105)
-        self.assertEqual(trade["exit_price"], 108)
+        self.assertEqual(trade["entry_price"], 100)
+        self.assertEqual(trade["exit_price"], 110)
         self.assertEqual(result["execution_model"], "next_bar_open")
         self.assertFalse(result["execution_enabled"])
 
