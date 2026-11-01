@@ -21,7 +21,9 @@ python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/
 python -m unittest discover -s workers/trading_intelligence -p 'test_*.py' -v
 ```
 
-Call `train_candidate(rows, symbol, timeframe)` with a real, finalized OHLCV export. The function fits on the chronological training partition, uses the validation partition for early stopping, and reserves a purged final OOS partition without reading its labels. It returns a candidate artifact and a manifest marked `research_candidate` / `not_evaluated`.
+Call `train_candidate(rows, symbol, timeframe)` with real, finalized OHLCV bars. The default `allow_session_gaps=False` policy requires strictly contiguous bars. For a broker feed with market-session closures, explicitly set `allow_session_gaps=True`: every timeframe-aligned interval gap becomes a hard segment boundary; feature warm-up restarts after the boundary; sequence windows and forward labels are required to remain inside one segment; no synthetic candles are inserted. Non-timeframe-aligned gaps, duplicates, reversals and impossible OHLCV still fail closed. The gap policy and interval-gap manifest are included in the candidate provenance, and shadow inference must use the same gap policy.
+
+The function fits on the chronological training partition, uses the validation partition for early stopping, and reserves a purged final OOS partition without reading its labels. It returns a candidate artifact and a manifest marked `research_candidate` / `not_evaluated`.
 
 Call `infer_research_candidate` only for offline/shadow research. It requires newer bars than the training snapshot and returns explicit `researchOnly=true` and all execution flags false. This is not wired to the customer-facing Dashboard or a hosted API.
 
