@@ -314,10 +314,10 @@ export default function TradingIntelligencePage() {
           </div>
           <p className="ti-section-copy">Neural Network เป็นหน่วยประมวลผลเป้าหมายสำหรับการเรียนรู้รูปแบบราคาและรวมผลโมเดล แต่ยังไม่เปิดแสดงผล inference จนกว่าจะมี model artifact, runtime, provenance และผลประเมินที่ตรวจสอบได้</p>
           <div className="ti-model-list">
-            <div><span><b>01</b> LSTM / GRU</span><em>Research prototype</em></div>
+            <div><span><b>01</b> LSTM / GRU — Primary Sequence Model</span><em>Target primary processor · not live</em></div>
             <div><span><b>02</b> CNN / 1D-CNN</span><em>Research track</em></div>
             <div><span><b>03</b> Transformer</span><em>Planned / not verified</em></div>
-            <div><span><b>04</b> XGBoost ensemble</span><em>Benchmark not passed</em></div>
+            <div><span><b>04</b> XGBoost — Secondary Comparator</span><em>Benchmark not passed</em></div>
             <div><span><b>05</b> Neuro-symbolic validation</span><em>Prototype / not production</em></div>
           </div>
           <div className="ti-model-warning">ห้ามนำ confidence หรือ prediction จากโมเดลที่ยังไม่ผ่านการทดสอบมาแสดงเป็นสัญญาณจริง</div>
