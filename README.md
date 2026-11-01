@@ -74,3 +74,14 @@ OAuth end-to-end verification, leaked-password protection, review of SECURITY DE
 - Keep only the small bootstrap copy, runtime checkout and its isolated Python environment, MT5 terminal, and private local tenant files on Windows. Tenant files stay under `%LOCALAPPDATA%\VOOM_SYSTEM\secrets` and must never enter Git.
 - Do not remove the existing development checkout until all its modified and untracked files have been compared with GitHub and any unique work preserved. Build caches may be deleted only after the replacement runtime has been verified.
 - The Bridge remains read-only; the bootstrap does not submit orders or enable live trading. A process start alone is not proof of a broker connection.
+
+
+## Wave3 + SMC research (PR #66; feature branch only)
+
+The v6.2.6.3 Wave3/Fibonacci + SMC + XGBoost/60-bar PyTorch LSTM research pipeline is isolated in [Draft PR #66](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/66), not yet part of `main`. Historical Exness Demo XAUUSDm M15 bars and the validated USD high-impact calendar are research inputs only. The calendar CSV is `datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv` (2,166 high-impact USD events; coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z)).
+
+Latest completed calendar-filtered training artifact: [workflow run #3](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41163353027), training SHA `70fa601ebfaf8b992f80c5b27a60247979e7bceb`, artifact #13028341403, archive SHA-256 `218e15c46b8db53c37d263482d96845fa90addab0e292f04c53a91b694b20c17`. The artifact's manifest/report agree on the canonical Git-tracked calendar SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, 2,166 events, all `datetime`, coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z). The repository CSV is 386,146 bytes. The independently added preflight now pins this exact byte digest before training; the terminal-side size/hash claim still needs raw-file verification because the reported terminal digest in the PR body is only 58 hex characters and its claimed 388,313-byte size differs by 2,167 bytes (consistent with, but not proof of, line-ending normalization).
+
+Run #3 Final OOS: 7,942 rows; accuracy 41.3246% vs 45.9708% majority baseline; balanced accuracy 39.1057%; macro-F1 37.6761%; 0 closed trades; net $0; PF unavailable. All five walk-forward folds are below baseline. The artifact reports 7,421/7,942 final OOS bars news-safe, max SMC 75 on Wave3 trigger rows, and zero rows passing SMC >=85. Performance gate remains blocked.
+
+Keep Fib >=80, SMC >=85, XGB BUY >=75%, LSTM BUY >=80%, ensemble BUY >=85%, XGB/LSTM weights 60/40, all RSI/volume/momentum/trend/spread/news rules and fixed risk limits unchanged. No broker orders, deployment or Live Trading. The branch must be reviewed against current `main` before any merge; the PR remains Draft.
