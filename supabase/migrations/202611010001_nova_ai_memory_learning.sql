@@ -120,6 +120,8 @@ begin
     and created_at < now() - make_interval(days => v_retention_days);
   delete from public.nova_ai_memory_threads where user_id = v_user_id
     and updated_at < now() - make_interval(days => v_retention_days);
+  delete from public.nova_ai_memory_facts where user_id = v_user_id
+    and created_at < now() - make_interval(days => v_retention_days);
 end;
 $$;
 
