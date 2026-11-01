@@ -62,7 +62,7 @@ class BacktestWorker:
         for value in equity:
             peak = max(peak,value); max_dd = max(max_dd,(peak-value)/peak)
         gains=sum(x for x in trade_returns if x>0); losses=abs(sum(x for x in trade_returns if x<0))
-        return {"status":"completed","source":"historical_ohlcv","strategy":str(strategy.get("name","EMA crossover")),
+        return {"status":"completed","source":"historical_ohlcv","strategy":str(strategy.get("name","SMA crossover")),
                 "candles":len(candles),"total_trades":len(trade_returns),"winrate_pct":round(100*wins/len(trade_returns),2) if trade_returns else 0.0,
                 "total_return_pct":round((equity[-1]/self.initial_cash-1)*100,4),"max_drawdown_pct":round(max_dd*100,4),
                 "sharpe_annualized":round(mean/(variance**0.5)*sqrt(252),4) if variance>0 else 0.0,
