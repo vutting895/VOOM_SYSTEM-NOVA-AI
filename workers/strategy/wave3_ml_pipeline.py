@@ -196,14 +196,32 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "wave3_long_zone", "wave3_short_zone", "wave3_long_breakout", "wave3_short_breakout",
     )
     struct = {name: np.zeros(n, dtype=float) for name in names}
+    trace_names = (
+        "structure_break_pivot_index", "structure_break_pivot_confirmation_index", "structure_break_pivot_price",
+        "higher_low_1_index", "higher_low_1_confirmation_index", "higher_low_1_price",
+        "higher_low_2_index", "higher_low_2_confirmation_index", "higher_low_2_price",
+        "higher_low_3_index", "higher_low_3_confirmation_index", "higher_low_3_price",
+        "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_origin_low", "bull_ob_origin_high",
+        "bull_ob_origin_range_pct", "bull_ob_age_from_origin_bars", "bull_ob_age_from_confirmation_bars",
+        "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
+        "bull_ob_invalidated_now", "bull_ob_candidate_count",
+        "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
+        "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
+        "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "bull_fvg_created_lower", "bull_fvg_created_upper",
+    )
+    trace = {name: np.full(n, np.nan, dtype=float) for name in trace_names}
     pivots: list[dict[str, Any]] = []
     confirmed_low_prices: list[float] = []
+    confirmed_low_indices: list[int] = []
+    confirmed_low_confirmation_indices: list[int] = []
     confirmed_high_prices: list[float] = []
     last_high = last_low = None
     broken: set[tuple[str, int]] = set()
     bias = 0
     bull_ob = bear_ob = None
     last_bull_gap = last_bear_gap = None
+    last_bull_gap_first_fill_index = None
 
     for i in range(n):
         p = i - PIVOT_RIGHT
@@ -229,12 +247,22 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                             confirmed_high_prices[-1] = float(point["price"])
                         else:
                             confirmed_low_prices[-1] = float(point["price"])
+                            confirmed_low_indices[-1] = int(point["idx"])
+                            confirmed_low_confirmation_indices[-1] = int(point["confirmed"])
                 else:
                     pivots.append(point)
                     if point["kind"] == "high":
                         confirmed_high_prices.append(float(point["price"]))
                     else:
                         confirmed_low_prices.append(float(point["price"]))
+                        confirmed_low_indices.append(int(point["idx"]))
+                        confirmed_low_confirmation_indices.append(int(point["confirmed"]))
+
+        if len(confirmed_low_prices) >= 3:
+            for slot, offset in enumerate(range(-3, 0), start=1):
+                trace[f"higher_low_{slot}_index"][i] = float(confirmed_low_indices[offset])
+                trace[f"higher_low_{slot}_confirmation_index"][i] = float(confirmed_low_confirmation_indices[offset])
+                trace[f"higher_low_{slot}_price"][i] = float(confirmed_low_prices[offset])
 
         close_i = float(c.iloc[i])
         prev_i = float(c.iloc[i - 1]) if i else close_i
@@ -243,6 +271,9 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             key = ("high", last_high["idx"])
             if key not in broken and prev_i <= last_high["price"] < close_i:
                 broken.add(key)
+                trace["structure_break_pivot_index"][i] = float(last_high["idx"])
+                trace["structure_break_pivot_confirmation_index"][i] = float(last_high["confirmed"])
+                trace["structure_break_pivot_price"][i] = float(last_high["price"])
                 if bias == -1:
                     choch_up = 1
                 else:
@@ -252,14 +283,22 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 # arbitrary eight-bar lookback. OB size (>=0.3%) and $5 proximity
                 # remain hard requirements; price invalidation governs OB validity.
                 bullish_ob_start = max(0, int(last_low["idx"])) if last_low else max(0, i - 8)
+                bullish_ob_candidates = []
+                selected_bullish_ob = None
                 for j in range(bullish_ob_start, i):
                     candle_size_pct = (float(h.iloc[j]) - float(l.iloc[j])) / max(float(c.iloc[j]), 1e-12)
                     if c.iloc[j] < o.iloc[j] and candle_size_pct >= 0.003:
-                        bull_ob = (i, float(l.iloc[j]), float(h.iloc[j]), j, candle_size_pct)
+                        bullish_ob_candidates.append(int(j))
+                        selected_bullish_ob = (i, float(l.iloc[j]), float(h.iloc[j]), j, candle_size_pct)
+                if selected_bullish_ob is not None:
+                    bull_ob = (*selected_bullish_ob, len(bullish_ob_candidates))
         if last_low and last_low["idx"] < i:
             key = ("low", last_low["idx"])
             if key not in broken and prev_i >= last_low["price"] > close_i:
                 broken.add(key)
+                trace["structure_break_pivot_index"][i] = float(last_low["idx"])
+                trace["structure_break_pivot_confirmation_index"][i] = float(last_low["confirmed"])
+                trace["structure_break_pivot_price"][i] = float(last_low["price"])
                 if bias == 1:
                     choch_down = 1
                 else:
@@ -281,7 +320,21 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             if float(l.iloc[i]) < last_low["price"] and close_i > last_low["price"]:
                 struct["sell_side_sweep"][i] = 1
         if last_bull_gap and 0 < i - last_bull_gap[0] <= 48:
-            struct["bull_fvg_fill"][i] = float(l.iloc[i]) <= last_bull_gap[2] and float(h.iloc[i]) >= last_bull_gap[1]
+            gap_age = i - last_bull_gap[0]
+            trace["bull_fvg_active_origin_index"][i] = float(last_bull_gap[0])
+            trace["bull_fvg_active_lower"][i] = float(last_bull_gap[1])
+            trace["bull_fvg_active_upper"][i] = float(last_bull_gap[2])
+            trace["bull_fvg_active_age_bars"][i] = float(gap_age)
+            gap_filled = float(l.iloc[i]) <= last_bull_gap[2] and float(h.iloc[i]) >= last_bull_gap[1]
+            struct["bull_fvg_fill"][i] = float(gap_filled)
+            if gap_filled:
+                trace["bull_fvg_fill_origin_index"][i] = float(last_bull_gap[0])
+                trace["bull_fvg_fill_lower"][i] = float(last_bull_gap[1])
+                trace["bull_fvg_fill_upper"][i] = float(last_bull_gap[2])
+                trace["bull_fvg_fill_age_bars"][i] = float(gap_age)
+                if last_bull_gap_first_fill_index is None:
+                    last_bull_gap_first_fill_index = i
+                trace["bull_fvg_first_fill_index"][i] = float(last_bull_gap_first_fill_index)
         if last_bear_gap and 0 < i - last_bear_gap[0] <= 48:
             struct["bear_fvg_fill"][i] = float(h.iloc[i]) >= last_bear_gap[1] and float(l.iloc[i]) <= last_bear_gap[2]
         if i >= 2:
@@ -289,6 +342,11 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             struct["bear_fvg"][i] = float(h.iloc[i]) < float(l.iloc[i - 2])
             if struct["bull_fvg"][i]:
                 last_bull_gap = (i, float(h.iloc[i - 2]), float(l.iloc[i]))
+                last_bull_gap_first_fill_index = None
+                trace["bull_fvg_created_now"][i] = 1.0
+                trace["bull_fvg_created_origin_index"][i] = float(i)
+                trace["bull_fvg_created_lower"][i] = float(h.iloc[i - 2])
+                trace["bull_fvg_created_upper"][i] = float(l.iloc[i])
             if struct["bear_fvg"][i]:
                 last_bear_gap = (i, float(h.iloc[i]), float(l.iloc[i - 2]))
         if bull_ob:
@@ -297,6 +355,19 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             struct["bull_ob_age_bars"][i] = float(ob_age)
             struct["bull_ob_distance_price"][i] = float(state["distance"])
             struct["bull_ob_range_pct"][i] = float(bull_ob[4]) if len(bull_ob) > 4 else 0.0
+            trace["bull_ob_origin_index"][i] = float(bull_ob[3]) if len(bull_ob) > 3 else np.nan
+            trace["bull_ob_confirmation_index"][i] = float(bull_ob[0])
+            trace["bull_ob_origin_low"][i] = float(bull_ob[1])
+            trace["bull_ob_origin_high"][i] = float(bull_ob[2])
+            trace["bull_ob_origin_range_pct"][i] = float(bull_ob[4]) if len(bull_ob) > 4 else 0.0
+            trace["bull_ob_age_from_origin_bars"][i] = float(i - bull_ob[3]) if len(bull_ob) > 3 else np.nan
+            trace["bull_ob_age_from_confirmation_bars"][i] = float(ob_age)
+            trace["bull_ob_distance_price_trace"][i] = float(state["distance"])
+            trace["bull_ob_valid_trace"][i] = float(state["valid"])
+            trace["bull_ob_zone_trace"][i] = float(state["zone"])
+            trace["bull_ob_within5_trace"][i] = float(state["within5"])
+            trace["bull_ob_invalidated_now"][i] = float(not state["valid"])
+            trace["bull_ob_candidate_count"][i] = float(bull_ob[5]) if len(bull_ob) > 5 else 1.0
             if ob_age <= 24:
                 struct["bull_ob_recent"][i] = 1  # diagnostic only; not part of SMC scoring
             if state["valid"]:
@@ -363,10 +434,13 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                         struct["wave3_short_rule_breakout"][i] = 1
     for name, values in struct.items():
         f[name] = values
+    for name, values in trace.items():
+        f[name] = values
 
     # v6.2.6.3 BUY-side hard gates. All inputs are past/current closed-bar data.
     prior_20_high = h.shift(1).rolling(20, min_periods=20).max()
     prior_20_low = l.shift(1).rolling(20, min_periods=20).min()
+    f["bos20_prior_20_high"] = prior_20_high
     f["bos20_up"] = (c > prior_20_high).astype(float)
     f["bos20_down"] = (c < prior_20_low).astype(float)
     f["momentum_5_positive"] = (c - c.shift(5) > 0).astype(float)
@@ -415,6 +489,18 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
     labels[valid_future & (future_move > dynamic_move)] = 2
     diagnostic_only = [
         "bull_ob_age_bars", "bull_ob_distance_price", "bull_ob_range_pct",
+        "structure_break_pivot_index", "structure_break_pivot_confirmation_index", "structure_break_pivot_price",
+        "higher_low_1_index", "higher_low_1_confirmation_index", "higher_low_1_price",
+        "higher_low_2_index", "higher_low_2_confirmation_index", "higher_low_2_price",
+        "higher_low_3_index", "higher_low_3_confirmation_index", "higher_low_3_price",
+        "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_origin_low", "bull_ob_origin_high",
+        "bull_ob_origin_range_pct", "bull_ob_age_from_origin_bars", "bull_ob_age_from_confirmation_bars",
+        "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
+        "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_fvg_active_origin_index",
+        "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
+        "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
+        "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
     ]
     model_features = features.drop(columns=[name for name in diagnostic_only if name in features.columns])
     valid_features = np.isfinite(model_features.to_numpy()).all(axis=1)
@@ -1006,6 +1092,128 @@ def _rule_gate_diagnostics(features: pd.DataFrame, raw_indices: np.ndarray,
         result["all_mandatory_gates_passed"] = int(mask.sum())
     result["note"] = "SELL rules not enabled: only a BUY-side checklist was specified. Missing news calendar is fail-closed."
     return result
+
+
+
+def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices: np.ndarray) -> dict[str, Any]:
+    """Return same-closed-bar causal traces for Wave3 BUY trigger rows; diagnostic only."""
+    component_names = ("bos20_up", "choch_rule_up", "bull_ob_within5", "bull_fvg_fill")
+
+    def number(row: pd.Series, name: str) -> float | None:
+        value = row.get(name, np.nan)
+        if pd.isna(value):
+            return None
+        return float(value)
+
+    def integer(row: pd.Series, name: str) -> int | None:
+        value = number(row, name)
+        return int(value) if value is not None else None
+
+    rows: list[dict[str, Any]] = []
+    for item in raw_indices:
+        i = int(item)
+        if i < 0 or i >= len(frame) or not bool(features["wave3_long_rule_breakout"].iloc[i]):
+            continue
+        rowf = features.iloc[i]
+        flags = {name: bool(float(rowf[name])) for name in component_names}
+        missing = [name for name, passed in flags.items() if not passed]
+        pivots = []
+        for slot in (1, 2, 3):
+            origin_index = integer(rowf, f"higher_low_{slot}_index")
+            confirmation_index = integer(rowf, f"higher_low_{slot}_confirmation_index")
+            price = number(rowf, f"higher_low_{slot}_price")
+            if origin_index is not None and confirmation_index is not None and price is not None:
+                pivots.append({
+                    "origin_index": origin_index,
+                    "origin_timestamp_utc": frame["timestamp"].iloc[origin_index].isoformat(),
+                    "confirmation_index": confirmation_index,
+                    "confirmation_timestamp_utc": frame["timestamp"].iloc[confirmation_index].isoformat(),
+                    "price": price,
+                })
+        ob_origin = integer(rowf, "bull_ob_origin_index")
+        ob_confirmation = integer(rowf, "bull_ob_confirmation_index")
+        fvg_fill_origin = integer(rowf, "bull_fvg_fill_origin_index")
+        rows.append({
+            "signal_index": i,
+            "signal_timestamp_utc": frame["timestamp"].iloc[i].isoformat(),
+            "signal_close": float(frame["close"].iloc[i]),
+            "previous_close": float(frame["close"].iloc[i - 1]) if i else float(frame["close"].iloc[i]),
+            "wave3_entry_price": number(rowf, "wave3_long_entry_price"),
+            "fib_pullback_ratio": number(rowf, "fib_pullback_ratio"),
+            "fib_score": number(rowf, "wave3_long_fib_score"),
+            "smc_score": number(rowf, "smc_score_long"),
+            "smc_gate_pass": bool(float(rowf["smc_score_long"]) >= 85),
+            "components_same_closed_signal_bar": flags,
+            "missing_components": missing,
+            "all_four_components_same_bar": not missing,
+            "structural_events": {
+                "bos_up": bool(float(rowf["bos_up"])),
+                "choch_up": bool(float(rowf["choch_up"])),
+                "bos_down": bool(float(rowf["bos_down"])),
+                "choch_down": bool(float(rowf["choch_down"])),
+                "break_pivot_index": integer(rowf, "structure_break_pivot_index"),
+                "break_pivot_confirmation_index": integer(rowf, "structure_break_pivot_confirmation_index"),
+                "break_pivot_price": number(rowf, "structure_break_pivot_price"),
+            },
+            "bos20": {
+                "prior_20_bar_high": number(rowf, "bos20_prior_20_high"),
+                "close_above_prior_20_bar_high": flags["bos20_up"],
+            },
+            "higher_lows_used_by_rule": pivots,
+            "order_block": {
+                "selected_origin_index": ob_origin,
+                "selected_origin_timestamp_utc": frame["timestamp"].iloc[ob_origin].isoformat() if ob_origin is not None else None,
+                "confirmation_index": ob_confirmation,
+                "confirmation_timestamp_utc": frame["timestamp"].iloc[ob_confirmation].isoformat() if ob_confirmation is not None else None,
+                "origin_low": number(rowf, "bull_ob_origin_low"),
+                "origin_high": number(rowf, "bull_ob_origin_high"),
+                "origin_range_pct": number(rowf, "bull_ob_origin_range_pct"),
+                "candidate_count_at_confirmation": integer(rowf, "bull_ob_candidate_count"),
+                "age_from_origin_bars": integer(rowf, "bull_ob_age_from_origin_bars"),
+                "age_from_confirmation_bars": integer(rowf, "bull_ob_age_from_confirmation_bars"),
+                "distance_price": number(rowf, "bull_ob_distance_price_trace"),
+                "valid_on_signal_bar": bool(number(rowf, "bull_ob_valid_trace")) if number(rowf, "bull_ob_valid_trace") is not None else None,
+                "inside_zone_on_signal_bar": bool(number(rowf, "bull_ob_zone_trace")) if number(rowf, "bull_ob_zone_trace") is not None else None,
+                "within_5_on_signal_bar": bool(number(rowf, "bull_ob_within5_trace")) if number(rowf, "bull_ob_within5_trace") is not None else None,
+                "invalidated_on_signal_bar": bool(number(rowf, "bull_ob_invalidated_now")) if number(rowf, "bull_ob_invalidated_now") is not None else None,
+            },
+            "fair_value_gap": {
+                "active_origin_index": integer(rowf, "bull_fvg_active_origin_index"),
+                "active_lower": number(rowf, "bull_fvg_active_lower"),
+                "active_upper": number(rowf, "bull_fvg_active_upper"),
+                "active_age_bars": integer(rowf, "bull_fvg_active_age_bars"),
+                "refill_origin_index": fvg_fill_origin,
+                "refill_origin_timestamp_utc": frame["timestamp"].iloc[fvg_fill_origin].isoformat() if fvg_fill_origin is not None else None,
+                "refill_lower": number(rowf, "bull_fvg_fill_lower"),
+                "refill_upper": number(rowf, "bull_fvg_fill_upper"),
+                "refill_age_bars": integer(rowf, "bull_fvg_fill_age_bars"),
+                "first_refill_index": integer(rowf, "bull_fvg_first_fill_index"),
+                "created_on_signal_bar": bool(number(rowf, "bull_fvg_created_now")) if number(rowf, "bull_fvg_created_now") is not None else False,
+                "created_origin_index": integer(rowf, "bull_fvg_created_origin_index"),
+                "created_lower": number(rowf, "bull_fvg_created_lower"),
+                "created_upper": number(rowf, "bull_fvg_created_upper"),
+            },
+            "same_closed_signal_bar": True,
+        })
+
+    pairwise = {}
+    for left_index, left in enumerate(component_names):
+        for right in component_names[left_index + 1:]:
+            pairwise[f"{left}&{right}"] = sum(1 for row in rows if row["components_same_closed_signal_bar"][left] and row["components_same_closed_signal_bar"][right])
+    patterns: dict[str, int] = {}
+    for row in rows:
+        key = ",".join(row["missing_components"]) if row["missing_components"] else "none"
+        patterns[key] = patterns.get(key, 0) + 1
+    summary = {
+        "candidate_rows": len(rows),
+        "component_counts": {name: sum(1 for row in rows if row["components_same_closed_signal_bar"][name]) for name in component_names},
+        "pairwise_same_bar_intersections": pairwise,
+        "all_four_components_same_bar": sum(1 for row in rows if row["all_four_components_same_bar"]),
+        "smc_score_ge_85": sum(1 for row in rows if row["smc_gate_pass"]),
+        "maximum_smc_score": max((row["smc_score"] for row in rows if row["smc_score"] is not None), default=None),
+        "missing_component_patterns": patterns,
+    }
+    return {"summary": summary, "rows": rows}
 
 
 
