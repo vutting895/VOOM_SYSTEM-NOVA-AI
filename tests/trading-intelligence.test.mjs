@@ -185,6 +185,7 @@ function validNeuralResult() {
     },
     output: {
       regime: "bullish", probabilities: { bullish: 0.6, bearish: 0.2, sideways: 0.2 },
+      uncertainty: { score: 0.15, method: "ensemble_variance" },
       generatedAt: "2026-11-01T05:00:01.000Z"
     }
   };
@@ -222,9 +223,23 @@ test("Neural inference contract rejects weak OOS evidence and broker instruction
 
   const unsafe = validNeuralResult();
   unsafe.order = { symbol: "XAUUSDm", side: "buy" };
-  assert.throws(() => validateNeuralInferenceResult(unsafe), /must not contain broker/);
+  assert.throws(() => validateNeuralInferenceResult(unsafe), /unexpected or missing inference result fields/);
 
   const badProbability = validNeuralResult();
   badProbability.output.probabilities.bullish = 0.9;
   assert.throws(() => validateNeuralInferenceResult(badProbability), /probabilities/);
+});
+
+test("Neural inference requires bounded uncertainty and an inference time after the last closed bar", () => {
+  const noUncertainty = validNeuralResult();
+  delete noUncertainty.output.uncertainty;
+  assert.throws(() => validateNeuralInferenceResult(noUncertainty), /unexpected or missing uncertainty/);
+
+  const futureMismatch = validNeuralResult();
+  futureMismatch.output.generatedAt = "2026-11-01T04:59:59.000Z";
+  assert.throws(() => validateNeuralInferenceResult(futureMismatch), /timestamp are invalid/);
+
+  const invalidMethod = validNeuralResult();
+  invalidMethod.output.uncertainty.method = "untrusted";
+  assert.throws(() => validateNeuralInferenceResult(invalidMethod), /uncertainty/);
 });
