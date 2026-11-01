@@ -204,7 +204,7 @@
     "Commission remains configured at zero because the available MT5 deal sample does not verify the account commission schedule.",
     "Slippage remains an assumption; historical tick-level fills and live execution are not proven.",
     "Candidate-level same-closed-bar SMC trace remains pending.",
-    "The report's note that a missing calendar fails closed is stale wording in one signal_diagnostics note; the manifest and report news_calendar provenance confirm the calendar was supplied and applied."
+    "The signal_diagnostics note describes fail-closed behavior when a calendar is absent; this run's manifest and report confirm the validated calendar was supplied and applied."
   ],
   "safety": {
     "orders_submitted": false,
