@@ -132,7 +132,7 @@ test("untrusted host and invalid account identifiers are rejected", async () => 
   assert.throws(() => validateAccountId("18446744073709551616"), /invalid_exness_account_id/);
 });
 
-test("account identity mismatch and non-JSON upstream response fail closed", async () => {
+test("account identity mismatch fails closed", async () => {
   const privateKey = await importExnessEd25519PrivateKey(PRIVATE_KEY, webcrypto);
   const client = createExnessReadOnlyClient({
     apiKey: API_KEY,
@@ -149,4 +149,24 @@ test("account identity mismatch and non-JSON upstream response fail closed", asy
   });
   await client.resolveAccessPoint("123456");
   await assert.rejects(() => client.readAccount("123456"), /exness_account_identity_mismatch/);
+});
+
+
+test("non-JSON upstream response fails closed", async () => {
+  const privateKey = await importExnessEd25519PrivateKey(PRIVATE_KEY, webcrypto);
+  const client = createExnessReadOnlyClient({
+    apiKey: API_KEY,
+    privateKey,
+    gatewayUrl: "https://api.exness.com",
+    cryptoProvider: webcrypto,
+    fetchImpl: async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: 123456, access_point: "https://ap-4decef67.exness.com" });
+      }
+      return new Response("not-json", { status: 200, headers: { "Content-Type": "text/plain" } });
+    }
+  });
+  await client.resolveAccessPoint("123456");
+  await assert.rejects(() => client.readAccount("123456"), /exness_invalid_response/);
 });
