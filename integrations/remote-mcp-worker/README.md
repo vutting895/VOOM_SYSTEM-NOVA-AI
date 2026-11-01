@@ -7,7 +7,7 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 ## Transport and Origin policy
 
 - `POST /mcp` is a stateless, tools-only Streamable HTTP endpoint. It supports the tested legacy `2025-03-26` initialize flow and the per-request `2026-07-28` metadata path. It does not claim support for `2024-11-05` HTTP+SSE endpoints.
-- The allowed browser origins include the primary Netlify frontend (`https://voomsystem.netlify.app`) and the Cloudflare UI fallback (`https://voom-system-nova-ui.suwapat787.workers.dev`), only the primary Netlify frontend and the documented Cloudflare UI fallback.
+- The only allowed browser origins are the primary Netlify frontend (`https://voomsystem.netlify.app`) and the documented Cloudflare UI fallback (`https://voom-system-nova-ui.suwapat787.workers.dev`).
 - An unapproved supplied `Origin` is rejected with HTTP 403 before authentication or tool dispatch. Requests without an Origin are allowed for server-to-server clients, but protected MCP calls still require a valid Supabase bearer token.
 - This Worker is stateless and tools-only. It does not implement resources/prompts, persistent sessions, or server-sent event streams, so it does not claim complete MCP feature coverage.
 
