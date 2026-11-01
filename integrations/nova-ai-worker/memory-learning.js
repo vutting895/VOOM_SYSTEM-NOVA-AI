@@ -74,10 +74,23 @@ export function validateMemorySettings(value) {
 
 export function validateMemoryFact(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || !FACT_CATEGORIES.has(value.category)
-    || typeof value.content !== "string" || !value.content.trim() || value.content.trim().length > 500) {
+    || typeof value.content !== "string" || !value.content.trim() || value.content.trim().length > 500
+    || containsCredentialLikeContent(value.content)) {
     throw new MemoryServiceError("invalid_memory_fact", 400);
   }
   return { category: value.category, content: value.content.trim() };
+}
+
+export function validateMemoryThreadTitle(value) {
+  if (value == null) return "NOVA conversation";
+  if (typeof value !== "string" || !value.trim() || value.trim().length > 120
+    || containsCredentialLikeContent(value)) throw new MemoryServiceError("invalid_memory_thread_title", 400);
+  return value.trim();
+}
+
+async function purgeExpiredMemory(request, env, auth) {
+  await dbRequest(request, env, auth, "/rest/v1/rpc/nova_ai_purge_expired_memory",
+    { method: "POST", body: {}, prefer: "return=minimal" });
 }
 
 export function validateLearningFeedback(value) {
@@ -106,15 +119,14 @@ export async function loadMemoryContext(request, env, auth, threadId) {
   if (typeof threadId !== "string" || !UUID.test(threadId)) throw new MemoryServiceError("invalid_memory_thread", 400);
   const settings = await readMemorySettings(request, env, auth);
   if (!settings.memoryEnabled) throw new MemoryServiceError("memory_disabled", 409);
-  await dbRequest(request, env, auth, "/rest/v1/rpc/nova_ai_purge_expired_memory",
-    { method: "POST", body: {}, prefer: "return=minimal" });
+  await purgeExpiredMemory(request, env, auth);
   const threads = await dbRequest(request, env, auth,
     "/rest/v1/nova_ai_memory_threads?select=id&user_id=eq." + encodeURIComponent(auth.userId)
     + "&id=eq." + encodeURIComponent(threadId) + "&limit=1");
   if (!Array.isArray(threads) || !threads.length) throw new MemoryServiceError("memory_thread_not_found", 404);
   const messages = await dbRequest(request, env, auth,
-    "/rest/v1/nova_ai_memory_messages?select=role,content,created_at&user_id=eq." + encodeURIComponent(auth.userId)
-    + "&thread_id=eq." + encodeURIComponent(threadId) + "&order=created_at.desc&limit=12");
+    "/rest/v1/nova_ai_memory_messages?select=role,content,created_at,sequence_no&user_id=eq." + encodeURIComponent(auth.userId)
+    + "&thread_id=eq." + encodeURIComponent(threadId) + "&order=sequence_no.desc&limit=12");
   const facts = await dbRequest(request, env, auth,
     "/rest/v1/nova_ai_memory_facts?select=category,content&user_id=eq." + encodeURIComponent(auth.userId)
     + "&order=created_at.desc&limit=20");
@@ -155,33 +167,26 @@ export async function persistChatExchange(request, env, auth, threadId, userCont
 }
 
 async function handleSettings(request, env, auth, json) {
-  if (request.method === "GET") return json({ settings: await readMemorySettings(request, env, auth) });
+  if (request.method === "GET") {
+    const settings = await readMemorySettings(request, env, auth);
+    if (settings.memoryEnabled) await purgeExpiredMemory(request, env, auth);
+    return json({ settings });
+  }
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const value = validateMemorySettings(await parseJson(request));
-  const current = await readMemorySettings(request, env, auth);
-  if (current.memoryEnabled && !value.memory_enabled) {
-    await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_threads?user_id=eq." + encodeURIComponent(auth.userId),
-      { method: "DELETE", prefer: "return=minimal" });
-    await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_facts?user_id=eq." + encodeURIComponent(auth.userId),
-      { method: "DELETE", prefer: "return=minimal" });
-  }
-  if (current.feedbackEnabled && !value.feedback_enabled) {
-    await dbRequest(request, env, auth, "/rest/v1/nova_ai_learning_feedback?user_id=eq." + encodeURIComponent(auth.userId),
-      { method: "DELETE", prefer: "return=minimal" });
-  }
-  const rows = await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_settings?on_conflict=user_id", {
-    method: "POST", prefer: "resolution=merge-duplicates,return=representation",
-    body: { user_id: auth.userId, ...value },
+  await dbRequest(request, env, auth, "/rest/v1/rpc/nova_ai_update_memory_settings", {
+    method: "POST", prefer: "return=minimal",
+    body: { p_memory_enabled: value.memory_enabled, p_feedback_enabled: value.feedback_enabled,
+      p_retention_days: value.retention_days },
   });
-  const row = Array.isArray(rows) ? rows[0] : null;
-  return json({ settings: { memoryEnabled: row?.memory_enabled === true, feedbackEnabled: row?.feedback_enabled === true,
-    retentionDays: row?.retention_days ?? value.retention_days } });
+  return json({ settings: await readMemorySettings(request, env, auth) });
 }
 
 async function handleThreads(request, env, auth, json, url) {
   const settings = await readMemorySettings(request, env, auth);
   if (!settings.memoryEnabled) return json({ error: "memory_disabled" }, 409);
   if (request.method === "GET" && url.pathname === "/api/memory/threads") {
+    await purgeExpiredMemory(request, env, auth);
     const rows = await dbRequest(request, env, auth,
       "/rest/v1/nova_ai_memory_threads?select=id,title,created_at,updated_at&user_id=eq."
       + encodeURIComponent(auth.userId) + "&order=updated_at.desc&limit=20");
@@ -189,7 +194,7 @@ async function handleThreads(request, env, auth, json, url) {
   }
   if (request.method === "POST" && url.pathname === "/api/memory/threads") {
     const body = await parseJson(request);
-    const title = typeof body.title === "string" ? body.title.trim().slice(0, 120) : "NOVA conversation";
+    const title = validateMemoryThreadTitle(body.title);
     const rows = await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_threads", {
       method: "POST", prefer: "return=representation", body: { user_id: auth.userId, title: title || "NOVA conversation" },
     });
@@ -203,10 +208,11 @@ async function handleThreads(request, env, auth, json, url) {
       "/rest/v1/nova_ai_memory_threads?select=id&user_id=eq." + encodeURIComponent(auth.userId)
       + "&id=eq." + encodeURIComponent(messagesMatch[1]) + "&limit=1");
     if (!Array.isArray(threads) || !threads.length) throw new MemoryServiceError("memory_thread_not_found", 404);
+    await purgeExpiredMemory(request, env, auth);
     const rows = await dbRequest(request, env, auth,
-      "/rest/v1/nova_ai_memory_messages?select=id,role,content,created_at&user_id=eq." + encodeURIComponent(auth.userId)
-      + "&thread_id=eq." + encodeURIComponent(messagesMatch[1]) + "&order=created_at.asc&limit=100");
-    return json({ messages: Array.isArray(rows) ? rows : [] });
+      "/rest/v1/nova_ai_memory_messages?select=id,role,content,created_at,sequence_no&user_id=eq." + encodeURIComponent(auth.userId)
+      + "&thread_id=eq." + encodeURIComponent(messagesMatch[1]) + "&order=sequence_no.desc&limit=100");
+    return json({ messages: Array.isArray(rows) ? rows.reverse() : [] });
   }
   const threadMatch = /^\/api\/memory\/threads\/([0-9a-f-]{36})$/i.exec(url.pathname);
   if (threadMatch && request.method === "DELETE") {
@@ -222,6 +228,7 @@ async function handleFacts(request, env, auth, json, url) {
   const settings = await readMemorySettings(request, env, auth);
   if (!settings.memoryEnabled) return json({ error: "memory_disabled" }, 409);
   if (request.method === "GET" && url.pathname === "/api/memory/facts") {
+    await purgeExpiredMemory(request, env, auth);
     const rows = await dbRequest(request, env, auth, "/rest/v1/nova_ai_memory_facts?select=id,category,content,created_at&user_id=eq."
       + encodeURIComponent(auth.userId) + "&order=created_at.desc&limit=20");
     return json({ facts: Array.isArray(rows) ? rows : [] });
