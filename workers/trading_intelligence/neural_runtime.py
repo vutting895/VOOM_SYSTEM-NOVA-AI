@@ -325,6 +325,7 @@ def train_candidate(
             "finalOosLastTargetAt": bars[partitions["final_oos_reserved"][-1] + horizon]["time"],
             "finalOosBarsSha256": _canonical_hash(bars[partitions["final_oos_reserved"][0]:]),
             "finalOosTouched": False,
+            "sampleBoundaryPolicy": "sequence_and_horizon_must_remain_within_one_contiguous_segment",
         },
         "featureManifest": feature_manifest,
         "evaluation": {"status": "not_evaluated", "finalOosStatus": "reserved_untouched", "promotable": False},
