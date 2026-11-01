@@ -169,7 +169,7 @@ export async function persistChatExchange(request, env, auth, threadId, userCont
 async function handleSettings(request, env, auth, json) {
   if (request.method === "GET") {
     const settings = await readMemorySettings(request, env, auth);
-    if (settings.memoryEnabled) await purgeExpiredMemory(request, env, auth);
+    await purgeExpiredMemory(request, env, auth);
     return json({ settings });
   }
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -254,6 +254,7 @@ async function handleFeedback(request, env, auth, json) {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   const settings = await readMemorySettings(request, env, auth);
   if (!settings.feedbackEnabled) return json({ error: "feedback_disabled" }, 409);
+  await purgeExpiredMemory(request, env, auth);
   const value = validateLearningFeedback(await parseJson(request));
   const rows = await dbRequest(request, env, auth, "/rest/v1/nova_ai_learning_feedback?on_conflict=user_id,response_id", {
     method: "POST", prefer: "resolution=merge-duplicates,return=representation",
