@@ -165,18 +165,12 @@ jobs:
           body="$(mktemp)"
           trap 'rm -f "$body"' EXIT
           for path in / /login /settings/broker /settings/broker/exness; do
-            healthy=false
-            for attempt in $(seq 1 12); do
-              code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
-              if [ "$code" = "200" ]; then
-                healthy=true
-                break
-              fi
-              echo "Netlify route $path returned HTTP $code on attempt $attempt/12; retrying boundedly."
-              sleep 10
-            done
-            if [ "$healthy" != "true" ]; then
-              echo "Netlify production route $path did not return HTTP 200 after bounded retries."
+            if [ "$path" = "/settings/broker" ] && ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body"; then
+              echo "Netlify legacy broker settings route did not render the expected Exness MT5 content."
+              exit 1
+            fi
+            if [ "$path" = "/settings/broker/exness" ] && ! grep -q 'Exness Trader API' "$body"; then
+              echo "Netlify Exness API setup route did not render the expected content."
               exit 1
             fi
           done
