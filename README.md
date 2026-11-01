@@ -90,8 +90,8 @@ Keep Fib >=80, SMC >=85, XGB BUY >=75%, LSTM BUY >=80%, ensemble BUY >=85%, XGB/
 ### Revalidation — 2026-11-01
 
 - Current source of truth: `main` at `99d474038e19a6eab884c5c891b21770c50fefa5`.
-- PR #66 benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; compare against current `main` is 39 ahead / 0 behind.
-- PR #147 redesign branch was synced with a non-force merge commit `4e97920a783c6ad99a3a009114f565f0a565bed9`; compare is 4 ahead / 0 behind. Both PRs remain Draft/open/unmerged.
+- PR #66 benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; compare against current `main` is 46 ahead / 0 behind.
+- PR #147 redesign branch was synced with a non-force merge commit `4e97920a783c6ad99a3a009114f565f0a565bed9`; compare is 5 ahead / 0 behind. Both PRs remain Draft/open/unmerged.
 
 The earlier calendar digest discrepancy is reconciled by line-ending normalization, not by replacing either hash. The active Exness MT5 Common Files export is 388,313 bytes with 2,167 CRLF line endings and raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. The two `NEWS_EXPORT_SUCCESS` entries in `MQL5/Logs/20261030.log` each report 2,166 high-impact events, 15,853 queried values and zero unknown time modes. Converting CRLF to LF produces 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, exactly matching the canonical Git CSV and pinned verifier. CSV validation found 2,166 unique high-impact USD/US events, all `datetime` mode, no missing/extra/blank/duplicate/out-of-range rows, with coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z).
 
