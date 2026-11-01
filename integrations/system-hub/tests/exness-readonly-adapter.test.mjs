@@ -240,3 +240,22 @@ test("oversized upstream body is cancelled before buffering when Content-Length 
   await assert.rejects(adapter.getAccount(CONTEXT), /exness_response_too_large/);
   assert.equal(cancelled, true);
 });
+
+
+test("declared oversized upstream response is cancelled before parsing", async () => {
+  let cancelled = false;
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{}"));
+      },
+      cancel() {
+        cancelled = true;
+      }
+    }), { status: 200, headers: { "Content-Length": String(64 * 1024 + 1) } })
+  });
+
+  await assert.rejects(adapter.getAccount(CONTEXT), /exness_response_too_large/);
+  assert.equal(cancelled, true);
+});
