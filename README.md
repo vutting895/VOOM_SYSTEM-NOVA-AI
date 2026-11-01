@@ -23,6 +23,7 @@ Modular market-research and paper-trading platform: market-data ingestion, strat
 
 - Use this repository's `frontend/` as the single web application; integrate Chat into NOVA rather than merging the separate Eve Chat repository.
 - The shared navigation links Dashboard, AI Chat, AI Analysis and other existing routes.
+- Trading Intelligence is the dedicated price and strategy analysis workspace at `/trading-intelligence`; it uses authenticated, bounded read-only market-data tools and labels Neural Network inference unavailable until a model artifact, runtime and evaluation evidence are verified. See `docs/TRADING-INTELLIGENCE-NEURAL-ANALYSIS.md`.
 - Chat calls a same-origin authenticated Next.js API route. That route verifies the Supabase session before forwarding a bounded conversation to the NOVA AI Worker; the Worker returns an error rather than inventing a response when the provider is unavailable.
 - Structured intent is a data-only `nova.intent.v1` envelope with a strict allow-list of intents, parameters and component types. Both the Worker and the API boundary validate it. The frontend renders only the fixed React component catalog; it does not evaluate model-supplied HTML or JavaScript.
 - The current classifier is deterministic first-pass routing, not yet a model-generated Zod/Pydantic structured output parser. Intent cards are research-only and have no execution controls.
