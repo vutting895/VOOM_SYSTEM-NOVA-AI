@@ -1,5 +1,5 @@
 import { classifyResearchIntent } from "./intent-contract.js";
-import { runChatModel } from "./runtime-core.js";
+import { compactChatHistory, runChatModel } from "./runtime-core.js";
 import { handleMemoryLearningRequest, loadMemoryContext, persistChatExchange } from "./memory-learning.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
@@ -353,10 +353,7 @@ export default {
         if (chatInput.threadId) {
           const memory = await loadMemoryContext(request, env, auth, chatInput.threadId);
           memoryFacts = memory.facts;
-          messages = [...memory.messages.slice(-6).map((message) => ({
-            role: message.role,
-            content: message.content.slice(-1800),
-          })), chatInput.messages[chatInput.messages.length - 1]];
+          messages = [...compactChatHistory(memory.messages), chatInput.messages[chatInput.messages.length - 1]];
         }
         const result = await generateChat(env, messages, memoryFacts);
         if (chatInput.threadId) {
