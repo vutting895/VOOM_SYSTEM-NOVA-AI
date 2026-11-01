@@ -1,4 +1,4 @@
-import { buildTradingToolRequest, decodeMcpToolResponse } from "../../../../lib/trading-intelligence.mjs";
+import { buildTradingToolRequest, decodeMcpToolResponse } from "../../../lib/trading-intelligence.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
