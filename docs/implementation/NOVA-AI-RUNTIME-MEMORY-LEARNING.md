@@ -21,10 +21,11 @@ Memory is disabled by default and requires per-user opt-in.
 - Threads and messages are scoped to the authenticated Supabase user; the user ID is derived from the verified bearer session, never from browser payload.
 - The AI Worker uses the user's bearer token and the public Supabase publishable key. No service-role key is used.
 - Postgres RLS protects settings, threads, messages, saved facts and feedback.
+- Supabase Data API exposure is separate from SQL grants and RLS. Explicitly expose only the required memory tables and authenticated RPC functions before staging acceptance; do not assume new public objects are automatically exposed.
 - Only user/assistant text is stored. Credential-pattern detection suppresses persistence of an exchange if either message resembles a bearer token, API key, password assignment, common provider token or private key. System prompts, access tokens, provider keys, broker secrets and tool payloads are not intentionally persisted.
 - User-authored facts have narrow categories and size limits; they are untrusted context, never instructions.
-- Retention is selectable as 30, 90 or 365 days. Expired messages and threads are purged during authenticated memory reads.
-- Turning memory off deletes the user's stored threads and facts before saving the disabled setting.
+- Retention is selectable as 30, 90 or 365 days and applies to messages, threads, facts and feedback, including when chat memory is disabled.
+- Turning memory off atomically disables future writes and deletes the user's stored threads and facts; disabling feedback deletes stored feedback.
 
 ## Learning
 
