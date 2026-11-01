@@ -187,3 +187,28 @@ These are distinct event labels/features for a preregistered challenger, not a r
 - The frozen benchmark's `bull_fvg_fill` outputs remain byte-for-byte unchanged under diagnostic-only additions.
 
 **Gate:** P1 FVG semantics is considered documented, but implementation remains blocked until these tests pass on a separate challenger path. No training, merge, deployment, broker order, or live trading is authorized by this note.
+
+
+## 6. P2 first-hit / triple-barrier target contract (preregistered, implementation pending)
+
+The existing 12-bar direction label is not a trade-outcome label. The challenger target must be generated independently and must not replace the benchmark's existing label or feature matrix.
+
+### Entry and barriers copied from the frozen execution contract
+- Signal is evaluated only after the signal M15 bar closes.
+- Entry is eligible on the next M15 bar only, using the existing Wave3 breakout trigger: the next bar must reach the frozen entry level; fill at the greater of next-bar open and trigger level, plus that bar's recorded spread and one-side slippage.
+- Long stop distance is fixed at $5.00 from executable entry; target distance is $11.00 (2.2R); maximum holding period is 12 bars.
+- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. A time exit uses the final close, the applicable spread, and one-side exit slippage.
+- Persist signal, entry and exit indices/timestamps; barrier prices; exit reason; gross P&L; spread; entry/exit slippage; commission; net P&L; R multiple; MAE/MFE; bars held; and ambiguity flags.
+
+### Cost and provenance blockers
+The current pipeline constants show slippage of $0.02 per side and commission of $0.00 per lot per side, with the comment that the account commission is unverified. Therefore **net expectancy cannot be called fully cost-validated** until the Exness Demo account's actual commission schedule is evidenced. Keep commission as an explicit configurable input with provenance; do not silently treat zero as a verified cost. Swap is omitted only under the current 12-bar maximum-hold assumption and must be revisited if that horizon changes.
+
+### Label construction and leakage controls
+- Build outcomes only for eligible causal BUY setup events; do not invent SELL rules.
+- Triple-barrier classes are `stop_first`, `target_first`, and `time_exit`; keep same-bar dual-touch as a separate ambiguity flag while assigning stop-first for conservative realized outcome.
+- Store both gross and net realized outcomes. Do not use future OHLC to populate signal-time features.
+- A label is usable for training only after its exit timestamp is known. Purge training samples whose outcome interval intersects validation/test; purge at least the maximum 12-bar outcome horizon and apply chronological embargo at fold boundaries.
+- Do not allow overlapping active positions to create overlapping outcome labels unless a separate, explicitly tested overlap policy is preregistered. The baseline policy is one active position at a time, matching the existing simulator.
+- Keep this target in a challenger-only dataset/schema/manifest. Report class balance, eligible event count, censored/incomplete events, barrier ambiguity, fold-wise outcomes and net-cost metrics.
+
+**P2 implementation gate:** implement the target builder and deterministic synthetic tests (next-bar entry, stop-first dual touch, target-first, time exit, spread/slippage/commission accounting, one-position overlap, end-of-data censoring, chronological purge/embargo). Run those tests before fitting any model. No training or final-OOS access is authorized until P2 tests and commission provenance are complete.
