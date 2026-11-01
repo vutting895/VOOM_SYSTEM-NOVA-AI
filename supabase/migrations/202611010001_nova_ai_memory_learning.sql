@@ -180,17 +180,20 @@ language plpgsql security invoker set search_path = public, pg_temp as $$
 declare
   v_user_id uuid := auth.uid();
   v_retention_days integer;
+  v_memory_enabled boolean;
 begin
   if v_user_id is null then raise exception 'authentication_required' using errcode = '28000'; end if;
-  select retention_days into v_retention_days from public.nova_ai_memory_settings
-    where user_id = v_user_id and memory_enabled = true;
+  select retention_days, memory_enabled into v_retention_days, v_memory_enabled
+    from public.nova_ai_memory_settings where user_id = v_user_id;
   if v_retention_days is null then return; end if;
-  delete from public.nova_ai_memory_messages where user_id = v_user_id
-    and created_at < now() - make_interval(days => v_retention_days);
-  delete from public.nova_ai_memory_threads where user_id = v_user_id
-    and updated_at < now() - make_interval(days => v_retention_days);
-  delete from public.nova_ai_memory_facts where user_id = v_user_id
-    and created_at < now() - make_interval(days => v_retention_days);
+  if v_memory_enabled then
+    delete from public.nova_ai_memory_messages where user_id = v_user_id
+      and created_at < now() - make_interval(days => v_retention_days);
+    delete from public.nova_ai_memory_threads where user_id = v_user_id
+      and updated_at < now() - make_interval(days => v_retention_days);
+    delete from public.nova_ai_memory_facts where user_id = v_user_id
+      and created_at < now() - make_interval(days => v_retention_days);
+  end if;
   delete from public.nova_ai_learning_feedback where user_id = v_user_id
     and created_at < now() - make_interval(days => v_retention_days);
 end;
