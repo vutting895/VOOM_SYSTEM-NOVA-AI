@@ -249,3 +249,138 @@ export function calculatePriceAnalysis(inputBars) {
     ]
   };
 }
+
+
+/**
+ * Confirmed-swing market structure analysis (BOS/CHoCH/FVG).
+ * The newest potentially unfinished bar is excluded. This is structural
+ * research output only; it never creates an executable signal.
+ */
+export function calculateSmcAnalysis(inputBars, left = 2, right = 2) {
+  if (!Array.isArray(inputBars)) throw new TypeError("Bars must be an array");
+  if (!Number.isInteger(left) || left < 1 || left > 5 ||
+      !Number.isInteger(right) || right < 1 || right > 5) {
+    throw new TypeError("swing_left and swing_right must be integers from 1 to 5");
+  }
+
+  const validBars = inputBars.map(normalizeBar).filter(Boolean);
+  const bars = validBars.length > 1 ? validBars.slice(0, -1) : [];
+  if (bars.length < 10) {
+    return {
+      ready: false,
+      reason: "SMC requires at least 10 completed, valid OHLC bars.",
+      barsUsed: bars.length,
+      swingPoints: [],
+      structureEvents: [],
+      fairValueGaps: [],
+      executionEnabled: false,
+      liveTradingEnabled: false,
+      ordersEnabled: false
+    };
+  }
+
+  const pivots = [];
+  for (let index = left; index < bars.length - right; index += 1) {
+    const window = bars.slice(index - left, index + right + 1);
+    const high = bars[index].high;
+    const low = bars[index].low;
+    if (window.filter((bar) => bar.high === high).length === 1 &&
+        window.every((bar) => bar.high <= high)) {
+      pivots.push({ index, confirmedAt: index + right, kind: "high", price: high });
+    }
+    if (window.filter((bar) => bar.low === low).length === 1 &&
+        window.every((bar) => bar.low >= low)) {
+      pivots.push({ index, confirmedAt: index + right, kind: "low", price: low });
+    }
+  }
+  pivots.sort((a, b) => a.index - b.index || a.kind.localeCompare(b.kind));
+
+  const structureEvents = [];
+  const broken = new Set();
+  let lastHigh = null;
+  let lastLow = null;
+  let structureBias = null;
+  let pivotCursor = 0;
+
+  for (let index = 0; index < bars.length; index += 1) {
+    while (pivotCursor < pivots.length && pivots[pivotCursor].confirmedAt === index) {
+      const pivot = pivots[pivotCursor];
+      if (pivot.kind === "high") lastHigh = pivot;
+      else lastLow = pivot;
+      pivotCursor += 1;
+    }
+
+    const close = bars[index].close;
+    if (lastHigh && index > lastHigh.confirmedAt && close > lastHigh.price &&
+        !broken.has("high:" + lastHigh.index)) {
+      const direction = "bullish";
+      structureEvents.push({
+        index,
+        time: bars[index].time,
+        type: structureBias && structureBias !== direction ? "CHoCH" : "BOS",
+        direction,
+        level: lastHigh.price,
+        brokenPivotIndex: lastHigh.index
+      });
+      structureBias = direction;
+      broken.add("high:" + lastHigh.index);
+    }
+
+    if (lastLow && index > lastLow.confirmedAt && close < lastLow.price &&
+        !broken.has("low:" + lastLow.index)) {
+      const direction = "bearish";
+      structureEvents.push({
+        index,
+        time: bars[index].time,
+        type: structureBias && structureBias !== direction ? "CHoCH" : "BOS",
+        direction,
+        level: lastLow.price,
+        brokenPivotIndex: lastLow.index
+      });
+      structureBias = direction;
+      broken.add("low:" + lastLow.index);
+    }
+  }
+
+  const fairValueGaps = [];
+  for (let index = 2; index < bars.length; index += 1) {
+    const first = bars[index - 2];
+    const current = bars[index];
+    if (current.low > first.high) {
+      fairValueGaps.push({
+        index,
+        time: current.time,
+        direction: "bullish",
+        low: first.high,
+        high: current.low
+      });
+    }
+    if (current.high < first.low) {
+      fairValueGaps.push({
+        index,
+        time: current.time,
+        direction: "bearish",
+        low: current.high,
+        high: first.low
+      });
+    }
+  }
+
+  return {
+    ready: true,
+    barsUsed: bars.length,
+    latestStructureBias: structureBias || "unconfirmed",
+    swingPoints: pivots.slice(-30),
+    structureEvents: structureEvents.slice(-30),
+    fairValueGaps: fairValueGaps.slice(-30),
+    limitations: [
+      "Confirmed-swing BOS/CHoCH and three-candle FVG heuristics; not a complete institutional-order-flow model.",
+      "The latest potentially unfinished candle is excluded.",
+      "OB, liquidity sweeps, news, spread and Wave3/Fibonacci gates are not evaluated by this function.",
+      "Structure labels are research context, not a trade signal or performance claim."
+    ],
+    executionEnabled: false,
+    liveTradingEnabled: false,
+    ordersEnabled: false
+  };
+}
