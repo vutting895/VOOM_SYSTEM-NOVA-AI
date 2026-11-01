@@ -160,3 +160,30 @@ This is a diagnostic baseline for designing P3; it is not a challenger result an
 - All five walk-forward folds remain below their own majority baselines; final OOS accuracy 41.0602% vs 45.9708%, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 trades, net $0, PF unavailable.
 
 P3 remains pending. Next work must use chronological inner-validation folds only for grouped permutation/ablation and XGB/LSTM calibration, with final OOS untouched. Do not change benchmark labels, class weights, frozen entry/risk/news gates or use final OOS to choose features/calibration.
+
+
+## 5. FVG semantics decision record (2026-11-01)
+
+### Frozen benchmark behavior — preserve exactly
+The v6.2.6.3 benchmark currently selects the most recently created bullish FVG and treats any candle-range overlap with that zone as `bull_fvg_fill` while its age is 1–48 bars. The current feature calculation does **not** deactivate that zone after full mitigation; full mitigation is separately diagnosed when the candle low trades through the lower boundary. Therefore a later overlap/re-touch can still satisfy the historical benchmark feature. This is a description of existing behavior, not an endorsement that it is the best market-structure definition.
+
+Do not change this behavior, the 48-bar lookback, SMC weights, score threshold, or any entry/risk/news gate in the frozen benchmark. Reproduction of the benchmark must retain this exact behavior and its historical artifacts.
+
+### Preregistered challenger-only research question
+On training and inner chronological validation only, compare separately named FVG event definitions without altering the benchmark feature:
+1. `first_touch_only`: count only the first overlap after FVG creation; no subsequent re-touch counts as a new fill.
+2. `first_full_mitigation_only`: record the first trade through the full-gap boundary as the terminal mitigation event; subsequent re-touches do not reactivate the original gap.
+3. `repeat_touch_within_48`: retain the existing overlap/re-touch semantics as the comparator.
+
+These are distinct event labels/features for a preregistered challenger, not a reason to change the frozen SMC scoring contract. Report event counts, candidate alignment, chronological fold stability, and net-cost trade outcomes. Do not select a definition from final OOS. A challenger must have its own feature schema/version and manifest so benchmark and challenger outputs cannot be mixed.
+
+### Required causal tests before implementation
+- An FVG cannot be visible before its third candle closes and its origin index is confirmed.
+- First-touch index is immutable after first overlap; later overlaps cannot rewrite it.
+- Full-mitigation index is immutable after the first lower-boundary trade-through.
+- A post-full-mitigation re-touch is marked as a retouch and never misreported as the first touch.
+- A newly created FVG supersedes the prior active FVG only from the creation bar close onward.
+- No feature at bar *t* reads high/low/close from bars later than *t*.
+- The frozen benchmark's `bull_fvg_fill` outputs remain byte-for-byte unchanged under diagnostic-only additions.
+
+**Gate:** P1 FVG semantics is considered documented, but implementation remains blocked until these tests pass on a separate challenger path. No training, merge, deployment, broker order, or live trading is authorized by this note.
