@@ -79,8 +79,32 @@ def validate_ohlcv(
                 if not allow_session_gaps or delta < interval or delta % interval != 0:
                     raise ValueError("missing or irregular candle interval; quarantine this dataset")
         previous = timestamp
+        if "spread" in row:
+            try:
+                spread = float(row["spread"])
+            except (TypeError, ValueError):
+                raise ValueError(f"bar {index} has invalid spread") from None
+            if not math.isfinite(spread) or spread < 0:
+                raise ValueError(f"bar {index} has invalid spread")
+            values["spread"] = spread
         output.append({"time": timestamp.isoformat().replace("+00:00", "Z"), **values})
     return output
+
+
+def _spread_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    values = sorted(float(row["spread"]) for row in rows if "spread" in row)
+    if not values:
+        return {"present": False, "unit": None, "count": 0}
+    return {
+        "present": True,
+        "unit": "symbol_points",
+        "count": len(values),
+        "min": values[0],
+        "median": float(np.median(values)),
+        "p95": values[int(0.95 * (len(values) - 1))],
+        "max": values[-1],
+        "zeroCount": sum(value == 0 for value in values),
+    }
 
 
 def _segment_ids(rows: list[dict[str, Any]], timeframe: str) -> list[int]:
@@ -313,6 +337,7 @@ def train_candidate(
             "symbol": symbol.strip(), "timeframe": timeframe,
             "gapPolicy": "segment_on_interval_gap" if allow_session_gaps else "strict_contiguous",
             "intervalGaps": _gap_summary(bars, timeframe),
+            "spread": _spread_summary(bars),
             "datasetSha256": _canonical_hash(bars),
             "featureManifestSha256": feature_manifest_sha256,
             "barsUsed": len(bars), "firstBarAt": bars[0]["time"], "lastClosedBarAt": bars[-1]["time"],
