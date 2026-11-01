@@ -144,7 +144,7 @@ Final OOS remains untouched from 2026-07-01: 7,942 samples, accuracy 41.3246%, b
 
 ### Calendar byte provenance distinction
 
-The canonical Git-tracked file was independently fetched as base64 and SHA-256 computed over its decoded bytes; the result matches the run #3 manifest/report. A prior PR description states the terminal-side CSV was 388,313 bytes and gives `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c` as its SHA-256, but that string is only 58 hexadecimal characters and is not a valid SHA-256 digest. The 2,167-byte size delta equals the number of CSV lines including the header and is consistent with CRLF-to-LF normalization, but does not prove that the original terminal bytes are identical. Do not overwrite either value or claim raw-terminal byte equivalence. Obtain the original Common Files CSV and Experts log to complete that verification.
+The canonical Git-tracked file and the raw Exness MT5 Common Files CSV were independently inspected. The terminal file is 388,313 bytes, CRLF-only (2,167 CRLF sequences), with raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. Replacing CRLF with LF only yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, exactly matching the canonical Git file and the run #3/#6 manifest. The earlier PR note contained a truncated 58-character digest; the raw and normalized byte-level provenance is now reconciled.
 
 ### Independent preflight
 
