@@ -19,7 +19,7 @@ Trading Intelligence is the analysis workspace, separate from the general Market
 
 ## Current implementation in this branch
 
-- `/trading-intelligence` provides an authenticated market-data selector, candlestick chart, EMA 12/26 context, RSI 14 and a 20-bar price range.
+- `/trading-intelligence` provides an authenticated market-data selector, candlestick chart, EMA 12/26 context, RSI 14, a 20-bar price range, and confirmed-swing SMC BOS/CHoCH plus three-candle FVG heuristics.
 - Exness MT5 reads use the signed-in user's existing Demo connection through `mt5_quotes`; the Remote MCP Worker and MT5 proxy enforce Supabase ownership and the dedicated tenant Bridge route. Pending, unprovisioned, unauthenticated and unavailable states are shown as unavailable; no price is fabricated.
 - Binance public OHLCV is available as a public research source for verifying the UI and analysis pipeline. It is explicitly labelled as Binance data, not Exness or customer-account data.
 - The Next.js API route forwards only a fixed set of typed tool calls to the fixed Remote MCP endpoint. The browser cannot select an upstream URL or arbitrary MCP tool.
