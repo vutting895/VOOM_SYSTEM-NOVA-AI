@@ -154,14 +154,16 @@ class StrategyBacktestEngine:
         equity_curve: list[dict[str, Any]] = []
         trades: list[dict[str, Any]] = []
         total_fees = 0.0
+        total_execution_costs = 0.0
         pending_signal_count = 0
 
         def commission(notional: float) -> float:
             return notional * self.fee_bps / 10_000
 
         def close_position(raw_price: float, timestamp: str, signal_index: int, reason: str) -> None:
-            nonlocal cash, quantity, total_fees
+            nonlocal cash, quantity, total_fees, total_execution_costs
             exit_fill = self._fill_price(raw_price, "sell")
+            total_execution_costs += abs(exit_fill - raw_price) * quantity
             exit_notional = quantity * exit_fill
             exit_fee = commission(exit_notional)
             cash += exit_notional - exit_fee
@@ -191,8 +193,8 @@ class StrategyBacktestEngine:
                     raw_price = bar["open"]
                     fill = self._fill_price(raw_price, "buy")
                     budget = cash * self.allocation_fraction
-                    fee = commission(budget)
                     quantity = budget / (fill * (1 + self.fee_bps / 10_000))
+                    total_execution_costs += abs(fill - raw_price) * quantity
                     entry_notional = quantity * fill
                     entry_fee = commission(entry_notional)
                     cash -= entry_notional + entry_fee
@@ -236,14 +238,15 @@ class StrategyBacktestEngine:
             "wins": sum(value > 0 for value in profits),
             "losses": sum(value < 0 for value in profits),
             "win_rate_pct": round(100 * sum(value > 0 for value in profits) / len(trades), 4) if trades else 0.0,
-            "gross_profit": round(gains, 8),
-            "gross_loss": round(losses, 8),
+            "winning_net_pnl": round(gains, 8),
+            "losing_net_pnl": round(losses, 8),
             "net_profit": round(net_profit, 8),
             "net_return_pct": round(net_profit / self.initial_cash * 100, 6),
             "profit_factor": round(gains / losses, 6) if losses else (None if not gains else "undefined_no_losses"),
             "max_drawdown_pct": round(max_drawdown * 100, 6),
             "final_equity": round(final_equity, 8),
             "total_fees": round(total_fees, 8),
+            "total_spread_slippage_cost": round(total_execution_costs, 8),
             "costs_bps": {"fee": self.fee_bps, "spread": self.spread_bps, "slippage": self.slippage_bps},
             "pending_final_signal": bool(pending_signal_count),
             "equity_curve": equity_curve,
