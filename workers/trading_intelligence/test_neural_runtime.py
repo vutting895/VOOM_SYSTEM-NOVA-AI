@@ -52,6 +52,54 @@ class NeuralRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "include a timezone"):
             validate_ohlcv(bars, "M5")
 
+    def test_session_gaps_split_features_and_never_bridge_sequences_or_labels(self):
+        bars = make_bars(320)
+        for row in bars[150:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=1)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
+
+        with self.assertRaisesRegex(ValueError, "missing or irregular"):
+            validate_ohlcv(bars, "M5")
+
+        accepted = validate_ohlcv(bars, "M5", allow_session_gaps=True)
+        features, valid = build_causal_features(accepted, timeframe="M5")
+        self.assertTrue(math.isnan(float(features[150][0])))
+        self.assertNotIn(150, valid)
+        self.assertIn(170, valid)
+
+        artifact, manifest = train_candidate(
+            bars, "XAUUSDm", "M5", sequence_length=16, horizon=3,
+            epochs=1, hidden_size=8, seed=11, allow_session_gaps=True,
+        )
+        self.assertEqual(manifest["data"]["gapPolicy"], "segment_on_interval_gap")
+        self.assertEqual(manifest["data"]["intervalGaps"]["intervalGapCount"], 1)
+        self.assertEqual(manifest["data"]["intervalGaps"]["gapIntervals"], [13])
+        self.assertFalse(manifest["training"]["finalOosTouched"])
+
+        newer = make_bars(321)
+        for row in newer[150:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=1)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
+        result = infer_research_candidate(
+            artifact, hashlib.sha256(artifact).hexdigest(), newer,
+            "XAUUSDm", "M5", allow_session_gaps=True,
+        )
+        self.assertTrue(result["researchOnly"])
+        self.assertFalse(result["ordersEnabled"])
+
+        with self.assertRaisesRegex(ValueError, "gap policy must match"):
+            infer_research_candidate(
+                artifact, hashlib.sha256(artifact).hexdigest(), newer,
+                "XAUUSDm", "M5", allow_session_gaps=False,
+            )
+
+        irregular = make_bars(100)
+        for row in irregular[50:]:
+            stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(seconds=3610)
+            row["time"] = stamp.isoformat().replace("+00:00", "Z")
+        with self.assertRaisesRegex(ValueError, "missing or irregular"):
+            validate_ohlcv(irregular, "M5", allow_session_gaps=True)
+
     def test_features_are_causal_and_have_a_fixed_schema(self):
         bars = make_bars()
         features, valid = build_causal_features(validate_ohlcv(bars, "M5"))
