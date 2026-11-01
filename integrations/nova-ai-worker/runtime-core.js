@@ -56,3 +56,10 @@ export async function runChatModel(env, messages) {
   }
   return { message, provider: "cloudflare-workers-ai", model, runtimeVersion: MODEL_RUNTIME_VERSION };
 }
+export function compactChatHistory(messages, maxMessages = 6, maxChars = 1800) {
+  if (!Array.isArray(messages)) return [];
+  return messages.slice(-maxMessages).map((message) => ({
+    role: message.role,
+    content: String(message.content || "").slice(-maxChars),
+  }));
+}
