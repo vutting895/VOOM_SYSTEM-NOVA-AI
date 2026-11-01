@@ -21,8 +21,8 @@
   "repository_sync": {
     "main_sha": "99d474038e19a6eab884c5c891b21770c50fefa5",
     "benchmark_branch_merge_commit": "e8b79297bf5a88cb51c08006e38787fb4f41bea3",
-    "benchmark_branch_latest_doc_commit": "08d0a4627d21ab05cb137a0ffd7f866de64e6f32",
-    "benchmark_branch_ahead_by": 39,
+    "benchmark_branch_head_at_audit": "23c9e7d1507166227963ffeea15241320bef54a8",
+    "benchmark_branch_ahead_by": 46,
     "benchmark_branch_behind_by": 0,
     "pr66_state": "open_draft_unmerged"
   },
