@@ -202,6 +202,11 @@ def train_candidate(
 
     train_x, train_y = tensors(partitions["train"])
     val_x, val_y = tensors(partitions["validation"])
+    # Fit normalization on training sequences only; never estimate it from validation or holdout.
+    feature_mean = train_x.mean(dim=(0, 1))
+    feature_std = train_x.std(dim=(0, 1), unbiased=False).clamp_min(1e-6)
+    train_x = (train_x - feature_mean) / feature_std
+    val_x = (val_x - feature_mean) / feature_std
     loader = DataLoader(TensorDataset(train_x, train_y), batch_size=32, shuffle=True, generator=torch.Generator().manual_seed(seed))
     best_loss = float("inf")
     best_state = None
@@ -252,7 +257,14 @@ def train_candidate(
             "finalOosBarsSha256": _canonical_hash(bars[partitions["final_oos_reserved"][0]:]),
             "finalOosTouched": False,
         },
-        "featureManifest": feature_manifest,
+        "featureManifest": {
+            **feature_manifest,
+            "normalization": {
+                "mean": feature_mean.tolist(),
+                "std": feature_std.tolist(),
+                "fittedOn": "training_partition_only",
+            },
+        },
         "evaluation": {"status": "not_evaluated", "finalOosStatus": "reserved_untouched", "promotable": False},
         "safety": {"executionEnabled": False, "liveTradingEnabled": False, "ordersEnabled": False},
     }
@@ -300,6 +312,10 @@ def infer_research_candidate(
         raise ValueError("not enough valid causal features for inference")
     end = usable[-1]
     sequence = torch.tensor(features[end - sequence_length + 1:end + 1][None, :, :], dtype=torch.float32)
+    normalization = manifest["featureManifest"]["normalization"]
+    mean = torch.tensor(normalization["mean"], dtype=torch.float32)
+    std = torch.tensor(normalization["std"], dtype=torch.float32)
+    sequence = (sequence - mean) / std
     with torch.no_grad():
         probabilities = torch.softmax(model(sequence), dim=-1)[0].cpu().numpy()
     probabilities = probabilities / probabilities.sum()
