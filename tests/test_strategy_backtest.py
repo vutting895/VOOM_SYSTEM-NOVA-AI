@@ -109,6 +109,22 @@ class StrategyBacktestTests(unittest.TestCase):
         with self.assertRaises(MarketDataError):
             normalize_mt5_quote_payload(payload)
 
+
+    def test_vectorbt_adapter_is_optional_and_fails_clearly_without_dependency(self):
+        import sys
+        from unittest.mock import patch
+        from vectorbt_adapter import OptionalDependencyError, run_vectorbt_benchmark
+        with patch.dict(sys.modules, {"vectorbt": None}):
+            with self.assertRaises(OptionalDependencyError):
+                run_vectorbt_benchmark(sample_candles(), [0, 0, 0, 0, 0])
+
+    def test_signal_values_must_be_integer_enum(self):
+        candles = sample_candles()
+        with self.assertRaises(BacktestInputError):
+            StrategyBacktestEngine().run(candles, [True, 0, 0, 0, 0])
+        with self.assertRaises(BacktestInputError):
+            StrategyBacktestEngine().run(candles, [1.0, 0, 0, 0, 0])
+
     def test_dataset_hash_and_results_are_deterministic(self):
         engine = StrategyBacktestEngine()
         candles = sample_candles()
