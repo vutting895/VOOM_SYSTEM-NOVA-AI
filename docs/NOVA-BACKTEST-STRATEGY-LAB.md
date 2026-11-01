@@ -8,6 +8,11 @@ Status: architecture contract + UI configuration preview. A full strategy simula
 - The Backtest UI must never label this baseline as a Wave3, SMC, XGBoost, or Neural Network strategy backtest.
 - The new Strategy Lab controls are configuration preview only; they are not persisted and do not submit a strategy job.
 
+## Existing implementation audit
+- `workers/backtest/engine_prototype.py` contains a deterministic EMA-crossover research prototype with fee/slippage parameters and an equity curve. It is not yet connected to the authenticated `/api/backtest` route or the Strategy Lab UI.
+- The SMC feature area has a separate research backtest path with unit tests, but it is not yet composed into one versioned experiment runner with shared data provenance, cost assumptions, walk-forward folds, and immutable result records.
+- The existing API/UI baseline remains a separate buy-and-hold calculation. Do not present either prototype as a verified Wave3/SMC/XGBoost/LSTM result or enable the Strategy Backtest button until the integration and acceptance gates below are implemented and tested.
+
 ## Target architecture
 1. **Read-only data adapters**: Exness Demo MT5 OHLCV and explicitly labelled Binance public OHLCV. Normalize symbol, timeframe, timezone, finalized candle status, provider timestamp, spread points, and dataset hash.
 2. **Dataset validator**: reject duplicate/reversed timestamps, impossible OHLC, missing/ambiguous intervals, stale bars, symbol/timeframe mismatch, and unfinished candles. Session gaps require an explicit broker calendar policy; never synthesize candles.
