@@ -44,30 +44,48 @@ function safeResult(value) {
         key === "currency" ? typeof item !== "string" || item.length > 12 : typeof item !== "number" || !Number.isFinite(item)))) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
   }
-  if (value.quotes && (!Array.isArray(value.quotes) || value.quotes.length > 500 ||
-      value.quotes.some(item => !only(item, new Set(["symbol", "bid", "ask", "timestamp"])) ||
-        typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
-        typeof item.bid !== "number" || !Number.isFinite(item.bid) ||
-        typeof item.ask !== "number" || !Number.isFinite(item.ask) ||
-        (item.timestamp !== undefined &&
-          (typeof item.timestamp !== "string" || Number.isNaN(Date.parse(item.timestamp)))))) {
-    throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.quotes !== undefined) {
+    if (!Array.isArray(value.quotes) || value.quotes.length > 500) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
+    for (const item of value.quotes) {
+      if (!only(item, new Set(["symbol", "bid", "ask", "timestamp"])) ||
+          typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
+          typeof item.bid !== "number" || !Number.isFinite(item.bid) ||
+          typeof item.ask !== "number" || !Number.isFinite(item.ask)) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+      if (item.timestamp !== undefined &&
+          (typeof item.timestamp !== "string" || Number.isNaN(Date.parse(item.timestamp)))) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+    }
   }
-  if (value.positions && (!Array.isArray(value.positions) || value.positions.length > 500 ||
-      value.positions.some(item => !only(item, new Set(["symbol", "side", "volume", "unrealized_pnl"])) ||
-        typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
-        !["long", "short"].includes(item.side) ||
-        typeof item.volume !== "number" || !Number.isFinite(item.volume) ||
-        (item.unrealized_pnl !== undefined &&
-          (typeof item.unrealized_pnl !== "number" || !Number.isFinite(item.unrealized_pnl)))))) {
-    throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.positions !== undefined) {
+    if (!Array.isArray(value.positions) || value.positions.length > 500) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
+    for (const item of value.positions) {
+      if (!only(item, new Set(["symbol", "side", "volume", "unrealized_pnl"])) ||
+          typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
+          !["long", "short"].includes(item.side) ||
+          typeof item.volume !== "number" || !Number.isFinite(item.volume)) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+      if (item.unrealized_pnl !== undefined &&
+          (typeof item.unrealized_pnl !== "number" || !Number.isFinite(item.unrealized_pnl))) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+    }
   }
-  if (value.rotation && (!only(value.rotation, new Set(["state", "generation"])) ||
-      (value.rotation.state !== undefined &&
-        !["ROTATION_REQUIRED", "ROTATING", "ROTATED", "ROTATION_UNSUPPORTED", "REVOKED"].includes(value.rotation.state)) ||
-      (value.rotation.generation !== undefined &&
-        (!Number.isInteger(value.rotation.generation) || value.rotation.generation < 1)))) {
-    throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.rotation !== undefined) {
+    if (!only(value.rotation, new Set(["state", "generation"])) ||
+        (value.rotation.state !== undefined &&
+          !["ROTATION_REQUIRED", "ROTATING", "ROTATED", "ROTATION_UNSUPPORTED", "REVOKED"].includes(value.rotation.state)) ||
+        (value.rotation.generation !== undefined &&
+          (!Number.isInteger(value.rotation.generation) || value.rotation.generation < 1))) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
   }
   return structuredClone(value);
 }
