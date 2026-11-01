@@ -4,8 +4,8 @@
   "generated_utc": "2026-11-01",
   "source": {
     "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
-    "benchmark_pr": 66,
     "training_workflow_run_id": 41184502320,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320",
     "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
     "artifact_id": 13036729349,
     "artifact_archive_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4",
@@ -14,7 +14,7 @@
     "manifest_path": "models/wave3_news_calendar_20261030/model_manifest.json",
     "manifest_sha256": "7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550",
     "xgb_model_sha256": "c8d31e85090e2190438ac5e3b9941217f12acef81ab74da02df42b182a8dad34",
-    "pytorch_lstm_sha256": "9c447d7da349d6736e9f9bbdcbd019253c6ef7e56436214aea485eb09a02e8c5",
+    "lstm_model_sha256": "9c447d7da349d6736e9f9bbdcbd019253c6ef7e56436214aea485eb09a02e8c5",
     "tuning_history_sha256": "0d96e4f0adf6f66d83b5a558ac11390ba94b1b51b44a8b8895d9b44e7c4efbf0",
     "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
     "calendar_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37"
@@ -22,69 +22,64 @@
   "methodology": {
     "symbol": "XAUUSDm",
     "timeframe": "M15",
-    "data_bars": 101076,
+    "bars": 101076,
     "usable_labeled_rows": 100965,
-    "train_rows": 93015,
+    "training_rows": 93015,
     "training_last_label_timestamp_utc": "2026-06-30T20:45:00+00:00",
     "final_oos_start_utc": "2026-07-01T00:00:00+00:00",
     "final_oos_end_utc": "2026-10-29T13:45:00+00:00",
     "final_oos_rows": 7942,
     "label_horizon_bars": 12,
-    "label_threshold": "max(2 * recorded bar spread, 0.35 * ATR14 * sqrt(horizon))",
+    "lstm_sequence_length_bars": 60,
     "nested_walk_forward": true,
     "inner_validation_folds": 2,
     "purge_bars": 12,
     "final_oos_used_for_tuning": false,
     "strategy_gates_tuned": false
   },
-  "label_distribution": {
-    "labels": [
+  "labels": {
+    "order": [
       "short",
       "hold",
       "long"
     ],
-    "train": {
-      "counts": {
-        "short": 23193,
-        "hold": 43363,
-        "long": 26459
-      },
-      "percent": {
-        "short": 24.93,
-        "hold": 46.62,
-        "long": 28.45
-      }
+    "train_counts": {
+      "short": 23193,
+      "hold": 43363,
+      "long": 26459
     },
-    "final_oos_actual": {
-      "counts": {
-        "short": 2198,
-        "hold": 3651,
-        "long": 2093
-      },
-      "percent": {
-        "short": 27.68,
-        "hold": 45.97,
-        "long": 26.35
-      }
+    "train_pct": {
+      "short": 24.93,
+      "hold": 46.62,
+      "long": 28.45
     },
-    "final_oos_predicted": {
-      "counts": {
-        "short": 3286,
-        "hold": 3241,
-        "long": 1415
-      },
-      "percent": {
-        "short": 41.37,
-        "hold": 40.81,
-        "long": 17.82
-      }
+    "final_oos_actual_counts": {
+      "short": 2198,
+      "hold": 3651,
+      "long": 2093
     },
-    "interpretation": "Training and OOS label proportions are broadly similar, with Hold the largest class. The prediction distribution is skewed: Short is over-predicted by 13.69 percentage points versus actual, while Long is under-predicted by 8.53 points."
+    "final_oos_actual_pct": {
+      "short": 27.68,
+      "hold": 45.97,
+      "long": 26.35
+    },
+    "final_oos_predicted_counts": {
+      "short": 3286,
+      "hold": 3241,
+      "long": 1415
+    },
+    "final_oos_predicted_pct": {
+      "short": 41.37,
+      "hold": 40.81,
+      "long": 17.82
+    },
+    "long_recall_pct": 20.1147,
+    "interpretation": "Train and OOS class proportions are broadly similar; prediction output is skewed. Short is over-predicted by 13.69 percentage points versus actual and Long is under-predicted by 8.53 points."
   },
-  "final_oos_classification": {
+  "final_oos": {
     "accuracy_pct": 41.0602,
-    "majority_baseline_accuracy_pct": 45.9708,
-    "accuracy_gap_percentage_points": -4.9106,
+    "majority_baseline_pct": 45.9708,
+    "accuracy_gap_pp": -4.9106,
     "balanced_accuracy_pct": 38.8382,
     "macro_f1_pct": 38.0253,
     "confusion_matrix_actual_rows_predicted_columns": [
@@ -124,7 +119,10 @@
         "support": 2093
       }
     },
-    "long_recall_pct": 20.1147
+    "closed_trades": 0,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "news_safe_rows": 7421
   },
   "walk_forward": [
     {
@@ -173,91 +171,93 @@
       "closed_trades": 0
     }
   ],
-  "xgb_feature_importance": {
-    "method": "Booster gain from the serialized final pre-2026-07-01 XGBoost model; descriptive only, not causal attribution",
-    "top_gain_features": [
+  "xgb": {
+    "model_features": 89,
+    "importance_type": "gain",
+    "total_gain": 989.4483,
+    "top_features": [
       {
-        "feature": "hour_sin",
+        "name": "hour_sin",
         "gain": 101.5095,
-        "gain_share_pct": 10.26
+        "share_pct": 10.26
       },
       {
-        "feature": "volume_gate",
+        "name": "volume_gate",
         "gain": 63.9834,
-        "gain_share_pct": 6.47
+        "share_pct": 6.47
       },
       {
-        "feature": "hour_cos",
+        "name": "hour_cos",
         "gain": 38.9542,
-        "gain_share_pct": 3.94
+        "share_pct": 3.94
       },
       {
-        "feature": "log_volume",
+        "name": "log_volume",
         "gain": 22.8648,
-        "gain_share_pct": 2.31
+        "share_pct": 2.31
       },
       {
-        "feature": "realized_vol_24",
+        "name": "realized_vol_24",
         "gain": 22.282,
-        "gain_share_pct": 2.25
+        "share_pct": 2.25
       },
       {
-        "feature": "atr_price",
+        "name": "atr_price",
         "gain": 21.5007,
-        "gain_share_pct": 2.17
+        "share_pct": 2.17
       },
       {
-        "feature": "weekday_sin",
+        "name": "weekday_sin",
         "gain": 21.1818,
-        "gain_share_pct": 2.14
+        "share_pct": 2.14
       },
       {
-        "feature": "bear_ob_within5",
+        "name": "bear_ob_within5",
         "gain": 21.0033,
-        "gain_share_pct": 2.12
+        "share_pct": 2.12
       },
       {
-        "feature": "wave3_long_zone",
+        "name": "wave3_long_zone",
         "gain": 19.7662,
-        "gain_share_pct": 2
+        "share_pct": 2
       },
       {
-        "feature": "spread_price",
+        "name": "spread_price",
         "gain": 18.0203,
-        "gain_share_pct": 1.82
+        "share_pct": 1.82
       },
       {
-        "feature": "realized_vol_48",
+        "name": "realized_vol_48",
         "gain": 17.3557,
-        "gain_share_pct": 1.75
+        "share_pct": 1.75
       },
       {
-        "feature": "spread_pct",
+        "name": "spread_pct",
         "gain": 17.0269,
-        "gain_share_pct": 1.72
+        "share_pct": 1.72
       },
       {
-        "feature": "volume_z_48",
+        "name": "volume_z_48",
         "gain": 16.0683,
-        "gain_share_pct": 1.62
+        "share_pct": 1.62
       },
       {
-        "feature": "atr_pct",
+        "name": "atr_pct",
         "gain": 15.8817,
-        "gain_share_pct": 1.61
+        "share_pct": 1.61
       },
       {
-        "feature": "realized_vol_12",
+        "name": "realized_vol_12",
         "gain": 15.6736,
-        "gain_share_pct": 1.58
+        "share_pct": 1.58
       }
     ],
     "grouped_gain_share_pct": {
-      "time_features_hour_weekday": 17.635,
-      "volume_spread_features": 16.8889,
-      "structural_wave_smc_fib_features": 22.2802
+      "time_of_day_and_weekday": 17.635,
+      "volume_and_spread": 16.8889,
+      "structural_wave_smc_fib": 22.2802
     },
-    "interpretation": "The largest individual gains are time-of-day, volume, volatility and spread features; structural/Wave3/SMC/Fib features collectively contribute about 22.28% of gain. This is not causal evidence; confirm only with chronological inner-fold permutation/ablation."
+    "interpretation": "The largest individual gains are time-of-day, volume, volatility and spread features. Gain importance is descriptive, not causal; confirm with chronological inner-fold permutation/ablation only."
   },
   "lstm": {
     "architecture": "PyTorch LSTMClassifier, two 32-unit layers, 60-bar sequence",
@@ -268,42 +268,42 @@
       0.957818,
       0.897545
     ],
-    "feature_attribution": "not present in the artifact",
-    "validation_loss_curve": "not present in the manifest",
-    "calibration": "not reported"
+    "validation_loss_curve_available": false,
+    "feature_attribution_available": false,
+    "calibration_available": false
   },
   "calibration": {
-    "status": "not_performed_or_not_reported",
+    "status": "not_reported",
     "brier_score": null,
     "expected_calibration_error": null,
     "reliability_curve": null,
-    "note": "Raw direction-class probabilities are not calibrated trade-win probabilities."
+    "note": "Direction-class probabilities are uncalibrated and are not trade-win probabilities."
   },
   "performance_gate": {
     "passed": false,
-    "closed_oos_trades": 0,
     "minimum_closed_oos_trades": 30,
-    "net_profit_usd": 0,
-    "profit_factor": null,
+    "observed_closed_oos_trades": 0,
+    "positive_net_profit": false,
+    "profit_factor_above_1": false,
     "accuracy_above_baseline": false,
-    "all_five_walk_forward_folds_above_baseline": false,
+    "all_walk_forward_folds_above_baseline": false,
     "production_eligible": false
   },
-  "interpretation": [
-    "The train and OOS class distributions are not radically different; the larger observed issue is the prediction distribution, especially under-prediction of Long and over-prediction of Short.",
-    "All five chronological walk-forward folds underperform their own majority baselines, with the largest gap in 2025-H2.",
-    "XGB gain is concentrated in time, volume, volatility and spread features; this needs inner-fold-only permutation/ablation before changing feature design.",
-    "LSTM training loss decreases, but no validation-loss curve, LSTM feature attribution or probability-calibration metrics are supplied; overfit/calibration quality therefore cannot be established.",
-    "No tuning, calibration, feature selection or threshold selection used the final OOS."
+  "conclusions": [
+    "The training and OOS label proportions are similar enough that label-prior shift alone does not explain the model's poor performance.",
+    "The predicted distribution materially over-allocates Short and under-allocates Long; long recall is only 20.1147%.",
+    "All five chronological walk-forward folds underperform their own majority baseline; 2025-H2 has the largest accuracy gap at -11.3477 percentage points.",
+    "XGB gain is concentrated in time, volume, volatility and spread features; causal contribution is unproven.",
+    "LSTM training loss falls across four epochs, but the artifact contains no validation-loss curve, feature attribution or calibration metrics."
   ],
   "next_actions": [
-    "On chronological inner-validation folds only, calculate XGB and LSTM calibration diagnostics (Brier, ECE, reliability curves) and compare temperature/vector scaling or isotonic only if preregistered.",
-    "Run grouped feature permutation/ablation for time, volume/spread, volatility and structural groups on inner folds only; preserve the final OOS untouched.",
-    "Evaluate class-wise recall/precision and prediction distribution by fold and regime before considering label redesign.",
-    "Proceed to P2 first-hit/triple-barrier labels aligned to actual fixed SL/TP and net costs before any new full training."
+    "On chronological inner-validation folds only, measure XGB/LSTM calibration (Brier, ECE, reliability curves) and preregister any calibration method.",
+    "Run grouped permutation/ablation for time, volume/spread, volatility and structural groups on inner folds only.",
+    "Track class-wise recall/precision and predicted class distribution by fold/regime; do not alter labels or class weights based on final OOS.",
+    "Proceed to P2 first-hit/triple-barrier labels aligned to the actual fixed SL/TP and net costs before the next full training."
   ],
   "safety": {
-    "final_oos_touched_for_tuning": false,
+    "final_oos_used_for_tuning": false,
     "strategy_gates_changed": false,
     "orders_submitted": false,
     "live_trading_enabled": false,
