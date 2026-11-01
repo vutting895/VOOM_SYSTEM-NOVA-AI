@@ -18,9 +18,11 @@ node --test tools/secret-custody-proof/*.test.mjs
 
 The tests use synthetic identities, connection metadata, provider responses, and temporary local files. They include restart/replay, cross-owner denial, forbidden-field rejection, fingerprint conflict, concurrent duplicate claims, ambiguous outcome, response redaction, and a schema contract against the existing `broker_connections.user_id` + RLS migration.
 
+`envelope-crypto.mjs` is a runtime-neutral WebCrypto abstraction. It delegates DEK generation, unwrap, and rewrap to an injected key-provider interface; tests use ephemeral synthetic KEKs only. This is not a production KMS/HSM adapter and does not provision or retain key material.
+
 ## Proof limitations
 
-This is **not a production custodian**. The injected session verifier is a test double, not Supabase JWT verification. The connection and binding resolvers are in-memory test doubles, not a real RLS-scoped Supabase lookup or separate custodian registry. The provider adapter is synthetic and does not connect to Exness/MT5 or any provider. The file-backed ledger is a local single-process proof, not a distributed transactional database with leases/fencing or multi-worker concurrency guarantees. No credentials are stored, encrypted, decrypted, or migrated. No KMS/HSM, mTLS/workload identity, production key custody, network isolation, deployment, staging, or independent security review is proven.
+This is **not a production custodian**. The injected session verifier is a test double, not Supabase JWT verification. The connection and binding resolvers are in-memory test doubles, not a real RLS-scoped Supabase lookup or separate custodian registry. The provider adapter is synthetic and does not connect to Exness/MT5 or any provider. The file-backed ledger is a local single-process proof, not a distributed transactional database with leases/fencing or multi-worker concurrency guarantees. No real customer credentials are stored, encrypted, decrypted, or migrated; only fixed synthetic strings are exercised by local tests. No KMS/HSM, mTLS/workload identity, production key custody, network isolation, deployment, staging, or independent security review is proven.
 
 Do not treat a passing local proof as authorization to enable customer secret routes. Customer custody remains disabled; broker access remains read-only; order submission, execution, and live trading remain OFF.
 
