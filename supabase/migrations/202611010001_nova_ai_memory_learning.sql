@@ -112,7 +112,7 @@ grant select, insert, update, delete on public.nova_ai_learning_feedback to auth
 -- Serialize every opt-in write against settings changes. The row lock makes an
 -- opt-out transaction wait for in-flight writes, then delete them before commit.
 create or replace function public.nova_ai_guard_memory_write() returns trigger
-language plpgsql security invoker set search_path = public, pg_temp as $
+language plpgsql security invoker set search_path = public, pg_temp as $nova_guard$
 declare
   v_memory_enabled boolean;
   v_feedback_enabled boolean;
@@ -128,7 +128,7 @@ begin
   end if;
   return new;
 end;
-$;
+$nova_guard$;
 
 drop trigger if exists nova_ai_memory_threads_write_guard on public.nova_ai_memory_threads;
 create trigger nova_ai_memory_threads_write_guard before insert on public.nova_ai_memory_threads
@@ -146,7 +146,7 @@ create trigger nova_ai_learning_feedback_write_guard before insert on public.nov
 create or replace function public.nova_ai_update_memory_settings(
   p_memory_enabled boolean, p_feedback_enabled boolean, p_retention_days integer
 ) returns void
-language plpgsql security invoker set search_path = public, pg_temp as $
+language plpgsql security invoker set search_path = public, pg_temp as $nova_settings$
 declare
   v_user_id uuid := auth.uid();
 begin
@@ -169,7 +169,7 @@ begin
     delete from public.nova_ai_learning_feedback where user_id = v_user_id;
   end if;
 end;
-$;
+$nova_settings$;
 
 revoke all on function public.nova_ai_guard_memory_write() from public, anon;
 revoke all on function public.nova_ai_update_memory_settings(boolean, boolean, integer) from public, anon;
