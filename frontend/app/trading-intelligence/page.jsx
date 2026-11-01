@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
-import { calculatePriceAnalysis, normalizeMarketPayload } from '../../lib/trading-intelligence.mjs';
+import { calculatePriceAnalysis, calculateSmcAnalysis, normalizeMarketPayload } from '../../lib/trading-intelligence.mjs';
 import './trading-intelligence.css';
 
 const MT5_TIMEFRAMES = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1'];
 const BINANCE_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
 
 function formatPrice(value, digits = 2) {
-  if (!Number.isFinite(Number(value))) return '—';
+  if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) return '—';
   return Number(value).toLocaleString('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -88,6 +88,7 @@ export default function TradingIntelligencePage() {
   const [timeframe, setTimeframe] = useState('M5');
   const [marketData, setMarketData] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [smcAnalysis, setSmcAnalysis] = useState(null);
   const [feedState, setFeedState] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -101,6 +102,7 @@ export default function TradingIntelligencePage() {
     setTimeframe(nextSource === 'mt5' ? 'M5' : '1h');
     setMarketData(null);
     setAnalysis(null);
+    setSmcAnalysis(null);
     setFeedState('');
     setError('');
     setRetrievedAt('');
@@ -113,6 +115,7 @@ export default function TradingIntelligencePage() {
     setFeedState('กำลังตรวจสอบสิทธิ์และอ่านข้อมูลจากผู้ให้บริการ…');
     setMarketData(null);
     setAnalysis(null);
+    setSmcAnalysis(null);
 
     try {
       const supabase = getSupabaseBrowserClient();
@@ -154,6 +157,7 @@ export default function TradingIntelligencePage() {
 
       setMarketData(normalized);
       setAnalysis(calculatePriceAnalysis(normalized.bars));
+      setSmcAnalysis(calculateSmcAnalysis(normalized.bars));
       setRetrievedAt(new Date().toISOString());
       setFeedState('รับข้อมูลจากผู้ให้บริการแล้ว · Read-only');
     } catch (loadError) {
@@ -303,6 +307,47 @@ export default function TradingIntelligencePage() {
           ) : (
             <div className="ti-chart-empty">{analysis?.reason || 'โหลดข้อมูลตลาดเพื่อเริ่มการวิเคราะห์ราคาและตัวชี้วัด'}</div>
           )}
+          <div className="ti-structure-block">
+            <div className="ti-structure-heading">
+              <strong>SMC · Market Structure</strong>
+              <span>CONFIRMED SWINGS ONLY</span>
+            </div>
+            {smcAnalysis?.ready ? (
+              <>
+                <div className="ti-structure-summary">
+                  <span>Latest structure bias</span>
+                  <strong className={smcAnalysis.latestStructureBias === 'bullish' ? 'ti-positive' : smcAnalysis.latestStructureBias === 'bearish' ? 'ti-negative' : ''}>
+                    {smcAnalysis.latestStructureBias.toUpperCase()}
+                  </strong>
+                  <small>{smcAnalysis.barsUsed} completed bars · {smcAnalysis.swingPoints.length} confirmed swing points</small>
+                </div>
+                <div className="ti-structure-columns">
+                  <div>
+                    <span className="ti-structure-label">BOS / CHoCH</span>
+                    {smcAnalysis.structureEvents.length ? smcAnalysis.structureEvents.slice(-3).reverse().map((event) => (
+                      <div className="ti-structure-row" key={event.index + '-' + event.type}>
+                        <b>{event.type}</b>
+                        <span className={event.direction === 'bullish' ? 'ti-positive' : 'ti-negative'}>{event.direction}</span>
+                        <strong>{formatPrice(event.level, digits)}</strong>
+                      </div>
+                    )) : <p className="ti-structure-empty">ยังไม่พบการ break ของ swing ที่ยืนยันแล้วในช่วงข้อมูลนี้</p>}
+                  </div>
+                  <div>
+                    <span className="ti-structure-label">Fair Value Gaps</span>
+                    {smcAnalysis.fairValueGaps.length ? smcAnalysis.fairValueGaps.slice(-3).reverse().map((gap) => (
+                      <div className="ti-structure-row" key={gap.index + '-' + gap.direction}>
+                        <b>FVG</b>
+                        <span className={gap.direction === 'bullish' ? 'ti-positive' : 'ti-negative'}>{gap.direction}</span>
+                        <strong>{formatPrice(gap.low, digits)}–{formatPrice(gap.high, digits)}</strong>
+                      </div>
+                    )) : <p className="ti-structure-empty">ไม่พบ FVG ตามกฎสามแท่งในช่วงข้อมูลนี้</p>}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="ti-structure-empty">{smcAnalysis?.reason || 'โหลดข้อมูลตลาดเพื่อวิเคราะห์ BOS, CHoCH และ FVG'}</p>
+            )}
+          </div>
         </section>
       </section>
 
