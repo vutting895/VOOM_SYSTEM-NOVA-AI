@@ -5,7 +5,8 @@ import {
   buildTradingToolRequest,
   decodeMcpToolResponse,
   normalizeMarketPayload,
-  calculatePriceAnalysis
+  calculatePriceAnalysis,
+  calculateSmcAnalysis
 } from "../frontend/lib/trading-intelligence.mjs";
 
 function makeBars(count = 40) {
@@ -242,4 +243,51 @@ test("Neural inference requires bounded uncertainty and an inference time after 
   const invalidMethod = validNeuralResult();
   invalidMethod.output.uncertainty.method = "untrusted";
   assert.throws(() => validateNeuralInferenceResult(invalidMethod), /uncertainty/);
+});
+
+
+function makeStructureBars(breakout = true) {
+  const rows = [
+    [9.0, 10.0, 8.0, 9.4],
+    [9.4, 11.0, 8.5, 10.5],
+    [10.0, 10.5, 8.2, 10.0],
+    [10.0, 12.0, 9.0, 11.0],
+    [10.0, 11.0, 8.4, 10.1],
+    [10.0, 10.8, 8.7, 9.8],
+    [10.0, 13.0, 9.5, breakout ? 12.6 : 11.0],
+    [breakout ? 12.6 : 11.0, 13.2, 10.0, breakout ? 13.0 : 12.8]
+  ];
+  return rows.map(([open, high, low, close], index) => ({
+    time: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
+    open, high, low, close, volume: 100
+  }));
+}
+
+test("SMC detects a bullish BOS only after the swing high has been confirmed", () => {
+  const analysis = calculateSmcAnalysis(makeStructureBars(true));
+  assert.equal(analysis.ready, true);
+  assert.equal(analysis.barsUsed, 7);
+  assert.equal(analysis.structureEvents.length, 1);
+  assert.equal(analysis.structureEvents[0].type, "BOS");
+  assert.equal(analysis.structureEvents[0].direction, "bullish");
+  assert.equal(analysis.structureEvents[0].level, 12);
+  assert.equal(analysis.executionEnabled, false);
+  assert.equal(analysis.liveTradingEnabled, false);
+  assert.equal(analysis.ordersEnabled, false);
+});
+
+test("SMC ignores a break that appears only in the newest potentially unfinished candle", () => {
+  const bars = makeStructureBars(false);
+  bars[6].close = 11;
+  bars[6].high = 11.4;
+  bars[7].close = 13.0;
+  bars[7].high = 13.2;
+  const analysis = calculateSmcAnalysis(bars);
+  assert.equal(analysis.ready, true);
+  assert.equal(analysis.structureEvents.length, 0);
+});
+
+test("SMC reports insufficient history and validates swing parameters", () => {
+  assert.equal(calculateSmcAnalysis(makeBars(8)).ready, false);
+  assert.throws(() => calculateSmcAnalysis(makeBars(40), 0, 2), /integers from 1 to 5/);
 });
