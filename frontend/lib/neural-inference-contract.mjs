@@ -1,5 +1,6 @@
 const SHA256 = /^[a-f0-9]{64}$/i;
 const REGIMES = new Set(["bullish", "bearish", "sideways", "unknown"]);
+const UNCERTAINTY_METHODS = new Set(["ensemble_variance", "mc_dropout", "predictive_entropy"]);
 
 function object(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -9,12 +10,21 @@ function finiteUnit(value) {
   return Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
+function exactKeys(value, expected, label) {
+  if (!object(value)) throw new TypeError(label + " must be an object");
+  const actual = Object.keys(value).sort();
+  const allowed = [...expected].sort();
+  if (actual.length !== allowed.length || actual.some((key, index) => key !== allowed[index])) {
+    throw new TypeError("unexpected or missing " + label + " fields");
+  }
+}
+
 /**
- * Validate an inference result against caller-owned market context.
- * This function does not load a model, generate a prediction or accept an order.
+ * Validate a versioned inference result against caller-owned market context.
+ * It does not load a model, generate a prediction or accept a broker action.
  */
 export function validateNeuralInferenceResult(candidate, expected = {}) {
-  if (!object(candidate)) throw new TypeError("inference result must be an object");
+  exactKeys(candidate, ["schemaVersion", "model", "data", "evaluation", "output"], "inference result");
   if (candidate.schemaVersion !== "nova.neural-inference.v1") {
     throw new TypeError("unsupported neural inference schema version");
   }
@@ -23,9 +33,18 @@ export function validateNeuralInferenceResult(candidate, expected = {}) {
   const data = candidate.data;
   const evaluation = candidate.evaluation;
   const output = candidate.output;
-  if (![model, data, evaluation, output].every(object)) {
-    throw new TypeError("model, data, evaluation and output metadata are required");
-  }
+  exactKeys(model, ["id", "version", "status", "runtime", "artifactSha256"], "model");
+  exactKeys(data, ["symbol", "timeframe", "datasetSha256", "featureManifestSha256", "barsUsed", "lastClosedBarAt"], "data");
+  exactKeys(evaluation, [
+    "status", "finalOosUntouched", "finalOosManifestSha256", "walkForwardFolds",
+    "closedTrades", "netProfitAfterCosts", "profitFactor", "calibration"
+  ], "evaluation");
+  exactKeys(evaluation.calibration, [
+    "status", "manifestSha256", "brierScore", "expectedCalibrationError"
+  ], "calibration");
+  exactKeys(output, ["regime", "probabilities", "uncertainty", "generatedAt"], "output");
+  exactKeys(output.probabilities, ["bullish", "bearish", "sideways"], "probabilities");
+  exactKeys(output.uncertainty, ["score", "method"], "uncertainty");
 
   if (model.status !== "validated" || !["pytorch", "torchscript"].includes(model.runtime)) {
     throw new Error("model runtime or lifecycle is not validated");
@@ -35,7 +54,8 @@ export function validateNeuralInferenceResult(candidate, expected = {}) {
       !SHA256.test(model.artifactSha256 || "")) {
     throw new TypeError("model id, version and artifact SHA-256 are required");
   }
-  if (typeof data.symbol !== "string" || typeof data.timeframe !== "string" ||
+  if (typeof data.symbol !== "string" || !data.symbol.trim() ||
+      typeof data.timeframe !== "string" || !data.timeframe.trim() ||
       !SHA256.test(data.datasetSha256 || "") ||
       !SHA256.test(data.featureManifestSha256 || "") ||
       !Number.isInteger(data.barsUsed) || data.barsUsed < 1 ||
@@ -48,34 +68,30 @@ export function validateNeuralInferenceResult(candidate, expected = {}) {
     throw new Error("inference timestamp does not match the latest closed bar");
   }
 
+  const calibration = evaluation.calibration;
   if (evaluation.status !== "passed" || evaluation.finalOosUntouched !== true ||
       !SHA256.test(evaluation.finalOosManifestSha256 || "") ||
       !Number.isInteger(evaluation.walkForwardFolds) || evaluation.walkForwardFolds < 5 ||
       !Number.isInteger(evaluation.closedTrades) || evaluation.closedTrades < 30 ||
       !Number.isFinite(evaluation.netProfitAfterCosts) || evaluation.netProfitAfterCosts <= 0 ||
       !Number.isFinite(evaluation.profitFactor) || evaluation.profitFactor <= 1 ||
-      evaluation.calibration?.status !== "validated" ||
-      !SHA256.test(evaluation.calibration?.manifestSha256 || "") ||
-      !Number.isFinite(evaluation.calibration?.brierScore) ||
-      !finiteUnit(evaluation.calibration.brierScore) ||
-      !Number.isFinite(evaluation.calibration?.expectedCalibrationError) ||
-      !finiteUnit(evaluation.calibration.expectedCalibrationError)) {
+      calibration.status !== "validated" ||
+      !SHA256.test(calibration.manifestSha256 || "") ||
+      !finiteUnit(calibration.brierScore) ||
+      !finiteUnit(calibration.expectedCalibrationError)) {
     throw new Error("model evaluation, net-of-cost OOS or calibration gates have not passed");
   }
 
   const probabilities = output.probabilities;
-  if (!object(probabilities) ||
-      !["bullish", "bearish", "sideways"].every((key) => finiteUnit(probabilities[key])) ||
+  const generatedAt = Date.parse(output.generatedAt);
+  if (!Object.values(probabilities).every(finiteUnit) ||
       Math.abs(probabilities.bullish + probabilities.bearish + probabilities.sideways - 1) > 0.01 ||
       !REGIMES.has(output.regime) ||
-      typeof output.generatedAt !== "string" || !Number.isFinite(Date.parse(output.generatedAt))) {
-    throw new TypeError("inference probabilities, regime or timestamp are invalid");
-  }
-
-  if (Object.hasOwn(candidate, "order") || Object.hasOwn(candidate, "orders") ||
-      Object.hasOwn(candidate, "entryPrice") || Object.hasOwn(candidate, "stopLoss") ||
-      Object.hasOwn(candidate, "takeProfit")) {
-    throw new Error("neural inference payload must not contain broker or trade instructions");
+      !Number.isFinite(generatedAt) ||
+      generatedAt < Date.parse(data.lastClosedBarAt) ||
+      !finiteUnit(output.uncertainty.score) ||
+      !UNCERTAINTY_METHODS.has(output.uncertainty.method)) {
+    throw new TypeError("inference probabilities, uncertainty, regime or timestamp are invalid");
   }
 
   return Object.freeze({
@@ -102,10 +118,10 @@ export function validateNeuralInferenceResult(candidate, expected = {}) {
       netProfitAfterCosts: evaluation.netProfitAfterCosts,
       profitFactor: evaluation.profitFactor,
       calibration: Object.freeze({
-        status: evaluation.calibration.status,
-        manifestSha256: evaluation.calibration.manifestSha256,
-        brierScore: evaluation.calibration.brierScore,
-        expectedCalibrationError: evaluation.calibration.expectedCalibrationError
+        status: calibration.status,
+        manifestSha256: calibration.manifestSha256,
+        brierScore: calibration.brierScore,
+        expectedCalibrationError: calibration.expectedCalibrationError
       })
     }),
     output: Object.freeze({
@@ -114,6 +130,10 @@ export function validateNeuralInferenceResult(candidate, expected = {}) {
         bullish: probabilities.bullish,
         bearish: probabilities.bearish,
         sideways: probabilities.sideways
+      }),
+      uncertainty: Object.freeze({
+        score: output.uncertainty.score,
+        method: output.uncertainty.method
       }),
       generatedAt: output.generatedAt
     }),
