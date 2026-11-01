@@ -72,6 +72,8 @@ class NeuralRuntimeTests(unittest.TestCase):
         digest = hashlib.sha256(artifact).hexdigest()
         self.assertEqual(manifest["model"]["artifactSha256"], digest)
         self.assertEqual(manifest["evaluation"]["status"], "not_evaluated")
+        self.assertEqual(manifest["featureManifest"]["normalization"]["fittedOn"], "training_partition_only")
+        self.assertEqual(len(manifest["featureManifest"]["normalization"]["mean"]), len(FEATURES))
         self.assertFalse(manifest["training"]["finalOosTouched"])
         self.assertGreater(manifest["training"]["finalOosSamplesReserved"], 0)
         self.assertFalse(manifest["training"]["finalOosTouched"])
