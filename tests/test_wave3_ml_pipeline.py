@@ -14,7 +14,7 @@ from wave3_ml_pipeline import (
     HORIZON_BARS, _train_mask, backtest_window, build_causal_features,
     load_bars, make_labeled_frame, build_inner_validation_splits,
     _news_backtest_assumption, _news_calendar_manifest,
-    generate_xgb_tuning_candidates, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
+    generate_xgb_tuning_candidates, smc_candidate_trace, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
     _is_lstm_memory_error, _write_auto_tuning_history,
     _bullish_ob_state, _bearish_ob_state,
     PROBABILITY_THRESHOLD, XGB_MIN_CONFIDENCE, LSTM_MIN_CONFIDENCE,
@@ -333,6 +333,86 @@ class TestWave3Pipeline(unittest.TestCase):
                 path = Path(d) / "bars.csv"
                 frame.to_csv(path, index=False)
                 load_bars(path)
+
+
+    def test_smc_trace_indices_are_confirmed_no_lookahead_and_not_model_features(self):
+        frame = synthetic_bars(900)
+        features = build_causal_features(frame)
+        for slot in (1, 2, 3):
+            confirmation = features[f"higher_low_{slot}_confirmation_index"].dropna()
+            self.assertTrue((confirmation.to_numpy() <= confirmation.index.to_numpy()).all())
+
+        ob_mask = features["bull_ob_origin_index"].notna()
+        if ob_mask.any():
+            origin = features.loc[ob_mask, "bull_ob_origin_index"].to_numpy()
+            confirmed = features.loc[ob_mask, "bull_ob_confirmation_index"].to_numpy()
+            row_index = features.index[ob_mask].to_numpy()
+            self.assertTrue((origin <= confirmed).all())
+            self.assertTrue((confirmed <= row_index).all())
+            self.assertTrue((features.loc[ob_mask, "bull_ob_age_from_origin_bars"].to_numpy() >= 0).all())
+
+        fvg_mask = features["bull_fvg_fill_origin_index"].notna()
+        if fvg_mask.any():
+            origin = features.loc[fvg_mask, "bull_fvg_fill_origin_index"].to_numpy()
+            row_index = features.index[fvg_mask].to_numpy()
+            self.assertTrue((origin < row_index).all())
+
+        X, _, _ = make_labeled_frame(frame, features)
+        diagnostic_columns = {
+            "structure_break_pivot_index", "higher_low_1_index", "higher_low_1_confirmation_index",
+            "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_distance_price_trace",
+            "bull_fvg_fill_origin_index", "bull_fvg_active_origin_index", "bos20_prior_20_high",
+        }
+        self.assertTrue(diagnostic_columns.isdisjoint(set(X.columns)))
+
+    def test_smc_candidate_trace_reports_same_bar_components_and_missing_gate(self):
+        frame = synthetic_bars(900)
+        features = build_causal_features(frame)
+        i = 700
+        features.loc[i, "wave3_long_rule_breakout"] = 1.0
+        features.loc[i, "wave3_long_entry_price"] = float(frame["close"].iloc[i])
+        features.loc[i, "wave3_long_fib_score"] = 80.0
+        features.loc[i, "fib_pullback_ratio"] = 0.618
+        features.loc[i, "bos20_up"] = 1.0
+        features.loc[i, "choch_rule_up"] = 1.0
+        features.loc[i, "bull_ob_within5"] = 0.0
+        features.loc[i, "bull_fvg_fill"] = 1.0
+        features.loc[i, "smc_score_long"] = 75.0
+        features.loc[i, "bos_up"] = 1.0
+        features.loc[i, "choch_up"] = 0.0
+        features.loc[i, "structure_break_pivot_index"] = 680.0
+        features.loc[i, "structure_break_pivot_confirmation_index"] = 683.0
+        features.loc[i, "structure_break_pivot_price"] = 1905.0
+        features.loc[i, "bull_ob_origin_index"] = 690.0
+        features.loc[i, "bull_ob_confirmation_index"] = 695.0
+        features.loc[i, "bull_ob_origin_low"] = 1900.0
+        features.loc[i, "bull_ob_origin_high"] = 1906.0
+        features.loc[i, "bull_ob_origin_range_pct"] = 0.0032
+        features.loc[i, "bull_ob_age_from_origin_bars"] = 10.0
+        features.loc[i, "bull_ob_age_from_confirmation_bars"] = 5.0
+        features.loc[i, "bull_ob_distance_price_trace"] = 4.2
+        features.loc[i, "bull_ob_valid_trace"] = 1.0
+        features.loc[i, "bull_ob_zone_trace"] = 0.0
+        features.loc[i, "bull_ob_within5_trace"] = 0.0
+        features.loc[i, "bull_ob_invalidated_now"] = 0.0
+        features.loc[i, "bull_ob_candidate_count"] = 3.0
+        features.loc[i, "bull_fvg_fill_origin_index"] = 680.0
+        features.loc[i, "bull_fvg_fill_lower"] = 1901.0
+        features.loc[i, "bull_fvg_fill_upper"] = 1903.0
+        features.loc[i, "bull_fvg_fill_age_bars"] = 20.0
+
+        trace = smc_candidate_trace(frame, features, np.array([i, i + 1]))
+        self.assertEqual(trace["summary"]["candidate_rows"], 1)
+        self.assertEqual(trace["summary"]["all_four_components_same_bar"], 0)
+        row = trace["rows"][0]
+        self.assertEqual(row["missing_components"], ["bull_ob_within5"])
+        self.assertTrue(row["same_closed_signal_bar"])
+        self.assertEqual(row["smc_score"], 75.0)
+        self.assertEqual(row["order_block"]["selected_origin_index"], 690)
+        self.assertEqual(row["order_block"]["candidate_count_at_confirmation"], 3)
+        self.assertEqual(row["order_block"]["age_from_origin_bars"], 10)
+        self.assertEqual(row["fair_value_gap"]["refill_origin_index"], 680)
+
 
 
 if __name__ == "__main__":
