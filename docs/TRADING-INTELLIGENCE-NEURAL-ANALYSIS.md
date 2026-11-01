@@ -43,12 +43,14 @@ The intended processing hierarchy is:
 ## Neural runtime implementation added in this branch
 
 - `workers/trading_intelligence/neural_runtime.py` adds a CPU-capable, unidirectional PyTorch LSTM research candidate trainer and shadow inference function.
-- Input validation requires timezone-aware, strictly increasing OHLCV bars at the exact requested timeframe interval. Duplicate, missing, irregular and impossible bars are rejected.
+- Input validation requires timezone-aware, strictly increasing OHLCV bars and exact timeframe alignment. Strict contiguous mode remains the default. An explicit `allow_session_gaps=True` mode treats every timeframe-aligned gap as a hard segment boundary, restarts causal feature warm-up, and prevents both sequence windows and forward labels from crossing the boundary. No synthetic candles are inserted; duplicate, reversed, non-aligned and impossible OHLCV still fail closed. Training and shadow inference must use the same declared gap policy.
 - Causal features are calculated from current/past bars only: log returns, realized volatility, RSI, EMA gap, volume z-score, candle body and range.
 - Training uses chronological train/validation partitions with horizon purge. The final 15% partition is explicitly reserved; its labels are not consumed by candidate fitting or early stopping.
 - Candidate artifacts are hash-checked and bound to one symbol/timeframe. The output includes bullish/bearish/sideways probabilities and normalized predictive entropy.
 - Candidate lifecycle is hard-coded to `research_candidate` / `not_evaluated`; shadow inference cannot mark a model validated or promotable. It has no broker integration and all execution flags remain false.
 - `.github/workflows/trading-intelligence-neural-ci.yml` installs CPU-only PyTorch and runs deterministic code-path, leakage-boundary, artifact-integrity and fail-closed tests.
+
+A read-only MT5 API connectivity/data probe against the signed-in Exness Demo terminal retrieved 30,000 XAUUSDm M5 bars (2026-06-01 through 2026-10-30) and 12,000 H1 bars (2024-10-21 through 2026-10-30). The probe found zero malformed OHLCV bars and zero duplicate/reversed timestamps; it also confirmed tick-volume and spread fields are present. It identified 109 M5 and 523 H1 interval gaps. The probe did not persist or commit broker data, inspect the numerical spread/cost distribution, or train a model. This proves local MT5 API read access only, not the hosted customer Bridge/API path.
 
 This is a first runtime slice, not a trained production model. No real Exness dataset was supplied to this job, no Final OOS results were generated, no strategy-level net-of-cost metrics exist, and the frontend continues to display `INFERENCE NOT VERIFIED`.
 
