@@ -89,9 +89,9 @@ export function createEnvelopeCrypto({ keyProvider, cryptoImpl = globalThis.cryp
     return cryptoImpl.subtle.importKey("raw", dek, { name: "AES-GCM" }, false, [usage]);
   }
 
-  return {
-    async encrypt(plaintext, binding) {
-      const clear = typeof plaintext === "string" ? encoder.encode(plaintext) : bytes(plaintext, "plaintext");
+  async function encrypt(plaintext, binding) {
+    const clear = typeof plaintext === "string" ? encoder.encode(plaintext) : copy(bytes(plaintext, "plaintext"));
+    try {
       if (clear.length === 0) throw new TypeError("EMPTY_PLAINTEXT");
       const aad = canonicalAad(binding);
       const material = await keyProvider.generateDataKey({ binding: structuredClone(binding) });
@@ -120,50 +120,64 @@ export function createEnvelopeCrypto({ keyProvider, cryptoImpl = globalThis.cryp
       } finally {
         dek.fill(0);
       }
-    },
+    } finally {
+      clear.fill(0);
+    }
+  }
 
-    async decrypt(record, binding) {
-      validateRecord(record);
-      const aad = canonicalAad(binding);
-      const dek = bytes(await keyProvider.unwrapDataKey({
-        wrappedKey: copy(record.wrappedDek),
-        keyVersion: record.keyVersion,
-        binding: structuredClone(binding)
-      }), "unwrapped DEK");
-      if (dek.length !== KEY_BYTES) {
-        dek.fill(0);
-        throw new TypeError("INVALID_DEK_LENGTH");
-      }
-      try {
-        const key = await importDek(dek, "decrypt");
-        const sealed = concat(record.ciphertext, record.tag);
-        return new Uint8Array(await cryptoImpl.subtle.decrypt(
-          { name: "AES-GCM", iv: record.nonce, additionalData: aad, tagLength: 128 },
-          key,
-          sealed
-        ));
-      } finally {
-        dek.fill(0);
-      }
-    },
+  async function decrypt(record, binding) {
+    validateRecord(record);
+    const aad = canonicalAad(binding);
+    const dek = bytes(await keyProvider.unwrapDataKey({
+      wrappedKey: copy(record.wrappedDek),
+      keyVersion: record.keyVersion,
+      binding: structuredClone(binding)
+    }), "unwrapped DEK");
+    if (dek.length !== KEY_BYTES) {
+      dek.fill(0);
+      throw new TypeError("INVALID_DEK_LENGTH");
+    }
+    try {
+      const key = await importDek(dek, "decrypt");
+      const sealed = concat(record.ciphertext, record.tag);
+      return new Uint8Array(await cryptoImpl.subtle.decrypt(
+        { name: "AES-GCM", iv: record.nonce, additionalData: aad, tagLength: 128 },
+        key,
+        sealed
+      ));
+    } finally {
+      dek.fill(0);
+    }
+  }
 
-    async rewrap(record, binding, targetKeyVersion) {
-      validateRecord(record);
-      if (typeof targetKeyVersion !== "string" || !targetKeyVersion || targetKeyVersion === record.keyVersion) {
-        throw new TypeError("INVALID_TARGET_KEY_VERSION");
-      }
-      canonicalAad(binding);
-      const result = await keyProvider.rewrapDataKey({
-        wrappedKey: copy(record.wrappedDek),
-        sourceKeyVersion: record.keyVersion,
-        targetKeyVersion,
-        binding: structuredClone(binding)
-      });
-      if (!result || result.keyVersion !== targetKeyVersion ||
-          !(result.wrappedKey instanceof Uint8Array) || result.wrappedKey.length < 1) {
-        throw new TypeError("INVALID_REWRAPPED_DATA_KEY");
-      }
-      return { ...record, keyVersion: result.keyVersion, wrappedDek: copy(result.wrappedKey) };
+  async function rewrap(record, binding, targetKeyVersion) {
+    validateRecord(record);
+    if (typeof targetKeyVersion !== "string" || !targetKeyVersion || targetKeyVersion === record.keyVersion) {
+      throw new TypeError("INVALID_TARGET_KEY_VERSION");
+    }
+    canonicalAad(binding);
+    const result = await keyProvider.rewrapDataKey({
+      wrappedKey: copy(record.wrappedDek),
+      sourceKeyVersion: record.keyVersion,
+      targetKeyVersion,
+      binding: structuredClone(binding)
+    });
+    if (!result || result.keyVersion !== targetKeyVersion ||
+        !(result.wrappedKey instanceof Uint8Array) || result.wrappedKey.length < 1) {
+      throw new TypeError("INVALID_REWRAPPED_DATA_KEY");
+    }
+    return { ...record, keyVersion: result.keyVersion, wrappedDek: copy(result.wrappedKey) };
+  }
+
+  return {
+    encrypt,
+    decrypt,
+    rewrap,
+    async withPlaintext(record, binding, consumer) {
+      if (typeof consumer !== "function") throw new TypeError("INVALID_PLAINTEXT_CONSUMER");
+      const plaintext = await decrypt(record, binding);
+      try { return await consumer(plaintext); }
+      finally { plaintext.fill(0); }
     }
   };
 }

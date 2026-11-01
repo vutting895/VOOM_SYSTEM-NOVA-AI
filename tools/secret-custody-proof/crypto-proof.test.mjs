@@ -160,3 +160,16 @@ test("asymmetric issuer signature is verifiable with public key only and binds r
   assert.equal(publicJwk.x !== undefined, true);
   assert.equal(privateKey.type, "private");
 });
+
+
+test("withPlaintext clears the decrypted buffer after the consumer returns", async () => {
+  const envelope = createEnvelopeCrypto({ keyProvider: createSyntheticKeyProvider(), cryptoImpl });
+  const record = await envelope.encrypt("SYNTHETIC-CREDENTIAL-NOT-REAL", binding);
+  let observed;
+  const result = await envelope.withPlaintext(record, binding, async plaintext => {
+    observed = plaintext;
+    return plaintext.length;
+  });
+  assert.equal(result, "SYNTHETIC-CREDENTIAL-NOT-REAL".length);
+  assert.equal(observed.every(value => value === 0), true);
+});
