@@ -139,7 +139,7 @@ test("price analysis excludes the newest potentially unfinished candle", () => {
   assert.equal(analysis.ready, true);
   assert.equal(analysis.barsUsed, 39);
   assert.equal(analysis.candles.length, 39);
-  assert.equal(analysis.candles.at(-1).time, bars.at(-2).time);
+  assert.equal(analysis.candles.at(-1).time, Date.parse(bars.at(-2).time));
   assert.equal(analysis.lastClose, bars.at(-2).close);
   assert.equal(analysis.orderSignal, null);
 });
