@@ -58,6 +58,7 @@ export default function BacktestPage() {
         throw new Error(payload.error || 'market_data_unavailable');
       }
       setMarketData(payload);
+      setMarketError('');
       if (!quiet) {
         // MT5 position zero is the currently forming candle. Keep it out of
         // historical backtest input; the independent tick remains live.
