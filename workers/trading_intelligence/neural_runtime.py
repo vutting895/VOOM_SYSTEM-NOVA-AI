@@ -20,7 +20,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-SCHEMA_VERSION = "nova.lstm-candidate.v1"
+SCHEMA_VERSION = "nova.lstm-candidate.v2"
 FEATURES = (
     "log_return_1", "log_return_3", "realized_vol_10", "rsi_14",
     "ema_gap_12_26", "volume_zscore_20", "candle_body", "candle_range",
@@ -346,8 +346,15 @@ def train_candidate(
     model.eval()
 
     feature_manifest = {
-        "schema": "nova.ohlcv.features.v1",
+        "schema": "nova.ohlcv.features.v2",
         "features": list(FEATURES),
+        "gapPolicy": {
+            "id": "intraday_gap_feature_long_gap_segmentation",
+            "intradayMaxSeconds": INTRASESSION_GAP_MAX_SECONDS,
+            "longGapMinSeconds": LONG_GAP_MIN_SECONDS,
+            "longGapMaxSeconds": LONG_GAP_MAX_SECONDS,
+            "ambiguousGaps": "reject",
+        },
         "sequence_length": sequence_length,
         "horizon": horizon,
         "label_definition": "log_return_horizon > 2bps bullish; < -2bps bearish; otherwise sideways",
@@ -363,7 +370,7 @@ def train_candidate(
     ).hexdigest()
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
-        "model": {"id": "nova-lstm-regime", "version": "0.1.0-candidate", "runtime": "pytorch", "status": "research_candidate"},
+        "model": {"id": "nova-lstm-regime", "version": "0.2.0-candidate", "runtime": "pytorch", "status": "research_candidate"},
         "data": {
             "symbol": symbol.strip(), "timeframe": timeframe,
             "gapPolicy": "intraday_gap_feature_long_gap_segmentation" if allow_session_gaps else "strict_contiguous",
