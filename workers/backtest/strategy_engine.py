@@ -103,6 +103,32 @@ class StrategyBacktestEngine:
         half_cost = (self.spread_bps / 2 + self.slippage_bps) / 10_000
         return price * (1 + half_cost if side == "buy" else 1 - half_cost)
 
+    def run_market_data(
+        self,
+        payload: dict[str, Any],
+        signals: Sequence[int],
+        strategy_name: str = "external_signal_adapter",
+    ) -> dict[str, Any]:
+        """Run against a verified NOVA System Hub quote payload, excluding its active bar."""
+        try:
+            from market_data import normalize_mt5_quote_payload
+        except ImportError:
+            from .market_data import normalize_mt5_quote_payload
+        market = normalize_mt5_quote_payload(payload, drop_latest_bar=True)
+        result = self.run(market["candles"], signals, strategy_name)
+        result["market_data"] = {
+            "provider": market["provider"],
+            "environment": market["environment"],
+            "source": market["source"],
+            "symbol": market["symbol"],
+            "timeframe": market["timeframe"],
+            "closed_bar_count": market["closed_bar_count"],
+            "active_bar_excluded": market["active_bar_excluded"],
+            "received_at": market["received_at"],
+            "as_of": market["as_of"],
+        }
+        return result
+
     def run(
         self,
         candles: Sequence[dict[str, Any]],
