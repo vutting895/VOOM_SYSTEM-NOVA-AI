@@ -358,6 +358,7 @@ export default function TradingIntelligencePage() {
             <span className="ti-model-state">INFERENCE NOT VERIFIED</span>
           </div>
           <p className="ti-section-copy">Neural Network เป็นหน่วยประมวลผลเป้าหมายสำหรับการเรียนรู้รูปแบบราคาและรวมผลโมเดล แต่ยังไม่เปิดแสดงผล inference จนกว่าจะมี model artifact, runtime, provenance และผลประเมินที่ตรวจสอบได้</p>
+          <p className="ti-section-copy">สถานะ Runtime: มี PyTorch LSTM candidate trainer และ Shadow Inference สำหรับงานวิจัยแบบ offline แล้ว แต่ยังไม่ได้ฝึกด้วยข้อมูล Exness จริงและยังไม่เชื่อมต่อ inference เข้ากับ Dashboard</p>
           <div className="ti-model-list">
             <div><span><b>01</b> LSTM / GRU — Primary Sequence Model</span><em>Target primary processor · not live</em></div>
             <div><span><b>02</b> CNN / 1D-CNN</span><em>Research track</em></div>
