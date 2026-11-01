@@ -164,3 +164,67 @@ test("authenticated API checks bearer token before parsing request body", async 
   assert.match(route, /MCP_ENDPOINT = "https:\/\/voom-system-mcp\.suwapat787\.workers\.dev\/mcp"/);
   assert.doesNotMatch(route, /request\.headers\.get\(["'](?:x-upstream-url|x-mcp-url)/i);
 });
+
+
+import { validateNeuralInferenceResult } from "../frontend/lib/neural-inference-contract.mjs";
+
+function validNeuralResult() {
+  const hash = "a".repeat(64);
+  return {
+    schemaVersion: "nova.neural-inference.v1",
+    model: { id: "synthetic-test-model", version: "0.0.0-test", status: "validated", runtime: "pytorch", artifactSha256: hash },
+    data: {
+      symbol: "XAUUSDm", timeframe: "M5", datasetSha256: hash,
+      featureManifestSha256: hash, barsUsed: 128, lastClosedBarAt: "2026-11-01T05:00:00.000Z"
+    },
+    evaluation: {
+      status: "passed", finalOosUntouched: true, finalOosManifestSha256: hash,
+      walkForwardFolds: 5, closedTrades: 30, netProfitAfterCosts: 1,
+      profitFactor: 1.1,
+      calibration: { status: "validated", manifestSha256: hash, brierScore: 0.2, expectedCalibrationError: 0.05 }
+    },
+    output: {
+      regime: "bullish", probabilities: { bullish: 0.6, bearish: 0.2, sideways: 0.2 },
+      generatedAt: "2026-11-01T05:00:01.000Z"
+    }
+  };
+}
+
+test("Neural inference contract requires model, data, OOS and calibration provenance", () => {
+  const validated = validateNeuralInferenceResult(validNeuralResult(), {
+    symbol: "XAUUSDm", timeframe: "M5", lastClosedBarAt: "2026-11-01T05:00:00.000Z"
+  });
+  assert.equal(validated.model.runtime, "pytorch");
+  assert.equal(validated.output.regime, "bullish");
+  assert.equal(validated.executionEnabled, false);
+  assert.equal(validated.liveTradingEnabled, false);
+  assert.equal(validated.ordersEnabled, false);
+  assert.equal(Object.isFrozen(validated), true);
+});
+
+test("Neural inference contract rejects unvalidated, mismatched or uncalibrated outputs", () => {
+  const unvalidated = validNeuralResult();
+  unvalidated.model.status = "prototype";
+  assert.throws(() => validateNeuralInferenceResult(unvalidated), /not validated/);
+
+  const mismatched = validNeuralResult();
+  assert.throws(() => validateNeuralInferenceResult(mismatched, { symbol: "BTCUSDT" }), /symbol does not match/);
+
+  const uncalibrated = validNeuralResult();
+  uncalibrated.evaluation.calibration.status = "missing";
+  assert.throws(() => validateNeuralInferenceResult(uncalibrated), /evaluation.*calibration gates/);
+});
+
+test("Neural inference contract rejects weak OOS evidence and broker instructions", () => {
+  const weak = validNeuralResult();
+  weak.evaluation.profitFactor = 1;
+  assert.throws(() => validateNeuralInferenceResult(weak), /evaluation.*OOS/);
+
+  const unsafe = validNeuralResult();
+  unsafe.order = { symbol: "XAUUSDm", side: "buy" };
+  assert.throws(() => validateNeuralInferenceResult(unsafe), /must not contain broker/);
+
+  const badProbability = validNeuralResult();
+  badProbability.output.probabilities.bullish = 0.9;
+  assert.throws(() => validateNeuralInferenceResult(badProbability), /probabilities/);
+});
