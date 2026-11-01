@@ -204,7 +204,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_origin_low", "bull_ob_origin_high",
         "bull_ob_origin_range_pct", "bull_ob_age_from_origin_bars", "bull_ob_age_from_confirmation_bars",
         "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
-        "bull_ob_invalidated_now", "bull_ob_candidate_count",
+        "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_ob_search_start_index",
+        "bull_ob_search_end_exclusive_index",
         "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
@@ -291,7 +292,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                         bullish_ob_candidates.append(int(j))
                         selected_bullish_ob = (i, float(l.iloc[j]), float(h.iloc[j]), j, candle_size_pct)
                 if selected_bullish_ob is not None:
-                    bull_ob = (*selected_bullish_ob, len(bullish_ob_candidates))
+                    bull_ob = (*selected_bullish_ob, len(bullish_ob_candidates), bullish_ob_start, i)
         if last_low and last_low["idx"] < i:
             key = ("low", last_low["idx"])
             if key not in broken and prev_i >= last_low["price"] > close_i:
@@ -334,6 +335,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                 trace["bull_fvg_fill_age_bars"][i] = float(gap_age)
                 if last_bull_gap_first_fill_index is None:
                     last_bull_gap_first_fill_index = i
+            if last_bull_gap_first_fill_index is not None:
                 trace["bull_fvg_first_fill_index"][i] = float(last_bull_gap_first_fill_index)
         if last_bear_gap and 0 < i - last_bear_gap[0] <= 48:
             struct["bear_fvg_fill"][i] = float(h.iloc[i]) >= last_bear_gap[1] and float(l.iloc[i]) <= last_bear_gap[2]
@@ -368,6 +370,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             trace["bull_ob_within5_trace"][i] = float(state["within5"])
             trace["bull_ob_invalidated_now"][i] = float(not state["valid"])
             trace["bull_ob_candidate_count"][i] = float(bull_ob[5]) if len(bull_ob) > 5 else 1.0
+            trace["bull_ob_search_start_index"][i] = float(bull_ob[6]) if len(bull_ob) > 6 else np.nan
+            trace["bull_ob_search_end_exclusive_index"][i] = float(bull_ob[7]) if len(bull_ob) > 7 else np.nan
             if ob_age <= 24:
                 struct["bull_ob_recent"][i] = 1  # diagnostic only; not part of SMC scoring
             if state["valid"]:
@@ -496,8 +500,8 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
         "bull_ob_origin_index", "bull_ob_confirmation_index", "bull_ob_origin_low", "bull_ob_origin_high",
         "bull_ob_origin_range_pct", "bull_ob_age_from_origin_bars", "bull_ob_age_from_confirmation_bars",
         "bull_ob_distance_price_trace", "bull_ob_valid_trace", "bull_ob_zone_trace", "bull_ob_within5_trace",
-        "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_fvg_active_origin_index",
-        "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
+        "bull_ob_invalidated_now", "bull_ob_candidate_count", "bull_ob_search_start_index",
+        "bull_ob_search_end_exclusive_index", "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
@@ -1169,6 +1173,8 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
                 "origin_high": number(rowf, "bull_ob_origin_high"),
                 "origin_range_pct": number(rowf, "bull_ob_origin_range_pct"),
                 "candidate_count_at_confirmation": integer(rowf, "bull_ob_candidate_count"),
+                "search_start_index": integer(rowf, "bull_ob_search_start_index"),
+                "search_end_exclusive_index": integer(rowf, "bull_ob_search_end_exclusive_index"),
                 "age_from_origin_bars": integer(rowf, "bull_ob_age_from_origin_bars"),
                 "age_from_confirmation_bars": integer(rowf, "bull_ob_age_from_confirmation_bars"),
                 "distance_price": number(rowf, "bull_ob_distance_price_trace"),
