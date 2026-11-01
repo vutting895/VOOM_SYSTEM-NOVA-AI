@@ -78,7 +78,7 @@ export default function BacktestPage() {
             <div className="nova-bt-field"><label htmlFor="bt-start">Start Date</label><input id="bt-start" type="date" defaultValue="2024-01-01" /></div>
             <div className="nova-bt-field"><label htmlFor="bt-end">End Date</label><input id="bt-end" type="date" defaultValue="2026-10-31" /></div>
             <div className="nova-bt-field"><label htmlFor="bt-risk">Risk per Trade (%)</label><input id="bt-risk" type="number" min="0.1" max="2" step="0.1" defaultValue="1" /></div>
-            <div className="nova-bt-field"><label>Evaluation Mode</label><input value="Purged Walk-forward + Final OOS" readOnly /></div>
+            <div className="nova-bt-field"><label htmlFor="bt-evaluation">Evaluation Mode</label><input id="bt-evaluation" value="Purged Walk-forward + Final OOS" readOnly /></div>
           </div>
           <div className="nova-bt-models"><span className="nova-bt-model active">Wave3</span><span className="nova-bt-model active">SMC / Fibonacci</span><span className="nova-bt-model active">PyTorch LSTM</span><span className="nova-bt-model active">XGBoost Comparator</span></div>
           <div className="nova-bt-engine-note"><span>⚠</span><div><strong>ยังไม่ส่งคำสั่ง Backtest</strong> ค่าที่เลือกเป็น configuration preview ในหน้าเว็บเท่านั้น ยังไม่มี Strategy Simulation API และไม่มีการบันทึกค่าลงระบบ</div></div>
