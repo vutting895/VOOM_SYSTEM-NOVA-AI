@@ -58,6 +58,8 @@ class NeuralRuntimeTests(unittest.TestCase):
         self.assertTrue(valid)
         changed_future = [dict(row) for row in bars]
         changed_future[-1]["close"] *= 1.2
+        changed_future[-1]["high"] = max(changed_future[-1]["open"], changed_future[-1]["close"]) * 1.0005
+        changed_future[-1]["low"] = min(changed_future[-1]["open"], changed_future[-1]["close"]) * 0.9995
         future_features, _ = build_causal_features(validate_ohlcv(changed_future, "M5"))
         self.assertEqual(features[-2].tolist(), future_features[-2].tolist())
 
