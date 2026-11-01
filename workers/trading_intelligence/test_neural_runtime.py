@@ -51,9 +51,15 @@ class NeuralRuntimeTests(unittest.TestCase):
         bars[30]["time"] = "2026-01-01T02:30:00"
         with self.assertRaisesRegex(ValueError, "include a timezone"):
             validate_ohlcv(bars, "M5")
+        bars = make_bars()
+        bars[40]["spread"] = -1
+        with self.assertRaisesRegex(ValueError, "invalid spread"):
+            validate_ohlcv(bars, "M5")
 
     def test_session_gaps_split_features_and_never_bridge_sequences_or_labels(self):
         bars = make_bars(320)
+        for index, row in enumerate(bars):
+            row["spread"] = 160 + (index % 7)
         for row in bars[150:]:
             stamp = datetime.fromisoformat(row["time"].replace("Z", "+00:00")) + timedelta(hours=1)
             row["time"] = stamp.isoformat().replace("+00:00", "Z")
@@ -74,6 +80,9 @@ class NeuralRuntimeTests(unittest.TestCase):
         self.assertEqual(manifest["data"]["gapPolicy"], "segment_on_interval_gap")
         self.assertEqual(manifest["data"]["intervalGaps"]["intervalGapCount"], 1)
         self.assertEqual(manifest["data"]["intervalGaps"]["gapIntervals"], [13])
+        self.assertTrue(manifest["data"]["spread"]["present"])
+        self.assertEqual(manifest["data"]["spread"]["unit"], "symbol_points")
+        self.assertEqual(manifest["data"]["spread"]["count"], 320)
         self.assertFalse(manifest["training"]["finalOosTouched"])
 
         newer = make_bars(321)
