@@ -213,7 +213,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "bull_ob_last_invalidated_search_end_exclusive_index",
         "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
-        "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
+        "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper",
     )
     trace = {name: np.full(n, np.nan, dtype=float) for name in trace_names}
@@ -229,6 +230,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     last_bull_ob_invalidated = None
     last_bull_gap = last_bear_gap = None
     last_bull_gap_first_fill_index = None
+    last_bull_gap_first_full_mitigation_index = None
 
     for i in range(n):
         p = i - PIVOT_RIGHT
@@ -343,6 +345,14 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                     last_bull_gap_first_fill_index = i
             if last_bull_gap_first_fill_index is not None:
                 trace["bull_fvg_first_fill_index"][i] = float(last_bull_gap_first_fill_index)
+            # Diagnostic convention: a bullish gap is fully mitigated when price trades
+            # through its lower boundary. This does not alter the existing overlap score.
+            fully_mitigated_now = float(l.iloc[i]) <= last_bull_gap[1]
+            trace["bull_fvg_fully_mitigated_now"][i] = float(fully_mitigated_now)
+            if fully_mitigated_now and last_bull_gap_first_full_mitigation_index is None:
+                last_bull_gap_first_full_mitigation_index = i
+            if last_bull_gap_first_full_mitigation_index is not None:
+                trace["bull_fvg_first_full_mitigation_index"][i] = float(last_bull_gap_first_full_mitigation_index)
         if last_bear_gap and 0 < i - last_bear_gap[0] <= 48:
             struct["bear_fvg_fill"][i] = float(h.iloc[i]) >= last_bear_gap[1] and float(l.iloc[i]) <= last_bear_gap[2]
         if i >= 2:
@@ -351,6 +361,7 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
             if struct["bull_fvg"][i]:
                 last_bull_gap = (i, float(h.iloc[i - 2]), float(l.iloc[i]))
                 last_bull_gap_first_fill_index = None
+                last_bull_gap_first_full_mitigation_index = None
                 trace["bull_fvg_created_now"][i] = 1.0
                 trace["bull_fvg_created_origin_index"][i] = float(i)
                 trace["bull_fvg_created_lower"][i] = float(h.iloc[i - 2])
@@ -538,7 +549,8 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
         "bull_ob_last_invalidated_search_start_index", "bull_ob_last_invalidated_search_end_exclusive_index",
         "bull_fvg_active_origin_index", "bull_fvg_active_lower", "bull_fvg_active_upper", "bull_fvg_active_age_bars",
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
-        "bull_fvg_first_fill_index", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
+        "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
     ]
     model_features = features.drop(columns=[name for name in diagnostic_only if name in features.columns])
@@ -1172,10 +1184,14 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
         ob_origin = integer(rowf, "bull_ob_origin_index")
         ob_confirmation = integer(rowf, "bull_ob_confirmation_index")
         fvg_fill_origin = integer(rowf, "bull_fvg_fill_origin_index")
+        fvg_first_fill = integer(rowf, "bull_fvg_first_fill_index")
+        fvg_first_full_mitigation = integer(rowf, "bull_fvg_first_full_mitigation_index")
         rows.append({
             "signal_index": i,
             "signal_timestamp_utc": frame["timestamp"].iloc[i].isoformat(),
             "signal_close": float(frame["close"].iloc[i]),
+            "signal_low": float(frame["low"].iloc[i]),
+            "signal_high": float(frame["high"].iloc[i]),
             "previous_close": float(frame["close"].iloc[i - 1]) if i else float(frame["close"].iloc[i]),
             "wave3_entry_price": number(rowf, "wave3_long_entry_price"),
             "fib_pullback_ratio": number(rowf, "fib_pullback_ratio"),
@@ -1242,7 +1258,16 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
                 "refill_lower": number(rowf, "bull_fvg_fill_lower"),
                 "refill_upper": number(rowf, "bull_fvg_fill_upper"),
                 "refill_age_bars": integer(rowf, "bull_fvg_fill_age_bars"),
-                "first_refill_index": integer(rowf, "bull_fvg_first_fill_index"),
+                "first_refill_index": fvg_first_fill,
+                "first_refill_timestamp_utc": frame["timestamp"].iloc[fvg_first_fill].isoformat() if fvg_first_fill is not None else None,
+                "bars_since_first_refill": i - fvg_first_fill if fvg_first_fill is not None else None,
+                "first_full_mitigation_index": fvg_first_full_mitigation,
+                "first_full_mitigation_timestamp_utc": frame["timestamp"].iloc[fvg_first_full_mitigation].isoformat() if fvg_first_full_mitigation is not None else None,
+                "bars_since_first_full_mitigation": i - fvg_first_full_mitigation if fvg_first_full_mitigation is not None else None,
+                "fully_mitigated_on_signal_bar": bool(number(rowf, "bull_fvg_fully_mitigated_now")) if number(rowf, "bull_fvg_fully_mitigated_now") is not None else None,
+                "full_mitigation_precedes_signal": fvg_first_full_mitigation is not None and fvg_first_full_mitigation < i,
+                "overlap_is_retest_after_first_refill": flags["bull_fvg_fill"] and fvg_first_fill is not None and fvg_first_fill < i,
+                "overlap_is_retest_after_full_mitigation": flags["bull_fvg_fill"] and fvg_first_full_mitigation is not None and fvg_first_full_mitigation < i,
                 "created_on_signal_bar": bool(number(rowf, "bull_fvg_created_now")) if number(rowf, "bull_fvg_created_now") is not None else False,
                 "created_origin_index": integer(rowf, "bull_fvg_created_origin_index"),
                 "created_lower": number(rowf, "bull_fvg_created_lower"),
@@ -1266,6 +1291,9 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
         "all_four_components_same_bar": sum(1 for row in rows if row["all_four_components_same_bar"]),
         "smc_score_ge_85": sum(1 for row in rows if row["smc_gate_pass"]),
         "maximum_smc_score": max((row["smc_score"] for row in rows if row["smc_score"] is not None), default=None),
+        "fvg_positive_rows_after_first_overlap": sum(1 for row in rows if row["components_same_closed_signal_bar"]["bull_fvg_fill"] and row["fair_value_gap"]["first_refill_index"] is not None and row["fair_value_gap"]["first_refill_index"] < row["signal_index"]),
+        "fvg_positive_rows_after_full_mitigation": sum(1 for row in rows if row["fair_value_gap"]["overlap_is_retest_after_full_mitigation"]),
+        "fvg_full_mitigation_on_signal_bar": sum(1 for row in rows if row["fair_value_gap"]["fully_mitigated_on_signal_bar"] is True),
         "missing_component_patterns": patterns,
     }
     return {"summary": summary, "rows": rows}
