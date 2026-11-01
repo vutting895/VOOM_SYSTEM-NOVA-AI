@@ -18,6 +18,8 @@ jobs:
   neural-runtime:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PYTHONHASHSEED: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
