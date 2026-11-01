@@ -65,6 +65,50 @@ class StrategyBacktestTests(unittest.TestCase):
         with self.assertRaises(BacktestInputError):
             StrategyBacktestEngine().run(candles, [0] * len(candles))
 
+
+    def test_verified_mt5_payload_excludes_active_bar_and_runs_engine(self):
+        payload = {
+            "state": "data_verified",
+            "mode": "read-only",
+            "ordersEnabled": False,
+            "source": "exness_mt5_demo_via_nova_system_hub",
+            "symbol": "XAUUSDm",
+            "timeframe": "M5",
+            "receivedAt": "2026-11-02T00:00:00Z",
+            "asOf": "2026-11-02T00:00:00Z",
+            "tick": {"bid": 200.0, "ask": 200.2, "time": "2026-11-02T00:00:00Z"},
+            "bars": [
+                {"timestamp": f"2026-01-01T0{i}:00:00Z", "open": 100+i, "high": 102+i,
+                 "low": 99+i, "close": 101+i, "volume": 100}
+                for i in range(4)
+            ],
+        }
+        result = StrategyBacktestEngine(fee_bps=0).run_market_data(
+            payload, [1, 0, -1], "test_adapter"
+        )
+        self.assertEqual(result["market_data"]["provider"], "exness_mt5")
+        self.assertEqual(result["market_data"]["symbol"], "XAUUSDm")
+        self.assertEqual(result["market_data"]["closed_bar_count"], 3)
+        self.assertTrue(result["market_data"]["active_bar_excluded"])
+        self.assertEqual(result["candles"], 3)
+
+    def test_market_data_adapter_rejects_unverified_and_bad_payloads(self):
+        from market_data import MarketDataError, normalize_mt5_quote_payload
+        with self.assertRaises(MarketDataError):
+            normalize_mt5_quote_payload({"state": "configured"})
+        payload = {
+            "state": "data_verified", "mode": "read-only", "ordersEnabled": False,
+            "symbol": "XAUUSDm", "timeframe": "M5",
+            "bars": [
+                {"timestamp": f"2026-01-01T0{i}:00:00Z", "open": 100, "high": 101,
+                 "low": 99, "close": 100, "volume": 1}
+                for i in range(4)
+            ],
+        }
+        payload["bars"][2]["high"] = 1
+        with self.assertRaises(MarketDataError):
+            normalize_mt5_quote_payload(payload)
+
     def test_dataset_hash_and_results_are_deterministic(self):
         engine = StrategyBacktestEngine()
         candles = sample_candles()
