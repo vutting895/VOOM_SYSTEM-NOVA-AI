@@ -72,10 +72,17 @@ class NeuralRuntimeTests(unittest.TestCase):
         self.assertEqual(manifest["evaluation"]["status"], "not_evaluated")
         self.assertFalse(manifest["training"]["finalOosTouched"])
         self.assertGreater(manifest["training"]["finalOosSamplesReserved"], 0)
+        self.assertFalse(manifest["training"]["finalOosTouched"])
+        self.assertTrue(manifest["training"]["finalOosFirstDecisionAt"])
+        self.assertTrue(manifest["training"]["finalOosLastTargetAt"])
+        self.assertEqual(len(manifest["training"]["finalOosBarsSha256"]), 64)
         self.assertFalse(manifest["evaluation"]["promotable"])
         model, loaded_manifest = load_candidate(artifact, digest, "XAUUSDm", "M5")
         self.assertEqual(loaded_manifest["model"]["status"], "research_candidate")
         self.assertFalse(model.training)
+
+        with self.assertRaisesRegex(ValueError, "must advance beyond"):
+            infer_research_candidate(artifact, digest, bars, "XAUUSDm", "M5")
 
         newer = make_bars(261)
         result = infer_research_candidate(artifact, digest, newer, "XAUUSDm", "M5")
