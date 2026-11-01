@@ -95,7 +95,7 @@ class StrategyBacktestEngine:
             timestamps.append(stamp.isoformat())
 
         for index, signal in enumerate(signals):
-            if isinstance(signal, bool) or signal not in (-1, 0, 1):
+            if isinstance(signal, bool) or not isinstance(signal, int) or signal not in (-1, 0, 1):
                 raise BacktestInputError(f"signal[{index}] must be -1, 0, or 1")
         return normalized, timestamps
 
