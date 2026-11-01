@@ -66,7 +66,8 @@ export default function BacktestPage() {
         setRaw(JSON.stringify(closedBars, null, 2));
       }
     } catch (err) {
-      if (!quiet) setMarketError(err?.message || 'ไม่สามารถดึงข้อมูลตลาดได้');
+      setMarketError(err?.message || 'ไม่สามารถดึงข้อมูลตลาดได้');
+      if (quiet) setMarketData(current => current ? { ...current, freshness: 'stale' } : current);
     } finally {
       marketBusyRef.current = false;
       setMarketBusy(false);
@@ -142,7 +143,7 @@ export default function BacktestPage() {
         <section className="nova-bt-panel">
           <div className="nova-bt-panel-head"><div><small>01 / EXPERIMENT CONFIGURATION</small><h2>กำหนดการทดสอบกลยุทธ์</h2></div><span className="nova-bt-tag">CONFIG PREVIEW</span></div>
           <div className="nova-bt-fields">
-            <div className="nova-bt-field"><label htmlFor="bt-symbol">Instrument</label><select id="bt-symbol" value={symbol} onChange={e=>setSymbol(e.target.value)}><option value="XAUUSDm">XAUUSDm · Exness Demo</option><option value="BTCUSDT">BTCUSDT · Binance</option><option value="EURUSDm">EURUSDm · Exness Demo</option></select></div>
+            <div className="nova-bt-field"><label htmlFor="bt-symbol">Instrument</label><select id="bt-symbol" value={symbol} onChange={e=>setSymbol(e.target.value)}><option value="XAUUSDm">XAUUSDm · Exness Demo</option><option value="BTCUSDT" disabled>BTCUSDT · Binance (ยังไม่เชื่อม)</option><option value="EURUSDm" disabled>EURUSDm · รอตรวจสอบ Symbol</option></select></div>
             <div className="nova-bt-field"><label htmlFor="bt-timeframe">Timeframe</label><select id="bt-timeframe" value={timeframe} onChange={e=>setTimeframe(e.target.value)}>{['M5','M15','M30','H1','H4','D1'].map(x=><option key={x}>{x}</option>)}</select></div>
             <div className="nova-bt-field"><label htmlFor="bt-strategy">Strategy Profile</label><select id="bt-strategy" value={strategy} onChange={e=>setStrategy(e.target.value)}><option value="wave3-smc">Wave3 + SMC + Fibonacci</option><option value="neural-hybrid">Neural Network + XGBoost</option><option value="smc-only">SMC v6.2.6.3</option><option value="baseline">Buy-and-hold baseline</option></select></div>
             <div className="nova-bt-field"><label htmlFor="bt-capital">Starting Capital (USD)</label><input id="bt-capital" type="number" min="100" step="100" defaultValue="10000" /></div>
