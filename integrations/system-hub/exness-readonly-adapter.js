@@ -140,7 +140,10 @@ async function signedGet({ baseUrl, apiKey, privateKey, path, fetchImpl = fetch,
 
   const contentLength = Number(response.headers.get("Content-Length") || 0);
   const maxResponseBytes = 64 * 1024;
-  if (contentLength > maxResponseBytes) throw fail("exness_response_too_large", 502);
+  if (contentLength > maxResponseBytes) {
+    try { await response.body?.cancel("response_size_limit_exceeded"); } catch {}
+    throw fail("exness_response_too_large", 502);
+  }
   if (!response.body || typeof response.body.getReader !== "function") {
     throw fail("exness_invalid_upstream_response", 502);
   }
