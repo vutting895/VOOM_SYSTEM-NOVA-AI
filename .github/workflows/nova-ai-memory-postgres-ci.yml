@@ -1,0 +1,62 @@
+name: NOVA Memory PostgreSQL CI
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/202611010001_nova_ai_memory_learning.sql"
+      - "tests/nova-ai-memory-postgres.sql"
+      - ".github/workflows/nova-ai-memory-postgres-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/202611010001_nova_ai_memory_learning.sql"
+      - "tests/nova-ai-memory-postgres.sql"
+      - ".github/workflows/nova-ai-memory-postgres-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-acceptance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Create minimal Supabase Auth test fixtures
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users (id uuid PRIMARY KEY);
+          CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+            LANGUAGE sql STABLE
+            AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          SQL
+      - name: Apply NOVA memory migration to ephemeral PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/202611010001_nova_ai_memory_learning.sql
+      - name: Verify RLS, stable ordering, opt-out, and retention
+        run: psql -v ON_ERROR_STOP=1 -f tests/nova-ai-memory-postgres.sql
