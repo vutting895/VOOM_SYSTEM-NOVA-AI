@@ -24,7 +24,11 @@ SCHEMA_VERSION = "nova.lstm-candidate.v1"
 FEATURES = (
     "log_return_1", "log_return_3", "realized_vol_10", "rsi_14",
     "ema_gap_12_26", "volume_zscore_20", "candle_body", "candle_range",
+    "log_elapsed_intervals",
 )
+INTRASESSION_GAP_MAX_SECONDS = 6 * 60 * 60
+LONG_GAP_MIN_SECONDS = 24 * 60 * 60
+LONG_GAP_MAX_SECONDS = 96 * 60 * 60
 TIMEFRAME_SECONDS = {
     "M1": 60, "M5": 300, "M15": 900, "M30": 1800,
     "H1": 3600, "H4": 14400, "D1": 86400,
@@ -43,10 +47,20 @@ def _timestamp(value: Any) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _gap_kind(delta_seconds: float, interval_seconds: int) -> str:
+    if delta_seconds == interval_seconds:
+        return "none"
+    if delta_seconds <= INTRASESSION_GAP_MAX_SECONDS:
+        return "intraday"
+    if LONG_GAP_MIN_SECONDS <= delta_seconds <= LONG_GAP_MAX_SECONDS:
+        return "segment"
+    return "ambiguous"
+
+
 def validate_ohlcv(
     rows: Iterable[dict[str, Any]], timeframe: str, *, allow_session_gaps: bool = False,
 ) -> list[dict[str, Any]]:
-    """Validate OHLCV bars; optionally split at timeframe-aligned market-data gaps."""
+    """Validate OHLCV; encode short session pauses and segment long closures explicitly."""
     if timeframe not in TIMEFRAME_SECONDS:
         raise ValueError("unsupported timeframe")
     if not isinstance(rows, (list, tuple)) or len(rows) < 80:
@@ -74,10 +88,11 @@ def validate_ohlcv(
                 raise ValueError("timestamps must be strictly increasing without duplicates")
             interval = TIMEFRAME_SECONDS[timeframe]
             if delta != interval:
-                # A gap is a hard sequence boundary, never a synthetic candle. It must
-                # align exactly to the requested timeframe; duplicates/reversals fail above.
-                if not allow_session_gaps or delta < interval or delta % interval != 0:
-                    raise ValueError("missing or irregular candle interval; quarantine this dataset")
+                # Short intraday pauses are retained with an elapsed-time feature;
+                # long closures split sequences. Ambiguous 6h-24h or >4d gaps fail closed.
+                if (not allow_session_gaps or delta < interval or delta % interval != 0
+                        or _gap_kind(delta, interval) == "ambiguous"):
+                    raise ValueError("missing, irregular or ambiguous session gap; quarantine this dataset")
         previous = timestamp
         if "spread" in row:
             try:
@@ -108,26 +123,34 @@ def _spread_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _segment_ids(rows: list[dict[str, Any]], timeframe: str) -> list[int]:
-    """Assign a new segment after every non-contiguous interval."""
+    """Assign a new segment only after a long market closure."""
     interval = TIMEFRAME_SECONDS[timeframe]
     segments = [0] if rows else []
     for index in range(1, len(rows)):
         previous = _timestamp(rows[index - 1]["time"])
         current = _timestamp(rows[index]["time"])
-        segments.append(segments[-1] + int((current - previous).total_seconds() != interval))
+        delta = (current - previous).total_seconds()
+        segments.append(segments[-1] + int(_gap_kind(delta, interval) == "segment"))
     return segments
 
 
 def _gap_summary(rows: list[dict[str, Any]], timeframe: str) -> dict[str, Any]:
     interval = TIMEFRAME_SECONDS[timeframe]
     gaps = []
+    intraday = 0
+    boundaries = 0
     for index in range(1, len(rows)):
         delta = (_timestamp(rows[index]["time"]) - _timestamp(rows[index - 1]["time"])).total_seconds()
         if delta != interval:
             gaps.append(int(delta // interval))
+            kind = _gap_kind(delta, interval)
+            intraday += int(kind == "intraday")
+            boundaries += int(kind == "segment")
     return {
-        "policy": "segment_on_interval_gap",
+        "policy": "intraday_gap_feature_long_gap_segmentation",
         "intervalGapCount": len(gaps),
+        "intradayGapCount": intraday,
+        "segmentBoundaryCount": boundaries,
         "maxGapIntervals": max(gaps, default=1),
         "gapIntervals": gaps,
     }
@@ -141,8 +164,10 @@ def _rolling_mean(values: np.ndarray, window: int) -> np.ndarray:
     return result
 
 
-def _build_causal_features_contiguous(rows: list[dict[str, Any]]) -> tuple[np.ndarray, list[int]]:
-    """Build features using current and historical bars only (no future values)."""
+def _build_causal_features_contiguous(
+    rows: list[dict[str, Any]], timeframe_seconds: int | None = None,
+) -> tuple[np.ndarray, list[int]]:
+    """Build causal features and encode elapsed time between observed bars."""
     close = np.asarray([r["close"] for r in rows], dtype=np.float64)
     high = np.asarray([r["high"] for r in rows], dtype=np.float64)
     low = np.asarray([r["low"] for r in rows], dtype=np.float64)
@@ -179,7 +204,13 @@ def _build_causal_features_contiguous(rows: list[dict[str, Any]]) -> tuple[np.nd
     vol_z = np.divide(volume - vol_mean, vol_std, out=np.zeros_like(volume), where=vol_std > 0)
     body = (close - open_) / close
     candle_range = (high - low) / close
-    features = np.column_stack((ret1, ret3, vol10, rsi / 100.0, ema_gap, vol_z, body, candle_range))
+    if timeframe_seconds is None:
+        timeframe_seconds = int((_timestamp(rows[1]["time"]) - _timestamp(rows[0]["time"])).total_seconds()) if len(rows) > 1 else 1
+    elapsed = np.zeros(len(rows), dtype=np.float64)
+    for i in range(1, len(rows)):
+        delta_seconds = (_timestamp(rows[i]["time"]) - _timestamp(rows[i - 1]["time"])).total_seconds()
+        elapsed[i] = math.log1p(max(0.0, delta_seconds / timeframe_seconds - 1.0))
+    features = np.column_stack((ret1, ret3, vol10, rsi / 100.0, ema_gap, vol_z, body, candle_range, elapsed))
     finite_rows = np.isfinite(features).all(axis=1)
     return features.astype(np.float32), np.flatnonzero(finite_rows).tolist()
 
@@ -187,7 +218,7 @@ def _build_causal_features_contiguous(rows: list[dict[str, Any]]) -> tuple[np.nd
 def build_causal_features(
     rows: list[dict[str, Any]], timeframe: str | None = None,
 ) -> tuple[np.ndarray, list[int]]:
-    """Build causal features independently inside each contiguous segment."""
+    """Build causal features across short pauses and reset after long closures."""
     if timeframe is None:
         return _build_causal_features_contiguous(rows)
     if timeframe not in TIMEFRAME_SECONDS:
@@ -200,9 +231,9 @@ def build_causal_features(
         boundary = index == len(rows)
         if not boundary:
             delta = (_timestamp(rows[index]["time"]) - _timestamp(rows[index - 1]["time"])).total_seconds()
-            boundary = delta != interval
+            boundary = _gap_kind(delta, interval) == "segment"
         if boundary:
-            segment_features, segment_valid = _build_causal_features_contiguous(rows[start:index])
+            segment_features, segment_valid = _build_causal_features_contiguous(rows[start:index], interval)
             features[start:index] = segment_features
             valid_indices.extend(start + item for item in segment_valid)
             start = index
@@ -335,7 +366,7 @@ def train_candidate(
         "model": {"id": "nova-lstm-regime", "version": "0.1.0-candidate", "runtime": "pytorch", "status": "research_candidate"},
         "data": {
             "symbol": symbol.strip(), "timeframe": timeframe,
-            "gapPolicy": "segment_on_interval_gap" if allow_session_gaps else "strict_contiguous",
+            "gapPolicy": "intraday_gap_feature_long_gap_segmentation" if allow_session_gaps else "strict_contiguous",
             "intervalGaps": _gap_summary(bars, timeframe),
             "spread": _spread_summary(bars),
             "datasetSha256": _canonical_hash(bars),
@@ -391,7 +422,7 @@ def infer_research_candidate(
     """Return a shadow-only regime estimate from a hash-verified candidate."""
     bars = validate_ohlcv(rows, timeframe, allow_session_gaps=allow_session_gaps)
     model, manifest = load_candidate(artifact, expected_sha256, symbol, timeframe)
-    expected_gap_policy = "segment_on_interval_gap" if allow_session_gaps else "strict_contiguous"
+    expected_gap_policy = "intraday_gap_feature_long_gap_segmentation" if allow_session_gaps else "strict_contiguous"
     if manifest["data"].get("gapPolicy", "strict_contiguous") != expected_gap_policy:
         raise ValueError("inference gap policy must match the candidate training manifest")
     if bars[-1]["time"] <= manifest["data"]["lastClosedBarAt"]:
