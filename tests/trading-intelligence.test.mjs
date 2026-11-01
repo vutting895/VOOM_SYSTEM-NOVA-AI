@@ -255,7 +255,10 @@ function makeStructureBars(breakout = true) {
     [10.0, 11.0, 8.4, 10.1],
     [10.0, 10.8, 8.7, 9.8],
     [10.0, 13.0, 9.5, breakout ? 12.6 : 11.0],
-    [breakout ? 12.6 : 11.0, 13.2, 10.0, breakout ? 13.0 : 12.8]
+    [11.0, 11.8, 10.0, 11.4],
+    [11.2, 11.7, 10.2, 11.5],
+    [11.4, 11.6, 10.5, 11.3],
+    [11.3, 13.2, 10.8, 13.0]
   ];
   return rows.map(([open, high, low, close], index) => ({
     time: new Date(Date.UTC(2026, 10, 1, 0, index)).toISOString(),
@@ -266,7 +269,7 @@ function makeStructureBars(breakout = true) {
 test("SMC detects a bullish BOS only after the swing high has been confirmed", () => {
   const analysis = calculateSmcAnalysis(makeStructureBars(true));
   assert.equal(analysis.ready, true);
-  assert.equal(analysis.barsUsed, 7);
+  assert.equal(analysis.barsUsed, 10);
   assert.equal(analysis.structureEvents.length, 1);
   assert.equal(analysis.structureEvents[0].type, "BOS");
   assert.equal(analysis.structureEvents[0].direction, "bullish");
@@ -280,8 +283,8 @@ test("SMC ignores a break that appears only in the newest potentially unfinished
   const bars = makeStructureBars(false);
   bars[6].close = 11;
   bars[6].high = 11.4;
-  bars[7].close = 13.0;
-  bars[7].high = 13.2;
+  bars[10].close = 13.0;
+  bars[10].high = 13.2;
   const analysis = calculateSmcAnalysis(bars);
   assert.equal(analysis.ready, true);
   assert.equal(analysis.structureEvents.length, 0);
