@@ -89,7 +89,7 @@ class NeuralRuntimeTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "gap policy must match"):
             infer_research_candidate(
-                artifact, hashlib.sha256(artifact).hexdigest(), newer,
+                artifact, hashlib.sha256(artifact).hexdigest(), make_bars(321),
                 "XAUUSDm", "M5", allow_session_gaps=False,
             )
 
