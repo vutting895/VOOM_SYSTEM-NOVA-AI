@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "workers/trading_intelligence/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -27,6 +28,7 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "workers/trading_intelligence/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -125,6 +127,19 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Set up Python for Neural Runtime validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only PyTorch Neural Runtime dependencies
+        run: |
+          python -m pip install numpy==2.1.3
+          python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile and test Trading Intelligence Neural Runtime
+        working-directory: .
+        run: |
+          python -m py_compile workers/trading_intelligence/neural_runtime.py
+          python -m unittest discover -s workers/trading_intelligence -p 'test_*.py' -v
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
