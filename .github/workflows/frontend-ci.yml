@@ -164,7 +164,7 @@ jobs:
           set -euo pipefail
           body="$(mktemp)"
           trap 'rm -f "$body"' EXIT
-          for path in / /login /settings/broker; do
+          for path in / /login /settings/broker /settings/broker/exness; do
             healthy=false
             for attempt in $(seq 1 12); do
               code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
@@ -180,8 +180,8 @@ jobs:
               exit 1
             fi
           done
-          if ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body"; then
-            echo "Netlify broker settings route did not render the expected Exness MT5 content."
+          if ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body" && ! grep -q 'Exness Trader API' "$body"; then
+            echo "Netlify broker settings route did not render the expected Exness connection content."
             exit 1
           fi
           echo "Netlify root, login, and Exness broker settings routes returned HTTP 200."
