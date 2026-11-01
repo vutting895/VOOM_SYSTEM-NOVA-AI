@@ -3,7 +3,9 @@ const CONNECTION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{
 function supabaseOrigin(value) {
   let url;
   try { url = new URL(String(value || "")); } catch { throw new Error("SUPABASE_NOT_CONFIGURED"); }
-  if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+  if (url.username || url.password ||
+      (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))) {
     throw new Error("SUPABASE_NOT_CONFIGURED");
   }
   return url.origin;
