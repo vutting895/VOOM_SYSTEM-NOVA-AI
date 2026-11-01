@@ -224,3 +224,48 @@ test("sanitizer rejects invalid timestamps, non-finite PnL, and overlong symbols
     assert.equal(response.body.result, undefined);
   }
 });
+
+
+test("request since and provider quote timestamps require calendar-valid RFC 3339 date-time with timezone", async t => {
+  const invalid = [
+    "2026-11-01",
+    "2026-11-01T05:00:00",
+    "2026-02-30T05:00:00Z",
+    "2026-11-01T25:00:00Z",
+    "2026-11-01T05:00:00+07:60"
+  ];
+
+  for (const since of invalid) {
+    const { runtime, calls } = await fixture(t);
+    const result = await invoke(runtime, { ...request, parameters: { since } });
+    assert.equal(result.status, 400, `expected invalid since to be rejected: ${since}`);
+    assert.equal(calls.length, 0);
+  }
+
+  for (const timestamp of invalid) {
+    const { runtime } = await fixture(t, {
+      provider: { executeReadOnly: async () => ({
+        quotes: [{ symbol: "XAUUSD", bid: 2300.1, ask: 2300.2, timestamp }]
+      }) }
+    });
+    const result = await invoke(runtime);
+    assert.equal(result.status, 502, `expected invalid quote timestamp to be rejected: ${timestamp}`);
+    assert.equal(result.body.result, undefined);
+  }
+
+  for (const valid of ["2026-11-01T05:00:00.000Z", "2026-11-01T12:00:00+07:00"]) {
+    const { runtime } = await fixture(t, {
+      provider: { executeReadOnly: async () => ({
+        quotes: [{ symbol: "XAUUSD", bid: 2300.1, ask: 2300.2, timestamp: valid }]
+      }) }
+    });
+    const result = await invoke(runtime);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.result.quotes[0].timestamp, valid);
+  }
+
+  const { runtime: validSince } = await fixture(t);
+  assert.equal((await invoke(validSince, {
+    ...request, parameters: { since: "2026-11-01T12:00:00+07:00" }
+  })).status, 200);
+});
