@@ -32,6 +32,20 @@ function containsForbidden(value) {
   );
 }
 
+function isRfc3339DateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)(?:\\.\\d+)?(?:Z|([+-])([01]\\d|2[0-3]):([0-5]\\d))$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return false;
+  if (match[7] !== undefined && Number(match[8]) === 0 && Number(match[9]) > 59) return false;
+  return Number.isFinite(Date.parse(value));
+}
+
 function safeResult(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || containsForbidden(value)) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
@@ -56,7 +70,7 @@ function safeResult(value) {
         throw new Error("UNSAFE_PROVIDER_RESULT");
       }
       if (item.timestamp !== undefined &&
-          (typeof item.timestamp !== "string" || Number.isNaN(Date.parse(item.timestamp)))) {
+          (typeof item.timestamp !== "string" || !isRfc3339DateTime(item.timestamp))) {
         throw new Error("UNSAFE_PROVIDER_RESULT");
       }
     }
@@ -96,7 +110,7 @@ function validParameters(parameters) {
       (!Array.isArray(parameters.symbols) || parameters.symbols.length > 50 ||
        parameters.symbols.some(symbol => typeof symbol !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(symbol)))) return false;
   if (parameters.since !== undefined &&
-      (typeof parameters.since !== "string" || Number.isNaN(Date.parse(parameters.since)))) return false;
+      (typeof parameters.since !== "string" || !isRfc3339DateTime(parameters.since))) return false;
   if (parameters.limit !== undefined &&
       (!Number.isInteger(parameters.limit) || parameters.limit < 1 || parameters.limit > 500)) return false;
   return true;
