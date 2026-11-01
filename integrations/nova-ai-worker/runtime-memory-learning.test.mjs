@@ -125,3 +125,8 @@ test("feedback retention remains enforced when chat memory is disabled", () => {
   assert.match(migration, /select retention_days, memory_enabled into v_retention_days, v_memory_enabled/);
   assert.match(migration, /if v_memory_enabled then[\s\S]*delete from public\.nova_ai_memory_facts[\s\S]*end if;[\s\S]*delete from public\.nova_ai_learning_feedback/);
 });
+
+test("settings reads always invoke retention cleanup, even when memory is disabled", () => {
+  const source = readFileSync(new URL("./memory-learning.js", import.meta.url), "utf8");
+  assert.match(source, /if \(request\.method === "GET"\) \{\s+const settings = await readMemorySettings\(request, env, auth\);\s+await purgeExpiredMemory\(request, env, auth\);/);
+});
