@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compactChatHistory, DEFAULT_CHAT_MODEL, MODEL_RUNTIME_VERSION, ModelRuntimeError, runChatModel } from "./runtime-core.js";
-import { MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings } from "./memory-learning.js";
+import { containsCredentialLikeContent, MemoryServiceError, evaluateFeedbackRows, validateLearningFeedback, validateMemoryFact, validateMemorySettings } from "./memory-learning.js";
 
 test("model runtime exposes a fixed server-owned default model", () => {
   assert.equal(DEFAULT_CHAT_MODEL, "@cf/meta/llama-3.2-3b-instruct");
@@ -82,4 +82,11 @@ test("memory history is bounded before it reaches the model context", () => {
   assert.equal(compacted.length, 6);
   assert.equal(compacted[0].content.length, 1800);
   assert.equal(compacted.at(-1).content[0], "9");
+});
+
+test("memory persistence detects common credential patterns", () => {
+  assert.equal(containsCredentialLikeContent("Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345"), true);
+  assert.equal(containsCredentialLikeContent("api_key=sk_test_123456789"), true);
+  assert.equal(containsCredentialLikeContent("ghp_abcdefghijklmnopqrstuvwxyz123456"), true);
+  assert.equal(containsCredentialLikeContent("I prefer concise Thai explanations for NOVA."), false);
 });
