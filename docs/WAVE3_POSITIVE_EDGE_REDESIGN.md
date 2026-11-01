@@ -149,3 +149,14 @@ P1 is **partially complete** using the diagnostic-only evidence produced in the 
 - No-lookahead tests for pivot confirmation, OB origin/confirmation/invalidation and FVG origin passed. The additional FVG regression test leaves the frozen overlap flag unchanged.
 
 P1 remains open until the intended FVG first-touch/full-mitigation/re-touch semantics are explicitly reviewed and documented. P2 first-hit/triple-barrier net-outcome labels, P3 baselines and inner-fold-only calibration, P4 execution-cost/regime robustness, and P5 a single frozen untouched OOS evaluation remain pending. The benchmark's latest run #6 remains negative (accuracy 41.0602% vs 45.9708% baseline, 0 closed trades, net $0, PF unavailable); this is not a challenger result. PR #147 remains Draft/open/unmerged and design-only.
+
+## P3 prework evidence from frozen benchmark run #6 — 2026-11-01
+
+This is a diagnostic baseline for designing P3; it is not a challenger result and does not close P3. The serialized run #6 artifact #13036729349 (training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`) was inspected without retraining or using final OOS for tuning. PR #66 stores the reproducible summary at `reports/wave3_run6_model_diagnostics_20261101.json`.
+
+- Train class shares short/hold/long: 24.93/46.62/28.45%; OOS actual: 27.68/45.97/26.35%. The prediction shares are 41.37/40.81/17.82%; Long recall is 20.1147%. Thus the label priors are broadly similar, while model predictions over-allocate Short and under-allocate Long.
+- XGB gain importance is led by `hour_sin` (10.26%), `volume_gate` (6.47%), `hour_cos` (3.94%), `log_volume`, volatility and spread features. Grouped gain share: time 17.635%, volume/spread 16.889%, structural/Wave3/SMC/Fib 22.280%. Gain is descriptive, not causal.
+- LSTM training loss falls over four epochs, but no validation-loss curve, feature attribution, Brier score, ECE or reliability curve is present. Raw outputs remain uncalibrated direction probabilities, not trade-win probabilities.
+- All five walk-forward folds remain below their own majority baselines; final OOS accuracy 41.0602% vs 45.9708%, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 trades, net $0, PF unavailable.
+
+P3 remains pending. Next work must use chronological inner-validation folds only for grouped permutation/ablation and XGB/LSTM calibration, with final OOS untouched. Do not change benchmark labels, class weights, frozen entry/risk/news gates or use final OOS to choose features/calibration.
