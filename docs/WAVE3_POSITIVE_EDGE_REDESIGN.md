@@ -136,3 +136,16 @@ The prior note describing the terminal digest as an invalid 58-character string 
 Latest completed benchmark training artifact #13036729349 (workflow #6, commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`) still fails: Final OOS accuracy 41.0602% vs 45.9708% baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds are below baseline. The benchmark has 34 Wave3 triggers, max SMC 75, and no row at SMC >=85. Calibration remains absent. These are benchmark results only and do not constitute a result for a separately preregistered challenger.
 
 P0 provenance is reconciled. P1 candidate-level causal SMC traces/no-lookahead tests, P2 first-hit net-outcome labels, P3 inner-fold-only calibration and model comparison, P4 cost/regime robustness, and P5 one frozen untouched OOS evaluation remain pending. Do not rerun full training or access final OOS for tuning until the methodology and causal diagnostic work are complete. No benchmark gates were changed; no orders, live trading, merge or deployment.
+
+## P1 evidence update — 2026-11-01
+
+P1 is **partially complete** using the diagnostic-only evidence produced in the separate benchmark PR #66; no runtime implementation has been copied into this redesign branch.
+
+- Exact benchmark CI: [SMC/Wave3 CI #84](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41271885730), successful.
+- Candidate trace artifact #13070220119; archive SHA-256 `f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e`.
+- Benchmark PR #66 report: `reports/wave3_smc_candidate_trace_audit_20261101.json`.
+- 34 Wave3 candidates were traced on the same closed signal bar. No row had all four frozen SMC components; maximum score was 75, and no row reached 85. OB within $5 appeared on one row and did not intersect with the other scored components.
+- Diagnostic-only FVG fields distinguish first overlap from first full mitigation. Five of seven FVG-positive candidates overlapped a gap that had already been fully mitigated on an earlier bar; the current benchmark code retains the gap within its 48-bar window. This requires a preregistered semantic decision before any signal-logic change.
+- No-lookahead tests for pivot confirmation, OB origin/confirmation/invalidation and FVG origin passed. The additional FVG regression test leaves the frozen overlap flag unchanged.
+
+P1 remains open until the intended FVG first-touch/full-mitigation/re-touch semantics are explicitly reviewed and documented. P2 first-hit/triple-barrier net-outcome labels, P3 baselines and inner-fold-only calibration, P4 execution-cost/regime robustness, and P5 a single frozen untouched OOS evaluation remain pending. The benchmark's latest run #6 remains negative (accuracy 41.0602% vs 45.9708% baseline, 0 closed trades, net $0, PF unavailable); this is not a challenger result. PR #147 remains Draft/open/unmerged and design-only.
