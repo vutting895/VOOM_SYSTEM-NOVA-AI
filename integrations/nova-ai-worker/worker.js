@@ -304,12 +304,20 @@ export default {
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
     }
-    if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);
-    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest"].includes(url.pathname)) {
+    if (!["GET", "POST", "DELETE"].includes(request.method)) return fail("method_not_allowed", 405, origin);
+    const isMemoryLearningRoute = url.pathname === "/api/memory/settings"
+      || url.pathname === "/api/memory/threads" || url.pathname.startsWith("/api/memory/threads/")
+      || url.pathname === "/api/memory/facts" || url.pathname.startsWith("/api/memory/facts/")
+      || url.pathname === "/api/learning/feedback";
+    if (!isMemoryLearningRoute && !["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest"].includes(url.pathname)) {
       return fail("not_found", 404, origin);
     }
     const auth = await authenticateRequest(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin);
+    if (isMemoryLearningRoute) {
+      return await handleMemoryLearningRequest(request, env, auth,
+        (body, status = 200) => json(body, status, origin));
+    }
     if (request.method === "GET" && url.pathname === "/api/marketplace") {
       return json({ items: catalog, count: catalog.length, source: "built-in-starter-catalog", liveTrading: false }, 200, origin);
     }
@@ -336,13 +344,28 @@ export default {
       return json(result, 200, origin);
     }
     if (url.pathname === "/api/chat") {
-      let messages;
-      try { messages = validateChatInput(body); }
+      let chatInput;
+      try { chatInput = validateChatInput(body); }
       catch (error) { return fail(error.message || "invalid_messages", error.status || 400, origin); }
       try {
-        return json(await generateChat(env, messages), 200, origin);
+        let messages = chatInput.messages;
+        let memoryFacts = [];
+        if (chatInput.threadId) {
+          const memory = await loadMemoryContext(request, env, auth, chatInput.threadId);
+          memoryFacts = memory.facts;
+          messages = [...memory.messages.slice(-11), chatInput.messages[chatInput.messages.length - 1]];
+        }
+        const result = await generateChat(env, messages, memoryFacts);
+        if (chatInput.threadId) {
+          await persistChatExchange(request, env, auth, chatInput.threadId,
+            chatInput.messages[chatInput.messages.length - 1].content, result.message);
+        }
+        return json({ ...result, threadId: chatInput.threadId }, 200, origin);
       } catch (error) {
-        return fail(error.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
+        const status = [400, 401, 403, 404, 409, 413].includes(error?.status) ? error.status : 503;
+        const code = typeof error?.code === "string" ? error.code
+          : error?.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable";
+        return fail(code, status, origin);
       }
     }
     const result = backtest(body);
