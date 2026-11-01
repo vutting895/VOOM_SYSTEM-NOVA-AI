@@ -98,7 +98,7 @@ export default function ExnessApiSetupPage() {
 
         <div className="links">
           <a href="https://www.exness-api.com/authentication/api-key-and-host-setup" target="_blank" rel="noreferrer">ดูวิธีสร้าง API จาก Exness</a>
-          <a className="secondary" href="https://get.exness.help/hc/en-us/articles/27866287512476-Exness-API" target="_blank" rel="noreferrer">ตรวจสอบบัญชีที่รองรับ</a>
+          <a className="secondary" href="https://get.exness.help/hc/th/articles/27866287512476-Exness-API" target="_blank" rel="noreferrer">ตรวจสอบบัญชีที่รองรับ</a>
           <Link className="secondary" href="/settings/broker">ดูหน้าสถานะ Broker เดิม</Link>
         </div>
 
