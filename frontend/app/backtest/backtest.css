@@ -48,3 +48,9 @@
 .nova-bt-foot{max-width:1440px;margin:18px auto 0;color:#718ba2;font-size:10px;line-height:1.7}
 @media(max-width:900px){.nova-bt-grid{grid-template-columns:1fr}.nova-bt-side{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.nova-backtest-lab{padding:23px 13px 40px}.nova-bt-top{display:grid}.nova-bt-safety{justify-self:start}.nova-bt-panel{padding:15px}.nova-bt-fields{grid-template-columns:1fr}.nova-bt-wide{grid-column:auto}.nova-bt-side{grid-template-columns:1fr}.nova-bt-actions{align-items:stretch;flex-direction:column}.nova-bt-run{width:100%}}
+
+.nova-bt-live-toggle{display:flex;align-items:center;gap:8px;margin-top:13px;color:#9db3c7;font-size:11px}
+.nova-bt-live-toggle input{accent-color:#59cbd3}
+.nova-bt-live-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:15px}
+.nova-bt-live-grid .nova-bt-metric strong{font-variant-numeric:tabular-nums}
+@media(max-width:700px){.nova-bt-live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
