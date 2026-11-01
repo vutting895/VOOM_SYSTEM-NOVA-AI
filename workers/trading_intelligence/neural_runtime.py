@@ -43,8 +43,10 @@ def _timestamp(value: Any) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def validate_ohlcv(rows: Iterable[dict[str, Any]], timeframe: str) -> list[dict[str, Any]]:
-    """Validate complete, chronological OHLCV bars; reject gaps and duplicates."""
+def validate_ohlcv(
+    rows: Iterable[dict[str, Any]], timeframe: str, *, allow_session_gaps: bool = False,
+) -> list[dict[str, Any]]:
+    """Validate OHLCV bars; optionally split at timeframe-aligned market-data gaps."""
     if timeframe not in TIMEFRAME_SECONDS:
         raise ValueError("unsupported timeframe")
     if not isinstance(rows, (list, tuple)) or len(rows) < 80:
@@ -70,11 +72,41 @@ def validate_ohlcv(rows: Iterable[dict[str, Any]], timeframe: str) -> list[dict[
             delta = (timestamp - previous).total_seconds()
             if delta <= 0:
                 raise ValueError("timestamps must be strictly increasing without duplicates")
-            if delta != TIMEFRAME_SECONDS[timeframe]:
-                raise ValueError("missing or irregular candle interval; quarantine this dataset")
+            interval = TIMEFRAME_SECONDS[timeframe]
+            if delta != interval:
+                # A gap is a hard sequence boundary, never a synthetic candle. It must
+                # align exactly to the requested timeframe; duplicates/reversals fail above.
+                if not allow_session_gaps or delta < interval or delta % interval != 0:
+                    raise ValueError("missing or irregular candle interval; quarantine this dataset")
         previous = timestamp
         output.append({"time": timestamp.isoformat().replace("+00:00", "Z"), **values})
     return output
+
+
+def _segment_ids(rows: list[dict[str, Any]], timeframe: str) -> list[int]:
+    """Assign a new segment after every non-contiguous interval."""
+    interval = TIMEFRAME_SECONDS[timeframe]
+    segments = [0] if rows else []
+    for index in range(1, len(rows)):
+        previous = _timestamp(rows[index - 1]["time"])
+        current = _timestamp(rows[index]["time"])
+        segments.append(segments[-1] + int((current - previous).total_seconds() != interval))
+    return segments
+
+
+def _gap_summary(rows: list[dict[str, Any]], timeframe: str) -> dict[str, Any]:
+    interval = TIMEFRAME_SECONDS[timeframe]
+    gaps = []
+    for index in range(1, len(rows)):
+        delta = (_timestamp(rows[index]["time"]) - _timestamp(rows[index - 1]["time"])).total_seconds()
+        if delta != interval:
+            gaps.append(int(delta // interval))
+    return {
+        "policy": "segment_on_interval_gap",
+        "intervalGapCount": len(gaps),
+        "maxGapIntervals": max(gaps, default=1),
+        "gapIntervals": gaps,
+    }
 
 
 def _rolling_mean(values: np.ndarray, window: int) -> np.ndarray:
@@ -85,7 +117,7 @@ def _rolling_mean(values: np.ndarray, window: int) -> np.ndarray:
     return result
 
 
-def build_causal_features(rows: list[dict[str, Any]]) -> tuple[np.ndarray, list[str]]:
+def _build_causal_features_contiguous(rows: list[dict[str, Any]]) -> tuple[np.ndarray, list[int]]:
     """Build features using current and historical bars only (no future values)."""
     close = np.asarray([r["close"] for r in rows], dtype=np.float64)
     high = np.asarray([r["high"] for r in rows], dtype=np.float64)
@@ -128,6 +160,31 @@ def build_causal_features(rows: list[dict[str, Any]]) -> tuple[np.ndarray, list[
     return features.astype(np.float32), np.flatnonzero(finite_rows).tolist()
 
 
+def build_causal_features(
+    rows: list[dict[str, Any]], timeframe: str | None = None,
+) -> tuple[np.ndarray, list[int]]:
+    """Build causal features independently inside each contiguous segment."""
+    if timeframe is None:
+        return _build_causal_features_contiguous(rows)
+    if timeframe not in TIMEFRAME_SECONDS:
+        raise ValueError("unsupported timeframe")
+    features = np.full((len(rows), len(FEATURES)), np.nan, dtype=np.float32)
+    valid_indices: list[int] = []
+    start = 0
+    interval = TIMEFRAME_SECONDS[timeframe]
+    for index in range(1, len(rows) + 1):
+        boundary = index == len(rows)
+        if not boundary:
+            delta = (_timestamp(rows[index]["time"]) - _timestamp(rows[index - 1]["time"])).total_seconds()
+            boundary = delta != interval
+        if boundary:
+            segment_features, segment_valid = _build_causal_features_contiguous(rows[start:index])
+            features[start:index] = segment_features
+            valid_indices.extend(start + item for item in segment_valid)
+            start = index
+    return features, valid_indices
+
+
 class LSTMRegimeModel(nn.Module):
     """Small unidirectional LSTM: future candles are never inputs."""
     def __init__(self, input_size: int = len(FEATURES), hidden_size: int = 32, layers: int = 1, dropout: float = 0.0):
@@ -166,19 +223,21 @@ def _canonical_hash(rows: list[dict[str, Any]]) -> str:
 def train_candidate(
     rows: Iterable[dict[str, Any]], symbol: str, timeframe: str,
     sequence_length: int = 32, horizon: int = 3, epochs: int = 12,
-    hidden_size: int = 32, seed: int = 42,
+    hidden_size: int = 32, seed: int = 42, allow_session_gaps: bool = False,
 ) -> tuple[bytes, dict[str, Any]]:
     """Train a research candidate; do not evaluate or touch final OOS outcomes."""
     if not isinstance(symbol, str) or not symbol.strip() or len(symbol) > 40:
         raise ValueError("symbol is required")
     if not 8 <= sequence_length <= 256 or not 1 <= horizon <= 24 or not 1 <= epochs <= 100:
         raise ValueError("training parameters are outside safe bounds")
-    bars = validate_ohlcv(rows, timeframe)
-    features, valid_indices = build_causal_features(bars)
+    bars = validate_ohlcv(rows, timeframe, allow_session_gaps=allow_session_gaps)
+    features, valid_indices = build_causal_features(bars, timeframe=timeframe)
     index_set = set(valid_indices)
+    segment_ids = _segment_ids(bars, timeframe)
     sample_indices = [
         i for i in range(sequence_length - 1, len(bars) - horizon)
         if all(j in index_set for j in range(i - sequence_length + 1, i + 1))
+        and segment_ids[i - sequence_length + 1] == segment_ids[i] == segment_ids[i + horizon]
     ]
     partitions = chronological_windows(sample_indices, horizon, sequence_length, len(bars))
     close = np.asarray([r["close"] for r in bars], dtype=np.float64)
@@ -252,6 +311,8 @@ def train_candidate(
         "model": {"id": "nova-lstm-regime", "version": "0.1.0-candidate", "runtime": "pytorch", "status": "research_candidate"},
         "data": {
             "symbol": symbol.strip(), "timeframe": timeframe,
+            "gapPolicy": "segment_on_interval_gap" if allow_session_gaps else "strict_contiguous",
+            "intervalGaps": _gap_summary(bars, timeframe),
             "datasetSha256": _canonical_hash(bars),
             "featureManifestSha256": feature_manifest_sha256,
             "barsUsed": len(bars), "firstBarAt": bars[0]["time"], "lastClosedBarAt": bars[-1]["time"],
@@ -299,16 +360,23 @@ def load_candidate(artifact: bytes, expected_sha256: str, expected_symbol: str, 
 
 def infer_research_candidate(
     artifact: bytes, expected_sha256: str, rows: Iterable[dict[str, Any]],
-    symbol: str, timeframe: str,
+    symbol: str, timeframe: str, *, allow_session_gaps: bool = False,
 ) -> dict[str, Any]:
     """Return a shadow-only regime estimate from a hash-verified candidate."""
-    bars = validate_ohlcv(rows, timeframe)
+    bars = validate_ohlcv(rows, timeframe, allow_session_gaps=allow_session_gaps)
     model, manifest = load_candidate(artifact, expected_sha256, symbol, timeframe)
+    expected_gap_policy = "segment_on_interval_gap" if allow_session_gaps else "strict_contiguous"
+    if manifest["data"].get("gapPolicy", "strict_contiguous") != expected_gap_policy:
+        raise ValueError("inference gap policy must match the candidate training manifest")
     if bars[-1]["time"] <= manifest["data"]["lastClosedBarAt"]:
         raise ValueError("inference data must advance beyond the candidate training snapshot")
-    features, valid = build_causal_features(bars)
+    features, valid = build_causal_features(bars, timeframe=timeframe)
+    segment_ids = _segment_ids(bars, timeframe)
     sequence_length = manifest["featureManifest"]["sequence_length"]
-    usable = [i for i in valid if i >= sequence_length - 1]
+    usable = [
+        i for i in valid
+        if i >= sequence_length - 1 and segment_ids[i - sequence_length + 1] == segment_ids[i]
+    ]
     if not usable:
         raise ValueError("not enough valid causal features for inference")
     end = usable[-1]
