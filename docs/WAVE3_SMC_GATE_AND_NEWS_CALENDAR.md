@@ -87,3 +87,16 @@ The implementation's scored components are more specific than the report's legac
 - The 25-point FVG component is the current candle intersecting the active bullish FVG within the existing 48-bar validity window.
 
 Because the four weights total 100 and the gate is >=85, **all four components must be present on the same signal row**; missing any one caps the score at 75. The current 75/100 maximum is therefore consistent with at least one missing component. OB-within-$5 is rare (1/34 Wave3 triggers), but marginal counts alone do not prove OB is the only blocker. Candidate-level causal alignment is still required. Do not change the weights, 48-bar FVG window, OB size/proximity rules, or SMC threshold.
+
+## Candidate-level causal trace and FVG mitigation addendum — 2026-11-01
+
+The exact-head SMC/Wave3 CI generated a diagnostic-only trace for all 34 Wave3 final-OOS trigger rows: [CI run #84](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41271885730), artifact #13070220119 (archive SHA-256 `f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e`). The provenance-bound summary is `reports/wave3_smc_candidate_trace_audit_20261101.json`.
+
+- Same-closed-bar component counts: BOS20=21, three confirmed higher lows + green=12, OB within $5=1, FVG overlap=7. All-four intersection=0; maximum SMC=75; SMC>=85=0.
+- Pairwise intersections: BOS20+rule-CHoCH=9; BOS20+OB=0; BOS20+FVG=3; rule-CHoCH+OB=0; rule-CHoCH+FVG=3; OB+FVG=0.
+- Eleven candidates had a selected OB; all were valid on the signal bar, only one was within $5, and none was inside the zone. The only within-$5 candidate (2026-08-25 05:15 UTC) had structural CHoCH-up but not the scored three-higher-lows+green rule; BOS20 and FVG were also absent. Structural CHoCH must not be substituted for `choch_rule_up`.
+- The diagnostic-only FVG convention records full mitigation when a closed-bar low reaches the bullish gap's lower boundary. Of the seven FVG-positive candidates, all had first overlap before the signal bar; five had already reached full mitigation on an earlier bar, and two first reached full mitigation on the signal bar. The current scored `bull_fvg_fill` remains any bar-range overlap with the most recent bullish FVG inside its 48-bar age window, and the active gap is not deactivated after full mitigation. This behavior matches the current code-level definition but the strategy brief does not explicitly state whether post-full-mitigation re-touches should remain eligible. Treat this as a definition question, not an automatic bug fix.
+
+The audit added first-overlap/full-mitigation trace fields and regression tests only. Existing `bull_fvg_fill` scoring, 48-bar window, SMC weights, lookbacks and thresholds are unchanged. The new trace fields are excluded from model features. Candidate-level trace and no-lookahead tests passed; no model training was run.
+
+Latest completed benchmark run #6 remains blocked: accuracy 41.0602% vs 45.9708% majority baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds below baseline. Keep the benchmark research-only; no orders, merge, deployment or Live Trading.
