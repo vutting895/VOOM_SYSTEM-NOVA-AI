@@ -219,3 +219,24 @@ test("accepts account-configured candle limits above 999 without a hardcoded thr
   assert.deepEqual(candles, []);
   assert.equal(candleRequested, true);
 });
+
+
+
+test("oversized upstream body is cancelled before buffering when Content-Length is absent", async () => {
+  let cancelled = false;
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array(40 * 1024));
+        controller.enqueue(new Uint8Array(30 * 1024));
+      },
+      cancel() {
+        cancelled = true;
+      }
+    }), { status: 200 })
+  });
+
+  await assert.rejects(adapter.getAccount(CONTEXT), /exness_response_too_large/);
+  assert.equal(cancelled, true);
+});
