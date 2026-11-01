@@ -125,9 +125,9 @@ export async function loadMemoryContext(request, env, auth, threadId) {
 export function containsCredentialLikeContent(value) {
   if (typeof value !== "string") return false;
   return [
-    /\\bBearer\\s+[A-Za-z0-9._~+\\/-]{16,}={0,2}/i,
-    /\\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\\s*[:=]\\s*[^\\s]{6,}/i,
-    /\\b(?:sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\\b/,
+    /\bBearer\s+[A-Za-z0-9._~+\/-]{16,}={0,2}/i,
+    /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password)\s*[:=]\s*[^\s]{6,}/i,
+    /\b(?:sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})\b/,
     /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
   ].some((pattern) => pattern.test(value));
 }
