@@ -98,3 +98,11 @@ The earlier calendar digest discrepancy is reconciled by line-ending normalizati
 Latest completed training artifact is workflow run #6 on commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, artifact #13036729349 (archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`). Final OOS (7,942 rows): accuracy 41.0602% vs 45.9708% majority baseline; balanced accuracy 38.8382%; macro-F1 38.0253%; 0 closed trades; net $0; PF unavailable. All five walk-forward folds remain below their baselines. SMC max on 34 Wave3 triggers is 75; BOS20=21, three-higher-lows+green=12, OB-within-$5=1, FVG refill=7, and no row reaches SMC >=85. Calibration remains absent. Candidate-level same-bar causal traces are still required; marginal counts do not prove OB is the sole cause.
 
 Keep the frozen benchmark rules unchanged. No new full training is authorized until the causal SMC audit is complete; no orders, merge, deployment or Live Trading.
+
+### P1 causal SMC candidate audit — 2026-11-01
+
+The exact-head SMC/Wave3 CI generated a diagnostic-only trace for all 34 Wave3 final-OOS candidates. See [candidate trace audit](reports/wave3_smc_candidate_trace_audit_20261101.json) and [CI run #84](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41271885730). The trace artifact is #13070220119 (archive SHA-256 `f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e`). No model training was run.
+
+The four frozen SMC components had zero all-four same-bar intersections (maximum score 75): BOS20=21, three confirmed higher lows + green=12, OB within $5=1, FVG overlap=7. The only within-$5 OB candidate had no other scored component. Structural CHoCH and the scored higher-lows rule remain distinct fields. The new diagnostic-only FVG trace found that five of seven FVG-positive candidates re-touched a gap after an earlier full mitigation; the current 48-bar active-gap implementation does not deactivate a gap after full mitigation. This requires a definition review; it is not permission to change the frozen gate.
+
+The benchmark remains blocked: latest completed run #6 OOS accuracy 41.0602% vs 45.9708% baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable. Keep PR #66 Draft/open/unmerged, do not deploy, and keep order submission/Live Trading OFF.
