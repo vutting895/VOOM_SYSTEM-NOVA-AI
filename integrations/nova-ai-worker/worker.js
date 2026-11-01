@@ -356,11 +356,13 @@ export default {
           messages = [...compactChatHistory(memory.messages), chatInput.messages[chatInput.messages.length - 1]];
         }
         const result = await generateChat(env, messages, memoryFacts);
+        let memoryPersisted = null;
         if (chatInput.threadId) {
-          await persistChatExchange(request, env, auth, chatInput.threadId,
+          const persistence = await persistChatExchange(request, env, auth, chatInput.threadId,
             chatInput.messages[chatInput.messages.length - 1].content, result.message);
+          memoryPersisted = persistence.persisted;
         }
-        return json({ ...result, threadId: chatInput.threadId }, 200, origin);
+        return json({ ...result, threadId: chatInput.threadId, memoryPersisted }, 200, origin);
       } catch (error) {
         const status = [400, 401, 403, 404, 409, 413].includes(error?.status) ? error.status : 503;
         const code = typeof error?.code === "string" ? error.code
