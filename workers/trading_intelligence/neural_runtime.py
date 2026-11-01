@@ -238,14 +238,22 @@ def train_candidate(
         "horizon": horizon,
         "label_definition": "log_return_horizon > 2bps bullish; < -2bps bearish; otherwise sideways",
         "uses_future_features": False,
+        "normalization": {
+            "mean": feature_mean.tolist(),
+            "std": feature_std.tolist(),
+            "fittedOn": "training_partition_only",
+        },
     }
+    feature_manifest_sha256 = hashlib.sha256(
+        json.dumps(feature_manifest, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     manifest = {
         "schemaVersion": SCHEMA_VERSION,
         "model": {"id": "nova-lstm-regime", "version": "0.1.0-candidate", "runtime": "pytorch", "status": "research_candidate"},
         "data": {
             "symbol": symbol.strip(), "timeframe": timeframe,
             "datasetSha256": _canonical_hash(bars),
-            "featureManifestSha256": hashlib.sha256(json.dumps(feature_manifest, sort_keys=True).encode()).hexdigest(),
+            "featureManifestSha256": feature_manifest_sha256,
             "barsUsed": len(bars), "firstBarAt": bars[0]["time"], "lastClosedBarAt": bars[-1]["time"],
         },
         "training": {
@@ -257,14 +265,7 @@ def train_candidate(
             "finalOosBarsSha256": _canonical_hash(bars[partitions["final_oos_reserved"][0]:]),
             "finalOosTouched": False,
         },
-        "featureManifest": {
-            **feature_manifest,
-            "normalization": {
-                "mean": feature_mean.tolist(),
-                "std": feature_std.tolist(),
-                "fittedOn": "training_partition_only",
-            },
-        },
+        "featureManifest": feature_manifest,
         "evaluation": {"status": "not_evaluated", "finalOosStatus": "reserved_untouched", "promotable": False},
         "safety": {"executionEnabled": False, "liveTradingEnabled": False, "ordersEnabled": False},
     }
