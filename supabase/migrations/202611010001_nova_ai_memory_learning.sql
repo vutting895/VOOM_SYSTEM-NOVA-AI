@@ -173,6 +173,7 @@ $;
 
 revoke all on function public.nova_ai_guard_memory_write() from public, anon;
 revoke all on function public.nova_ai_update_memory_settings(boolean, boolean, integer) from public, anon;
+grant execute on function public.nova_ai_guard_memory_write() to authenticated;
 grant execute on function public.nova_ai_update_memory_settings(boolean, boolean, integer) to authenticated;
 
 create or replace function public.nova_ai_purge_expired_memory() returns void
