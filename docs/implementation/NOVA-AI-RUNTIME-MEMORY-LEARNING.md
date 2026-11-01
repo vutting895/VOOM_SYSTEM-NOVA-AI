@@ -40,10 +40,11 @@ Learning feedback is separately disabled by default.
 
 1. Run the AI Worker unit suite and SQL migration tests on an ephemeral PostgreSQL database.
 2. Apply the migration only to an isolated staging database after review; this PR does not apply hosted migrations.
-3. Verify two-user isolation: User A can access only A's rows; User B cannot read, update or delete A's memory or feedback.
-4. Test opt-out deletion, thread deletion, retention purge and provider outage behavior.
-5. Verify exact Worker and frontend Preview SHAs before claiming hosted memory is live.
-6. Keep order submission, execution and Live Trading disabled.
+3. Explicitly expose only the five required tables and the two authenticated RPC functions in Supabase Data API settings; verify the Worker can call them with a publishable key and user bearer token.
+4. Verify two-user isolation: User A can access only A's rows; User B cannot read, update or delete A's memory or feedback.
+5. Test concurrent opt-out, thread deletion, retention purge (including feedback while memory is disabled), and provider outage behavior.
+6. Verify exact Worker and frontend Preview SHAs before claiming hosted memory is live.
+7. Keep order submission, execution and Live Trading disabled.
 
 ## Research references
 
