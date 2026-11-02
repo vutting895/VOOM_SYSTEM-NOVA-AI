@@ -53,11 +53,21 @@ function decimalParts(value) {
   const [whole, fraction = ''] = value.split('.');
   return { integer: BigInt(whole + fraction), scale: fraction.length };
 }
+function scaledDecimal(value, scale) {
+  return value.integer * (10n ** BigInt(scale - value.scale));
+}
 function compareDecimal(a, b) {
   const scale = Math.max(a.scale, b.scale);
-  const left = a.integer * (10n ** BigInt(scale - a.scale));
-  const right = b.integer * (10n ** BigInt(scale - b.scale));
+  const left = scaledDecimal(a, scale);
+  const right = scaledDecimal(b, scale);
   return left < right ? -1 : left > right ? 1 : 0;
+}
+function subtractDecimalStrings(larger, smaller) {
+  const scale = Math.max(larger.scale, smaller.scale);
+  const difference = scaledDecimal(larger, scale) - scaledDecimal(smaller, scale);
+  const digits = difference.toString().padStart(scale + 1, '0');
+  if (!scale) return digits;
+  return digits.slice(0, -scale) + '.' + digits.slice(-scale);
 }
 function validBar(bar) {
   if (!bar || typeof bar !== 'object' || typeof bar.time !== 'string') return false;
@@ -145,7 +155,7 @@ export async function GET(request) {
     const last = quote.tick?.last === null || quote.tick?.last === undefined || quote.tick.last === "0"
       ? null : decimalParts(quote.tick.last);
     const tick = bid && ask && bid.integer > 0n && ask.integer > 0n && compareDecimal(ask, bid) >= 0
-      ? { bid: quote.tick.bid, ask: quote.tick.ask, last: last ? quote.tick.last : null, spread: null, time: quote.tick.time }
+      ? { bid: quote.tick.bid, ask: quote.tick.ask, last: last ? quote.tick.last : null, spread: subtractDecimalStrings(ask, bid), time: quote.tick.time }
       : null;
     if (quote.tick && !tick) {
       return json({ error: 'invalid_market_tick', state: 'unavailable', ordersEnabled: false, liveTradingEnabled: false }, 502);
