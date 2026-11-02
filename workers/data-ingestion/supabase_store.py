@@ -125,7 +125,7 @@ class SupabaseStore:
             raise ValueError("unsupported_timeframe")
         if source not in ALLOWED_SOURCES or environment not in ALLOWED_ENVIRONMENTS:
             raise ValueError("unsupported_source_or_environment")
-        if source == "binance_public" and environment != "public":
+        if source == "binance_public" and (environment != "public" or owner_id is not None):
             raise ValueError("source_environment_mismatch")
         if source.startswith("exness_") and (environment != "demo" or owner_id is None):
             raise ValueError("exness_demo_requires_owner")
@@ -150,6 +150,9 @@ class SupabaseStore:
             volume = _decimal_string(candle.get("volume", "0"), "volume")
             if Decimal(high) < max(Decimal(open_price), Decimal(close)) or Decimal(low) > min(Decimal(open_price), Decimal(close)) or Decimal(high) < Decimal(low) or Decimal(volume) < 0:
                 raise ValueError("invalid_ohlcv_relationship")
+            is_closed = candle.get("is_closed", True)
+            if not isinstance(is_closed, bool):
+                raise ValueError("invalid_is_closed")
             row = {
                 "scope_key": owner_id or "shared",
                 "owner_id": owner_id,
@@ -165,7 +168,7 @@ class SupabaseStore:
                 "volume": volume,
                 "tick_volume": int(candle["tick_volume"]) if candle.get("tick_volume") is not None else None,
                 "spread_points": _decimal_string(candle["spread_points"], "spread_points") if candle.get("spread_points") is not None else None,
-                "is_closed": bool(candle.get("is_closed", True)),
+                "is_closed": is_closed,
             }
             rows.append(row)
             if len(rows) == batch_size:
@@ -192,6 +195,10 @@ class SupabaseStore:
     ) -> None:
         if source not in ALLOWED_SOURCES or environment not in ALLOWED_ENVIRONMENTS:
             raise ValueError("unsupported_source_or_environment")
+        if source == "binance_public" and (environment != "public" or owner_id is not None):
+            raise ValueError("source_environment_mismatch")
+        if source.startswith("exness_") and (environment != "demo" or owner_id is None):
+            raise ValueError("exness_demo_requires_owner")
         if status not in {"completed", "failed", "partial"}:
             raise ValueError("invalid_ingestion_status")
         if owner_id is not None:
