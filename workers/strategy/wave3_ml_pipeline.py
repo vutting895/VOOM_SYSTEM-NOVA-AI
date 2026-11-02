@@ -1264,7 +1264,9 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
                 "first_full_mitigation_index": fvg_first_full_mitigation,
                 "first_full_mitigation_timestamp_utc": frame["timestamp"].iloc[fvg_first_full_mitigation].isoformat() if fvg_first_full_mitigation is not None else None,
                 "bars_since_first_full_mitigation": i - fvg_first_full_mitigation if fvg_first_full_mitigation is not None else None,
+                "full_mitigation_touch_on_signal_bar": bool(number(rowf, "bull_fvg_fully_mitigated_now")) if number(rowf, "bull_fvg_fully_mitigated_now") is not None else None,
                 "fully_mitigated_on_signal_bar": bool(number(rowf, "bull_fvg_fully_mitigated_now")) if number(rowf, "bull_fvg_fully_mitigated_now") is not None else None,
+                "first_full_mitigation_on_signal_bar": fvg_first_full_mitigation is not None and fvg_first_full_mitigation == i,
                 "full_mitigation_precedes_signal": fvg_first_full_mitigation is not None and fvg_first_full_mitigation < i,
                 "overlap_is_retest_after_first_refill": flags["bull_fvg_fill"] and fvg_first_fill is not None and fvg_first_fill < i,
                 "overlap_is_retest_after_full_mitigation": flags["bull_fvg_fill"] and fvg_first_full_mitigation is not None and fvg_first_full_mitigation < i,
@@ -1293,7 +1295,11 @@ def smc_candidate_trace(frame: pd.DataFrame, features: pd.DataFrame, raw_indices
         "maximum_smc_score": max((row["smc_score"] for row in rows if row["smc_score"] is not None), default=None),
         "fvg_positive_rows_after_first_overlap": sum(1 for row in rows if row["components_same_closed_signal_bar"]["bull_fvg_fill"] and row["fair_value_gap"]["first_refill_index"] is not None and row["fair_value_gap"]["first_refill_index"] < row["signal_index"]),
         "fvg_positive_rows_after_full_mitigation": sum(1 for row in rows if row["fair_value_gap"]["overlap_is_retest_after_full_mitigation"]),
-        "fvg_full_mitigation_on_signal_bar": sum(1 for row in rows if row["fair_value_gap"]["fully_mitigated_on_signal_bar"] is True),
+        "fvg_full_mitigation_on_signal_bar": sum(1 for row in rows if row["components_same_closed_signal_bar"]["bull_fvg_fill"] and row["fair_value_gap"]["first_full_mitigation_on_signal_bar"]),
+        "fvg_full_mitigation_touch_on_signal_bar_all_candidates": sum(1 for row in rows if row["fair_value_gap"]["full_mitigation_touch_on_signal_bar"] is True),
+        "fvg_positive_rows_with_full_mitigation_touch_on_signal_bar": sum(1 for row in rows if row["components_same_closed_signal_bar"]["bull_fvg_fill"] and row["fair_value_gap"]["full_mitigation_touch_on_signal_bar"] is True),
+        "fvg_positive_rows_first_full_mitigation_precedes_signal": sum(1 for row in rows if row["components_same_closed_signal_bar"]["bull_fvg_fill"] and row["fair_value_gap"]["full_mitigation_precedes_signal"]),
+        "fvg_mitigation_summary_note": "fvg_full_mitigation_on_signal_bar counts the first full mitigation occurring exactly on an FVG-positive signal bar; full_mitigation_touch_on_signal_bar records any current-bar touch, including later re-touches.",
         "missing_component_patterns": patterns,
     }
     return {"summary": summary, "rows": rows}
