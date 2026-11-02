@@ -8,11 +8,11 @@ const navigation = [
   { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
   { label: 'BROKER HUB', href: '/broker', code: '04' },
   { label: 'INTEGRATION CENTER', href: '/integrations', code: '05' },
-  { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
-  { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
-  { label: 'AI CHAT', href: '/chat', code: '07' },
-  { label: 'VIDEO WORKSPACE', href: '/video', code: '08' },
-  { label: 'BACKTEST', href: '/backtest', code: '09' },
+  { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '06' },
+  { label: 'MARKETPLACE', href: '/marketplace', code: '07' },
+  { label: 'AI CHAT', href: '/chat', code: '08' },
+  { label: 'VIDEO WORKSPACE', href: '/video', code: '09' },
+  { label: 'BACKTEST', href: '/backtest', code: '10' },
 ];
 
 const watchlist = [
