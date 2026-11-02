@@ -4,6 +4,7 @@ import worker from "../worker.js";
 
 const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const PREVIEW_ORIGIN = "https://deploy-preview-200--voomsystem.netlify.app";
 const USER_TOKEN = "test-user-access-token";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
 const env = {
@@ -436,4 +437,20 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+test('only the site-specific HTTPS Netlify PR preview origin is allowed by CORS', async () => {
+  const preview = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: PREVIEW_ORIGIN }
+  }), env);
+  assert.equal(preview.status, 204);
+  assert.equal(preview.headers.get('Access-Control-Allow-Origin'), PREVIEW_ORIGIN);
+  const unrelated = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: 'https://deploy-preview-200--other-site.netlify.app' }
+  }), env);
+  assert.equal(unrelated.status, 403);
+  const arbitrary = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: 'https://attacker.netlify.app' }
+  }), env);
+  assert.equal(arbitrary.status, 403);
 });
