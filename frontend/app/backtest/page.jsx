@@ -67,7 +67,8 @@ export default function BacktestPage() {
         // historical backtest input; the independent tick remains live.
         const closedBars = payload.bars.slice(0, -1);
         if (closedBars.length < 3) throw new Error('not_enough_closed_candles');
-        setRaw(JSON.stringify(closedBars, null, 2));
+        const baselineCandles = closedBars.map(({ open, high, low, close }) => ({ open, high, low, close }));
+        setRaw(JSON.stringify(baselineCandles, null, 2));
       }
     } catch (err) {
       setMarketError(err?.message || 'ไม่สามารถดึงข้อมูลตลาดได้');
