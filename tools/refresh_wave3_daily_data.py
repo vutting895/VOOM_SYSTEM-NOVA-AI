@@ -36,6 +36,14 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def canonical_lf_sha256(path: Path) -> str:
+    """Hash canonical Git LF bytes so Windows autocrlf checkout is also verifiable."""
+    payload = path.read_bytes()
+    if b"\r" in payload.replace(b"\r\n", b""):
+        raise ValueError("Historical baseline contains a non-CRLF carriage return.")
+    return hashlib.sha256(payload.replace(b"\r\n", b"\n")).hexdigest()
+
+
 def _private_credentials() -> tuple[str, str]:
     local = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
     secrets = local / "VOOM_SYSTEM" / "secrets"
@@ -159,10 +167,10 @@ def _row_for_schema(row: dict, columns: list[str]) -> dict:
 def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | None = None) -> dict:
     if not base_data.is_file():
         raise FileNotFoundError(f"Historical baseline dataset not found: {base_data}")
-    actual_base_sha = sha256_file(base_data)
+    actual_base_sha = canonical_lf_sha256(base_data)
     if actual_base_sha != EXPECTED_BASE_SHA256:
         raise ValueError(
-            f"Historical baseline SHA-256 mismatch: expected={EXPECTED_BASE_SHA256} actual={actual_base_sha}"
+            f"Historical baseline canonical LF SHA-256 mismatch: expected={EXPECTED_BASE_SHA256} actual={actual_base_sha}"
         )
 
     state_dir.mkdir(parents=True, exist_ok=True)
