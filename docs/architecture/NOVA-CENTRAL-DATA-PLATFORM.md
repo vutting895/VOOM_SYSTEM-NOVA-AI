@@ -60,3 +60,11 @@ PR #109 recovered the Production runtime's 24 applied migration statements and i
 6. Verify test-owner read, foreign-owner denial, service-only write, idempotent candle upsert, Storage path isolation and data retention.
 
 No hosted schema or Storage bucket has been changed by this PR.
+
+## 2026-11-02 production baseline checkpoint
+
+A fresh read-only Supabase check of Production project \`tlyyxufuiimrbaksoitf\` returned 25 applied migration rows. The latest row is \`20261031070311:nova_durable_approval_lifecycle\`. The six proposed central-data tables (\`nova_market_candles\`, \`nova_market_events\`, \`nova_ingestion_runs\`, \`nova_dataset_manifests\`, \`nova_model_runs\`, \`nova_model_artifacts\`) and the \`nova-data\` bucket do not exist in Production yet.
+
+PR #109 remains Draft/open/unmerged at head \`650613fededde13fca6953a737dab6b2a5049a86\`; its recorded base is \`a2acfd8ec9b598e6593413549bef760e8f596a72\`. Compared with current main \`a9bb92c9d2642eff34be2ea68276a33b367ee793\`, its branch is 34 ahead / 82 behind. Its older exact-head CI evidence must not be treated as current-head proof. Reconcile/rebase the baseline work against current main, re-run clean replay and fingerprint tests, and verify all 25 Production migration rows before generating an active central-data migration.
+
+This checkpoint is read-only. It does not authorize applying the pending schema or creating the Storage bucket.
