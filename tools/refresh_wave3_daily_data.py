@@ -313,11 +313,11 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
 
     if new_quotes.empty:
         latest = previous_last
-        if not state_csv.exists():
-            temp = state_csv.with_suffix(".csv.tmp")
-            existing.to_csv(temp, index=False, lineterminator="\n", float_format="%.12g")
-            os.replace(temp, state_csv)
-        data_sha = sha256_file(state_csv)
+        csv_bytes = (
+            existing.to_csv(index=False, lineterminator="\n", float_format="%.12g").encode("utf-8")
+            if not state_csv.exists() else state_csv.read_bytes()
+        )
+        data_sha = hashlib.sha256(csv_bytes).hexdigest()
         result = {
             "status": "no_new_closed_bars",
             "new_bars": 0,
@@ -328,14 +328,15 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
             "mode": "read-only",
             "order_submission_enabled": False,
         }
-        state_manifest.write_text(json.dumps({
+        manifest_bytes = json.dumps({
             **result,
             "fetched_at_utc": (now_utc or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat(),
             "provider": "Exness Demo MT5 local authenticated read-only bridge",
             "symbol": EXPECTED_SYMBOL,
             "timeframe": TIMEFRAME,
             "timezone": "UTC",
-        }, indent=2), encoding="utf-8")
+        }, indent=2).encode("utf-8")
+        _commit_dataset_pair(state_csv, state_manifest, csv_bytes, manifest_bytes)
         return result
 
     rows = [_row_for_schema(row, list(existing.columns)) for row in new_quotes.to_dict("records")]
@@ -352,10 +353,11 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
     age_hours = (now.astimezone(timezone.utc) - latest.to_pydatetime()).total_seconds() / 3600
     if age_hours > 96:
         raise ValueError(f"Latest closed bar is stale ({age_hours:.1f} hours); refusing to train on old quotes.")
-    temp = state_csv.with_suffix(".csv.tmp")
-    merged.to_csv(temp, index=False, lineterminator="\n", float_format="%.12g", date_format="%Y-%m-%dT%H:%M:%SZ")
-    os.replace(temp, state_csv)
-    data_sha = sha256_file(state_csv)
+    csv_bytes = merged.to_csv(
+        index=False, lineterminator="\n", float_format="%.12g",
+        date_format="%Y-%m-%dT%H:%M:%SZ",
+    ).encode("utf-8")
+    data_sha = hashlib.sha256(csv_bytes).hexdigest()
     result = {
         "status": "updated",
         "new_bars": int(len(new_quotes)),
@@ -368,14 +370,15 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
         "mode": "read-only",
         "order_submission_enabled": False,
     }
-    state_manifest.write_text(json.dumps({
+    manifest_bytes = json.dumps({
         **result,
         "fetched_at_utc": (now_utc or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat(),
         "provider": "Exness Demo MT5 local authenticated read-only bridge",
         "symbol": EXPECTED_SYMBOL,
         "timeframe": TIMEFRAME,
         "timezone": "UTC",
-    }, indent=2), encoding="utf-8")
+    }, indent=2).encode("utf-8")
+    _commit_dataset_pair(state_csv, state_manifest, csv_bytes, manifest_bytes)
     return result
 
 
