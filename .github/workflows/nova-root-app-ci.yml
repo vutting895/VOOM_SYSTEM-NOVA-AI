@@ -53,6 +53,8 @@ jobs:
 
   netlify-npm-build-parity:
     runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,6 +63,6 @@ jobs:
         with:
           node-version: "22"
       - name: Run the exact Netlify dependency installation command
-        run: npm install --no-package-lock
+        run: npm install --no-package-lock --include=dev
       - name: Run the exact Netlify build command
         run: npm run build
