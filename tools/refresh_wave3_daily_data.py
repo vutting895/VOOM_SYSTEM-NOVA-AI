@@ -186,11 +186,9 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
             raise ValueError("Persistent daily dataset SHA-256 does not match its manifest.")
         existing = pd.read_csv(state_csv)
     else:
+        # Keep the baseline in memory until authenticated MT5 health and quote validation
+        # succeed, so a first-run Bridge outage cannot leave an orphan state CSV.
         existing = pd.read_csv(base_data)
-        # Preserve the original Git-tracked baseline file; the daily state is separate.
-        temp = state_csv.with_suffix(".csv.tmp")
-        existing.to_csv(temp, index=False, lineterminator="\n", float_format="%.12g")
-        os.replace(temp, state_csv)
 
     required = {"timestamp", "open", "high", "low", "close", "spread_price"}
     if not required.issubset(existing.columns):
@@ -222,6 +220,10 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
 
     if new_quotes.empty:
         latest = previous_last
+        if not state_csv.exists():
+            temp = state_csv.with_suffix(".csv.tmp")
+            existing.to_csv(temp, index=False, lineterminator="\n", float_format="%.12g")
+            os.replace(temp, state_csv)
         data_sha = sha256_file(state_csv)
         result = {
             "status": "no_new_closed_bars",
