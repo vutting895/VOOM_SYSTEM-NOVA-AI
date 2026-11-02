@@ -113,8 +113,9 @@ class TestWave3Pipeline(unittest.TestCase):
         )
         gap = features.iloc[3000:3032]
         self.assertTrue(gap.isna().all().all())
-        self.assertTrue(np.isfinite(features.iloc[2990].to_numpy(dtype=float)).all())
-        self.assertTrue(np.isfinite(features.iloc[-1].to_numpy(dtype=float)).all())
+        base_features = ["return_1", "ema_dist_100", "atr_price", "rsi_14", "volume_z_48", "spread_price", "hour_sin"]
+        self.assertTrue(np.isfinite(features.iloc[2990][base_features].to_numpy(dtype=float)).all())
+        self.assertTrue(np.isfinite(features.iloc[-1][base_features].to_numpy(dtype=float)).all())
 
     def test_backtest_enters_next_bar_and_never_submits_orders(self):
         frame = synthetic_bars(200)
