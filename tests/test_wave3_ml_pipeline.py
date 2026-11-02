@@ -461,14 +461,27 @@ class TestWave3Pipeline(unittest.TestCase):
         self.assertEqual(features.loc[705, "bull_fvg_first_full_mitigation_index"], 704.0)
         self.assertEqual(features.loc[705, "bull_fvg_fully_mitigated_now"], 0.0)
 
-        features.loc[705, "wave3_long_rule_breakout"] = 1.0
-        features.loc[705, "wave3_long_entry_price"] = float(frame["close"].iloc[705])
-        trace = smc_candidate_trace(frame, features, np.array([705]))
-        self.assertEqual(trace["summary"]["candidate_rows"], 1)
-        gap = trace["rows"][0]["fair_value_gap"]
-        self.assertEqual(gap["first_refill_index"], 703)
-        self.assertEqual(gap["first_full_mitigation_index"], 704)
-        self.assertTrue(gap["overlap_is_retest_after_full_mitigation"])
+        for candidate_index in (704, 705):
+            features.loc[candidate_index, "wave3_long_rule_breakout"] = 1.0
+            features.loc[candidate_index, "wave3_long_entry_price"] = float(frame["close"].iloc[candidate_index])
+        trace = smc_candidate_trace(frame, features, np.array([704, 705]))
+        self.assertEqual(trace["summary"]["candidate_rows"], 2)
+        self.assertEqual(trace["summary"]["fvg_full_mitigation_on_signal_bar"], 1)
+        self.assertEqual(trace["summary"]["fvg_full_mitigation_touch_on_signal_bar_all_candidates"], 1)
+        self.assertEqual(trace["summary"]["fvg_positive_rows_with_full_mitigation_touch_on_signal_bar"], 1)
+        self.assertEqual(trace["summary"]["fvg_positive_rows_first_full_mitigation_precedes_signal"], 1)
+        gaps = {row["signal_index"]: row["fair_value_gap"] for row in trace["rows"]}
+        first = gaps[704]
+        self.assertTrue(first["full_mitigation_touch_on_signal_bar"])
+        self.assertTrue(first["first_full_mitigation_on_signal_bar"])
+        self.assertFalse(first["full_mitigation_precedes_signal"])
+        retouch = gaps[705]
+        self.assertEqual(retouch["first_refill_index"], 703)
+        self.assertEqual(retouch["first_full_mitigation_index"], 704)
+        self.assertFalse(retouch["full_mitigation_touch_on_signal_bar"])
+        self.assertFalse(retouch["first_full_mitigation_on_signal_bar"])
+        self.assertTrue(retouch["full_mitigation_precedes_signal"])
+        self.assertTrue(retouch["overlap_is_retest_after_full_mitigation"])
 
         X, _, _ = make_labeled_frame(frame, features)
         self.assertNotIn("bull_fvg_first_full_mitigation_index", X.columns)
