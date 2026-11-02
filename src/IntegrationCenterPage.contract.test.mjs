@@ -29,3 +29,17 @@ test('monitoring is bounded and local activity is not represented as a persisten
   assert.match(page, /setInterval[\s\S]*30000/);
   assert.match(page, /ยังไม่ใช่ persistent audit log/i);
 });
+
+test('rejected Hub sessions clear private state and permit a fresh sign-in', () => {
+  assert.match(page, /signOut\(\{ scope: 'local' \}\)/);
+  assert.match(page, /setSessionReady\(false\)/);
+  assert.match(page, /setSnapshot\(\{ integrations: \[\], connections: \[\], health \}\)/);
+});
+test('read-only verification is displayed only from a matching successful Hub response', () => {
+  assert.match(page, /result\.connectionId !== connection\.connectionId/);
+  assert.match(page, /result\.dataVerified !== true/);
+  assert.match(page, /verificationByConnection\[exnessConnection\.connectionId\]/);
+});
+test('trading safety is locked only when orders, execution, and live trading are all explicitly false', () => {
+  assert.match(page, /ordersEnabled === false && snapshot\.health\?\.executionEnabled === false && snapshot\.health\?\.liveTradingEnabled === false/);
+});
