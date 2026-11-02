@@ -61,6 +61,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Daily MT5 data refresh failed; training was not started.' }
     $syncText = ($syncOutput -join [Environment]::NewLine).Trim()
     try { $sync = $syncText | ConvertFrom-Json } catch { throw 'Daily MT5 refresh returned invalid JSON.' }
+    if ($sync.mode -ne 'read-only' -or $sync.order_submission_enabled -ne $false) {
+        throw 'Daily market-data refresher did not confirm read-only mode; candidate training is blocked.'
+    }
     if ($sync.status -eq 'no_new_closed_bars') {
         Write-Host "No new completed M15 bars; training skipped. Last bar: $($sync.last_closed_bar_utc)"
         exit 0
