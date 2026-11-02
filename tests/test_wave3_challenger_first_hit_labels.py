@@ -46,6 +46,15 @@ class TestFirstHitLabels(unittest.TestCase):
             build_first_hit_labels(market, [{"signal_index": 0, "entry_trigger_price": 100.0}],
                                    commission_per_lot_per_side_usd=0.0,
                                    commission_source=" ", commission_verified=True)
+        with self.assertRaisesRegex(ValueError, "commission_schedule_unverified"):
+            build_first_hit_labels(market, [{"signal_index": 0, "entry_trigger_price": 100.0}],
+                                   commission_per_lot_per_side_usd=0.0,
+                                   commission_source="synthetic fixture",
+                                   commission_verified="true")
+        with self.assertRaisesRegex(ValueError, "signal_must_be_mapping"):
+            self.build(market, [None])
+        with self.assertRaisesRegex(ValueError, "bar_must_be_mapping"):
+            self.build([None], [])
 
     def test_next_bar_only_trigger_and_no_next_bar(self):
         market = bars(3, high=100.0, close=100.0)
