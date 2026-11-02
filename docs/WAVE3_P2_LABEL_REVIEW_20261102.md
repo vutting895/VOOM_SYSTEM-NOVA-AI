@@ -7,7 +7,7 @@ Status: **BLOCKED — design/code review only; no benchmark training, no strateg
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
 - Main at review: `a9bb92c9d2642eff34be2ea68276a33b367ee793`
 - Research branch: `research/wave3-positive-edge-architecture-20261031`
-- PR #147 reviewed head: `a2493531ffe3716dad53c56ad6b14de8e261db13`
+- PR #147 reviewed head: `58ef328600a3d69575b73d9ae71e5d689d54c965` (current exact head at revalidation)
 - PR #147 is a separate research workstream. Do not copy PR #66 implementation into this branch.
 - Reviewed implementation: `research/wave3_challenger/first_hit_labels.py`
 - Review is not a training run, benchmark result, approval, or promotion.
