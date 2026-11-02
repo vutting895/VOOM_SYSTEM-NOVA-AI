@@ -64,6 +64,16 @@ function validResponse(value) {
 test("contract schemas are strict and match the selected separate custody API", () => {
   assert.equal(requestSchema.additionalProperties, false);
   assert.equal(requestSchema.properties.parameters.additionalProperties, false);
+  const capabilities = requestSchema.properties.capability.enum;
+  assert.equal(new Set(capabilities).size, capabilities.length, "capability enum must not contain duplicates");
+  assert.deepEqual(capabilities, [
+    "account.summary.read",
+    "balances.read",
+    "positions.read",
+    "orders.read",
+    "quotes.read",
+    "credential.status.read"
+  ]);
   assert.equal(responseSchema.additionalProperties, false);
   assert.equal(responseSchema.properties.result.additionalProperties, false);
   assert.match(adr, /independently verifies the customer session/i);
