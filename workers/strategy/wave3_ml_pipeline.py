@@ -2033,17 +2033,21 @@ def run_daily_candidate_experiment(
         }
     old_meta = meta_train.loc[segment_ids == 0, "timestamp"]
     live_meta = meta_train.loc[segment_ids == 1, "timestamp"]
+    old_source_indices = meta_train.loc[segment_ids == 0, "source_index"].to_numpy(dtype=np.int64)
+    live_source_indices = meta_train.loc[segment_ids == 1, "source_index"].to_numpy(dtype=np.int64)
     training_periods = {
         "pre_oos_historical": {
             "rows": old_rows,
-            "first_timestamp_utc": pd.Timestamp(old_meta.min()).isoformat(),
-            "last_label_timestamp_utc": pd.Timestamp(old_meta.max()).isoformat(),
+            "first_sample_timestamp_utc": pd.Timestamp(old_meta.min()).isoformat(),
+            "last_sample_timestamp_utc": pd.Timestamp(old_meta.max()).isoformat(),
+            "last_label_endpoint_utc": pd.Timestamp(frame["timestamp"].iloc[int(old_source_indices[-1]) + HORIZON_BARS]).isoformat(),
             "label_endpoint_purged_before_source_index": first_frozen_source_index,
         },
         "fresh_post_baseline": {
             "rows": live_rows,
-            "first_timestamp_utc": pd.Timestamp(live_meta.min()).isoformat(),
-            "last_label_timestamp_utc": pd.Timestamp(live_meta.max()).isoformat(),
+            "first_sample_timestamp_utc": pd.Timestamp(live_meta.min()).isoformat(),
+            "last_sample_timestamp_utc": pd.Timestamp(live_meta.max()).isoformat(),
+            "last_label_endpoint_utc": pd.Timestamp(frame["timestamp"].iloc[int(live_source_indices[-1]) + HORIZON_BARS]).isoformat(),
             "live_data_start_utc": live_data_start.isoformat(),
         },
     }
@@ -2067,7 +2071,7 @@ def run_daily_candidate_experiment(
         "excluded_historical_final_oos": {
             "start_utc": frozen_oos_start.isoformat(),
             "end_exclusive_utc": live_data_start.isoformat(),
-            "rows_excluded": int(((meta_times >= frozen_oos_start) & (meta_times < live_data_start)).sum()),
+            "bars_excluded": int(((timestamps >= frozen_oos_start) & (timestamps < live_data_start)).sum()),
             "used_for_fit": False,
             "used_for_tuning_or_calibration": False,
             "note": "The previously inspected 2026-07-01 through pre-live-baseline interval remains frozen and excluded.",
