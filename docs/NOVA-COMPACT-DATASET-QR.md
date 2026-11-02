@@ -1,6 +1,6 @@
 # NOVA Compact Dataset QR
 
-Status: implementation contract. PR adds the owner-scoped registry migration, authenticated create/resolve/revoke APIs, resolver page, and market-data decimal-string transport. Hosted migration, actual QR image generation, and Preview verification remain pending.
+Status: implementation contract. PR adds the owner-scoped registry migration, authenticated create/resolve/revoke APIs, resolver page, and market-data decimal-string transport. Hosted migration, Preview verification and hosted migration application remain pending.
 
 ## Goal
 
@@ -112,6 +112,6 @@ The QR must never imply that a strategy is profitable or production-approved.
 - `DELETE /api/datasets/:id` revokes via owner-checked RPC and removes the private object when possible.
 - `/datasets/:id` is the authenticated resolver page.
 - System Hub now emits MT5 prices as decimal strings at the broker's declared `digits` scale; the market-data API rejects non-string price values rather than silently converting through JavaScript Number.
-- The Backtest Lab includes a Save Dataset action. Its returned URL is a QR payload reference, but the scannable QR image renderer is not yet implemented.
+- The Backtest Lab includes a Save Dataset action and renders a scannable SVG QR with `qrcode.react`; the QR contains only the owner-scoped resolver URL.
 - Compression currently uses gzip, not Zstandard. This is an explicit first implementation choice because Node's built-in gzip path avoids introducing an unverified native dependency; the manifest records the codec.
-- No production data is written and no hosted migration is applied by this PR.
+- The QR UI and APIs are code-complete on the PR branch, but cannot save/resolve data until the migration is applied to an approved environment. No production data is written and no hosted migration is applied by this PR.
