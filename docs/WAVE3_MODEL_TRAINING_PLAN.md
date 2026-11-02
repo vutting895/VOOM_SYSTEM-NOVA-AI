@@ -144,7 +144,7 @@ Final OOS remains untouched from 2026-07-01: 7,942 samples, accuracy 41.3246%, b
 
 ### Calendar byte provenance distinction
 
-The canonical Git-tracked file and the raw Exness MT5 Common Files CSV were independently inspected. The terminal file is 388,313 bytes, CRLF-only (2,167 CRLF sequences), with raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. Replacing CRLF with LF only yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, exactly matching the canonical Git file and the run #3/#6 manifest. The earlier PR note contained a truncated 58-character digest; the raw and normalized byte-level provenance is now reconciled.
+The canonical Git-tracked file is independently verified at 386,146 bytes with SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`. The raw Exness MT5 Common Files CSV is not present in this checkout, and raw digest values recorded in prior notes are inconsistent (one supplied value is only 58 hexadecimal characters). Raw-terminal size/hash provenance is therefore not independently verified in this run; do not infer CRLF normalization or raw bytes until the original file is re-exported or supplied.
 
 ### Independent preflight
 
@@ -159,9 +159,9 @@ No frozen strategy weights, lookbacks, thresholds, entry/risk/news gates, or 12-
 Current `main` is `99d474038e19a6eab884c5c891b21770c50fefa5`. The benchmark branch was synced with a non-force merge commit `e8b79297bf5a88cb51c08006e38787fb4f41bea3`; its latest compare at this documentation snapshot is 46 commits ahead / 0 behind current `main`. The separate redesign branch was also synced; neither PR was merged.
 
 ### Exness MT5 calendar byte-level provenance
-The active terminal's `Common/Files/VOOM_USD_High_Impact_2022_2026.csv` is 388,313 bytes, CRLF-only (2,167 CRLF sequences), with raw SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. `MQL5/Logs/20261030.log` contains two `NEWS_EXPORT_SUCCESS` markers; each reports 2,166 high events, 15,853 queried values and zero unknown time modes. Normalizing only CRLF to LF yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, which exactly matches the committed canonical CSV and the pinned verifier. Therefore the prior mismatch was line-ending normalization plus a truncated 58-character digest in the old PR note; it was not evidence of different event content.
+Prior evidence records two `NEWS_EXPORT_SUCCESS` markers in `MQL5/Logs/20261030.log`, each reporting 2,166 high-impact events, 15,853 queried values and zero unknown time modes. This is historical evidence only; the log and raw `Common/Files/VOOM_USD_High_Impact_2022_2026.csv` were not freshly collected in this run. The raw digest is not verified: the 58-character value is not a valid SHA-256, and a different 64-character value in earlier notes cannot be reproduced from the raw file because it is unavailable.
 
-The raw file and canonical normalized file both validate to 2,166 unique high-impact USD/US rows, 12 expected headers, all `datetime` mode, no blank/extra/missing/duplicate rows, no out-of-range timestamps, first event 2022-07-21T12:30:00Z and last event 2026-10-29T12:30:00Z. Coverage metadata remains [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z), Exness server GMT+0. The workflow's independent SHA preflight is correctly pinned to the normalized Git bytes, not the raw CRLF terminal bytes.
+The canonical Git file validates to 2,166 unique high-impact USD/US rows, 12 expected headers, all `datetime` mode, no blank/extra/missing/duplicate rows and no out-of-range timestamps. Coverage metadata is [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z), Exness server GMT+0. The workflow's independent SHA preflight is pinned to the canonical Git bytes; it does not verify the unavailable raw terminal file.
 
 ### Latest completed artifact — run #6
 - Workflow: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320
