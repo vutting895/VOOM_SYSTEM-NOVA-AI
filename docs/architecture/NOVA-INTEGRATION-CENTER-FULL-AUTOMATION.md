@@ -12,7 +12,7 @@ Provide one customer-facing place to discover supported services, authorize them
 
 ## Existing implementation to reuse
 
-The current System Hub already exposes authenticated `GET /v1/integrations`, owner-scoped `GET /v1/connections`, Exness Demo connection creation/status/check/account/quotes routes, and a small in-code registry. Reuse this control plane; do not create a second gateway or arbitrary proxy. The current registry lists Supabase Auth, Exness MT5 Demo, NOVA AI Worker, and Remote MCP. Exness is the only broker connection flow currently represented by the persisted broker-connection schema.
+The current System Hub already exposes authenticated `GET /v1/integrations`, owner-scoped `GET /v1/connections`, Exness Demo connection creation/status/check/account/quotes routes, and a small in-code registry. Reuse this control plane; do not create a second gateway or arbitrary proxy. The current registry lists Supabase Auth, Exness MT5 Demo, NOVA AI Worker (`nova-ai`), and Remote MCP. Exness is the only broker connection flow currently represented by the persisted broker-connection schema.
 
 The current migration constrains `broker_connections` to `provider='exness_mt5'` and `environment='demo'`. Do not insert other broker providers into this table until a separate additive migration, RLS review, uniqueness design, and two-tenant tests are approved.
 
@@ -24,7 +24,7 @@ The provider catalog in `shared/integration-provider-catalog.json` is descriptiv
 |---|---|---|---|
 | Supabase | Existing project URL + publishable key configured server-side; user signs in with Supabase Auth | Identity/session validation; owner-scoped data | Existing Hub dependency; runtime readiness is checked dynamically |
 | Exness MT5 Demo | Existing owner-scoped Bridge → Relay → read-only Proxy → Hub path | Demo account and market-data reads only | Existing adapter path; each connection requires real account verification |
-| NOVA AI Worker | Fixed server-owned endpoint | AI analysis only | Listed in current Hub registry; reachability not yet checked by registry |
+| NOVA AI Worker (`nova-ai`) | Fixed server-owned endpoint | AI analysis only | Matches the existing System Hub registry ID; reachability is not yet checked by registry |
 | Remote MCP Worker | Fixed server-owned endpoint | Authenticated allowlisted read-only tools | Listed in current Hub registry; reachability not yet checked by registry |
 | GitHub | GitHub App/OAuth authorization, when configured | Repository metadata and explicitly approved repo operations | Planned; not registered as an active Hub provider |
 | Google AI Studio / Gemini | Server-side Gemini API credential or supported Google authorization flow | Model inference; no access to user secrets by default | Planned; AI Studio is an authoring surface, not an automatic OAuth integration |
