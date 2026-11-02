@@ -37,11 +37,15 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "AvailableBytes",
             "tools\\refresh_wave3_daily_data.py",
             "order_submission_enabled",
+        ):
+            self.assertIn(required, source)
+        refresh_source = (ROOT / "tools/refresh_wave3_daily_data.py").read_text(encoding="utf-8")
+        for required in (
             "does not overlap the saved last bar",
             "_commit_dataset_pair",
             "_recover_dataset_pair",
         ):
-            self.assertIn(required, source)
+            self.assertIn(required, refresh_source)
         self.assertIn("merge", source)
         self.assertNotIn("git push", source.lower())
         self.assertNotIn("workflow_dispatch", source.lower())
