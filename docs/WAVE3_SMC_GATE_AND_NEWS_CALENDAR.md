@@ -75,7 +75,7 @@ Classification also remains below baseline: 41.3246% accuracy versus 45.9708%; a
 
 ## Data and diagnostic snapshot provenance
 
-The older `reports/wave3_smc_gate_diagnostic_20261030.json` is preserved as a pre-calendar-export snapshot and still records `export_executed=false`; do not use its news-calendar section as current status. The current calendar-filtered SMC snapshot is `reports/wave3_smc_gate_diagnostic_20261031.json`, derived from training artifact #2 and the separately rechecked active Exness MT5 Common Files CSV/Experts log. The CSV SHA-256 is `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c`.
+The older `reports/wave3_smc_gate_diagnostic_20261030.json` is preserved as a pre-calendar-export snapshot and still records `export_executed=false`; do not use its news-calendar section as current status. The current calendar-filtered SMC snapshot is `reports/wave3_smc_gate_diagnostic_20261031.json`, derived from training artifact #2 and prior Exness MT5 Common Files CSV/Experts-log evidence. The canonical Git CSV SHA-256 is `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`. The raw terminal CSV is not present in this checkout; the raw digest recorded in the prior note has only 58 hexadecimal characters and is not a valid SHA-256. Treat raw-terminal digest provenance as unverified until the original raw file is re-exported or supplied.
 
 
 ## SMC score field semantics — do not conflate event labels
@@ -100,3 +100,35 @@ The exact-head SMC/Wave3 CI generated a diagnostic-only trace for all 34 Wave3 f
 The audit added first-overlap/full-mitigation trace fields and regression tests only. Existing `bull_fvg_fill` scoring, 48-bar window, SMC weights, lookbacks and thresholds are unchanged. The new trace fields are excluded from model features. Candidate-level trace and no-lookahead tests passed; no model training was run.
 
 Latest completed benchmark run #6 remains blocked: accuracy 41.0602% vs 45.9708% majority baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds below baseline. Keep the benchmark research-only; no orders, merge, deployment or Live Trading.
+
+
+## 2026-11-02 revalidation — canonical data, corrected FVG summary and P2 separation
+
+### Canonical dataset and calendar
+
+- Current main SHA: `a9bb92c9d2642eff34be2ea68276a33b367ee793`. PR #66 was synced to this main with non-force merge commit `c5f93321a9a2c88310ddd0113c07d6580bb93d89`; current PR #66 remains Draft/open/unmerged.
+- The current Git blob for `datasets/exness-demo/XAUUSDm_M15_2022-2026.csv` was independently hashed: 8,483,411 bytes, SHA-256 `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`. The prior metadata size 8,584,488 did not match the canonical Git blob; `metadata.json` now records 8,483,411 as current canonical size and preserves the previous value separately.
+- The canonical news CSV was independently hashed from the current Git blob: 386,146 bytes, SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`. Validation: 2,166 rows and unique event/value pairs; all high-impact USD/US; all `datetime`; zero required blanks, duplicates, invalid timestamps or out-of-range events; declared coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z).
+- This is a repository-byte revalidation, not a fresh MT5 run. Prior evidence records two `NEWS_EXPORT_SUCCESS` markers in `MQL5/Logs/20261030.log`; the log and raw Common\Files CSV were not freshly collected in this automation run. The raw digest value currently in the old note is malformed (58 hex characters); a different 64-character value elsewhere in the README is also not independently verifiable here. Do not treat either raw digest as confirmed.
+
+### Exact-head SMC trace after summary correction
+
+[SMC/Wave3 Research CI #100](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41384850474) completed successfully on diagnostic code head `c5a8f74eedf541d7d5c02bc22b7a8d84b71db29c`. Artifact #13114907526 has archive SHA-256 `b4337ccf43c513f10d8dd35645dbd6a8c696429dded2302ce9572d391e8c9515`; the JSON inside has SHA-256 `5e138f9525fa2a352e07ea7a9f9b41c1d86915f184aca3de9d44e4511f4c0ff5`. The provenance-bound summary is `reports/wave3_smc_candidate_trace_revalidation_20261102.json`.
+
+- Candidate rows 34; BOS20=21; scored three-higher-lows+green=12; qualifying OB within $5=1; FVG overlap=7; all-four same-bar=0; maximum SMC=75; SMC>=85=0. Pairwise intersections remain BOS20+rule-CHoCH=9, BOS20+OB=0, BOS20+FVG=3, rule-CHoCH+OB=0, rule-CHoCH+FVG=3, OB+FVG=0.
+- The previous summary field `fvg_full_mitigation_on_signal_bar` conflated a current-bar full-mitigation touch with the first full-mitigation event. The diagnostic-only code/test now distinguishes them: first full mitigation occurred exactly on 2/7 FVG-positive signal bars; 5/7 were already fully mitigated earlier. Current-bar full-mitigation touches occurred on 7/7 FVG-positive rows and 9/34 candidates overall, including re-touches. This fixes reporting semantics only; `bull_fvg_fill`, the 48-bar window and all SMC gates remain unchanged.
+- No model training occurred; final OOS was used only to reproduce the existing candidate mask and was not used for tuning. No weights, lookbacks, thresholds or gates changed.
+
+### Run #6 model provenance and performance
+
+The latest completed benchmark remains Run #6 on training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, workflow run [#6](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320), artifact #13036729349 (archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`). Its artifact manifest SHA-256 is `7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550`; report SHA-256 is `3d1642375fe92b5232caf192945266056b100fa90f305bcf97ec4ccf7a2a8acc`. A versioned manifest copy is now stored at `models/wave3_news_calendar_20261030/model_manifest.json`; model binaries remain in the Actions artifact, not Git.
+
+Final OOS (7,942 rows): accuracy 41.0602% vs majority baseline 45.9708%; balanced accuracy 38.8382%; macro-F1 38.0253%; closed trades 0; net $0; PF unavailable. All five walk-forward folds remain below their majority baselines. Calibration is absent. The artifact manifest still records commission at $0 per lot per side because the actual Exness Demo commission schedule was not verified; therefore net expectancy is not fully cost-validated.
+
+### Separate PR #147 P2 status
+
+PR #147 remains a separate Draft/open/unmerged research path. Its isolated first-hit target builder and 11 synthetic unit tests are in `research/wave3_challenger/`; P2 CI #6 passed. The builder requires verified commission provenance, censors incomplete end-of-data outcomes, and does not generate signals or train models. It has not been run on real Exness data because commission evidence is still missing. Do not fold it into PR #66.
+
+### MT5 evidence required for a fresh export
+
+No MT5 terminal was controlled in this run. If a new terminal proof is needed, copy `tools/mt5_export_usd_high_impact_calendar.mq5` to the terminal's `MQL5/Scripts/` folder, compile it in MetaEditor, then run `mt5_export_usd_high_impact_calendar` from MT5 Navigator > Scripts with the default coverage inputs (2022-07-21 00:00 through 2026-10-30 00:00 exclusive). The script writes `VOOM_USD_High_Impact_2022_2026.csv` to the terminal's shared `Common\\Files\\` folder and prints `NEWS_EXPORT_SUCCESS` in the Experts log. Supply that CSV and the date-matched `MQL5/Logs/YYYYMMDD.log` for byte-level raw-export verification.
