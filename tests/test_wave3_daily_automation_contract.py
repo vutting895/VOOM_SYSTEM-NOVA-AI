@@ -30,6 +30,7 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "'--ff-only'",
             "VOOM_USD_High_Impact_Daily.csv",
             "--daily-candidate-only",
+            "tools\\refresh_wave3_daily_data.py",
             "order_submission_enabled",
         ):
             self.assertIn(required, source)
