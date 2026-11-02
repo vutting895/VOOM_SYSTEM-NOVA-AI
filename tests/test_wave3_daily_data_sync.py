@@ -128,6 +128,7 @@ class TestDailyMT5Refresh(unittest.TestCase):
             expected = hashlib.sha256(base.read_bytes()).hexdigest()
             now = datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc)
             fresh_quotes = payload([
+                quote("2026-10-25T00:00:00Z"),
                 quote("2026-11-02T00:00:00Z"),
                 quote("2026-11-02T00:15:00Z"),
             ])
@@ -159,7 +160,7 @@ class TestDailyMT5Refresh(unittest.TestCase):
             )
             expected = hashlib.sha256(base.read_bytes()).hexdigest()
             now = datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc)
-            stale_quotes = payload([quote("2026-10-25T00:00:00Z")])
+            stale_quotes = payload([quote("2026-10-24T00:00:00Z")])
             with (
                 patch.object(daily, "EXPECTED_BASE_SHA256", expected),
                 patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
