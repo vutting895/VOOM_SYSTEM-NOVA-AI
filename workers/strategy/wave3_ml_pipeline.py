@@ -579,17 +579,33 @@ class LSTMNet(nn.Module):
 
 
 class _SequenceDataset(torch.utils.data.Dataset):
-    def __init__(self, values: np.ndarray, labels: np.ndarray | None = None, sequence_length: int = LSTM_SEQUENCE_LENGTH):
+    def __init__(self, values: np.ndarray, labels: np.ndarray | None = None,
+                 sequence_length: int = LSTM_SEQUENCE_LENGTH,
+                 segment_ids: np.ndarray | None = None):
         self.values = np.asarray(values, dtype=np.float32)
         self.labels = None if labels is None else np.asarray(labels, dtype=np.int64)
         self.sequence_length = int(sequence_length)
+        if self.labels is not None and len(self.labels) != len(self.values):
+            raise ValueError("sequence labels and values must have equal lengths")
+        if segment_ids is None:
+            self.starts = np.arange(max(0, len(self.values) - self.sequence_length + 1), dtype=int)
+        else:
+            groups = np.asarray(segment_ids)
+            if len(groups) != len(self.values):
+                raise ValueError("sequence segment IDs and values must have equal lengths")
+            # Never construct an LSTM window across the deliberately frozen OOS gap.
+            self.starts = np.asarray([
+                start for start in range(max(0, len(self.values) - self.sequence_length + 1))
+                if np.all(groups[start:start + self.sequence_length] == groups[start])
+            ], dtype=int)
 
     def __len__(self):
-        return max(0, len(self.values) - self.sequence_length + 1)
+        return len(self.starts)
 
     def __getitem__(self, index):
-        end = index + self.sequence_length
-        sequence = torch.from_numpy(self.values[index:end])
+        start = int(self.starts[index])
+        end = start + self.sequence_length
+        sequence = torch.from_numpy(self.values[start:end])
         if self.labels is None:
             return sequence
         return sequence, torch.tensor(self.labels[end - 1], dtype=torch.long)
@@ -660,12 +676,12 @@ def _fit_lstm_once(dataset: _SequenceDataset, y: pd.Series, input_size: int,
     return lstm, losses
 
 
-def _fit_lstm(X: pd.DataFrame, y: pd.Series):
+def _fit_lstm(X: pd.DataFrame, y: pd.Series, segment_ids: np.ndarray | None = None):
     if set(np.unique(y)) != {0, 1, 2}:
         raise ValueError(f"LSTM training split must contain all labels; found={sorted(np.unique(y).tolist())}")
     scaler = StandardScaler()
     scaled = scaler.fit_transform(X).astype(np.float32)
-    dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64))
+    dataset = _SequenceDataset(scaled, y.to_numpy(dtype=np.int64), segment_ids=segment_ids)
     if len(dataset) < 200:
         raise ValueError(f"not enough sequences for {LSTM_SEQUENCE_LENGTH}-bar LSTM: {len(dataset)}")
     for attempt, batch_size in enumerate(LSTM_BATCH_SIZE_FALLBACKS):
@@ -688,9 +704,10 @@ def _fit_lstm(X: pd.DataFrame, y: pd.Series):
 
 
 def _build_models(X: pd.DataFrame, y: pd.Series,
-                  xgb_hyperparameters: dict[str, Any] | None = None):
+                  xgb_hyperparameters: dict[str, Any] | None = None,
+                  segment_ids: np.ndarray | None = None):
     xgb, selected_params = _fit_xgb(X, y, xgb_hyperparameters)
-    scaler, lstm = _fit_lstm(X, y)
+    scaler, lstm = _fit_lstm(X, y, segment_ids=segment_ids)
     setattr(xgb, "_voom_hyperparameters", selected_params)
     return xgb, scaler, lstm
 
