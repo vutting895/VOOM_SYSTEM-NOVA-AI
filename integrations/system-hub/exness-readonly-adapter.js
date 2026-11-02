@@ -302,8 +302,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
           method: "GET",
           headers: { ...headers, "Upgrade": "websocket" },
           cache: "no-store",
-          redirect: "error",
-          signal: AbortSignal.timeout(10000)
+          redirect: "error"
         });
       } catch {
         throw fail("exness_tick_stream_unavailable", 502);
