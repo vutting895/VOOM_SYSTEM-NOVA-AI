@@ -47,7 +47,7 @@ async function hubGet(base, path, token) {
   return { response, payload };
 }
 
-const DECIMAL = /^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/;
+const DECIMAL = /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/;
 function decimalParts(value) {
   if (typeof value !== 'string' || value.length > 48 || !DECIMAL.test(value)) return null;
   const [whole, fraction = ''] = value.split('.');
