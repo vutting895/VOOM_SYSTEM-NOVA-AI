@@ -789,6 +789,8 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
 
     bars = pd.to_datetime(frame["timestamp"], utc=True)
     event_times = pd.to_datetime(high_news["timestamp"], utc=True, errors="raise")
+    if event_times.isna().any():
+        raise ValueError("high-impact news events must have non-missing timestamps")
 
     # MQL5 CalendarValueHistory uses the broker trade-server timezone. Exness
     # documents GMT+0, so exported event times are explicitly UTC. The export
@@ -948,8 +950,8 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
         entry_i = i + 1
         if entry_i > end_i or entry_i >= len(frame):
             continue
-        signal_day = pd.Timestamp(frame["timestamp"].iloc[i]).strftime("%Y-%m-%d")
-        if daily_trade_count.get(signal_day, 0) >= MAX_DAILY_TRADES or daily_net_pnl.get(signal_day, 0.0) <= -MAX_DAILY_LOSS_USD:
+        entry_day = pd.Timestamp(frame["timestamp"].iloc[entry_i]).strftime("%Y-%m-%d")
+        if daily_trade_count.get(entry_day, 0) >= MAX_DAILY_TRADES or daily_net_pnl.get(entry_day, 0.0) <= -MAX_DAILY_LOSS_USD:
             continue
 
         if strict_rules:
@@ -1025,7 +1027,13 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
             # Conservative: stop first if both SL and TP touched in the same OHLC bar.
             if stop_hit:
                 exit_i, exit_reason = j, "stop_loss"
-                exit_price = stop - SLIPPAGE_PRICE_PER_SIDE if long else stop + SLIPPAGE_PRICE_PER_SIDE
+                if long:
+                    # A BUY stop crossed by an opening gap fills at the worse
+                    # executable open, not at the stale stop barrier.
+                    stop_fill = min(stop, float(frame["open"].iloc[j]))
+                    exit_price = stop_fill - SLIPPAGE_PRICE_PER_SIDE
+                else:
+                    exit_price = stop + SLIPPAGE_PRICE_PER_SIDE
                 break
             if target_hit:
                 exit_i, exit_reason = j, "take_profit"
@@ -1043,7 +1051,7 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
         if peak > 0:
             max_dd = max(max_dd, (peak - equity) / peak)
         exit_day = pd.Timestamp(frame["timestamp"].iloc[exit_i]).strftime("%Y-%m-%d")
-        daily_trade_count[signal_day] = daily_trade_count.get(signal_day, 0) + 1
+        daily_trade_count[entry_day] = daily_trade_count.get(entry_day, 0) + 1
         daily_net_pnl[exit_day] = daily_net_pnl.get(exit_day, 0.0) + net
         trades.append({
             "signal_timestamp": frame["timestamp"].iloc[i].isoformat(),
