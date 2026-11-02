@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "status": "diagnostic_only_no_training",
-  "generated_utc": "2026-11-02T03:47:31Z",
+  "generated_utc": "2026-11-02T03:51:43Z",
   "source": {
     "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
     "main_sha": "a9bb92c9d2642eff34be2ea68276a33b367ee793",
@@ -15,14 +15,15 @@
     "calendar_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
     "calendar_rows": 2166,
     "final_oos_start_utc": "2026-07-01T00:00:00Z",
-    "final_oos_labeled_rows": 7942
+    "final_oos_labeled_rows": 7942,
+    "pr66_head_sha": "420d12c60f4a7da60e0514899fb9eddd023e7509"
   },
   "artifact": {
-    "workflow_run_id": 41384850474,
-    "run_number": 100,
-    "artifact_id": 13114907526,
-    "archive_sha256": "b4337ccf43c513f10d8dd35645dbd6a8c696429dded2302ce9572d391e8c9515",
-    "trace_json_sha256": "5e138f9525fa2a352e07ea7a9f9b41c1d86915f184aca3de9d44e4511f4c0ff5",
+    "workflow_run_id": 41385215194,
+    "run_number": 106,
+    "artifact_id": 13114634785,
+    "archive_sha256": "a5529ce365b4709552c8b21b189d099543c8fdb28937568e2c2f78f12a25083b",
+    "trace_json_sha256": "a33f07087f6c1d9e43c9dbd10df123279a3c5f4a4ad3d8bd84542718507cb9bb",
     "trace_json_path_in_artifact": "wave3_smc_candidate_trace_20261101.json"
   },
   "methodology": {
@@ -54,7 +55,7 @@
     "fvg_full_mitigation_touch_on_signal_bar_all_candidates": 9,
     "fvg_positive_rows_with_full_mitigation_touch_on_signal_bar": 7,
     "fvg_positive_rows_first_full_mitigation_precedes_signal": 5,
-    "fvg_mitigation_summary_note": "First full mitigation on the signal bar is 2/7 FVG-positive candidates; 5/7 were fully mitigated earlier. The 9 all-candidate current-bar touches (7 among FVG-positive candidates) include repeat touches and must not be interpreted as first mitigations."
+    "fvg_mitigation_summary_note": "First full mitigation occurred exactly on the signal bar for 2/7 FVG-positive candidates; 5/7 were fully mitigated earlier. Current-bar full-mitigation touches include re-touches and are counted separately."
   },
   "decision": "Diagnostic only. The frozen v6.2.6.3 scoring contract remains unchanged."
 }
