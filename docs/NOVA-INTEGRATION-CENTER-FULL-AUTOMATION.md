@@ -69,3 +69,7 @@ The selected operating mode is **Full Automation with approval gates**:
 ## Frontend environment compatibility
 
 The Vite page accepts the existing public Netlify variables `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SYSTEM_HUB_URL` as compatibility fallbacks, as well as the newer `VITE_*` names. The Supabase anon/publishable key is public client configuration, not a service-role key. No Netlify environment-variable mutation is required by this PR.
+
+## Planned provider cards
+
+The page also displays GitHub, Google AI Studio/Gemini, Cloudflare, Netlify, and Fly.io Sprites as `PLANNED · DISABLED`. These cards are roadmap visibility only: no OAuth consent, token entry, API operation, or connected status is offered until each provider has a reviewed adapter, approved server-side credential custody where applicable, and tenant-isolation tests.
