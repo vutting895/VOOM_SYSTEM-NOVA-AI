@@ -214,16 +214,26 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
 
     if new_quotes.empty:
         latest = previous_last
-        return {
+        data_sha = sha256_file(state_csv)
+        result = {
             "status": "no_new_closed_bars",
             "new_bars": 0,
             "total_bars": int(len(existing)),
             "last_closed_bar_utc": latest.isoformat(),
-            "data_sha256": sha256_file(state_csv),
+            "data_sha256": data_sha,
             "base_data_sha256": EXPECTED_BASE_SHA256,
             "mode": "read-only",
             "order_submission_enabled": False,
         }
+        state_manifest.write_text(json.dumps({
+            **result,
+            "fetched_at_utc": (now_utc or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat(),
+            "provider": "Exness Demo MT5 local authenticated read-only bridge",
+            "symbol": EXPECTED_SYMBOL,
+            "timeframe": TIMEFRAME,
+            "timezone": "UTC",
+        }, indent=2), encoding="utf-8")
+        return result
 
     rows = [_row_for_schema(row, list(existing.columns)) for row in new_quotes.to_dict("records")]
     append = pd.DataFrame(rows, columns=existing.columns)
