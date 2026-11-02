@@ -115,6 +115,66 @@ class TestDailyMT5Refresh(unittest.TestCase):
                     daily.refresh_dataset(base, state, now_utc=datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc))
             self.assertFalse((state / "XAUUSDm_M15_daily.csv").exists())
 
+    def test_refresh_allows_fresh_bridge_catchup_when_persisted_baseline_is_over_96_hours_old(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            base = root / "base.csv"
+            state = root / "state"
+            base.write_text(
+                "timestamp,open,high,low,close,tick_volume,spread_price\\n"
+                "2026-10-25T00:00:00Z,2400,2400.5,2399.5,2400.1,100,0.024\\n",
+                encoding="utf-8",
+            )
+            expected = hashlib.sha256(base.read_bytes()).hexdigest()
+            now = datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc)
+            fresh_quotes = payload([
+                quote("2026-11-02T00:00:00Z"),
+                quote("2026-11-02T00:15:00Z"),
+            ])
+            with (
+                patch.object(daily, "EXPECTED_BASE_SHA256", expected),
+                patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
+                patch.object(daily, "_bridge_get", side_effect=[
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True,
+                     "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "Exness-MT5Trial7", "currency": "USD",
+                     "mode": "read-only", "order_submission_enabled": False},
+                    fresh_quotes,
+                ]),
+            ):
+                result = daily.refresh_dataset(base, state, now_utc=now)
+            self.assertEqual(result["status"], "updated")
+            self.assertEqual(result["new_bars"], 1)
+            self.assertEqual(result["last_closed_bar_utc"], "2026-11-02T00:00:00+00:00")
+
+    def test_refresh_still_rejects_stale_bridge_quotes_during_catchup(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            base = root / "base.csv"
+            state = root / "state"
+            base.write_text(
+                "timestamp,open,high,low,close,tick_volume,spread_price\\n"
+                "2026-10-24T00:00:00Z,2400,2400.5,2399.5,2400.1,100,0.024\\n",
+                encoding="utf-8",
+            )
+            expected = hashlib.sha256(base.read_bytes()).hexdigest()
+            now = datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc)
+            stale_quotes = payload([quote("2026-10-25T00:00:00Z")])
+            with (
+                patch.object(daily, "EXPECTED_BASE_SHA256", expected),
+                patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
+                patch.object(daily, "_bridge_get", side_effect=[
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True,
+                     "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "Exness-MT5Trial7", "currency": "USD",
+                     "mode": "read-only", "order_submission_enabled": False},
+                    stale_quotes,
+                ]),
+            ):
+                with self.assertRaisesRegex(ValueError, "Latest closed MT5 quote is stale"):
+                    daily.refresh_dataset(base, state, now_utc=now)
+            self.assertFalse((state / "XAUUSDm_M15_daily.csv").exists())
+
     def test_refresh_persists_merged_bars_manifest_and_no_change_run(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
