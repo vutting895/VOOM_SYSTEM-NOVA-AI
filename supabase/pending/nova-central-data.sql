@@ -127,7 +127,7 @@ create table if not exists public.nova_model_runs (
     check (dataset_scope_key = 'shared' or dataset_scope_key = owner_id::text),
   constraint nova_model_runs_dataset_scope_fk
     foreign key (dataset_manifest_id, dataset_scope_key)
-    references public.nova_dataset_manifests(id, scope_key) on delete set null,
+    references public.nova_dataset_manifests(id, scope_key),
   check (final_oos_start is null or final_oos_end is null or final_oos_start < final_oos_end)
 );
 create index if not exists nova_model_runs_owner_created_idx
