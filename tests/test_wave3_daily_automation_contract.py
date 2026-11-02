@@ -30,6 +30,7 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "'--ff-only'",
             "VOOM_USD_High_Impact_Daily.csv",
             "--daily-candidate-only",
+            "AvailableBytes",
             "tools\\refresh_wave3_daily_data.py",
             "order_submission_enabled",
         ):
@@ -42,6 +43,7 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
         source = (ROOT / "tools/windows/install-wave3-daily-task.ps1").read_text(encoding="utf-8")
         self.assertIn("SE Asia Standard Time", source)
         self.assertIn("New-ScheduledTaskTrigger -Daily", source)
+        self.assertIn("2GB", source)
         self.assertIn("-LogonType Interactive", source)
         self.assertIn("VOOM NOVA Wave3 Daily Candidate Training", source)
 
