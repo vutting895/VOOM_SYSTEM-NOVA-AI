@@ -6,6 +6,7 @@ on:
       - ".env.example"
       - "package.json"
       - "bun.lock"
+      - "vite.config.ts"
       - "src/**"
       - "server.ts"
       - "netlify.toml"
