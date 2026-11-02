@@ -208,10 +208,7 @@ values (
   52428800,
   array['application/octet-stream','application/gzip','application/json','text/csv','application/x-parquet']
 )
-on conflict (id) do update
-set public = false,
-    file_size_limit = excluded.file_size_limit,
-    allowed_mime_types = excluded.allowed_mime_types;
+on conflict (id) do nothing;
 
 drop policy if exists nova_data_objects_read_scope on storage.objects;
 create policy nova_data_objects_read_scope on storage.objects
