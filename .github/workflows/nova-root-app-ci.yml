@@ -50,3 +50,17 @@ jobs:
         run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
       - name: Build NOVA Vite application
         run: bun run build
+
+  netlify-npm-build-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the exact Netlify dependency installation command
+        run: npm install --no-package-lock
+      - name: Run the exact Netlify build command
+        run: npm run build
