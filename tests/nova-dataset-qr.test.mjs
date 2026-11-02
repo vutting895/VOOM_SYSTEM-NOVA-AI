@@ -22,7 +22,7 @@ test("dataset object is compressed, content-addressed and owner-scoped", async (
   assert.match(route, /auth\.user\.id \+ "\/"/);
   assert.match(migration, /enable row level security/);
   assert.match(migration, /owner_id = \(select auth\.uid\(\)\)/);
-  assert.match(migration, /public = false/);
+  assert.match(migration, /'nova-datasets', 'nova-datasets', false/);
   assert.match(migration, /storage\.foldername\(name\)/);
 });
 
