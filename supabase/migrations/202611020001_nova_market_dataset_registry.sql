@@ -66,7 +66,11 @@ grant execute on function public.revoke_nova_market_dataset(uuid) to authenticat
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('nova-datasets', 'nova-datasets', false, 52428800, array['application/gzip'])
-on conflict (id) do nothing;
+on conflict (id) do update set
+  name = excluded.name,
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists nova_dataset_objects_select_own on storage.objects;
 create policy nova_dataset_objects_select_own on storage.objects
