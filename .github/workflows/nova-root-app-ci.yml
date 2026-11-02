@@ -10,6 +10,7 @@ on:
       - "server.ts"
       - "netlify.toml"
       - "public/**"
+      - "integrations/system-hub/**"
       - "docs/NOVA-INTEGRATION-CENTER-FULL-AUTOMATION.md"
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - "server.ts"
       - "netlify.toml"
       - "public/**"
+      - "integrations/system-hub/**"
       - "docs/NOVA-INTEGRATION-CENTER-FULL-AUTOMATION.md"
 
 permissions:
@@ -38,5 +40,7 @@ jobs:
         run: bun install --no-save
       - name: Run Integration Center contract tests
         run: node --test src/IntegrationCenterPage.contract.test.mjs
+      - name: Run System Hub authorization and CORS tests
+        run: node --test integrations/system-hub/tests/system-hub.test.mjs
       - name: Build NOVA Vite application
         run: bun run build
