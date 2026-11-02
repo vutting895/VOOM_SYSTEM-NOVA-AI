@@ -65,11 +65,21 @@ class TestWave3Pipeline(unittest.TestCase):
 
     def test_training_mask_purges_forward_horizon(self):
         times = pd.date_range("2026-06-01", periods=100, freq="15min", tz="UTC")
-        meta = pd.DataFrame({"timestamp": times})
+        meta = pd.DataFrame({"timestamp": times, "source_index": np.arange(len(times))})
         start = pd.Timestamp("2026-06-02", tz="UTC")
         mask = _train_mask(meta, start)
         cutoff = start - pd.Timedelta(minutes=15 * HORIZON_BARS)
         self.assertTrue((meta.loc[mask, "timestamp"] < cutoff).all())
+
+    def test_training_mask_purges_source_bars_across_new_year_market_closure(self):
+        # Only 13 source bars separate the last training row and the first
+        # test row, despite a multi-day calendar closure.
+        prior = pd.date_range("2023-12-29T12:00:00Z", periods=13, freq="15min")
+        test_start = pd.Timestamp("2024-01-02T00:00:00Z")
+        timestamps = prior.append(pd.DatetimeIndex([test_start]))
+        meta = pd.DataFrame({"timestamp": timestamps, "source_index": np.arange(14)})
+        mask = _train_mask(meta, test_start)
+        self.assertEqual(np.flatnonzero(mask).tolist(), [0])
 
     def test_backtest_enters_next_bar_and_never_submits_orders(self):
         frame = synthetic_bars(200)
@@ -110,7 +120,7 @@ class TestWave3Pipeline(unittest.TestCase):
 
     def test_auto_tuning_splits_are_chronological_and_purged(self):
         timestamps = pd.date_range("2023-01-01", periods=10000, freq="15min", tz="UTC")
-        meta = pd.DataFrame({"timestamp": timestamps})
+        meta = pd.DataFrame({"timestamp": timestamps, "source_index": np.arange(len(timestamps))})
         splits = build_inner_validation_splits(meta)
         self.assertEqual(len(splits), 2)
         for split in splits:
@@ -238,6 +248,18 @@ class TestWave3Pipeline(unittest.TestCase):
             path = Path(temp_dir) / "news.csv"
             calendar.to_csv(path, index=False)
             with self.assertRaises(ValueError):
+                load_news_calendar(path, frame)
+
+    def test_news_calendar_rejects_missing_high_impact_timestamp(self):
+        import tempfile
+        from wave3_ml_pipeline import load_news_calendar
+
+        frame = pd.DataFrame({"timestamp": pd.to_datetime(["2026-07-01T09:00:00Z"], utc=True)})
+        calendar = pd.DataFrame({"timestamp": [""], "impact": ["high"], "time_mode": ["notime"]})
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "news.csv"
+            calendar.to_csv(path, index=False)
+            with self.assertRaisesRegex(ValueError, "non-missing timestamps"):
                 load_news_calendar(path, frame)
 
     def test_news_manifest_records_actual_calendar_provenance(self):
