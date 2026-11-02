@@ -23,6 +23,7 @@ on:
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
+      - "docs/architecture/NOVA-HYBRID-ZERO-SECRET-RUNTIME.md"
   push:
     branches: [main]
     paths:
@@ -42,6 +43,7 @@ on:
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
+      - "docs/architecture/NOVA-HYBRID-ZERO-SECRET-RUNTIME.md"
 
 permissions:
   contents: read
@@ -74,6 +76,9 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
+      - name: Test NOVA hybrid-zero Secret Runtime guardrails
+        working-directory: .
+        run: node --test tests/nova-hybrid-zero-secret-runtime.test.mjs
       - name: Test AI API authentication precedes payload validation
         working-directory: .
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
