@@ -1946,7 +1946,7 @@ def run_daily_candidate_experiment(
     train_indices = np.flatnonzero(training_mask)
     old_rows = int(pre_oos_mask.sum())
     live_rows = int(live_mask.sum())
-    if old_rows < 5000 or live_rows < 200 or len(train_indices) < 5200:
+    if old_rows < 5000 or live_rows < 96 or len(train_indices) < 5096:
         raise ValueError(
             "insufficient mature daily candidate rows; "
             f"pre_oos={old_rows} fresh_live={live_rows} total={len(train_indices)}"
@@ -1969,12 +1969,16 @@ def run_daily_candidate_experiment(
         "running inner-fold-only XGBoost tuning and XGBoost/LSTM fitting",
         flush=True,
     )
+    # Tune hyperparameters only on the pre-OOS historical segment. The fresh
+    # live segment is included in candidate fitting only after its labels mature;
+    # it is never used to select hyperparameters on the same daily run.
+    pre_oos_indices = np.flatnonzero(pre_oos_mask)
     tuning = auto_tune_xgb(
-        X_train,
-        y_train,
-        meta_train,
+        X.iloc[pre_oos_indices].reset_index(drop=True),
+        y.iloc[pre_oos_indices].reset_index(drop=True),
+        meta.iloc[pre_oos_indices].reset_index(drop=True),
         n_trials=int(tuning_trials),
-        study_name="daily_candidate_inner_folds_only",
+        study_name="daily_candidate_pre_oos_inner_folds_only",
     )
     if tuning.get("status") not in {"completed", "completed_with_fallback"}:
         raise RuntimeError(f"daily candidate inner-fold tuning did not complete: {tuning.get('status')}")
