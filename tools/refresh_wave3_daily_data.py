@@ -156,6 +156,10 @@ def normalize_closed_quotes(payload: dict, *, now_utc: datetime | None = None) -
 def _row_for_schema(row: dict, columns: list[str]) -> dict:
     mapped = dict(row)
     mapped["timestamp"] = str(row["timestamp"])
+    # Historical baseline schemas use spread_points while the normalized
+    # bridge row also carries spread. Preserve the exact broker point value.
+    if "spread_points" not in mapped and "spread" in mapped:
+        mapped["spread_points"] = mapped["spread"]
     output: dict = {}
     for column in columns:
         if column not in mapped:
