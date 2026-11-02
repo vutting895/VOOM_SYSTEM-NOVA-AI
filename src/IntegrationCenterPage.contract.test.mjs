@@ -53,3 +53,7 @@ test('production hosting preserves the Integration Center route and Supabase cal
   assert.match(netlify, /publish = "dist"/);
   assert.match(redirects, /\/\* \/index\.html 200/);
 });
+
+test('Hub is not labeled healthy unless authentication is configured', () => {
+  assert.match(page, /snapshot\.health\?\.status === 'ready' && snapshot\.health\?\.authConfigured === true/);
+});
