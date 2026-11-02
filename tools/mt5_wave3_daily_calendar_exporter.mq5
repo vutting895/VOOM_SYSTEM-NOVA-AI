@@ -82,7 +82,7 @@ bool ExportCalendar()
 
    string temp_name=TemporaryFileName();
    FileDelete(temp_name,FILE_COMMON);
-   int file=FileOpen(temp_name,FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON|FILE_SHARE_READ,',');
+   int file=FileOpen(temp_name,FILE_WRITE|FILE_CSV|FILE_ANSI|FILE_COMMON|FILE_SHARE_READ,',',CP_UTF8);
    if(file==INVALID_HANDLE)
    {
       PrintFormat("NEWS_EXPORT_ERROR: temporary FileOpen failed, error=%d",GetLastError());
