@@ -100,7 +100,8 @@ create table if not exists public.nova_dataset_manifests (
     check (scope_key = coalesce(owner_id::text, 'shared')),
   constraint nova_dataset_manifests_range_check
     check (range_start is null or range_end is null or range_start < range_end),
-  unique (scope_key, sha256)
+  unique (scope_key, sha256),
+  unique (id, scope_key)
 );
 create index if not exists nova_dataset_manifests_lookup_idx
   on public.nova_dataset_manifests(scope_key, dataset_type, created_at desc);
@@ -111,7 +112,8 @@ create table if not exists public.nova_model_runs (
   model_family text not null check (model_family in ('xgboost','pytorch_lstm','hybrid','smc','other')),
   model_version text not null,
   status text not null check (status in ('queued','running','completed','failed','rejected')),
-  dataset_manifest_id uuid references public.nova_dataset_manifests(id) on delete set null,
+  dataset_manifest_id uuid,
+  dataset_scope_key text not null default 'shared',
   code_sha text check (code_sha is null or code_sha ~ '^[a-f0-9]{40,64}$'),
   final_oos_start date,
   final_oos_end date,
@@ -121,6 +123,11 @@ create table if not exists public.nova_model_runs (
   promoted boolean not null default false,
   created_at timestamptz not null default now(),
   unique (id, owner_id),
+  constraint nova_model_runs_dataset_scope_check
+    check (dataset_scope_key = 'shared' or dataset_scope_key = owner_id::text),
+  constraint nova_model_runs_dataset_scope_fk
+    foreign key (dataset_manifest_id, dataset_scope_key)
+    references public.nova_dataset_manifests(id, scope_key) on delete set null,
   check (final_oos_start is null or final_oos_end is null or final_oos_start < final_oos_end)
 );
 create index if not exists nova_model_runs_owner_created_idx
