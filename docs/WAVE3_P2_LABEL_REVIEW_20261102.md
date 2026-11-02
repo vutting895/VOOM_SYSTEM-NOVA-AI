@@ -7,7 +7,7 @@ Status: **BLOCKED — design/code review only; no benchmark training, no strateg
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
 - Main at review: `a9bb92c9d2642eff34be2ea68276a33b367ee793`
 - Research branch: `research/wave3-positive-edge-architecture-20261031`
-- PR #147 reviewed head: `58ef328600a3d69575b73d9ae71e5d689d54c965` (current exact head at revalidation)
+- PR #147 reviewed head at initial review: `58ef328600a3d69575b73d9ae71e5d689d54c965`
 - PR #147 is a separate research workstream. Do not copy PR #66 implementation into this branch.
 - Reviewed implementation: `research/wave3_challenger/first_hit_labels.py`
 - Review is not a training run, benchmark result, approval, or promotion.
@@ -58,3 +58,11 @@ A Boolean `commission_verified=True` and free-text source do not independently p
 **P2 remains BLOCKED.** Do not start another full benchmark training. Do not change v6.2.6.3 weights, lookbacks, thresholds, SMC gates, entry/risk/news gates, or the frozen final OOS. Do not alter PR #66 or merge either PR.
 
 The existing Run #6 diagnostics remain the only benchmark evidence cited in this review; they are from training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, not the current PR #66 head. This review creates no new accuracy, trade, net-profit, or Profit Factor result.
+
+## Exact-head revalidation — 2026-11-02
+
+- Current main: \`a9bb92c9d2642eff34be2ea68276a33b367ee793\`.
+- Current PR #147 head: \`219e02228c721be5cb70160a78088ff2637b4e18\`; branch is 29 ahead / 0 behind main; PR remains Draft/open/unmerged.
+- Exact-head \`Wave3 Challenger P2 CI\` run \`41406280097\` passed the isolated first-hit label tests. This is unit-test evidence only, not proof that the labels are complete or benchmark-ready.
+- Re-read the current \`research/wave3_challenger/first_hit_labels.py\`: the five blockers above remain present. In particular, the daily-loss check reads \`daily_net[entry_day]\` while closed-trade PnL is accumulated under \`daily_net[exit_day]\`; a trade crossing UTC midnight can still evade the entry-day loss check. The current implementation is BUY-only, assumes barrier-price fills through gaps, omits rollover/swap, and relies on a caller-supplied \`commission_verified=True\` flag.
+- P2 remains BLOCKED. No model training started, no labels were accepted as cost-complete, and no code was copied into PR #66. A versioned preregistration and independent commission/swap evidence are required before implementation is considered eligible.
