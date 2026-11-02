@@ -57,8 +57,9 @@ def main():
     if persist:
         from supabase_store import SupabaseStore
         store = SupabaseStore.from_env()
+        closed_candles = [candle for candle in candles if candle["is_closed"]]
         submitted = store.upsert_candles(
-            candles,
+            closed_candles,
             symbol=symbol,
             timeframe=interval,
             source="binance_public",
