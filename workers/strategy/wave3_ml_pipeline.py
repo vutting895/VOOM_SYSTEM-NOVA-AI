@@ -795,7 +795,7 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
     news_path = Path(path)
     if not news_path.is_file():
         raise FileNotFoundError(f"news calendar not found: {news_path}")
-    news = pd.read_csv(news_path)
+    news = pd.read_csv(news_path, encoding="utf-8-sig")
     if "timestamp" not in news.columns or "impact" not in news.columns:
         raise ValueError("news calendar CSV must contain timestamp and impact columns")
     impact = news["impact"].astype(str).str.strip().str.lower()
@@ -902,7 +902,7 @@ def _news_calendar_manifest(path: str | Path | None,
         }
 
     calendar_path = Path(path)
-    calendar = pd.read_csv(calendar_path)
+    calendar = pd.read_csv(calendar_path, encoding="utf-8-sig")
     impact = calendar.get("impact", pd.Series("", index=calendar.index)).astype(str).str.strip().str.lower()
     high = impact.isin({"high", "high impact", "critical", "red", "3", "3.0"})
     high_calendar = calendar.loc[high]
