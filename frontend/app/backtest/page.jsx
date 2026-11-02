@@ -30,7 +30,7 @@ export default function BacktestPage() {
     const timer = setInterval(updateClock, 5000);
     return () => clearInterval(timer);
   }, []);
-  const marketFresh = Boolean(marketFresh && marketData?.tick?.time
+  const marketFresh = Boolean(marketData?.freshness === 'fresh' && marketData?.tick?.time
     && clockNow > 0 && Number.isFinite(Date.parse(marketData.tick.time))
     && Math.max(0, clockNow - Date.parse(marketData.tick.time)) <= 60000);
 
