@@ -100,6 +100,42 @@ class TestWave3Pipeline(unittest.TestCase):
         self.assertEqual(result["trades"][0]["exit_reason"], "take_profit")
         self.assertFalse(result.get("orders_submitted", False))
 
+    def test_backtest_uses_worse_open_on_gap_through_buy_stop(self):
+        frame = synthetic_bars(200)
+        frame.loc[100:103, ["open", "high", "low", "close"]] = [2000.0, 2000.5, 2000.0, 2000.1]
+        frame.loc[102, ["open", "high", "low", "close"]] = [1990.0, 1991.0, 1989.0, 1990.5]
+        features = pd.DataFrame(0.0, index=frame.index, columns=[
+            "wave3_long_breakout", "wave3_short_breakout", "bos_up", "bos_down",
+            "choch_up", "choch_down", "bull_fvg", "bear_fvg", "bull_ob_zone",
+            "bear_ob_zone", "sell_side_sweep", "buy_side_sweep", "atr_price",
+        ])
+        features["atr_price"] = 0.2
+        features.loc[100, ["wave3_long_breakout", "bos_up"]] = [1, 1]
+        indices = np.arange(100, 120)
+        probs = np.tile(np.array([0.05, 0.10, 0.85]), (len(indices), 1))
+        trade = backtest_window(frame, features, indices, probs, require_news_calendar=False)["trades"][0]
+        self.assertEqual(trade["exit_reason"], "stop_loss")
+        self.assertLess(trade["exit_price"], trade["stop_price"])
+        self.assertAlmostEqual(trade["exit_price"], 1990.0 - 0.02)
+
+    def test_backtest_daily_entry_cap_uses_executable_entry_utc_day(self):
+        frame = synthetic_bars(200)
+        frame["timestamp"] = pd.date_range("2026-01-01T22:45:00Z", periods=len(frame), freq="15min")
+        frame.loc[100:111, ["open", "high", "low", "close"]] = [2000.0, 2000.5, 1999.0, 2000.1]
+        features = pd.DataFrame(0.0, index=frame.index, columns=[
+            "wave3_long_breakout", "wave3_short_breakout", "bos_up", "bos_down",
+            "choch_up", "choch_down", "bull_fvg", "bear_fvg", "bull_ob_zone",
+            "bear_ob_zone", "sell_side_sweep", "buy_side_sweep", "atr_price",
+        ])
+        features["atr_price"] = 0.2
+        signal_indices = np.array([100, 102, 104, 106, 108, 110])
+        features.loc[signal_indices, ["wave3_long_breakout", "bos_up"]] = [1, 1]
+        indices = np.arange(100, 120)
+        probs = np.tile(np.array([0.05, 0.10, 0.85]), (len(indices), 1))
+        result = backtest_window(frame, features, indices, probs, require_news_calendar=False)
+        self.assertEqual(result["trade_count"], 5)
+        self.assertEqual(result["trades"][0]["entry_timestamp"], "2026-01-02T00:00:00+00:00")
+
     def test_v6263_required_buy_gate_features_are_present_and_causal(self):
         frame = synthetic_bars(900)
         features = build_causal_features(frame)
