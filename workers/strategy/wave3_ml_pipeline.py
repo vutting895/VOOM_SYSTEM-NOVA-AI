@@ -1957,7 +1957,7 @@ def run_daily_candidate_experiment(
     meta_train = meta.iloc[train_indices].reset_index(drop=True)
     # Segment IDs stop the 60-bar LSTM sequence builder joining data across the frozen OOS gap.
     segment_ids = np.where(
-        pd.to_datetime(meta_train["timestamp"], utc=True).to_numpy() < frozen_oos_start.to_datetime64(),
+        (pd.to_datetime(meta_train["timestamp"], utc=True) < frozen_oos_start).to_numpy(),
         0,
         1,
     ).astype(np.int8)
@@ -2177,8 +2177,20 @@ def main() -> None:
                         help="CSV with UTC timestamp,impact columns; high impact events are excluded +/-30 minutes. Without it the backtest fails closed.")
     parser.add_argument("--tuning-trials", type=int, default=AUTO_TUNING_TRIALS,
                         help="Number of deterministic XGB hyperparameter candidates per nested tuning window (1-12; entry gates remain fixed).")
+    parser.add_argument("--daily-candidate-only", action="store_true",
+                        help="Train a non-promotable daily candidate; never run or modify the frozen 2026-07-01 Final OOS.")
+    parser.add_argument("--candidate-live-start-utc", default="2026-10-29T17:00:00Z",
+                        help="First bar allowed into daily candidate training after the verified baseline export.")
     args = parser.parse_args()
-    run_experiment(args.data, args.model_dir, args.report, args.news_calendar, args.tuning_trials)
+    if args.daily_candidate_only:
+        if not args.news_calendar:
+            parser.error("--daily-candidate-only requires --news-calendar with current MQL5 coverage")
+        run_daily_candidate_experiment(
+            args.data, args.model_dir, args.report, args.news_calendar,
+            args.candidate_live_start_utc, args.tuning_trials,
+        )
+    else:
+        run_experiment(args.data, args.model_dir, args.report, args.news_calendar, args.tuning_trials)
 
 
 if __name__ == "__main__":
