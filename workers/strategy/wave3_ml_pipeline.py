@@ -791,6 +791,8 @@ def load_news_calendar(path: str | Path | None, frame: pd.DataFrame) -> np.ndarr
     event_times = pd.to_datetime(high_news["timestamp"], utc=True, errors="raise")
     if event_times.isna().any():
         raise ValueError("high-impact news events must have non-missing timestamps")
+    if event_times.isna().any():
+        raise ValueError("high-impact news events must have non-missing timestamps")
 
     # MQL5 CalendarValueHistory uses the broker trade-server timezone. Exness
     # documents GMT+0, so exported event times are explicitly UTC. The export
@@ -1087,8 +1089,21 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
 
 
 def _train_mask(meta: pd.DataFrame, test_start: pd.Timestamp) -> np.ndarray:
-    cutoff = test_start - pd.Timedelta(minutes=15 * HORIZON_BARS)
-    return (meta["timestamp"] < cutoff).to_numpy()
+    """Purge by source-bar label endpoint, including market closures."""
+    if not {"timestamp", "source_index"}.issubset(meta.columns):
+        raise ValueError("training metadata requires timestamp and source_index")
+    timestamps = pd.to_datetime(meta["timestamp"], utc=True)
+    source_indices = pd.to_numeric(meta["source_index"], errors="raise").to_numpy(dtype=np.int64)
+    test_start = pd.Timestamp(test_start)
+    test_start = test_start.tz_localize("UTC") if test_start.tzinfo is None else test_start.tz_convert("UTC")
+    test_rows = np.flatnonzero((timestamps >= test_start).to_numpy())
+    if len(test_rows) == 0:
+        raise ValueError("test_start_not_present_in_source_metadata")
+    first_test_source_index = int(source_indices[test_rows[0]])
+    # A training label at source index i reads close[i + HORIZON_BARS].
+    # Its final source bar must be strictly before the first test source bar.
+    return ((timestamps < test_start).to_numpy() &
+            (source_indices + HORIZON_BARS < first_test_source_index))
 
 
 def _rule_gate_diagnostics(features: pd.DataFrame, raw_indices: np.ndarray,
@@ -1318,15 +1333,21 @@ def build_inner_validation_splits(meta_train: pd.DataFrame) -> list[dict[str, An
     """Create strictly chronological inner validation windows with a 12-bar label purge."""
     if "timestamp" not in meta_train.columns:
         raise ValueError("inner tuning metadata requires timestamp")
+    if "source_index" not in meta_train.columns:
+        raise ValueError("inner tuning metadata requires source_index")
     timestamps = pd.to_datetime(meta_train["timestamp"], utc=True).reset_index(drop=True)
+    source_indices = pd.to_numeric(meta_train["source_index"], errors="raise").to_numpy(dtype=np.int64)
     n = len(timestamps)
     splits: list[dict[str, Any]] = []
     for fold_number, (start_fraction, end_fraction) in enumerate(AUTO_TUNING_FOLDS, start=1):
         validation_start = min(n - 1, int(n * start_fraction))
         validation_end = min(n, max(validation_start + 1, int(n * end_fraction)))
         start_time = timestamps.iloc[validation_start]
-        cutoff = start_time - pd.Timedelta(minutes=15 * HORIZON_BARS)
-        train_indices = np.flatnonzero((timestamps < cutoff).to_numpy())
+        first_validation_source_index = int(source_indices[validation_start])
+        train_indices = np.flatnonzero(
+            (timestamps < start_time).to_numpy() &
+            (source_indices + HORIZON_BARS < first_validation_source_index)
+        )
         validation_indices = np.arange(validation_start, validation_end, dtype=int)
         if len(train_indices) < 5000 or len(validation_indices) < 300:
             continue
