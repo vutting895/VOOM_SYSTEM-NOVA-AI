@@ -136,7 +136,11 @@ def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
     gain = delta.clip(lower=0).ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
     loss = (-delta.clip(upper=0)).ewm(alpha=1 / period, adjust=False, min_periods=period).mean()
     rs = gain / loss.replace(0, np.nan)
-    return (100 - 100 / (1 + rs)).replace([np.inf, -np.inf], np.nan).fillna(50.0)
+    rsi = (100 - 100 / (1 + rs)).replace([np.inf, -np.inf], np.nan)
+    # A strictly rising series has positive gain and zero loss (RSI 100).
+    # A flat series has neither and remains neutral (RSI 50).
+    rsi = rsi.mask((gain > 0) & (loss == 0), 100.0)
+    return rsi.fillna(50.0)
 
 
 def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
@@ -499,7 +503,10 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
     h1_close = ts_indexed["close"].resample("1h", label="right", closed="left").last().dropna()
     h1_ema21 = h1_close.ewm(span=21, adjust=False, min_periods=21).mean()
     h1_ema50 = h1_close.ewm(span=50, adjust=False, min_periods=50).mean()
-    h1_trend = (h1_ema21 > h1_ema50).reindex(frame["timestamp"], method="ffill")
+    # Features are consumed at each M15 close. Align the completed H1 candle
+    # to that close time, not the M15 opening timestamp, to avoid a one-bar lag.
+    m15_close_times = pd.DatetimeIndex(frame["timestamp"]) + pd.Timedelta(minutes=15)
+    h1_trend = (h1_ema21 > h1_ema50).reindex(m15_close_times, method="ffill")
     f["h1_trend_up"] = h1_trend.astype("boolean").fillna(False).to_numpy(dtype=float)
     ema21 = c.ewm(span=21, adjust=False, min_periods=21).mean()
     ema50 = c.ewm(span=50, adjust=False, min_periods=50).mean()
