@@ -1,0 +1,4 @@
+# Preserve exact bytes for source exports and keep large historical datasets in Git LFS.
+datasets/exness/demo/xauusdm_m15/*.csv filter=lfs diff=lfs merge=lfs -text
+datasets/exness/demo/xauusdm_m15/source_metadata.json -text
+datasets/public/binance/btcusdt_h1/*_5Y_*.json filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,29 @@
+{
+  "dataset_group": "windows-historical-public-market-snapshots-2026-10-26",
+  "source": "Binance public klines API; unauthenticated historical snapshot",
+  "symbol": "BTCUSDT",
+  "timeframe": "1h",
+  "mode": "historical_simulation_snapshot",
+  "five_year": {
+    "file": "BTCUSDT_1H_5Y_CLOSED_BARS.json",
+    "row_count": 43822,
+    "first_bar_utc": "2021-10-26T01:00:00+00:00",
+    "last_bar_utc": "2026-10-25T23:00:00+00:00",
+    "bytes": 9685231,
+    "sha256": "eef03d4091183cb81e199b433dc0f0113408aa5f659f34c0081d4b8c2a13656d"
+  },
+  "recent_500": {
+    "file": "BTCUSDT_1H_500_CLOSED_BARS.json",
+    "row_count": 500,
+    "first_bar_utc": "2026-10-05T00:00:00+00:00",
+    "last_bar_utc": "2026-10-25T19:00:00+00:00",
+    "bytes": 156661,
+    "sha256": "d11aecee1a9148eff5aa2a123bf4d009c3fe4ad5c773494dfa728001176ce69e"
+  },
+  "limitations": [
+    "Historical snapshot, not a live feed.",
+    "The source JSON serializes numeric OHLCV fields as JSON numbers; it is not the canonical decimal-string ingestion format.",
+    "Do not treat the included legacy walk-forward/cost-sensitivity reports as Wave3/XGBoost/LSTM/SMC benchmark evidence.",
+    "Revalidate gaps, duplicates, provider provenance, and hashes before any new training."
+  ]
+}

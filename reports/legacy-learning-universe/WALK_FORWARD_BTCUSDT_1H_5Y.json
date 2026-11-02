@@ -1,0 +1,152 @@
+{
+  "run_at_utc": "2026-10-26T00:27:27.224818+00:00",
+  "source": "Binance public klines API (unauthenticated)",
+  "symbol": "BTCUSDT",
+  "timeframe": "1h",
+  "requested_period_start_utc": "2021-10-26T00:27:27.224818+00:00",
+  "actual_first_bar_utc": "2021-10-26T01:00:00+00:00",
+  "actual_last_bar_utc": "2026-10-25T23:00:00+00:00",
+  "bars": 43822,
+  "api_requests": 44,
+  "duplicate_timestamp_rows_removed": 0,
+  "hourly_gaps_before_recovery_count": 1,
+  "gap_recovery_attempts": 1,
+  "recovered_real_candle_count": 0,
+  "recovered_real_candle_timestamps": [],
+  "hourly_gaps_count": 1,
+  "missing_hour_bars_total": 1,
+  "first_20_gaps": [
+    {
+      "after": "2023-03-24T12:00:00+00:00",
+      "before": "2023-03-24T14:00:00+00:00",
+      "missing_hour_bars": 1
+    }
+  ],
+  "data_quality_gate": {
+    "full_dataset_status": "warning_gaps_allowed",
+    "gap_detection_supported": true,
+    "synthetic_bars_added": 0,
+    "policy": "audit inventory allows gaps; each split rejects gaps before backtest"
+  },
+  "walk_forward_chronological_splits": {
+    "train_60pct": {
+      "status": "blocked_data_quality_gate",
+      "start_utc": "2021-10-26T01:00:00+00:00",
+      "end_utc": "2024-10-25T14:00:00+00:00",
+      "bars": 26293,
+      "reason": "data quality gate rejected 1 gap(s); estimated missing bars=1; first gap after 2023-03-24T12:00:00+00:00 before 2023-03-24T14:00:00+00:00",
+      "backtest_executed": false,
+      "orders_sent": 0,
+      "contiguous_segment_evaluation": {
+        "method": "independent_backtests_per_gap_free_segment",
+        "segments": [
+          {
+            "segment_index": 1,
+            "start_utc": "2021-10-26T01:00:00+00:00",
+            "end_utc": "2023-03-24T12:00:00+00:00",
+            "bars": 12348,
+            "status": "evaluated_contiguous_segment",
+            "backtest_executed": true,
+            "total_trades": 319,
+            "wins": 84,
+            "losses": 235,
+            "winrate_pct": 26.33,
+            "profit_factor": 0.6383,
+            "per_trade_sharpe_like_non_annualized": -0.1895,
+            "realized_equity_max_drawdown_pct": 14.4433,
+            "mark_to_market_max_drawdown_pct": 14.4821,
+            "final_equity_from_independent_10000": 8584.49567815,
+            "risk_per_trade_pct": 0.25,
+            "exposure_fraction": 0.125,
+            "orders_sent": 0
+          },
+          {
+            "segment_index": 2,
+            "start_utc": "2023-03-24T14:00:00+00:00",
+            "end_utc": "2024-10-25T14:00:00+00:00",
+            "bars": 13945,
+            "status": "evaluated_contiguous_segment",
+            "backtest_executed": true,
+            "total_trades": 364,
+            "wins": 109,
+            "losses": 255,
+            "winrate_pct": 29.95,
+            "profit_factor": 0.7815,
+            "per_trade_sharpe_like_non_annualized": -0.0981,
+            "realized_equity_max_drawdown_pct": 10.6076,
+            "mark_to_market_max_drawdown_pct": 10.6543,
+            "final_equity_from_independent_10000": 9229.57749916,
+            "risk_per_trade_pct": 0.25,
+            "exposure_fraction": 0.125,
+            "orders_sent": 0
+          }
+        ],
+        "equity_curves_merged": false,
+        "warning": "Each segment starts with independent $10,000 equity; do not interpret segment end equities as one continuous portfolio curve."
+      }
+    },
+    "validation_20pct": {
+      "status": "evaluated",
+      "start_utc": "2024-10-25T15:00:00+00:00",
+      "end_utc": "2025-10-25T18:00:00+00:00",
+      "bars": 8764,
+      "total_trades": 219,
+      "wins": 59,
+      "losses": 160,
+      "winrate_pct": 26.94,
+      "profit_factor": 0.6505,
+      "per_trade_sharpe_like_non_annualized": -0.1826,
+      "realized_equity_max_drawdown_pct": 9.5095,
+      "mark_to_market_max_drawdown_pct": 9.6048,
+      "final_equity_from_10000": 9142.06212841,
+      "risk_per_trade_pct": 0.25,
+      "exposure_fraction": 0.125,
+      "position_sizing": "risk_budget_divided_by_stop_distance_no_leverage",
+      "orders_sent": 0
+    },
+    "test_20pct": {
+      "status": "evaluated",
+      "start_utc": "2025-10-25T19:00:00+00:00",
+      "end_utc": "2026-10-25T23:00:00+00:00",
+      "bars": 8765,
+      "total_trades": 234,
+      "wins": 61,
+      "losses": 173,
+      "winrate_pct": 26.07,
+      "profit_factor": 0.6052,
+      "per_trade_sharpe_like_non_annualized": -0.2101,
+      "realized_equity_max_drawdown_pct": 10.2505,
+      "mark_to_market_max_drawdown_pct": 10.5567,
+      "final_equity_from_10000": 9002.01891347,
+      "risk_per_trade_pct": 0.25,
+      "exposure_fraction": 0.125,
+      "position_sizing": "risk_budget_divided_by_stop_distance_no_leverage",
+      "orders_sent": 0
+    }
+  },
+  "cost_assumptions": {
+    "fee_per_side": 0.001,
+    "slippage_per_side": 0.0005,
+    "stop_loss_pct": 0.02,
+    "take_profit_pct": 0.04,
+    "initial_equity": 10000,
+    "risk_per_trade_pct": 0.0025,
+    "exposure_fraction": 0.125,
+    "leverage_enabled": false
+  },
+  "safety": {
+    "orders_sent": 0,
+    "model_training_performed": false,
+    "model_promoted": false,
+    "mode": "simulation_only"
+  },
+  "limitations": [
+    "This is a simple 60/20/20 chronological split, not parameter tuning or a complete rolling walk-forward study.",
+    "Each split is run independently and indicators are initialized within that split.",
+    "Results depend on generic, uncalibrated cost assumptions and do not guarantee future performance.",
+    "Gap counts are reported; gaps are not silently filled or synthesized.",
+    "Realized-equity drawdown and close-price mark-to-market drawdown estimate are reported; intrabar mark-to-market is not reconstructed from OHLC bars.",
+    "The per-trade Sharpe-like statistic is non-annualized."
+  ],
+  "raw_data_path": "C:\\Program Files\\voom_system\\artifacts\\learning-universe-audit\\BINANCE_BTCUSDT_1H_5Y_CLOSED_BARS.json"
+}

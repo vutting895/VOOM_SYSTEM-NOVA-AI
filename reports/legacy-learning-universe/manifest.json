@@ -1,0 +1,16 @@
+{
+  "status": "historical_exploratory_reports",
+  "files": [
+    {
+      "path": "reports/legacy-learning-universe/WALK_FORWARD_BTCUSDT_1H_5Y.json",
+      "bytes": 6022,
+      "sha256": "f93458ef1cc773f7127d3f152662da7420c77786503245d61c83a96d200af9eb"
+    },
+    {
+      "path": "reports/legacy-learning-universe/COST_SENSITIVITY_TRAIN_VALIDATION.json",
+      "bytes": 20452,
+      "sha256": "94d422a93db4a9afc5f2a399deb5f2e8e4ef77afc8a0a1eb709cdf66aa4496d1"
+    }
+  ],
+  "warning": "These October 2026 reports are legacy research evidence and must not be conflated with current Wave3 benchmark run artifacts."
+}
