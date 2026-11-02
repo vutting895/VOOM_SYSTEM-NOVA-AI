@@ -90,6 +90,31 @@ class TestDailyMT5Refresh(unittest.TestCase):
                 now_utc=datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc),
             )
 
+    def test_refresh_rejects_non_exness_account_without_creating_orphan_state(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            base = root / "base.csv"
+            state = root / "state"
+            base.write_text(
+                "timestamp,open,high,low,close,tick_volume,spread_price\n"
+                "2026-11-01T23:30:00Z,2400,2400.5,2399.5,2400.1,100,0.024\n",
+                encoding="utf-8",
+            )
+            expected = hashlib.sha256(base.read_bytes()).hexdigest()
+            with (
+                patch.object(daily, "EXPECTED_BASE_SHA256", expected),
+                patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
+                patch.object(daily, "_bridge_get", side_effect=[
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True,
+                     "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "OtherBroker-Demo", "currency": "USD",
+                     "mode": "read-only", "order_submission_enabled": False},
+                ]),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "Exness USD Demo"):
+                    daily.refresh_dataset(base, state, now_utc=datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc))
+            self.assertFalse((state / "XAUUSDm_M15_daily.csv").exists())
+
     def test_refresh_persists_merged_bars_manifest_and_no_change_run(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -113,9 +138,11 @@ class TestDailyMT5Refresh(unittest.TestCase):
                 patch.object(daily, "EXPECTED_BASE_SHA256", expected),
                 patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
                 patch.object(daily, "_bridge_get", side_effect=[
-                    {"status": "ok", "terminal_connected": True, "mode": "read-only", "order_submission_enabled": False},
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True, "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "Exness-MT5Trial7", "currency": "USD", "mode": "read-only", "order_submission_enabled": False},
                     quotes,
-                    {"status": "ok", "terminal_connected": True, "mode": "read-only", "order_submission_enabled": False},
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True, "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "Exness-MT5Trial7", "currency": "USD", "mode": "read-only", "order_submission_enabled": False},
                     quotes,
                 ]),
             ):
