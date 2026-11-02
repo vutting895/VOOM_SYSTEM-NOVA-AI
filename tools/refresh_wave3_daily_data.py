@@ -153,6 +153,64 @@ def normalize_closed_quotes(payload: dict, *, now_utc: datetime | None = None) -
     return result
 
 
+def _recover_dataset_pair(state_csv: Path, state_manifest: Path) -> None:
+    """Roll back an interrupted CSV/manifest replacement before reading either file."""
+    journal = state_manifest.with_suffix(".transaction.json")
+    if not journal.is_file():
+        return
+    record = json.loads(journal.read_text(encoding="utf-8"))
+    for target, backup_key, existed_key in (
+        (state_csv, "csv_backup", "csv_existed"),
+        (state_manifest, "manifest_backup", "manifest_existed"),
+    ):
+        backup = state_csv.parent / record[backup_key]
+        if record[existed_key]:
+            if not backup.is_file():
+                raise RuntimeError("Interrupted dataset transaction is missing a recovery backup.")
+            os.replace(backup, target)
+        else:
+            target.unlink(missing_ok=True)
+    for key in ("csv_temp", "manifest_temp"):
+        (state_csv.parent / record[key]).unlink(missing_ok=True)
+    journal.unlink(missing_ok=True)
+
+
+def _commit_dataset_pair(state_csv: Path, state_manifest: Path, csv_bytes: bytes, manifest_bytes: bytes) -> None:
+    """Replace both files as a recoverable transaction; crash recovery restores the old pair."""
+    import shutil
+
+    _recover_dataset_pair(state_csv, state_manifest)
+    suffix = hashlib.sha256(csv_bytes + manifest_bytes).hexdigest()[:16]
+    csv_temp = state_csv.parent / f".{state_csv.name}.{suffix}.tmp"
+    manifest_temp = state_csv.parent / f".{state_manifest.name}.{suffix}.tmp"
+    csv_backup = state_csv.parent / f".{state_csv.name}.{suffix}.bak"
+    manifest_backup = state_csv.parent / f".{state_manifest.name}.{suffix}.bak"
+    csv_temp.write_bytes(csv_bytes)
+    manifest_temp.write_bytes(manifest_bytes)
+    record = {
+        "csv_backup": csv_backup.name, "manifest_backup": manifest_backup.name,
+        "csv_temp": csv_temp.name, "manifest_temp": manifest_temp.name,
+        "csv_existed": state_csv.exists(), "manifest_existed": state_manifest.exists(),
+    }
+    if record["csv_existed"]:
+        shutil.copy2(state_csv, csv_backup)
+    if record["manifest_existed"]:
+        shutil.copy2(state_manifest, manifest_backup)
+    journal = state_manifest.with_suffix(".transaction.json")
+    journal_temp = journal.with_suffix(".transaction.tmp")
+    journal_temp.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
+    os.replace(journal_temp, journal)
+    try:
+        os.replace(csv_temp, state_csv)
+        os.replace(manifest_temp, state_manifest)
+    except Exception:
+        _recover_dataset_pair(state_csv, state_manifest)
+        raise
+    csv_backup.unlink(missing_ok=True)
+    manifest_backup.unlink(missing_ok=True)
+    journal.unlink(missing_ok=True)
+
+
 def _row_for_schema(row: dict, columns: list[str]) -> dict:
     mapped = dict(row)
     mapped["timestamp"] = str(row["timestamp"])
@@ -180,6 +238,7 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
     state_dir.mkdir(parents=True, exist_ok=True)
     state_csv = state_dir / "XAUUSDm_M15_daily.csv"
     state_manifest = state_dir / "daily_data_manifest.json"
+    _recover_dataset_pair(state_csv, state_manifest)
     if state_csv.exists():
         if not state_manifest.is_file():
             raise ValueError("Persistent daily dataset exists without its manifest; refusing to trust it.")
