@@ -13,7 +13,9 @@ test("MT5 MCP exposes only read-only Exness Demo account tools", () => {
     "mt5_quotes"
   ]) assert.ok(names.has(name), "missing MCP tool: " + name);
 
-  assert.equal(tools.length, 13);
+  assert.equal(tools.length, 15);
+  assert.ok(names.has("list_nova_skills"));
+  assert.ok(names.has("get_nova_skill"));
   assert.equal([...names].some((name) => /^(place|submit|close|modify|execute)_?(order|trade)/i.test(name)), false);
   for (const name of ["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"]) {
     assert.match(tools.find((tool) => tool.name === name).description, /read-only/i);
