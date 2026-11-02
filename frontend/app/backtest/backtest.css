@@ -54,3 +54,7 @@
 .nova-bt-live-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:15px}
 .nova-bt-live-grid .nova-bt-metric strong{font-variant-numeric:tabular-nums}
 @media(max-width:700px){.nova-bt-live-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.nova-bt-qr { display: flex; justify-content: flex-start; padding: 12px 0; }
+.nova-bt-qr svg { background: #fff; padding: 8px; border-radius: 8px; max-width: 100%; height: auto; }
+.nova-bt-actions-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
