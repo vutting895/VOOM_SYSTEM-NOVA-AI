@@ -18,6 +18,8 @@ export default function BacktestPage() {
   const [marketData, setMarketData] = useState(null);
   const [marketBusy, setMarketBusy] = useState(false);
   const [marketError, setMarketError] = useState('');
+  const [datasetSaveBusy, setDatasetSaveBusy] = useState(false);
+  const [savedDataset, setSavedDataset] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const marketBusyRef = useRef(false);
 
@@ -82,6 +84,35 @@ export default function BacktestPage() {
     return () => clearInterval(timer);
   }, [autoRefresh, authState, refreshMarketData]);
 
+  async function saveMarketDataset() {
+    if (!marketData?.bars?.length || datasetSaveBusy) return;
+    const candles = marketData.bars.slice(0, -1);
+    if (candles.length < 3) { setMarketError('ต้องมีแท่งเทียนที่ปิดแล้วอย่างน้อย 3 แท่ง'); return; }
+    setDatasetSaveBusy(true);
+    setMarketError('');
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !data.session?.access_token) { router.replace('/login'); return; }
+      const response = await fetch('/api/datasets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + data.session.access_token,
+        },
+        body: JSON.stringify({ symbol: marketData.symbol, timeframe: marketData.timeframe, provider: 'exness_mt5_demo', candles }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'dataset_save_unavailable');
+      setSavedDataset({ ...payload, url: window.location.origin + payload.resolver_path });
+    } catch (err) {
+      setMarketError(err?.message || 'ไม่สามารถบันทึก Dataset ได้');
+    } finally {
+      setDatasetSaveBusy(false);
+    }
+  }
+
   async function runBaseline(event) {
     event.preventDefault(); setError(''); setResult(null);
     let candles;
@@ -126,18 +157,19 @@ export default function BacktestPage() {
           <div className="nova-bt-panel-head"><div><small>LIVE / EXNESS MT5 DEMO · READ ONLY</small><h2>ข้อมูลตลาดเรียลไทม์</h2></div><span className="nova-bt-tag">{marketData?.freshness === 'fresh' ? 'LIVE FEED' : marketData ? 'STALE / DELAYED' : 'NOT CONNECTED'}</span></div>
           <div className="nova-bt-actions">
             <span>ดึง Tick ล่าสุดและแท่ง OHLCV ผ่าน NOVA System Hub<br/>ใช้เฉพาะ Exness Demo connection ของบัญชีที่ Login อยู่</span>
-            <button className="nova-bt-run" type="button" onClick={() => refreshMarketData(false)} disabled={marketBusy || authState !== 'ready'}>{marketBusy ? 'กำลังดึงข้อมูล…' : 'ดึงข้อมูลตลาดล่าสุด'}</button>
+            <div className="nova-bt-actions-buttons"><button className="nova-bt-run" type="button" onClick={() => refreshMarketData(false)} disabled={marketBusy || authState !== 'ready'}>{marketBusy ? 'กำลังดึงข้อมูล…' : 'ดึงข้อมูลตลาดล่าสุด'}</button>{marketData && <button className="nova-bt-run" type="button" onClick={saveMarketDataset} disabled={datasetSaveBusy || authState !== 'ready'}>{datasetSaveBusy ? 'กำลังบันทึก…' : 'บันทึก Dataset'}</button>}</div>
           </div>
           <label className="nova-bt-live-toggle"><input type="checkbox" checked={autoRefresh} onChange={event => setAutoRefresh(event.target.checked)} disabled={authState !== 'ready'} /> อัปเดตอัตโนมัติทุก 5 วินาที</label>
           {marketError && <div className="nova-bt-error" role="alert">{marketError}</div>}
           {marketData?.tick && <div className="nova-bt-live-grid" aria-live="polite">
-            <div className="nova-bt-metric"><small>{marketData.symbol} · BID</small><strong>{marketData.tick.bid.toLocaleString('en-US')}</strong><em>{marketData.timeframe}</em></div>
-            <div className="nova-bt-metric"><small>ASK</small><strong>{marketData.tick.ask.toLocaleString('en-US')}</strong><em>Spread {(marketData.tick.ask - marketData.tick.bid).toFixed(3)}</em></div>
-            <div className="nova-bt-metric"><small>LAST / MID</small><strong>{marketData.tick.last > 0 ? marketData.tick.last.toLocaleString('en-US') : ((marketData.tick.bid + marketData.tick.ask) / 2).toLocaleString('en-US')}</strong><em>{marketData.freshness === 'fresh' ? 'ข้อมูลสด ≤ 60 วินาที' : 'ข้อมูลอาจล่าช้า / ตลาดปิด'}</em></div>
+            <div className="nova-bt-metric"><small>{marketData.symbol} · BID</small><strong>{marketData.tick.bid}</strong><em>{marketData.timeframe}</em></div>
+            <div className="nova-bt-metric"><small>ASK</small><strong>{marketData.tick.ask}</strong><em>Spread {marketData.tick.spread || '—'}</em></div>
+            <div className="nova-bt-metric"><small>LAST / MID</small><strong>{marketData.tick.last || '—'}</strong><em>{marketData.freshness === 'fresh' ? 'ข้อมูลสด ≤ 60 วินาที' : 'ข้อมูลอาจล่าช้า / ตลาดปิด'}</em></div>
             <div className="nova-bt-metric"><small>HISTORICAL BARS</small><strong>{marketData.count}</strong><em>แท่งล่าสุดแยกออกจาก Backtest input</em></div>
           </div>}
           {marketData?.tick?.time && <p className="nova-bt-foot">เวลาของ Tick: {new Date(marketData.tick.time).toLocaleString()} · รับข้อมูลจาก Hub: {new Date(marketData.receivedAt).toLocaleString()} · Source: {marketData.source}</p>}
           {!marketData && <p className="nova-bt-foot">ยังไม่มีข้อมูลจริงในหน้านี้ กดปุ่มดึงข้อมูลเพื่อตรวจสอบการเชื่อมต่อ Exness Demo</p>}
+          {savedDataset && <div className="nova-bt-alert" role="status"><strong>บันทึก Dataset แล้ว</strong> · SHA-256: {savedDataset.sha256}<br/>QR Resolver: <a href={savedDataset.url}>{savedDataset.url}</a><br/><button type="button" onClick={() => navigator.clipboard.writeText(savedDataset.url)}>คัดลอกลิงก์ QR</button><small>ลิงก์นี้เป็น QR payload สำหรับนำไปสร้าง/สแกน QR; การแสดงภาพ QR และการทดสอบบน Hosted Storage ยังรอ migration และ dependency/Preview gate</small></div>}
           <p className="nova-bt-foot">การอัปเดตเป็น polling ทุก 5 วินาทีผ่าน endpoint แบบ authenticated ไม่ใช่ WebSocket streaming; ถ้า Bridge/Hub ยังไม่พร้อมจะแสดง error แทนข้อมูลจำลอง</p>
         </section>
 
