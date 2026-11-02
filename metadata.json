@@ -1,0 +1,7 @@
+{
+  "name": "VOOM System NOVA AI",
+  "description": "JARVIS-inspired multi-broker trading command center, AI research chat, Gen-AI strategy lab, marketplace, and learning universe.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
