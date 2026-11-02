@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "bun install --no-save && bun run build"
+  command = "npm install --no-package-lock && npm run build"
   publish = "dist"
 
 [build.environment]
