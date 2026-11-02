@@ -111,13 +111,28 @@ class SupabaseStoreTests(unittest.TestCase):
             SupabaseStore("http://project.supabase.co", "secret")
 
     def test_batches_large_payloads(self):
-        candle = {"timestamp":"2026-11-02T00:00:00Z","open":"1","high":"2","low":"0.5","close":"1.5","volume":"0"}
+        candles = [
+            {"timestamp": f"2026-11-02T0{hour}:00:00Z", "open":"1", "high":"2", "low":"0.5", "close":"1.5", "volume":"0"}
+            for hour in range(3)
+        ]
         count = self.store.upsert_candles(
-            [candle] * 3, symbol="BTCUSDT", timeframe="1h",
+            candles, symbol="BTCUSDT", timeframe="1h",
             source="binance_public", environment="public", batch_size=2,
         )
         self.assertEqual(count, 3)
         self.assertEqual(len(self.opener.calls), 2)
+
+    def test_duplicate_candle_keys_are_collapsed_before_batching(self):
+        first = {"timestamp":"2026-11-02T00:00:00Z","open":"1","high":"2","low":"0.5","close":"1.5","volume":"0"}
+        latest = {**first, "close":"1.7"}
+        count = self.store.upsert_candles(
+            [first, latest], symbol="BTCUSDT", timeframe="1h",
+            source="binance_public", environment="public", batch_size=1,
+        )
+        self.assertEqual(count, 1)
+        self.assertEqual(len(self.opener.calls), 1)
+        row = json.loads(self.opener.calls[0][0].data.decode("utf-8"))[0]
+        self.assertEqual(row["close"], "1.7")
 
     def test_record_run_payload_contains_no_secret_fields(self):
         self.store.record_ingestion_run(
