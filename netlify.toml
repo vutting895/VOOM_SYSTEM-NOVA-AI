@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "npm run build"
+  command = "bun install --no-save && bun run build"
   publish = "dist"
 
 [build.environment]
