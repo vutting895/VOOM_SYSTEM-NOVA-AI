@@ -21,7 +21,7 @@ function isAllowedOrigin(origin, env) {
     // Netlify PR previews use a deterministic, site-specific hostname. Do not
     // allow arbitrary *.netlify.app origins or non-HTTPS preview URLs.
     return parsed.protocol === "https:" && parsed.origin === origin &&
-      /^deploy-preview-[0-9]+--voomsystem\\.netlify\\.app$/i.test(parsed.hostname);
+      /^deploy-preview-[0-9]+--voomsystem\.netlify\.app$/i.test(parsed.hostname);
   } catch {
     return false;
   }
