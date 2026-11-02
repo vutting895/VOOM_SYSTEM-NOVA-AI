@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 
@@ -29,6 +29,7 @@ export default function IntegrationCenterPage() {
   const [error, setError] = useState('');
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionEmail, setSessionEmail] = useState('');
+  const sessionUserIdRef = useRef('');
   const [loginEmail, setLoginEmail] = useState('');
   const [authMessage, setAuthMessage] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
@@ -50,6 +51,16 @@ export default function IntegrationCenterPage() {
         const { data, error: authError } = await supabase.auth.getSession();
         if (authError) throw new Error('Unable to read the current Supabase session');
         const session = data.session;
+        const nextUserId = session?.user?.id || '';
+        if (sessionUserIdRef.current && sessionUserIdRef.current !== nextUserId) {
+          setSnapshot({ integrations: [], connections: [], health });
+          setVerificationByConnection({});
+        }
+        if (!nextUserId && sessionUserIdRef.current) {
+          setSnapshot({ integrations: [], connections: [], health });
+          setVerificationByConnection({});
+        }
+        sessionUserIdRef.current = nextUserId;
         setSessionReady(Boolean(session?.access_token));
         setSessionEmail(session?.user?.email || '');
         if (session?.access_token) {
@@ -65,6 +76,7 @@ export default function IntegrationCenterPage() {
               await supabase.auth.signOut({ scope: 'local' });
               setSessionReady(false);
               setSessionEmail('');
+              sessionUserIdRef.current = '';
               setVerificationByConnection({});
               setSnapshot({ integrations: [], connections: [], health });
               throw new Error('Session expired — sign in again');
@@ -74,7 +86,15 @@ export default function IntegrationCenterPage() {
           integrations = Array.isArray(idata.integrations) ? idata.integrations : [];
           connections = Array.isArray(cdata.connections) ? cdata.connections : [];
         }
-      } else { setSessionReady(false); setSessionEmail(''); }
+      } else {
+        if (sessionUserIdRef.current) {
+          sessionUserIdRef.current = '';
+          setSnapshot({ integrations: [], connections: [], health });
+          setVerificationByConnection({});
+        }
+        setSessionReady(false);
+        setSessionEmail('');
+      }
       setSnapshot({ health, integrations, connections });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Unable to refresh Integration Center');
@@ -116,6 +136,7 @@ export default function IntegrationCenterPage() {
         await supabase.auth.signOut({ scope: 'local' });
         setSessionReady(false);
         setSessionEmail('');
+        sessionUserIdRef.current = '';
         setVerificationByConnection({});
         setSnapshot({ integrations: [], connections: [], health: snapshot.health });
         throw new Error('Session expired — sign in again');
