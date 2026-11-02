@@ -312,6 +312,14 @@ const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
 function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
+function safePriceDecimal(value, digits) {
+  if (typeof value === "string" && /^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/.test(value)) return value;
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0
+    || !Number.isInteger(digits) || digits < 0 || digits > 12) return null;
+  // MT5 digits define the broker's actual quoted precision. Emit a decimal
+  // string at that scale so downstream JSON parsing never coerces prices to Number.
+  return value.toFixed(digits);
+}
 function proxyError(responseStatus, body) {
   const state = responseStatus === 401 ? "session_rejected"
     : responseStatus === 403 ? "tenant_guard_rejected"
@@ -473,6 +481,25 @@ async function readQuotes(request, env, user, row, origin) {
     }, result.status, origin, env);
   }
   const data = result.body;
+  const digits = Number.isInteger(data.digits) && data.digits >= 0 && data.digits <= 12 ? data.digits : null;
+  const bars = Array.isArray(data.bars) && digits !== null ? data.bars.map((bar) => ({
+    time: typeof bar.time === "string" ? bar.time : null,
+    open: safePriceDecimal(bar.open, digits),
+    high: safePriceDecimal(bar.high, digits),
+    low: safePriceDecimal(bar.low, digits),
+    close: safePriceDecimal(bar.close, digits),
+    tick_volume: Number.isFinite(bar.tick_volume) ? bar.tick_volume : null,
+    real_volume: Number.isFinite(bar.real_volume) ? bar.real_volume : null
+  })) : [];
+  const tick = data.tick && typeof data.tick === "object" && digits !== null ? {
+    bid: safePriceDecimal(data.tick.bid, digits),
+    ask: safePriceDecimal(data.tick.ask, digits),
+    last: safePriceDecimal(data.tick.last, digits),
+    time: typeof data.tick.time === "string" ? data.tick.time : null
+  } : null;
+  if (digits === null || !bars.length || bars.some((bar) => !bar.time || !bar.open || !bar.high || !bar.low || !bar.close)) {
+    return json({ connectionId: row.id, state: "invalid_market_data", dataVerified: false, ordersEnabled: false, liveTradingEnabled: false }, 502, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
@@ -480,15 +507,10 @@ async function readQuotes(request, env, user, row, origin) {
     quote: {
       symbol: typeof data.symbol === "string" ? data.symbol : symbol,
       timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
-      digits: safeNumber(data.digits),
-      tick: data.tick && typeof data.tick === "object" ? {
-        bid: safeNumber(data.tick.bid),
-        ask: safeNumber(data.tick.ask),
-        last: safeNumber(data.tick.last),
-        time: typeof data.tick.time === "string" ? data.tick.time : null
-      } : null,
-      bars: Array.isArray(data.bars) ? data.bars : [],
-      count: Number.isInteger(data.count) ? data.count : (Array.isArray(data.bars) ? data.bars.length : 0),
+      digits,
+      tick,
+      bars,
+      count: Number.isInteger(data.count) ? data.count : bars.length,
       mode: "read-only",
       order_submission_enabled: false,
       as_of: typeof data.as_of === "string" ? data.as_of : null
