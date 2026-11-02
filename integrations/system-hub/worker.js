@@ -13,8 +13,21 @@ function allowedOrigins(env) {
     .split(",").map((value) => value.trim()).filter(Boolean);
   return new Set(configured);
 }
+function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  if (allowedOrigins(env).has(origin)) return true;
+  try {
+    const parsed = new URL(origin);
+    // Netlify PR previews use a deterministic, site-specific hostname. Do not
+    // allow arbitrary *.netlify.app origins or non-HTTPS preview URLs.
+    return parsed.protocol === "https:" && parsed.origin === origin &&
+      /^deploy-preview-[0-9]+--voomsystem\\.netlify\\.app$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
 function corsHeaders(origin, env) {
-  if (!origin || !allowedOrigins(env).has(origin)) return {};
+  if (!isAllowedOrigin(origin, env)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -504,7 +517,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (!origin || !allowedOrigins(env).has(origin)) return new Response(null, { status: 403, headers: BASE_HEADERS });
+      if (!isAllowedOrigin(origin, env)) return new Response(null, { status: 403, headers: BASE_HEADERS });
       return new Response(null, { status: 204, headers: { ...BASE_HEADERS, ...corsHeaders(origin, env) } });
     }
 
@@ -522,7 +535,7 @@ export default {
       }, 200, origin, env);
     }
 
-    if (origin && !allowedOrigins(env).has(origin)) {
+    if (origin && !isAllowedOrigin(origin, env)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
     }
 
