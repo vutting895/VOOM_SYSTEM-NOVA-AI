@@ -1,0 +1,22 @@
+{
+  "dataset": "Exness Demo MT5 Historical High-impact USD News Calendar",
+  "source_path": "MetaQuotes/Terminal/Common/Files/VOOM_USD_High_Impact_2022_2026.csv",
+  "export_evidence": "MQL5/Logs/20261030.log; NEWS_EXPORT_SUCCESS markers=2",
+  "exported_at": "2026-10-30",
+  "coverage_start_utc": "2022-07-21T00:00:00Z",
+  "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+  "rows": 2166,
+  "filters": {
+    "impact": "high",
+    "currency": "USD",
+    "country": "US",
+    "time_mode": "datetime"
+  },
+  "raw_terminal_bytes": 388313,
+  "raw_terminal_sha256": "6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c",
+  "canonical_git_bytes": 386146,
+  "canonical_git_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+  "line_endings": "LF",
+  "encoding": "ASCII-compatible UTF-8 without BOM",
+  "provenance_note": "Original terminal CSV was read without modification. Canonical Git copy normalizes CRLF to LF. No new MT5 export was run during this transfer."
+}
