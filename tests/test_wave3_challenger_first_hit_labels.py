@@ -93,7 +93,8 @@ class TestFirstHitLabels(unittest.TestCase):
         market = bars(14)
         trade = self.build(market, [{"signal_index": 0, "entry_trigger_price": 100.1}])[0]
         self.assertEqual(trade["outcome_class"], "time_exit")
-        self.assertEqual(trade["bars_held"], 12)
+        self.assertEqual(trade["exit_index"], 12)  # entry index 1 plus 11 further bars
+        self.assertEqual(trade["bars_held"], 12)  # inclusive count, including entry candle
         self.assertAlmostEqual(trade["spread_cost_usd"], 0.2)
         self.assertAlmostEqual(trade["slippage_cost_usd"], 0.04)
         self.assertAlmostEqual(trade["commission_usd"], 0.07)
@@ -146,6 +147,19 @@ class TestFirstHitLabels(unittest.TestCase):
         ], max_daily_loss_usd=1.0)
         self.assertEqual(rows[0]["outcome_class"], "stop_first")
         self.assertLess(rows[0]["net_pnl_usd"], -1.0)
+        self.assertEqual(rows[1]["status"], "blocked_daily_risk_limit")
+
+    def test_daily_entry_limit_uses_entry_date_across_utc_midnight(self):
+        start = datetime(2026, 1, 1, 23, 0, tzinfo=timezone.utc)
+        market = bars(18, start=start)
+        # First signal is 23:45; its executable entry is 00:00 next UTC day.
+        market[4].update({"open": 100.0, "high": 100.5, "low": 90.0, "close": 95.0})
+        rows = self.build(market, [
+            {"signal_index": 3, "entry_trigger_price": 100.1},
+            {"signal_index": 5, "entry_trigger_price": 100.1},
+        ], max_daily_trades=1)
+        self.assertEqual(rows[0]["status"], "closed")
+        self.assertEqual(rows[0]["entry_timestamp_utc"], "2026-01-02T00:00:00Z")
         self.assertEqual(rows[1]["status"], "blocked_daily_risk_limit")
 
     def test_signal_and_entry_timestamps_are_strictly_forward(self):
