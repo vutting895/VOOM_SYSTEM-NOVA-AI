@@ -53,6 +53,18 @@ class TestDailyMT5Refresh(unittest.TestCase):
         self.assertAlmostEqual(float(result.iloc[0]["spread_price"]), 0.024)
         self.assertEqual(int(result.iloc[0]["tick_volume"]), 100)
 
+    def test_baseline_hash_normalizes_git_crlf_checkout_to_canonical_lf(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "baseline.csv"
+            path.write_bytes(b"timestamp,open,close\r\n2026-01-01T00:00:00Z,2400,2401\r\n")
+            expected = hashlib.sha256(
+                b"timestamp,open,close\n2026-01-01T00:00:00Z,2400,2401\n"
+            ).hexdigest()
+            self.assertEqual(daily.canonical_lf_sha256(path), expected)
+            path.write_bytes(b"timestamp,open\r2400,2401\n")
+            with self.assertRaisesRegex(ValueError, "non-CRLF"):
+                daily.canonical_lf_sha256(path)
+
     def test_normalizer_rejects_response_that_does_not_prove_read_only_mode(self):
         invalid = payload([quote("2026-11-02T00:00:00Z")])
         invalid["order_submission_enabled"] = True
