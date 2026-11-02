@@ -7,9 +7,9 @@ type Connection = { connectionId: string; provider: string; environment: string;
 type HubState = { integrations: Integration[]; connections: Connection[]; health: Record<string, unknown> | null };
 
 const runtimeEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || runtimeEnv.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || runtimeEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const hubUrl = (runtimeEnv.VITE_SYSTEM_HUB_URL || runtimeEnv.NEXT_PUBLIC_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev').replace(/\/+$/, '');
+const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || '';
+const supabaseKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || '';
+const hubUrl = (runtimeEnv.VITE_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev').replace(/\/+$/, '');
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 
 const connectorMeta: Record<string, { title: string; description: string; group: string }> = {
@@ -29,6 +29,9 @@ export default function IntegrationCenterPage() {
   const [error, setError] = useState('');
   const [sessionReady, setSessionReady] = useState(false);
   const [sessionEmail, setSessionEmail] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [authMessage, setAuthMessage] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
   const [busyAction, setBusyAction] = useState('');
   const [activity, setActivity] = useState<string[]>([]);
   const recordActivity = useCallback((message: string) => setActivity((items) => [new Date().toLocaleTimeString() + ' · ' + message, ...items].slice(0, 6)), []);
@@ -107,6 +110,25 @@ export default function IntegrationCenterPage() {
     finally { setBusyAction(''); }
   }
 
+  async function requestMagicLink(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !loginEmail.trim()) return;
+    setAuthBusy(true);
+    setAuthMessage('');
+    try {
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: loginEmail.trim(),
+        options: { emailRedirectTo: window.location.origin + '/integrations' }
+      });
+      if (signInError) throw signInError;
+      setAuthMessage('ส่งลิงก์เข้าสู่ระบบไปยังอีเมลแล้ว กรุณาเปิดลิงก์จากอุปกรณ์นี้');
+    } catch (cause) {
+      setAuthMessage(cause instanceof Error ? cause.message : 'ไม่สามารถส่งลิงก์เข้าสู่ระบบได้');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   const healthReady = snapshot.health?.status === 'ready';
   const tradeLocked = snapshot.health?.ordersEnabled === false && snapshot.health?.liveTradingEnabled === false;
 
@@ -125,6 +147,11 @@ export default function IntegrationCenterPage() {
         </div>
         {error && <div className="nova-notice" role="alert" style={{ marginTop: 14 }}>{error}</div>}
         {!supabase && <div className="nova-notice" style={{ marginTop: 14 }}>ยังไม่ได้ตั้งค่า public Supabase URL / anon key ใน frontend environment — ระบบจะไม่ขอหรือรับ secret ผ่านหน้านี้</div>}
+        {supabase && !sessionReady && <form onSubmit={requestMagicLink} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+          <input className="nova-input" type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} placeholder="อีเมลบัญชี NOVA" required style={{ flex: '1 1 220px' }} />
+          <button className="nova-button nova-button-primary" type="submit" disabled={authBusy}>{authBusy ? 'กำลังส่ง…' : 'ส่งลิงก์เข้าสู่ระบบ'}</button>
+          {authMessage && <p className="nova-small" role="status" style={{ flexBasis: '100%' }}>{authMessage}</p>}
+        </form>}
       </section>
 
       <section className="nova-panel" style={{ marginBottom: 16 }}>
