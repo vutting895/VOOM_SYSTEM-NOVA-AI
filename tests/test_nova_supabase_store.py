@@ -88,6 +88,22 @@ class SupabaseStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_ohlcv_relationship"):
             self.store.upsert_candles([invalid], symbol="XAUUSD", timeframe="M15", source="binance_public", environment="public")
 
+    def test_public_feed_cannot_be_written_into_a_tenant_scope(self):
+        candle = {"timestamp":"2026-11-02T00:00:00Z","open":"1","high":"2","low":"0.5","close":"1.5","volume":"0"}
+        with self.assertRaisesRegex(ValueError, "source_environment_mismatch"):
+            self.store.upsert_candles(
+                [candle], symbol="BTCUSDT", timeframe="1h",
+                source="binance_public", environment="public", owner_id=str(uuid.uuid4()),
+            )
+
+    def test_is_closed_must_be_a_boolean(self):
+        candle = {"timestamp":"2026-11-02T00:00:00Z","open":"1","high":"2","low":"0.5","close":"1.5","volume":"0","is_closed":"false"}
+        with self.assertRaisesRegex(ValueError, "invalid_is_closed"):
+            self.store.upsert_candles(
+                [candle], symbol="BTCUSDT", timeframe="1h",
+                source="binance_public", environment="public",
+            )
+
     def test_rejects_non_supabase_hosts_and_non_https_remote_urls(self):
         with self.assertRaisesRegex(ValueError, "invalid_supabase_url"):
             SupabaseStore("https://attacker.example", "secret")
