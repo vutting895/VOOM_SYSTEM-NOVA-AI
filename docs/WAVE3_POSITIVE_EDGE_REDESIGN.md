@@ -189,15 +189,15 @@ These are distinct event labels/features for a preregistered challenger, not a r
 **Gate:** P1 FVG semantics is considered documented, but implementation remains blocked until these tests pass on a separate challenger path. No training, merge, deployment, broker order, or live trading is authorized by this note.
 
 
-## 6. P2 first-hit / triple-barrier target contract (preregistered, implementation pending)
+## 6. P2 first-hit / triple-barrier target contract (preregistered, isolated implementation added)
 
 The existing 12-bar direction label is not a trade-outcome label. The challenger target must be generated independently and must not replace the benchmark's existing label or feature matrix.
 
 ### Entry and barriers copied from the frozen execution contract
 - Signal is evaluated only after the signal M15 bar closes.
 - Entry is eligible on the next M15 bar only, using the existing Wave3 breakout trigger: the next bar must reach the frozen entry level; fill at the greater of next-bar open and trigger level, plus that bar's recorded spread and one-side slippage.
-- Long stop distance is fixed at $5.00 from executable entry; target distance is $11.00 (2.2R); maximum holding period is 12 bars.
-- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. A time exit uses the final close, the applicable spread, and one-side exit slippage.
+- Long stop distance is fixed at $5.00 from executable entry; target distance is $11.00 (2.2R); maximum holding period is 12 bars. Preserve one open position, no more than five entries per day, and the $500 daily realized-loss stop.
+- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. MT5 OHLC is treated as Bid: charge recorded spread at BUY entry only; stop/target/time exits use Bid prices plus one-side exit slippage, without charging spread a second time at exit. Gap-through fills are not modeled and remain a P4 execution-cost stress test.
 - Persist signal, entry and exit indices/timestamps; barrier prices; exit reason; gross P&L; spread; entry/exit slippage; commission; net P&L; R multiple; MAE/MFE; bars held; and ambiguity flags.
 
 ### Cost and provenance blockers
@@ -211,4 +211,12 @@ The current pipeline constants show slippage of $0.02 per side and commission of
 - Do not allow overlapping active positions to create overlapping outcome labels unless a separate, explicitly tested overlap policy is preregistered. The baseline policy is one active position at a time, matching the existing simulator.
 - Keep this target in a challenger-only dataset/schema/manifest. Report class balance, eligible event count, censored/incomplete events, barrier ambiguity, fold-wise outcomes and net-cost metrics.
 
-**P2 implementation gate:** implement the target builder and deterministic synthetic tests (next-bar entry, stop-first dual touch, target-first, time exit, spread/slippage/commission accounting, one-position overlap, end-of-data censoring, chronological purge/embargo). Run those tests before fitting any model. No training or final-OOS access is authorized until P2 tests and commission provenance are complete.
+**P2 implementation status (2026-11-02):** added the isolated challenger-only module `research/wave3_challenger/first_hit_labels.py`, package marker, and `tests/test_wave3_challenger_first_hit_labels.py`. Eleven local standard-library tests pass for next-bar-only entry, stop-first dual touch, target-first, complete-horizon time exit, spread/slippage/commission accounting, one-position overlap, daily risk limits, end-of-data censoring, UTC/order validation, and 12-bar purge/embargo. The module consumes precomputed causal signal indices; it does not generate signals, change v6.2.6.3, train models, or submit orders. It fails closed unless commission is marked verified and has a non-empty evidence source; the passing tests use an explicitly synthetic fixture, not broker evidence. The GitHub CI workflow is added separately and its exact-head result is pending. No real Exness labels, model training, or final-OOS access is authorized until the account commission schedule is evidenced and the CI/integration review is complete.
+
+
+## 7. Repository revalidation and P2 implementation note — 2026-11-02
+
+- Repository default branch remains `main`; latest observed main SHA is `a9bb92c9d2642eff34be2ea68276a33b367ee793`.
+- Both research branches were safely advanced with non-force merge commits from that main SHA: PR #66 sync commit `c5f93321a9a2c88310ddd0113c07d6580bb93d89`; PR #147 sync commit `773c78137b9a7559f0d6f315f890457675a27fed`. Main-only changes were in remote-MCP/Cloudflare files and did not overlap the PR #66 Wave3 paths or PR #147 design document. Exact-head CI is being revalidated after the sync.
+- P2 first-hit code and tests are isolated to PR #147. They do not replace the v6.2.6.3 direction label or change benchmark scoring/entry/risk/news gates. Synthetic unit tests do not constitute Exness execution-cost evidence.
+- The Exness Demo commission schedule remains unverified; the P2 builder refuses unverified commission input. Gap-through fills remain a P4 limitation. No full training, final-OOS tuning, merge, deployment, broker order, or live trading was performed.
