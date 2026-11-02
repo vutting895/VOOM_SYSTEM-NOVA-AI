@@ -28,7 +28,7 @@ create index if not exists nova_market_datasets_owner_symbol_idx
 
 alter table public.nova_market_datasets enable row level security;
 revoke all on table public.nova_market_datasets from public, anon;
-grant select, insert, update on table public.nova_market_datasets to authenticated;
+grant select, insert on table public.nova_market_datasets to authenticated;
 
 drop policy if exists nova_market_datasets_select_own on public.nova_market_datasets;
 create policy nova_market_datasets_select_own on public.nova_market_datasets
@@ -42,15 +42,27 @@ create policy nova_market_datasets_insert_own on public.nova_market_datasets
     and revoked_at is null
   );
 
-drop policy if exists nova_market_datasets_revoke_own on public.nova_market_datasets;
-create policy nova_market_datasets_revoke_own on public.nova_market_datasets
-  for update to authenticated
-  using (owner_id = (select auth.uid()))
-  with check (
-    owner_id = (select auth.uid())
-    and storage_path like (select auth.uid()::text) || '/%'
-    and revoked_at is not null
-  );
+create or replace function public.revoke_nova_market_dataset(p_dataset_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare
+  affected integer;
+begin
+  update public.nova_market_datasets
+    set revoked_at = now()
+    where id = p_dataset_id
+      and owner_id = auth.uid()
+      and revoked_at is null;
+  get diagnostics affected = row_count;
+  return affected = 1;
+end;
+$;
+
+revoke all on function public.revoke_nova_market_dataset(uuid) from public, anon;
+grant execute on function public.revoke_nova_market_dataset(uuid) to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('nova-datasets', 'nova-datasets', false, 52428800, array['application/gzip'])
