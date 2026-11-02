@@ -81,6 +81,19 @@ try {
     if (-not (Test-Path -LiteralPath $calendar)) { throw 'Current hourly MQL5 USD calendar export is missing; training fails closed.' }
     $calendarAge = (Get-Date).ToUniversalTime() - (Get-Item -LiteralPath $calendar).LastWriteTimeUtc
     if ($calendarAge.TotalHours -gt 2) { throw ("MQL5 USD calendar export is stale ({0:N1} hours)." -f $calendarAge.TotalHours) }
+    # Freshness does not prove coverage: hourly export may predate the newest
+    # completed M15 bar. Require declared end-exclusive coverage through that bar.
+    $calendarRows = @(Import-Csv -LiteralPath $calendar)
+    if ($calendarRows.Count -eq 0) { throw 'USD calendar export contains no validated event rows.' }
+    $coverageEnds = @($calendarRows | ForEach-Object { $_.coverage_end_exclusive_utc } | Select-Object -Unique)
+    if ($coverageEnds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($coverageEnds[0])) {
+        throw 'USD calendar rows have inconsistent or missing coverage-end metadata.'
+    }
+    $coverageEnd = [DateTimeOffset]::Parse($coverageEnds[0]).ToUniversalTime()
+    $latestClosedBarEnd = [DateTimeOffset]::Parse($sync.last_closed_bar_utc).ToUniversalTime().AddMinutes(15)
+    if ($coverageEnd -lt $latestClosedBarEnd) {
+        throw ("USD calendar coverage ends at {0}, before latest refreshed M15 bar end {1}; waiting for a covering export." -f $coverageEnd.ToString('o'), $latestClosedBarEnd.ToString('o'))
+    }
 
     $baselineMetadata = Get-Content -Raw (Join-Path $resolved 'datasets\exness-demo\metadata.json') | ConvertFrom-Json
     $liveStart = ([DateTimeOffset]::Parse($baselineMetadata.last_closed_bar_utc).AddMinutes(15)).UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ssZ")
