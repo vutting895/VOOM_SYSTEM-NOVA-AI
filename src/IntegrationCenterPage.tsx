@@ -7,9 +7,9 @@ type Connection = { connectionId: string; provider: string; environment: string;
 type HubState = { integrations: Integration[]; connections: Connection[]; health: Record<string, unknown> | null };
 
 const runtimeEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || '';
-const supabaseKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || '';
-const hubUrl = (runtimeEnv.VITE_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev').replace(/\/+$/, '');
+const supabaseUrl = runtimeEnv.VITE_SUPABASE_URL || runtimeEnv.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || runtimeEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const hubUrl = (runtimeEnv.VITE_SYSTEM_HUB_URL || runtimeEnv.NEXT_PUBLIC_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev').replace(/\/+$/, '');
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 
 const connectorMeta: Record<string, { title: string; description: string; group: string }> = {
