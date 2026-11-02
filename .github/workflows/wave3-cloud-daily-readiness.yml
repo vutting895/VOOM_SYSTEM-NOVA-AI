@@ -1,0 +1,56 @@
+name: Wave3 Cloud Daily Readiness Gate
+
+on:
+  repository_dispatch:
+    types: [nova-wave3-daily-cloud]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR #66 research branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/wave3-hybrid-backtest-20261029
+      - name: Record fail-closed cloud training readiness
+        id: gate
+        shell: bash
+        run: |
+          mkdir -p wave3-cloud-gate
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          payload = json.loads(os.environ.get("CLIENT_PAYLOAD", "{}"))
+          report = {
+              "schema_version": "nova.wave3.cloud-readiness.v1",
+              "created_at_utc": datetime.now(timezone.utc).isoformat(),
+              "scheduled_for": payload.get("scheduled_for"),
+              "trigger_source": payload.get("source", "manual"),
+              "status": "blocked",
+              "reason": "cloud_market_data_adapter_not_configured",
+              "training_started": False,
+              "model_artifact_created": False,
+              "benchmark_accepted": False,
+              "promotion_eligible": False,
+              "execution_enabled": False,
+              "live_trading_enabled": False,
+              "details": "The existing Exness refresher requires a private localhost MT5 bridge. No approved cloud feed for completed XAUUSDm M15 bars and current high-impact USD calendar is configured. Historical files are not treated as fresh data."
+          }
+          with open("wave3-cloud-gate/readiness.json", "w", encoding="utf-8") as f:
+              json.dump(report, f, indent=2)
+          print("Cloud daily gate: BLOCKED — no approved cloud market-data adapter. No training was started.")
+          PY
+        env:
+          CLIENT_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+      - name: Upload daily readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave3-cloud-readiness-${{ github.run_id }}
+          path: wave3-cloud-gate/readiness.json
+          if-no-files-found: error
+          retention-days: 30
