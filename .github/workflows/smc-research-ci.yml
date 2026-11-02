@@ -10,6 +10,7 @@ on:
       - "tests/test_wave3_calendar_hash.py"
       - "tests/test_wave3_news_calendar_validation.py"
       - "tests/test_wave3_daily_data_sync.py"
+      - "tests/test_wave3_daily_automation_contract.py"
       - "datasets/exness-demo/news/**"
       - "tools/train_wave3_models.py"
       - "tools/verify_wave3_news_calendar.py"
@@ -46,8 +47,15 @@ on:
       - "reports/wave3_run*_model_diagnostics_*.json"
       - "tests/test_wave3_calendar_hash.py"
       - "tests/test_wave3_news_calendar_validation.py"
+      - "tests/test_wave3_daily_data_sync.py"
+      - "tests/test_wave3_daily_automation_contract.py"
       - "datasets/exness-demo/news/**"
       - "tools/train_wave3_models.py"
+      - "tools/refresh_wave3_daily_data.py"
+      - "tools/mt5_wave3_daily_calendar_exporter.mq5"
+      - "tools/windows/run-wave3-daily.ps1"
+      - "tools/windows/install-wave3-daily-task.ps1"
+      - "docs/WAVE3_DAILY_AUTOMATION.md"
       - "tools/verify_wave3_news_calendar.py"
       - "requirements-wave3.txt"
       - "integrations/remote-mcp-worker/src/index.js"
@@ -80,6 +88,8 @@ jobs:
         run: python -m unittest discover -s tests -p "test_wave3_ml_pipeline.py" -v
       - name: Run daily MT5 data refresh safety tests
         run: python -m unittest discover -s tests -p "test_wave3_daily_data_sync.py" -v
+      - name: Run daily automation safety contract tests
+        run: python -m unittest discover -s tests -p "test_wave3_daily_automation_contract.py" -v
       - name: Run pinned news calendar SHA-256 tests
         run: python -m unittest discover -s tests -p "test_wave3_calendar_hash.py" -v
       - name: Run historical news calendar validation tests
