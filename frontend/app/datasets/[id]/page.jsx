@@ -22,7 +22,7 @@ export default function DatasetResolverPage() {
       if (!supabase) throw new Error('authentication_not_configured');
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !data.session?.access_token) {
-        router.replace('/login');
+        router.replace('/login?next=' + encodeURIComponent('/datasets/' + id));
         return;
       }
       const response = await fetch('/api/datasets/' + encodeURIComponent(id), {
@@ -73,6 +73,7 @@ export default function DatasetResolverPage() {
       {state === 'error' && <p role="alert">ไม่สามารถเปิด Dataset ได้: {error}</p>}
       {state === 'revoked' && <p role="status">Dataset ถูกเพิกถอนแล้ว ลิงก์ QR นี้ใช้งานไม่ได้อีกต่อไป</p>}
       {state === 'ready' && dataset && <>
+        {error && <p role="alert">{error}</p>}
         <p>ตรวจสอบไฟล์สำเร็จ · SHA-256 ผ่าน · Decimal strings ไม่ถูกปัดเศษ</p>
         <section style={{ border: '1px solid #8886', borderRadius: 12, padding: 16, margin: '20px 0' }}>
           <h2>{dataset.symbol} · {dataset.timeframe}</h2>
