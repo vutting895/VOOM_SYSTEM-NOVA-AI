@@ -47,7 +47,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   affected integer;
 begin
@@ -59,7 +59,7 @@ begin
   get diagnostics affected = row_count;
   return affected = 1;
 end;
-$;
+$$;
 
 revoke all on function public.revoke_nova_market_dataset(uuid) from public, anon;
 grant execute on function public.revoke_nova_market_dataset(uuid) to authenticated;
