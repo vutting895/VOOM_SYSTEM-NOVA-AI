@@ -238,3 +238,16 @@ All five expanding walk-forward folds remain below their own majority baselines.
 - PR #147 remains separate and Draft/open/unmerged. Its challenger-only first-hit label builder, 11 synthetic tests and dedicated CI passed (latest P2 run #6). It fails closed without verified commission provenance, censors incomplete horizons, and has not been run on real Exness data. Keep benchmark and challenger features/labels/manifests separate.
 
 **Do not start another full benchmark training run yet.** First finish raw-export provenance, review the corrected FVG semantics without changing the frozen overlap gate, obtain the actual Exness Demo commission schedule, and complete P2 integration/validation. Keep nested chronological folds, at least 12-bar purge, inner-fold-only tuning/calibration, and untouched final OOS from 2026-07-01. Acceptance remains >=30 closed OOS trades, positive net profit after costs, PF >1.0, accuracy above baseline, robust folds/regimes and every frozen gate.
+
+
+## Independent review P1 remediation — 2026-11-02
+
+- Training and inner-validation purges now use original source-bar indices and each label's source_index + HORIZON_BARS endpoint. This prevents labels crossing a New Year/weekend/holiday market closure from reading test-period prices merely because the calendar-time gap exceeds three hours.
+- High-impact news events with blank/missing timestamps now fail closed before exact-time or full-day blackout masks are built.
+- Daily entry-count and realized-loss checks use the executable entry bar's UTC date, not the preceding signal bar's date.
+- A BUY stop crossed by a downside opening gap now fills at the worse opening price (less slippage), rather than at the stale stop barrier.
+- Regression coverage was added for a market-closure purge, missing high-impact timestamps, UTC-midnight entry limits, and gap-through stop execution.
+
+Current PR #66 code/test head: 9170374b345962a3513d9d61241a67f7232067b6. The branch compares 91 ahead / 0 behind current main a9bb92c9d2642eff34be2ea68276a33b367ee793, with merge base equal to main. No exact-head Actions run or status check is currently visible for this commit; these changes are not CI-verified and must not be treated as closed review findings until exact-head tests pass.
+
+Still open: independent review P2 findings for RSI behavior and completed-H1 alignment, plus audit-digest consistency. The review threads remain unresolved. No new full benchmark training may start until P1 semantic review and P2 label methodology are ready. No benchmark gates, weights, thresholds, lookbacks, or risk rules were relaxed.
