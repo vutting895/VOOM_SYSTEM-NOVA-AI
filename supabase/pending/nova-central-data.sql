@@ -10,7 +10,7 @@ create table if not exists public.nova_market_candles (
   source text not null check (source in ('binance_public','exness_mt5_demo','exness_trader_api')),
   environment text not null check (environment in ('public','demo','paper')),
   symbol text not null check (symbol ~ '^[A-Z0-9._/-]{2,32}$'),
-  timeframe text not null,
+  timeframe text not null check (timeframe in ('M1','M5','M15','M30','H1','H4','D1','1m','3m','5m','15m','30m','1h','2h','4h','6h','8h','12h','1d','3d','1w','1M')),
   bar_time timestamptz not null,
   open numeric(28,12) not null,
   high numeric(28,12) not null,
@@ -100,6 +100,11 @@ create table if not exists public.nova_dataset_manifests (
     check (scope_key = coalesce(owner_id::text, 'shared')),
   constraint nova_dataset_manifests_range_check
     check (range_start is null or range_end is null or range_start < range_end),
+  constraint nova_dataset_manifests_storage_scope_check
+    check (storage_bucket = 'nova-data' and (
+      (owner_id is null and storage_path like 'shared/%')
+      or (owner_id is not null and storage_path like owner_id::text || '/%')
+    )),
   unique (scope_key, sha256),
   unique (id, scope_key)
 );
@@ -145,6 +150,8 @@ create table if not exists public.nova_model_artifacts (
   created_at timestamptz not null default now(),
   foreign key (model_run_id, owner_id)
     references public.nova_model_runs(id, owner_id) on delete cascade,
+  constraint nova_model_artifacts_storage_scope_check
+    check (storage_bucket = 'nova-data' and storage_path like owner_id::text || '/%'),
   unique (storage_bucket, storage_path),
   unique (model_run_id, artifact_type, sha256)
 );
@@ -168,7 +175,7 @@ grant select, insert, update, delete on public.nova_market_candles,
   public.nova_market_events, public.nova_ingestion_runs,
   public.nova_dataset_manifests, public.nova_model_runs,
   public.nova_model_artifacts to service_role;
-grant usage, select on all sequences in schema public to service_role;
+grant usage, select on sequence public.nova_market_candles_id_seq to service_role;
 
 drop policy if exists nova_market_candles_read_scope on public.nova_market_candles;
 create policy nova_market_candles_read_scope on public.nova_market_candles
