@@ -9,6 +9,8 @@ $LogRoot = Join-Path $StateRoot 'logs'
 New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null
 $LogPath = Join-Path $LogRoot ("daily-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 Start-Transcript -Path $LogPath -Append | Out-Null
+$PreviousGitPrompt = $env:GIT_TERMINAL_PROMPT
+$env:GIT_TERMINAL_PROMPT = '0'
 function Invoke-Git {
     param([string[]] $Arguments)
     & git -C $RepoPath @Arguments
@@ -38,6 +40,20 @@ try {
     if (-not $port.TcpTestSucceeded) { throw 'MT5 read-only Bridge is not listening on 127.0.0.1:8787.' }
     $python = Join-Path $StateRoot '.venv\Scripts\python.exe'
     if (-not (Test-Path -LiteralPath $python)) { throw 'Daily Python environment is not installed. Run install-wave3-daily-task.ps1 once.' }
+    $requirements = Join-Path $resolved 'requirements-wave3.txt'
+    $requirementsMarker = Join-Path $StateRoot '.requirements-sha256'
+    $currentRequirementsHash = (Get-FileHash -LiteralPath $requirements -Algorithm SHA256).Hash
+    $installedRequirementsHash = ''
+    if (Test-Path -LiteralPath $requirementsMarker) {
+        $installedRequirementsHash = [System.IO.File]::ReadAllText($requirementsMarker).Trim()
+    }
+    if ($currentRequirementsHash -ne $installedRequirementsHash) {
+        & $python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu 'torch>=2.2,<3'
+        if ($LASTEXITCODE -ne 0) { throw 'CPU PyTorch dependency refresh failed.' }
+        & $python -m pip install --disable-pip-version-check -r $requirements
+        if ($LASTEXITCODE -ne 0) { throw 'Wave3 research dependency refresh failed.' }
+        [System.IO.File]::WriteAllText($requirementsMarker, $currentRequirementsHash, [System.Text.Encoding]::ASCII)
+    }
 
     $syncScript = Join-Path $resolved 'tools\refresh_wave3_daily_data.py'
     $baseData = Join-Path $resolved 'datasets\exness-demo\XAUUSDm_M15_2022-2026.csv'
@@ -92,4 +108,7 @@ catch {
     Write-Error $_
     exit 1
 }
-finally { Stop-Transcript | Out-Null }
+finally {
+    $env:GIT_TERMINAL_PROMPT = $PreviousGitPrompt
+    Stop-Transcript | Out-Null
+}
