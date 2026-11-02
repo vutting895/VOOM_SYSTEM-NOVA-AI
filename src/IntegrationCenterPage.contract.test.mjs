@@ -51,6 +51,7 @@ test('trading safety is locked only when orders, execution, and live trading are
 test('production hosting preserves the Integration Center route and Supabase callback', () => {
   assert.match(server, /app\.get\('\*'/);
   assert.match(netlify, /base = "\."/);
+  assert.match(netlify, /command = "bun install --no-save && bun run build"/);
   assert.match(netlify, /publish = "dist"/);
   assert.match(redirects, /\/\* \/index\.html 200/);
 });
