@@ -16,7 +16,8 @@ from wave3_ml_pipeline import (
     _news_backtest_assumption, _news_calendar_manifest,
     generate_xgb_tuning_candidates, smc_candidate_trace, _fit_lstm, LSTM_BATCH_SIZE_FALLBACKS,
     _is_lstm_memory_error, _write_auto_tuning_history,
-    _bullish_ob_state, _bearish_ob_state,
+    _bullish_ob_state, _bearish_ob_state, _SequenceDataset,
+    _build_daily_candidate_features,
     PROBABILITY_THRESHOLD, XGB_MIN_CONFIDENCE, LSTM_MIN_CONFIDENCE,
     ENSEMBLE_XGB_WEIGHT, ENSEMBLE_LSTM_WEIGHT,
 )
@@ -80,6 +81,40 @@ class TestWave3Pipeline(unittest.TestCase):
         meta = pd.DataFrame({"timestamp": timestamps, "source_index": np.arange(14)})
         mask = _train_mask(meta, test_start)
         self.assertEqual(np.flatnonzero(mask).tolist(), [0])
+
+    def test_lstm_sequences_never_cross_frozen_oos_segment(self):
+        values = np.arange(24 * 2, dtype=np.float32).reshape(24, 2)
+        segments = np.array([0] * 12 + [1] * 12, dtype=np.int8)
+        dataset = _SequenceDataset(values, labels=np.tile([0, 1, 2, 0], 6),
+                                   sequence_length=5, segment_ids=segments)
+        self.assertEqual(len(dataset), 16)
+        for start in dataset.starts:
+            self.assertEqual(len(np.unique(segments[start:start + 5])), 1)
+
+    def test_daily_candidate_features_leave_frozen_historical_oos_gap_empty(self):
+        history = pd.date_range("2026-05-01T00:00:00Z", periods=3000, freq="15min")
+        frozen_gap = pd.date_range("2026-07-01T00:00:00Z", periods=32, freq="15min")
+        live = pd.date_range("2026-10-29T17:00:00Z", periods=320, freq="15min")
+        timestamps = history.append(frozen_gap).append(live)
+        close = 2400 + np.arange(len(timestamps), dtype=float) * 0.01 + np.sin(np.arange(len(timestamps)) / 9)
+        frame = pd.DataFrame({
+            "timestamp": timestamps,
+            "open": close - 0.02,
+            "high": close + 0.10,
+            "low": close - 0.10,
+            "close": close,
+            "volume": np.full(len(close), 100.0),
+            "spread_price": np.full(len(close), 0.024),
+        })
+        features = _build_daily_candidate_features(
+            frame,
+            pd.Timestamp("2026-07-01T00:00:00Z"),
+            pd.Timestamp("2026-10-29T17:00:00Z"),
+        )
+        gap = features.iloc[3000:3032]
+        self.assertTrue(gap.isna().all().all())
+        self.assertTrue(np.isfinite(features.iloc[2990].to_numpy(dtype=float)).all())
+        self.assertTrue(np.isfinite(features.iloc[-1].to_numpy(dtype=float)).all())
 
     def test_backtest_enters_next_bar_and_never_submits_orders(self):
         frame = synthetic_bars(200)
