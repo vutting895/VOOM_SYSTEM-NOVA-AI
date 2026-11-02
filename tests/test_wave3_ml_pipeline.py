@@ -103,7 +103,7 @@ class TestWave3Pipeline(unittest.TestCase):
             "high": close + 0.10,
             "low": close - 0.10,
             "close": close,
-            "volume": np.full(len(close), 100.0),
+            "volume": 100.0 + 10.0 * np.sin(np.arange(len(close)) / 5.0) + 5.0 * np.cos(np.arange(len(close)) / 11.0),
             "spread_price": np.full(len(close), 0.024),
         })
         features = _build_daily_candidate_features(
