@@ -204,10 +204,22 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
     if (
         health.get("status") != "ok"
         or health.get("terminal_connected") is not True
+        or health.get("account_session_available") is not True
         or health.get("mode") != "read-only"
         or health.get("order_submission_enabled") is not False
     ):
         raise RuntimeError("Protected MT5 bridge health did not pass the read-only terminal checks.")
+    account = _bridge_get("/api/account", tenant_id, token)
+    server_name = str(account.get("server", ""))
+    if (
+        account.get("connected") is not True
+        or account.get("mode") != "read-only"
+        or account.get("order_submission_enabled") is not False
+        or "exness" not in server_name.lower()
+        or not any(marker in server_name.lower() for marker in ("trial", "demo"))
+        or str(account.get("currency", "")).upper() != "USD"
+    ):
+        raise RuntimeError("Authenticated MT5 account is not the expected Exness USD Demo session.")
     quote_payload = _bridge_get(
         f"/api/quotes?symbol={EXPECTED_SYMBOL}&timeframe={TIMEFRAME}&count={MAX_BARS}",
         tenant_id,
