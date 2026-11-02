@@ -66,3 +66,10 @@ test('Vite can reuse the existing public Netlify configuration without changing 
   assert.match(page, /VITE_SUPABASE_ANON_KEY \|\| runtimeEnv\.NEXT_PUBLIC_SUPABASE_ANON_KEY/);
   assert.match(page, /VITE_SYSTEM_HUB_URL \|\| runtimeEnv\.NEXT_PUBLIC_SYSTEM_HUB_URL/);
 });
+
+test('owner changes and sign-out clear previous tenant connection and verification state', () => {
+  assert.match(page, /sessionUserIdRef\.current && sessionUserIdRef\.current !== nextUserId/);
+  assert.match(page, /sessionUserIdRef\.current = ''/);
+  assert.match(page, /setVerificationByConnection\(\{\}\)/);
+  assert.match(page, /setSnapshot\(\{ integrations: \[\], connections: \[\], health \}\)/);
+});
