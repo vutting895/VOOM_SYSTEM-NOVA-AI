@@ -1,0 +1,8 @@
+name = "nova-wave3-cloud-scheduler"
+main = "worker.js"
+compatibility_date = "2026-10-27"
+workers_dev = true
+
+[triggers]
+# Cloudflare Cron uses UTC. 20:15 UTC = 03:15 Asia/Bangkok (next calendar day).
+crons = ["15 20 * * *"]
