@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "status": "descriptive_catalog_not_runtime_proof",
+  "providers": [
+    {
+      "id": "supabase-auth",
+      "name": "Supabase Auth",
+      "category": "identity",
+      "lifecycle": "active_registry",
+      "authMethods": [
+        "supabase_session",
+        "server_config"
+      ],
+      "capabilities": [
+        "identity.session.validate",
+        "tenant.connection.list"
+      ],
+      "environment": [
+        "production",
+        "staging"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "server_config_only",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Existing System Hub dependency. Readiness is evaluated dynamically; no project secrets are included."
+    },
+    {
+      "id": "exness-mt5-demo",
+      "name": "Exness MT5 Demo",
+      "category": "broker",
+      "lifecycle": "active_registry",
+      "authMethods": [
+        "provider_bridge"
+      ],
+      "capabilities": [
+        "broker.account.read",
+        "broker.market_data.read"
+      ],
+      "environment": [
+        "demo"
+      ],
+      "verification": "per_connection",
+      "security": {
+        "secretHandling": "provider_bridge_only",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Existing owner-scoped Bridge/Relay/Proxy path. Per-connection account read is required for data_verified. Order and live trading capabilities are excluded."
+    },
+    {
+      "id": "nova-ai-worker",
+      "name": "NOVA AI Worker",
+      "category": "ai",
+      "lifecycle": "active_registry",
+      "authMethods": [
+        "server_config"
+      ],
+      "capabilities": [
+        "ai.analysis"
+      ],
+      "environment": [
+        "production"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "server_config_only",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Listed in current Hub registry; reachability is not proven by registry presence."
+    },
+    {
+      "id": "remote-mcp",
+      "name": "NOVA Remote MCP",
+      "category": "developer_runtime",
+      "lifecycle": "active_registry",
+      "authMethods": [
+        "server_config"
+      ],
+      "capabilities": [
+        "mcp.authenticated_readonly"
+      ],
+      "environment": [
+        "production"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "server_config_only",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Listed in current Hub registry; only bounded authenticated tools are allowed."
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "category": "source_control",
+      "lifecycle": "planned",
+      "authMethods": [
+        "oauth2"
+      ],
+      "capabilities": [
+        "github.repository.read",
+        "github.pull_request.read"
+      ],
+      "environment": [
+        "production"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "approved_server_custody_required",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "GitHub App/OAuth setup and repository allowlist are not yet implemented by this catalog PR."
+    },
+    {
+      "id": "google-ai-studio",
+      "name": "Google AI Studio / Gemini",
+      "category": "ai",
+      "lifecycle": "planned",
+      "authMethods": [
+        "scoped_api_token",
+        "oauth2"
+      ],
+      "capabilities": [
+        "ai.model.inference"
+      ],
+      "environment": [
+        "production",
+        "development"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "approved_server_custody_required",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "AI Studio is an authoring surface; it is not itself a general-purpose OAuth integration."
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "category": "infrastructure",
+      "lifecycle": "planned",
+      "authMethods": [
+        "scoped_api_token",
+        "oauth2"
+      ],
+      "capabilities": [
+        "cloudflare.account.read",
+        "cloudflare.worker.read"
+      ],
+      "environment": [
+        "production",
+        "staging"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "approved_server_custody_required",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Start with scoped read-only diagnostics; deployment and secret mutation are excluded."
+    },
+    {
+      "id": "netlify",
+      "name": "Netlify",
+      "category": "hosting",
+      "lifecycle": "planned",
+      "authMethods": [
+        "oauth2",
+        "scoped_api_token"
+      ],
+      "capabilities": [
+        "netlify.site.read",
+        "netlify.deploy.read"
+      ],
+      "environment": [
+        "production",
+        "staging"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "approved_server_custody_required",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Preview/deploy metadata only initially; production deploy authority is excluded."
+    },
+    {
+      "id": "flyio-sprites",
+      "name": "Fly.io Sprites",
+      "category": "developer_runtime",
+      "lifecycle": "planned",
+      "authMethods": [
+        "scoped_api_token"
+      ],
+      "capabilities": [
+        "sprites.environment.read"
+      ],
+      "environment": [
+        "development"
+      ],
+      "verification": "not_checked",
+      "security": {
+        "secretHandling": "approved_server_custody_required",
+        "leastPrivilege": true,
+        "userConsent": true,
+        "browserSecretAccess": false,
+        "readOnlyDefault": true
+      },
+      "notes": "Development environment inventory only; production infrastructure authority is excluded."
+    }
+  ]
+}
