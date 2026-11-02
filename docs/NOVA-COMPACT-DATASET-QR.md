@@ -1,6 +1,6 @@
 # NOVA Compact Dataset QR
 
-Status: design contract for implementation in Backtest Lab. This document does not claim that a dataset registry, QR resolver, or QR UI is deployed.
+Status: implementation contract. PR adds the owner-scoped registry migration, authenticated create/resolve/revoke APIs, resolver page, and market-data decimal-string transport. Hosted migration, actual QR image generation, and Preview verification remain pending.
 
 ## Goal
 
@@ -34,7 +34,7 @@ The registry stores a small manifest; the data object is stored separately in ob
   },
   "rows": 120,
   "numeric_encoding": "decimal-string",
-  "compression": "zstd",
+  "compression": "gzip",
   "object_key": "datasets/<opaque-random-id>/bars.jsonl.zst",
   "sha256": "<sha256-of-exact-compressed-bytes>",
   "created_at": "2026-11-02T00:00:00.000Z",
@@ -56,7 +56,7 @@ The example values are illustrative only. The server must generate the real ID, 
 ## Compact storage
 
 - Serialize one row per candle in a deterministic, versioned format (JSONL with decimal strings initially; a typed columnar format may be added only if it preserves decimal scale exactly).
-- Compress the deterministic byte stream with Zstandard.
+- Compress the deterministic byte stream with gzip in the initial implementation. Zstandard remains a future codec option after a compatible dependency and deployment runtime are validated.
 - Hash the exact compressed bytes with SHA-256.
 - Deduplicate only within the same authorized owner scope; never let a hash lookup reveal another tenant's dataset existence.
 - Store indicators and model outputs as derived artifacts with their own version and hash; do not rewrite the raw dataset.
@@ -102,3 +102,16 @@ The QR must never imply that a strategy is profitable or production-approved.
 4. Add QR generation UI only after a real dataset ID and resolver exist.
 5. Add scan/authorization/precision/hash/tenant-isolation tests.
 6. Deploy Preview and verify exact PR head before any production promotion.
+
+
+## Implemented in PR #192 (not yet deployed)
+- `POST /api/datasets` accepts 3–10,000 candles only when OHLC and volume values are exact decimal strings; numeric JSON prices are rejected.
+- Data is serialized deterministically as JSONL, gzip-compressed, and SHA-256 hashed over the exact compressed bytes.
+- Private Supabase Storage bucket `nova-datasets` and `nova_market_datasets` registry are defined in migration `202611020001_nova_market_dataset_registry.sql`. The migration has not been applied to hosted Supabase.
+- `GET /api/datasets/:id` uses user-session RLS, returns the same not-found response for unknown and foreign-owner IDs, verifies SHA-256 before decompression, and preserves decimal strings.
+- `DELETE /api/datasets/:id` revokes via owner-checked RPC and removes the private object when possible.
+- `/datasets/:id` is the authenticated resolver page.
+- System Hub now emits MT5 prices as decimal strings at the broker's declared `digits` scale; the market-data API rejects non-string price values rather than silently converting through JavaScript Number.
+- The Backtest Lab includes a Save Dataset action. Its returned URL is a QR payload reference, but the scannable QR image renderer is not yet implemented.
+- Compression currently uses gzip, not Zstandard. This is an explicit first implementation choice because Node's built-in gzip path avoids introducing an unverified native dependency; the manifest records the codec.
+- No production data is written and no hosted migration is applied by this PR.
