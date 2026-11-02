@@ -5,6 +5,7 @@ on:
     paths:
       - "tools/windows/**"
       - "integrations/mt5-readonly-bridge/**"
+      - "tools/mt5_wave3_daily_calendar_exporter.mq5"
       - ".github/workflows/windows-runtime-ci.yml"
       - "README.md"
   push:
@@ -95,6 +96,64 @@ jobs:
             throw "Both Worker secret updates must retain the single-tenant replacement guard."
           }
           Write-Host "Both Worker route-map provisioning checks passed."
+
+      - name: Parse daily runner and scheduled-task installer
+        shell: pwsh
+        run: |
+          foreach ($path in @(
+            "tools/windows/run-wave3-daily.ps1",
+            "tools/windows/install-wave3-daily-task.ps1"
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path).Path, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | Format-List
+              throw "PowerShell parser reported $($errors.Count) error(s) in $path."
+            }
+          }
+          $installer = Get-Content -Raw "tools/windows/install-wave3-daily-task.ps1"
+          if ($installer -notmatch "SE Asia Standard Time") {
+            throw "Daily scheduler must pin the Asia/Bangkok Windows time zone."
+          }
+          if ($installer -notmatch "New-ScheduledTaskTrigger -Daily") {
+            throw "Daily scheduler trigger is missing."
+          }
+          $runner = Get-Content -Raw "tools/windows/run-wave3-daily.ps1"
+          foreach ($guard in @(
+            "feature/wave3-hybrid-backtest-20261029",
+            "rev-list --left-right --count",
+            "merge.*--ff-only",
+            "VOOM_USD_High_Impact_Daily.csv",
+            "--daily-candidate-only"
+          )) {
+            if ($runner -notmatch $guard) {
+              throw "Daily runner safety guard is missing: $guard"
+            }
+          }
+          Write-Host "Daily runner and Task Scheduler checks passed."
+
+      - name: Assert hourly MQL5 exporter stays read-only and atomic
+        shell: pwsh
+        run: |
+          $exporter = Get-Content -Raw "tools/mt5_wave3_daily_calendar_exporter.mq5"
+          foreach ($guard in @(
+            "EventSetTimer",
+            "CalendarValueHistory",
+            "FILE_COMMON",
+            "FILE_REWRITE",
+            "NEWS_EXPORT_SUCCESS",
+            "TimeTradeServer",
+            "TimeGMT"
+          )) {
+            if ($exporter -notmatch $guard) {
+              throw "MQL5 hourly calendar exporter safeguard is missing: $guard"
+            }
+          }
+          if ($exporter -match "OrderSend\s*\(|CTrade|PositionOpen\s*\(") {
+            throw "Trading/order implementation found in the news-only calendar exporter."
+          }
+          Write-Host "MQL5 exporter read-only checks passed."
 
       - name: Assert Bridge stays read-only
         shell: pwsh
