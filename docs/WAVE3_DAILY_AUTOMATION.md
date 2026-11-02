@@ -118,3 +118,55 @@ Therefore this phase does **not** claim daily fresh Exness data, does **not** st
 - Local contract tests: `npm test` in `integrations/wave3-cloud-scheduler`.
 - Public health endpoint reports `orchestration-only`, `executionEnabled=false`, and `liveTradingEnabled=false`.
 - A successful Cron dispatch proves only that GitHub accepted a repository-dispatch event. It is not evidence of market-data refresh, training, benchmark acceptance, or model promotion.
+
+
+## Exness Demo MT5 cloud connector decision (2026-11-02)
+
+### Source-of-truth decision
+
+Keep the existing Exness Demo MT5 account on server `Exness-MT5Trial7`, symbol `XAUUSDm`, timeframe `M15` as the benchmark source of truth. Do not silently substitute Exness Terminal prices, another broker, or a generic market-data vendor into this dataset.
+
+### Official Exness API eligibility
+
+The current Exness Help Center article says the Exness API is not compatible with Standard MetaTrader accounts, while its newer API product provides REST historical candles and WebSocket market streams for eligible Exness trading accounts. This does not establish that the existing MT5 Demo account can use that API. Therefore the Exness API path is **not approved as the MT5 data connector** until Exness confirms that the exact Demo MT5 account/server is eligible and the API instrument quotes match the account's `XAUUSDm` contract.
+
+Official references:
+- https://get.exness.help/hc/en-us/articles/27866287512476-Exness-API
+- https://www.exness-api.com/reference/get-candle-history
+
+### Preferred no-Windows evaluation: ephemeral Linux MT5 terminal
+
+Evaluate an ephemeral GitHub-hosted Ubuntu runner with MetaTrader 5 installed under Wine, invoking the existing MQL5 read-only exporters. This avoids a permanently running Windows machine and avoids Cloudflare Containers. It is a feasibility experiment, not yet a production data connector.
+
+Use only Exness' **read-only access password** (formerly investor password), never the master/trading password. Exness documents that read-only access permits viewing trading activity while restricting trading; MetaTrader investor authorization is view-only and cannot trade:
+- https://get.exness.help/hc/en-us/articles/360006922872-Trading-account-settings
+- https://get.exness.help/hc/en-us/articles/360013671420-Password-recovery
+- https://www.metatrader5.com/en/terminal/help/startworking/authorization
+
+Store login number, server name, and read-only password only as repository Actions secrets (or a separately approved secret store); never print environment variables, command lines containing secrets, terminal config, or logs with auth details. Do not request or accept the secret in chat. The workflow must use a dedicated non-production Demo account and fail closed if investor mode cannot be proven in the terminal journal. It must not contain order, position modification, or trade execution code.
+
+### Cloudflare Free boundary
+
+Cloudflare Workers Free remains the control plane only: Cron dispatch, request validation, and signed upload authorization. Current Workers Free limits are 10 ms CPU per Cron invocation and 128 MB memory; this is not an MT5 terminal or PyTorch runtime:
+- https://developers.cloudflare.com/workers/platform/limits/
+
+The ephemeral Linux runner performs the MT5 terminal session and invokes the existing MQL5 exporters; GitHub Actions then uploads verified output to the Cloudflare ingestion endpoint / R2. No Container is required. The actual training runner remains a separate stage and may use included GitHub Actions minutes only; check current account quota before enabling scheduled training.
+
+### GitHub dispatch branch constraint
+
+GitHub documents that `workflow_dispatch` requires the workflow file to exist on the default branch. A `repository_dispatch` event also executes workflows available from the default branch. The current Cloud Daily Readiness workflow exists only on this PR branch, so the Cloudflare scheduler must **not** be deployed or represented as operational while PR #66 remains unmerged. Keep the readiness workflow fail-closed. Do not merge PR #66 merely to enable scheduling:
+- https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow
+
+### Required proof before enabling the Linux connector
+
+1. Install MT5 under Wine on a clean ephemeral Ubuntu runner and prove the correct Exness Demo server is selected.
+2. Authenticate using read-only access only; capture a redacted terminal journal proving investor/read-only mode.
+3. Export closed `XAUUSDm M15` bars and compare overlapping timestamps and OHLC/spread with the existing Exness Demo history; no symbol mapping or price rounding changes.
+4. Run the historical USD high-impact calendar exporter separately and validate its date coverage, timezone, duplicates, unknown time modes, and SHA-256. A prior export is not a fresh daily export.
+5. Upload through a narrowly scoped Cloudflare endpoint using a short-lived upload authorization; no broker secret reaches Cloudflare Worker or R2.
+6. Verify SHA-256 before and after upload, closed-bar cutoff, monotonic timestamps, no gaps/duplicates, and tenant binding.
+7. Run the existing daily data validation and candidate pipeline only after all provenance checks pass.
+
+### Fail-closed status
+
+Until the above proofs pass, `cloud_market_data_adapter_not_configured` remains the correct readiness result. No new MT5 connection, fresh market-data pull, training run, model artifact, or performance-gate result is claimed by this design update.
