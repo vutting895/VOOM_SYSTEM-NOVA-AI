@@ -90,3 +90,31 @@ Daily automation does not relax or replace the frozen v6.2.6.3 acceptance gates.
 Commission and swap must be confirmed from the Exness Demo contract specification. The historical metadata records swap values and a three-day rollover schedule; the previous daily research report's statement that swap is omitted solely because 12 M15 bars fit within three hours is not sufficient where the broker applies rollover charges. Do not treat candidate PnL as cost-complete until commission and rollover handling are separately verified.
 
 No MT5 data refresh, calendar compilation, task registration, or candidate training is considered successful until the Windows machine provides the corresponding logs, updated local manifest, and model artifact hashes.
+
+
+## Cloudflare Free Plan architecture (orchestration phase)
+
+The Cloudflare Free implementation is deliberately split from the Windows-only MT5 path:
+
+- `integrations/wave3-cloud-scheduler` is a lightweight Cloudflare Worker. Its Cron Trigger runs at 20:15 UTC (03:15 Asia/Bangkok) and dispatches a fixed `repository_dispatch` event to this repository. It does not run Python, XGBoost, PyTorch, or model training inside Workers.
+- The Worker is pinned to `vutting895/VOOM_SYSTEM-NOVA-AI`, sends only a scheduled timestamp and non-execution flags, and never accepts arbitrary dispatch URLs or user-supplied workflow names.
+- Configure `GITHUB_DISPATCH_TOKEN` as a Worker secret with the minimum GitHub permission needed to create repository dispatch events. Do not place it in Wrangler files, Git, logs, or client-side code.
+- Deploying the scheduler requires the owner to configure the Worker secret and deploy this Worker. This PR does not deploy or alter Cloudflare resources.
+
+### Free-plan compute boundary
+
+Workers Free provides a 10 ms CPU budget per Cron invocation. It is suitable for a small scheduler/API call, not model fitting. The Worker must not attempt to import Python packages or train XGBoost/PyTorch. Cloudflare Containers are intentionally not used.
+
+The scheduled event is an orchestration signal only. The actual candidate-training compute must run on a separately authorized compute runner (for example, GitHub-hosted Actions within the account's included minutes) after the cloud market-data input adapter is implemented and its provenance checks pass. GitHub Actions minutes/runner availability are not a Cloudflare guarantee and may incur charges if the account exceeds its included quota.
+
+### Current hard blocker: cloud market-data source
+
+The current Exness refresher is not cloud-compatible: it reads a tenant-specific local token and calls `127.0.0.1:8787` on the Windows MT5 bridge. A Cloudflare Worker or GitHub-hosted runner cannot reach that private localhost service. The existing historical calendar export is a verified prior export, not a live cloud feed.
+
+Therefore this phase does **not** claim daily fresh Exness data, does **not** start training, and does **not** produce a new model. Before enabling the training workflow, a separate read-only cloud data adapter must be selected and reviewed. It must provide completed XAUUSDm M15 bars and current high-impact USD calendar data, preserve the original baseline/calendar provenance, enforce the exact frozen gates, and reject stale/incomplete data. Do not upload broker credentials or MT5 bridge tokens to the Worker.
+
+### Scheduler verification
+
+- Local contract tests: `npm test` in `integrations/wave3-cloud-scheduler`.
+- Public health endpoint reports `orchestration-only`, `executionEnabled=false`, and `liveTradingEnabled=false`.
+- A successful Cron dispatch proves only that GitHub accepted a repository-dispatch event. It is not evidence of market-data refresh, training, benchmark acceptance, or model promotion.
