@@ -150,7 +150,7 @@ export default function IntegrationCenterPage() {
     }
   }
 
-  const healthReady = snapshot.health?.status === 'ready';
+  const healthReady = snapshot.health?.status === 'ready' && snapshot.health?.authConfigured === true;
   const tradeLocked = snapshot.health?.ordersEnabled === false && snapshot.health?.executionEnabled === false && snapshot.health?.liveTradingEnabled === false;
 
   return (
