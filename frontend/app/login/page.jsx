@@ -98,10 +98,14 @@ export default function LoginPage() {
 
     setBusy(true);
     try {
+      const requestedNext = new URL(window.location.href).searchParams.get('next') || '';
+      const safeNext = /^\/datasets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedNext) ? requestedNext : '';
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+      if (safeNext) callbackUrl.searchParams.set('next', safeNext);
       const { error: authError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl.toString(),
           captchaToken,
         },
       });

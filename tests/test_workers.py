@@ -23,6 +23,7 @@ class WorkerTests(unittest.TestCase):
         a=worker.run({"fast_period":3,"slow_period":8},candles())
         self.assertEqual(a,worker.run({"fast_period":3,"slow_period":8},candles()))
         self.assertGreater(a["total_trades"],0)
+        self.assertEqual(a["strategy"],"SMA crossover")
         self.assertFalse(a["execution_enabled"])
     def test_backtest_rejects_short_input(self):
         with self.assertRaises(BacktestInputError): BacktestWorker().run({},candles()[:5])

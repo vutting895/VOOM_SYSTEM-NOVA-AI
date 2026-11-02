@@ -376,8 +376,11 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
     assert.equal(response.status, 200);
     assert.equal(body.state, "data_verified");
     assert.equal(body.quote.symbol, "XAUUSDm");
-    assert.equal(body.quote.tick.bid, 4038.9);
+    assert.equal(body.quote.tick.bid, "4038.900");
+    assert.equal(body.quote.tick.ask, "4039.100");
     assert.equal(body.quote.bars.length, 1);
+    assert.equal(body.quote.bars[0].open, "4038.800");
+    assert.equal(body.quote.bars[0].close, "4039.000");
     assert.equal(body.quote.order_submission_enabled, false);
     assert.deepEqual(requestedQuote, {
       connectionId: CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M1", count: "3",

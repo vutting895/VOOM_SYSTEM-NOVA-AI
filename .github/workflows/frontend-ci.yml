@@ -104,6 +104,9 @@ jobs:
       - name: Test NOVA Video API external-origin CORS contract
         working-directory: .
         run: node --test tests/nova-video-api-cors.test.mjs
+      - name: Test NOVA compact dataset QR, decimal precision and tenant isolation contract
+        working-directory: .
+        run: node --test tests/nova-dataset-qr.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
