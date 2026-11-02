@@ -32,26 +32,74 @@ function containsForbidden(value) {
   );
 }
 
+function isRfc3339DateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/i.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return false;
+  return Number.isFinite(Date.parse(value));
+}
+
 function safeResult(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || containsForbidden(value)) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
   }
   const only = (object, keys) => object && typeof object === "object" &&
     !Array.isArray(object) && Object.keys(object).every(key => keys.has(key));
-  if (!only(value, new Set(["account", "quotes", "positions"]))) throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (!only(value, new Set(["account", "quotes", "positions", "rotation"]))) throw new Error("UNSAFE_PROVIDER_RESULT");
   if (value.account && (!only(value.account, new Set(["balance", "equity", "margin", "free_margin", "currency"])) ||
       Object.entries(value.account).some(([key, item]) =>
         key === "currency" ? typeof item !== "string" || item.length > 12 : typeof item !== "number" || !Number.isFinite(item)))) {
     throw new Error("UNSAFE_PROVIDER_RESULT");
   }
-  if (value.quotes && (!Array.isArray(value.quotes) || value.quotes.length > 500 ||
-      value.quotes.some(item => !only(item, new Set(["symbol", "bid", "ask", "timestamp"])) ||
-        typeof item.symbol !== "string" || typeof item.bid !== "number" || !Number.isFinite(item.bid) ||
-        typeof item.ask !== "number" || !Number.isFinite(item.ask)))) throw new Error("UNSAFE_PROVIDER_RESULT");
-  if (value.positions && (!Array.isArray(value.positions) || value.positions.length > 500 ||
-      value.positions.some(item => !only(item, new Set(["symbol", "side", "volume", "unrealized_pnl"])) ||
-        typeof item.symbol !== "string" || !["long", "short"].includes(item.side) ||
-        typeof item.volume !== "number" || !Number.isFinite(item.volume)))) throw new Error("UNSAFE_PROVIDER_RESULT");
+  if (value.quotes !== undefined) {
+    if (!Array.isArray(value.quotes) || value.quotes.length > 500) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
+    for (const item of value.quotes) {
+      if (!only(item, new Set(["symbol", "bid", "ask", "timestamp"])) ||
+          typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
+          typeof item.bid !== "number" || !Number.isFinite(item.bid) ||
+          typeof item.ask !== "number" || !Number.isFinite(item.ask)) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+      if (item.timestamp !== undefined &&
+          (typeof item.timestamp !== "string" || !isRfc3339DateTime(item.timestamp))) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+    }
+  }
+  if (value.positions !== undefined) {
+    if (!Array.isArray(value.positions) || value.positions.length > 500) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
+    for (const item of value.positions) {
+      if (!only(item, new Set(["symbol", "side", "volume", "unrealized_pnl"])) ||
+          typeof item.symbol !== "string" || item.symbol.length < 1 || item.symbol.length > 32 ||
+          !["long", "short"].includes(item.side) ||
+          typeof item.volume !== "number" || !Number.isFinite(item.volume)) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+      if (item.unrealized_pnl !== undefined &&
+          (typeof item.unrealized_pnl !== "number" || !Number.isFinite(item.unrealized_pnl))) {
+        throw new Error("UNSAFE_PROVIDER_RESULT");
+      }
+    }
+  }
+  if (value.rotation !== undefined) {
+    if (!only(value.rotation, new Set(["state", "generation"])) ||
+        (value.rotation.state !== undefined &&
+          !["ROTATION_REQUIRED", "ROTATING", "ROTATED", "ROTATION_UNSUPPORTED", "REVOKED"].includes(value.rotation.state)) ||
+        (value.rotation.generation !== undefined &&
+          (!Number.isInteger(value.rotation.generation) || value.rotation.generation < 1))) {
+      throw new Error("UNSAFE_PROVIDER_RESULT");
+    }
+  }
   return structuredClone(value);
 }
 
@@ -61,7 +109,7 @@ function validParameters(parameters) {
       (!Array.isArray(parameters.symbols) || parameters.symbols.length > 50 ||
        parameters.symbols.some(symbol => typeof symbol !== "string" || !/^[A-Z0-9._-]{1,32}$/.test(symbol)))) return false;
   if (parameters.since !== undefined &&
-      (typeof parameters.since !== "string" || Number.isNaN(Date.parse(parameters.since)))) return false;
+      (typeof parameters.since !== "string" || !isRfc3339DateTime(parameters.since))) return false;
   if (parameters.limit !== undefined &&
       (!Number.isInteger(parameters.limit) || parameters.limit < 1 || parameters.limit > 500)) return false;
   return true;
