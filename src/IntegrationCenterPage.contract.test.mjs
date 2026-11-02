@@ -4,6 +4,9 @@ import { readFile } from 'node:fs/promises';
 const page = await readFile(new URL('./IntegrationCenterPage.tsx', import.meta.url), 'utf8');
 const app = await readFile(new URL('./App.tsx', import.meta.url), 'utf8');
 const hub = await readFile(new URL('../integrations/system-hub/worker.js', import.meta.url), 'utf8');
+const server = await readFile(new URL('../server.ts', import.meta.url), 'utf8');
+const netlify = await readFile(new URL('../netlify.toml', import.meta.url), 'utf8');
+const redirects = await readFile(new URL('../public/_redirects', import.meta.url), 'utf8');
 
 test('Integration Center is routed and uses the authenticated System Hub control plane', () => {
   assert.match(app, /path="\/integrations" element={<IntegrationCenterPage \/>}/);
@@ -42,4 +45,11 @@ test('read-only verification is displayed only from a matching successful Hub re
 });
 test('trading safety is locked only when orders, execution, and live trading are all explicitly false', () => {
   assert.match(page, /ordersEnabled === false && snapshot\.health\?\.executionEnabled === false && snapshot\.health\?\.liveTradingEnabled === false/);
+});
+
+test('production hosting preserves the Integration Center route and Supabase callback', () => {
+  assert.match(server, /app\.get\('\*'/);
+  assert.match(netlify, /base = "\."/);
+  assert.match(netlify, /publish = "dist"/);
+  assert.match(redirects, /\/\* \/index\.html 200/);
 });
