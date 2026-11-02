@@ -110,20 +110,23 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
                 "commission_source": commission_source, "commission_verified": True, "training_eligible": False}
         if i <= busy:
             out.append({**base, "status": "blocked_overlap", "outcome_class": None}); continue
-        day = signal_bar["day"]
-        if daily_count.get(day, 0) >= max_daily_trades or daily_net.get(day, 0.0) <= -daily_loss:
-            out.append({**base, "status": "blocked_daily_risk_limit", "outcome_class": None}); continue
         entry_i = i + 1
         if entry_i >= len(market):
             out.append({**base, "status": "no_next_bar", "outcome_class": None}); continue
         eb = market[entry_i]
+        # Daily entry caps and realized-loss checks use the executable entry
+        # date, not the prior signal candle's date (which may be 23:45 UTC).
+        entry_day = eb["day"]
+        if daily_count.get(entry_day, 0) >= max_daily_trades or daily_net.get(entry_day, 0.0) <= -daily_loss:
+            out.append({**base, "status": "blocked_daily_risk_limit", "outcome_class": None}); continue
         if eb["high"] < trigger:
             out.append({**base, "status": "trigger_not_reached_next_bar", "outcome_class": None}); continue
         raw_entry = max(eb["open"], trigger)
         spread = eb["spread_price"]
         entry = raw_entry + spread + slip
         stop, target = entry - stop_distance, entry + target_distance
-        end = entry_i + max_hold_bars
+        # Count the entry candle as bar 1 of the holding horizon.
+        end = entry_i + max_hold_bars - 1
         complete = end < len(market)
         scan_end = end if complete else len(market) - 1
         exit_i = exit_price = outcome = None
@@ -148,6 +151,7 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
                 "exit_price": None, "gross_pnl_usd": None, "commission_usd": None, "net_pnl_usd": None,
                 "gross_r_multiple": None, "net_r_multiple": None,
                 "mae_price": min(x["low"] for x in path) - entry, "mfe_price": max(x["high"] for x in path) - entry,
+                "mae_mfe_are_ohlc_bar_bounds": True,
                 "bars_held": None, "ambiguous_stop_and_target_same_bar": False, "spread_cost_usd": spread_cost,
                 "slippage_cost_usd": None, "risk_usd_before_costs": risk, "exit_reason": None})
             break
@@ -164,7 +168,8 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
             "gross_pnl_usd": gross, "commission_usd": commission_trade, "net_pnl_usd": net,
             "gross_r_multiple": gross / risk, "net_r_multiple": net / risk,
             "mae_price": min(x["low"] for x in path) - entry, "mfe_price": max(x["high"] for x in path) - entry,
-            "bars_held": exit_i - entry_i, "ambiguous_stop_and_target_same_bar": ambiguous,
+            "mae_mfe_are_ohlc_bar_bounds": True,
+            "bars_held": exit_i - entry_i + 1, "ambiguous_stop_and_target_same_bar": ambiguous,
             "spread_cost_usd": spread_cost, "slippage_cost_usd": 2 * slip * lots * contract_size,
             "risk_usd_before_costs": risk, "exit_reason": outcome,
             "spread_model": "MT5 Bid OHLC; spread charged at BUY entry only",
