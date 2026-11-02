@@ -137,8 +137,10 @@ class SupabaseStore:
         if not 1 <= batch_size <= 500:
             raise ValueError("invalid_batch_size")
 
-        rows = []
-        submitted = 0
+        # Deduplicate the complete input before batching. PostgREST rejects a
+        # single upsert statement when its payload contains the same conflict key
+        # more than once. Keep the last observation for each canonical candle key.
+        rows_by_key = {}
         for candle in candles:
             if not isinstance(candle, dict):
                 raise ValueError("invalid_candle")
@@ -170,14 +172,15 @@ class SupabaseStore:
                 "spread_points": _decimal_string(candle["spread_points"], "spread_points") if candle.get("spread_points") is not None else None,
                 "is_closed": is_closed,
             }
-            rows.append(row)
-            if len(rows) == batch_size:
-                self._request("POST", "nova_market_candles", rows, {"on_conflict": "scope_key,symbol,timeframe,bar_time,source"}, "resolution=merge-duplicates,return=minimal")
-                submitted += len(rows)
-                rows = []
-        if rows:
-            self._request("POST", "nova_market_candles", rows, {"on_conflict": "scope_key,symbol,timeframe,bar_time,source"}, "resolution=merge-duplicates,return=minimal")
-            submitted += len(rows)
+            key = (row["scope_key"], row["symbol"], row["timeframe"], row["bar_time"], row["source"])
+            rows_by_key[key] = row
+
+        rows = list(rows_by_key.values())
+        submitted = 0
+        for offset in range(0, len(rows), batch_size):
+            batch = rows[offset:offset + batch_size]
+            self._request("POST", "nova_market_candles", batch, {"on_conflict": "scope_key,symbol,timeframe,bar_time,source"}, "resolution=merge-duplicates,return=minimal")
+            submitted += len(batch)
         return submitted
 
     def record_ingestion_run(
