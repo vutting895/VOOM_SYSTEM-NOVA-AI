@@ -68,3 +68,9 @@ A fresh read-only Supabase check of Production project \`tlyyxufuiimrbaksoitf\` 
 PR #109 remains Draft/open/unmerged at head \`650613fededde13fca6953a737dab6b2a5049a86\`; its recorded base is \`a2acfd8ec9b598e6593413549bef760e8f596a72\`. Compared with current main \`a9bb92c9d2642eff34be2ea68276a33b367ee793\`, its branch is 34 ahead / 82 behind. Its older exact-head CI evidence must not be treated as current-head proof. Reconcile/rebase the baseline work against current main, re-run clean replay and fingerprint tests, and verify all 25 Production migration rows before generating an active central-data migration.
 
 This checkpoint is read-only. It does not authorize applying the pending schema or creating the Storage bucket.
+
+## Main branch movement recheck — 2026-11-02
+
+Current repository main is now \`4480d3bf6fa8f390b09334091f697d8359e79085\`, after commit \`chore: initialize project scaffolding\`. This commit replaces the previous \`frontend/\` Next.js tree with a root Vite/React scaffold and removes the previous frontend API routes and pages. The central-data PR remains based on \`a9bb92c9d2642eff34be2ea68276a33b367ee793\`, 20 commits ahead / 1 behind current main; reconcile it with the new main before merge. This PR does not migrate or restore the removed frontend APIs.
+
+The Production database was rechecked read-only after this main movement: still 25 applied migration rows, latest \`20261031070311:nova_durable_approval_lifecycle\`; all six proposed central-data tables and the \`nova-data\` bucket remain absent. PR #109 is now 34 ahead / 83 behind current main. No schema migration or bucket creation is authorized by this checkpoint.
