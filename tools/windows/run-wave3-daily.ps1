@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory = $true)][string] $RepoPath)
 $ErrorActionPreference = 'Stop'
-$Branch = 'feature/wave3-hybrid-backtest-20261029'
+$ExpectedBranch = 'feature/wave3-hybrid-backtest-20261029'
 $StateRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\wave3-daily'
 $PersistentDataRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\wave3'
 $LogRoot = Join-Path $StateRoot 'logs'
@@ -22,17 +22,17 @@ try {
     if ($LASTEXITCODE -ne 0 -or $repoTop -ne $resolved) { throw 'RepoPath must be the Git checkout root.' }
     $origin = (& git -C $resolved config --local --get remote.origin.url).Trim()
     if ($origin -notmatch '^https://github\.com/vutting895/VOOM_SYSTEM-NOVA-AI(?:\.git)?$') { throw 'Git origin does not match the approved repository.' }
-    $branch = (& git -C $resolved branch --show-current).Trim()
-    if ($branch -ne $Branch) { throw "Daily runs only on $Branch; current branch is $branch." }
+    $CurrentBranch = (& git -C $resolved branch --show-current).Trim()
+    if ($CurrentBranch -ne $ExpectedBranch) { throw "Daily runs only on $ExpectedBranch; current branch is $CurrentBranch." }
     $dirty = @(& git -C $resolved status --porcelain --untracked-files=all)
     if ($LASTEXITCODE -ne 0 -or $dirty.Count -gt 0) { throw 'Repository worktree is not clean; refusing local modifications.' }
-    Invoke-Git @('fetch', '--no-tags', 'origin', $Branch)
-    $counts = (& git -C $resolved rev-list --left-right --count "HEAD...origin/$Branch").Trim() -split '\s+'
+    Invoke-Git @('fetch', '--no-tags', 'origin', $ExpectedBranch)
+    $counts = (& git -C $resolved rev-list --left-right --count "HEAD...origin/$ExpectedBranch").Trim() -split '\s+'
     if ($counts.Count -ne 2) { throw 'Could not compare local branch with origin.' }
     $ahead = [int]$counts[0]; $behind = [int]$counts[1]
     if ($ahead -gt 0) { throw "Local branch is $ahead commits ahead of origin; refusing to push or overwrite it." }
-    if ($behind -gt 0) { Invoke-Git @('merge', '--ff-only', "origin/$Branch") }
-    $remoteHead = (& git -C $resolved rev-parse "origin/$Branch").Trim()
+    if ($behind -gt 0) { Invoke-Git @('merge', '--ff-only', "origin/$ExpectedBranch") }
+    $remoteHead = (& git -C $resolved rev-parse "origin/$ExpectedBranch").Trim()
     $localHead = (& git -C $resolved rev-parse HEAD).Trim()
     if ($localHead -ne $remoteHead) { throw 'Local code is not the exact origin PR #66 head after fast-forward.' }
 
