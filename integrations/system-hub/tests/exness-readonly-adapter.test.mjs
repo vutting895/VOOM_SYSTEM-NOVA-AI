@@ -259,3 +259,82 @@ test("declared oversized upstream response is cancelled before parsing", async (
   await assert.rejects(adapter.getAccount(CONTEXT), /exness_response_too_large/);
   assert.equal(cancelled, true);
 });
+
+
+test("tick stream uses a signed GET handshake and sends only the read-only ticks subscription", async () => {
+  const requests = [];
+  const sent = [];
+  let accepted = false;
+  const socket = {
+    accept() { accepted = true; },
+    send(value) { sent.push(JSON.parse(value)); },
+    close() { throw new Error("socket should remain open"); }
+  };
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async (url, init) => {
+      const parsed = new URL(url);
+      requests.push({ parsed, init });
+      if (parsed.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
+      }
+      if (parsed.pathname === "/v1/configuration/accounts/123456/instruments") {
+        return Response.json({ instruments: ["EURUSD", "XAUUSD"] });
+      }
+      if (parsed.pathname === "/v1/server-events/accounts/123456/ws/ticks") {
+        assert.equal(init.method, "GET");
+        assert.equal(init.headers.Upgrade, "websocket");
+        const payload = JSON.parse(Buffer.from(init.headers["EXN-DATA"], "base64url").toString("utf8"));
+        assert.equal(payload.method, "GET");
+        assert.equal(payload.path, "/v1/server-events/accounts/123456/ws/ticks");
+        return { status: 101, webSocket: socket };
+      }
+      throw new Error("Unexpected upstream path");
+    }
+  });
+
+  const result = await adapter.subscribeTicks(CONTEXT, {
+    subscriptionId: "ticks-xauusd-1",
+    instruments: ["XAUUSD"]
+  });
+  assert.equal(result, socket);
+  assert.equal(accepted, true);
+  assert.equal(requests.length, 3);
+  assert.equal(requests[2].parsed.origin, "https://ap-test.exness.com");
+  assert.deepEqual(sent, [{
+    id: "ticks-xauusd-1",
+    subscribe: { event: "ticks", instruments: ["XAUUSD"] }
+  }]);
+  assert.deepEqual(EXNESS_READ_ONLY_FLAGS, {
+    ordersEnabled: false,
+    executionEnabled: false,
+    order_submission_enabled: false,
+    liveTradingEnabled: false
+  });
+});
+
+test("tick stream rejects invalid or unavailable instruments before opening a socket", async () => {
+  let websocketRequested = false;
+  const adapter = createExnessReadOnlyAdapter({
+    resolveCredentials: async () => CREDENTIALS,
+    fetchImpl: async (url) => {
+      const parsed = new URL(url);
+      if (parsed.pathname === "/v1/trading/access-point") {
+        return Response.json({ account_id: "123456", access_point: "ap-test.exness.com" });
+      }
+      if (parsed.pathname.endsWith("/instruments")) {
+        return Response.json({ instruments: ["EURUSD"] });
+      }
+      websocketRequested = true;
+      return { status: 101, webSocket: { send() {}, accept() {} } };
+    }
+  });
+
+  await assert.rejects(adapter.subscribeTicks(CONTEXT, {
+    subscriptionId: "ticks-xauusd-1", instruments: ["XAUUSD"]
+  }), /exness_instrument_not_available/);
+  await assert.rejects(adapter.subscribeTicks(CONTEXT, {
+    subscriptionId: "ticks-invalid", instruments: ["EUR/USD"]
+  }), /exness_tick_subscription_invalid/);
+  assert.equal(websocketRequested, false);
+});
