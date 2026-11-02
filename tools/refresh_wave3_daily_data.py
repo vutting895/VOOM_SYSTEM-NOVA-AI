@@ -229,6 +229,12 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
     new_quotes = quotes.loc[quotes["timestamp"] > previous_last].copy()
     if len(new_quotes) >= MAX_BARS - 10:
         raise ValueError("At least 490 new bars arrived since the previous sync; 500-bar bridge window may have truncated history.")
+    now = now_utc or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        raise ValueError("now_utc must be timezone-aware.")
+    age_hours = (now.astimezone(timezone.utc) - previous_last.to_pydatetime()).total_seconds() / 3600
+    if age_hours > 96:
+        raise ValueError(f"Latest closed bar is stale ({age_hours:.1f} hours); refusing to train on old quotes.")
 
     if new_quotes.empty:
         latest = previous_last
