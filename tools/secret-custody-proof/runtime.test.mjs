@@ -253,7 +253,7 @@ test("request since and provider quote timestamps require calendar-valid RFC 333
     assert.equal(result.body.result, undefined);
   }
 
-  for (const valid of ["2026-11-01T05:00:00.000Z", "2026-11-01T12:00:00+07:00"]) {
+  for (const valid of ["2026-11-01T05:00:00.000Z", "2026-11-01T12:00:00+07:00", "2026-11-01t05:00:00.000z"]) {
     const { runtime } = await fixture(t, {
       provider: { executeReadOnly: async () => ({
         quotes: [{ symbol: "XAUUSD", bid: 2300.1, ask: 2300.2, timestamp: valid }]
@@ -266,6 +266,6 @@ test("request since and provider quote timestamps require calendar-valid RFC 333
 
   const { runtime: validSince } = await fixture(t);
   assert.equal((await invoke(validSince, {
-    ...request, parameters: { since: "2026-11-01T12:00:00+07:00" }
+    ...request, parameters: { since: "2026-11-01t12:00:00+07:00" }
   })).status, 200);
 });
