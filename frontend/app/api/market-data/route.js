@@ -47,15 +47,29 @@ async function hubGet(base, path, token) {
   return { response, payload };
 }
 
+const DECIMAL = /^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/;
+function decimalParts(value) {
+  if (typeof value !== 'string' || value.length > 48 || !DECIMAL.test(value)) return null;
+  const [whole, fraction = ''] = value.split('.');
+  return { integer: BigInt(whole + fraction), scale: fraction.length };
+}
+function compareDecimal(a, b) {
+  const scale = Math.max(a.scale, b.scale);
+  const left = a.integer * (10n ** BigInt(scale - a.scale));
+  const right = b.integer * (10n ** BigInt(scale - b.scale));
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 function validBar(bar) {
   if (!bar || typeof bar !== 'object' || typeof bar.time !== 'string') return false;
   const time = Date.parse(bar.time);
-  const values = ['open', 'high', 'low', 'close'].map((key) => Number(bar[key]));
+  const values = ['open', 'high', 'low', 'close'].map((key) => decimalParts(bar[key]));
   const volume = Number(bar.tick_volume ?? bar.real_volume ?? 0);
-  if (!Number.isFinite(time) || values.some((value) => !Number.isFinite(value) || value <= 0)
+  if (!Number.isFinite(time) || values.some((value) => !value || value.integer <= 0n)
     || !Number.isFinite(volume) || volume < 0) return false;
   const [open, high, low, close] = values;
-  return high >= Math.max(open, close, low) && low <= Math.min(open, close, high);
+  return compareDecimal(high, open) >= 0 && compareDecimal(high, close) >= 0
+    && compareDecimal(high, low) >= 0 && compareDecimal(low, open) <= 0
+    && compareDecimal(low, close) <= 0;
 }
 
 export async function GET(request) {
@@ -126,10 +140,14 @@ export async function GET(request) {
 
     const tickTime = quote.tick?.time ? Date.parse(quote.tick.time) : NaN;
     const tickAgeMs = Number.isFinite(tickTime) ? Math.max(0, Date.now() - tickTime) : null;
-    const tick = quote.tick && [quote.tick.bid, quote.tick.ask].every((value) => Number.isFinite(Number(value)))
-      ? { bid: Number(quote.tick.bid), ask: Number(quote.tick.ask), last: Number(quote.tick.last), time: quote.tick.time }
+    const bid = decimalParts(quote.tick?.bid);
+    const ask = decimalParts(quote.tick?.ask);
+    const last = quote.tick?.last === null || quote.tick?.last === undefined || quote.tick.last === "0"
+      ? null : decimalParts(quote.tick.last);
+    const tick = bid && ask && bid.integer > 0n && ask.integer > 0n && compareDecimal(ask, bid) >= 0
+      ? { bid: quote.tick.bid, ask: quote.tick.ask, last: last ? quote.tick.last : null, spread: null, time: quote.tick.time }
       : null;
-    if (tick && (tick.bid <= 0 || tick.ask <= 0 || tick.ask < tick.bid)) {
+    if (quote.tick && !tick) {
       return json({ error: 'invalid_market_tick', state: 'unavailable', ordersEnabled: false, liveTradingEnabled: false }, 502);
     }
 
@@ -144,11 +162,11 @@ export async function GET(request) {
       freshness: tickAgeMs === null ? 'unknown' : tickAgeMs <= 60000 ? 'fresh' : 'stale',
       bars: orderedBars.map((bar) => ({
         timestamp: bar.time,
-        open: Number(bar.open),
-        high: Number(bar.high),
-        low: Number(bar.low),
-        close: Number(bar.close),
-        volume: Number(bar.tick_volume ?? bar.real_volume ?? 0),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: String(bar.tick_volume ?? bar.real_volume ?? 0),
       })),
       count: orderedBars.length,
       receivedAt: new Date().toISOString(),
