@@ -206,8 +206,8 @@ class TestDailyMT5Refresh(unittest.TestCase):
             base = root / "base.csv"
             state = root / "state"
             base.write_text(
-                "timestamp,open,high,low,close,tick_volume,spread_price\\n"
-                "2026-10-25T00:00:00Z,2400,2400.5,2399.5,2400.1,100,0.024\\n",
+                "timestamp,open,high,low,close,tick_volume,spread_price\n"
+                "2026-10-25T00:00:00Z,2400,2400.5,2399.5,2400.1,100,0.024\n",
                 encoding="utf-8",
             )
             expected = hashlib.sha256(base.read_bytes()).hexdigest()
