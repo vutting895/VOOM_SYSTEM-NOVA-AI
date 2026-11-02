@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "status": "diagnostic_only_no_training",
+  "generated_utc": "2026-11-02T03:47:31Z",
+  "source": {
+    "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
+    "main_sha": "a9bb92c9d2642eff34be2ea68276a33b367ee793",
+    "pr_number": 66,
+    "branch": "feature/wave3-hybrid-backtest-20261029",
+    "diagnostic_code_head": "c5a8f74eedf541d7d5c02bc22b7a8d84b71db29c",
+    "data_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "data_bytes": 8483411,
+    "calendar_path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "calendar_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "calendar_rows": 2166,
+    "final_oos_start_utc": "2026-07-01T00:00:00Z",
+    "final_oos_labeled_rows": 7942
+  },
+  "artifact": {
+    "workflow_run_id": 41384850474,
+    "run_number": 100,
+    "artifact_id": 13114907526,
+    "archive_sha256": "b4337ccf43c513f10d8dd35645dbd6a8c696429dded2302ce9572d391e8c9515",
+    "trace_json_sha256": "5e138f9525fa2a352e07ea7a9f9b41c1d86915f184aca3de9d44e4511f4c0ff5",
+    "trace_json_path_in_artifact": "wave3_smc_candidate_trace_20261101.json"
+  },
+  "methodology": {
+    "closed_bar_features_only": true,
+    "final_oos_used_for_tuning": false,
+    "model_training_started": false,
+    "weights_lookbacks_thresholds_or_gates_changed": false
+  },
+  "candidate_trace_summary": {
+    "candidate_rows": 34,
+    "bos20_up": 21,
+    "choch_rule_up": 12,
+    "bull_ob_within5": 1,
+    "bull_fvg_fill": 7,
+    "pairwise_same_bar_intersections": {
+      "bos20_up&choch_rule_up": 9,
+      "bos20_up&bull_ob_within5": 0,
+      "bos20_up&bull_fvg_fill": 3,
+      "choch_rule_up&bull_ob_within5": 0,
+      "choch_rule_up&bull_fvg_fill": 3,
+      "bull_ob_within5&bull_fvg_fill": 0
+    },
+    "all_four_components_same_bar": 0,
+    "maximum_smc_score": 75,
+    "smc_score_ge_85": 0,
+    "fvg_positive_rows_after_first_overlap": 7,
+    "fvg_positive_rows_after_full_mitigation": 5,
+    "fvg_full_mitigation_on_signal_bar": 2,
+    "fvg_full_mitigation_touch_on_signal_bar_all_candidates": 9,
+    "fvg_positive_rows_with_full_mitigation_touch_on_signal_bar": 7,
+    "fvg_positive_rows_first_full_mitigation_precedes_signal": 5,
+    "fvg_mitigation_summary_note": "First full mitigation on the signal bar is 2/7 FVG-positive candidates; 5/7 were fully mitigated earlier. The 9 all-candidate current-bar touches (7 among FVG-positive candidates) include repeat touches and must not be interpreted as first mitigations."
+  },
+  "decision": "Diagnostic only. The frozen v6.2.6.3 scoring contract remains unchanged."
+}
