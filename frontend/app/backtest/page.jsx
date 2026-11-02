@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import { getSupabaseBrowserClient } from '../../lib/supabase-browser';
 import './backtest.css';
 
@@ -169,7 +170,7 @@ export default function BacktestPage() {
           </div>}
           {marketData?.tick?.time && <p className="nova-bt-foot">เวลาของ Tick: {new Date(marketData.tick.time).toLocaleString()} · รับข้อมูลจาก Hub: {new Date(marketData.receivedAt).toLocaleString()} · Source: {marketData.source}</p>}
           {!marketData && <p className="nova-bt-foot">ยังไม่มีข้อมูลจริงในหน้านี้ กดปุ่มดึงข้อมูลเพื่อตรวจสอบการเชื่อมต่อ Exness Demo</p>}
-          {savedDataset && <div className="nova-bt-alert" role="status"><strong>บันทึก Dataset แล้ว</strong> · SHA-256: {savedDataset.sha256}<br/>QR Resolver: <a href={savedDataset.url}>{savedDataset.url}</a><br/><button type="button" onClick={() => navigator.clipboard.writeText(savedDataset.url)}>คัดลอกลิงก์ QR</button><small>ลิงก์นี้เป็น QR payload สำหรับนำไปสร้าง/สแกน QR; การแสดงภาพ QR และการทดสอบบน Hosted Storage ยังรอ migration และ dependency/Preview gate</small></div>}
+          {savedDataset && <div className="nova-bt-alert" role="status"><strong>บันทึก Dataset แล้ว</strong> · SHA-256: {savedDataset.sha256}<br/><div className="nova-bt-qr"><QRCodeSVG value={savedDataset.url} size={192} level="M" includeMargin /></div>QR Resolver: <a href={savedDataset.url}>{savedDataset.url}</a><br/><button type="button" onClick={() => navigator.clipboard.writeText(savedDataset.url)}>คัดลอกลิงก์ QR</button><small>QR นี้เก็บเฉพาะ URL อ้างอิง ไม่บรรจุราคา, Token หรือข้อมูลบัญชี ต้อง Login และเป็นเจ้าของ Dataset จึงเปิดดูได้</small></div>}
           <p className="nova-bt-foot">การอัปเดตเป็น polling ทุก 5 วินาทีผ่าน endpoint แบบ authenticated ไม่ใช่ WebSocket streaming; ถ้า Bridge/Hub ยังไม่พร้อมจะแสดง error แทนข้อมูลจำลอง</p>
         </section>
 
