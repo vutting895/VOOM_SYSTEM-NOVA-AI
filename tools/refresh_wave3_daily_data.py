@@ -230,6 +230,15 @@ def refresh_dataset(base_data: Path, state_dir: Path, *, now_utc: datetime | Non
         token,
     )
     quotes = normalize_closed_quotes(quote_payload, now_utc=now_utc)
+    # Require the bounded bridge window to overlap the saved tail. Otherwise
+    # a truncated response can silently skip missing M15 bars forever.
+    if not quotes["timestamp"].eq(previous_last).any():
+        earliest = quotes["timestamp"].min().isoformat()
+        raise ValueError(
+            "MT5 catch-up window does not overlap the saved last bar; "
+            f"saved_tail={previous_last.isoformat()} earliest_returned={earliest}. "
+            "Refusing to append across an unverified gap."
+        )
     new_quotes = quotes.loc[quotes["timestamp"] > previous_last].copy()
     if len(new_quotes) >= MAX_BARS - 10:
         raise ValueError("At least 490 new bars arrived since the previous sync; 500-bar bridge window may have truncated history.")
