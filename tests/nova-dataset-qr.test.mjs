@@ -43,5 +43,8 @@ test("MT5 Hub and market data API preserve quoted prices as decimal strings", as
   assert.match(hub, /value\.toFixed\(digits\)/);
   assert.match(route, /typeof value !== 'string'/);
   assert.match(route, /open: bar\.open/);
+  assert.match(route, /subtractDecimalStrings/);
+  assert.match(await read("frontend/app/backtest/page.jsx"), /QRCodeSVG/);
+  assert.match(await read("frontend/package.json"), /qrcode\.react/);
   assert.doesNotMatch(route, /open: Number\(bar\.open\)/);
 });
