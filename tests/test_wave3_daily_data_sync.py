@@ -176,6 +176,58 @@ class TestDailyMT5Refresh(unittest.TestCase):
                     daily.refresh_dataset(base, state, now_utc=now)
             self.assertFalse((state / "XAUUSDm_M15_daily.csv").exists())
 
+    def test_dataset_pair_recovery_restores_previous_csv_and_manifest_after_interrupted_replace(self):
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp)
+            csv_path = state / "XAUUSDm_M15_daily.csv"
+            manifest_path = state / "daily_data_manifest.json"
+            csv_path.write_text("new,csv\\n", encoding="utf-8")
+            manifest_path.write_text('{"new": true}', encoding="utf-8")
+            (state / "old.csv.bak").write_text("old,csv\\n", encoding="utf-8")
+            (state / "old.manifest.bak").write_text('{"old": true}', encoding="utf-8")
+            (state / "new.csv.tmp").write_text("partial", encoding="utf-8")
+            (state / "new.manifest.tmp").write_text("partial", encoding="utf-8")
+            manifest_path.with_suffix(".transaction.json").write_text(json.dumps({
+                "csv_backup": "old.csv.bak",
+                "manifest_backup": "old.manifest.bak",
+                "csv_temp": "new.csv.tmp",
+                "manifest_temp": "new.manifest.tmp",
+                "csv_existed": True,
+                "manifest_existed": True,
+            }), encoding="utf-8")
+            daily._recover_dataset_pair(csv_path, manifest_path)
+            self.assertEqual(csv_path.read_text(encoding="utf-8"), "old,csv\\n")
+            self.assertEqual(json.loads(manifest_path.read_text(encoding="utf-8")), {"old": True})
+            self.assertFalse(manifest_path.with_suffix(".transaction.json").exists())
+
+    def test_refresh_rejects_catchup_without_saved_tail_overlap(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            base = root / "base.csv"
+            state = root / "state"
+            base.write_text(
+                "timestamp,open,high,low,close,tick_volume,spread_price\\n"
+                "2026-10-25T00:00:00Z,2400,2400.5,2399.5,2400.1,100,0.024\\n",
+                encoding="utf-8",
+            )
+            expected = hashlib.sha256(base.read_bytes()).hexdigest()
+            now = datetime(2026, 11, 2, 0, 20, tzinfo=timezone.utc)
+            quotes = payload([quote("2026-11-02T00:00:00Z"), quote("2026-11-02T00:15:00Z")])
+            with (
+                patch.object(daily, "EXPECTED_BASE_SHA256", expected),
+                patch.object(daily, "_private_credentials", return_value=("tenant-test-1234", "x" * 40)),
+                patch.object(daily, "_bridge_get", side_effect=[
+                    {"status": "ok", "terminal_connected": True, "account_session_available": True,
+                     "mode": "read-only", "order_submission_enabled": False},
+                    {"connected": True, "server": "Exness-MT5Trial7", "currency": "USD",
+                     "mode": "read-only", "order_submission_enabled": False},
+                    quotes,
+                ]),
+            ):
+                with self.assertRaisesRegex(ValueError, "does not overlap the saved last bar"):
+                    daily.refresh_dataset(base, state, now_utc=now)
+            self.assertFalse((state / "XAUUSDm_M15_daily.csv").exists())
+
     def test_refresh_persists_merged_bars_manifest_and_no_change_run(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
