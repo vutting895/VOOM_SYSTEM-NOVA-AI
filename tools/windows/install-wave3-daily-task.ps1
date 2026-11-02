@@ -9,8 +9,9 @@ $ErrorActionPreference = 'Stop'
 $ExpectedBranch = 'feature/wave3-hybrid-backtest-20261029'
 $TaskName = 'VOOM NOVA Wave3 Daily Candidate Training'
 
-if ((Get-TimeZone).Id -ne 'SE Asia Standard Time') {
-    throw "Set Windows time zone to 'SE Asia Standard Time' (Asia/Bangkok) before installing the 03:15 daily task."
+$WindowsTimeZoneId = (& tzutil.exe /g).Trim()
+if ($LASTEXITCODE -ne 0 -or $WindowsTimeZoneId -ne 'SE Asia Standard Time') {
+    throw "Set Windows time zone to 'SE Asia Standard Time' (Asia/Bangkok) before installing the 03:15 daily task. Current: $WindowsTimeZoneId"
 }
 
 $RepoRoot = (Resolve-Path -LiteralPath $RepoPath).Path
