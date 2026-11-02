@@ -65,3 +65,7 @@ The selected operating mode is **Full Automation with approval gates**:
 - The System Hub allows the production NOVA origin and the exact site-specific HTTPS Netlify PR preview hostname pattern `deploy-preview-<number>--voomsystem.netlify.app`.
 - Arbitrary `*.netlify.app` origins, lookalike site names, and non-HTTPS preview origins remain rejected.
 - The Integration Center CI runs the System Hub CORS contract tests so the preview policy is checked with the UI changes.
+
+## Frontend environment compatibility
+
+The Vite page accepts the existing public Netlify variables `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SYSTEM_HUB_URL` as compatibility fallbacks, as well as the newer `VITE_*` names. The Supabase anon/publishable key is public client configuration, not a service-role key. No Netlify environment-variable mutation is required by this PR.
