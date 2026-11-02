@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".env.example"
+      - ".github/workflows/nova-root-app-ci.yml"
       - "package.json"
       - "bun.lock"
       - "vite.config.ts"
