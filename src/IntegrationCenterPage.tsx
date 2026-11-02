@@ -12,6 +12,14 @@ const supabaseKey = runtimeEnv.VITE_SUPABASE_ANON_KEY || runtimeEnv.NEXT_PUBLIC_
 const hubUrl = (runtimeEnv.VITE_SYSTEM_HUB_URL || runtimeEnv.NEXT_PUBLIC_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev').replace(/\/+$/, '');
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 
+const plannedProviders = [
+  { id: 'github', title: 'GitHub', group: 'SOURCE CONTROL', description: 'OAuth read-only repository and pull-request access' },
+  { id: 'google-ai-studio', title: 'Google AI Studio / Gemini', group: 'AI PROVIDER', description: 'Server-side model provider configuration; no browser API key' },
+  { id: 'cloudflare', title: 'Cloudflare', group: 'INFRASTRUCTURE', description: 'Scoped account and Worker operations' },
+  { id: 'netlify', title: 'Netlify', group: 'HOSTING', description: 'Site and deploy monitoring' },
+  { id: 'flyio-sprites', title: 'Fly.io Sprites', group: 'DEVELOPER RUNTIME', description: 'Read-only environment discovery and health checks' }
+] as const;
+
 const connectorMeta: Record<string, { title: string; description: string; group: string }> = {
   'supabase-auth': { title: 'Supabase Identity', description: 'Session identity and tenant-scoped authorization', group: 'IDENTITY' },
   'exness-mt5-demo': { title: 'Exness MT5 Demo', description: 'Read-only account and market-data adapter', group: 'BROKER' },
@@ -205,6 +213,12 @@ export default function IntegrationCenterPage() {
             const verification = integration.id === 'exness-mt5-demo' ? (exnessConnection?.readiness || integration.verification) : integration.verification;
             return <article className="nova-worker" key={integration.id}><small>{meta.group}</small><strong>{meta.title}</strong><small>{meta.description}</small><div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 10, alignItems: 'center' }}><span className="nova-pill">{integration.configured ? 'CONFIGURED' : 'NOT CONFIGURED'}</span><span className="nova-small">{stateLabel(verification)}</span></div>{integration.mode && <small>Scope: {integration.mode}</small>}</article>;
           })}</div>}
+      </section>
+
+      <section className="nova-panel" style={{ marginBottom: 16 }}>
+        <div className="nova-section-heading"><div><p className="nova-eyebrow">ROADMAP / PROVIDER ONBOARDING</p><h2>ระบบที่เตรียมเชื่อมต่อ</h2></div><span className="nova-pill">PLANNED · NOT CONNECTED</span></div>
+        <p className="nova-small">รายการเหล่านี้เป็นแผนการเชื่อมต่อ ไม่ใช่สถานะ runtime และยังไม่มีปุ่มเชื่อมต่อจนกว่า adapter, OAuth/custody และ tenant-isolation tests จะผ่าน</p>
+        <div className="nova-worker-grid">{plannedProviders.map((provider) => <article className="nova-worker" key={provider.id}><small>{provider.group}</small><strong>{provider.title}</strong><small>{provider.description}</small><span className="nova-pill" style={{ marginTop: 10 }}>PLANNED · DISABLED</span></article>)}</div>
       </section>
 
       <section className="nova-grid" style={{ marginBottom: 16 }}>
