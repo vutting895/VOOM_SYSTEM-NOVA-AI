@@ -127,7 +127,7 @@ Final OOS (7,942 rows): accuracy 41.0602% vs majority baseline 45.9708%; balance
 
 ### Separate PR #147 P2 status
 
-PR #147 remains a separate Draft/open/unmerged research path. Its isolated first-hit target builder and 11 synthetic unit tests are in `research/wave3_challenger/`; P2 CI #6 passed. The builder requires verified commission provenance, censors incomplete end-of-data outcomes, and does not generate signals or train models. It has not been run on real Exness data because commission evidence is still missing. Do not fold it into PR #66.
+PR #147 remains a separate Draft/open/unmerged research path. Its isolated first-hit target builder and 11 synthetic unit tests are in `research/wave3_challenger/`; P2 CI #8 passed. The builder requires verified commission provenance, censors incomplete end-of-data outcomes, and does not generate signals or train models. It has not been run on real Exness data because commission evidence is still missing. Do not fold it into PR #66.
 
 ### MT5 evidence required for a fresh export
 
