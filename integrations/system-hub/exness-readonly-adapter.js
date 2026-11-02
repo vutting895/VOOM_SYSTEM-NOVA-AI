@@ -113,6 +113,7 @@ function accountPath(accountId, suffix) {
 
 function allowedRequest(path) {
   if (/^\/v1\/trading\/access-point\?account_id=[0-9]{1,20}$/.test(path)) return true;
+  if (/^\/v1\/server-events\/accounts\/[0-9]{1,20}\/ws\/ticks$/.test(path)) return true;
   if (/^\/v1\/configuration\/accounts\/[0-9]{1,20}\/(account|limits|instruments)$/.test(path)) return true;
   if (/^\/v1\/market-data\/accounts\/[0-9]{1,20}\/candles\?instrument=[A-Za-z0-9._-]{1,11}&timeframe=(S1|S5|S15|M1|M3|M5|M10|M15|M30|H1|H2|H4|D1|W1|MN)&from=[0-9A-Fa-fTZ.:%-]+&count=[1-9][0-9]{0,15}&price_type=(bid|ask|both)$/.test(path)) return true;
   return false;
@@ -244,7 +245,7 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
     providerId: "exness_trader_api",
     supportedEnvironments: Object.freeze(["demo", "live"]),
     capabilities: Object.freeze([
-      "account.summary.read", "account.limits.read", "market.instruments.read", "market.candles.read"
+      "account.summary.read", "account.limits.read", "market.instruments.read", "market.candles.read", "market.ticks.read"
     ]),
     async getAccount(context) {
       const c = await credentialsFor(context);
@@ -262,6 +263,69 @@ export function createExnessReadOnlyAdapter({ resolveCredentials, fetchImpl = fe
         throw fail("exness_instrument_response_invalid", 502);
       }
       return result.instruments;
+    },
+    async subscribeTicks(context, query) {
+      if (!query || typeof query !== "object" ||
+          typeof query.subscriptionId !== "string" ||
+          !/^[A-Za-z0-9._~-]{1,64}$/.test(query.subscriptionId) ||
+          !Array.isArray(query.instruments) ||
+          query.instruments.length < 1 || query.instruments.length > 50) {
+        throw fail("exness_tick_subscription_invalid", 400);
+      }
+      const instruments = [...new Set(query.instruments)];
+      if (instruments.length !== query.instruments.length ||
+          !instruments.every((name) => typeof name === "string" && INSTRUMENT.test(name))) {
+        throw fail("exness_tick_subscription_invalid", 400);
+      }
+
+      const c = await credentialsFor(context);
+      const accessPoint = await discover(c);
+      const instrumentResult = await signedGet({
+        baseUrl: accessPoint, apiKey: c.apiKey, privateKey: c.privateKey,
+        path: accountPath(c.accountId, "/instruments"), fetchImpl
+      });
+      if (!instrumentResult || !Array.isArray(instrumentResult.instruments) ||
+          !instrumentResult.instruments.every((name) => typeof name === "string" && INSTRUMENT.test(name))) {
+        throw fail("exness_instrument_response_invalid", 502);
+      }
+      if (!instruments.every((name) => instrumentResult.instruments.includes(name))) {
+        throw fail("exness_instrument_not_available", 403);
+      }
+
+      const path = "/v1/server-events/accounts/" + c.accountId + "/ws/ticks";
+      const headers = await createExnessGetHeaders({
+        apiKey: c.apiKey, privateKey: c.privateKey, path
+      });
+      let response;
+      try {
+        response = await fetchImpl(accessPoint + path, {
+          method: "GET",
+          headers: { ...headers, "Upgrade": "websocket" },
+          cache: "no-store",
+          redirect: "error"
+        });
+      } catch {
+        throw fail("exness_tick_stream_unavailable", 502);
+      }
+      if (response.status === 429) throw fail("exness_rate_limited", 429);
+      if (response.status === 401 || response.status === 403) {
+        throw fail("exness_permission_denied", response.status);
+      }
+      const socket = response.webSocket;
+      if (response.status !== 101 || !socket || typeof socket.send !== "function") {
+        throw fail("exness_tick_stream_handshake_failed", 502);
+      }
+      try {
+        if (typeof socket.accept === "function") socket.accept();
+        socket.send(JSON.stringify({
+          id: query.subscriptionId,
+          subscribe: { event: "ticks", instruments }
+        }));
+      } catch {
+        try { socket.close(1011, "subscription_failed"); } catch {}
+        throw fail("exness_tick_subscription_failed", 502);
+      }
+      return socket;
     },
     async getCandles(context, query) {
       if (!query || typeof query !== "object") throw fail("exness_candle_query_invalid", 400);
