@@ -324,7 +324,7 @@ class TestWave3Pipeline(unittest.TestCase):
         })
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "news.csv"
-            calendar.to_csv(path, index=False)
+            calendar.to_csv(path, index=False, encoding="utf-8-sig")
             safe = load_news_calendar(path, frame)
         self.assertEqual(safe.tolist(), [True, False, False, False, True, True])
 
