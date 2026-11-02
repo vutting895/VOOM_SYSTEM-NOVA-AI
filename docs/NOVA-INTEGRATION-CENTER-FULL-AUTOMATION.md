@@ -58,3 +58,10 @@ The selected operating mode is **Full Automation with approval gates**:
 - Exness request creates only a pending record after confirmation.
 - No connector is called connected solely because it appears in the registry.
 - No live trading or financial side-effect capability is exposed.
+
+
+## Deploy Preview origin policy
+
+- The System Hub allows the production NOVA origin and the exact site-specific HTTPS Netlify PR preview hostname pattern `deploy-preview-<number>--voomsystem.netlify.app`.
+- Arbitrary `*.netlify.app` origins, lookalike site names, and non-HTTPS preview origins remain rejected.
+- The Integration Center CI runs the System Hub CORS contract tests so the preview policy is checked with the UI changes.
