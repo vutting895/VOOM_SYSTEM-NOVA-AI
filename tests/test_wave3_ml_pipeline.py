@@ -118,6 +118,28 @@ class TestWave3Pipeline(unittest.TestCase):
         self.assertLess(trade["exit_price"], trade["stop_price"])
         self.assertAlmostEqual(trade["exit_price"], 1990.0 - 0.02)
 
+    def test_backtest_entry_candle_opening_gap_is_not_a_pre_entry_fill(self):
+        frame = synthetic_bars(200)
+        frame.loc[101, ["open", "high", "low", "close"]] = [1990.0, 2001.0, 1989.0, 2000.0]
+        features = pd.DataFrame(0.0, index=frame.index, columns=[
+            "wave3_long_rule_breakout", "wave3_long_fib_score", "wave3_long_entry_price",
+            "smc_score_long", "rsi_buy_gate", "momentum_5_positive", "volume_gate",
+            "near_fib_618", "discount_zone", "h1_trend_up", "deep_trend_gate",
+            "choch_rule_up", "atr_stop_gate", "spread_gate", "atr_price",
+        ])
+        features["atr_price"] = 0.2
+        features.loc[100, ["wave3_long_rule_breakout", "wave3_long_fib_score",
+                           "wave3_long_entry_price", "smc_score_long",
+                           "rsi_buy_gate", "momentum_5_positive", "volume_gate",
+                           "near_fib_618", "discount_zone", "h1_trend_up",
+                           "deep_trend_gate", "choch_rule_up", "atr_stop_gate",
+                           "spread_gate"]] = [1, 80, 2000, 85, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        indices = np.arange(100, 120)
+        probs = np.tile(np.array([0.05, 0.10, 0.85]), (len(indices), 1))
+        trade = backtest_window(frame, features, indices, probs, require_news_calendar=False)["trades"][0]
+        self.assertEqual(trade["exit_reason"], "stop_loss")
+        self.assertAlmostEqual(trade["exit_price"], trade["stop_price"] - 0.02)
+
     def test_backtest_daily_entry_cap_uses_executable_entry_utc_day(self):
         frame = synthetic_bars(200)
         frame["timestamp"] = pd.date_range("2025-12-31T22:45:00Z", periods=len(frame), freq="15min")
