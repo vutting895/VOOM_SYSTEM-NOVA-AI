@@ -73,3 +73,9 @@ test('owner changes and sign-out clear previous tenant connection and verificati
   assert.match(page, /setVerificationByConnection\(\{\}\)/);
   assert.match(page, /setSnapshot\(\{ integrations: \[\], connections: \[\], health \}\)/);
 });
+
+test('planned providers are visible but explicitly non-connectable until adapters pass gates', () => {
+  for (const id of ['github', 'google-ai-studio', 'cloudflare', 'netlify', 'flyio-sprites']) assert.ok(page.includes("id: '" + id + "'"));
+  assert.match(page, /PLANNED · DISABLED/);
+  assert.match(page, /ยังไม่มีปุ่มเชื่อมต่อ/);
+});
