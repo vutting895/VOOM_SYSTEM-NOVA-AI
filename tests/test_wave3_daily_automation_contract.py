@@ -17,6 +17,8 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "FILE_REWRITE",
             "CP_UTF8",
             "NEWS_EXPORT_SUCCESS",
+            "write_failed",
+            "row_written==0",
         ):
             self.assertIn(required, source)
         for forbidden in ("OrderSend(", "CTrade", "PositionOpen(", "PositionClose("):
@@ -29,10 +31,15 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "rev-list --left-right --count",
             "'--ff-only'",
             "VOOM_USD_High_Impact_Daily.csv",
+            "coverage_end_exclusive_utc",
+            "latestClosedBarEnd",
             "--daily-candidate-only",
             "AvailableBytes",
             "tools\\refresh_wave3_daily_data.py",
             "order_submission_enabled",
+            "does not overlap the saved last bar",
+            "_commit_dataset_pair",
+            "_recover_dataset_pair",
         ):
             self.assertIn(required, source)
         self.assertIn("merge", source)
