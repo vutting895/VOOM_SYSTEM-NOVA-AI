@@ -18,6 +18,9 @@ on:
       - "package.json"
       - "bun.lock"
       - "src/**"
+      - "server.ts"
+      - "netlify.toml"
+      - "public/**"
       - "docs/NOVA-INTEGRATION-CENTER-FULL-AUTOMATION.md"
 
 permissions:
