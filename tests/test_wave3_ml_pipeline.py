@@ -605,5 +605,14 @@ class TestWave3Pipeline(unittest.TestCase):
 
 
 
+class TestWave3IndicatorEdgeCases(unittest.TestCase):
+    def test_rsi_is_100_for_strictly_rising_series_and_50_for_flat_series(self):
+        from workers.strategy.wave3_ml_pipeline import _rsi
+        rising = pd.Series([float(i) for i in range(40)])
+        flat = pd.Series([100.0] * 40)
+        self.assertEqual(float(_rsi(rising).iloc[-1]), 100.0)
+        self.assertEqual(float(_rsi(flat).iloc[-1]), 50.0)
+
+
 if __name__ == "__main__":
     unittest.main()
