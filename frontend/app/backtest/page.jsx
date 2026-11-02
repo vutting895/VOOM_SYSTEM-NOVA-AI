@@ -23,6 +23,16 @@ export default function BacktestPage() {
   const [savedDataset, setSavedDataset] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const marketBusyRef = useRef(false);
+  const [clockNow, setClockNow] = useState(0);
+  useEffect(() => {
+    const updateClock = () => setClockNow(Date.now());
+    updateClock();
+    const timer = setInterval(updateClock, 5000);
+    return () => clearInterval(timer);
+  }, []);
+  const marketFresh = Boolean(marketFresh && marketData?.tick?.time
+    && clockNow > 0 && Number.isFinite(Date.parse(marketData.tick.time))
+    && Math.max(0, clockNow - Date.parse(marketData.tick.time)) <= 60000);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -72,7 +82,7 @@ export default function BacktestPage() {
       }
     } catch (err) {
       setMarketError(err?.message || 'ไม่สามารถดึงข้อมูลตลาดได้');
-      if (quiet) setMarketData(current => current ? { ...current, freshness: 'stale' } : current);
+      setMarketData(current => current ? { ...current, freshness: 'stale' } : current);
     } finally {
       marketBusyRef.current = false;
       setMarketBusy(false);
@@ -156,7 +166,7 @@ export default function BacktestPage() {
       <div className="nova-bt-grid">
 
         <section className="nova-bt-panel nova-bt-wide">
-          <div className="nova-bt-panel-head"><div><small>LIVE / EXNESS MT5 DEMO · READ ONLY</small><h2>ข้อมูลตลาดเรียลไทม์</h2></div><span className="nova-bt-tag">{marketData?.freshness === 'fresh' ? 'LIVE FEED' : marketData ? 'STALE / DELAYED' : 'NOT CONNECTED'}</span></div>
+          <div className="nova-bt-panel-head"><div><small>LIVE / EXNESS MT5 DEMO · READ ONLY</small><h2>ข้อมูลตลาดเรียลไทม์</h2></div><span className="nova-bt-tag">{marketFresh ? 'LIVE FEED' : marketData ? 'STALE / DELAYED' : 'NOT CONNECTED'}</span></div>
           <div className="nova-bt-actions">
             <span>ดึง Tick ล่าสุดและแท่ง OHLCV ผ่าน NOVA System Hub<br/>ใช้เฉพาะ Exness Demo connection ของบัญชีที่ Login อยู่</span>
             <div className="nova-bt-actions-buttons"><button className="nova-bt-run" type="button" onClick={() => refreshMarketData(false)} disabled={marketBusy || authState !== 'ready'}>{marketBusy ? 'กำลังดึงข้อมูล…' : 'ดึงข้อมูลตลาดล่าสุด'}</button>{marketData && <button className="nova-bt-run" type="button" onClick={saveMarketDataset} disabled={datasetSaveBusy || authState !== 'ready'}>{datasetSaveBusy ? 'กำลังบันทึก…' : 'บันทึก Dataset'}</button>}</div>
@@ -166,7 +176,7 @@ export default function BacktestPage() {
           {marketData?.tick && <div className="nova-bt-live-grid" aria-live="polite">
             <div className="nova-bt-metric"><small>{marketData.symbol} · BID</small><strong>{marketData.tick.bid}</strong><em>{marketData.timeframe}</em></div>
             <div className="nova-bt-metric"><small>ASK</small><strong>{marketData.tick.ask}</strong><em>Spread {marketData.tick.spread || '—'}</em></div>
-            <div className="nova-bt-metric"><small>LAST / MID</small><strong>{marketData.tick.last || '—'}</strong><em>{marketData.freshness === 'fresh' ? 'ข้อมูลสด ≤ 60 วินาที' : 'ข้อมูลอาจล่าช้า / ตลาดปิด'}</em></div>
+            <div className="nova-bt-metric"><small>LAST / MID</small><strong>{marketData.tick.last || '—'}</strong><em>{marketFresh ? 'ข้อมูลสด ≤ 60 วินาที' : 'ข้อมูลอาจล่าช้า / ตลาดปิด'}</em></div>
             <div className="nova-bt-metric"><small>HISTORICAL BARS</small><strong>{marketData.count}</strong><em>แท่งล่าสุดแยกออกจาก Backtest input</em></div>
           </div>}
           {marketData?.tick?.time && <p className="nova-bt-foot">เวลาของ Tick: {new Date(marketData.tick.time).toLocaleString()} · รับข้อมูลจาก Hub: {new Date(marketData.receivedAt).toLocaleString()} · Source: {marketData.source}</p>}
