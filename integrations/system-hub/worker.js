@@ -313,7 +313,7 @@ function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 function safePriceDecimal(value, digits) {
-  if (typeof value === "string" && /^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/.test(value)) return value;
+  if (typeof value === "string" && /^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(value)) return value;
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0
     || !Number.isInteger(digits) || digits < 0 || digits > 12) return null;
   // MT5 digits define the broker's actual quoted precision. Emit a decimal
