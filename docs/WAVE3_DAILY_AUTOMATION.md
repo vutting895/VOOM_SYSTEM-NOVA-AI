@@ -98,8 +98,8 @@ The Cloudflare Free implementation is deliberately split from the Windows-only M
 
 - `integrations/wave3-cloud-scheduler` is a lightweight Cloudflare Worker. Its Cron Trigger runs at 20:15 UTC (03:15 Asia/Bangkok) and dispatches a fixed `repository_dispatch` event to this repository. It does not run Python, XGBoost, PyTorch, or model training inside Workers.
 - The Worker is pinned to `vutting895/VOOM_SYSTEM-NOVA-AI`, sends only a scheduled timestamp and non-execution flags, and never accepts arbitrary dispatch URLs or user-supplied workflow names.
-- Configure `GITHUB_DISPATCH_TOKEN` as a Worker secret with the minimum GitHub permission needed to create repository dispatch events. Do not place it in Wrangler files, Git, logs, or client-side code.
-- Deploying the scheduler requires the owner to configure the Worker secret and deploy this Worker. This PR does not deploy or alter Cloudflare resources.
+- Configure `GITHUB_DISPATCH_TOKEN` as a Worker secret using a fine-grained GitHub token scoped only to this repository with Contents: write permission (required by the repository dispatch endpoint). Do not place it in Wrangler files, Git, logs, or client-side code.
+- The `Wave3 Cloud Daily Readiness Gate` consumes the dispatch and uploads a small readiness artifact. It currently records `blocked / cloud_market_data_adapter_not_configured`; it intentionally does not train on stale historical files. Deploying the scheduler requires the owner to configure the Worker secret and deploy this Worker. This PR does not deploy or alter Cloudflare resources.
 
 ### Free-plan compute boundary
 
