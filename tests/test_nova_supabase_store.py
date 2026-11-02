@@ -147,5 +147,52 @@ class SupabaseStoreTests(unittest.TestCase):
         self.assertEqual(row["status"], "completed")
 
 
+class IngestionAuditTests(unittest.TestCase):
+    def test_failed_upsert_records_sanitized_failure_and_reraises_original(self):
+        import importlib.util
+        from pathlib import Path
+        main_path = Path(__file__).resolve().parents[1] / "workers" / "data-ingestion" / "main_prototype.py"
+        spec = importlib.util.spec_from_file_location("nova_ingestion_main", main_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        original = RuntimeError("provider failed with sensitive response")
+        class FailingStore:
+            def __init__(self):
+                self.audit = None
+            def upsert_candles(self, *_args, **_kwargs):
+                raise original
+            def record_ingestion_run(self, **kwargs):
+                self.audit = kwargs
+
+        store = FailingStore()
+        candles = [{"is_closed": True}]
+        with self.assertRaises(RuntimeError) as raised:
+            module.persist_candles_with_audit(store, candles, symbol="BTCUSDT", timeframe="1h")
+        self.assertIs(raised.exception, original)
+        self.assertEqual(store.audit["status"], "failed")
+        self.assertEqual(store.audit["error_code"], "ingestion_failed")
+        self.assertEqual(store.audit["received_count"], 1)
+
+    def test_failure_audit_error_does_not_mask_original_upsert_error(self):
+        import importlib.util
+        from pathlib import Path
+        main_path = Path(__file__).resolve().parents[1] / "workers" / "data-ingestion" / "main_prototype.py"
+        spec = importlib.util.spec_from_file_location("nova_ingestion_main", main_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        original = RuntimeError("upsert_failed")
+        class FailingStore:
+            def upsert_candles(self, *_args, **_kwargs):
+                raise original
+            def record_ingestion_run(self, **_kwargs):
+                raise RuntimeError("ledger_unavailable")
+
+        with self.assertRaises(RuntimeError) as raised:
+            module.persist_candles_with_audit(FailingStore(), [{"is_closed": True}], symbol="BTCUSDT", timeframe="1h")
+        self.assertIs(raised.exception, original)
+
+
 if __name__ == "__main__":
     unittest.main()
