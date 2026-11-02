@@ -1,0 +1,27 @@
+name: NOVA Central Data CI
+
+on:
+  pull_request:
+    paths:
+      - "workers/data-ingestion/**"
+      - "supabase/pending/**"
+      - "tests/test_nova_supabase_store.py"
+      - "docs/architecture/NOVA-CENTRAL-DATA-PLATFORM.md"
+      - ".github/workflows/nova-central-data-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  persistence-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile ingestion modules
+        run: python -m compileall -q workers/data-ingestion
+      - name: Run Supabase persistence contract tests
+        run: python -m unittest tests.test_nova_supabase_store -v
