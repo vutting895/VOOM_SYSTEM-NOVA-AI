@@ -25,7 +25,8 @@ export default function AuthCallbackPage() {
       if (userError || !userData.user) throw new Error("callback_user_verification_failed");
 
       const requestedNext = new URL(window.location.href).searchParams.get("next");
-      const destination = ALLOWED_DESTINATIONS.has(requestedNext) ? requestedNext : "/profile";
+      const isDatasetDestination = /^\/datasets\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedNext || "");
+      const destination = ALLOWED_DESTINATIONS.has(requestedNext) || isDatasetDestination ? requestedNext : "/profile";
       if (!active) return;
 
       setState("success");
