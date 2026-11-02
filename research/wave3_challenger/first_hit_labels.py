@@ -1,5 +1,6 @@
 """Isolated, research-only BUY first-hit labels. Never generates signals or orders."""
 from __future__ import annotations
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import math
 
@@ -40,6 +41,8 @@ def _validate_bars(bars):
         raise ValueError("bars_empty")
     out, previous = [], None
     for i, raw in enumerate(bars):
+        if not isinstance(raw, Mapping):
+            raise ValueError("bar_must_be_mapping")
         ts = _utc(raw.get("timestamp"), f"bar_{i}_timestamp")
         if previous is not None and ts <= previous:
             raise ValueError("bar_timestamps_must_be_strictly_increasing")
@@ -65,7 +68,7 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
     OHLC is MT5 Bid: charge spread at BUY entry, then one-side slippage at each
     fill. Gap-through fills are not modeled. Commission must be verified.
     """
-    if not commission_verified:
+    if commission_verified is not True:
         raise ValueError("commission_schedule_unverified")
     if not isinstance(commission_source, str) or not commission_source.strip():
         raise ValueError("commission_source_required")
@@ -80,6 +83,8 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
     market = _validate_bars(bars)
     ordered, last = [], -1
     for signal in signals:
+        if not isinstance(signal, Mapping):
+            raise ValueError("signal_must_be_mapping")
         i = signal.get("signal_index")
         if type(i) is not int or not 0 <= i < len(market):
             raise ValueError("signal_index_out_of_range")
