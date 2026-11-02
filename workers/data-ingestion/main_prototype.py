@@ -47,6 +47,49 @@ def fetch_ohlcv(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 500)
     return result
 
 
+def persist_candles_with_audit(store, candles: list[dict], *, symbol: str, timeframe: str) -> int:
+    """Persist closed candles and record a sanitized success or failure attempt."""
+    closed_candles = [candle for candle in candles if candle["is_closed"]]
+    try:
+        submitted = store.upsert_candles(
+            closed_candles,
+            symbol=symbol,
+            timeframe=timeframe,
+            source="binance_public",
+            environment="public",
+        )
+    except Exception:
+        # The ledger is best-effort: never mask the original ingestion failure,
+        # and never copy exception text that might contain provider/secret data.
+        try:
+            store.record_ingestion_run(
+                source="binance_public",
+                environment="public",
+                symbol=symbol,
+                timeframe=timeframe,
+                status="failed",
+                owner_id=None,
+                received_count=len(candles),
+                submitted_count=0,
+                error_code="ingestion_failed",
+            )
+        except Exception:
+            pass
+        raise
+
+    store.record_ingestion_run(
+        source="binance_public",
+        environment="public",
+        symbol=symbol,
+        timeframe=timeframe,
+        status="completed",
+        owner_id=None,
+        received_count=len(candles),
+        submitted_count=submitted,
+    )
+    return submitted
+
+
 def main():
     symbol = os.getenv("NOVA_MARKET_SYMBOL", "BTCUSDT")
     interval = os.getenv("NOVA_MARKET_INTERVAL", "1h")
@@ -57,24 +100,7 @@ def main():
     if persist:
         from supabase_store import SupabaseStore
         store = SupabaseStore.from_env()
-        closed_candles = [candle for candle in candles if candle["is_closed"]]
-        submitted = store.upsert_candles(
-            closed_candles,
-            symbol=symbol,
-            timeframe=interval,
-            source="binance_public",
-            environment="public",
-        )
-        store.record_ingestion_run(
-            source="binance_public",
-            environment="public",
-            symbol=symbol,
-            timeframe=interval,
-            status="completed",
-            owner_id=None,
-            received_count=len(candles),
-            submitted_count=submitted,
-        )
+        submitted = persist_candles_with_audit(store, candles, symbol=symbol, timeframe=interval)
         persistence_status = "persisted"
     print(json.dumps({
         "status": "ok",
