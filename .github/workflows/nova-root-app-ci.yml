@@ -43,5 +43,9 @@ jobs:
         run: node --test src/IntegrationCenterPage.contract.test.mjs
       - name: Run System Hub authorization and CORS tests
         run: node --test integrations/system-hub/tests/system-hub.test.mjs
+      - name: Install Wrangler for System Hub build validation
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+      - name: Validate System Hub Worker bundle
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
       - name: Build NOVA Vite application
         run: bun run build
