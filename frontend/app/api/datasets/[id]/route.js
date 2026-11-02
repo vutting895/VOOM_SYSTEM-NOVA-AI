@@ -68,3 +68,28 @@ export async function GET(request, { params }) {
     return agentApiJson({ error: "dataset_decode_failed" }, 409);
   }
 }
+
+export async function DELETE(request, { params }) {
+  const auth = await authenticateAgentRequest(request);
+  if (!auth.ok) return auth.response;
+  const resolved = await params;
+  const id = resolved?.id;
+  if (!isUuid(id)) return agentApiJson({ error: "dataset_not_found" }, 404);
+
+  const { data: manifest, error } = await auth.supabase
+    .from("nova_market_datasets")
+    .select("id,storage_path,revoked_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !manifest) return agentApiJson({ error: "dataset_not_found" }, 404);
+  if (!manifest.revoked_at) {
+    const { data: revoked, error: revokeError } = await auth.supabase
+      .rpc("revoke_nova_market_dataset", { p_dataset_id: id });
+    if (revokeError || revoked !== true) {
+      return agentApiJson({ error: "dataset_revoke_failed" }, 503);
+    }
+  }
+  // Revocation is authoritative even if object cleanup is temporarily unavailable.
+  await auth.supabase.storage.from("nova-datasets").remove([manifest.storage_path]);
+  return agentApiJson({ id, status: "revoked", resolverEnabled: false });
+}
