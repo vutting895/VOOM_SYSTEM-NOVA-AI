@@ -55,7 +55,7 @@
       "notes": "Existing owner-scoped Bridge/Relay/Proxy path. Per-connection account read is required for data_verified. Order and live trading capabilities are excluded."
     },
     {
-      "id": "nova-ai-worker",
+      "id": "nova-ai",
       "name": "NOVA AI Worker",
       "category": "ai",
       "lifecycle": "active_registry",
