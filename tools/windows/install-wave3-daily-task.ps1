@@ -29,6 +29,13 @@ if ($LASTEXITCODE -ne 0 -or $Dirty.Count -gt 0) {
 if (-not (Get-Command py.exe -ErrorAction SilentlyContinue)) {
     throw 'Python Launcher is required. Install Python 3.11 first.'
 }
+$LocalDriveRoot = [System.IO.Path]::GetPathRoot($env:LOCALAPPDATA)
+$AvailableBytes = ([System.IO.DriveInfo]::new($LocalDriveRoot)).AvailableFreeSpace
+$MinimumFreeBytes = 2GB
+if ($AvailableBytes -lt $MinimumFreeBytes) {
+    $AvailableGiB = [math]::Round($AvailableBytes / 1GB, 2)
+    throw "Daily CPU PyTorch environment requires at least 2 GiB free on $LocalDriveRoot; currently available: $AvailableGiB GiB."
+}
 
 $SecretRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\secrets'
 $TenantPath = Join-Path $SecretRoot 'mt5-tenant-id.txt'
