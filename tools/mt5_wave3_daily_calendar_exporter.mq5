@@ -89,11 +89,21 @@ bool ExportCalendar()
       return false;
    }
 
-   FileWrite(file,"timestamp","impact","currency","event","country",
+   ResetLastError();
+   uint header_written=FileWrite(file,"timestamp","impact","currency","event","country",
              "time_mode","calendar_source","calendar_timezone",
              "coverage_start_utc","coverage_end_exclusive_utc",
              "event_id","value_id");
+   if(header_written==0)
+   {
+      int write_error=GetLastError();
+      FileClose(file);
+      FileDelete(temp_name,FILE_COMMON);
+      PrintFormat("NEWS_EXPORT_INVALID: CSV header write failed, error=%d; previous valid export preserved",write_error);
+      return false;
+   }
 
+   bool write_failed=false;
    int queried_values=0;
    int high_events=0;
    int lookup_failures=0;
@@ -156,7 +166,8 @@ bool ExportCalendar()
          StringReplace(event_name,"\r"," ");
          StringReplace(event_name,"\n"," ");
 
-         FileWrite(file,
+         ResetLastError();
+         uint row_written=FileWrite(file,
                    FormatUtc(values[i].time),
                    "high",
                    country.currency,
@@ -169,6 +180,13 @@ bool ExportCalendar()
                    FormatUtc(server_now),
                    StringFormat("%I64u",values[i].event_id),
                    StringFormat("%I64u",values[i].id));
+         if(row_written==0)
+         {
+            write_failed=true;
+            PrintFormat("NEWS_EXPORT_ERROR: CSV row write failed for value_id=%I64u, error=%d",
+                        values[i].id,GetLastError());
+            break;
+         }
          high_events++;
       }
       cursor=chunk_end;
@@ -177,7 +195,7 @@ bool ExportCalendar()
    FileFlush(file);
    FileClose(file);
 
-   if(query_failures>0 || lookup_failures>0 || unknown_time_modes>0 || high_events==0)
+   if(write_failed || query_failures>0 || lookup_failures>0 || unknown_time_modes>0 || high_events==0)
    {
       FileDelete(temp_name,FILE_COMMON);
       PrintFormat("NEWS_EXPORT_INVALID: query_failures=%d lookup_failures=%d unknown_time_modes=%d high_events=%d; previous valid export preserved",
