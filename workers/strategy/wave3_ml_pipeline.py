@@ -1032,7 +1032,7 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
                 if long:
                     # A BUY stop crossed by an opening gap fills at the worse
                     # executable open, not at the stale stop barrier.
-                    stop_fill = min(stop, float(frame["open"].iloc[j]))
+                    stop_fill = min(stop, float(frame["open"].iloc[j])) if j > entry_i else stop
                     exit_price = stop_fill - SLIPPAGE_PRICE_PER_SIDE
                 else:
                     exit_price = stop + SLIPPAGE_PRICE_PER_SIDE
