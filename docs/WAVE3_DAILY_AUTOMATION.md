@@ -27,7 +27,7 @@ Requirements:
 - Windows with the Exness Demo MT5 terminal already logged in to the intended Demo account.
 - The existing tenant-specific read-only Bridge must be provisioned and running locally on port 8787.
 - The tenant ID and matching private bearer token must already exist in %LOCALAPPDATA%\VOOM_SYSTEM\secrets. This installer never creates, prints or uploads secrets.
-- Python 3.11, Git for Windows, MetaEditor/MT5 and sufficient free disk for CPU PyTorch and the persistent market history.
+- Python 3.11, Git for Windows, MetaEditor/MT5 and at least 2 GiB free on the volume containing %LOCALAPPDATA% for CPU PyTorch, dependencies and candidate artifacts. The installer and daily runner fail closed below this minimum.
 - Windows time zone must be SE Asia Standard Time (Asia/Bangkok).
 
 ### Install the hourly calendar exporter
