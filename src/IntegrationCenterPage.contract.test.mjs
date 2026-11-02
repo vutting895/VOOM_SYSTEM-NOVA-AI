@@ -7,6 +7,7 @@ const hub = await readFile(new URL('../integrations/system-hub/worker.js', impor
 const server = await readFile(new URL('../server.ts', import.meta.url), 'utf8');
 const netlify = await readFile(new URL('../netlify.toml', import.meta.url), 'utf8');
 const redirects = await readFile(new URL('../public/_redirects', import.meta.url), 'utf8');
+const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8');
 
 test('Integration Center is routed and uses the authenticated System Hub control plane', () => {
   assert.match(app, /path="\/integrations" element={<IntegrationCenterPage \/>}/);
@@ -56,4 +57,11 @@ test('production hosting preserves the Integration Center route and Supabase cal
 
 test('Hub is not labeled healthy unless authentication is configured', () => {
   assert.match(page, /snapshot\.health\?\.status === 'ready' && snapshot\.health\?\.authConfigured === true/);
+});
+
+test('Vite can reuse the existing public Netlify configuration without changing account settings', () => {
+  assert.match(viteConfig, /envPrefix: \['VITE_', 'NEXT_PUBLIC_'\]/);
+  assert.match(page, /VITE_SUPABASE_URL \|\| runtimeEnv\.NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(page, /VITE_SUPABASE_ANON_KEY \|\| runtimeEnv\.NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  assert.match(page, /VITE_SYSTEM_HUB_URL \|\| runtimeEnv\.NEXT_PUBLIC_SYSTEM_HUB_URL/);
 });
