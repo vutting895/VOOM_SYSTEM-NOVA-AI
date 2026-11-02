@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import IntegrationCenterPage from './IntegrationCenterPage';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 
 const navigation = [
@@ -6,6 +7,7 @@ const navigation = [
   { label: 'MARKETS', href: '/markets', code: '02' },
   { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
   { label: 'BROKER HUB', href: '/broker', code: '04' },
+  { label: 'INTEGRATION CENTER', href: '/integrations', code: '05' },
   { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
   { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
   { label: 'AI CHAT', href: '/chat', code: '07' },
@@ -99,6 +101,7 @@ function JarvisLayout() {
           <Route path="/" element={<OverviewPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/broker" element={<BrokerPage />} />
+          <Route path="/integrations" element={<IntegrationCenterPage />} />
           <Route path="/gen-ai" element={<GenAIPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/learning-universe" element={<LearningUniversePage />} />
