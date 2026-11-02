@@ -38,6 +38,12 @@ try {
 
     $port = Test-NetConnection -ComputerName 127.0.0.1 -Port 8787 -WarningAction SilentlyContinue
     if (-not $port.TcpTestSucceeded) { throw 'MT5 read-only Bridge is not listening on 127.0.0.1:8787.' }
+    $LocalDriveRoot = [System.IO.Path]::GetPathRoot($env:LOCALAPPDATA)
+    $AvailableBytes = ([System.IO.DriveInfo]::new($LocalDriveRoot)).AvailableFreeSpace
+    if ($AvailableBytes -lt 2GB) {
+        $AvailableGiB = [math]::Round($AvailableBytes / 1GB, 2)
+        throw "Daily training requires at least 2 GiB free on $LocalDriveRoot; currently available: $AvailableGiB GiB."
+    }
     $python = Join-Path $StateRoot '.venv\Scripts\python.exe'
     if (-not (Test-Path -LiteralPath $python)) { throw 'Daily Python environment is not installed. Run install-wave3-daily-task.ps1 once.' }
     $requirements = Join-Path $resolved 'requirements-wave3.txt'
