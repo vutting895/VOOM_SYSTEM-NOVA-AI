@@ -1859,6 +1859,315 @@ def run_experiment(data_path: str | Path, model_dir: str | Path, report_path: st
     return report
 
 
+
+def _build_daily_candidate_features(
+    frame: pd.DataFrame,
+    frozen_oos_start: pd.Timestamp,
+    live_data_start: pd.Timestamp,
+) -> pd.DataFrame:
+    """Build independent causal feature segments around the immutable historical OOS window."""
+    timestamps = pd.to_datetime(frame["timestamp"], utc=True)
+    old_positions = np.flatnonzero((timestamps < frozen_oos_start).to_numpy())
+    live_positions = np.flatnonzero((timestamps >= live_data_start).to_numpy())
+    if len(old_positions) < 3000 or len(live_positions) < 260:
+        raise ValueError(
+            "daily candidate needs >=3000 pre-OOS bars and >=260 fresh post-baseline M15 bars; "
+            f"old={len(old_positions)} live={len(live_positions)}"
+        )
+    feature_parts = []
+    for positions in (old_positions, live_positions):
+        if not len(positions):
+            continue
+        segment = frame.iloc[positions].reset_index(drop=True)
+        part = build_causal_features(segment)
+        part.index = positions
+        feature_parts.append(part)
+    # The frozen OOS interval is intentionally left as NaN and removed by make_labeled_frame.
+    features = pd.concat(feature_parts).sort_index()
+    return features.reindex(frame.index)
+
+
+def run_daily_candidate_experiment(
+    data_path: str | Path,
+    model_dir: str | Path,
+    report_path: str | Path,
+    news_calendar_path: str | Path,
+    live_data_start_utc: str,
+    tuning_trials: int = AUTO_TUNING_TRIALS,
+) -> dict[str, Any]:
+    """Train a non-promotable daily candidate without reading the frozen historical Final OOS."""
+    if not news_calendar_path:
+        raise ValueError("daily candidate training requires a current verified MT5 high-impact news export")
+    if not 1 <= int(tuning_trials) <= 12:
+        raise ValueError("tuning_trials must be between 1 and 12")
+    frozen_oos_start = pd.Timestamp("2026-07-01T00:00:00Z")
+    live_data_start = pd.Timestamp(live_data_start_utc)
+    live_data_start = (
+        live_data_start.tz_localize("UTC") if live_data_start.tzinfo is None
+        else live_data_start.tz_convert("UTC")
+    )
+    if live_data_start <= frozen_oos_start:
+        raise ValueError("daily live data boundary must be later than the frozen historical OOS start")
+
+    frame = load_bars(data_path)
+    news_safe = load_news_calendar(news_calendar_path, frame)
+    news_provenance = _news_calendar_manifest(news_calendar_path, news_safe, len(frame))
+    if news_safe is None:
+        raise ValueError("daily candidate requires a valid current high-impact USD calendar")
+    data_sha = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
+    timestamps = pd.to_datetime(frame["timestamp"], utc=True)
+    frozen_positions = np.flatnonzero((timestamps >= frozen_oos_start).to_numpy())
+    live_positions = np.flatnonzero((timestamps >= live_data_start).to_numpy())
+    if not len(frozen_positions) or not len(live_positions):
+        raise ValueError("dataset must contain both the frozen OOS boundary and fresh post-baseline bars")
+    first_frozen_source_index = int(frozen_positions[0])
+    first_live_source_index = int(live_positions[0])
+
+    print(
+        "DAILY CANDIDATE: building independent feature histories; frozen 2026-07-01 OOS interval excluded",
+        flush=True,
+    )
+    features = _build_daily_candidate_features(frame, frozen_oos_start, live_data_start)
+    X, y, meta = make_labeled_frame(frame, features)
+    source_indices = meta["source_index"].to_numpy(dtype=np.int64)
+    meta_times = pd.to_datetime(meta["timestamp"], utc=True)
+    # Pre-OOS labels whose 12-bar forward endpoint touches the frozen OOS interval are purged.
+    pre_oos_mask = (
+        (meta_times < frozen_oos_start).to_numpy()
+        & (source_indices + HORIZON_BARS < first_frozen_source_index)
+    )
+    # Fresh bars are eligible only after their complete 12-bar label horizon has closed.
+    live_mask = (
+        (meta_times >= live_data_start).to_numpy()
+        & (source_indices >= first_live_source_index)
+        & (source_indices + HORIZON_BARS < len(frame))
+    )
+    training_mask = pre_oos_mask | live_mask
+    train_indices = np.flatnonzero(training_mask)
+    old_rows = int(pre_oos_mask.sum())
+    live_rows = int(live_mask.sum())
+    if old_rows < 5000 or live_rows < 200 or len(train_indices) < 5200:
+        raise ValueError(
+            "insufficient mature daily candidate rows; "
+            f"pre_oos={old_rows} fresh_live={live_rows} total={len(train_indices)}"
+        )
+
+    X_train = X.iloc[train_indices].reset_index(drop=True)
+    y_train = y.iloc[train_indices].reset_index(drop=True)
+    meta_train = meta.iloc[train_indices].reset_index(drop=True)
+    # Segment IDs stop the 60-bar LSTM sequence builder joining data across the frozen OOS gap.
+    segment_ids = np.where(
+        pd.to_datetime(meta_train["timestamp"], utc=True).to_numpy() < frozen_oos_start.to_datetime64(),
+        0,
+        1,
+    ).astype(np.int8)
+    if set(np.unique(segment_ids)) != {0, 1}:
+        raise ValueError("daily candidate must contain both independent history segments")
+
+    print(
+        f"DAILY CANDIDATE rows={len(X_train)} pre_oos={old_rows} fresh_live={live_rows}; "
+        "running inner-fold-only XGBoost tuning and XGBoost/LSTM fitting",
+        flush=True,
+    )
+    tuning = auto_tune_xgb(
+        X_train,
+        y_train,
+        meta_train,
+        n_trials=int(tuning_trials),
+        study_name="daily_candidate_inner_folds_only",
+    )
+    if tuning.get("status") not in {"completed", "completed_with_fallback"}:
+        raise RuntimeError(f"daily candidate inner-fold tuning did not complete: {tuning.get('status')}")
+    models = _build_models(
+        X_train,
+        y_train,
+        tuning["selected_parameters"],
+        segment_ids=segment_ids,
+    )
+
+    model_path = Path(model_dir)
+    model_path.mkdir(parents=True, exist_ok=True)
+    models[0].save_model(str(model_path / "xgb_model.json"))
+    torch.save(
+        {
+            "state_dict": models[2].state_dict(),
+            "input_size": int(X_train.shape[1]),
+            "hidden_size": 32,
+            "scaler": models[1],
+            "feature_columns": list(X_train.columns),
+            "label_mapping": LABEL_NAMES,
+            "sequence_length": LSTM_SEQUENCE_LENGTH,
+            "seed": SEED,
+            "training_batch_size": getattr(models[2], "_training_batch_size", LSTM_TRAIN_BATCH_SIZE),
+            "training_segments": {"0": "pre_2026-07-01_historical", "1": "post_baseline_live_data"},
+        },
+        model_path / "deep_lstm.pt",
+    )
+    reloaded = load_saved_models(model_path)
+    if reloaded[3] != list(X_train.columns):
+        raise RuntimeError("daily candidate saved model feature schema differs from training schema")
+    check_start = LSTM_SEQUENCE_LENGTH
+    check_count = min(256, len(X_train) - check_start)
+    if check_count < 1:
+        raise RuntimeError("not enough rows for model artifact round-trip verification")
+    check_X = X_train.iloc[check_start:check_start + check_count]
+    context = X_train.iloc[:check_start]
+    check_xgb, check_lstm = predict_model_probabilities(check_X, reloaded[:3], context)
+    check_ensemble = ENSEMBLE_XGB_WEIGHT * check_xgb + ENSEMBLE_LSTM_WEIGHT * check_lstm
+    in_memory_xgb, in_memory_lstm = predict_model_probabilities(check_X, models[:3], context)
+    in_memory_ensemble = ENSEMBLE_XGB_WEIGHT * in_memory_xgb + ENSEMBLE_LSTM_WEIGHT * in_memory_lstm
+    if not np.allclose(check_ensemble, in_memory_ensemble, atol=1e-6):
+        raise RuntimeError("daily candidate serialized artifacts do not reproduce ensemble probabilities")
+
+    artifacts = {}
+    for name in ("xgb_model.json", "deep_lstm.pt"):
+        artifact = model_path / name
+        artifacts[name] = {
+            "path": artifact.as_posix(),
+            "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+            "bytes": artifact.stat().st_size,
+        }
+    old_meta = meta_train.loc[segment_ids == 0, "timestamp"]
+    live_meta = meta_train.loc[segment_ids == 1, "timestamp"]
+    training_periods = {
+        "pre_oos_historical": {
+            "rows": old_rows,
+            "first_timestamp_utc": pd.Timestamp(old_meta.min()).isoformat(),
+            "last_label_timestamp_utc": pd.Timestamp(old_meta.max()).isoformat(),
+            "label_endpoint_purged_before_source_index": first_frozen_source_index,
+        },
+        "fresh_post_baseline": {
+            "rows": live_rows,
+            "first_timestamp_utc": pd.Timestamp(live_meta.min()).isoformat(),
+            "last_label_timestamp_utc": pd.Timestamp(live_meta.max()).isoformat(),
+            "live_data_start_utc": live_data_start.isoformat(),
+        },
+    }
+    manifest = {
+        "strategy": "VOOM v6.2.6.3 Wave3 + SMC daily shadow candidate",
+        "version": "6.2.6.3-daily-candidate",
+        "candidate_only": True,
+        "promotion_eligible": False,
+        "production_eligible": False,
+        "model_artifacts": artifacts,
+        "data_sha256": data_sha,
+        "bar_count": int(len(frame)),
+        "data_first_bar_utc": pd.Timestamp(frame["timestamp"].iloc[0]).isoformat(),
+        "data_last_closed_bar_utc": pd.Timestamp(frame["timestamp"].iloc[-1]).isoformat(),
+        "symbol": "XAUUSDm",
+        "timeframe": "M15",
+        "timezone": "UTC",
+        "news_calendar": news_provenance,
+        "training_rows": int(len(train_indices)),
+        "training_periods": training_periods,
+        "excluded_historical_final_oos": {
+            "start_utc": frozen_oos_start.isoformat(),
+            "end_exclusive_utc": live_data_start.isoformat(),
+            "rows_excluded": int(((meta_times >= frozen_oos_start) & (meta_times < live_data_start)).sum()),
+            "used_for_fit": False,
+            "used_for_tuning_or_calibration": False,
+            "note": "The previously inspected 2026-07-01 through pre-live-baseline interval remains frozen and excluded.",
+        },
+        "label_horizon_bars": HORIZON_BARS,
+        "pre_oos_label_purge_bars": HORIZON_BARS,
+        "xgb_parameters": tuning.get("selected_parameters", {}),
+        "inner_fold_tuning": tuning,
+        "deep_model": {
+            "type": "PyTorch two-layer LSTMClassifier",
+            "sequence_length_bars": LSTM_SEQUENCE_LENGTH,
+            "layers": [32, 32],
+            "epochs": 4,
+            "training_batch_size": getattr(models[2], "_training_batch_size", LSTM_TRAIN_BATCH_SIZE),
+            "training_loss_by_epoch": getattr(models[2], "_training_losses", []),
+            "segment_aware_sequences": True,
+            "ensemble_weight": ENSEMBLE_LSTM_WEIGHT,
+        },
+        "ensemble": {"xgb_weight": ENSEMBLE_XGB_WEIGHT, "lstm_weight": ENSEMBLE_LSTM_WEIGHT},
+        "v6_2_6_3_gates": {
+            "unchanged": True,
+            "smc_minimum": 85,
+            "xgb_buy_minimum": XGB_MIN_CONFIDENCE,
+            "lstm_buy_minimum": LSTM_MIN_CONFIDENCE,
+            "ensemble_buy_minimum": PROBABILITY_THRESHOLD,
+            "max_daily_trades": MAX_DAILY_TRADES,
+            "max_daily_loss_usd": MAX_DAILY_LOSS_USD,
+        },
+        "artifact_round_trip_verification": {
+            "passed": True,
+            "held_out_training_rows_compared": int(check_count),
+            "feature_schema_matches": True,
+            "max_probability_abs_tolerance": 1e-6,
+        },
+        "safety": {
+            "orders_submitted": False,
+            "live_trading_enabled": False,
+            "deployment_enabled": False,
+            "candidate_only": True,
+            "promotion_eligible": False,
+            "market_data_access": "read-only MT5 bridge",
+        },
+    }
+    (model_path / "model_manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
+    report = {
+        "status": "completed_daily_candidate_not_performance_approval",
+        "candidate_only": True,
+        "promotion_eligible": False,
+        "generated_utc": pd.Timestamp.now(tz="UTC").isoformat(),
+        "data": {
+            "path": str(data_path),
+            "sha256": data_sha,
+            "bar_count": int(len(frame)),
+            "first_timestamp_utc": pd.Timestamp(frame["timestamp"].iloc[0]).isoformat(),
+            "last_closed_bar_utc": pd.Timestamp(frame["timestamp"].iloc[-1]).isoformat(),
+        },
+        "training": {
+            "rows": int(len(train_indices)),
+            "class_distribution": {LABEL_NAMES[k]: int((y_train == k).sum()) for k in LABEL_NAMES},
+            "periods": training_periods,
+            "excluded_historical_final_oos": manifest["excluded_historical_final_oos"],
+            "label_purge_bars": HORIZON_BARS,
+            "inner_fold_tuning": tuning,
+            "lstm_training_loss_by_epoch": getattr(models[2], "_training_losses", []),
+        },
+        "news_calendar": news_provenance,
+        "artifacts": artifacts,
+        "artifact_round_trip_verification": manifest["artifact_round_trip_verification"],
+        "performance_gate": {
+            "status": "not_evaluated",
+            "passed": False,
+            "production_eligible": False,
+            "blockers": [
+                "Daily candidate mode deliberately does not run or modify the frozen Final OOS.",
+                "Candidate models are not promoted or deployed by the daily job.",
+                "Commission/swap and independent forward OOS evidence remain separate acceptance requirements.",
+            ],
+        },
+        "safety": {
+            "orders_submitted": False,
+            "live_trading_enabled": False,
+            "deployment_enabled": False,
+        },
+    }
+    report_file = Path(report_path)
+    report_file.parent.mkdir(parents=True, exist_ok=True)
+    report_file.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
+    print(
+        "[DAILY CANDIDATE RESULT] "
+        + json.dumps({
+            "status": report["status"],
+            "candidate_only": True,
+            "training_rows": len(train_indices),
+            "pre_oos_rows": old_rows,
+            "fresh_live_rows": live_rows,
+            "data_sha256": data_sha,
+            "news_calendar_sha256": news_provenance.get("sha256"),
+            "model_dir": str(model_path),
+            "promotion_eligible": False,
+        }, default=str),
+        flush=True,
+    )
+    return report
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", default=DEFAULT_DATA)
