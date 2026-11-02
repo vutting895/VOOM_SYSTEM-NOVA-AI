@@ -120,7 +120,7 @@ class TestWave3Pipeline(unittest.TestCase):
 
     def test_backtest_daily_entry_cap_uses_executable_entry_utc_day(self):
         frame = synthetic_bars(200)
-        frame["timestamp"] = pd.date_range("2026-01-01T22:45:00Z", periods=len(frame), freq="15min")
+        frame["timestamp"] = pd.date_range("2025-12-31T22:45:00Z", periods=len(frame), freq="15min")
         frame.loc[100:111, ["open", "high", "low", "close"]] = [2000.0, 2000.5, 1999.0, 2000.1]
         features = pd.DataFrame(0.0, index=frame.index, columns=[
             "wave3_long_breakout", "wave3_short_breakout", "bos_up", "bos_down",
