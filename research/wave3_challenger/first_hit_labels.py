@@ -175,7 +175,7 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
             "spread_model": "MT5 Bid OHLC; spread charged at BUY entry only",
             "gap_fill_model": "barrier-price fill plus slippage; gap-through execution not modeled",
             "training_eligible": True})
-        daily_count[day] = daily_count.get(day, 0) + 1
+        daily_count[entry_day] = daily_count.get(entry_day, 0) + 1
         daily_net[xb["day"]] = daily_net.get(xb["day"], 0.0) + net
         busy = exit_i
     return out
