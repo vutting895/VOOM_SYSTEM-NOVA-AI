@@ -56,7 +56,9 @@ test("the browser app uses Supabase Auth, bearer API clients, and route protecti
   assert.match(auth, /signInWithPassword/);
   assert.match(auth, /onAuthStateChange/);
   assert.match(app, /Navigate to="\/login"/);
-  assert.match(api, /Authorization/);
+  const bearer = readFileSync(new URL("../src/lib/authenticated-fetch.js", import.meta.url), "utf8");
+  assert.match(api, /fetchWithBearer/);
+  assert.match(bearer, /Authorization/);
   assert.match(api, /voom-system-hub\.suwapat787\.workers\.dev/);
   assert.match(api, /voom-system-nova-ai\.suwapat787\.workers\.dev/);
 });
