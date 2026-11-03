@@ -31,7 +31,7 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 - Two-minute expiry enforced by API filters and database constraints.
 - Single-use claim and approval via conditional PostgREST PATCH; only one request can win each state transition.
 - Owner binding via authenticated Supabase user ID, RLS, and narrow RPCs that verify `auth.uid()` inside the transaction.
-- Authenticated clients have no direct UPDATE privilege on pairing rows; state transitions are only through the restricted RPCs.
+- Authenticated clients have no direct UPDATE privilege on pairing rows and cannot SELECT the token-hash column; state transitions are only through the restricted RPCs.
 - Database trigger blocks owner, purpose, expiry, creation-time and token-hash replacement, and invalid status transitions.
 - Token is placed in a URL fragment, not a query parameter or path.
 - No provider secret or credential value is accepted by these endpoints.
