@@ -27,7 +27,8 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 
 ## Security properties
 
-- 32 bytes from Web Crypto CSPRNG; SHA-256 hash persisted.
+- 32 bytes from Web Crypto CSPRNG; SHA-256 hash persisted and never selectable by authenticated clients.
+- Owner ID is assigned by the database from `auth.uid()`; clients cannot set or read the owner ID.
 - Two-minute expiry enforced by API filters and database constraints.
 - Single-use claim and approval via conditional PostgREST PATCH; only one request can win each state transition.
 - Owner binding via authenticated Supabase user ID, RLS, and narrow RPCs that verify `auth.uid()` inside the transaction.
