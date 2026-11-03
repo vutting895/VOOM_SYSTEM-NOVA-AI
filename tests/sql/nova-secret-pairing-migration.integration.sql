@@ -17,8 +17,7 @@ VALUES (
 
 DO $test$
 BEGIN
-  IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE id = '00000000-0000-4000-8000-000000000001') <> 1 THEN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions) <> 1 THEN
     RAISE EXCEPTION 'owner_select_failed';
   END IF;
 END;
@@ -36,8 +35,7 @@ $test$;
 DO $test$
 DECLARE v_id uuid;
 BEGIN
-  SELECT id INTO v_id FROM public.secret_pairing_sessions
-    WHERE id = '00000000-0000-4000-8000-000000000001';
+  SELECT id INTO v_id FROM public.secret_pairing_sessions;
   IF (SELECT count(*) FROM public.nova_approve_secret_pairing(v_id, repeat('a', 64))
       WHERE status = 'approved') <> 1 THEN
     RAISE EXCEPTION 'owner_approval_failed';
@@ -49,7 +47,7 @@ SET LOCAL ROLE postgres;
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE id = '00000000-0000-4000-8000-000000000001'
+      
         AND status = 'approved' AND token_hash IS NULL) <> 1 THEN
     RAISE EXCEPTION 'approved_token_hash_not_cleared';
   END IF;
@@ -66,8 +64,7 @@ SET LOCAL request.jwt.claim.sub = '20000000-0000-4000-8000-000000000002';
 SET LOCAL ROLE authenticated;
 DO $test$
 BEGIN
-  IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE id = '00000000-0000-4000-8000-000000000001') <> 0 THEN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions) <> 0 THEN
     RAISE EXCEPTION 'foreign_owner_select_not_denied';
   END IF;
   IF (SELECT count(*) FROM public.nova_claim_secret_pairing(repeat('a', 64))) <> 0 THEN
