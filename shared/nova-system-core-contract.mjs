@@ -77,6 +77,8 @@ export function evaluateCoreCapability(request, trustedContext) {
   if (trustedContext.identityVerified !== true) return deny("identity_unverified");
   if (trustedContext.tenantAuthorized !== true) return deny("tenant_not_authorized");
 
+  if (Object.keys(request).some((key) => key !== "capability")) return deny("unknown_request_fields");
+
   const capability = request.capability;
   if (typeof capability !== "string" || !capability) return deny("capability_invalid");
   if (FORBIDDEN.has(capability)) return deny("capability_forbidden");
