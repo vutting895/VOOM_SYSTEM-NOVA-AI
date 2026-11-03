@@ -5,3 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# BrowserRouter deep links (including /connect) must resolve to the Vite SPA.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
