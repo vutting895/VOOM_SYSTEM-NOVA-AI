@@ -78,6 +78,24 @@ jobs:
       - name: Test chat API authentication before body parsing
         working-directory: .
         run: node --test tests/chat-api-auth-order.test.mjs
+      - name: Test bounded NOVA chat history
+        working-directory: .
+        run: node --test tests/chat-history.test.mjs
+      - name: Test customer Zero-Menu Command Center contracts
+        working-directory: .
+        run: node --test tests/customer-command-center.test.mjs
+      - name: Test customer strategy selection and preference isolation
+        working-directory: .
+        run: node --test tests/customer-strategy-selection.test.mjs
+      - name: Test NOVA durable approval lifecycle contracts
+        working-directory: .
+        run: node --test tests/nova-approval-*.test.mjs
+      - name: Test NOVA Video Workspace tenant and free-only contracts
+        working-directory: .
+        run: node --test tests/nova-video-workspace.test.mjs
+      - name: Test NOVA Video API external-origin CORS contract
+        working-directory: .
+        run: node --test tests/nova-video-api-cors.test.mjs
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
