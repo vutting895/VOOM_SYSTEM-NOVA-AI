@@ -24,6 +24,6 @@ The `/connect` route creates a short-lived one-time QR pairing and requires an e
 Configure these **public browser** environment variables in Netlify (they are not service-role credentials):
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY` (or `VITE_SUPABASE_ANON_KEY`)
-- `VITE_SYSTEM_HUB_URL` (the HTTPS `.workers.dev` origin for the NOVA System Hub)
+- `VITE_SYSTEM_HUB_URL` (defaults to `https://voom-system-hub.suwapat787.workers.dev`; override only when the Worker origin changes)
 
 The page fails closed when any required value is missing. Do not place a Supabase service-role key, provider API key, broker password, or other secret in a `VITE_*` variable. The QR pairing flow only approves device-pairing metadata; it does not enable credential intake, secret storage, or broker execution.
