@@ -1,6 +1,6 @@
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const PAIRING_TTL_MS = 110 * 1000;
-const PUBLIC_FIELDS = "id,owner_id,purpose,status,expires_at,created_at,scanned_at,approved_at";
+const PUBLIC_FIELDS = "id,purpose,status,expires_at,created_at,scanned_at,approved_at";
 
 function encodeBase64Url(bytes) {
   let binary = "";
@@ -98,7 +98,6 @@ async function createPairing(request, env, user) {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
-      owner_id: user.userId,
       purpose: "provider_connection",
       token_hash: tokenHash,
       status: "pending",
@@ -112,7 +111,6 @@ async function createPairing(request, env, user) {
   const pairingUrl = "https://voomsystem.netlify.app/connect#pair=" + encodeURIComponent(token);
   return result(201, {
     pairing: safeRow(row),
-    pairingToken: token,
     pairingUrl,
     tokenDelivery: "one-time-response-only",
     credentialIntakeEnabled: false,
