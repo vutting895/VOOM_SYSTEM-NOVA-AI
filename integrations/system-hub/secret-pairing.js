@@ -1,5 +1,5 @@
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const PAIRING_TTL_MS = 2 * 60 * 1000;
+const PAIRING_TTL_MS = 110 * 1000;
 const PUBLIC_FIELDS = "id,owner_id,purpose,status,expires_at,created_at,scanned_at,approved_at";
 
 function encodeBase64Url(bytes) {
