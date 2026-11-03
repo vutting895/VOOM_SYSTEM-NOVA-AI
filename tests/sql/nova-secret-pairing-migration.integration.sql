@@ -28,12 +28,13 @@ FROM public.nova_approve_secret_pairing(
   repeat('a', 64)
 )
 WHERE status = 'approved';
+SET LOCAL ROLE postgres;
 SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS approved_hash_cleared
 FROM public.secret_pairing_sessions
 WHERE owner_id = '10000000-0000-4000-8000-000000000001'
   AND status = 'approved' AND token_hash IS NULL;
-
-SET LOCAL ROLE postgres;
+SELECT CASE WHEN NOT has_column_privilege('authenticated', 'public.secret_pairing_sessions', 'token_hash', 'SELECT')
+  THEN 1 ELSE 1/0 END AS token_hash_not_readable;
 SELECT CASE WHEN NOT has_table_privilege('authenticated', 'public.secret_pairing_sessions', 'UPDATE')
   THEN 1 ELSE 1/0 END AS direct_client_update_revoked;
 
