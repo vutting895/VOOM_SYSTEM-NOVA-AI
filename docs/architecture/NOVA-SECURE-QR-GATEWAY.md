@@ -12,8 +12,8 @@ The QR is a pairing bootstrap only. It is not a credential container and is not 
 2. System Hub generates a cryptographically random 256-bit token and stores only its SHA-256 hash.
 3. The API returns the raw token once with a URL that places it in the URL fragment (`#pair=`), which browsers do not send in HTTP requests.
 4. The receiving device must already have a valid NOVA/Supabase session for the same owner.
-5. The receiving device posts the token to `POST /v1/secrets/pairings/claim`; the server atomically changes `pending` to `scanned`.
-6. The user explicitly approves with `POST /v1/secrets/pairings/{id}`; the server changes `scanned` to `approved` and clears the token hash.
+5. The receiving device posts the token to `POST /v1/secrets/pairings/claim`; System Hub calls the owner-checked `nova_claim_secret_pairing` RPC to atomically change `pending` to `scanned`.
+6. The user explicitly approves with `POST /v1/secrets/pairings/{id}`; System Hub calls `nova_approve_secret_pairing` to atomically change `scanned` to `approved` and clear the token hash.
 7. The approved state grants no access to credentials. A later provider-credential flow must independently enforce provider-specific consent, scope, encryption and audit requirements.
 
 ## API
@@ -30,7 +30,8 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 - 32 bytes from Web Crypto CSPRNG; SHA-256 hash persisted.
 - Two-minute expiry enforced by API filters and database constraints.
 - Single-use claim and approval via conditional PostgREST PATCH; only one request can win each state transition.
-- Owner binding via authenticated Supabase user ID and RLS.
+- Owner binding via authenticated Supabase user ID, RLS, and narrow RPCs that verify `auth.uid()` inside the transaction.
+- Authenticated clients have no direct UPDATE privilege on pairing rows; state transitions are only through the restricted RPCs.
 - Database trigger blocks owner, purpose, expiry, creation-time and token-hash replacement, and invalid status transitions.
 - Token is placed in a URL fragment, not a query parameter or path.
 - No provider secret or credential value is accepted by these endpoints.
