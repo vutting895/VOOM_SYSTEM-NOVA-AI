@@ -345,7 +345,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/symbols", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
