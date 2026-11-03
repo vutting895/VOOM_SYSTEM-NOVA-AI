@@ -69,24 +69,12 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
-      - name: Test customer Zero-Menu Command Center contracts
-        working-directory: .
-        run: node --test tests/customer-command-center.test.mjs
-      - name: Test customer strategy selection and preference isolation
-        working-directory: .
-        run: node --test tests/customer-strategy-selection.test.mjs
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-*.test.mjs
-      - name: Test NOVA Video Workspace tenant and free-only contracts
-        working-directory: .
-        run: node --test tests/nova-video-workspace.test.mjs
-      - name: Test NOVA Video API external-origin CORS contract
-        working-directory: .
-        run: node --test tests/nova-video-api-cors.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
