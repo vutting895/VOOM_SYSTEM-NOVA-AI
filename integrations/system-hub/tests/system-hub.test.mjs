@@ -226,6 +226,36 @@ test("live read-only check requires authenticated account and quote reads before
   }
 });
 
+test("account check fails closed when the bridge omits connected=true", async () => {
+  mockAuthAndRest({ rows: [{
+    id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+    status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+  }] });
+  const proxyUrl = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+      status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+    }]);
+    if (url.origin === proxyUrl && url.pathname === "/api/account") return Response.json({ balance: 100 });
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "account_read_unverified");
+    assert.equal(body.dataVerified, false);
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
+
 test("pending connection does not call the proxy", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
