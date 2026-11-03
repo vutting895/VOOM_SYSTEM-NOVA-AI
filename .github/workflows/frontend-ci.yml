@@ -69,6 +69,15 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
+      - name: Test AI API authentication precedes payload validation
+        working-directory: .
+        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
+      - name: Test server-side chat secret redaction
+        working-directory: .
+        run: node --test tests/chat-secret-redaction.test.mjs
+      - name: Test chat API authentication before body parsing
+        working-directory: .
+        run: node --test tests/chat-api-auth-order.test.mjs
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
