@@ -176,7 +176,7 @@ test("malformed connection IDs are rejected", async () => {
   assert.equal((await response.json()).error, "valid_connection_id_required");
 });
 
-test("live read-only check drops account payload and reports verified only after success", async () => {
+test("live read-only check requires authenticated account and quote reads before reporting verified", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
     status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
@@ -197,7 +197,15 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === proxyUrl && url.pathname === "/api/account") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ balance: "999999", account_number: "private" });
+      return Response.json({ connected: true, balance: "999999", account_number: "private" });
+    }
+    if (url.origin === proxyUrl && url.pathname === "/api/quotes") {
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      assert.equal(url.searchParams.get("symbol"), "XAUUSD");
+      assert.equal(url.searchParams.get("timeframe"), "M1");
+      assert.equal(url.searchParams.get("count"), "1");
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ symbol: "XAUUSD", tick: { bid: 2000.1, ask: 2000.2 } });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -209,7 +217,9 @@ test("live read-only check drops account payload and reports verified only after
     assert.equal(response.status, 200);
     assert.match(body, /"state":"data_verified"/);
     assert.match(body, /"dataVerified":true/);
-    assert.doesNotMatch(body, /999999|account_number|private/);
+    assert.match(body, /"accountReadSucceeded":true/);
+    assert.match(body, /"quoteReadSucceeded":true/);
+    assert.doesNotMatch(body, /999999|account_number|private|2000.1|2000.2/);
     assert.match(body, /"ordersEnabled":false/);
   } finally {
     globalThis.fetch = oldFetch;
