@@ -22,12 +22,16 @@ WHERE owner_id = '10000000-0000-4000-8000-000000000001';
 SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_claim
 FROM public.nova_claim_secret_pairing(repeat('a', 64))
 WHERE status = 'scanned';
-SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_approve_and_clear_hash
+SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_approve
 FROM public.nova_approve_secret_pairing(
   (SELECT id FROM public.secret_pairing_sessions WHERE owner_id = '10000000-0000-4000-8000-000000000001'),
   repeat('a', 64)
 )
-WHERE status = 'approved' AND token_hash IS NULL;
+WHERE status = 'approved';
+SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS approved_hash_cleared
+FROM public.secret_pairing_sessions
+WHERE owner_id = '10000000-0000-4000-8000-000000000001'
+  AND status = 'approved' AND token_hash IS NULL;
 
 SET LOCAL ROLE postgres;
 SELECT CASE WHEN NOT has_table_privilege('authenticated', 'public.secret_pairing_sessions', 'UPDATE')
