@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import ConnectPage from './pages/ConnectPage';
 
 const navigation = [
   { label: 'OVERVIEW', href: '/', code: '01' },
   { label: 'MARKETS', href: '/markets', code: '02' },
   { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
   { label: 'BROKER HUB', href: '/broker', code: '04' },
+  { label: 'SECURE CONNECT', href: '/connect', code: '10' },
   { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
   { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
   { label: 'AI CHAT', href: '/chat', code: '07' },
@@ -99,6 +101,7 @@ function JarvisLayout() {
           <Route path="/" element={<OverviewPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/broker" element={<BrokerPage />} />
+          <Route path="/connect" element={<ConnectPage />} />
           <Route path="/gen-ai" element={<GenAIPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/learning-universe" element={<LearningUniversePage />} />
@@ -307,6 +310,7 @@ function BrokerPage() {
           <p className="nova-subtitle">จัดการการเชื่อมต่อโบรกเกอร์แบบ Read-only และตรวจสอบสถานะ Terminal Bridge</p>
         </div>
         <Link to="/" className="nova-link-button">← Dashboard</Link>
+        <Link to="/connect" className="nova-link-button">Secure QR Connect</Link>
       </header>
 
       <section className="nova-grid">
