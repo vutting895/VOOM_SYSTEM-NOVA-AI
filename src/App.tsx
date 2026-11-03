@@ -329,6 +329,7 @@ function BrokerPage() {
         `/v1/connections/${encodeURIComponent(current.connectionId)}/check`,
         { method: 'POST' }
       );
+      setConnection({ ...current, dataVerified: verification?.dataVerified === true });
       setMessage(verification?.dataVerified === true
         ? 'ยืนยัน read-only account path สำเร็จจาก System Hub แล้ว · Live Trading และ Order Submission ยังคงปิด'
         : 'พบ connection record แต่ยังไม่มีหลักฐานว่าอ่านข้อมูลบัญชีจริงสำเร็จ');
