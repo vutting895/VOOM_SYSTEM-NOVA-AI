@@ -4,12 +4,14 @@ JARVIS-inspired React SPA on Vite for the VOOM / NOVA intelligence system.
 
 ## Frontend authentication
 
-The browser app uses Supabase Auth email/password sign-in. Set these **public** build environment variables in Netlify:
+The browser app uses Supabase Auth email/password sign-in. Preferred public build variables:
 
 - `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (the Supabase publishable/anon key only)
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (Supabase publishable/anon key only)
 
-Do not use a Supabase service-role key in the browser. Without both settings, the app fails closed and keeps protected routes unavailable.
+For the existing `voomsystem` Netlify project, `vite.config.ts` also maps the already configured public variables `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to those Vite variables. Only these two explicitly named public values are exposed to the browser. No service-role key or provider credential is exposed.
+
+Without both public settings, the app fails closed and keeps protected routes unavailable.
 
 ## Authenticated API routing
 
