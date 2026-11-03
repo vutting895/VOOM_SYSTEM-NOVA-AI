@@ -25,7 +25,7 @@ function mockCreate() {
     }
     if (url.pathname === "/rest/v1/secret_pairing_sessions" && init.method === "POST") {
       const body = JSON.parse(init.body);
-      assert.equal(body.owner_id, USER_ID);
+      assert.equal(Object.hasOwn(body, "owner_id"), false);
       assert.equal(body.status, "pending");
       assert.match(body.token_hash, /^[a-f0-9]{64}$/);
       assert.equal(body.expires_at !== undefined, true);
@@ -48,8 +48,8 @@ test("pairing creation returns a one-time 256-bit token but persists only its ha
   }), env);
   const body = await response.json();
   assert.equal(response.status, 201);
-  assert.match(body.pairingToken, /^[A-Za-z0-9_-]{43}$/);
-  assert.match(body.pairingUrl, /#pair=/);
+  assert.match(body.pairingUrl, /#pair=[A-Za-z0-9_-]{43}$/);
+  assert.equal(Object.hasOwn(body, "pairingToken"), false);
   assert.equal(body.credentialIntakeEnabled, false);
   assert.equal(body.secretStorageEnabled, false);
   assert.equal(body.ordersEnabled, false);
@@ -96,16 +96,17 @@ test("claim and approval use owner-checked atomic RPCs and reject replay", async
     method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" }, body: "{}"
   }), env);
   const createdBody = await created.json();
+  const token = new URL(createdBody.pairingUrl).hash.slice("#pair=".length);
   const claim = await worker.fetch(req("/v1/secrets/pairings/claim", {
     method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-    body: JSON.stringify({ token: createdBody.pairingToken })
+    body: JSON.stringify({ token: token })
   }), env);
   assert.equal(claim.status, 200);
   assert.equal((await claim.json()).pairing.status, "scanned");
 
   const approve = await worker.fetch(req("/v1/secrets/pairings/" + PAIRING_ID, {
     method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-    body: JSON.stringify({ token: createdBody.pairingToken })
+    body: JSON.stringify({ token: token })
   }), env);
   const approved = await approve.json();
   assert.equal(approve.status, 200);
@@ -115,7 +116,7 @@ test("claim and approval use owner-checked atomic RPCs and reject replay", async
 
   const replay = await worker.fetch(req("/v1/secrets/pairings/" + PAIRING_ID, {
     method: "POST", headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-    body: JSON.stringify({ token: createdBody.pairingToken })
+    body: JSON.stringify({ token: token })
   }), env);
   assert.equal(replay.status, 409);
 });
