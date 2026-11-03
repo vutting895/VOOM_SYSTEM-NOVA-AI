@@ -31,18 +31,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     let mounted = true;
+    let authEventReceived = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
+      authEventReceived = true;
       setSession(nextSession);
       setLoading(false);
     });
 
     void supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
+      if (!mounted || authEventReceived) return;
       setSession(error ? null : data.session);
       setLoading(false);
     }).catch(() => {
-      if (!mounted) return;
+      if (!mounted || authEventReceived) return;
       setSession(null);
       setLoading(false);
     });
