@@ -8,12 +8,7 @@ SET LOCAL request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 SET LOCAL ROLE authenticated;
 INSERT INTO public.secret_pairing_sessions
   (purpose, token_hash, status, expires_at)
-VALUES (
-  'provider_connection',
-  repeat('a', 64),
-  'pending',
-  now() + interval '90 seconds'
-);
+VALUES ('provider_connection', repeat('a', 64), 'pending', now() + interval '90 seconds');
 
 DO $test$
 BEGIN
@@ -47,8 +42,7 @@ SET LOCAL ROLE postgres;
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
-      
-        AND status = 'approved' AND token_hash IS NULL) <> 1 THEN
+      WHERE status = 'approved' AND token_hash IS NULL) <> 1 THEN
     RAISE EXCEPTION 'approved_token_hash_not_cleared';
   END IF;
   IF has_column_privilege('authenticated', 'public.secret_pairing_sessions', 'token_hash', 'SELECT') THEN
