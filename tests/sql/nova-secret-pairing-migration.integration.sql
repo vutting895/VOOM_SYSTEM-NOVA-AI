@@ -67,17 +67,12 @@ VALUES (
   now() - interval '1 minute'
 );
 SET LOCAL ROLE authenticated;
-DO $test$
-DECLARE v_id uuid;
-BEGIN
-  SELECT id INTO v_id FROM public.secret_pairing_sessions
-   WHERE status = 'pending' AND token_hash = repeat('b', 64);
-  IF (SELECT count(*) FROM public.nova_expire_secret_pairing(v_id)
-      WHERE status = 'expired') <> 1 THEN
-    RAISE EXCEPTION 'owner_expiry_failed';
-  END IF;
-END;
-$test$;
+SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_expiry_succeeded
+FROM public.nova_expire_secret_pairing((
+  SELECT id FROM public.secret_pairing_sessions
+  WHERE status = 'pending' AND created_at < now() - interval '2 minutes'
+))
+WHERE status = 'expired';
 
 SET LOCAL ROLE postgres;
 DO $test$
