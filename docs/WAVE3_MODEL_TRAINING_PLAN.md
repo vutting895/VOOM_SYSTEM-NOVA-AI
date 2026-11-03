@@ -251,3 +251,44 @@ All five expanding walk-forward folds remain below their own majority baselines.
 Current PR #66 code/test head: 5f6cc9075d5ad5dc8420a3ec961db8378f281535. The branch compares 94 ahead / 0 behind current main a9bb92c9d2642eff34be2ea68276a33b367ee793, with merge base equal to main. A follow-up review caught that a downside opening gap on the entry candle can predate the actual BUY fill; the gap adjustment now applies only when j > entry_i, while the entry candle retains stop-first barrier pricing. A regression test covers this pre-entry-open case. The earlier SMC #118 / Windows #211 successes were on prior head f05d0463e907c3a2d7b720fcccf3b8c707e8f0c8 and do not verify this follow-up. No exact-head Actions run is currently visible; this latest correction remains CI-unverified.
 
 Still open: independent review P2 findings for RSI behavior and completed-H1 alignment, plus audit-digest consistency. The review threads remain unresolved. No new full benchmark training may start until P1 semantic review and P2 label methodology are ready. No benchmark gates, weights, thresholds, lookbacks, or risk rules were relaxed.
+
+
+## Revalidation — 2026-11-03 (supersedes earlier status snapshots)
+
+### Current P1 causal SMC evidence
+
+PR #66 exact code-head SMC/Wave3 CI [run #183](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559) passed and uploaded artifact [#13203561555](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559/artifacts/13203561555). Archive SHA-256: `c929fa73ca643aaec34a745361d82cf40d3cb8ea8ce1d3f084cff9045c858970`; trace JSON SHA-256: `117d48fda45c7b74c060be5820e1782d7f5ec72e8599ad5bb4f93cb7e8c3fa4a`. The report is `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
+
+- 34 candidate rows; BOS20=21, scored three-confirmed-higher-lows + green=12, OB within $5=1, FVG overlap=7.
+- Same-bar pairwise intersections: BOS20+rule-CHoCH=9, BOS20+OB=0, BOS20+FVG=3, rule-CHoCH+OB=0, rule-CHoCH+FVG=3, OB+FVG=0. All four on one closed signal bar=0; maximum score=75; score >=85=0.
+- Structural BOS up=8 and structural CHoCH up=4 are separate event labels. Structural CHoCH has zero intersection with the scored three-higher-lows+green rule; structural BOS intersects the scored BOS20 rule on 8 rows.
+- Eleven candidate rows selected an OB; all 11 were valid on the signal bar, only one was within $5, and none was inside the zone. The trace records origin, confirmation, range, distance, validity and invalidation fields.
+- All seven FVG-positive candidates had first overlap before signal; five had already reached full mitigation on an earlier bar and later re-touched; two first reached full mitigation on the signal bar. The current 48-bar overlap behavior remains frozen pending a separately preregistered semantic decision.
+
+### Performance evidence remains run #6 only
+
+The latest completed training artifact is still run #6 on training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, artifact #13036729349. It is not exact-head training evidence for the current PR #66 code.
+
+| Metric | Run #6 |
+|---|---:|
+| Final OOS rows | 7,942 |
+| Accuracy | 41.0602% |
+| Majority baseline | 45.9708% |
+| Balanced accuracy | 38.8382% |
+| Macro-F1 | 38.0253% |
+| Closed trades | 0 / 30 minimum |
+| Net profit | $0 |
+| Profit Factor | unavailable |
+| Walk-forward folds below baseline | 5 / 5 |
+
+XGBoost gain remains led by `hour_sin` (10.26%), `volume_gate` (6.47%) and `hour_cos` (3.94%); this is descriptive gain, not causal attribution. LSTM training loss declines over four epochs, but validation-loss, Brier/ECE and reliability-curve evidence is absent. The run #6 manifest remains bound to that artifact and must not be rewritten without a new training artifact.
+
+### Provenance and next gates
+
+- Dataset SHA-256: `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`.
+- Canonical historical calendar SHA-256: `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`.
+- Raw terminal calendar SHA-256: `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c`; two success markers, 2,166 high-impact USD/US events, 15,853 queried values, zero unknown time modes. This is 2026-10-30 historical terminal evidence, not a fresh 2026-11-03 export.
+
+PR #147 is separate. Its P2 CI [run #34](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575390274) passed 13 synthetic tests, including the exit-UTC-day loss regression. P2 is not cost-complete: gap-through fills and swap/rollover remain unmodeled, independent Exness Demo commission evidence is missing, no real-data challenger labels/manifest have been accepted, and the 2026-07-01 benchmark holdout is already inspected. A new future holdout must be preregistered.
+
+**Do not start another full benchmark training run yet.** Complete the P1 FVG semantic review and P2 cost/provenance methodology first. Then perform challenger-only P3 baselines/calibration and ablations on inner chronological folds, P4 cost/regime robustness, and only then P5 on a genuinely new untouched future holdout. Keep 12-bar purge, inner-fold-only tuning/calibration, and every frozen v6.2.6.3 entry/risk/news gate unchanged.
