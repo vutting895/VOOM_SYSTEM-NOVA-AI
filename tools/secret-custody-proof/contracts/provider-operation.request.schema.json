@@ -23,8 +23,7 @@
         "positions.read",
         "orders.read",
         "quotes.read",
-        "credential.status.read",
-        "orders.read"
+        "credential.status.read"
       ]
     },
     "parameters": {
