@@ -8,6 +8,13 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "bun.lock"
+      - "server.ts"
+      - "vite.config.ts"
+      - "metadata.json"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -31,6 +38,13 @@ on:
     branches: [main]
     paths:
       - "frontend/**"
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "bun.lock"
+      - "server.ts"
+      - "vite.config.ts"
+      - "metadata.json"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -59,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: .
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
@@ -72,10 +86,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
@@ -133,27 +149,16 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
-      - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
-        run: npm install --no-save --package-lock=false wrangler@4.156.0
+      - name: Validate Wrangler package availability without changing the lockfile
+        run: bunx --package=wrangler@4.156.0 wrangler --version
       - name: Validate tenant relay Durable Object configuration
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+        run: bunx --package=wrangler@4.156.0 wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Validate NOVA System Integration Hub Worker bundle
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
-      - name: Type-check
-        run: npm run typecheck
-      - name: Build Next.js frontend for CI validation
-        run: npm run build
-
-      - name: Build Cloudflare OpenNext Worker bundle for CI validation
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
-        run: npm run cf:build
+        run: bunx --package=wrangler@4.156.0 wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Type-check Vite React entry
+        run: bunx tsc --noEmit --jsx react-jsx --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck src/main.tsx
+      - name: Build Vite React SPA for CI validation
+        run: bun run build
 
 
 
