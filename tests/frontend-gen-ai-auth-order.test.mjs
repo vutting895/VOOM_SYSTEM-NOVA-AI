@@ -2,37 +2,36 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const workerSource = await readFile(
-  new URL("../integrations/nova-ai-worker/worker.js", import.meta.url),
+const routeSource = await readFile(
+  new URL("../frontend/app/api/gen-ai/generate/route.js", import.meta.url),
   "utf8",
 );
-const fetchHandlerStart = workerSource.indexOf("async fetch(request, env) {");
-assert.notEqual(fetchHandlerStart, -1, "NOVA AI Worker fetch handler must exist");
-const fetchHandler = workerSource.slice(fetchHandlerStart);
+const postHandler = routeSource.slice(routeSource.indexOf("export async function POST(request)"));
 
-test("NOVA AI Worker authenticates before reading or parsing request JSON", () => {
-  const authIndex = fetchHandler.indexOf("const auth = await authenticateRequest(request, env);");
-  const bodyReadIndex = fetchHandler.indexOf("raw = await request.text();");
-  const parseIndex = fetchHandler.indexOf("body = JSON.parse(raw);");
-  const inputValidationIndex = fetchHandler.indexOf("validateInput(body)");
-
-  assert.notEqual(authIndex, -1, "Worker route must authenticate");
-  assert.notEqual(bodyReadIndex, -1, "Worker route must read the body after authentication");
-  assert.notEqual(parseIndex, -1, "Worker route must parse JSON after authentication");
-  assert.notEqual(inputValidationIndex, -1, "Worker route must validate input after authentication");
-  assert.ok(authIndex < bodyReadIndex, "authentication must precede body reads");
-  assert.ok(bodyReadIndex < parseIndex, "body reads must precede JSON parsing");
-  assert.ok(authIndex < inputValidationIndex, "authentication must precede input validation");
+test("AI API authenticates before parsing request JSON", () => {
+  const authIndex = postHandler.indexOf("const auth = await authenticateRequest(request);");
+  const parseIndex = postHandler.indexOf("body = await request.json();");
+  assert.notEqual(authIndex, -1, "POST handler must authenticate");
+  assert.notEqual(parseIndex, -1, "POST handler must parse JSON after auth");
+  assert.ok(authIndex < parseIndex, "authentication must precede JSON parsing");
 });
 
-test("NOVA AI Worker returns no-store authentication failures before payload parsing", () => {
-  const authIndex = fetchHandler.indexOf("const auth = await authenticateRequest(request, env);");
-  const failureIndex = fetchHandler.indexOf("if (!auth.ok) return fail(auth.error, auth.status, origin);", authIndex);
-  const parseIndex = fetchHandler.indexOf("body = JSON.parse(raw);");
-  const baseHeaders = workerSource.match(/const BASE_HEADERS = \{([\s\S]*?)\};/);
+test("AI API authenticates before validating the prompt and other fields", () => {
+  const authIndex = postHandler.indexOf("const auth = await authenticateRequest(request);");
+  const promptValidationIndex = postHandler.indexOf("if (!prompt)");
+  const timeframeValidationIndex = postHandler.indexOf("if (!['5m', '15m', '1h', '4h', '1d'].includes(timeframe))");
+  const riskValidationIndex = postHandler.indexOf("if (!['low', 'medium', 'high'].includes(risk))");
+  assert.ok(authIndex < promptValidationIndex, "authentication must precede prompt validation");
+  assert.ok(authIndex < timeframeValidationIndex, "authentication must precede timeframe validation");
+  assert.ok(authIndex < riskValidationIndex, "authentication must precede risk validation");
+});
 
-  assert.ok(baseHeaders, "Worker response headers must be declared");
-  assert.match(baseHeaders[1], /["']Cache-Control["']\s*:\s*["']no-store["']/);
-  assert.ok(failureIndex > authIndex, "authentication result must be checked");
-  assert.ok(failureIndex < parseIndex, "authentication failures must return before payload parsing");
+test("AI API returns the authentication status with no-store headers before payload processing", () => {
+  const authIndex = postHandler.indexOf("const auth = await authenticateRequest(request);");
+  const failureIndex = postHandler.indexOf("if (!auth.ok)", authIndex);
+  const responseIndex = postHandler.indexOf("headers: { 'Cache-Control': 'no-store' }", failureIndex);
+  const parseIndex = postHandler.indexOf("body = await request.json();");
+  assert.ok(failureIndex > authIndex, "auth result must be checked");
+  assert.ok(responseIndex > failureIndex, "auth failures must use no-store response headers");
+  assert.ok(responseIndex < parseIndex, "auth failure response must happen before body parsing");
 });
