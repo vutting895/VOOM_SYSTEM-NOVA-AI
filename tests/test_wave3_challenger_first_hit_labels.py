@@ -162,6 +162,21 @@ class TestFirstHitLabels(unittest.TestCase):
         self.assertEqual(rows[0]["entry_timestamp_utc"], "2026-01-02T00:00:00Z")
         self.assertEqual(rows[1]["status"], "blocked_daily_risk_limit")
 
+    def test_realized_loss_is_booked_on_exit_utc_day_after_midnight(self):
+        start = datetime(2026, 1, 1, 23, 45, tzinfo=timezone.utc)
+        market = bars(5, start=start, spread=0.0)
+        # Signal at 23:45 enters at 00:00 and stops on that entry bar.
+        market[1].update({"open": 100.0, "high": 100.5, "low": 90.0, "close": 95.0})
+        rows = self.build(market, [
+            {"signal_index": 0, "entry_trigger_price": 100.1},
+            {"signal_index": 2, "entry_trigger_price": 100.1},
+        ], max_daily_loss_usd=4.0)
+        self.assertEqual(rows[0]["entry_timestamp_utc"], "2026-01-02T00:00:00Z")
+        self.assertEqual(rows[0]["exit_timestamp_utc"], "2026-01-02T00:00:00Z")
+        self.assertLess(rows[0]["net_pnl_usd"], -4.0)
+        # The next entry on the exit UTC day sees that day's realized loss.
+        self.assertEqual(rows[1]["status"], "blocked_daily_risk_limit")
+
     def test_signal_and_entry_timestamps_are_strictly_forward(self):
         market = bars(16)
         trade = self.build(market, [{"signal_index": 2, "entry_trigger_price": 100.1}])[0]
