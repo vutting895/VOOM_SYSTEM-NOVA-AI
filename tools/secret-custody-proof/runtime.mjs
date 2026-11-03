@@ -128,7 +128,7 @@ function response(status, body) {
  * and provider execution are injected trust-boundary adapters. Production adapters
  * must independently verify Supabase JWTs and resolve ownership from trusted data.
  */
-export function createCustodyRuntime({ verifySession, resolveConnection, resolveBinding, provider, ledgerDir }) {
+export function createCustodyRuntime({ verifySession, resolveConnection, resolveBinding, provider, ledgerDir, persistRecord: persistRecordOverride }) {
   if (![verifySession, resolveConnection, resolveBinding, provider, ledgerDir].every(Boolean)) {
     throw new TypeError("Missing custody runtime dependency");
   }
@@ -164,6 +164,11 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
     const temporary = path + "." + randomUUID() + ".tmp";
     await writeFile(temporary, JSON.stringify(record), { mode: 0o600, flag: "wx" });
     await rename(temporary, path);
+  }
+  // Injection is a local proof seam; production must supply a durable transactional ledger.
+  const persistRecord = persistRecordOverride || persist;
+  if (typeof persistRecord !== "function") {
+    throw new TypeError("Invalid custody ledger persistence dependency");
   }
 
   return {
@@ -255,33 +260,73 @@ export function createCustodyRuntime({ verifySession, resolveConnection, resolve
         return response(200, { operation_id: prior.operationId, state: prior.state, result_code: prior.resultCode });
       }
 
+      const persistFailureState = async (resultCode, status, state, reconciliationRequired) => {
+        const failed = {
+          ...initial,
+          state,
+          resultCode,
+          updatedAt: new Date().toISOString()
+        };
+        try {
+          await persistRecord(claim.path, failed);
+        } catch {
+          // Keep the original RUNNING claim. A retry must not dispatch the provider again.
+          return response(503, {
+            operation_id: initial.operationId,
+            state: "RUNNING",
+            result_code: "LEDGER_PERSISTENCE_FAILED",
+            reconciliation_required: true
+          });
+        }
+        return response(status, {
+          operation_id: failed.operationId,
+          state: failed.state,
+          result_code: failed.resultCode,
+          reconciliation_required: reconciliationRequired
+        });
+      };
+
+      // Keep provider failures separate from local ledger persistence failures.
+      let providerResult;
       try {
         // The adapter receives only server-resolved binding metadata and bounded intent.
         // It owns secret retrieval/decryption; no credential bytes cross this boundary.
-        const providerResult = await provider.executeReadOnly({
+        providerResult = await provider.executeReadOnly({
           binding: structuredClone(binding),
           capability: body.capability,
           parameters: structuredClone(body.parameters),
           operationId: initial.operationId
         });
-        const result = safeResult(providerResult);
-        const completed = { ...initial, state: "SUCCEEDED", result, updatedAt: new Date().toISOString() };
-        await persist(claim.path, completed);
-        return response(200, { operation_id: completed.operationId, state: completed.state, result });
       } catch (error) {
         const unknown = error?.outcomeUnknown === true;
-        const failed = {
-          ...initial,
-          state: unknown ? "OUTCOME_UNKNOWN" : "FAILED_FINAL",
-          resultCode: unknown ? "PROVIDER_OUTCOME_UNKNOWN" : "PROVIDER_OPERATION_FAILED",
-          updatedAt: new Date().toISOString()
-        };
-        await persist(claim.path, failed);
-        return response(unknown ? 202 : 502, {
-          operation_id: failed.operationId, state: failed.state,
-          result_code: failed.resultCode, reconciliation_required: unknown
+        return persistFailureState(
+          unknown ? "PROVIDER_OUTCOME_UNKNOWN" : "PROVIDER_OPERATION_FAILED",
+          unknown ? 202 : 502,
+          unknown ? "OUTCOME_UNKNOWN" : "FAILED_FINAL",
+          unknown
+        );
+      }
+
+      let result;
+      try {
+        result = safeResult(providerResult);
+      } catch {
+        return persistFailureState("UNSAFE_PROVIDER_RESULT", 502, "FAILED_FINAL", false);
+      }
+
+      const completed = { ...initial, state: "SUCCEEDED", result, updatedAt: new Date().toISOString() };
+      try {
+        await persistRecord(claim.path, completed);
+      } catch {
+        // The provider already succeeded. Do not mislabel it as a provider failure or redispatch.
+        return response(503, {
+          operation_id: initial.operationId,
+          state: "RUNNING",
+          result_code: "LEDGER_PERSISTENCE_FAILED",
+          reconciliation_required: true
         });
       }
+      return response(200, { operation_id: completed.operationId, state: completed.state, result });
     }
   };
 }
