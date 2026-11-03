@@ -6,13 +6,17 @@ CREATE TABLE IF NOT EXISTS public.secret_pairing_sessions (
   owner_id uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   purpose text NOT NULL DEFAULT 'provider_connection'
     CHECK (purpose = 'provider_connection'),
-  token_hash text CHECK (token_hash IS NULL OR token_hash ~ '^[a-f0-9]{64}
+  token_hash text CHECK (token_hash IS NULL OR token_hash ~ '^[a-f0-9]{64}$'),
   status text NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'scanned', 'approved', 'rejected', 'cancelled', 'expired')),
   expires_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   scanned_at timestamptz,
   approved_at timestamptz,
+  CONSTRAINT secret_pairing_token_state CHECK (
+    (status IN ('pending', 'scanned') AND token_hash IS NOT NULL)
+    OR (status IN ('approved', 'rejected', 'cancelled', 'expired') AND token_hash IS NULL)
+  ),
   CONSTRAINT secret_pairing_expiry_window CHECK (
     expires_at > created_at AND expires_at <= created_at + interval '2 minutes'
   ),
