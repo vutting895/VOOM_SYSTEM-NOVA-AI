@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from './auth/AuthProvider';
+import { requestNovaAi, requestSystemHub, toUserApiError } from './lib/api';
 
 const navigation = [
   { label: 'OVERVIEW', href: '/', code: '01' },
@@ -68,6 +70,7 @@ function ChartPlaceholder() {
 // Layout wrapper with Jarvis sidebar
 function JarvisLayout() {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   return (
     <div className="jarvis-layout">
@@ -90,7 +93,8 @@ function JarvisLayout() {
         <div className="sidebar-bottom">
           <div className="side-section-label">SECURITY PROTOCOL</div>
           <div className="security-card"><span className="security-led" /><div><strong>READ-ONLY MODE</strong><small>Order execution locked</small></div><span className="lock-icon">⌑</span></div>
-          <Link className="profile-link" to="/profile"><span className="profile-avatar">U</span><span><strong>USER ACCESS</strong><small>Login / Profile</small></span><span className="profile-arrow">↗</span></Link>
+          <Link className="profile-link" to="/profile"><span className="profile-avatar">U</span><span><strong>USER ACCESS</strong><small>{user?.email || 'Authenticated session'}</small></span><span className="profile-arrow">↗</span></Link>
+          <button type="button" onClick={() => { void signOut(); }} style={{ width: '100%', marginTop: '8px', padding: '8px 12px', border: '1px solid var(--nova-line)', borderRadius: '8px', background: 'transparent', color: 'var(--nova-text)', cursor: 'pointer', fontSize: '11px' }}>ออกจากระบบ</button>
         </div>
       </aside>
 
@@ -105,7 +109,6 @@ function JarvisLayout() {
           <Route path="/markets" element={<MarketsPage />} />
           <Route path="/video" element={<VideoPage />} />
           <Route path="/backtest" element={<BacktestPage />} />
-          <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </section>
@@ -119,17 +122,28 @@ function OverviewPage() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/broker/status?broker=mt5', { cache: 'no-store' })
-      .then(async (res) => {
-        const data = await res.json();
+    requestSystemHub('/v1/connections')
+      .then((data) => {
         if (!active) return;
-        setBrokerStatus(data.accountConnected ? 'REPORTED CONNECTED' : 'NOT VERIFIED');
-        setBrokerDetail(data.detail || 'Verified Exness MT5 Demo endpoint.');
+        const connections = Array.isArray(data?.connections) ? data.connections : [];
+        const connection = connections.find((item) => item.provider === 'exness_mt5' && item.environment === 'demo');
+        if (!connection) {
+          setBrokerStatus('NOT CONFIGURED');
+          setBrokerDetail('No Exness MT5 Demo connection request exists for this signed-in user.');
+          return;
+        }
+        if (connection.readiness === 'configured') {
+          setBrokerStatus('CONFIGURED · NOT VERIFIED');
+          setBrokerDetail('Connection record exists. A successful read-only account check is still required.');
+        } else {
+          setBrokerStatus(String(connection.readiness || 'PENDING').replaceAll('_', ' ').toUpperCase());
+          setBrokerDetail('Connection record only. Broker data has not been verified.');
+        }
       })
       .catch(() => {
         if (active) {
           setBrokerStatus('STATUS UNAVAILABLE');
-          setBrokerDetail('The broker status API did not respond.');
+          setBrokerDetail('System Hub could not verify this user\'s connection record.');
         }
       });
     return () => { active = false; };
@@ -217,16 +231,14 @@ function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const res = await fetch('/api/chat', {
+      const data = await requestNovaAi('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, userMsg] })
+        body: JSON.stringify({ messages: [...messages, userMsg].slice(-8) })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'ส่งคำถามไม่สำเร็จ');
       setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: 'assistant', content: data.message }]);
     } catch (err) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ AI');
+      setError(toUserApiError(err, 'เกิดข้อผิดพลาดในการเชื่อมต่อ AI'));
     } finally {
       setBusy(false);
     }
@@ -279,22 +291,51 @@ function ChatPage() {
 }
 
 function BrokerPage() {
-  const [broker, setBroker] = useState('mt5');
-  const [checking, setChecking] = useState(false);
+  const [connection, setConnection] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  async function checkBroker(e) {
-    e.preventDefault();
-    setChecking(true);
-    setMessage('กำลังตรวจสอบสถานะการเชื่อมต่อ...');
+  async function createConnectionRequest() {
+    setBusy(true);
+    setMessage('กำลังส่งคำขอ Exness MT5 Demo...');
     try {
-      const res = await fetch(`/api/broker/status?broker=${broker}`, { cache: 'no-store' });
-      const data = await res.json();
-      setMessage(data.detail || 'เชื่อมต่อเรียบร้อย (Read-only)');
-    } catch {
-      setMessage('ไม่สามารถติดต่อเซิร์ฟเวอร์ตรวจสอบโบรกเกอร์ได้');
+      const data = await requestSystemHub('/v1/connections', { method: 'POST' });
+      setConnection(data?.connection ?? null);
+      setMessage(data?.created
+        ? 'สร้างคำขอ Exness MT5 Demo แล้ว สถานะยังเป็น Pending และยังไม่ใช่การยืนยันว่าเชื่อมต่อโบรกเกอร์แล้ว'
+        : 'พบคำขอเดิมของบัญชีนี้แล้ว สถานะยังต้องตรวจสอบกับระบบ Bridge');
+    } catch (error) {
+      setMessage(toUserApiError(error, 'ไม่สามารถสร้างคำขอเชื่อมต่อได้'));
     } finally {
-      setChecking(false);
+      setBusy(false);
+    }
+  }
+
+  async function checkBroker(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('กำลังตรวจสอบ connection record และ read-only account path...');
+    try {
+      const data = await requestSystemHub('/v1/connections');
+      const connections = Array.isArray(data?.connections) ? data.connections : [];
+      const current = connections.find((item) => item.provider === 'exness_mt5' && item.environment === 'demo');
+      setConnection(current ?? null);
+      if (!current) {
+        setMessage('ยังไม่มีคำขอ Exness MT5 Demo สำหรับผู้ใช้นี้ กรุณาสร้างคำขอก่อนตรวจสอบ');
+        return;
+      }
+
+      const verification = await requestSystemHub(
+        `/v1/connections/${encodeURIComponent(current.connectionId)}/check`,
+        { method: 'POST' }
+      );
+      setMessage(verification?.dataVerified === true
+        ? 'ยืนยัน read-only account path สำเร็จจาก System Hub แล้ว · Live Trading และ Order Submission ยังคงปิด'
+        : 'พบ connection record แต่ยังไม่มีหลักฐานว่าอ่านข้อมูลบัญชีจริงสำเร็จ');
+    } catch (error) {
+      setMessage(toUserApiError(error, 'ไม่สามารถตรวจสอบการเชื่อมต่อกับ System Hub ได้'));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -304,44 +345,44 @@ function BrokerPage() {
         <div>
           <p className="nova-eyebrow">BROKER HUB / CONFIGURATION</p>
           <h1 className="nova-title">Broker Connection Hub</h1>
-          <p className="nova-subtitle">จัดการการเชื่อมต่อโบรกเกอร์แบบ Read-only และตรวจสอบสถานะ Terminal Bridge</p>
+          <p className="nova-subtitle">คำขอเชื่อมต่อ Exness MT5 Demo และตรวจสอบ account path แบบ Read-only</p>
         </div>
         <Link to="/" className="nova-link-button">← Dashboard</Link>
       </header>
 
       <section className="nova-grid">
         <form className="nova-panel" onSubmit={checkBroker}>
-          <h2>ผู้ให้บริการ Exness MT5 / Crypto</h2>
-          <div className="nova-form-grid" style={{ marginTop: '14px' }}>
-            {['mt5', 'binance', 'bybit', 'okx'].map((b) => (
-              <button key={b} type="button" className={`nova-button ${broker === b ? 'nova-button-primary' : ''}`} onClick={() => setBroker(b)}>
-                {b.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="nova-notice" style={{ marginTop: '16px' }}>
+          <h2>Exness MT5 Demo</h2>
+          <div className="nova-notice" style={{ marginTop: '14px' }}>
             <strong>READ-ONLY ACCESS</strong>
-            <p>ระบบจะตรวจสอบสถานะการเชื่อมต่อผ่าน System Integration Hub โดยไม่มีการส่งคำสั่งซื้อขายหรือเปิดพอร์ตอัตโนมัติ</p>
+            <p>ใช้ Supabase session ของผู้ใช้เพื่อเรียก System Hub และตรวจสอบเฉพาะ connection ที่เป็นของบัญชีนี้ ไม่รับรหัสผ่านโบรกเกอร์หรือ API Secret ผ่านหน้าเว็บ</p>
           </div>
-          <button className="nova-button nova-button-primary" type="submit" disabled={checking} style={{ marginTop: '16px', width: '100%' }}>
-            {checking ? 'กำลังตรวจสอบ…' : `ตรวจสอบสถานะ ${broker.toUpperCase()}`}
+          <button className="nova-button" type="button" onClick={createConnectionRequest} disabled={busy} style={{ marginTop: '16px', width: '100%' }}>
+            สร้างคำขอเชื่อมต่อ Exness Demo
           </button>
-          {message && <div className="nova-message" style={{ marginTop: '12px', padding: '10px', background: 'rgba(98,230,243,0.1)', border: '1px solid var(--nova-line)', borderRadius: '8px', fontSize: '12px' }}>{message}</div>}
+          <button className="nova-button nova-button-primary" type="submit" disabled={busy} style={{ marginTop: '10px', width: '100%' }}>
+            {busy ? 'กำลังตรวจสอบ…' : 'ตรวจสอบ Read-only Account Path'}
+          </button>
+          {connection && (
+            <div className="nova-message" style={{ marginTop: '12px', padding: '10px', background: 'rgba(98,230,243,0.1)', border: '1px solid var(--nova-line)', borderRadius: '8px', fontSize: '12px' }}>
+              Record: {connection.recordStatus || 'unknown'} · Readiness: {connection.readiness || 'unknown'} · Data verified: {connection.dataVerified === true ? 'YES' : 'NO'}
+            </div>
+          )}
+          {message && <div className="nova-message" role="status" style={{ marginTop: '12px', padding: '10px', background: 'rgba(98,230,243,0.1)', border: '1px solid var(--nova-line)', borderRadius: '8px', fontSize: '12px' }}>{message}</div>}
         </form>
 
         <section className="nova-panel">
           <h2>สถานะความปลอดภัย</h2>
           <ul className="nova-list" style={{ marginTop: '12px' }}>
-            <li><b>API Secret Management</b> · เก็บข้อมูลด้วยความปลอดภัยสูงสุด</li>
-            <li><b>Tenant Isolation</b> · แยกสิทธิ์การเข้าถึงรายบัญชี</li>
-            <li><b>Live Trading Guard</b> · ปิดการส่งคำสั่งอัตโนมัติโดยสมบูรณ์</li>
+            <li><b>Authentication</b> · Supabase access token ถูกตรวจสอบโดย System Hub</li>
+            <li><b>Tenant Isolation</b> · อ่าน connection ตามเจ้าของ session เท่านั้น</li>
+            <li><b>Live Trading Guard</b> · Order Submission และ Live Trading ปิดอยู่</li>
           </ul>
         </section>
       </section>
     </div>
   );
 }
-
 function GenAIPage() {
   const [prompt, setPrompt] = useState('ศึกษาแนวทาง EMA และ RSI สำหรับ XAU/USD');
   const [market, setMarket] = useState('XAU/USD');
@@ -357,16 +398,14 @@ function GenAIPage() {
     setError('');
     setStrategy(null);
     try {
-      const res = await fetch('/api/gen-ai/generate', {
+      const data = await requestNovaAi('/api/gen-ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, market, timeframe, risk })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'สร้างร่างกลยุทธ์ไม่สำเร็จ');
       setStrategy(data.strategy);
     } catch (err) {
-      setError(err.message || 'ไม่สามารถเรียกบริการสร้างกลยุทธ์ได้');
+      setError(toUserApiError(err, 'ไม่สามารถเรียกบริการสร้างกลยุทธ์ได้'));
     } finally {
       setBusy(false);
     }
@@ -559,30 +598,80 @@ function BacktestPage() {
 }
 
 function LoginPage() {
+  const { configured, loading, session, signIn } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const returnPath = location.state?.from?.pathname || '/';
+
+  if (loading && configured) {
+    return <div className="nova-shell" role="status">กำลังตรวจสอบ Supabase session…</div>;
+  }
+  if (session) return <Navigate to="/" replace />;
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await signIn(email, password);
+      navigate(returnPath, { replace: true });
+    } catch {
+      setError('เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลและรหัสผ่าน หรือสถานะบัญชี');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="nova-shell" style={{ display: 'grid', placeItems: 'center', minHeight: '80vh' }}>
-      <section className="nova-panel" style={{ width: 'min(450px, 100%)', textAlign: 'center' }}>
+      <section className="nova-panel" style={{ width: 'min(450px, 100%)', textAlign: 'left' }}>
+        <p className="nova-eyebrow">VOOM SYSTEM / IDENTITY</p>
         <h2>เข้าสู่ระบบ NOVA</h2>
-        <p>เชื่อมต่อ Supabase Authentication เพื่อเข้าถึงฟีเจอร์ขั้นสูง</p>
-        <Link to="/" className="nova-button nova-button-primary" style={{ marginTop: '16px', display: 'inline-flex' }}>กลับสู่ Dashboard</Link>
+        {!configured ? (
+          <div className="nova-notice" role="alert" style={{ marginTop: '16px' }}>
+            <strong>ยังไม่ได้ตั้งค่า Supabase Auth</strong>
+            <p>กำหนด VITE_SUPABASE_URL และ VITE_SUPABASE_PUBLISHABLE_KEY ใน Environment ของ Netlify ก่อนเปิดใช้งาน ห้ามใช้ Service Role Key ใน Browser</p>
+          </div>
+        ) : (
+          <form onSubmit={submit} style={{ display: 'grid', gap: '12px', marginTop: '16px' }}>
+            <label className="nova-label">อีเมล
+              <input className="nova-input" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required />
+            </label>
+            <label className="nova-label">รหัสผ่าน
+              <input className="nova-input" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
+            </label>
+            {error && <p role="alert" style={{ color: '#ffaaa3' }}>{error}</p>}
+            <button className="nova-button nova-button-primary" type="submit" disabled={busy || !email.trim() || !password}>
+              {busy ? 'กำลังเข้าสู่ระบบ…' : 'เข้าสู่ระบบ'}
+            </button>
+          </form>
+        )}
+        <p className="nova-small" style={{ marginTop: '16px' }}>การเข้าสู่ระบบใช้ Supabase Authentication เท่านั้น ไม่มีการรับหรือบันทึก Broker Password, API Secret หรือ Service Role Key</p>
       </section>
     </div>
   );
 }
 
 function ProfilePage() {
+  const { user } = useAuth();
   return (
     <div className="nova-shell">
       <header className="nova-header">
         <div>
           <p className="nova-eyebrow">USER ACCESS / PROFILE</p>
           <h1 className="nova-title">User Profile & Security</h1>
-          <p className="nova-subtitle">ตรวจสอบสิทธิ์การใช้งานและความปลอดภัย</p>
+          <p className="nova-subtitle">ตรวจสอบตัวตนจาก Supabase Authentication</p>
         </div>
         <Link to="/" className="nova-link-button">← Dashboard</Link>
       </header>
       <section className="nova-panel">
         <h2>สถานะผู้ใช้</h2>
+        <p>Supabase user: {user?.email || 'Authenticated user'}</p>
         <p>โหมดความปลอดภัย: Read-only · ไม่มีคำสั่งซื้อขายอัตโนมัติ</p>
       </section>
     </div>
@@ -590,5 +679,13 @@ function ProfilePage() {
 }
 
 export default function App() {
+  const location = useLocation();
+  const { configured, loading, session } = useAuth();
+
+  if (location.pathname === '/login') return <LoginPage />;
+  if (!configured) return <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />;
+  if (loading) return <div className="nova-shell" role="status">กำลังตรวจสอบสิทธิ์ผู้ใช้…</div>;
+  if (!session) return <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />;
+
   return <JarvisLayout />;
 }
