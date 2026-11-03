@@ -54,6 +54,41 @@ BEGIN
 END;
 $test$;
 
+-- Expired sessions transition atomically and clear their token hash.
+SET LOCAL ROLE postgres;
+INSERT INTO public.secret_pairing_sessions
+  (owner_id, purpose, token_hash, status, created_at, expires_at)
+VALUES (
+  '10000000-0000-4000-8000-000000000001',
+  'provider_connection',
+  repeat('b', 64),
+  'pending',
+  now() - interval '3 minutes',
+  now() - interval '1 minute'
+);
+SET LOCAL ROLE authenticated;
+DO $test$
+DECLARE v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM public.secret_pairing_sessions
+   WHERE status = 'pending' AND token_hash = repeat('b', 64);
+  IF (SELECT count(*) FROM public.nova_expire_secret_pairing(v_id)
+      WHERE status = 'expired') <> 1 THEN
+    RAISE EXCEPTION 'owner_expiry_failed';
+  END IF;
+END;
+$test$;
+
+SET LOCAL ROLE postgres;
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions
+      WHERE status = 'expired' AND token_hash IS NULL) <> 1 THEN
+    RAISE EXCEPTION 'expired_token_hash_not_cleared';
+  END IF;
+END;
+$test$;
+
 SET LOCAL request.jwt.claim.sub = '20000000-0000-4000-8000-000000000002';
 SET LOCAL ROLE authenticated;
 DO $test$
