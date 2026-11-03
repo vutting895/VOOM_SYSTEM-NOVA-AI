@@ -171,23 +171,9 @@ async function getPairing(env, user, pairingId) {
   const found = await supabaseRequest(env, user, url.pathname + url.search);
   if (!found.ok) return result(503, { error: "pairing_lookup_unavailable" });
   if (!found.rows[0]) return result(404, { error: "pairing_not_found" });
-  let row = found.rows[0];
+  const row = found.rows[0];
   if ((row.status === "pending" || row.status === "scanned") && Date.parse(row.expires_at) <= Date.now()) {
-    const expireUrl = new URL("/rest/v1/secret_pairing_sessions", supabaseOrigin(env));
-    for (const [key, value] of Object.entries({
-      select: PUBLIC_FIELDS,
-      id: "eq." + pairingId,
-      owner_id: "eq." + user.userId,
-      status: "in.(pending,scanned)",
-      expires_at: "lte." + new Date().toISOString()
-    })) expireUrl.searchParams.set(key, value);
-    const expired = await supabaseRequest(env, user, expireUrl.pathname + expireUrl.search, {
-      method: "PATCH",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ status: "expired", token_hash: null })
-    });
-    if (!expired.ok) return result(503, { error: "pairing_expiry_update_unavailable" });
-    row = expired.rows[0] || { ...row, status: "expired" };
+    return result(200, { pairing: { ...safeRow(row), status: "expired" } });
   }
   return result(200, { pairing: safeRow(row) });
 }
