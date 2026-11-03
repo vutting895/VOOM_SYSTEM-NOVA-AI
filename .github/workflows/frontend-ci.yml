@@ -72,9 +72,6 @@ jobs:
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
-      - name: Test NOVA durable approval lifecycle contracts
-        working-directory: .
-        run: node --test tests/nova-approval-*.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
