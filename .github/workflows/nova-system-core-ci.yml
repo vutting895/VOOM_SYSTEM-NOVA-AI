@@ -45,3 +45,5 @@ jobs:
         run: node --test tests/nova-system-core-contract.test.mjs
       - name: Run System Hub policy integration tests
         run: node --test integrations/system-hub/tests/system-hub.test.mjs
+      - name: Bundle System Hub Worker without deploying
+        run: npx --yes wrangler@4.156.0 deploy --dry-run --outdir /tmp/nova-system-hub-bundle --config integrations/system-hub/wrangler.jsonc
