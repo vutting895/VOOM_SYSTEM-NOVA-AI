@@ -33,6 +33,11 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
             "VOOM_USD_High_Impact_Daily.csv",
             "coverage_end_exclusive_utc",
             "latestClosedBarEnd",
+            "calendarWaitDeadline",
+            "Start-Sleep -Seconds 60",
+            "last-successful-training.json",
+            "calendar_sha256",
+            "Get-FileHash -LiteralPath $data",
             "--daily-candidate-only",
             "AvailableBytes",
             "tools\\refresh_wave3_daily_data.py",
@@ -49,6 +54,17 @@ class TestWave3DailyAutomationContract(unittest.TestCase):
         self.assertIn("merge", source)
         self.assertNotIn("git push", source.lower())
         self.assertNotIn("workflow_dispatch", source.lower())
+
+    def test_daily_runner_waits_for_calendar_and_retries_untrained_dataset_pairs(self):
+        source = (ROOT / "tools/windows/run-wave3-daily.ps1").read_text(encoding="utf-8")
+        self.assertIn("$coverageEnd -lt $latestClosedBarEnd", source)
+        self.assertIn("AddMinutes(70)", source)
+        self.assertIn("last-successful-training.json", source)
+        self.assertIn("calendar_sha256", source)
+        self.assertNotIn("No new completed M15 bars; training skipped", source)
+        self.assertLess(source.index("$lastSuccess.data_sha256"), source.index("& $python @trainArgs"))
+        self.assertLess(source.index("& $python @trainArgs"), source.index("Move-Item -LiteralPath $markerTempPath"))
+        self.assertIn("Persistent daily dataset SHA-256 does not match the refresh result", source)
 
     def test_installer_uses_bangkok_daily_interactive_task(self):
         source = (ROOT / "tools/windows/install-wave3-daily-task.ps1").read_text(encoding="utf-8")
