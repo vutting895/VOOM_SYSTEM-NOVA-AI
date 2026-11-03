@@ -7,12 +7,12 @@ const navigation = [
   { label: 'MARKETS', href: '/markets', code: '02' },
   { label: 'AI ANALYSIS', href: '/gen-ai', code: '03' },
   { label: 'BROKER HUB', href: '/broker', code: '04' },
-  { label: 'SECURE CONNECT', href: '/connect', code: '10' },
   { label: 'LEARNING UNIVERSE 16', href: '/learning-universe', code: '05' },
   { label: 'MARKETPLACE', href: '/marketplace', code: '06' },
   { label: 'AI CHAT', href: '/chat', code: '07' },
   { label: 'VIDEO WORKSPACE', href: '/video', code: '08' },
   { label: 'BACKTEST', href: '/backtest', code: '09' },
+  { label: 'SECURE CONNECT', href: '/connect', code: '10' },
 ];
 
 const watchlist = [
