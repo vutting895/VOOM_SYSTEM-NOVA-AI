@@ -7,7 +7,7 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "frontend/**"
+      - "src/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -26,7 +26,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "frontend/**"
+      - "src/**"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -49,9 +49,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
@@ -64,10 +61,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
+      - name: Install root Vite dependencies
+        run: npm install --no-package-lock --include=dev
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
@@ -125,24 +120,13 @@ jobs:
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Validate NOVA System Integration Hub Worker bundle
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
-      - name: Type-check
-        run: npm run typecheck
-      - name: Build Next.js frontend for CI validation
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Build root Vite frontend
         run: npm run build
-
-      - name: Build Cloudflare OpenNext Worker bundle for CI validation
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
-        run: npm run cf:build
 
 
 
