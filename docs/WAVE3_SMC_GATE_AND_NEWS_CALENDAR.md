@@ -132,3 +132,31 @@ PR #147 remains a separate Draft/open/unmerged research path. Its isolated first
 ### MT5 evidence required for a fresh export
 
 No MT5 terminal was controlled in this run. If a new terminal proof is needed, copy `tools/mt5_export_usd_high_impact_calendar.mq5` to the terminal's `MQL5/Scripts/` folder, compile it in MetaEditor, then run `mt5_export_usd_high_impact_calendar` from MT5 Navigator > Scripts with the default coverage inputs (2022-07-21 00:00 through 2026-10-30 00:00 exclusive). The script writes `VOOM_USD_High_Impact_2022_2026.csv` to the terminal's shared `Common\\Files\\` folder and prints `NEWS_EXPORT_SUCCESS` in the Experts log. Supply that CSV and the date-matched `MQL5/Logs/YYYYMMDD.log` for byte-level raw-export verification.
+
+
+## Exact-head causal trace revalidation — 2026-11-03
+
+PR #66 SMC/Wave3 CI [run #183](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559) passed on the code head `b6fe42657bb88069f2fe1e72401da05caba10494`. It produced artifact [#13203561555](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559/artifacts/13203561555), archive SHA-256 `c929fa73ca643aaec34a745361d82cf40d3cb8ea8ce1d3f084cff9045c858970`, trace JSON SHA-256 `117d48fda45c7b74c060be5820e1782d7f5ec72e8599ad5bb4f93cb7e8c3fa4a`. Full provenance is in `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
+
+### Same closed signal-bar counts
+
+- 34 Wave3 candidates; BOS20=21; `choch_rule_up`=12; bullish OB within $5=1; bullish FVG overlap=7.
+- Pairwise intersections: BOS20+rule-CHoCH=9; BOS20+OB=0; BOS20+FVG=3; rule-CHoCH+OB=0; rule-CHoCH+FVG=3; OB+FVG=0.
+- No candidate has all four frozen components on the same closed signal bar. Maximum SMC score is 75; no candidate reaches 85.
+
+### Structural event and OB/FVG trace semantics
+
+- `bos20_up` is the scored close-above-prior-20-bar-high breakout, not structural `bos_up`. The trace separately records structural BOS pivot origin and confirmation.
+- `choch_rule_up` is three confirmed higher lows plus a green signal candle, not structural `choch_up`. Structural BOS up appears on 8 rows; structural CHoCH up on 4; the scored higher-lows rule appears on 12; structural CHoCH and the scored rule have zero overlap.
+- Eleven rows selected an OB; all 11 were valid on the signal bar, one was within $5, and none was inside the OB zone. The per-row trace preserves OB origin/confirmation, origin range, distance, age, validity and invalidation details.
+- Seven rows scored FVG overlap. All seven first overlapped before signal; five had full mitigation on an earlier bar and later re-touched; two first reached full mitigation on the signal bar. Current code continues to allow overlap/re-touch while the most recent bullish FVG is within 48 bars and does not deactivate it after full mitigation.
+- Keep this frozen benchmark behavior unchanged until the intended first-touch/full-mitigation/re-touch semantics are explicitly reviewed and preregistered for a separate challenger. No weights, lookbacks, thresholds or gates changed.
+
+### Data and calendar integrity
+
+- Current dataset SHA-256: `0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266`; 101,076 bars, 8,483,411 bytes. The current Git blob SHA-1 `2cab52b000a823e71885b1714149295621c7ed71` matches the Git blob identity recorded in `datasets/exness-demo/metadata.json`.
+- Canonical Git LF calendar: 386,146 bytes, SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`; recomputed over the current fetched CSV bytes and matched the pinned manifest.
+- Raw terminal calendar: 388,313 bytes, CRLF-only, SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c`. `MQL5/Logs/20261030.log` records two `NEWS_EXPORT_SUCCESS` markers, 2,166 high-impact USD/US events, 15,853 queried values and zero unknown time modes. Coverage is [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z), end exclusive.
+- These are historical terminal observations from 2026-10-30. No fresh MT5 connection/export occurred during the 2026-11-03 CI run.
+
+The trace is diagnostic-only. No model training, broker order, deployment, merge or Live Trading occurred. Run #6 remains the only completed model-training evidence and remains below every performance acceptance gate.
