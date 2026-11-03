@@ -44,6 +44,7 @@ export default function IntegrationCenterPage() {
   const [busyAction, setBusyAction] = useState('');
   const [activity, setActivity] = useState<string[]>([]);
   const [verificationByConnection, setVerificationByConnection] = useState<Record<string, { checkedAt: string }>>({});
+  const verificationKey = (userId: string, connectionId: string) => userId + ':' + connectionId;
   const recordActivity = useCallback((message: string) => setActivity((items) => [new Date().toLocaleTimeString() + ' · ' + message, ...items].slice(0, 6)), []);
 
   const refresh = useCallback(async (quiet = false) => {
@@ -136,8 +137,8 @@ export default function IntegrationCenterPage() {
     if (!supabase) return;
     setBusyAction('verify-' + connection.connectionId);
     try {
-      const { data } = await supabase.auth.getSession(), token = data.session?.access_token;
-      if (!token) throw new Error('กรุณาเข้าสู่ระบบใหม่');
+      const { data } = await supabase.auth.getSession(), token = data.session?.access_token, userId = data.session?.user?.id || '';
+      if (!token || !userId || sessionUserIdRef.current !== userId) throw new Error('กรุณาเข้าสู่ระบบใหม่');
       const response = await fetch(hubUrl + '/v1/connections/' + encodeURIComponent(connection.connectionId) + '/check', { method: 'POST', headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' }, cache: 'no-store' });
       const result = await response.json().catch(() => ({}));
       if (response.status === 401) {
@@ -150,10 +151,10 @@ export default function IntegrationCenterPage() {
         throw new Error('Session expired — sign in again');
       }
       if (!response.ok) throw new Error(result.state || result.error || 'Verification failed');
-      if (result.connectionId !== connection.connectionId || result.state !== 'data_verified' || result.dataVerified !== true || typeof result.checkedAt !== 'string' || !Number.isFinite(Date.parse(result.checkedAt))) {
+      if (sessionUserIdRef.current !== userId || result.connectionId !== connection.connectionId || result.state !== 'data_verified' || result.dataVerified !== true || typeof result.checkedAt !== 'string' || !Number.isFinite(Date.parse(result.checkedAt))) {
         throw new Error('Hub did not return a verified account-read result');
       }
-      setVerificationByConnection((current) => ({ ...current, [connection.connectionId]: { checkedAt: result.checkedAt } }));
+      setVerificationByConnection((current) => ({ ...current, [verificationKey(userId, connection.connectionId)]: { checkedAt: result.checkedAt } }));
       recordActivity('Verified read-only connection: ' + connection.accountLabel);
       await refresh(true);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Verification failed'); }
@@ -223,7 +224,7 @@ export default function IntegrationCenterPage() {
 
       <section className="nova-grid" style={{ marginBottom: 16 }}>
         <div className="nova-panel"><p className="nova-eyebrow">CONNECTION LIFECYCLE</p><h2>Exness MT5 Demo</h2><p className="nova-small">เริ่มคำขอแบบ pending → ผู้ดูแลจัดสรร route → ทดสอบ account read → จึงแสดง Data Verified</p>
-          {exnessConnection ? <div className="nova-notice" style={{ marginTop: 14 }}><strong>{stateLabel(exnessConnection.readiness)}</strong><p>{exnessConnection.accountLabel || 'Exness MT5 Demo'} · {exnessConnection.recordStatus} · Route {exnessConnection.bridgeAllocated ? 'allocated' : 'not allocated'}</p><p>Data verified: {verificationByConnection[exnessConnection.connectionId] ? 'YES · THIS SESSION' : exnessConnection.dataVerified ? 'YES · HUB' : 'NO'} · Last verified: {verificationByConnection[exnessConnection.connectionId]?.checkedAt || exnessConnection.lastVerifiedAt || 'Not yet'}</p><button className="nova-button" type="button" disabled={!exnessConnection.bridgeAllocated || busyAction !== ''} onClick={() => void verifyConnection(exnessConnection)} style={{ marginTop: 10 }}>{busyAction === 'verify-' + exnessConnection.connectionId ? 'กำลังทดสอบ…' : 'ทดสอบ Read-only'}</button></div> :
+          {exnessConnection ? <div className="nova-notice" style={{ marginTop: 14 }}><strong>{stateLabel(exnessConnection.readiness)}</strong><p>{exnessConnection.accountLabel || 'Exness MT5 Demo'} · {exnessConnection.recordStatus} · Route {exnessConnection.bridgeAllocated ? 'allocated' : 'not allocated'}</p><p>Data verified: {verificationByConnection[verificationKey(sessionUserIdRef.current, exnessConnection.connectionId)] ? 'YES · THIS SESSION' : exnessConnection.dataVerified ? 'YES · HUB' : 'NO'} · Last verified: {verificationByConnection[verificationKey(sessionUserIdRef.current, exnessConnection.connectionId)]?.checkedAt || exnessConnection.lastVerifiedAt || 'Not yet'}</p><button className="nova-button" type="button" disabled={!exnessConnection.bridgeAllocated || busyAction !== ''} onClick={() => void verifyConnection(exnessConnection)} style={{ marginTop: 10 }}>{busyAction === 'verify-' + exnessConnection.connectionId ? 'กำลังทดสอบ…' : 'ทดสอบ Read-only'}</button></div> :
             <button className="nova-button nova-button-primary" type="button" disabled={!sessionReady || busyAction !== ''} onClick={() => void requestExnessConnection()} style={{ marginTop: 14 }}>{busyAction === 'connect-exness' ? 'กำลังส่งคำขอ…' : 'ขอเชื่อมต่อ Exness Demo'}</button>}
           <p className="nova-small" style={{ marginTop: 12 }}>การกดปุ่มนี้สร้างเฉพาะคำขอ pending เท่านั้น ไม่มีการส่งรหัสผ่านหรือ API secret และไม่เปิดคำสั่งซื้อขาย</p>
         </div>
