@@ -126,23 +126,13 @@ async function claimPairing(request, env, user) {
     return result(400, { error: "valid_pairing_token_required" });
   }
   const tokenHash = await hashToken(body.token);
-  const now = new Date().toISOString();
-  const url = new URL("/rest/v1/secret_pairing_sessions", supabaseOrigin(env));
-  for (const [key, value] of Object.entries({
-    select: PUBLIC_FIELDS,
-    owner_id: "eq." + user.userId,
-    token_hash: "eq." + tokenHash,
-    status: "eq.pending",
-    expires_at: "gt." + now
-  })) url.searchParams.set(key, value);
-  const updated = await supabaseRequest(env, user, url.pathname + url.search, {
-    method: "PATCH",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ status: "scanned", scanned_at: now })
+  const claimed = await supabaseRequest(env, user, "/rest/v1/rpc/nova_claim_secret_pairing", {
+    method: "POST",
+    body: JSON.stringify({ p_token_hash: tokenHash })
   });
-  if (!updated.ok) return result(503, { error: "pairing_claim_unavailable" });
-  if (!updated.rows[0]) return result(409, { error: "pairing_invalid_expired_used_or_not_owned" });
-  return result(200, { pairing: safeRow(updated.rows[0]), approvalRequired: true });
+  if (!claimed.ok) return result(503, { error: "pairing_claim_unavailable" });
+  if (!claimed.rows[0]) return result(409, { error: "pairing_invalid_expired_used_or_not_owned" });
+  return result(200, { pairing: safeRow(claimed.rows[0]), approvalRequired: true });
 }
 
 async function approvePairing(request, env, user, pairingId) {
@@ -154,25 +144,14 @@ async function approvePairing(request, env, user, pairingId) {
     return result(400, { error: "valid_pairing_id_required" });
   }
   const tokenHash = await hashToken(body.token);
-  const now = new Date().toISOString();
-  const url = new URL("/rest/v1/secret_pairing_sessions", supabaseOrigin(env));
-  for (const [key, value] of Object.entries({
-    select: PUBLIC_FIELDS,
-    id: "eq." + pairingId,
-    owner_id: "eq." + user.userId,
-    token_hash: "eq." + tokenHash,
-    status: "eq.scanned",
-    expires_at: "gt." + now
-  })) url.searchParams.set(key, value);
-  const updated = await supabaseRequest(env, user, url.pathname + url.search, {
-    method: "PATCH",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ status: "approved", approved_at: now, token_hash: null })
+  const approved = await supabaseRequest(env, user, "/rest/v1/rpc/nova_approve_secret_pairing", {
+    method: "POST",
+    body: JSON.stringify({ p_pairing_id: pairingId, p_token_hash: tokenHash })
   });
-  if (!updated.ok) return result(503, { error: "pairing_approval_unavailable" });
-  if (!updated.rows[0]) return result(409, { error: "pairing_invalid_expired_used_or_not_owned" });
+  if (!approved.ok) return result(503, { error: "pairing_approval_unavailable" });
+  if (!approved.rows[0]) return result(409, { error: "pairing_invalid_expired_used_or_not_owned" });
   return result(200, {
-    pairing: safeRow(updated.rows[0]),
+    pairing: safeRow(approved.rows[0]),
     approved: true,
     credentialIntakeEnabled: false,
     secretStorageEnabled: false,
