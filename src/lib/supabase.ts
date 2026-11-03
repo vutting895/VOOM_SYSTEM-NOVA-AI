@@ -1,0 +1,17 @@
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
+const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
+
+// These are public browser settings only. Never use a service-role key in this module.
+export const supabase = supabaseUrl && supabasePublishableKey
+  ? createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true
+      }
+    })
+  : null;
+
+export const supabaseAuthConfigured = Boolean(supabase);
