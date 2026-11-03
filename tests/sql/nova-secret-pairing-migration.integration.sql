@@ -66,18 +66,25 @@ VALUES (
   now() - interval '3 minutes',
   now() - interval '1 minute'
 );
-SET LOCAL ROLE postgres;
+SET LOCAL request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
+SET LOCAL ROLE authenticated;
 DO $test$
 DECLARE v_id uuid;
 BEGIN
   SELECT id INTO v_id FROM public.secret_pairing_sessions
-   WHERE status = 'pending' AND token_hash = repeat('b', 64);
+   WHERE status = 'pending'
+   LIMIT 1;
+  IF v_id IS NULL THEN
+    RAISE EXCEPTION 'owner_expiry_row_not_visible';
+  END IF;
   IF (SELECT count(*) FROM public.nova_expire_secret_pairing(v_id)
       WHERE status = 'expired') <> 1 THEN
-    RAISE EXCEPTION 'owner_expiry_failed';
+    RAISE EXCEPTION 'authenticated_owner_expiry_failed';
   END IF;
 END;
 $test$;
+
+SET LOCAL ROLE postgres;
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
