@@ -41,7 +41,7 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 
 `pending → scanned → approved`
 
-Terminal alternatives: `rejected`, `cancelled`, `expired`. Terminal transitions clear the token hash. Database cleanup of expired rows is an operational follow-up; API lookup reports expired state based on timestamp.
+`expired` is computed by the status endpoint from the expiry timestamp; Phase 1 does not persist an expired state or expose reject/cancel transitions. Expired-row cleanup is an operational follow-up.
 
 ## Deployment gates
 
