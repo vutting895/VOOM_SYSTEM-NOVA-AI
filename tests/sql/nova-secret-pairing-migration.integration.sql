@@ -16,34 +16,65 @@ VALUES (
   now() + interval '90 seconds'
 );
 
-SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_read
-FROM public.secret_pairing_sessions
-WHERE owner_id = '10000000-0000-4000-8000-000000000001';
-SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_claim
-FROM public.nova_claim_secret_pairing(repeat('a', 64))
-WHERE status = 'scanned';
-SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS owner_can_approve
-FROM public.nova_approve_secret_pairing(
-  (SELECT id FROM public.secret_pairing_sessions WHERE owner_id = '10000000-0000-4000-8000-000000000001'),
-  repeat('a', 64)
-)
-WHERE status = 'approved';
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions
+      WHERE owner_id = '10000000-0000-4000-8000-000000000001') <> 1 THEN
+    RAISE EXCEPTION 'owner_select_failed';
+  END IF;
+END;
+$test$;
+
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM public.nova_claim_secret_pairing(repeat('a', 64))
+      WHERE status = 'scanned') <> 1 THEN
+    RAISE EXCEPTION 'owner_claim_failed';
+  END IF;
+END;
+$test$;
+
+DO $test$
+DECLARE v_id uuid;
+BEGIN
+  SELECT id INTO v_id FROM public.secret_pairing_sessions
+    WHERE owner_id = '10000000-0000-4000-8000-000000000001';
+  IF (SELECT count(*) FROM public.nova_approve_secret_pairing(v_id, repeat('a', 64))
+      WHERE status = 'approved') <> 1 THEN
+    RAISE EXCEPTION 'owner_approval_failed';
+  END IF;
+END;
+$test$;
+
 SET LOCAL ROLE postgres;
-SELECT CASE WHEN count(*) = 1 THEN 1 ELSE 1/0 END AS approved_hash_cleared
-FROM public.secret_pairing_sessions
-WHERE owner_id = '10000000-0000-4000-8000-000000000001'
-  AND status = 'approved' AND token_hash IS NULL;
-SELECT CASE WHEN NOT has_column_privilege('authenticated', 'public.secret_pairing_sessions', 'token_hash', 'SELECT')
-  THEN 1 ELSE 1/0 END AS token_hash_not_readable;
-SELECT CASE WHEN NOT has_table_privilege('authenticated', 'public.secret_pairing_sessions', 'UPDATE')
-  THEN 1 ELSE 1/0 END AS direct_client_update_revoked;
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions
+      WHERE owner_id = '10000000-0000-4000-8000-000000000001'
+        AND status = 'approved' AND token_hash IS NULL) <> 1 THEN
+    RAISE EXCEPTION 'approved_token_hash_not_cleared';
+  END IF;
+  IF has_column_privilege('authenticated', 'public.secret_pairing_sessions', 'token_hash', 'SELECT') THEN
+    RAISE EXCEPTION 'token_hash_read_privilege_not_revoked';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.secret_pairing_sessions', 'UPDATE') THEN
+    RAISE EXCEPTION 'direct_client_update_not_revoked';
+  END IF;
+END;
+$test$;
 
 SET LOCAL request.jwt.claim.sub = '20000000-0000-4000-8000-000000000002';
 SET LOCAL ROLE authenticated;
-SELECT CASE WHEN count(*) = 0 THEN 1 ELSE 1/0 END AS foreign_owner_select_denied
-FROM public.secret_pairing_sessions
-WHERE owner_id = '10000000-0000-4000-8000-000000000001';
-SELECT CASE WHEN count(*) = 0 THEN 1 ELSE 1/0 END AS foreign_owner_claim_denied
-FROM public.nova_claim_secret_pairing(repeat('a', 64));
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM public.secret_pairing_sessions
+      WHERE owner_id = '10000000-0000-4000-8000-000000000001') <> 0 THEN
+    RAISE EXCEPTION 'foreign_owner_select_not_denied';
+  END IF;
+  IF (SELECT count(*) FROM public.nova_claim_secret_pairing(repeat('a', 64))) <> 0 THEN
+    RAISE EXCEPTION 'foreign_owner_claim_not_denied';
+  END IF;
+END;
+$test$;
 
 ROLLBACK;
