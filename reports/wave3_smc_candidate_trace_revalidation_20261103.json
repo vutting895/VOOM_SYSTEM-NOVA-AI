@@ -1,22 +1,22 @@
 {
   "schema_version": "1.0",
   "status": "diagnostic_only_no_training_p1_fvg_semantics_review_required",
-  "generated_utc": "2026-11-03T04:05:15.196991Z",
+  "generated_utc": "2026-11-03T04:08:23.314983Z",
   "source": {
     "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
     "main_sha": "4480d3bf6fa8f390b09334091f697d8359e79085",
     "pr_number": 66,
     "branch": "feature/wave3-hybrid-backtest-20261029",
-    "pr_head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
-    "pr_merge_sha": "8ad4d3472b394e07666abbb41c95c73c684a2fbf",
-    "workflow_run_id": 41575866703,
-    "workflow_run_number": 186,
-    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703",
-    "artifact_id": 13203298320,
-    "artifact_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703/artifacts/13203298320",
-    "artifact_archive_sha256": "dd98ebe354f671c8ce91e6acfbcabab1eb69543702d63c277a4403aa0e6b685e",
+    "pr_head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+    "pr_merge_sha": "6b18b245431e0fb2611ef42fedba9eacaab96e92",
+    "workflow_run_id": 41576195675,
+    "workflow_run_number": 189,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41576195675",
+    "artifact_id": 13202539948,
+    "artifact_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41576195675/artifacts/13202539948",
+    "artifact_archive_sha256": "b6fc22006eaa57a64d351eccc325e42e35f3b2f4f39407afdbfb78ba24a39f1e",
     "trace_json_path_in_artifact": "wave3_smc_candidate_trace_20261101.json",
-    "trace_json_sha256": "8e4a6faadfac80e8ee92e0c8335622c4d9a81b03d0a8ebcd7e57a0e49b8f63fa",
+    "trace_json_sha256": "f56874d5be605d42fd884b798340442454586d685a601c050bbd717a68533c2d",
     "data_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
     "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
     "data_bytes": 8483411,
@@ -190,34 +190,35 @@
   },
   "workflow_validation": {
     "smc_ci": {
-      "run_id": 41575866703,
-      "run_number": 186,
-      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "run_id": 41576195675,
+      "run_number": 189,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
       "conclusion": "success"
     },
     "windows_runtime_ci": {
-      "run_id": 41575866762,
-      "run_number": 280,
-      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "run_id": 41576195729,
+      "run_number": 283,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
       "conclusion": "success"
     },
     "cloud_scheduler_contract": {
-      "run_id": 41575866816,
-      "run_number": 27,
-      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "run_id": 41576195744,
+      "run_number": 30,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
       "conclusion": "success"
     },
     "frontend_ci": {
-      "run_id": 41575866843,
-      "run_number": 1036,
-      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "run_id": 41576195653,
+      "run_number": 1039,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
       "conclusion": "failure",
       "failed_step": "Set up Node.js",
       "reason": "actions/setup-node could not resolve frontend/package-lock.json"
     },
     "netlify_deploy_preview": {
-      "state": "pending_at_capture",
-      "url": "https://app.netlify.com/projects/voomsystem/deploys/6ae95d24e4dec2930117ab28"
+      "state": "building_at_capture",
+      "deploy_id": "6ae95de668ec56f11f02abf3",
+      "url": "https://app.netlify.com/projects/voomsystem/deploys/6ae95de668ec56f11f02abf3"
     }
   },
   "repository_controls": {
