@@ -406,10 +406,42 @@ async function checkConnection(request, env, user, row, origin) {
     }, 502, origin, env);
   }
 
-  // Require a real quote response as well as the authenticated account read.
-  // XAUUSD/M1 is the initial verification probe; unsupported broker symbols fail closed.
+  // Discover the broker's actual gold symbol instead of assuming XAUUSD.
+  // Exness demo terminals may expose variants such as XAUUSDm.
+  const symbolsResult = await requestMt5Proxy(env, user, row, "/api/symbols", {
+    q: "XAUUSD", limit: 50
+  });
+  if (!symbolsResult.ok) {
+    return json({
+      connectionId: row.id,
+      state: symbolsResult.error,
+      detail: symbolsResult.detail,
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, symbolsResult.status, origin, env);
+  }
+  const availableSymbols = Array.isArray(symbolsResult.body?.symbols)
+    ? symbolsResult.body.symbols
+        .map((item) => typeof item?.name === "string" ? item.name : "")
+        .filter((name) => /^XAUUSD[A-Za-z0-9._-]*$/i.test(name))
+    : [];
+  const symbol = availableSymbols.find((name) => name.toUpperCase() === "XAUUSD") ||
+    availableSymbols.find((name) => name.toUpperCase().startsWith("XAUUSD"));
+  if (!symbol) {
+    return json({
+      connectionId: row.id,
+      state: "gold_symbol_unavailable",
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
+
   const quoteResult = await requestMt5Proxy(env, user, row, "/api/quotes", {
-    symbol: "XAUUSD", timeframe: "M1", count: 1
+    symbol, timeframe: "M1", count: 1
   });
   if (!quoteResult.ok) {
     return json({
@@ -423,7 +455,7 @@ async function checkConnection(request, env, user, row, origin) {
     }, quoteResult.status, origin, env);
   }
   const quote = quoteResult.body;
-  const quoteHasData = quote && quote.symbol === "XAUUSD" &&
+  const quoteHasData = quote && quote.symbol === symbol &&
     ((quote.tick && Number.isFinite(quote.tick.bid) && Number.isFinite(quote.tick.ask)) ||
       (Array.isArray(quote.bars) && quote.bars.length > 0));
   if (!quoteHasData) {
@@ -444,7 +476,7 @@ async function checkConnection(request, env, user, row, origin) {
     dataVerified: true,
     accountReadSucceeded: true,
     quoteReadSucceeded: true,
-    symbol: "XAUUSD",
+    symbol,
     timeframe: "M1",
     checkedAt: new Date().toISOString(),
     ordersEnabled: false,
