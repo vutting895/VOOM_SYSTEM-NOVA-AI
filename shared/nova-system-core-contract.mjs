@@ -77,17 +77,16 @@ export function evaluateCoreCapability(request, trustedContext) {
   if (trustedContext.identityVerified !== true) return deny("identity_unverified");
   if (trustedContext.tenantAuthorized !== true) return deny("tenant_not_authorized");
 
+  if (request.upstreamUrl !== undefined) return deny("caller_selected_upstream_forbidden");
+  if (request.secret !== undefined || request.credential !== undefined) {
+    return deny("secret_material_forbidden");
+  }
   if (Object.keys(request).some((key) => key !== "capability")) return deny("unknown_request_fields");
 
   const capability = request.capability;
   if (typeof capability !== "string" || !capability) return deny("capability_invalid");
   if (FORBIDDEN.has(capability)) return deny("capability_forbidden");
   if (!ALLOWED.has(capability)) return deny("capability_not_allowlisted");
-
-  if (request.upstreamUrl !== undefined) return deny("caller_selected_upstream_forbidden");
-  if (request.secret !== undefined || request.credential !== undefined) {
-    return deny("secret_material_forbidden");
-  }
 
   return Object.freeze({
     allowed: true,
