@@ -61,6 +61,11 @@ test("the browser app uses Supabase Auth, bearer API clients, and route protecti
   assert.match(bearer, /Authorization/);
   assert.match(api, /voom-system-hub\.suwapat787\.workers\.dev/);
   assert.match(api, /voom-system-nova-ai\.suwapat787\.workers\.dev/);
+  const vite = readFileSync(new URL("../vite.config.ts", import.meta.url), "utf8");
+  assert.match(vite, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(vite, /NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  assert.match(vite, /VITE_SUPABASE_PUBLISHABLE_KEY/);
+  assert.doesNotMatch(vite, /service_role|SERVICE_ROLE/);
 });
 
 test("local Express server has no hardcoded broker-connected or fake AI routes", () => {
