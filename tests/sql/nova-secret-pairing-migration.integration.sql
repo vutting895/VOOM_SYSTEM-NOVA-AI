@@ -7,9 +7,8 @@ ON CONFLICT (id) DO NOTHING;
 SET LOCAL request.jwt.claim.sub = '10000000-0000-4000-8000-000000000001';
 SET LOCAL ROLE authenticated;
 INSERT INTO public.secret_pairing_sessions
-  (owner_id, purpose, token_hash, status, expires_at)
+  (purpose, token_hash, status, expires_at)
 VALUES (
-  '10000000-0000-4000-8000-000000000001',
   'provider_connection',
   repeat('a', 64),
   'pending',
@@ -19,7 +18,7 @@ VALUES (
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE owner_id = '10000000-0000-4000-8000-000000000001') <> 1 THEN
+      WHERE id = '00000000-0000-4000-8000-000000000001') <> 1 THEN
     RAISE EXCEPTION 'owner_select_failed';
   END IF;
 END;
@@ -38,7 +37,7 @@ DO $test$
 DECLARE v_id uuid;
 BEGIN
   SELECT id INTO v_id FROM public.secret_pairing_sessions
-    WHERE owner_id = '10000000-0000-4000-8000-000000000001';
+    WHERE id = '00000000-0000-4000-8000-000000000001';
   IF (SELECT count(*) FROM public.nova_approve_secret_pairing(v_id, repeat('a', 64))
       WHERE status = 'approved') <> 1 THEN
     RAISE EXCEPTION 'owner_approval_failed';
@@ -50,7 +49,7 @@ SET LOCAL ROLE postgres;
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE owner_id = '10000000-0000-4000-8000-000000000001'
+      WHERE id = '00000000-0000-4000-8000-000000000001'
         AND status = 'approved' AND token_hash IS NULL) <> 1 THEN
     RAISE EXCEPTION 'approved_token_hash_not_cleared';
   END IF;
@@ -68,7 +67,7 @@ SET LOCAL ROLE authenticated;
 DO $test$
 BEGIN
   IF (SELECT count(*) FROM public.secret_pairing_sessions
-      WHERE owner_id = '10000000-0000-4000-8000-000000000001') <> 0 THEN
+      WHERE id = '00000000-0000-4000-8000-000000000001') <> 0 THEN
     RAISE EXCEPTION 'foreign_owner_select_not_denied';
   END IF;
   IF (SELECT count(*) FROM public.nova_claim_secret_pairing(repeat('a', 64))) <> 0 THEN
