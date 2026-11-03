@@ -1,5 +1,5 @@
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const PAIRING_PATH_PATTERN = /^\\/v1\\/secrets\\/pairings(?:\\/claim|\\/[0-9a-f-]{36})?$/i;
+const PAIRING_PATH_PATTERN = /^\/v1\/secrets\/pairings(?:\/claim|\/[0-9a-f-]{36})?$/i;
 
 export function extractPairingToken(fragment) {
   if (typeof fragment !== "string" || !fragment) return null;
