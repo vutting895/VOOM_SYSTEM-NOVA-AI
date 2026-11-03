@@ -385,32 +385,67 @@ function connectionNotReady(row, origin, env) {
   }, row.status === "disabled" ? 403 : 409, origin, env);
 }
 async function checkConnection(request, env, user, row, origin) {
-  const result = await requestMt5Proxy(env, user, row, "/api/account");
-  if (!result.ok) {
+  const accountResult = await requestMt5Proxy(env, user, row, "/api/account");
+  if (!accountResult.ok) {
     return json({
       connectionId: row.id,
-      state: result.error,
-      detail: result.detail,
+      state: accountResult.error,
+      detail: accountResult.detail,
       dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
-    }, result.status, origin, env);
+    }, accountResult.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (accountResult.body.connected !== true) {
     return json({
       connectionId: row.id,
-      state: "bridge_unavailable",
+      state: "account_read_unverified",
       dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
     }, 502, origin, env);
   }
-  // Intentionally discard account payload: this endpoint verifies reachability only.
+
+  // Require a real quote response as well as the authenticated account read.
+  // XAUUSD/M1 is the initial verification probe; unsupported broker symbols fail closed.
+  const quoteResult = await requestMt5Proxy(env, user, row, "/api/quotes", {
+    symbol: "XAUUSD", timeframe: "M1", count: 1
+  });
+  if (!quoteResult.ok) {
+    return json({
+      connectionId: row.id,
+      state: quoteResult.error,
+      detail: quoteResult.detail,
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, quoteResult.status, origin, env);
+  }
+  const quote = quoteResult.body;
+  const quoteHasData = quote && quote.symbol === "XAUUSD" &&
+    ((quote.tick && Number.isFinite(quote.tick.bid) && Number.isFinite(quote.tick.ask)) ||
+      (Array.isArray(quote.bars) && quote.bars.length > 0));
+  if (!quoteHasData) {
+    return json({
+      connectionId: row.id,
+      state: "quote_read_unverified",
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
+
+  // Intentionally discard account and quote payloads; this endpoint verifies both reads only.
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     accountReadSucceeded: true,
+    quoteReadSucceeded: true,
+    symbol: "XAUUSD",
+    timeframe: "M1",
     checkedAt: new Date().toISOString(),
     ordersEnabled: false,
     liveTradingEnabled: false
