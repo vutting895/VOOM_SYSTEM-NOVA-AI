@@ -257,7 +257,7 @@ Still open: independent review P2 findings for RSI behavior and completed-H1 ali
 
 ### Current P1 causal SMC evidence
 
-PR #66 exact code-head SMC/Wave3 CI [run #183](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559) passed and uploaded artifact [#13203561555](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559/artifacts/13203561555). Archive SHA-256: `c929fa73ca643aaec34a745361d82cf40d3cb8ea8ce1d3f084cff9045c858970`; trace JSON SHA-256: `117d48fda45c7b74c060be5820e1782d7f5ec72e8599ad5bb4f93cb7e8c3fa4a`. The report is `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
+PR #66 exact code-head SMC/Wave3 CI [run #186](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703) passed and uploaded artifact [#13203298320](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703/artifacts/13203298320). Archive SHA-256: `dd98ebe354f671c8ce91e6acfbcabab1eb69543702d63c277a4403aa0e6b685e`; trace JSON SHA-256: `8e4a6faadfac80e8ee92e0c8335622c4d9a81b03d0a8ebcd7e57a0e49b8f63fa`. The report is `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
 
 - 34 candidate rows; BOS20=21, scored three-confirmed-higher-lows + green=12, OB within $5=1, FVG overlap=7.
 - Same-bar pairwise intersections: BOS20+rule-CHoCH=9, BOS20+OB=0, BOS20+FVG=3, rule-CHoCH+OB=0, rule-CHoCH+FVG=3, OB+FVG=0. All four on one closed signal bar=0; maximum score=75; score >=85=0.
