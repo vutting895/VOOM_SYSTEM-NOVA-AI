@@ -6,6 +6,7 @@ $ExpectedBranch = 'feature/wave3-hybrid-backtest-20261029'
 $StateRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\wave3-daily'
 $PersistentDataRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\wave3'
 $LogRoot = Join-Path $StateRoot 'logs'
+$LastSuccessfulTrainingPath = Join-Path $StateRoot 'last-successful-training.json'
 New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null
 $LogPath = Join-Path $LogRoot ("daily-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")
 Start-Transcript -Path $LogPath -Append | Out-Null
@@ -70,29 +71,98 @@ try {
     if ($sync.mode -ne 'read-only' -or $sync.order_submission_enabled -ne $false) {
         throw 'Daily market-data refresher did not confirm read-only mode; candidate training is blocked.'
     }
-    if ($sync.status -eq 'no_new_closed_bars') {
-        Write-Host "No new completed M15 bars; training skipped. Last bar: $($sync.last_closed_bar_utc)"
-        exit 0
+    if ($sync.status -notin @('updated', 'no_new_closed_bars')) {
+        throw "Unexpected MT5 refresh status: $($sync.status)"
     }
-    if ($sync.status -ne 'updated' -or [int]$sync.new_bars -le 0) { throw "Unexpected MT5 refresh status: $($sync.status)" }
+    if ($sync.status -eq 'updated' -and [int]$sync.new_bars -le 0) {
+        throw 'MT5 refresh reported updated without any new completed bars.'
+    }
+
+    $data = Join-Path $PersistentDataRoot 'XAUUSDm_M15_daily.csv'
+    $dataSha = [string]$sync.data_sha256
+    if ($dataSha -notmatch '^[0-9a-fA-F]{64}$') {
+        throw 'Daily MT5 refresh did not return a valid dataset SHA-256.'
+    }
+    if (-not (Test-Path -LiteralPath $data -PathType Leaf)) {
+        throw 'Persistent daily MT5 dataset is missing after refresh.'
+    }
+    $actualDataSha = (Get-FileHash -LiteralPath $data -Algorithm SHA256).Hash.ToLowerInvariant()
+    $dataSha = $dataSha.ToLowerInvariant()
+    if ($actualDataSha -ne $dataSha) {
+        throw 'Persistent daily dataset SHA-256 does not match the refresh result; training is blocked.'
+    }
 
     $commonFiles = if ($env:VOOM_MT5_COMMON_FILES) { $env:VOOM_MT5_COMMON_FILES } else { Join-Path $env:APPDATA 'MetaQuotes\Terminal\Common\Files' }
     $calendar = Join-Path $commonFiles 'VOOM_USD_High_Impact_Daily.csv'
-    if (-not (Test-Path -LiteralPath $calendar)) { throw 'Current hourly MQL5 USD calendar export is missing; training fails closed.' }
-    $calendarAge = (Get-Date).ToUniversalTime() - (Get-Item -LiteralPath $calendar).LastWriteTimeUtc
-    if ($calendarAge.TotalHours -gt 2) { throw ("MQL5 USD calendar export is stale ({0:N1} hours)." -f $calendarAge.TotalHours) }
-    # Freshness does not prove coverage: hourly export may predate the newest
-    # completed M15 bar. Require declared end-exclusive coverage through that bar.
-    $calendarRows = @(Import-Csv -LiteralPath $calendar)
-    if ($calendarRows.Count -eq 0) { throw 'USD calendar export contains no validated event rows.' }
-    $coverageEnds = @($calendarRows | ForEach-Object { $_.coverage_end_exclusive_utc } | Select-Object -Unique)
-    if ($coverageEnds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($coverageEnds[0])) {
-        throw 'USD calendar rows have inconsistent or missing coverage-end metadata.'
-    }
-    $coverageEnd = [DateTimeOffset]::Parse($coverageEnds[0]).ToUniversalTime()
     $latestClosedBarEnd = [DateTimeOffset]::Parse($sync.last_closed_bar_utc).ToUniversalTime().AddMinutes(15)
-    if ($coverageEnd -lt $latestClosedBarEnd) {
-        throw ("USD calendar coverage ends at {0}, before latest refreshed M15 bar end {1}; waiting for a covering export." -f $coverageEnd.ToString('o'), $latestClosedBarEnd.ToString('o'))
+    $calendarWaitDeadline = (Get-Date).AddMinutes(70)
+    $calendarReady = $false
+    $calendarHash = ''
+    while (-not $calendarReady) {
+        if (-not (Test-Path -LiteralPath $calendar -PathType Leaf)) {
+            if ((Get-Date) -ge $calendarWaitDeadline) {
+                throw 'Current hourly MQL5 USD calendar export did not appear within the 70-minute bounded wait.'
+            }
+            Write-Host 'Waiting for the read-only MT5 calendar exporter to create a current CSV.'
+            Start-Sleep -Seconds 60
+            continue
+        }
+
+        $calendarItem = Get-Item -LiteralPath $calendar
+        $calendarAge = (Get-Date).ToUniversalTime() - $calendarItem.LastWriteTimeUtc
+        if ($calendarAge.TotalHours -gt 2) {
+            if ((Get-Date) -ge $calendarWaitDeadline) {
+                throw ("MQL5 USD calendar export remained stale after bounded wait ({0:N1} hours)." -f $calendarAge.TotalHours)
+            }
+            Write-Host ("Waiting for a fresh MQL5 USD calendar export; current age is {0:N1} hours." -f $calendarAge.TotalHours)
+            Start-Sleep -Seconds 60
+            continue
+        }
+
+        $calendarRows = @(Import-Csv -LiteralPath $calendar)
+        if ($calendarRows.Count -eq 0) {
+            if ((Get-Date) -ge $calendarWaitDeadline) {
+                throw 'USD calendar export remained empty after bounded wait.'
+            }
+            Write-Host 'Waiting for a non-empty, atomically replaced USD calendar export.'
+            Start-Sleep -Seconds 60
+            continue
+        }
+        $coverageEnds = @($calendarRows | ForEach-Object { $_.coverage_end_exclusive_utc } | Select-Object -Unique)
+        if ($coverageEnds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($coverageEnds[0])) {
+            throw 'USD calendar rows have inconsistent or missing coverage-end metadata.'
+        }
+        $coverageEnd = [DateTimeOffset]::Parse($coverageEnds[0]).ToUniversalTime()
+        if ($coverageEnd -lt $latestClosedBarEnd) {
+            if ((Get-Date) -ge $calendarWaitDeadline) {
+                throw ("USD calendar coverage still ends at {0}, before latest refreshed M15 bar end {1}, after bounded wait." -f $coverageEnd.ToString('o'), $latestClosedBarEnd.ToString('o'))
+            }
+            Write-Host ("Waiting for calendar coverage through latest closed M15 bar end {0}; current export ends {1}." -f $latestClosedBarEnd.ToString('o'), $coverageEnd.ToString('o'))
+            Start-Sleep -Seconds 60
+            continue
+        }
+
+        $calendarHash = (Get-FileHash -LiteralPath $calendar -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($calendarHash -notmatch '^[0-9a-f]{64}$') {
+            throw 'Current USD calendar export did not produce a valid SHA-256.'
+        }
+        $calendarReady = $true
+    }
+
+    if (Test-Path -LiteralPath $LastSuccessfulTrainingPath -PathType Leaf) {
+        try {
+            $lastSuccess = Get-Content -LiteralPath $LastSuccessfulTrainingPath -Raw | ConvertFrom-Json
+            if ($lastSuccess.data_sha256 -eq $dataSha -and $lastSuccess.calendar_sha256 -eq $calendarHash) {
+                Write-Host "The current dataset/calendar pair was already trained successfully; data_sha256=$dataSha calendar_sha256=$calendarHash"
+                exit 0
+            }
+        }
+        catch {
+            Write-Host 'Last-success marker is unreadable; treating the current dataset as not yet trained.'
+        }
+    }
+    if ($sync.status -eq 'no_new_closed_bars') {
+        Write-Host "No new closed bars, but this dataset/calendar pair has no matching successful-training marker; retrying candidate training. data_sha256=$dataSha"
     }
 
     $baselineMetadata = Get-Content -Raw (Join-Path $resolved 'datasets\exness-demo\metadata.json') | ConvertFrom-Json
@@ -109,8 +179,25 @@ try {
                    '--candidate-live-start-utc', $liveStart, '--tuning-trials', '4')
     & $python @trainArgs
     if ($LASTEXITCODE -ne 0) { throw 'Daily XGBoost/LSTM candidate training or artifact verification failed.' }
+    if (-not (Test-Path -LiteralPath $candidateDir -PathType Container) -or -not (Test-Path -LiteralPath $report -PathType Leaf)) {
+        throw 'Candidate training returned success without both model directory and report; success marker was not written.'
+    }
 
-    Write-Host "DAILY_TRAIN_SUCCESS: run=$runId new_bars=$($sync.new_bars) data_sha256=$($sync.data_sha256)"
+    $successRecord = [ordered]@{
+        data_sha256 = $dataSha
+        calendar_sha256 = $calendarHash
+        last_closed_bar_utc = [string]$sync.last_closed_bar_utc
+        completed_at_utc = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    $markerTempPath = "$LastSuccessfulTrainingPath.tmp"
+    [System.IO.File]::WriteAllText(
+        $markerTempPath,
+        ($successRecord | ConvertTo-Json -Depth 4),
+        [System.Text.Encoding]::ASCII
+    )
+    Move-Item -LiteralPath $markerTempPath -Destination $LastSuccessfulTrainingPath -Force
+
+    Write-Host "DAILY_TRAIN_SUCCESS: run=$runId new_bars=$($sync.new_bars) data_sha256=$dataSha calendar_sha256=$calendarHash"
     Write-Host "Candidate model: $candidateDir"
     Write-Host "Report: $report"
     Write-Host 'Promotion/deployment/live trading remain disabled.'
