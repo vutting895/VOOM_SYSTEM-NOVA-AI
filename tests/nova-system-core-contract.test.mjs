@@ -63,4 +63,5 @@ test("rejects secret-bearing request fields and malformed requests", () => {
   );
   assert.equal(evaluateCoreCapability(null, trusted).reason, "request_invalid");
   assert.equal(evaluateCoreCapability({ capability: "" }, trusted).reason, "capability_invalid");
+  assert.equal(evaluateCoreCapability({ capability: "market.quote.read", tenantId: "attacker-controlled" }, trusted).reason, "unknown_request_fields");
 });
