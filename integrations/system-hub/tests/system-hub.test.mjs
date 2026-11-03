@@ -199,13 +199,20 @@ test("live read-only check requires authenticated account and quote reads before
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       return Response.json({ connected: true, balance: "999999", account_number: "private" });
     }
+    if (url.origin === proxyUrl && url.pathname === "/api/symbols") {
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      assert.equal(url.searchParams.get("q"), "XAUUSD");
+      assert.equal(url.searchParams.get("limit"), "50");
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ symbols: [{ name: "XAUUSDm" }, { name: "EURUSD" }] });
+    }
     if (url.origin === proxyUrl && url.pathname === "/api/quotes") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
-      assert.equal(url.searchParams.get("symbol"), "XAUUSD");
+      assert.equal(url.searchParams.get("symbol"), "XAUUSDm");
       assert.equal(url.searchParams.get("timeframe"), "M1");
       assert.equal(url.searchParams.get("count"), "1");
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ symbol: "XAUUSD", tick: { bid: 2000.1, ask: 2000.2 } });
+      return Response.json({ symbol: "XAUUSDm", tick: { bid: 2000.1, ask: 2000.2 } });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -219,6 +226,7 @@ test("live read-only check requires authenticated account and quote reads before
     assert.match(body, /"dataVerified":true/);
     assert.match(body, /"accountReadSucceeded":true/);
     assert.match(body, /"quoteReadSucceeded":true/);
+    assert.match(body, /"symbol":"XAUUSDm"/);
     assert.doesNotMatch(body, /999999|account_number|private|2000.1|2000.2/);
     assert.match(body, /"ordersEnabled":false/);
   } finally {
