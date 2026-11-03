@@ -1,3 +1,4 @@
+import { handleSecretPairingRequest } from "./secret-pairing.js";
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -524,6 +525,13 @@ export default {
 
     if (origin && !allowedOrigins(env).has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
+    }
+
+    if (url.pathname === "/v1/secrets/pairings" || url.pathname.startsWith("/v1/secrets/pairings/")) {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const pairing = await handleSecretPairingRequest(request, env, auth);
+      if (pairing) return json(pairing.body, pairing.status, origin, env);
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
