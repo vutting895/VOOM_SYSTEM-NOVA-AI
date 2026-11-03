@@ -29,8 +29,8 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 
 - 32 bytes from Web Crypto CSPRNG; SHA-256 hash persisted and never selectable by authenticated clients.
 - Owner ID is assigned by the database from `auth.uid()`; clients cannot set or read the owner ID.
-- Two-minute expiry enforced by API filters and database constraints.
-- Single-use claim and approval via conditional PostgREST PATCH; only one request can win each state transition.
+- Two-minute expiry enforced by API filters, database constraints, and an owner-scoped expiry RPC that clears the token hash.
+- Single-use claim, approval, and expiry via conditional database RPCs; only one request can win each state transition.
 - Owner binding via authenticated Supabase user ID, RLS, and narrow RPCs that verify `auth.uid()` inside the transaction.
 - Authenticated clients have no direct UPDATE privilege on pairing rows and cannot SELECT the token-hash column; state transitions are only through the restricted RPCs.
 - Database trigger blocks owner, purpose, expiry, creation-time and token-hash replacement, and invalid status transitions.
@@ -42,7 +42,7 @@ All routes require a valid Supabase access token. Responses are no-store and omi
 
 `pending → scanned → approved`
 
-`expired` is computed by the status endpoint from the expiry timestamp; Phase 1 does not persist an expired state or expose reject/cancel transitions. Expired-row cleanup is an operational follow-up.
+`expired` is a terminal database state. The status endpoint invokes an owner-scoped RPC after expiry to clear the token hash. Phase 1 does not expose reject/cancel transitions.
 
 ## Deployment gates
 
