@@ -6,7 +6,7 @@ concurrency:
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/nova-system-core-v1-20261104]
     paths:
       - "shared/nova-system-core-contract.mjs"
       - "tests/nova-system-core-contract.test.mjs"
@@ -21,6 +21,9 @@ on:
       - "shared/nova-system-core-contract.mjs"
       - "tests/nova-system-core-contract.test.mjs"
       - "docs/architecture/NOVA-SYSTEM-CORE-V1.md"
+      - "integrations/system-hub/package.json"
+      - "integrations/system-hub/tests/system-hub.test.mjs"
+      - "integrations/system-hub/worker.js"
       - ".github/workflows/nova-system-core-ci.yml"
 
 permissions:
