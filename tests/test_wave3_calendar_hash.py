@@ -23,7 +23,7 @@ class Wave3CalendarHashTests(unittest.TestCase):
         manifest_path = ROOT / "datasets" / "exness-demo" / "news" / "VOOM_USD_High_Impact_2022_2026.manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         self.assertEqual(manifest["integrity"]["raw_terminal_csv_bytes"], 388313)
-        self.assertEqual(manifest["integrity"]["raw_terminal_csv_sha256"], "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c")
+        self.assertEqual(manifest["integrity"]["raw_terminal_csv_sha256"], "6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c")
         self.assertEqual(manifest["integrity"]["canonical_git_lf_bytes"], 386146)
         self.assertEqual(manifest["integrity"]["canonical_git_lf_sha256"], EXPECTED_CALENDAR_SHA256)
         self.assertEqual(manifest["export_evidence"]["success_markers"], 2)
