@@ -1,22 +1,22 @@
 {
   "schema_version": "1.0",
   "status": "diagnostic_only_no_training_p1_fvg_semantics_review_required",
-  "generated_utc": "2026-11-03T03:58:22.615012Z",
+  "generated_utc": "2026-11-03T04:05:15.196991Z",
   "source": {
     "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
     "main_sha": "4480d3bf6fa8f390b09334091f697d8359e79085",
     "pr_number": 66,
     "branch": "feature/wave3-hybrid-backtest-20261029",
-    "pr_head_sha": "b6fe42657bb88069f2fe1e72401da05caba10494",
-    "pr_merge_sha": "becdf1e88f324a6164ae736b727edfd7b892858d",
-    "workflow_run_id": 41575193559,
-    "workflow_run_number": 183,
-    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559",
-    "artifact_id": 13203561555,
-    "artifact_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559/artifacts/13203561555",
-    "artifact_archive_sha256": "c929fa73ca643aaec34a745361d82cf40d3cb8ea8ce1d3f084cff9045c858970",
+    "pr_head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+    "pr_merge_sha": "8ad4d3472b394e07666abbb41c95c73c684a2fbf",
+    "workflow_run_id": 41575866703,
+    "workflow_run_number": 186,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703",
+    "artifact_id": 13203298320,
+    "artifact_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703/artifacts/13203298320",
+    "artifact_archive_sha256": "dd98ebe354f671c8ce91e6acfbcabab1eb69543702d63c277a4403aa0e6b685e",
     "trace_json_path_in_artifact": "wave3_smc_candidate_trace_20261101.json",
-    "trace_json_sha256": "117d48fda45c7b74c060be5820e1782d7f5ec72e8599ad5bb4f93cb7e8c3fa4a",
+    "trace_json_sha256": "8e4a6faadfac80e8ee92e0c8335622c4d9a81b03d0a8ebcd7e57a0e49b8f63fa",
     "data_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
     "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
     "data_bytes": 8483411,
@@ -187,5 +187,42 @@
     "live_trading_enabled": false,
     "deployment_enabled": false,
     "merge_enabled": false
+  },
+  "workflow_validation": {
+    "smc_ci": {
+      "run_id": 41575866703,
+      "run_number": 186,
+      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "conclusion": "success"
+    },
+    "windows_runtime_ci": {
+      "run_id": 41575866762,
+      "run_number": 280,
+      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "conclusion": "success"
+    },
+    "cloud_scheduler_contract": {
+      "run_id": 41575866816,
+      "run_number": 27,
+      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "conclusion": "success"
+    },
+    "frontend_ci": {
+      "run_id": 41575866843,
+      "run_number": 1036,
+      "head_sha": "bc789d4a978303b580578e24f2b386b004003a89",
+      "conclusion": "failure",
+      "failed_step": "Set up Node.js",
+      "reason": "actions/setup-node could not resolve frontend/package-lock.json"
+    },
+    "netlify_deploy_preview": {
+      "state": "pending_at_capture",
+      "url": "https://app.netlify.com/projects/voomsystem/deploys/6ae95d24e4dec2930117ab28"
+    }
+  },
+  "repository_controls": {
+    "main_branch_protected": false,
+    "required_status_checks": [],
+    "branch_protection_note": "GitHub branch metadata reports protected=false and enforcement_level=off; no branch-protection write action is available in this connection."
   }
 }
