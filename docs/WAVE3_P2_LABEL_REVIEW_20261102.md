@@ -1,72 +1,56 @@
-# Wave3 P2 First-Hit Label Review — 2026-11-02
+# Wave3 P2 First-Hit Label Review — revalidated 2026-11-03
 
-Status: **BLOCKED — design/code review only; no benchmark training, no strategy changes.**
+Status: **BLOCKED — isolated challenger code is unit-tested, but net outcomes are not yet cost-complete or supported by broker cost evidence.** No benchmark training, final-OOS access, promotion, or strategy-gate changes are authorized.
 
-## Provenance and separation
+## Provenance and workstream isolation
 
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
-- Main at review: `a9bb92c9d2642eff34be2ea68276a33b367ee793`
-- Research branch: `research/wave3-positive-edge-architecture-20261031`
-- PR #147 reviewed head at initial review: `58ef328600a3d69575b73d9ae71e5d689d54c965`
-- PR #147 is a separate research workstream. Do not copy PR #66 implementation into this branch.
-- Reviewed implementation: `research/wave3_challenger/first_hit_labels.py`
-- Review is not a training run, benchmark result, approval, or promotion.
+- Default branch: `main`
+- Current main SHA at revalidation: `4480d3bf6fa8f390b09334091f697d8359e79085`
+- Challenger branch: `research/wave3-positive-edge-architecture-20261031`
+- P2 implementation remains isolated to PR #147:
+  - `research/wave3_challenger/first_hit_labels.py`
+  - `tests/test_wave3_challenger_first_hit_labels.py`
+- PR #66 remains the frozen v6.2.6.3 benchmark workstream. No P2 implementation is copied into PR #66.
 
-## P2 implementation facts
+## Agreed P2 target and current implementation
 
-The current first-hit label builder:
-- Generates BUY-only labels and requires a next-bar entry trigger.
-- Uses fixed defaults: stop $5, target $11, 12 M15 bars, 0.01 lots, contract size 100, and $0.02 per-side slippage.
-- Requires a commission value and a caller-provided `commission_verified=True` flag.
-- Charges the observed spread at BUY entry, one-side slippage at each fill, and two-sided commission.
-- Resolves same-bar stop/target ambiguity as stop-first.
-- Censors labels whose 12-bar horizon is incomplete.
-- Explicitly assumes barrier-price fills for gaps; gap-through execution is not modeled.
-- Does not include swap/rollover in net PnL.
-- Exposes daily entry-count and daily-loss limits.
+The preregistered challenger target is BUY-only and uses three realized-outcome classes: `stop_first`, `target_first`, and `time_exit`. SELL/short symmetry is not part of this P2 acceptance contract; any SELL research must be a separately preregistered workstream.
 
-## Blocking findings
+Current isolated builder behavior:
 
-### P2-1 — BUY-only labels do not represent a symmetric three-class strategy
-The current implementation can only construct BUY outcomes. It cannot establish SELL/short labels or validate whether the proposed three-class outcome distribution is directionally symmetric. Do not treat its metrics as a complete Wave3 strategy benchmark.
+- Evaluate a signal only after its M15 bar closes; enter on the next bar only if the frozen trigger is reached.
+- Fixed defaults: $5 stop, $11 target (2.2R), 12 inclusive M15 bars, 0.01 lots, contract size 100, and $0.02 slippage per side.
+- Charge the observed Bid-OHLC spread at BUY entry, one-side slippage at each fill, and caller-supplied two-sided commission.
+- Resolve same-bar stop/target touches conservatively as stop-first.
+- Censor incomplete 12-bar horizons rather than fabricating a time exit.
+- Enforce one open position, five entries per UTC day, and the $500 daily realized-loss stop.
+- Keep output challenger-only; it does not generate signals, replace benchmark labels/features, train a model, or submit orders.
+- Mark MAE/MFE as OHLC bar-range bounds, not tick-accurate intrabar excursions.
 
-### P2-2 — Gap-through execution is not modeled
-The current code fills at the stop/target barrier plus slippage even if the next OHLC bar opens beyond that barrier. This can overstate realized PnL and understate tail loss. A preregistered conservative gap-fill rule is required before cost-complete labels can be accepted.
+## Review adjudication
 
-### P2-3 — Swap/rollover is omitted
-The source dataset metadata records swap mode 1, long swap -492, short swap 0, and three-day rollover. The 12-bar horizon is three hours, but it can cross the broker rollover boundary. A blanket assumption that all trades avoid swap is unsupported. Net PnL is not yet fully cost-complete.
+### P2-1 — SELL requirement
 
-### P2-4 — Daily loss accounting uses inconsistent dates
-The implementation checks the loss limit using the entry date (`daily_net[entry_day]`) but accumulates realized PnL under the exit date (`daily_net[exit_day]`). Trades crossing UTC midnight can therefore bypass or misattribute the daily loss cap. Define whether risk limits are based on entry-day cohort or realized UTC trading day, then use that same key consistently.
+**Not a blocker for this agreed scope.** The preregistered P2 contract is explicitly BUY-only and its outcome classes are `stop_first`, `target_first`, and `time_exit`. Requiring SELL rules would expand scope and delay the agreed BUY first-hit label methodology. SELL remains separate and unimplemented.
 
-### P2-5 — Commission verification is caller-asserted
-A Boolean `commission_verified=True` and free-text source do not independently prove the actual Exness Demo commission schedule. Attach a versioned broker contract/commission evidence reference and reject missing or stale evidence.
+### P2-4 — Daily realized-loss accounting
 
-## Required preregistration before P2 implementation
+**Not a defect under the stated daily-realized-loss policy.** The builder checks realized PnL already booked on the executable entry's UTC date, and books a closed trade's realized PnL on its exit UTC date. A trade crossing midnight therefore belongs to the day it closes; a later entry on that exit day sees the realized loss. The one-position rule prevents a second entry while the first trade remains open.
 
-1. Specify BUY and SELL entry/fill semantics, including Bid/Ask conversion and spread treatment.
-2. Specify gap-through stop and target fills, stop-first ties, partial bars, and end-of-data censoring.
-3. Specify commission per side, swap/rollover day and triple-rollover treatment, slippage, and all net-PnL terms.
-4. Define daily entry caps and daily loss accounting timezone/key, including trades crossing midnight.
-5. Define overlap policy and whether a new signal can be considered while an earlier label remains open.
-6. Freeze all values and rules in a versioned methodology file before running label generation.
-7. Add adversarial tests for gaps, midnight crossings, rollover, both directions, same-bar barriers, incomplete horizons, and cost evidence expiry.
-8. Run nested chronological walk-forward with 12-bar purge; fit/tune/calibrate only on inner folds. Keep final OOS from 2026-07-01 untouched.
+A regression test has been added for a 23:45 UTC signal that enters and stops at 00:00 UTC, followed by a same-day entry attempt. The expected result is that the first loss is booked on 2026-01-02 and the second entry is blocked by that day's realized-loss limit. The previous exact-head P2 CI #29 passed 12 tests on the prior PR head; this new midnight-loss test requires a fresh exact-head CI result.
 
-## Gate decision
+## Remaining P2 blockers
 
-**P2 remains BLOCKED.** Do not start another full benchmark training. Do not change v6.2.6.3 weights, lookbacks, thresholds, SMC gates, entry/risk/news gates, or the frozen final OOS. Do not alter PR #66 or merge either PR.
+1. **Gap-through fills:** current barrier fills use stop/target price plus slippage even when an OHLC bar opens beyond the barrier. A conservative gap-through rule and adversarial tests are required before net outcomes are cost-complete.
+2. **Swap/rollover:** swap is not modeled. A 12-bar M15 holding period can cross broker rollover; the dataset metadata's symbol-spec fields do not, by themselves, establish the applicable realized swap charge for each trade. Obtain and model the account-specific rollover schedule and applicable long-swap charge, or prove eligibility excludes rollover.
+3. **Commission evidence:** `commission_verified=True` and a free-text source are caller assertions, not independent broker evidence. Attach a dated, versioned Exness Demo commission schedule and verify the amount and charging basis before generating accepted labels.
+4. **Real-data integration:** current passing tests use synthetic fixtures. No real Exness first-hit labels have been accepted, and the builder has not been integrated into a challenger dataset/schema/manifest.
+5. **Final holdout:** the benchmark period beginning 2026-07-01 has already been inspected and cannot be presented as a never-seen challenger final holdout. Preregister a genuinely new future holdout before challenger acceptance.
 
-The existing Run #6 diagnostics remain the only benchmark evidence cited in this review; they are from training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, not the current PR #66 head. This review creates no new accuracy, trade, net-profit, or Profit Factor result.
+## Validation and safety
 
-## Exact-head revalidation — 2026-11-02
-
-- Current main: \`a9bb92c9d2642eff34be2ea68276a33b367ee793\`.
-- Current PR #147 head: \`219e02228c721be5cb70160a78088ff2637b4e18\`; branch is 29 ahead / 0 behind main; PR remains Draft/open/unmerged.
-- Exact-head \`Wave3 Challenger P2 CI\` run \`41406280097\` passed the isolated first-hit label tests. This is unit-test evidence only, not proof that the labels are complete or benchmark-ready.
-- Re-read the current \`research/wave3_challenger/first_hit_labels.py\`: the five blockers above remain present. In particular, the daily-loss check reads \`daily_net[entry_day]\` while closed-trade PnL is accumulated under \`daily_net[exit_day]\`; a trade crossing UTC midnight can still evade the entry-day loss check. The current implementation is BUY-only, assumes barrier-price fills through gaps, omits rollover/swap, and relies on a caller-supplied \`commission_verified=True\` flag.
-- P2 remains BLOCKED. No model training started, no labels were accepted as cost-complete, and no code was copied into PR #66. A versioned preregistration and independent commission/swap evidence are required before implementation is considered eligible.
-
-## Main branch movement recheck — 2026-11-02
-
-Current main advanced to \`4480d3bf6fa8f390b09334091f697d8359e79085\` after a Vite/React project-scaffolding commit. PR #147 remains separate from PR #66 and is now 30 commits ahead / 1 behind current main. Its current head before this documentation checkpoint was \`aa2b1f74304d5ad39121a32ed5c6409749cf565c\`; the code remains BUY-only and the P2 blockers listed above remain unresolved. Exact-head P2 CI run \`41433259662\` passed the isolated tests, but does not change the P2 blocked decision. Do not start training or copy implementation into PR #66.
+- Previous dedicated P2 CI: [run #29](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41467941243), successful on prior head `df2e2c92d97eccdb8f768b64a3facdc9c1e9118f`; 12 tests passed. It does not cover the newly added exit-day loss test.
+- The new regression test and this review update are isolated to PR #147. Fresh exact-head P2 CI is required before claiming the update is validated.
+- No full benchmark training, final-OOS tuning, broker order, live trading, deployment, or merge was performed.
+- Keep PR #147 Draft/open/unmerged. Keep PR #66 independent and unchanged by challenger implementation.
