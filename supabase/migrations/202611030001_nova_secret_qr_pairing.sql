@@ -8,14 +8,14 @@ CREATE TABLE IF NOT EXISTS public.secret_pairing_sessions (
     CHECK (purpose = 'provider_connection'),
   token_hash text CHECK (token_hash IS NULL OR token_hash ~ '^[a-f0-9]{64}$'),
   status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'scanned', 'approved', 'rejected', 'cancelled', 'expired')),
+    CHECK (status IN ('pending', 'scanned', 'approved')),
   expires_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   scanned_at timestamptz,
   approved_at timestamptz,
   CONSTRAINT secret_pairing_token_state CHECK (
     (status IN ('pending', 'scanned') AND token_hash IS NOT NULL)
-    OR (status IN ('approved', 'rejected', 'cancelled', 'expired') AND token_hash IS NULL)
+    OR (status = 'approved' AND token_hash IS NULL)
   ),
   CONSTRAINT secret_pairing_expiry_window CHECK (
     expires_at > created_at AND expires_at <= created_at + interval '2 minutes'
@@ -86,7 +86,7 @@ BEGIN
   IF OLD.expires_at <= now() THEN
     RAISE EXCEPTION 'secret_pairing_expired';
   END IF;
-  IF NEW.status IN ('approved', 'rejected', 'cancelled', 'expired') AND NEW.token_hash IS NOT NULL THEN
+  IF NEW.status = 'approved' AND NEW.token_hash IS NOT NULL THEN
     RAISE EXCEPTION 'secret_pairing_terminal_token_must_be_cleared';
   END IF;
   IF OLD.scanned_at IS DISTINCT FROM NEW.scanned_at
