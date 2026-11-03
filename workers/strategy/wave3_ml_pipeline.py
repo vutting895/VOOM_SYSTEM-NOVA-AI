@@ -1039,7 +1039,7 @@ def backtest_window(frame: pd.DataFrame, features: pd.DataFrame, source_indices:
             entry = float(frame["open"].iloc[entry_i]) + entry_spread + SLIPPAGE_PRICE_PER_SIDE
             lots = FIXED_LOT_SIZE
             stop, target = entry - stop_dist, entry + stop_dist * REWARD_RISK
-        trade_end = min(end_i, entry_i + MAX_HOLD_BARS)
+        trade_end = min(end_i, entry_i + MAX_HOLD_BARS - 1)
         exit_i, exit_price, exit_reason = trade_end, None, "time_exit"
         for j in range(entry_i, trade_end + 1):
             spr = float(frame["spread_price"].iloc[j])
