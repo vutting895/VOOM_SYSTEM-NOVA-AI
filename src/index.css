@@ -179,3 +179,63 @@ button:disabled { cursor: wait; opacity: .65; }
 .nova-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .nova-tag { padding: 5px 8px; background: #102b3a; border-radius: 7px; font-size: 10px; color: #cbd5ee; }
 .nova-divider { height: 1px; background: var(--nova-line); margin: 17px 0; }
+
+
+/* NOVA Secure QR Connect */
+.pairing-page { max-width: 1080px; }
+.pairing-safety-banner {
+  display: grid; gap: 6px; margin: 0 0 18px; padding: 16px 18px;
+  border: 1px solid rgba(49, 205, 189, .34); border-radius: 14px;
+  background: rgba(11, 49, 51, .55); color: var(--nova-text);
+  font-size: 12px; line-height: 1.7;
+}
+.pairing-safety-banner strong, .pairing-safety-lock {
+  color: var(--nova-teal); font-size: 10px; font-weight: 900; letter-spacing: .09em;
+}
+.pairing-account-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 16px; padding: 12px 15px; border: 1px solid var(--nova-line);
+  border-radius: 12px; color: var(--nova-muted); font-size: 12px; overflow-wrap: anywhere;
+}
+.pairing-account-row strong { color: var(--nova-text); }
+.pairing-auth-panel { max-width: 560px; margin-bottom: 18px; }
+.pairing-auth-panel form { max-width: 420px; }
+.pairing-start-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.pairing-flow-card { min-width: 0; }
+.pairing-flow-card h2 { margin-top: 12px; }
+.pairing-flow-card .nova-button { margin-top: 12px; }
+.pairing-result-grid {
+  display: grid; grid-template-columns: minmax(230px, 330px) minmax(0, 1fr);
+  align-items: center; gap: 28px; margin-top: 16px;
+}
+.pairing-qr-wrap {
+  display: grid; justify-items: center; gap: 12px; padding: 17px;
+  border: 1px solid var(--nova-line); border-radius: 14px; background: rgba(255,255,255,.035);
+}
+.pairing-qr-wrap img { display: block; width: min(100%, 280px); height: auto; border-radius: 8px; background: white; }
+.pairing-result-copy h2 { margin: 14px 0 8px; }
+.pairing-result-copy p { line-height: 1.8; }
+.pairing-result-copy .nova-button { margin: 12px 8px 0 0; }
+.pairing-status-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 18px 0 4px; padding: 12px 0; border-top: 1px solid var(--nova-line);
+  color: var(--nova-muted); font-size: 11px;
+}
+.pairing-status-row strong { color: var(--nova-cyan); letter-spacing: .08em; }
+.pairing-error {
+  margin: 12px 0; padding: 12px 15px; border: 1px solid rgba(255, 130, 130, .4);
+  border-radius: 10px; background: rgba(80, 24, 31, .35); color: #ffb8b8;
+  font-size: 12px; line-height: 1.7;
+}
+.pairing-info {
+  margin: 12px 0; padding: 12px 15px; border: 1px solid var(--nova-line);
+  border-radius: 10px; background: rgba(24, 82, 96, .22); color: var(--nova-text);
+  font-size: 12px; line-height: 1.7;
+}
+.pairing-footnote { display: block; margin-top: 13px; color: var(--nova-muted); font-size: 10px; line-height: 1.7; }
+@media (max-width: 760px) {
+  .pairing-start-grid, .pairing-result-grid { grid-template-columns: 1fr; }
+  .pairing-result-grid { justify-items: stretch; }
+  .pairing-qr-wrap { max-width: 360px; margin: 0 auto; }
+  .pairing-account-row { align-items: flex-start; flex-direction: column; }
+}
