@@ -171,9 +171,14 @@ async function getPairing(env, user, pairingId) {
   const found = await supabaseRequest(env, user, url.pathname + url.search);
   if (!found.ok) return result(503, { error: "pairing_lookup_unavailable" });
   if (!found.rows[0]) return result(404, { error: "pairing_not_found" });
-  const row = found.rows[0];
+  let row = found.rows[0];
   if ((row.status === "pending" || row.status === "scanned") && Date.parse(row.expires_at) <= Date.now()) {
-    return result(200, { pairing: { ...safeRow(row), status: "expired" } });
+    const expired = await supabaseRequest(env, user, "/rest/v1/rpc/nova_expire_secret_pairing", {
+      method: "POST",
+      body: JSON.stringify({ p_pairing_id: pairingId })
+    });
+    if (!expired.ok) return result(503, { error: "pairing_expiry_update_unavailable" });
+    row = expired.rows[0] || { ...row, status: "expired" };
   }
   return result(200, { pairing: safeRow(row) });
 }
