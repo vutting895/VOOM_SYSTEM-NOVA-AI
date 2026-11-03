@@ -170,3 +170,14 @@ GitHub documents that `workflow_dispatch` requires the workflow file to exist on
 ### Fail-closed status
 
 Until the above proofs pass, `cloud_market_data_adapter_not_configured` remains the correct readiness result. No new MT5 connection, fresh market-data pull, training run, model artifact, or performance-gate result is claimed by this design update.
+
+
+## Windows daily runner revalidation — 2026-11-03
+
+The PR #66 runner now adds three fail-closed protections before daily candidate training:
+
+1. After a successful read-only MT5 refresh, it verifies that the persistent daily CSV's actual SHA-256 matches the refresh response.
+2. It waits up to 70 minutes for a fresh hourly MQL5 calendar export and requires `coverage_end_exclusive_utc` to reach the end of the newest refreshed closed M15 bar. It rechecks file freshness and coverage on each poll; timeout or invalid metadata stops training.
+3. It stores a durable last-success record keyed by both dataset SHA-256 and calendar SHA-256. A `no_new_closed_bars` response skips only when that exact pair already has a successful candidate-training marker. If a prior calendar/training failure left the pair untrained, the runner retries. The marker is written only after the trainer exits successfully and both the candidate model directory and report exist.
+
+Exact code-head validation: [Windows Runtime CI #277](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193564) and [SMC/Wave3 CI #183](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559) passed. These are CI safety/contract checks, not proof that a fresh MT5 export or daily candidate training was executed on the user's terminal. The 2026-10-30 historical calendar evidence remains the only recorded direct-terminal export in this status snapshot.
