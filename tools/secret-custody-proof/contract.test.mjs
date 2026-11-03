@@ -24,41 +24,109 @@ function hasForbiddenKey(value) {
   );
 }
 
-function onlyKeys(value, allowed) {
-  return value && typeof value === "object" && !Array.isArray(value)
-    && Object.keys(value).every(key => allowed.includes(key));
+// Test-only validator for the exact JSON Schema vocabulary used by these contracts.
+// Unknown keywords/formats fail closed so schema evolution cannot silently bypass tests.
+const supportedSchemaKeywords = new Set([
+  "$schema", "$id", "title", "description", "default", "examples",
+  "type", "additionalProperties", "required", "properties", "enum", "items",
+  "maxItems", "minItems", "pattern", "format", "minimum", "maximum",
+  "maxLength", "minLength"
+]);
+
+function isRfc3339DateTime(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d+)?(?:Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/i.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1]
+    && Number.isFinite(Date.parse(value));
+}
+
+function schemaErrors(value, schema, path = "$") {
+  const errors = [];
+  for (const keyword of Object.keys(schema)) {
+    if (!supportedSchemaKeywords.has(keyword)) errors.push(path + ": unsupported schema keyword " + keyword);
+  }
+
+  if (schema.type) {
+    const matches = schema.type === "object"
+      ? value !== null && typeof value === "object" && !Array.isArray(value)
+      : schema.type === "array"
+        ? Array.isArray(value)
+        : schema.type === "string"
+          ? typeof value === "string"
+          : schema.type === "boolean"
+            ? typeof value === "boolean"
+            : schema.type === "number"
+              ? typeof value === "number" && Number.isFinite(value)
+              : schema.type === "integer"
+                ? typeof value === "number" && Number.isInteger(value)
+                : false;
+    if (!matches) return [...errors, path + ": expected " + schema.type];
+  }
+
+  if (schema.enum && !schema.enum.some(candidate => Object.is(candidate, value))) {
+    errors.push(path + ": value is not in enum");
+  }
+  if (schema.format === "uuid" && (
+    typeof value !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  )) errors.push(path + ": invalid uuid");
+  if (schema.format === "date-time" && !isRfc3339DateTime(value)) {
+    errors.push(path + ": invalid date-time");
+  }
+  if (schema.format && !["uuid", "date-time"].includes(schema.format)) {
+    errors.push(path + ": unsupported format " + schema.format);
+  }
+  if (schema.pattern && (typeof value !== "string" || !new RegExp(schema.pattern).test(value))) {
+    errors.push(path + ": pattern mismatch");
+  }
+  if (typeof value === "string") {
+    if (schema.minLength !== undefined && value.length < schema.minLength) errors.push(path + ": string too short");
+    if (schema.maxLength !== undefined && value.length > schema.maxLength) errors.push(path + ": string too long");
+  }
+  if (typeof value === "number") {
+    if (schema.minimum !== undefined && value < schema.minimum) errors.push(path + ": below minimum");
+    if (schema.maximum !== undefined && value > schema.maximum) errors.push(path + ": above maximum");
+  }
+  if (Array.isArray(value)) {
+    if (schema.minItems !== undefined && value.length < schema.minItems) errors.push(path + ": too few items");
+    if (schema.maxItems !== undefined && value.length > schema.maxItems) errors.push(path + ": too many items");
+    if (schema.items) value.forEach((item, index) => {
+      errors.push(...schemaErrors(item, schema.items, path + "[" + index + "]"));
+    });
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    for (const key of schema.required || []) {
+      if (!Object.hasOwn(value, key)) errors.push(path + ": missing required property " + key);
+    }
+    const properties = schema.properties || {};
+    const known = new Set(Object.keys(properties));
+    for (const key of Object.keys(value)) {
+      if (known.has(key)) continue;
+      if (schema.additionalProperties === false) {
+        errors.push(path + "." + key + ": additional property is not allowed");
+      } else if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+        errors.push(...schemaErrors(value[key], schema.additionalProperties, path + "." + key));
+      }
+    }
+    for (const [key, propertySchema] of Object.entries(properties)) {
+      if (Object.hasOwn(value, key)) errors.push(...schemaErrors(value[key], propertySchema, path + "." + key));
+    }
+  }
+  return errors;
 }
 
 function validRequest(value) {
-  if (!onlyKeys(value, Object.keys(requestSchema.properties))) return false;
-  if (!requestSchema.required.every(key => Object.hasOwn(value, key))) return false;
-  if (!/^[0-9a-f-]{36}$/i.test(value.connection_id)) return false;
-  if (!requestSchema.properties.capability.enum.includes(value.capability)) return false;
-  if (!/^[A-Za-z0-9._-]{1,40}$/.test(value.policy_version)) return false;
-  if (!onlyKeys(value.parameters, ["symbols", "since", "limit"])) return false;
-  if (value.parameters.symbols && (!Array.isArray(value.parameters.symbols) || value.parameters.symbols.length > 50)) return false;
-  if (value.parameters.limit !== undefined && (!Number.isInteger(value.parameters.limit) || value.parameters.limit < 1 || value.parameters.limit > 500)) return false;
-  if (value.client_correlation_id !== undefined && !/^[A-Za-z0-9._:-]{1,64}$/.test(value.client_correlation_id)) return false;
-  return !hasForbiddenKey(value);
-}
-
-function validResult(result) {
-  if (!onlyKeys(result, ["account", "quotes", "positions", "rotation"])) return false;
-  if (result.account && !onlyKeys(result.account, ["balance", "equity", "margin", "free_margin", "currency"])) return false;
-  if (result.rotation && !onlyKeys(result.rotation, ["state", "generation"])) return false;
-  if (result.quotes && (!Array.isArray(result.quotes) || result.quotes.some(item => !onlyKeys(item, ["symbol", "bid", "ask", "timestamp"])))) return false;
-  if (result.positions && (!Array.isArray(result.positions) || result.positions.some(item => !onlyKeys(item, ["symbol", "side", "volume", "unrealized_pnl"])))) return false;
-  return true;
+  return schemaErrors(value, requestSchema).length === 0 && !hasForbiddenKey(value);
 }
 
 function validResponse(value) {
-  if (!onlyKeys(value, Object.keys(responseSchema.properties))) return false;
-  if (!responseSchema.required.every(key => Object.hasOwn(value, key))) return false;
-  if (!/^[0-9a-f-]{36}$/i.test(value.operation_id)) return false;
-  if (!responseSchema.properties.state.enum.includes(value.state)) return false;
-  if (value.result_code && !/^[A-Z0-9_]{1,64}$/.test(value.result_code)) return false;
-  if (value.result && !validResult(value.result)) return false;
-  return !hasForbiddenKey(value);
+  return schemaErrors(value, responseSchema).length === 0 && !hasForbiddenKey(value);
 }
 
 test("contract schemas are strict and match the selected separate custody API", () => {
@@ -86,35 +154,73 @@ test("contract schemas are strict and match the selected separate custody API", 
   assert.match(apiContract, /no-cache behavior proven at every layer/i);
 });
 
-test("provider operation request accepts only connection, capability, policy and bounded parameters", () => {
+test("provider operation request fixtures validate against the published JSON Schema", () => {
   const valid = {
     connection_id: "00000000-0000-4000-8000-000000000101",
     capability: "account.summary.read",
-    parameters: {},
-    policy_version: "read-only-v1"
+    parameters: { symbols: ["XAUUSD"], since: "2026-11-01t12:00:00+07:00", limit: 50 },
+    policy_version: "read-only-v1",
+    client_correlation_id: "chat-session-01"
   };
   assert.equal(validRequest(valid), true);
-  for (const field of ["owner_id", "tenant_id", "binding_id", "secret_id", "secret_value", "provider_url", "access_token", "provider"]) {
-    assert.equal(validRequest({ ...valid, [field]: "attacker-controlled" }), false, field);
-  }
-  assert.equal(validRequest({ ...valid, parameters: { symbols: ["XAUUSD"], limit: 50 } }), true);
-  assert.equal(validRequest({ ...valid, parameters: { arbitrary_sql: "select 1" } }), false);
-  assert.equal(validRequest({ ...valid, capability: "trade.submit" }), false);
+
+  const invalid = [
+    { ...valid, connection_id: "not-a-uuid" },
+    { ...valid, capability: "trade.submit" },
+    { ...valid, parameters: { symbols: ["XAU USD"] } },
+    { ...valid, parameters: { symbols: Array(51).fill("XAUUSD") } },
+    { ...valid, parameters: { since: "2026-11-01" } },
+    { ...valid, parameters: { since: "2026-11-01T12:00:00" } },
+    { ...valid, parameters: { limit: 0 } },
+    { ...valid, parameters: { limit: 501 } },
+    { ...valid, policy_version: "not a valid policy version" },
+    { ...valid, client_correlation_id: "x".repeat(65) },
+    { ...valid, unexpected: "attacker-controlled" },
+    { ...valid, parameters: { secret_value: "synthetic-only" } }
+  ];
+  for (const candidate of invalid) assert.equal(validRequest(candidate), false);
 });
 
-test("custody responses contain only sanitized business data and safe operation metadata", () => {
+test("provider operation response fixtures validate against the published JSON Schema", () => {
   const valid = {
     operation_id: "10000000-0000-4000-8000-000000000201",
     state: "SUCCEEDED",
     result_code: "OK",
+    retry_after_ms: 250,
     provider_reference: "opaque-provider-ref",
-    result: { account: { balance: 1000, equity: 1000, currency: "USD" } }
+    reconciliation_required: false,
+    created_at: "2026-11-01T05:00:00.000Z",
+    updated_at: "2026-11-01T12:00:01+07:00",
+    result: {
+      account: { balance: 1000, equity: 1000, currency: "USD" },
+      quotes: [{ symbol: "XAUUSD", bid: 2300.1, ask: 2300.2, timestamp: "2026-11-01T05:00:00.000Z" }],
+      positions: [{ symbol: "XAUUSD", side: "long", volume: 0.1, unrealized_pnl: 12.5 }],
+      rotation: { state: "ROTATION_REQUIRED", generation: 2 }
+    }
   };
   assert.equal(validResponse(valid), true);
-  assert.equal(validResponse({ ...valid, result: { account: { balance: 1000, access_token: "secret" } } }), false);
-  assert.equal(validResponse({ ...valid, secret_value: "plaintext" }), false);
-  assert.equal(validResponse({ ...valid, result: { account: { balance: 1000, arbitrary: "data" } } }), false);
-  assert.equal(validResponse({ ...valid, state: "RETRY_WITH_OLD_SECRET" }), false);
+
+  const invalid = [
+    { ...valid, operation_id: "not-a-uuid" },
+    { ...valid, state: "RETRY_WITH_OLD_SECRET" },
+    { ...valid, retry_after_ms: 99 },
+    { ...valid, created_at: "2026-11-01" },
+    { ...valid, result: { account: { balance: "1000" } } },
+    { ...valid, result: { account: { balance: Infinity } } },
+    { ...valid, result: { quotes: [{ symbol: "XAUUSD", bid: 1 }] } },
+    { ...valid, result: { quotes: [{ symbol: "XAUUSD", bid: 1, ask: 2, timestamp: "2026-11-01" }] } },
+    { ...valid, result: { quotes: [{ symbol: "X".repeat(33), bid: 1, ask: 2 }] } },
+    { ...valid, result: { quotes: Array(501).fill({ symbol: "XAUUSD", bid: 1, ask: 2 }) } },
+    { ...valid, result: { positions: [{ symbol: "XAUUSD", side: "buy", volume: 1 }] } },
+    { ...valid, result: { rotation: { state: "ROTATED", generation: 0 } } },
+    { ...valid, secret_value: "plaintext" },
+    { ...valid, unexpected: "additional-property" }
+  ];
+  for (const candidate of invalid) assert.equal(validResponse(candidate), false);
+});
+
+test("schema validation fails closed when a contract introduces an unsupported keyword", () => {
+  assert.notEqual(schemaErrors({}, { type: "object", unsupportedKeyword: true }).length, 0);
 });
 
 test("durable operation identity is independent of signing key rotation", () => {

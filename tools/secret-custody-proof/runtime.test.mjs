@@ -108,6 +108,27 @@ test("same idempotency key with a changed request fingerprint returns conflict",
   assert.equal(calls.length, 1);
 });
 
+test("ledger persistence failure after provider success is not misclassified and never redispatches", async t => {
+  const { runtime, calls, deps } = await fixture(t, {
+    persistRecord: async (_path, record) => {
+      if (record.state === "SUCCEEDED") throw new Error("synthetic ledger write failure");
+      throw new Error("unexpected ledger state");
+    }
+  });
+
+  const first = await invoke(runtime);
+  assert.equal(first.status, 503);
+  assert.equal(first.body.state, "RUNNING");
+  assert.equal(first.body.result_code, "LEDGER_PERSISTENCE_FAILED");
+  assert.equal(first.body.reconciliation_required, true);
+
+  const retry = await invoke(createCustodyRuntime(deps));
+  assert.equal(retry.status, 202);
+  assert.equal(retry.body.state, "RUNNING");
+  assert.equal(retry.body.reconciliation_required, true);
+  assert.equal(calls.length, 1);
+});
+
 test("ambiguous provider outcome is durable and never blindly redispatched", async t => {
   const { runtime, calls, deps } = await fixture(t, {
     provider: { executeReadOnly: async () => {
