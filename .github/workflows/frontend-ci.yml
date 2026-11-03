@@ -98,6 +98,9 @@ jobs:
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-*.test.mjs
+      - name: Test NOVA System Core v1 policy contract
+        working-directory: .
+        run: node --test tests/nova-system-core-contract.test.mjs
       - name: Test NOVA Video Workspace tenant and free-only contracts
         working-directory: .
         run: node --test tests/nova-video-workspace.test.mjs
