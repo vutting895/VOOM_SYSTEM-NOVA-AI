@@ -6,7 +6,7 @@ import { extractPairingToken, requestPairingApi, resolveSystemHubOrigin } from "
 import { supabaseBrowser, supabaseBrowserConfigured } from "../lib/supabase-browser";
 
 const HUB_ORIGIN = resolveSystemHubOrigin(
-  (import.meta as ImportMeta & { env?: { VITE_SYSTEM_HUB_URL?: string } }).env?.VITE_SYSTEM_HUB_URL ?? ""
+  (import.meta as ImportMeta & { env?: { VITE_SYSTEM_HUB_URL?: string } }).env?.VITE_SYSTEM_HUB_URL ?? "https://voom-system-hub.suwapat787.workers.dev"
 );
 const PENDING_TOKEN_KEY = "nova.secure-pairing.pending-token";
 const TOKEN_TTL_MS = 110 * 1000;
