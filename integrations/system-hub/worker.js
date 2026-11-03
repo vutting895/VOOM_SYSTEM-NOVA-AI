@@ -13,8 +13,21 @@ function allowedOrigins(env) {
     .split(",").map((value) => value.trim()).filter(Boolean);
   return new Set(configured);
 }
+function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  if (allowedOrigins(env).has(origin)) return true;
+  try {
+    const parsed = new URL(origin);
+    // Netlify PR previews use a deterministic, site-specific hostname. Do not
+    // allow arbitrary *.netlify.app origins or non-HTTPS preview URLs.
+    return parsed.protocol === "https:" && parsed.origin === origin &&
+      /^deploy-preview-[0-9]+--voomsystem\.netlify\.app$/i.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
 function corsHeaders(origin, env) {
-  if (!origin || !allowedOrigins(env).has(origin)) return {};
+  if (!isAllowedOrigin(origin, env)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -332,7 +345,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/symbols", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
@@ -372,32 +385,99 @@ function connectionNotReady(row, origin, env) {
   }, row.status === "disabled" ? 403 : 409, origin, env);
 }
 async function checkConnection(request, env, user, row, origin) {
-  const result = await requestMt5Proxy(env, user, row, "/api/account");
-  if (!result.ok) {
+  const accountResult = await requestMt5Proxy(env, user, row, "/api/account");
+  if (!accountResult.ok) {
     return json({
       connectionId: row.id,
-      state: result.error,
-      detail: result.detail,
+      state: accountResult.error,
+      detail: accountResult.detail,
       dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
-    }, result.status, origin, env);
+    }, accountResult.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (accountResult.body.connected !== true) {
     return json({
       connectionId: row.id,
-      state: "bridge_unavailable",
+      state: "account_read_unverified",
       dataVerified: false,
       ordersEnabled: false,
       liveTradingEnabled: false
     }, 502, origin, env);
   }
-  // Intentionally discard account payload: this endpoint verifies reachability only.
+
+  // Discover the broker's actual gold symbol instead of assuming XAUUSD.
+  // Exness demo terminals may expose variants such as XAUUSDm.
+  const symbolsResult = await requestMt5Proxy(env, user, row, "/api/symbols", {
+    q: "XAUUSD", limit: 50
+  });
+  if (!symbolsResult.ok) {
+    return json({
+      connectionId: row.id,
+      state: symbolsResult.error,
+      detail: symbolsResult.detail,
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, symbolsResult.status, origin, env);
+  }
+  const availableSymbols = Array.isArray(symbolsResult.body?.symbols)
+    ? symbolsResult.body.symbols
+        .map((item) => typeof item?.name === "string" ? item.name : "")
+        .filter((name) => /^XAUUSD[A-Za-z0-9._-]*$/i.test(name))
+    : [];
+  const symbol = availableSymbols.find((name) => name.toUpperCase() === "XAUUSD") ||
+    availableSymbols.find((name) => name.toUpperCase().startsWith("XAUUSD"));
+  if (!symbol) {
+    return json({
+      connectionId: row.id,
+      state: "gold_symbol_unavailable",
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
+
+  const quoteResult = await requestMt5Proxy(env, user, row, "/api/quotes", {
+    symbol, timeframe: "M1", count: 1
+  });
+  if (!quoteResult.ok) {
+    return json({
+      connectionId: row.id,
+      state: quoteResult.error,
+      detail: quoteResult.detail,
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, quoteResult.status, origin, env);
+  }
+  const quote = quoteResult.body;
+  const quoteHasData = quote && quote.symbol === symbol &&
+    ((quote.tick && Number.isFinite(quote.tick.bid) && Number.isFinite(quote.tick.ask)) ||
+      (Array.isArray(quote.bars) && quote.bars.length > 0));
+  if (!quoteHasData) {
+    return json({
+      connectionId: row.id,
+      state: "quote_read_unverified",
+      dataVerified: false,
+      accountReadSucceeded: true,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
+
+  // Intentionally discard account and quote payloads; this endpoint verifies both reads only.
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     accountReadSucceeded: true,
+    quoteReadSucceeded: true,
+    symbol,
+    timeframe: "M1",
     checkedAt: new Date().toISOString(),
     ordersEnabled: false,
     liveTradingEnabled: false
@@ -504,7 +584,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (!origin || !allowedOrigins(env).has(origin)) return new Response(null, { status: 403, headers: BASE_HEADERS });
+      if (!isAllowedOrigin(origin, env)) return new Response(null, { status: 403, headers: BASE_HEADERS });
       return new Response(null, { status: 204, headers: { ...BASE_HEADERS, ...corsHeaders(origin, env) } });
     }
 
@@ -522,7 +602,7 @@ export default {
       }, 200, origin, env);
     }
 
-    if (origin && !allowedOrigins(env).has(origin)) {
+    if (origin && !isAllowedOrigin(origin, env)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
     }
 

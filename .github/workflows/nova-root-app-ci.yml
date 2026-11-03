@@ -1,0 +1,68 @@
+name: NOVA Root App CI
+
+on:
+  pull_request:
+    paths:
+      - ".env.example"
+      - ".github/workflows/nova-root-app-ci.yml"
+      - "package.json"
+      - "bun.lock"
+      - "vite.config.ts"
+      - "src/**"
+      - "server.ts"
+      - "netlify.toml"
+      - "public/**"
+      - "integrations/system-hub/**"
+      - "docs/NOVA-INTEGRATION-CENTER-FULL-AUTOMATION.md"
+  push:
+    branches: [main]
+    paths:
+      - ".env.example"
+      - "package.json"
+      - "bun.lock"
+      - "src/**"
+      - "server.ts"
+      - "netlify.toml"
+      - "public/**"
+      - "integrations/system-hub/**"
+      - "docs/NOVA-INTEGRATION-CENTER-FULL-AUTOMATION.md"
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --no-save
+      - name: Run Integration Center contract tests
+        run: node --test src/IntegrationCenterPage.contract.test.mjs
+      - name: Run System Hub authorization and CORS tests
+        run: node --test integrations/system-hub/tests/system-hub.test.mjs
+      - name: Install Wrangler for System Hub build validation
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+      - name: Validate System Hub Worker bundle
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Build NOVA Vite application
+        run: bun run build
+
+  netlify-npm-build-parity:
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the exact Netlify dependency installation command
+        run: npm install --no-package-lock --include=dev
+      - name: Run the exact Netlify build command
+        run: npm run build

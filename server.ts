@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
 
 async function startServer() {
@@ -77,6 +78,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static('dist'));
+    // Preserve Supabase magic-link callbacks and direct navigation to SPA routes.
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
+      res.sendFile(path.resolve('dist/index.html'));
+    });
   }
 
   const port = process.env.PORT || 3000;

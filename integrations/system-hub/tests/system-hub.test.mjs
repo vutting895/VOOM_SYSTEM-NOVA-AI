@@ -4,6 +4,7 @@ import worker from "../worker.js";
 
 const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
+const PREVIEW_ORIGIN = "https://deploy-preview-200--voomsystem.netlify.app";
 const USER_TOKEN = "test-user-access-token";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
 const env = {
@@ -175,7 +176,7 @@ test("malformed connection IDs are rejected", async () => {
   assert.equal((await response.json()).error, "valid_connection_id_required");
 });
 
-test("live read-only check drops account payload and reports verified only after success", async () => {
+test("live read-only check requires authenticated account and quote reads before reporting verified", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
     status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
@@ -196,7 +197,22 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === proxyUrl && url.pathname === "/api/account") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ balance: "999999", account_number: "private" });
+      return Response.json({ connected: true, balance: "999999", account_number: "private" });
+    }
+    if (url.origin === proxyUrl && url.pathname === "/api/symbols") {
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      assert.equal(url.searchParams.get("q"), "XAUUSD");
+      assert.equal(url.searchParams.get("limit"), "50");
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ symbols: [{ name: "XAUUSDm" }, { name: "EURUSD" }] });
+    }
+    if (url.origin === proxyUrl && url.pathname === "/api/quotes") {
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      assert.equal(url.searchParams.get("symbol"), "XAUUSDm");
+      assert.equal(url.searchParams.get("timeframe"), "M1");
+      assert.equal(url.searchParams.get("count"), "1");
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({ symbol: "XAUUSDm", tick: { bid: 2000.1, ask: 2000.2 } });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -208,8 +224,41 @@ test("live read-only check drops account payload and reports verified only after
     assert.equal(response.status, 200);
     assert.match(body, /"state":"data_verified"/);
     assert.match(body, /"dataVerified":true/);
-    assert.doesNotMatch(body, /999999|account_number|private/);
+    assert.match(body, /"accountReadSucceeded":true/);
+    assert.match(body, /"quoteReadSucceeded":true/);
+    assert.match(body, /"symbol":"XAUUSDm"/);
+    assert.doesNotMatch(body, /999999|account_number|private|2000.1|2000.2/);
     assert.match(body, /"ordersEnabled":false/);
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
+
+test("account check fails closed when the bridge omits connected=true", async () => {
+  mockAuthAndRest({ rows: [{
+    id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+    status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+  }] });
+  const proxyUrl = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+      status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+    }]);
+    if (url.origin === proxyUrl && url.pathname === "/api/account") return Response.json({ balance: 100 });
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "account_read_unverified");
+    assert.equal(body.dataVerified, false);
   } finally {
     globalThis.fetch = oldFetch;
   }
@@ -436,4 +485,20 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+test('only the site-specific HTTPS Netlify PR preview origin is allowed by CORS', async () => {
+  const preview = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: PREVIEW_ORIGIN }
+  }), env);
+  assert.equal(preview.status, 204);
+  assert.equal(preview.headers.get('Access-Control-Allow-Origin'), PREVIEW_ORIGIN);
+  const unrelated = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: 'https://deploy-preview-200--other-site.netlify.app' }
+  }), env);
+  assert.equal(unrelated.status, 403);
+  const arbitrary = await worker.fetch(request('/v1/integrations', {
+    method: 'OPTIONS', headers: { Origin: 'https://attacker.netlify.app' }
+  }), env);
+  assert.equal(arbitrary.status, 403);
 });
