@@ -42,7 +42,7 @@ test('rejected Hub sessions clear private state and permit a fresh sign-in', () 
 test('read-only verification is displayed only from a matching successful Hub response', () => {
   assert.match(page, /result\.connectionId !== connection\.connectionId/);
   assert.match(page, /result\.dataVerified !== true/);
-  assert.match(page, /verificationByConnection\\[verificationKey\\(sessionUserIdRef\\.current, exnessConnection\\.connectionId\\)\\]/);
+  assert.ok(page.includes('verificationByConnection[verificationKey(sessionUserIdRef.current, exnessConnection.connectionId)]'));
 });
 test('trading safety is locked only when orders, execution, and live trading are all explicitly false', () => {
   assert.match(page, /ordersEnabled === false && snapshot\.health\?\.executionEnabled === false && snapshot\.health\?\.liveTradingEnabled === false/);
