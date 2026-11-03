@@ -165,7 +165,6 @@ async function getPairing(env, user, pairingId) {
   for (const [key, value] of Object.entries({
     select: PUBLIC_FIELDS,
     id: "eq." + pairingId,
-    owner_id: "eq." + user.userId,
     limit: "1"
   })) url.searchParams.set(key, value);
   const found = await supabaseRequest(env, user, url.pathname + url.search);
