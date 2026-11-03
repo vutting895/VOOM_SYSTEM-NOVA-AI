@@ -201,6 +201,7 @@ REVOKE ALL ON FUNCTION private.nova_expire_secret_pairing_impl(uuid) FROM PUBLIC
 GRANT USAGE ON SCHEMA private TO authenticated;
 GRANT EXECUTE ON FUNCTION private.nova_claim_secret_pairing_impl(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION private.nova_approve_secret_pairing_impl(uuid, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION private.nova_expire_secret_pairing_impl(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.nova_claim_secret_pairing(p_token_hash text)
 RETURNS TABLE(id uuid, purpose text, status text, expires_at timestamptz,
