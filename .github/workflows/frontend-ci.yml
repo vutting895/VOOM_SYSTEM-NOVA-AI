@@ -53,6 +53,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
       NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+      VITE_SUPABASE_URL: "https://example.supabase.co"
+      VITE_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-not-a-secret"
+      VITE_SYSTEM_HUB_URL: "https://nova-ci.workers.dev"
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
     steps:
       - name: Checkout
@@ -69,6 +72,9 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
+      - name: Test Secure QR pairing browser client contracts
+        working-directory: .
+        run: node --test tests/secret-pairing-client.test.mjs
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-migration.test.mjs
