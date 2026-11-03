@@ -11,6 +11,9 @@ on:
       - "shared/nova-system-core-contract.mjs"
       - "tests/nova-system-core-contract.test.mjs"
       - "docs/architecture/NOVA-SYSTEM-CORE-V1.md"
+      - "integrations/system-hub/package.json"
+      - "integrations/system-hub/tests/system-hub.test.mjs"
+      - "integrations/system-hub/worker.js"
       - ".github/workflows/nova-system-core-ci.yml"
   push:
     branches: [main]
@@ -37,3 +40,5 @@ jobs:
         run: node --check shared/nova-system-core-contract.mjs
       - name: Run NOVA System Core v1 contract tests
         run: node --test tests/nova-system-core-contract.test.mjs
+      - name: Run System Hub policy integration tests
+        run: node --test integrations/system-hub/tests/system-hub.test.mjs
