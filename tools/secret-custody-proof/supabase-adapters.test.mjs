@@ -103,6 +103,24 @@ test("caller cannot substitute a different subject or omit verified token", asyn
   );
 });
 
+test("only HTTPS remote origins and HTTP loopback origins are accepted", () => {
+  for (const url of [
+    "ftp://localhost",
+    "ws://127.0.0.1",
+    "http://supabase.example",
+    "https://user:pass@supabase.example"
+  ]) {
+    assert.throws(() => createSupabaseCustodyAdapters({
+      supabaseUrl: url, publishableKey: "publishable-test-key"
+    }), /SUPABASE_NOT_CONFIGURED/);
+  }
+  for (const url of ["http://localhost:54321", "http://127.0.0.1:54321", "https://supabase.example"]) {
+    assert.doesNotThrow(() => createSupabaseCustodyAdapters({
+      supabaseUrl: url, publishableKey: "publishable-test-key"
+    }));
+  }
+});
+
 test("redirects, non-HTTPS origins, and service-role substitution are not permitted", async () => {
   const redirected = createSupabaseCustodyAdapters({
     supabaseUrl: BASE, publishableKey: "publishable-test-key",
