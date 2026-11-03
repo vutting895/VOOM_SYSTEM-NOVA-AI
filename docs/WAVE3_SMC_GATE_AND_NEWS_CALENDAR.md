@@ -136,7 +136,7 @@ No MT5 terminal was controlled in this run. If a new terminal proof is needed, c
 
 ## Exact-head causal trace revalidation — 2026-11-03
 
-PR #66 SMC/Wave3 CI [run #183](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559) passed on the code head `b6fe42657bb88069f2fe1e72401da05caba10494`. It produced artifact [#13203561555](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575193559/artifacts/13203561555), archive SHA-256 `c929fa73ca643aaec34a745361d82cf40d3cb8ea8ce1d3f084cff9045c858970`, trace JSON SHA-256 `117d48fda45c7b74c060be5820e1782d7f5ec72e8599ad5bb4f93cb7e8c3fa4a`. Full provenance is in `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
+PR #66 SMC/Wave3 CI [run #186](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703) passed on the code head `bc789d4a978303b580578e24f2b386b004003a89`. It produced artifact [#13203298320](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575866703/artifacts/13203298320), archive SHA-256 `dd98ebe354f671c8ce91e6acfbcabab1eb69543702d63c277a4403aa0e6b685e`, trace JSON SHA-256 `8e4a6faadfac80e8ee92e0c8335622c4d9a81b03d0a8ebcd7e57a0e49b8f63fa`. Full provenance is in `reports/wave3_smc_candidate_trace_revalidation_20261103.json`.
 
 ### Same closed signal-bar counts
 
