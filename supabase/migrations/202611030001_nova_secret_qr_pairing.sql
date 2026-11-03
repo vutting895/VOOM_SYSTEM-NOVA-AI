@@ -34,7 +34,11 @@ CREATE INDEX IF NOT EXISTS secret_pairing_expiry_idx
 
 ALTER TABLE public.secret_pairing_sessions ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.secret_pairing_sessions FROM PUBLIC, anon;
-GRANT SELECT, INSERT ON TABLE public.secret_pairing_sessions TO authenticated;
+REVOKE ALL ON TABLE public.secret_pairing_sessions FROM authenticated;
+GRANT SELECT (id, owner_id, purpose, status, expires_at, created_at, scanned_at, approved_at)
+  ON TABLE public.secret_pairing_sessions TO authenticated;
+GRANT INSERT (owner_id, purpose, token_hash, status, expires_at)
+  ON TABLE public.secret_pairing_sessions TO authenticated;
 
 DROP POLICY IF EXISTS secret_pairing_select_own ON public.secret_pairing_sessions;
 CREATE POLICY secret_pairing_select_own ON public.secret_pairing_sessions
