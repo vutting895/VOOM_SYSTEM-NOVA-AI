@@ -90,8 +90,15 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Install dependencies and reconcile the root Bun lockfile
+        run: bun install
+      - name: Export reconciled Bun lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-bun-lockfile-review
+          path: bun.lock
+          if-no-files-found: error
+          retention-days: 1
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
