@@ -108,7 +108,7 @@ jobs:
       - name: Test separate Secret Custody API and idempotency contract
         working-directory: .
         run: node --test tools/secret-custody-proof/*.test.mjs
-      - name: Test AI API authentication precedes payload validation
+      - name: Test NOVA AI Worker authentication precedes payload validation
         working-directory: .
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
       - name: Test bounded NOVA chat history
