@@ -8,13 +8,6 @@ on:
   pull_request:
     paths:
       - "frontend/**"
-      - "src/**"
-      - "index.html"
-      - "package.json"
-      - "bun.lock"
-      - "server.ts"
-      - "vite.config.ts"
-      - "metadata.json"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -30,21 +23,10 @@ on:
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
-      - "docs/architecture/NOVA-SEPARATE-SECRET-CUSTODY-ADR.md"
-      - "docs/security/NOVA-SEPARATE-SECRET-CUSTODY-THREAT-MODEL.md"
-      - "docs/architecture/NOVA-SECRET-CUSTODY-API-DATA-CONTRACT.md"
-      - "tools/secret-custody-proof/**"
   push:
     branches: [main]
     paths:
       - "frontend/**"
-      - "src/**"
-      - "index.html"
-      - "package.json"
-      - "bun.lock"
-      - "server.ts"
-      - "vite.config.ts"
-      - "metadata.json"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -60,10 +42,6 @@ on:
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
-      - "docs/architecture/NOVA-SEPARATE-SECRET-CUSTODY-ADR.md"
-      - "docs/security/NOVA-SEPARATE-SECRET-CUSTODY-THREAT-MODEL.md"
-      - "docs/architecture/NOVA-SECRET-CUSTODY-API-DATA-CONTRACT.md"
-      - "tools/secret-custody-proof/**"
 
 permissions:
   contents: read
@@ -73,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .
+        working-directory: frontend
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
@@ -86,28 +64,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - name: Install dependencies and reconcile the root Bun lockfile
-        run: bun install
-      - name: Export reconciled Bun lockfile for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: nova-bun-lockfile-review
-          path: bun.lock
-          if-no-files-found: error
-          retention-days: 1
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
-      - name: Test separate Secret Custody API and idempotency contract
-        working-directory: .
-        run: node --test tools/secret-custody-proof/*.test.mjs
       - name: Test AI API authentication precedes payload validation
         working-directory: .
         run: node --test tests/frontend-gen-ai-auth-order.test.mjs
@@ -156,16 +122,27 @@ jobs:
       - name: Test MT5 tenant guard contract
         working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
-      - name: Validate Wrangler package availability without changing the lockfile
-        run: bunx --package=wrangler@4.156.0 wrangler --version
+      - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
-        run: bunx --package=wrangler@4.156.0 wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+        working-directory: frontend
+        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Validate NOVA System Integration Hub Worker bundle
-        run: bunx --package=wrangler@4.156.0 wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
-      - name: Type-check Vite React entry
-        run: bunx tsc --noEmit --jsx react-jsx --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck src/main.tsx
-      - name: Build Vite React SPA for CI validation
-        run: bun run build
+        working-directory: frontend
+        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
+      - name: Type-check
+        run: npm run typecheck
+      - name: Build Next.js frontend for CI validation
+        run: npm run build
+
+      - name: Build Cloudflare OpenNext Worker bundle for CI validation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
+          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
+        run: npm run cf:build
 
 
 
