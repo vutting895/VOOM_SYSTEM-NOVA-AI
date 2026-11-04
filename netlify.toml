@@ -10,3 +10,15 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Explicitly disable legacy framework plugins injected by Netlify UI.
+# This repository builds the root Vite app, not Next.js or Hugo.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+  [plugins.inputs]
+    enabled = false
+
+[[plugins]]
+  package = "netlify-plugin-hugo-cache-resources"
+  [plugins.inputs]
+    enabled = false
