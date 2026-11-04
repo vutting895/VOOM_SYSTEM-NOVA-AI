@@ -7,6 +7,8 @@ const read = (relativePath) => readFileSync(new URL(relativePath, root), 'utf8')
 const server = read('server.ts');
 const bridge = read('backend/mt5_bridge.py');
 const envExample = read('.env.example');
+const settings = read('src/components/SystemSettingsView.tsx');
+const terminal = read('src/components/LiveTradingTerminalView.tsx');
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -72,4 +74,27 @@ test('no broker account identifier or fake credential fingerprint is hardcoded i
   assert.doesNotMatch(server, /23908764|51092841|68019245|ed25519:[a-f0-9.]+/i);
   assert.match(server, /accountId = 'not_configured'/);
   assert.match(server, /provider: 'not_configured'/);
+});
+
+
+test('settings and trading terminal disclose unverified status and expose no broker credentials or fake positions', () => {
+  assert.doesNotMatch(settings, /status: 'connected'/);
+  assert.doesNotMatch(settings, /23908764|EXN-ED25519|Exness-MT5Real/i);
+  assert.match(settings, /ไม่รับ MT5 password, API token, private key หรือ account ID/);
+  assert.match(settings, /Live Trading OFF · Read-only/);
+  assert.match(settings, /MT5 Bridge OFF/);
+  assert.doesNotMatch(terminal, /Math\.random|setInterval|POS-904|FILLED_LIVE|Live Execution Desk/i);
+  assert.match(terminal, /No verified broker session/);
+  assert.match(terminal, /Order submission disabled \(Read-only\)/);
+});
+
+test('server blocks high-impact API mutations before parsing request bodies', () => {
+  const jsonParserAt = server.indexOf('app.use(express.json())');
+  const guardAt = server.indexOf('const blockedMutation =');
+  assert.notEqual(guardAt, -1);
+  assert.ok(guardAt < jsonParserAt);
+  assert.match(server, /req\.path === '\/api\/agent\/approvals\/decision'/);
+  assert.match(server, /req\.path === '\/api\/intent\/interrupt\/resolve'/);
+  assert.match(server, /broker_identity_unverified/);
+  assert.match(server, /trading_execution_disabled/);
 });
