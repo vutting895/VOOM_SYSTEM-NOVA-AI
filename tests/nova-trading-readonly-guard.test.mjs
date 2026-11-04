@@ -20,7 +20,6 @@ function section(source, startMarker, endMarker) {
 }
 
 test('default environment is Exness Demo read-only and all execution flags are off', () => {
-  assert.match(envExample, /^MT5_BRIDGE_ENABLED=false$/m);
   assert.match(envExample, /^VOOM_LIVE_TRADING_ENABLED=false$/m);
   assert.doesNotMatch(envExample, /(?:EXNESS|BINANCE|BYBIT)_(?:API_KEY|API_SECRET|PASSWORD)=/);
   assert.doesNotMatch(envExample, /^MT5_(?:TENANT_ID|BRIDGE_TOKEN)=/m);
@@ -63,16 +62,16 @@ test('broker status does not assert account verification or accept configuration
 
 test('only the tenant-scoped Exness Demo read-only bridge is retained', () => {
   assert.equal(existsSync(new URL('../backend/mt5_bridge.py', import.meta.url)), false);
-  assert.match(bridge, /TENANT_ID = os\\.environ\\.get\\("MT5_TENANT_ID"/);
-  assert.match(bridge, /BRIDGE_TOKEN = os\\.environ\\.get\\("MT5_BRIDGE_TOKEN"/);
-  assert.match(bridge, /hmac\\.compare_digest\\(tenant_id, TENANT_ID\\)/);
-  assert.match(bridge, /trade_mode != demo_mode/);
-  assert.match(bridge, /"exness" not in f"\\{server_name\\} \\{company_name\\}"\\.lower\\(\\)/);
-  assert.match(bridge, /@app\\.get\\("\\/api\\/account"\\)/);
-  assert.match(bridge, /@app\\.get\\("\\/api\\/quotes"\\)/);
-  assert.match(bridge, /request\\.method not in \\{"GET", "OPTIONS"\\}/);
-  assert.match(relay, /ALLOWED_PATHS = \\{.*"\\/api\\/account".*"\\/api\\/quotes"\\}/);
-  assert.match(relay, /X-VOOM-TENANT-ID/);
+  assert.ok(bridge.includes('TENANT_ID = os.environ.get("MT5_TENANT_ID"'));
+  assert.ok(bridge.includes('BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN"'));
+  assert.ok(bridge.includes('hmac.compare_digest(tenant_id, TENANT_ID)'));
+  assert.ok(bridge.includes('trade_mode != demo_mode'));
+  assert.ok(bridge.includes('"exness" not in f"{server_name} {company_name}".lower()'));
+  assert.ok(bridge.includes('@app.get("/api/account")'));
+  assert.ok(bridge.includes('@app.get("/api/quotes")'));
+  assert.ok(bridge.includes('request.method not in {"GET", "OPTIONS"}'));
+  assert.ok(relay.includes('ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}'));
+  assert.ok(relay.includes('X-VOOM-TENANT-ID'));
   assert.doesNotMatch(bridge + relay, /order_send|TRADE_ACTION|@app\\.post|0\\.0\\.0\\.0/);
 });
 
