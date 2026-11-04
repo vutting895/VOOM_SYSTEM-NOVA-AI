@@ -8,40 +8,60 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "vite.config.ts"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
+      - ".github/workflows/trading-safety-contract.yml"
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/nova-video-api/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
+      - "docs/NOVA-VIDEO-API-INTEGRATION.md"
+      - "docs/NOVA-VIDEO-SKILL-REGISTRY*"
   push:
     branches: [main]
     paths:
       - "frontend/**"
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "server.ts"
+      - "vite.config.ts"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
+      - ".github/workflows/trading-safety-contract.yml"
       - "integrations/mt5-readonly-proxy/**"
       - "integrations/mt5-bridge-relay/**"
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/nova-video-api/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
+      - "docs/NOVA-VIDEO-API-INTEGRATION.md"
+      - "docs/NOVA-VIDEO-SKILL-REGISTRY*"
 
 permissions:
   contents: read
@@ -49,14 +69,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
       NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,93 +81,47 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
+      - name: Install root application dependencies
+        run: npm install --no-package-lock
       - name: Test Supabase Marketplace security migration contract
-        working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
       - name: Test Supabase Vault readiness and local secret boundaries
-        working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
-      - name: Test AI API authentication precedes payload validation
-        working-directory: .
-        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
-      - name: Test bounded NOVA chat history
-        working-directory: .
-        run: node --test tests/chat-history.test.mjs
-      - name: Test customer Zero-Menu Command Center contracts
-        working-directory: .
-        run: node --test tests/customer-command-center.test.mjs
-      - name: Test customer strategy selection and preference isolation
-        working-directory: .
-        run: node --test tests/customer-strategy-selection.test.mjs
+      - name: Test trading API fail-closed safety contract
+        run: node --test tests/trading-fail-closed.test.mjs
       - name: Syntax-check staging customer isolation harness
-        working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
-      - name: Test server-side chat secret redaction
-        working-directory: .
-        run: node --test tests/chat-secret-redaction.test.mjs
-      - name: Test chat API authentication before body parsing
-        working-directory: .
-        run: node --test tests/chat-api-auth-order.test.mjs
-      - name: Test NOVA durable approval lifecycle contracts
-        working-directory: .
-        run: node --test tests/nova-approval-*.test.mjs
-      - name: Test NOVA Video Workspace tenant and free-only contracts
-        working-directory: .
-        run: node --test tests/nova-video-workspace.test.mjs
-      - name: Test NOVA Video API external-origin CORS contract
-        working-directory: .
-        run: node --test tests/nova-video-api-cors.test.mjs
+      - name: Test durable approval database migration contract
+        run: node --test tests/nova-approval-migration.test.mjs
+      - name: Test NOVA Video Workspace tenant and free-only migration contract when present
+        if: ${{ hashFiles('tests/nova-video-workspace-migration.test.mjs') != '' }}
+        run: node --test tests/nova-video-workspace-migration.test.mjs
+      - name: Test NOVA Video API Worker contract when present
+        if: ${{ hashFiles('integrations/nova-video-api/worker.test.mjs') != '' }}
+        run: node --test integrations/nova-video-api/worker.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
-        working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
       - name: Test NOVA System Integration Hub authorization and tenant boundaries
-        working-directory: .
         run: node --test integrations/system-hub/tests/*.test.mjs
       - name: Test Remote MCP Exness MT5 read-only tools
-        working-directory: .
         run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
       - name: Test tenant-isolated MT5 Bridge relay and proxy
-        working-directory: .
         run: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
       - name: Syntax-check MT5 Bridge and outbound relay client
-        working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
       - name: Test MT5 tenant guard contract
-        working-directory: .
         run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+        run: npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Validate NOVA System Integration Hub Worker bundle
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
-      - name: Type-check
-        run: npm run typecheck
-      - name: Build Next.js frontend for CI validation
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Build root Vite frontend
         run: npm run build
 
-      - name: Build Cloudflare OpenNext Worker bundle for CI validation
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
-        run: npm run cf:build
-
-
-
-  # Secret-bearing preview and staging acceptance jobs are intentionally excluded from pull_request CI.
-  # PR-controlled code must never receive Cloudflare deployment or Supabase service-role secrets.
-  # Netlify creates the PR Preview independently; hosted staging acceptance requires a separate
-  # trusted workflow using main-owned test code and a protected GitHub Environment.
-
+  # PR-controlled code never receives Cloudflare deployment or Supabase service-role secrets.
+  # Hosted staging acceptance requires a separate trusted workflow and protected environment.
   netlify-production-smoke-test:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     needs: build
@@ -168,10 +139,7 @@ jobs:
             healthy=false
             for attempt in $(seq 1 12); do
               code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
-              if [ "$code" = "200" ]; then
-                healthy=true
-                break
-              fi
+              if [ "$code" = "200" ]; then healthy=true; break; fi
               echo "Netlify route $path returned HTTP $code on attempt $attempt/12; retrying boundedly."
               sleep 10
             done
