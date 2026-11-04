@@ -59,36 +59,15 @@ export interface StructuredIntentTrace {
   };
 }
 
-export interface CredentialStatusPayload {
-  provider: string;
-  tokenFingerprint: string;
-  issuedAt: string;
-  expiresAt: string;
-  isValid: boolean;
-  revalidatedOnResume: boolean;
-  revalidatedAt?: string;
-}
-
 export interface LangGraphInterruptItem {
   interruptId: string;
   threadId: string;
-  intentType: string;
-  mcpTool: string;
   symbol: string;
-  side: 'BUY' | 'SELL';
-  lots: number;
-  entryPrice: number;
-  stopLoss: number;
-  takeProfit: number;
-  riskPerTradePct: number;
-  confidencePct: number;
-  vpinScore: number;
-  var95Pct: number;
-  regime: string;
-  brokerSideSlTpGuard?: boolean;
-  credentialStatus?: CredentialStatusPayload;
-  status: 'PAUSED_WAITING_HUMAN' | 'APPROVED_EXECUTED' | 'EDITED_AND_EXECUTED' | 'REJECTED';
-  executionTicket?: string;
+  side?: 'BUY' | 'SELL';
+  entryPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  status: 'PAUSED_WAITING_HUMAN';
 }
 
 export interface ChatOSMessage {
@@ -507,7 +486,7 @@ export default function NovaChatOSView({
     return `${prefix}-${Date.now()}-${msgSeqRef.current}`;
   }
 
-  // Restore any Pending Interrupts from LangGraph Checkpoint on refresh (Phase 4 Pause-Resume Test)
+  // Restore legacy checkpoints for display only; never resume or approve a broker action.
   useEffect(() => {
     fetch(`/api/intent/thread/${encodeURIComponent(threadId)}`)
       .then((r) => r.json())
@@ -520,8 +499,8 @@ export default function NovaChatOSView({
             const restoredMsgs: ChatOSMessage[] = waiting.map((item: LangGraphInterruptItem) => ({
               id: nextMsgId('restored-int'),
               role: 'assistant',
-              senderName: 'LangGraph AsyncPostgresSaver',
-              senderRole: `Restored Checkpoint · ${threadId}`,
+              senderName: 'NOVA Research Draft',
+              senderRole: `Read-only research context · ${threadId}`,
               timestamp: 'กู้คืนสถานะอัตโนมัติ',
               text: `🔄 กู้คืนคำสั่งที่รอการอนุมัติ (Pending Interrupt #${item.interruptId}) จากตาราง checkpoints ของ Thread ${threadId} สำเร็จแม้รีเฟรชหน้าเว็บ:`,
               widget: 'langgraph-interrupt-approval-card',
