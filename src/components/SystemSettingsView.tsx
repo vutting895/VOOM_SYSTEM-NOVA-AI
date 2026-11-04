@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Cpu,
   KeyRound,
-  RefreshCw,
   Settings,
   ShieldCheck,
   Sliders,
