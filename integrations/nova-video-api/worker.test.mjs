@@ -41,6 +41,47 @@ test("rejects missing and invalid sessions before reading a request body", async
   }
 });
 
+test("caps streamed request bodies even without a Content-Length header", async () => {
+  const previous = globalThis.fetch;
+  let providerCalls = 0;
+  let streamCancelled = false;
+  globalThis.fetch = async (input) => {
+    providerCalls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    return authResponse();
+  };
+
+  const oversizedBody = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(6001).fill(0x20));
+    },
+    cancel() {
+      streamCancelled = true;
+    },
+  });
+  const oversizedRequest = new Request("https://video-worker.example.test/api/video/projects", {
+    method: "POST",
+    headers: {
+      Origin: ORIGIN,
+      Authorization: "Bearer " + SESSION,
+      "Content-Type": "application/json",
+    },
+    body: oversizedBody,
+    duplex: "half",
+  });
+
+  try {
+    assert.equal(oversizedRequest.headers.get("Content-Length"), null);
+    const response = await worker.fetch(oversizedRequest, ENV);
+    assert.equal(response.status, 413);
+    assert.deepEqual(await response.json(), { error: "request_body_too_large" });
+    assert.equal(streamCancelled, true);
+    assert.equal(providerCalls, 1, "oversized body must be rejected before any database request");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
 test("CORS allows only the configured exact frontend origin", async () => {
   const allow = await worker.fetch(request("/api/video/projects", {
     method: "OPTIONS",
