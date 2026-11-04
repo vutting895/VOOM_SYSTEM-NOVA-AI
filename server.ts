@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { getBrokerUnverifiedSnapshot, getCredentialIntakeDisabledResponse, getOrderExecutionBlockedResponse, getTradingSafetySnapshot, isLiveExecutionEnableRequest } from './trading-safety.mjs';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -135,10 +136,8 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
-  // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
+  // Broker execution is fail-closed; only verified Demo read-only sessions may be added later.
   let mt5BridgeEnabled = false;
-  // Live Trading Mode explicitly ENABLED per user request
-  let liveTradingEnabled = true;
 
   // =========================================================================
   // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
@@ -242,145 +241,30 @@ async function startServer() {
   });
 
   app.post('/api/mt5-bridge/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    mt5BridgeEnabled = typeof requested === 'boolean' ? requested : false;
-    res.json({
-      service: 'mt5-bridge',
-      enabled: mt5BridgeEnabled,
-      status: mt5BridgeEnabled ? 'active' : 'disabled',
-      detail: mt5BridgeEnabled
-        ? 'เปิดการทำงาน MT5 Bridge ชั่วคราว'
-        : 'ปิดการทำงาน MT5 Bridge เรียบร้อยแล้ว (OFF) · ตัดการเชื่อมต่อ Relay/Proxy ทั้งหมด',
+    mt5BridgeEnabled = false;
+    if (req.body?.enabled === true) return res.status(403).json({
+      ok: false, code: 'MT5_BRIDGE_NOT_VERIFIED', enabled: false, status: 'disabled',
+      detail: 'MT5 Bridge requires authenticated, tenant-scoped Demo read-only proof.',
       updatedAt: new Date().toISOString(),
     });
+    return res.json({ service: 'mt5-bridge', enabled: false, status: 'disabled', updatedAt: new Date().toISOString() });
   });
 
-  // Live Trading Execution Mode Status & Toggle Routes
-  app.get('/api/live-trading/status', (_req, res) => {
-    res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
-      mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริง (LIVE TRADING ENABLED) · บัญชี Exness Real #23908764 (Ed25519 Direct API · ปิด MT5 Bridge)'
-        : 'โหมดทดลอง / อ่านข้อมูล (Read-Only)',
-      updatedAt: new Date().toISOString(),
-    });
-  });
-
+  app.get('/api/live-trading/status', (_req, res) => res.json(getTradingSafetySnapshot()));
   app.post('/api/live-trading/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    liveTradingEnabled = typeof requested === 'boolean' ? requested : true;
-    res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
-      mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริงสำเร็จ (LIVE TRADING ACTIVE · Exness Real #23908764)'
-        : 'สลับเป็นโหมดพักคำสั่งซื้อขายจริง (Read-Only / Demo)',
-      updatedAt: new Date().toISOString(),
-    });
+    if (isLiveExecutionEnableRequest(req.body)) return res.status(403).json(getOrderExecutionBlockedResponse());
+    return res.json(getTradingSafetySnapshot());
   });
+  app.post('/api/orders/execute', (_req, res) => res.status(403).json(getOrderExecutionBlockedResponse()));
 
-  app.post('/api/orders/execute', (req, res) => {
-    const {
-      symbol = 'XAU/USDm',
-      side = 'BUY',
-      lots = 0.35,
-      entryPrice = 2749.2,
-      stopLoss = 2736.5,
-      takeProfit = 2774.0,
-      accountId = '23908764',
-    } = req.body || {};
 
-    const ticketId = `EX-LIVE-${Math.floor(100000 + Math.random() * 900000)}`;
-    res.json({
-      ok: true,
-      liveTradingEnabled,
-      executionMode: liveTradingEnabled ? 'LIVE_REAL_EXECUTION' : 'SIMULATED',
-      ticket: ticketId,
-      accountId,
-      broker: 'Exness Trader API v1 (Ed25519 Direct · Real Server)',
-      mt5BridgeUsed: false,
-      symbol,
-      side,
-      lots: Number(lots),
-      filledPrice: Number(entryPrice),
-      stopLoss: Number(stopLoss),
-      takeProfit: Number(takeProfit),
-      latencyMs: 21,
-      status: 'FILLED_LIVE',
-      executedAt: new Date().toISOString(),
-    });
-  });
-
-  // Multi-Broker REST API Status Routes (Exness Platform API + Crypto Exchanges, Live Trading Enabled, MT5 Bridge Disabled)
+  // No authenticated broker session has been verified; fail closed.
   app.get('/api/broker/status', (req, res) => {
-    const broker = String(req.query.broker || 'exness').toLowerCase();
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
-    res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: '23908764',
-      environment: 'real',
-      mt5BridgeEnabled: false,
-      mt5BridgeStatus: 'DISABLED',
-      detail: isExness
-        ? 'Exness Platform REST API v1 (🟢 โหมดเทรดจริง LIVE TRADING ENABLED · Account #23908764 Real · ปิด MT5 Bridge)'
-        : `${broker.toUpperCase()} Live Execution API Verified (MT5 Bridge Disabled)`,
-      capabilities: isExness
-        ? [
-            'account.summary.read',
-            'account.limits.read',
-            'market.instruments.read',
-            'market.candles.read',
-            'orders.create.live',
-            'orders.close.live',
-            'positions.modify.live',
-          ]
-        : ['account.read', 'market.klines.read', 'orders.create.live', 'orders.cancel.live'],
-      checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-    });
+    const broker = String(req.query.broker || 'unknown').toLowerCase();
+    return res.status(503).json(getBrokerUnverifiedSnapshot(broker));
   });
-
-  app.post('/api/broker/status', (req, res) => {
-    const broker = String(req.query.broker || 'exness').toLowerCase();
-    const { apiKey, apiSecret, accountId, environment } = req.body || {};
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
-    res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: accountId || (isExness ? '23908764' : undefined),
-      environment: environment || 'real',
-      accessPoint: isExness ? 'https://rt-api.exness-api.com' : undefined,
-      mt5BridgeEnabled: false,
-      detail: isExness
-        ? `ยืนยันสิทธิ์โหมดเทรดจริง Exness Trader API (Account #${accountId || '23908764'} · Ed25519 Signature · REAL LIVE) สำเร็จ (ปิด MT5 Bridge)`
-        : `${broker.toUpperCase()} Live Trading API credentials authenticated and verified`,
-      checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      hasKeyConfigured: Boolean(apiKey || apiSecret || true),
-    });
-  });
-
+  // Do not accept credentials through this legacy endpoint.
+  app.post('/api/broker/status', (_req, res) => res.status(410).json(getCredentialIntakeDisabledResponse()));
   // Fetch tradable currency/crypto pairs directly from the logged-in Broker session (supports MT5 or Direct API for Forex)
   app.get('/api/broker/instruments', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
@@ -408,7 +292,8 @@ async function startServer() {
 
     const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
     if (isForexBroker) {
-      mt5BridgeEnabled = connectionMode === 'mt5';
+      // Catalog selection is read-only and never enables the bridge.
+      mt5BridgeEnabled = false;
     }
 
     const BROKER_INSTRUMENT_CATALOG: Record<
