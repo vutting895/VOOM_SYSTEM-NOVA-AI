@@ -1136,7 +1136,7 @@ async function startServer() {
   // POST Main 5-Layer Zero-Menu Intent Dispatcher
   app.post('/api/intent/dispatch', (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
-    const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
+    const safeThreadId = threadId || 'thread-nova-session-01';
     const rawPrompt = String(prompt || '').trim();
 
     // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
@@ -1144,7 +1144,7 @@ async function startServer() {
     if (!guardrail.passed) {
       res.json({
         ok: false,
-        threadId: state.threadId,
+        threadId: safeThreadId,
         layerTriggered: 'LAYER_3_NEMO_GUARDRAILS',
         declarativeUiType: 'nemo-guardrail-blocked-card',
         guardrail,
@@ -1158,7 +1158,7 @@ async function startServer() {
     if (clarification.needsClarification) {
       res.json({
         ok: true,
-        threadId: state.threadId,
+        threadId: safeThreadId,
         layerTriggered: 'MIDDLEWARE_POLITE_CLARIFICATION_FALLBACK',
         declarativeUiType: 'clarification-fallback-card',
         clarification,
@@ -1183,6 +1183,9 @@ async function startServer() {
         detail: 'This application accepts market research intents only; broker and risk-setting mutations are disabled.',
       });
     }
+
+    // Writes are rejected above before any checkpoint or state mutation.
+    const state = getOrCreateThreadCheckpoint(safeThreadId);
 
     // Pitfall 1 Fix: Semantic Caching Telemetry (< 2ms Cache Hit for frequent intents)
     const cacheKey = `${structuredIntent.intentType}:${structuredIntent.params.symbol}`;
