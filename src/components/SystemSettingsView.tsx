@@ -79,18 +79,18 @@ export default function SystemSettingsView() {
 
   // 1. Exness & Multi-Broker API / MT5 Settings State
   const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('api');
-  const [exnessAccountId, setExnessAccountId] = useState<string>('23908764');
-  const [exnessToken, setExnessToken] = useState<string>('EXN-ED25519-9F8A7B6C5D4E3F2A1B0C');
-  const [mt5ServerName, setMt5ServerName] = useState<string>('Exness-MT5Real14');
-  const [mt5Password, setMt5Password] = useState<string>('••••••••••••');
-  const [exnessServer, setExnessServer] = useState<'demo' | 'real'>('real');
+  const [exnessAccountId, setExnessAccountId] = useState<string>('');
+  const [exnessToken, setExnessToken] = useState<string>('');
+  const [mt5ServerName, setMt5ServerName] = useState<string>('');
+  const [mt5Password, setMt5Password] = useState<string>('');
+  const [exnessServer, setExnessServer] = useState<'demo' | 'real'>('demo');
   const [selectedBrokerId, setSelectedBrokerId] = useState<string>('exness');
   const [exchangeApiKey, setExchangeApiKey] = useState<string>('');
   const [exchangeSecret, setExchangeSecret] = useState<string>('');
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
 
   // 2. Trading Mode, Account Env & MT5 Bridge Settings State
-  const [liveTradingEnabled, setLiveTradingEnabled] = useState<boolean>(true);
+  const [liveTradingEnabled, setLiveTradingEnabled] = useState<boolean>(false);
   const [mt5BridgeEnabled, setMt5BridgeEnabled] = useState<boolean>(false);
   const [defaultBotMode, setDefaultBotMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
@@ -121,18 +121,11 @@ export default function SystemSettingsView() {
     setTimeout(() => setSaveBanner(null), 4000);
   }
 
-  function handleToggleLiveTrading(next: boolean) {
-    setLiveTradingEnabled(next);
-    fetch('/api/live-trading/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: next }),
-    }).catch(() => {});
-    notifySaved(
-      next
-        ? '🟢 เปิดโหมดเทรดสด (Live Market Execution) เรียบร้อยแล้ว'
-        : '🟡 สลับเป็นโหมดพักคำสั่งซื้อขาย (Paused / Read-Only) เรียบร้อยแล้ว'
-    );
+  function handleToggleLiveTrading(_next: boolean) {
+    // The current application shell has no approved broker execution runtime.
+    // Keep the UI fail-closed even if a user interacts with the legacy toggle.
+    setLiveTradingEnabled(false);
+    notifySaved('Live Trading ถูกล็อกเป็น OFF · ระบบนี้อนุญาตเฉพาะ Read-only / AI Analysis');
   }
 
   function handleToggleMt5Bridge(next: boolean) {
