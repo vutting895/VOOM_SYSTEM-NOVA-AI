@@ -104,3 +104,13 @@ test('server blocks high-impact API mutations before parsing request bodies', ()
   assert.match(server, /broker_identity_unverified/);
   assert.match(server, /trading_execution_disabled/);
 });
+
+test('intent dispatcher refuses all write intents before creating an approval checkpoint', () => {
+  const dispatch = section(server, "app.post('/api/intent/dispatch'", '// Approval resolution is research-only');
+  assert.match(dispatch, /accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT'/);
+  assert.match(dispatch, /WRITE_INTENTS_DISABLED/);
+  assert.doesNotMatch(dispatch, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED|PAUSED_WAITING_HUMAN/);
+  assert.doesNotMatch(server, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED/);
+  assert.match(server, /brokerDirectSlTpEnabled: false/);
+  assert.match(server, /brokerSideSlTpGuard: false/);
+});
