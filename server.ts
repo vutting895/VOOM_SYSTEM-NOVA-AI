@@ -135,10 +135,61 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
+  // Fail-closed safety boundary: this Vite/Express shell is not an approved broker
+  // execution runtime. Trading mutations remain blocked until a separately reviewed
+  // and explicitly approved execution service is integrated.
+  const blockedTradingMutationPaths = new Set([
+    '/api/live-trading/toggle',
+    '/api/orders/execute',
+    '/api/broker/status',
+    '/api/mt5-bridge/toggle',
+    '/api/agent/approvals/decision',
+  ]);
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path === '/api/broker/status') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'broker_identity_unverified',
+        status: 'unverified',
+        connected: false,
+        accountConnected: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    const blockedIntentMutation =
+      req.method !== 'GET' &&
+      (req.path.startsWith('/api/intent/') ||
+        /^\\/api\\/agent\\/threads\\/[^/]+\\/approvals(?:\\/.*)?$/.test(req.path));
+    const blockedOrderMutation =
+      req.path.startsWith('/api/orders/') ||
+      (req.method !== 'GET' && req.path.startsWith('/api/live-trading/'));
+
+    if (
+      (req.method !== 'GET' && blockedTradingMutationPaths.has(req.path)) ||
+      blockedIntentMutation ||
+      blockedOrderMutation
+    ) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(403).json({
+        ok: false,
+        error: 'trading_execution_disabled',
+        executionEnabled: false,
+        ordersEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    next();
+  });
+
   // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
   let mt5BridgeEnabled = false;
   // Live Trading Mode explicitly ENABLED per user request
-  let liveTradingEnabled = true;
+  let liveTradingEnabled = false;
 
   // =========================================================================
   // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
@@ -262,8 +313,7 @@ async function startServer() {
       mode: liveTradingEnabled ? 'live-execution' : 'read-only',
       tradingEnabled: liveTradingEnabled,
       ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
+      environment: 'unverified',
       mt5BridgeEnabled: false,
       detail: liveTradingEnabled
         ? '🟢 เปิดโหมดเทรดจริง (LIVE TRADING ENABLED) · บัญชี Exness Real #23908764 (Ed25519 Direct API · ปิด MT5 Bridge)'
@@ -280,8 +330,7 @@ async function startServer() {
       mode: liveTradingEnabled ? 'live-execution' : 'read-only',
       tradingEnabled: liveTradingEnabled,
       ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
+      environment: 'unverified',
       mt5BridgeEnabled: false,
       detail: liveTradingEnabled
         ? '🟢 เปิดโหมดเทรดจริงสำเร็จ (LIVE TRADING ACTIVE · Exness Real #23908764)'
@@ -1409,14 +1458,12 @@ async function startServer() {
       transport: 'streamable-http',
       horizontalScaling: true,
       semanticCacheActive: true,
-      brokerDirectSlTpWorker: true,
+      brokerDirectSlTpWorker: false,
       databaseTables: ['threads', 'checkpoints', 'trade_logs', 'user_configs'],
       tools: [
         { name: 'get_portfolio_status', interrupt: false, description: 'Read Exness/Portfolio balance, equity & free margin' },
         { name: 'calculate_risk', interrupt: false, description: 'Run Quantum VQC + TFT + Rule-Based Risk calculation' },
-        { name: 'place_trade_order', interrupt: true, description: 'Execute market/limit order via LangGraph interrupt() + Token Re-validation + Broker-side SL/TP' },
         { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read Dynamic Grid daily P&L calendar' },
-        { name: 'update_risk_parameters', interrupt: true, description: 'Update Risk Per Trade % & Max Drawdown guard in user_configs' },
       ],
     });
   });
