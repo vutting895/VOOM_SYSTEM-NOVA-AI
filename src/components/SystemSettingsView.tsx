@@ -14,26 +14,24 @@ import {
 const BROKER_PROVIDERS = [
   {
     id: 'exness',
-    code: 'EXN-API',
-    name: 'Exness Trader Platform API',
-    protocol: 'REST v1 + Ed25519 Signature (No MT5)',
-    authMethod: 'EXN-API-KEY + Ed25519 Sign',
-    endpoint: 'https://my.exness.com/v1/trading',
-    latencyMs: 28,
-    status: 'connected' as const,
-    description: 'เชื่อมต่อ Exness Platform API โดยตรงสำหรับทองคำ XAU/USDm และคู่เงินหลัก',
-    permissions: ['GET /v1/trading/accounts', 'GET /v1/trading/candles', 'POST /v1/trading/orders'],
+    code: 'EXNESS-DEMO',
+    name: 'Exness MT5 Demo',
+    protocol: 'MT5 Demo read-only (unverified)',
+    authMethod: 'not_configured',
+    endpoint: 'not_configured',
+    status: 'not_configured' as const,
+    description: 'Read-only catalogue only; no authenticated Demo session is connected.',
+    permissions: ['market.instruments.read', 'market.candles.read'],
   },
   {
     id: 'binance',
     code: 'BN-REST',
     name: 'Binance Quantitative API',
     protocol: 'REST v3 + WebSocket Stream',
-    authMethod: 'HMAC-SHA256 API Key',
-    endpoint: 'https://api.binance.com/api/v3',
-    latencyMs: 34,
-    status: 'connected' as const,
-    description: 'เชื่อมต่อตลาดคริปโตหลัก BTC/USDT, ETH/USDT, SOL/USDT, TON/USDT',
+    authMethod: 'not_configured',
+    endpoint: 'not_configured',
+    status: 'not_configured' as const,
+    description: 'Read-only catalogue only; no authenticated exchange session is connected.',
     permissions: ['GET /api/v3/ticker/24hr', 'GET /api/v3/klines'],
   },
   {
@@ -41,11 +39,10 @@ const BROKER_PROVIDERS = [
     code: 'BY-V5',
     name: 'Bybit Unified V5 Gateway',
     protocol: 'REST V5 + Linear Perp Stream',
-    authMethod: 'HMAC-SHA256 Key',
-    endpoint: 'https://api.bybit.com/v5/market',
-    latencyMs: 41,
-    status: 'connected' as const,
-    description: 'เชื่อมต่อสภาพคล่องอนุพันธ์คริปโตและอัตรา Funding Rate',
+    authMethod: 'not_configured',
+    endpoint: 'not_configured',
+    status: 'not_configured' as const,
+    description: 'Read-only catalogue only; no authenticated exchange session is connected.',
     permissions: ['GET /v5/market/tickers', 'GET /v5/market/kline'],
   },
 ];
@@ -77,21 +74,9 @@ const MAJOR_CRYPTO_LIST = [
 export default function SystemSettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('broker-api');
 
-  // 1. Exness & Multi-Broker API / MT5 Settings State
-  const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('api');
-  const [exnessAccountId, setExnessAccountId] = useState<string>('23908764');
-  const [exnessToken, setExnessToken] = useState<string>('EXN-ED25519-9F8A7B6C5D4E3F2A1B0C');
-  const [mt5ServerName, setMt5ServerName] = useState<string>('Exness-MT5Real14');
-  const [mt5Password, setMt5Password] = useState<string>('••••••••••••');
-  const [exnessServer, setExnessServer] = useState<'demo' | 'real'>('real');
+  // Broker account IDs and credentials are intentionally not collected by this component.
   const [selectedBrokerId, setSelectedBrokerId] = useState<string>('exness');
-  const [exchangeApiKey, setExchangeApiKey] = useState<string>('');
-  const [exchangeSecret, setExchangeSecret] = useState<string>('');
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
-
-  // 2. Trading Mode, Account Env & MT5 Bridge Settings State
-  const [liveTradingEnabled, setLiveTradingEnabled] = useState<boolean>(true);
-  const [mt5BridgeEnabled, setMt5BridgeEnabled] = useState<boolean>(false);
   const [defaultBotMode, setDefaultBotMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
 
@@ -121,34 +106,6 @@ export default function SystemSettingsView() {
     setTimeout(() => setSaveBanner(null), 4000);
   }
 
-  function handleToggleLiveTrading(next: boolean) {
-    setLiveTradingEnabled(next);
-    fetch('/api/live-trading/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: next }),
-    }).catch(() => {});
-    notifySaved(
-      next
-        ? '🟢 เปิดโหมดเทรดสด (Live Market Execution) เรียบร้อยแล้ว'
-        : '🟡 สลับเป็นโหมดพักคำสั่งซื้อขาย (Paused / Read-Only) เรียบร้อยแล้ว'
-    );
-  }
-
-  function handleToggleMt5Bridge(next: boolean) {
-    setMt5BridgeEnabled(next);
-    setForexConnectionMode(next ? 'mt5' : 'api');
-    fetch('/api/mt5-bridge/toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: next }),
-    }).catch(() => {});
-    notifySaved(
-      next
-        ? `🖥️ เปลี่ยนโหมดโบรกเกอร์ Forex เป็นใช้ MT5 (${mt5ServerName} · Login #${exnessAccountId}) สำเร็จ`
-        : '⚡ เปลี่ยนโหมดโบรกเกอร์ Forex เป็นใช้ Direct API (Ed25519 REST v1 · ไม่ต้องเปิดโปรแกรม MT5) สำเร็จ'
-    );
-  }
 
   function handleTriggerBackendTrain(symbol: string) {
     setSyncingBackend(true);
@@ -190,27 +147,15 @@ export default function SystemSettingsView() {
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-1">
-              รวมเมนูการตั้งค่าทั้งหมดไว้ในหน้าเดียว: เลือกเชื่อมต่อโบรกเกอร์ Forex ผ่าน MT5 หรือ Direct API, สลับบัญชี Demo/Real, และตั้งค่า Backend Auto-Train
+              ตรวจสอบสถานะระบบและการวิเคราะห์ Demo แบบ Read-only โดยยังไม่รับรหัสผ่านหรือ API Secret ผ่านหน้าเว็บ
             </p>
           </div>
         </div>
 
         {/* Quick Status Summary Pills */}
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono shrink-0">
-          <span className="px-3 py-1.5 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">
-            🟢 Exness #{exnessAccountId} ({exnessServer === 'demo' ? 'Demo Live' : 'Real Live'})
-          </span>
-          <span
-            className={`px-3 py-1.5 rounded-xl font-bold border ${
-              forexConnectionMode === 'mt5'
-                ? 'bg-amber-500/15 text-amber-300 border-amber-500/35'
-                : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/35'
-            }`}
-          >
-            {forexConnectionMode === 'mt5'
-              ? `🖥️ Forex Mode: MT5 (${mt5ServerName})`
-              : '⚡ Forex Mode: Direct API'}
-          </span>
+          <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">Exness Demo · Read-only · Unverified</span>
+          <span className="px-3 py-1.5 rounded-xl bg-slate-500/15 text-slate-300 border border-slate-500/30 font-bold">MT5 Bridge OFF · Live Trading OFF</span>
         </div>
       </div>
 
@@ -276,167 +221,21 @@ export default function SystemSettingsView() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <span className="text-[11px] font-mono text-cyan-400 uppercase">
-                  FOREX BROKER GATEWAY (MT5 OR DIRECT API)
+                  EXNESS DEMO BROKER GATEWAY
                 </span>
                 <h2 className="text-base font-bold text-white mt-0.5">
-                  เชื่อมต่อโบรกเกอร์ Forex (เลือกใช้ MT5 หรือ Direct API ได้)
+                  สถานะโบรกเกอร์ Exness Demo (Read-only)
                 </h2>
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">
-                ● เชื่อมต่อแล้ว ({forexConnectionMode.toUpperCase()})
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/35">
+                ● ยังไม่ยืนยัน · Read-only
               </span>
             </div>
 
-            {/* Selector: Use MT5 vs Use Direct API */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-300">
-                เลือกรูปแบบการเชื่อมต่อโบรกเกอร์ Forex:
-              </label>
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => handleToggleMt5Bridge(true)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    forexConnectionMode === 'mt5'
-                      ? 'bg-amber-500/15 border-amber-400 text-amber-200 shadow-md'
-                      : 'bg-[#060A14] border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <div className="text-xs font-extrabold">🖥️ ใช้ MT5 (MetaTrader 5)</div>
-                  <div className="text-[11px] opacity-80 mt-0.5">
-                    เชื่อมต่อผ่านรหัส MT5 Login, รหัสผ่าน และ MT5 Server
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleToggleMt5Bridge(false)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                    forexConnectionMode === 'api'
-                      ? 'bg-cyan-500/15 border-cyan-400 text-cyan-200 shadow-md'
-                      : 'bg-[#060A14] border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <div className="text-xs font-extrabold">⚡ ใช้ Direct API (REST / Ed25519)</div>
-                  <div className="text-[11px] opacity-80 mt-0.5">
-                    ยิงคำสั่งตรงผ่าน API Key โดยไม่ต้องเปิดโปรแกรม MT5
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1.5">
-                  {forexConnectionMode === 'mt5'
-                    ? 'หมายเลขบัญชี MT5 Login (Account ID)'
-                    : 'รหัสบัญชีโบรกเกอร์ (Account ID)'}
-                </label>
-                <input
-                  type="text"
-                  value={exnessAccountId}
-                  onChange={(e) => setExnessAccountId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              {forexConnectionMode === 'mt5' ? (
-                <>
-                  <div>
-                    <label className="block text-slate-300 font-semibold mb-1.5">
-                      เลือกเซิร์ฟเวอร์ MT5 (MT5 Server)
-                    </label>
-                    <select
-                      value={mt5ServerName}
-                      onChange={(e) => setMt5ServerName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono focus:outline-none focus:border-amber-400"
-                    >
-                      <option value="Exness-MT5Real14">Exness-MT5Real14 (บัญชีจริง)</option>
-                      <option value="Exness-MT5Trial8">Exness-MT5Trial8 (บัญชีทดลอง)</option>
-                      <option value="ICMarketsSC-MT5-4">ICMarketsSC-MT5-4 (Raw Spread)</option>
-                      <option value="XMGlobal-MT5 2">XMGlobal-MT5 2 (Standard/Ultra Low)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-300 font-semibold mb-1.5">
-                      รหัสผ่าน MT5 (Master / Trading Password)
-                    </label>
-                    <input
-                      type="password"
-                      value={mt5Password}
-                      onChange={(e) => setMt5Password(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1.5">
-                    โทเค็น API / ลายเซ็น Ed25519 (EXN-API-KEY)
-                  </label>
-                  <input
-                    type="password"
-                    value={exnessToken}
-                    onChange={(e) => setExnessToken(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1.5">
-                  เลือกสภาพแวดล้อมบัญชี (Demo / Real)
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setExnessServer('demo')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      exnessServer === 'demo'
-                        ? 'bg-cyan-500/15 border-cyan-400 text-cyan-300'
-                        : 'bg-[#060A14] border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <div className="font-bold">🧪 บัญชีทดลอง (Demo)</div>
-                    <div className="text-[11px] opacity-80 mt-0.5">
-                      เทรดสดราคาตลาดจริงด้วยเงินจำลอง
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExnessServer('real')}
-                    className={`p-3 rounded-xl border text-left transition-all ${
-                      exnessServer === 'real'
-                        ? 'bg-emerald-500/15 border-emerald-400 text-emerald-300'
-                        : 'bg-[#060A14] border-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <div className="font-bold">💎 บัญชีจริง (Real)</div>
-                    <div className="text-[11px] opacity-80 mt-0.5">
-                      เทรดสดด้วยเงินจริง ถอนกำไรได้จริง
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  notifySaved(
-                    forexConnectionMode === 'mt5'
-                      ? `บันทึกการเชื่อมต่อโบรกเกอร์ Forex ผ่าน MT5 (#${exnessAccountId} · ${mt5ServerName}) สำเร็จ`
-                      : `บันทึกการเชื่อมต่อโบรกเกอร์ Forex ผ่าน Direct API (#${exnessAccountId} · ${
-                          exnessServer === 'demo' ? 'Demo' : 'Real'
-                        }) สำเร็จ`
-                  )
-                }
-                className="w-full py-3 rounded-xl text-xs font-extrabold text-slate-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:opacity-95 transition-opacity"
-              >
-                {forexConnectionMode === 'mt5'
-                  ? `บันทึกและเชื่อมต่อผ่าน MT5 (#${exnessAccountId} · ${mt5ServerName})`
-                  : `บันทึกและเชื่อมต่อผ่าน Direct API (#${exnessAccountId})`}
-              </button>
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2 text-xs">
+              <div className="font-bold text-amber-200">Exness Demo · Read-only · ยังไม่ยืนยัน session</div>
+              <p className="text-slate-300">หน้า Settings นี้ไม่รับ MT5 password, API token, private key หรือ account ID และจะไม่แสดงสถานะ Connected จนกว่าจะผ่านการตรวจสอบ session แบบ authenticated และ tenant-scoped</p>
+              <p className="text-slate-400">ใช้เฉพาะขั้นตอนเชื่อมต่อที่ได้รับอนุมัติจาก Broker/Bridge ในภายหลัง ห้ามวาง credential ในช่องแชตหรือหน้าเว็บนี้</p>
             </div>
           </div>
 
@@ -463,57 +262,17 @@ export default function SystemSettingsView() {
                       : 'bg-[#060A14] border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  {prov.code} ({prov.latencyMs}ms)
+                  {prov.code}
                 </button>
               ))}
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-[#060A14] border border-slate-800/90 text-slate-300">
-                <div className="font-bold text-white">{activeProvider.name}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">{activeProvider.description}</div>
-                <div className="text-[11px] font-mono text-cyan-400 mt-1">
-                  Endpoint: {activeProvider.endpoint}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  API Key ({activeProvider.code})
-                </label>
-                <input
-                  type="text"
-                  value={exchangeApiKey}
-                  onChange={(e) => setExchangeApiKey(e.target.value)}
-                  placeholder={`กรอก ${activeProvider.code} API Key...`}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
-                  API Secret / Private Key
-                </label>
-                <input
-                  type="password"
-                  value={exchangeSecret}
-                  onChange={(e) => setExchangeSecret(e.target.value)}
-                  placeholder={`กรอก ${activeProvider.code} Secret Key...`}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#060A14] border border-slate-800 text-white font-mono"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setExchangeApiKey('');
-                  setExchangeSecret('');
-                  notifySaved(`บันทึกคีย์ ${activeProvider.name} เข้าสู่ระบบ Vault เรียบร้อยแล้ว`);
-                }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
-              >
-                บันทึกคีย์ {activeProvider.code} API
-              </button>
+            <div className="rounded-xl border border-slate-700 bg-[#060A14] p-4 space-y-2 text-xs">
+              <div className="font-bold text-white">{activeProvider.name}</div>
+              <div className="text-slate-400">{activeProvider.description}</div>
+              <div className="font-mono text-cyan-400">สถานะการเชื่อมต่อ: ยังไม่ได้ยืนยัน (not configured)</div>
+              <p className="text-amber-300 font-semibold">ปิดรับ API Key / Secret ชั่วคราว</p>
+              <p className="text-slate-400">ยังไม่มี approved customer-secret runtime ที่ผ่านการตรวจสอบในระบบนี้ จึงไม่แสดงช่องกรอกหรืออ้างว่าบันทึกลง Vault แล้ว</p>
             </div>
           </div>
         </div>
@@ -536,19 +295,11 @@ export default function SystemSettingsView() {
                   โหมดเทรดสด (Live Market Execution)
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  เมื่อเปิดใช้งาน ระบบจะส่งคำสั่งซื้อขายจริงเข้าบัญชี Exness #{exnessAccountId} (รองรับทั้ง Demo และ Real)
+                  ระบบทำงานในโหมดวิเคราะห์เท่านั้น ไม่เชื่อมบัญชีจริงและไม่ส่งคำสั่งซื้อขาย
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => handleToggleLiveTrading(!liveTradingEnabled)}
-                className={`px-4 py-2 rounded-xl text-xs font-mono font-bold shrink-0 transition-all ${
-                  liveTradingEnabled
-                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                }`}
-              >
-                {liveTradingEnabled ? '🟢 เปิดโหมดเทรดสด (ON)' : '🟡 พักคำสั่ง (PAUSED)'}
+              <button type="button" disabled aria-disabled="true" className="px-4 py-2 rounded-xl text-xs font-mono font-bold shrink-0 bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-not-allowed">
+                🔒 Live Trading OFF · Read-only
               </button>
             </div>
 
@@ -558,19 +309,11 @@ export default function SystemSettingsView() {
                   การทำงานของ MT5 Bridge Relay
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  ปิดการทำงานไว้ตามคำสั่ง เพื่อใช้การเชื่อมต่อตรงผ่าน Exness Ed25519 REST API (เร็วกว่าและไม่ต้องเปิดโปรแกรม MT5)
+                  MT5 Bridge ยังปิดอยู่ จนกว่าจะผ่าน authenticated Demo read-only และ tenant-isolation checks
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => handleToggleMt5Bridge(!mt5BridgeEnabled)}
-                className={`px-4 py-2 rounded-xl text-xs font-mono font-bold shrink-0 transition-all ${
-                  mt5BridgeEnabled
-                    ? 'bg-cyan-500 text-slate-950'
-                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                }`}
-              >
-                {mt5BridgeEnabled ? 'เปิด MT5 Bridge (ON)' : '🚫 ปิด MT5 Bridge (OFF)'}
+              <button type="button" disabled aria-disabled="true" className="px-4 py-2 rounded-xl text-xs font-mono font-bold shrink-0 bg-rose-500/20 text-rose-300 border border-rose-500/40 cursor-not-allowed">
+                🚫 MT5 Bridge OFF
               </button>
             </div>
           </div>
@@ -583,24 +326,24 @@ export default function SystemSettingsView() {
 
             <div className="space-y-2 text-xs">
               <label className="block text-slate-300 font-semibold">
-                รูปแบบการส่งคำสั่งซื้อขายหลัก (Execution Mode)
+                รูปแบบการสร้างแผนวิเคราะห์ (Research Mode)
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {[
                   {
                     id: 'full-auto' as const,
-                    title: '🤖 Full Auto 100%',
-                    desc: 'บอทเปิด-ปิดออเดอร์เองอัตโนมัติ ไม่ต้องกดมือ',
+                    title: '🤖 Auto Research',
+                    desc: 'สร้างแผนวิเคราะห์เท่านั้น ไม่ส่งคำสั่งซื้อขาย',
                   },
                   {
                     id: 'semi-auto' as const,
-                    title: '🛡️ กึ่งอัตโนมัติ',
-                    desc: 'AI เด้งการ์ด <ApprovalCard /> รอคุณกดยืนยัน',
+                    title: '🛡️ Review Draft',
+                    desc: 'AI สร้าง Draft เพื่อทบทวน ไม่มีสิทธิ์อนุมัติคำสั่งซื้อขาย',
                   },
                   {
                     id: 'manual' as const,
-                    title: '👆 กดเทรดเอง',
-                    desc: 'ส่งคำสั่งผ่านหน้า Live Terminal ด้วยตัวเอง',
+                    title: '👆 Manual Research',
+                    desc: 'ตรวจสอบข้อมูลและผลวิเคราะห์ด้วยตนเอง',
                   },
                 ].map((m) => (
                   <button

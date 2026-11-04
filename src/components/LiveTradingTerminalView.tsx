@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Activity,
   ArrowDownRight,
@@ -154,56 +154,10 @@ export default function LiveTradingTerminalView() {
   const [slAtrMult, setSlAtrMult] = useState<string>('0.90');
   const [tpAtrMult, setTpAtrMult] = useState<string>('2.60');
   const [autoQuantumSizing, setAutoQuantumSizing] = useState<boolean>(true);
-  const [liveTickOffset, setLiveTickOffset] = useState<Record<string, number>>({
-    'XAU/USDm': 0,
-    'EUR/USDm': 0,
-    'BTC/USDT': 0,
-    'SOL/USDT': 0,
-    'ETH/USDT': 0,
-    'US30m': 0,
-  });
+  // Static sample values only. There is no verified market feed in this view.
+  const liveTickOffset: Record<string, number> = {};
 
-  const [positions, setPositions] = useState<LivePosition[]>([
-    {
-      id: 'POS-90412',
-      symbol: 'XAU/USDm',
-      broker: 'Exness Trader API (Ed25519)',
-      side: 'BUY',
-      lots: 0.5,
-      entryPrice: 2742.8,
-      currentPrice: 2749.4,
-      stopLoss: 2724.5,
-      takeProfit: 2788.0,
-      strategy: 'Quantum VQC + VPIN Kalman ICT Silver Bullet',
-      openedAt: '10:15:22 UTC',
-    },
-    {
-      id: 'POS-90418',
-      symbol: 'BTC/USDT',
-      broker: 'Binance USDⓈ-M API',
-      side: 'BUY',
-      lots: 0.25,
-      entryPrice: 88740.0,
-      currentPrice: 89420.5,
-      stopLoss: 87450.0,
-      takeProfit: 92100.0,
-      strategy: 'Quantum QAOA / VQE Constrained QUBO',
-      openedAt: '11:02:45 UTC',
-    },
-    {
-      id: 'POS-90425',
-      symbol: 'EUR/USDm',
-      broker: 'Exness Trader API (Ed25519)',
-      side: 'SELL',
-      lots: 1.2,
-      entryPrice: 1.0882,
-      currentPrice: 1.0864,
-      stopLoss: 1.0915,
-      takeProfit: 1.081,
-      strategy: 'Ernest Chan Ornstein-Uhlenbeck + Kalman Z-Score',
-      openedAt: '11:40:10 UTC',
-    },
-  ]);
+  const [positions, setPositions] = useState<LivePosition[]>([]);
 
   const [pendingApproval, setPendingApproval] = useState<{
     id: string;
@@ -219,32 +173,10 @@ export default function LiveTradingTerminalView() {
   } | null>(null);
 
   const [executionLog, setExecutionLog] = useState<string[]>([
-    '[12:01:04] Exness Platform REST v1 (Ed25519) Stream Connected · Latency 29ms',
-    '[12:01:08] Internal Quant Engine (TFT + FinRL + PennyLane VQC) Scanning 7 Instruments',
-    '[12:01:15] XAU/USDm VPIN Toxicity = 0.71 · Kalman Displacement +2.18σ (Bullish Expansion)',
+    'READ-ONLY: Broker session is unverified. No live quotes, account positions, or order execution are connected.',
   ]);
 
-  // Simulate realistic live price ticks every 1.4 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setLiveTickOffset((prev) => {
-        const next = { ...prev };
-        MARKET_PAIRS.forEach((p) => {
-          const step =
-            p.symbol === 'EUR/USDm'
-              ? (Math.random() - 0.48) * 0.0003
-              : p.symbol === 'XAU/USDm'
-              ? (Math.random() - 0.47) * 0.65
-              : p.symbol === 'BTC/USDT'
-              ? (Math.random() - 0.47) * 28
-              : (Math.random() - 0.48) * 0.35;
-          next[p.symbol] = Number(((prev[p.symbol] || 0) + step).toFixed(4));
-        });
-        return next;
-      });
-    }, 1400);
-    return () => clearInterval(timer);
-  }, []);
+
 
   const activePair: MarketPair = useMemo(() => {
     const found = MARKET_PAIRS.find((m) => m.symbol === selectedSymbol) || MARKET_PAIRS[0];
@@ -348,31 +280,15 @@ export default function LiveTradingTerminalView() {
     };
     setPendingApproval(staged);
     setExecutionLog((prev) => [
-      `[${new Date().toISOString().slice(11, 19)}] Outer Brain (Cloud LLM) Staged <ApprovalCard #${staged.id} /> for ${staged.symbol} ${staged.side} ${staged.lots} Lots`,
+      `[${new Date().toISOString().slice(11, 19)}] Analysis candidate staged for ${staged.symbol} ${staged.side} ${staged.lots} Lots · no order sent`,
       ...prev.slice(0, 8),
     ]);
   }
 
   function confirmApproval() {
     if (!pendingApproval) return;
-    const newPos: LivePosition = {
-      id: `POS-${Date.now().toString().slice(-5)}`,
-      symbol: pendingApproval.symbol,
-      broker: pendingApproval.symbol.endsWith('USDm')
-        ? 'Exness Trader API (Ed25519)'
-        : 'Binance USDⓈ-M API',
-      side: pendingApproval.side,
-      lots: pendingApproval.lots,
-      entryPrice: pendingApproval.entryPrice,
-      currentPrice: pendingApproval.entryPrice,
-      stopLoss: pendingApproval.stopLoss,
-      takeProfit: pendingApproval.takeProfit,
-      strategy: pendingApproval.strategy,
-      openedAt: `${new Date().toISOString().slice(11, 19)} UTC`,
-    };
-    setPositions((prev) => [newPos, ...prev]);
     setExecutionLog((prev) => [
-      `[${new Date().toISOString().slice(11, 19)}] ✓ Order Executed via Hybrid Quant Engine: ${newPos.id} (${newPos.symbol} ${newPos.side} ${newPos.lots} Lots @ ${newPos.entryPrice})`,
+      `[${new Date().toISOString().slice(11, 19)}] BLOCKED: order submission is disabled in read-only mode; candidate was not sent to any broker.`,
       ...prev.slice(0, 8),
     ]);
     setPendingApproval(null);
@@ -419,28 +335,28 @@ export default function LiveTradingTerminalView() {
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-cyan-600 dark:text-cyan-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>LIVE TRADING & HYBRID EXECUTION TERMINAL · EXNESS ED25519 REST v1 & CRYPTO API</span>
+            <span>READ-ONLY RESEARCH PREVIEW · NO VERIFIED BROKER SESSION</span>
           </div>
           <h1 className="mt-0.5 text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            หน้าเทรดและควบคุมพอร์ตใช้งานจริง (Live Execution Desk)
+            หน้าวิเคราะห์ตลาดและกลยุทธ์ (Read-only Research Desk)
           </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-6 font-mono tabular-nums">
           <div>
-            <div className="text-[11px] font-sans text-slate-400">Balance (USD)</div>
+            <div className="text-[11px] font-sans text-slate-400">Sample Balance · not account data</div>
             <div className="text-sm font-bold text-slate-900 dark:text-white">
               ${baseBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-sans text-slate-400">Live Equity</div>
+            <div className="text-[11px] font-sans text-slate-400">Sample Equity · not account data</div>
             <div className="text-sm font-bold text-cyan-600 dark:text-cyan-400">
               ${liveEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-sans text-slate-400">Floating PnL</div>
+            <div className="text-[11px] font-sans text-slate-400">Sample PnL · not account data</div>
             <div
               className={`text-sm font-bold ${
                 totalFloatingPnl >= 0
@@ -457,6 +373,8 @@ export default function LiveTradingTerminalView() {
           </div>
         </div>
       </div>
+
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">ข้อมูลราคา, order book และกราฟในหน้าจอนี้เป็นตัวอย่างแบบคงที่เพื่อทดสอบ UI เท่านั้น ไม่ใช่ราคาเรียลไทม์หรือข้อมูลบัญชีจาก Exness</div>
 
       {/* Instrument Selector Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
@@ -509,7 +427,7 @@ export default function LiveTradingTerminalView() {
                   </span>
                 </div>
                 <div className="mt-0.5 font-mono tabular-nums text-xs text-slate-500">
-                  Live Bid/Ask: <strong className="text-slate-900 dark:text-white">{activePair.price}</strong> · Regime:{' '}
+                  Sample Price: <strong className="text-slate-900 dark:text-white">{activePair.price}</strong> · Regime:{' '}
                   <span className="text-emerald-600 dark:text-emerald-400">{activePair.regime}</span> · VPIN: 0.71
                 </div>
               </div>
@@ -795,7 +713,7 @@ export default function LiveTradingTerminalView() {
                 : 'bg-rose-600 hover:bg-rose-500'
             }`}
           >
-            {orderSide === 'BUY' ? 'ส่งคำสั่ง BUY' : 'ส่งคำสั่ง SELL'} {activePair.symbol} ({lots} Lots)
+            {orderSide === 'BUY' ? 'สร้าง Analysis Candidate (ไม่ส่ง BUY)' : 'สร้าง Analysis Candidate (ไม่ส่ง SELL)'} {activePair.symbol} ({lots} Lots)
           </button>
         </form>
       </div>
@@ -851,9 +769,11 @@ export default function LiveTradingTerminalView() {
             <button
               type="button"
               onClick={confirmApproval}
-              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg"
+              disabled
+              aria-disabled="true"
+              className="px-4 py-1.5 text-xs font-bold text-slate-400 bg-slate-700 rounded-lg cursor-not-allowed"
             >
-              ยืนยันส่งออเดอร์เข้าพอร์ต (Approve & Execute)
+              🔒 Order submission disabled (Read-only)
             </button>
           </div>
         </div>
@@ -864,9 +784,9 @@ export default function LiveTradingTerminalView() {
         <div className="lg:col-span-8 p-4 rounded-xl bg-white dark:bg-[#0B111E] border border-slate-200 dark:border-slate-800/80">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              รายการออเดอร์ที่ถือครองอยู่จริง (Active Positions Blotter · {livePositions.length})
+              Broker Positions (verified only · {livePositions.length})
             </h2>
-            <span className="text-xs font-mono text-slate-400">Real-Time Mark-to-Market</span>
+            <span className="text-xs font-mono text-slate-400">ไม่มี verified broker feed</span>
           </div>
 
           <div className="overflow-x-auto mt-2">
@@ -877,11 +797,14 @@ export default function LiveTradingTerminalView() {
                   <th className="py-2 px-2">Side · Lots</th>
                   <th className="py-2 px-2 text-right">Entry → Live</th>
                   <th className="py-2 px-2 text-right">SL / TP</th>
-                  <th className="py-2 px-2 text-right">Floating PnL</th>
+                  <th className="py-2 px-2 text-right">Sample PnL · not account data</th>
                   <th className="py-2 pl-2 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/60 font-mono tabular-nums">
+                {livePositions.length === 0 && (
+                  <tr><td colSpan={6} className="py-6 text-center text-slate-400 font-sans">ยังไม่มี position จาก broker session ที่ผ่านการยืนยัน · แสดงผลแบบ Read-only</td></tr>
+                )}
                 {livePositions.map((pos) => {
                   const win = pos.pnlUsd >= 0;
                   return (

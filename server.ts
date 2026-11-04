@@ -116,9 +116,9 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
     approvalCard: {
       approvalId: `APV-${Date.now().toString().slice(-6)}`,
       instrument,
-      broker: meta.category === 'FOREX' ? 'Exness Trader API (Ed25519 REST v1)' : 'Binance / Bybit Unified REST API',
+      broker: 'Research-only · no broker session connected',
       side,
-      orderType: 'LIMIT_FVG_RETRACEMENT',
+      orderType: 'NON_EXECUTABLE_RESEARCH_SCENARIO',
       recommendedLots,
       entryPrice,
       stopLossPrice,
@@ -126,19 +126,62 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
       rewardRiskRatio: `1 : ${rewardRisk}`,
       tripleBarrierVerticalBars: 12,
       enginePipeline: 'Outer: Cloud Gemini LLM → Inner: TFT + FinRL + Quantum VQC/QRL',
-      status: 'PENDING_HUMAN_APPROVAL',
+      status: 'RESEARCH_DRAFT_ONLY',
     },
   };
 }
 
 async function startServer() {
   const app = express();
+
+  // Fail closed before request-body parsing. This app has no approved broker-write runtime.
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path === '/api/broker/status') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'broker_identity_unverified',
+        status: 'not_configured',
+        connected: false,
+        accountConnected: false,
+        environment: 'demo',
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    const blockedMutation =
+      req.method !== 'GET' && (
+        req.path.startsWith('/api/orders/') ||
+        req.path.startsWith('/api/live-trading/') ||
+        req.path === '/api/broker/status' ||
+        req.path === '/api/mt5-bridge/toggle' ||
+        req.path === '/api/agent/approvals/decision' ||
+        req.path === '/api/intent/interrupt/resolve' ||
+        (req.path.startsWith('/api/agent/threads/') && req.path.includes('/approvals'))
+      );
+
+    if (blockedMutation) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(403).json({
+        ok: false,
+        error: 'trading_execution_disabled',
+        mode: 'read-only',
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    return next();
+  });
+
   app.use(express.json());
 
-  // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
-  let mt5BridgeEnabled = false;
-  // Live Trading Mode explicitly ENABLED per user request
-  let liveTradingEnabled = true;
+  // Hard fail-closed defaults. No runtime API may enable broker writes.
+  const mt5BridgeEnabled = false as const;
+  const liveTradingEnabled = false as const;
 
   // =========================================================================
   // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
@@ -242,15 +285,20 @@ async function startServer() {
   });
 
   app.post('/api/mt5-bridge/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    mt5BridgeEnabled = typeof requested === 'boolean' ? requested : false;
-    res.json({
+    if (req.body?.enabled === true) {
+      return res.status(403).json({
+        ok: false,
+        service: 'mt5-bridge',
+        enabled: false,
+        error: 'MT5_BRIDGE_ENABLE_DISABLED',
+        detail: 'MT5 Bridge remains disabled until a separately reviewed Demo read-only rollout.',
+      });
+    }
+    return res.json({
       service: 'mt5-bridge',
-      enabled: mt5BridgeEnabled,
-      status: mt5BridgeEnabled ? 'active' : 'disabled',
-      detail: mt5BridgeEnabled
-        ? 'เปิดการทำงาน MT5 Bridge ชั่วคราว'
-        : 'ปิดการทำงาน MT5 Bridge เรียบร้อยแล้ว (OFF) · ตัดการเชื่อมต่อ Relay/Proxy ทั้งหมด',
+      enabled: false,
+      status: 'disabled',
+      detail: 'MT5 Bridge is fail-closed and cannot be enabled through this API.',
       updatedAt: new Date().toISOString(),
     });
   });
@@ -258,159 +306,98 @@ async function startServer() {
   // Live Trading Execution Mode Status & Toggle Routes
   app.get('/api/live-trading/status', (_req, res) => {
     res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
+      liveTradingEnabled: false,
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      mode: 'read-only',
+      environment: 'demo',
+      accountConnected: false,
       mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริง (LIVE TRADING ENABLED) · บัญชี Exness Real #23908764 (Ed25519 Direct API · ปิด MT5 Bridge)'
-        : 'โหมดทดลอง / อ่านข้อมูล (Read-Only)',
+      detail: 'NOVA is fail-closed: Exness Demo read-only only; no broker execution is enabled.',
       updatedAt: new Date().toISOString(),
     });
   });
 
-  app.post('/api/live-trading/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    liveTradingEnabled = typeof requested === 'boolean' ? requested : true;
-    res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
-      mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริงสำเร็จ (LIVE TRADING ACTIVE · Exness Real #23908764)'
-        : 'สลับเป็นโหมดพักคำสั่งซื้อขายจริง (Read-Only / Demo)',
+  app.post('/api/live-trading/toggle', (_req, res) => {
+    return res.status(403).json({
+      ok: false,
+      liveTradingEnabled: false,
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      mode: 'read-only',
+      error: 'LIVE_TRADING_ENABLE_DISABLED',
+      detail: 'Live trading cannot be enabled through the application API.',
       updatedAt: new Date().toISOString(),
     });
   });
 
-  app.post('/api/orders/execute', (req, res) => {
-    const {
-      symbol = 'XAU/USDm',
-      side = 'BUY',
-      lots = 0.35,
-      entryPrice = 2749.2,
-      stopLoss = 2736.5,
-      takeProfit = 2774.0,
-      accountId = '23908764',
-    } = req.body || {};
-
-    const ticketId = `EX-LIVE-${Math.floor(100000 + Math.random() * 900000)}`;
-    res.json({
-      ok: true,
-      liveTradingEnabled,
-      executionMode: liveTradingEnabled ? 'LIVE_REAL_EXECUTION' : 'SIMULATED',
-      ticket: ticketId,
-      accountId,
-      broker: 'Exness Trader API v1 (Ed25519 Direct · Real Server)',
-      mt5BridgeUsed: false,
-      symbol,
-      side,
-      lots: Number(lots),
-      filledPrice: Number(entryPrice),
-      stopLoss: Number(stopLoss),
-      takeProfit: Number(takeProfit),
-      latencyMs: 21,
-      status: 'FILLED_LIVE',
-      executedAt: new Date().toISOString(),
+  app.post('/api/orders/execute', (_req, res) => {
+    return res.status(403).json({
+      ok: false,
+      error: 'BROKER_WRITES_DISABLED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      detail: 'Order execution is disabled. This endpoint never submits or simulates a broker fill.',
     });
   });
 
-  // Multi-Broker REST API Status Routes (Exness Platform API + Crypto Exchanges, Live Trading Enabled, MT5 Bridge Disabled)
+  // Broker status is intentionally unverified until a real owner-scoped Demo read path exists.
   app.get('/api/broker/status', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
     res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: '23908764',
-      environment: 'real',
+      broker,
+      status: 'not_configured',
+      connected: false,
+      accountConnected: false,
+      environment: 'demo',
       mt5BridgeEnabled: false,
-      mt5BridgeStatus: 'DISABLED',
-      detail: isExness
-        ? 'Exness Platform REST API v1 (🟢 โหมดเทรดจริง LIVE TRADING ENABLED · Account #23908764 Real · ปิด MT5 Bridge)'
-        : `${broker.toUpperCase()} Live Execution API Verified (MT5 Bridge Disabled)`,
-      capabilities: isExness
-        ? [
-            'account.summary.read',
-            'account.limits.read',
-            'market.instruments.read',
-            'market.candles.read',
-            'orders.create.live',
-            'orders.close.live',
-            'positions.modify.live',
-          ]
-        : ['account.read', 'market.klines.read', 'orders.create.live', 'orders.cancel.live'],
+      mode: 'read-only',
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      capabilities: ['market.instruments.read', 'market.candles.read'],
       checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
+      detail: 'No authenticated Exness Demo account or quote path has been verified.',
     });
   });
 
   app.post('/api/broker/status', (req, res) => {
-    const broker = String(req.query.broker || 'exness').toLowerCase();
-    const { apiKey, apiSecret, accountId, environment } = req.body || {};
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
-    res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: accountId || (isExness ? '23908764' : undefined),
-      environment: environment || 'real',
-      accessPoint: isExness ? 'https://rt-api.exness-api.com' : undefined,
-      mt5BridgeEnabled: false,
-      detail: isExness
-        ? `ยืนยันสิทธิ์โหมดเทรดจริง Exness Trader API (Account #${accountId || '23908764'} · Ed25519 Signature · REAL LIVE) สำเร็จ (ปิด MT5 Bridge)`
-        : `${broker.toUpperCase()} Live Trading API credentials authenticated and verified`,
-      checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      hasKeyConfigured: Boolean(apiKey || apiSecret || true),
+    const body = req.body || {};
+    if (Object.keys(body).length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'BROKER_CONFIGURATION_INTAKE_DISABLED',
+        detail: 'This endpoint does not accept broker credentials or connection configuration.',
+      });
+    }
+    return res.status(409).json({
+      ok: false,
+      status: 'not_configured',
+      connected: false,
+      accountConnected: false,
+      environment: 'demo',
+      mode: 'read-only',
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      detail: 'Broker credential intake and connection verification are not available.',
     });
   });
 
   // Fetch tradable currency/crypto pairs directly from the logged-in Broker session (supports MT5 or Direct API for Forex)
   app.get('/api/broker/instruments', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
-    const connectionMode = String(req.query.connectionMode || 'api').toLowerCase() === 'mt5' ? 'mt5' : 'api';
-    const mt5Server = String(
-      req.query.mt5Server ||
-        (broker === 'icmarkets'
-          ? 'ICMarketsSC-MT5-4'
-          : broker === 'xm'
-          ? 'XMGlobal-MT5 2'
-          : 'Exness-MT5Real14')
-    );
-    const accountId = String(
-      req.query.accountId ||
-        (broker === 'exness'
-          ? '23908764'
-          : broker === 'icmarkets'
-          ? '51092841'
-          : broker === 'xm'
-          ? '68019245'
-          : broker === 'binance'
-          ? 'BN-88412'
-          : 'BY-51902')
-    );
+    // This endpoint returns a static instrument catalogue, not an authenticated broker session.
+    const connectionMode: string = 'demo-read-only';
+    const mt5Server: string = 'not_configured';
+    const accountId = 'not_configured';
 
     const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
-    if (isForexBroker) {
-      mt5BridgeEnabled = connectionMode === 'mt5';
-    }
-
+    // A client-supplied connectionMode never enables the MT5 bridge.
     const BROKER_INSTRUMENT_CATALOG: Record<
       string,
       {
@@ -430,16 +417,10 @@ async function startServer() {
       }
     > = {
       exness: {
-        brokerName: connectionMode === 'mt5' ? 'Exness MetaTrader 5 (MT5)' : 'Exness Trader Direct API',
-        serverLabel:
-          connectionMode === 'mt5'
-            ? `${mt5Server} (MT5 Terminal / EA Bridge)`
-            : 'Exness-Real14 (Ed25519 Direct REST API)',
+        brokerName: 'Exness MT5 Demo (read-only catalogue)',
+        serverLabel: 'Demo terminal not configured or verified',
         accountId,
-        protocol:
-          connectionMode === 'mt5'
-            ? 'MetaTrader 5 (MT5 Python Worker / ZeroMQ Bridge)'
-            : 'Exness REST API v1 (Ed25519 Signed · No MT5)',
+        protocol: 'MT5 Demo read-only; authenticated data path not yet verified',
         instruments: [
           { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
           { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
@@ -515,8 +496,9 @@ async function startServer() {
       ok: true,
       brokerId: broker,
       isForexBroker,
-      connectionMode: isForexBroker ? connectionMode : 'api',
-      mt5Server: isForexBroker && connectionMode === 'mt5' ? mt5Server : undefined,
+      connectionMode: isForexBroker ? 'demo-read-only' : 'catalog-only',
+      mt5Server: undefined,
+      dataStatus: 'static-sample-unverified',
       brokerName: selectedCatalog.brokerName,
       serverLabel: selectedCatalog.serverLabel,
       accountId: selectedCatalog.accountId,
@@ -777,7 +759,7 @@ async function startServer() {
         ],
         exit: { takeProfitPct: quantResult.tpPct, stopLossPct: quantResult.slPct },
         rationale: `สมองส่วนหน้า (Cloud LLM) สกัดโจทย์ "${prompt || 'กลยุทธ์ Hybrid'}" และส่งต่อให้สมองส่วนคำนวณหลังบ้าน (TFT + FinRL + Quantum VQC/QRL) สแกนกราฟ ${market || quantResult.instrument} คำนวณขนาดออเดอร์ ${quantResult.recommendedLots} Lots พร้อมกรอบ Triple-Barrier`,
-        warning: 'ทุกคำสั่งต้องผ่านวิดเจ็ต <ApprovalCard /> และ <RiskGauge /> ก่อนส่งเข้าโบรกเกอร์ (โหมด Read-Only)',
+        warning: 'Research draft only. This application is read-only and has no broker order submission path.',
       },
       llm: { provider: 'gemini-3.8-flash-hybrid', available: true },
     });
@@ -788,8 +770,8 @@ async function startServer() {
   // Layer 1: Declarative A2UI / CopilotKit JSON Protocol (Least Privilege UI)
   // Layer 2: LangGraph Stateful Checkpoint Saver (threads, checkpoints, trade_logs, user_configs)
   // Layer 3: NeMo Guardrails (Colang Policy Filter against Prompt Injection)
-  // Layer 4: FastMCP Server (Streamable HTTP: get_portfolio_status, calculate_risk, place_trade_order)
-  // Layer 5: Rule-Based Risk Engine + Broker-Side SL/TP Workers & Token Re-validation
+  // Layer 4: Read-only FastMCP metadata (no broker execution tools)
+  // Layer 5: Research-only risk calculations; no broker-side execution authority
   // =========================================================================
   interface CredentialStatusPayload {
     provider: string;
@@ -819,7 +801,7 @@ async function startServer() {
     regime: string;
     brokerSideSlTpGuard: boolean;
     credentialStatus: CredentialStatusPayload;
-    status: 'PAUSED_WAITING_HUMAN' | 'APPROVED_EXECUTED' | 'EDITED_AND_EXECUTED' | 'REJECTED';
+    status: 'REJECTED';
     createdAt: string;
   }
 
@@ -871,10 +853,10 @@ async function startServer() {
         maxDrawdownPct: 5.0,
         maxLotSize: 2.0,
         maxMarginUsagePct: 35.0,
-        brokerDirectSlTpEnabled: true,
+        brokerDirectSlTpEnabled: false,
       },
       gridStatus: {
-        enabled: true,
+        enabled: false,
         direction: 'BOTH',
         symbol: 'XAU/USDm',
       },
@@ -1070,7 +1052,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'WRITE_UPDATE_RISK_PARAMS' as const,
         accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/update_risk_parameters',
+        mcpTool: 'disabled:write-intent',
         requiresInterrupt: true,
         params: {
           symbol,
@@ -1086,7 +1068,7 @@ async function startServer() {
       schemaVersion: 'zod-intent-v2.5',
       intentType: 'WRITE_EXECUTE_ORDER' as const,
       accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
-      mcpTool: 'mcp://fastmcp.streamable/place_trade_order',
+      mcpTool: 'disabled:write-intent',
       requiresInterrupt: true,
       params: {
         symbol,
@@ -1154,7 +1136,7 @@ async function startServer() {
   // POST Main 5-Layer Zero-Menu Intent Dispatcher
   app.post('/api/intent/dispatch', (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
-    const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
+    const safeThreadId = threadId || 'thread-nova-session-01';
     const rawPrompt = String(prompt || '').trim();
 
     // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
@@ -1162,7 +1144,7 @@ async function startServer() {
     if (!guardrail.passed) {
       res.json({
         ok: false,
-        threadId: state.threadId,
+        threadId: safeThreadId,
         layerTriggered: 'LAYER_3_NEMO_GUARDRAILS',
         declarativeUiType: 'nemo-guardrail-blocked-card',
         guardrail,
@@ -1176,7 +1158,7 @@ async function startServer() {
     if (clarification.needsClarification) {
       res.json({
         ok: true,
-        threadId: state.threadId,
+        threadId: safeThreadId,
         layerTriggered: 'MIDDLEWARE_POLITE_CLARIFICATION_FALLBACK',
         declarativeUiType: 'clarification-fallback-card',
         clarification,
@@ -1187,6 +1169,23 @@ async function startServer() {
 
     // 3. Check Strategy 1: Intent-to-Parameter Extraction (Zod Structured Output)
     const structuredIntent = extractStructuredIntentSchema(rawPrompt, symbol);
+
+    // Refuse every high-impact write before risk calculation, checkpoint creation, or approval UI.
+    if (structuredIntent.accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT' || structuredIntent.requiresInterrupt) {
+      return res.status(403).json({
+        ok: false,
+        error: 'WRITE_INTENTS_DISABLED',
+        intentType: structuredIntent.intentType,
+        mode: 'read-only',
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        detail: 'This application accepts market research intents only; broker and risk-setting mutations are disabled.',
+      });
+    }
+
+    // Writes are rejected above before any checkpoint or state mutation.
+    const state = getOrCreateThreadCheckpoint(safeThreadId);
 
     // Pitfall 1 Fix: Semantic Caching Telemetry (< 2ms Cache Hit for frequent intents)
     const cacheKey = `${structuredIntent.intentType}:${structuredIntent.params.symbol}`;
@@ -1257,148 +1256,59 @@ async function startServer() {
       return;
     }
 
-    // 6. High-Impact Write/Execute Intent -> Trigger LangGraph interrupt() + Attach Credential Status (Pitfall 2 Fix)
-    const quant = runInternalQuantExecutionEngine(rawPrompt, structuredIntent.params.symbol);
-    const meta = ALL_MAJOR_PAIRS[quant.instrument] || ALL_MAJOR_PAIRS['XAU/USDm'];
-    const customLots = structuredIntent.params.lots || quant.recommendedLots;
-    const interruptId = `INT-${Date.now().toString().slice(-6)}`;
-    const nowIso = new Date().toISOString();
-    const expIso = new Date(Date.now() + 3600 * 1000).toISOString();
-
-    const checkpointItem: LangGraphInterruptCheckpoint = {
-      interruptId,
-      threadId: state.threadId,
-      intentType: structuredIntent.intentType,
-      mcpTool: structuredIntent.mcpTool,
-      symbol: quant.instrument,
-      side: structuredIntent.params.side,
-      lots: customLots,
-      entryPrice: meta.price,
-      stopLoss: quant.stopLossPrice,
-      takeProfit: quant.takeProfitPrice,
-      riskPerTradePct: structuredIntent.params.riskPerTradePct ?? state.riskRules.riskPerTradePct,
-      confidencePct: Number((quant.tftConfidence * 100).toFixed(1)),
-      vpinScore: quant.vpinToxicity,
-      var95Pct: quant.riskGauge.var99Pct,
-      regime: quant.tftRegime,
-      brokerSideSlTpGuard: true,
-      credentialStatus: {
-        provider: 'Exness Ed25519 API Vault',
-        tokenFingerprint: 'ed25519:8f94...c21a',
-        issuedAt: nowIso,
-        expiresAt: expIso,
-        isValid: true,
-        revalidatedOnResume: false,
-      },
-      status: 'PAUSED_WAITING_HUMAN',
-      createdAt: nowIso,
-    };
-
-    state.pendingInterrupts[interruptId] = checkpointItem;
-    state.updatedAt = nowIso;
-
-    res.json({
-      ok: true,
-      threadId: state.threadId,
-      layerTriggered: 'LAYER_2_LANGGRAPH_INTERRUPT_CHECKPOINT',
-      declarativeUiType: 'langgraph-interrupt-approval-card',
-      structuredIntent,
-      riskCheck,
-      semanticCache: { hit: isCacheHit, latencyMs },
-      interruptCheckpoint: checkpointItem,
-      reply: `⏸️ [LangGraph interrupt() · Thread ${state.threadId}]: หยุดรอการยืนยันสำหรับ FastMCP place_trade_order พร้อมแนบสถานะ Token Credential และตั้งค่า Stop Loss / Take Profit อัตโนมัติที่ฝั่ง Broker Worker โดยตรง:`,
+    // Defensive fallback: no write-intent may create an approval checkpoint.
+    return res.status(403).json({
+      ok: false,
+      error: 'WRITE_INTENTS_DISABLED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
     });
   });
 
-  // POST Command(resume=...) — Resolve LangGraph Interrupt + Re-validate Credential Token (Pitfall 2 Fix)
+  // Approval resolution is research-only. Broker execution is a separately gated capability.
   app.post('/api/intent/interrupt/resolve', (req, res) => {
-    const { threadId, interruptId, action, editedParams } = req.body || {};
+    const { threadId, interruptId, action } = req.body || {};
     const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
     const item = state.pendingInterrupts[interruptId];
 
-    if (!item) {
-      res.json({
-        ok: true,
-        threadId: state.threadId,
-        status: action === 'REJECT' ? 'REJECTED' : 'APPROVED_EXECUTED',
-        detail: 'ดำเนินการคำสั่ง Command(resume=...) เรียบร้อยแล้ว',
-      });
-      return;
-    }
-
-    if (action === 'REJECT') {
-      item.status = 'REJECTED';
-      state.updatedAt = new Date().toISOString();
-      res.json({
-        ok: true,
-        threadId: state.threadId,
-        interruptCheckpoint: item,
-        detail: `❌ ยกเลิกคำสั่ง ${item.interruptId} และบันทึกสถานะลงตาราง checkpoints (${state.threadId}) เรียบร้อยแล้ว`,
-      });
-      return;
-    }
-
-    // Apply user edits if action === 'EDIT_AND_APPROVE'
-    if (editedParams) {
-      if (Number.isFinite(Number(editedParams.lots)) && Number(editedParams.lots) > 0) {
-        item.lots = Number(editedParams.lots);
-      }
-      if (Number.isFinite(Number(editedParams.stopLoss)) && Number(editedParams.stopLoss) > 0) {
-        item.stopLoss = Number(editedParams.stopLoss);
-      }
-      if (Number.isFinite(Number(editedParams.takeProfit)) && Number(editedParams.takeProfit) > 0) {
-        item.takeProfit = Number(editedParams.takeProfit);
-      }
-      if (Number.isFinite(Number(editedParams.riskPerTradePct)) && Number(editedParams.riskPerTradePct) > 0) {
-        item.riskPerTradePct = Number(editedParams.riskPerTradePct);
-        state.riskRules.riskPerTradePct = Number(editedParams.riskPerTradePct);
-      }
-    }
-
-    // Re-validate hard risk rules on edited parameters
-    if (item.lots > state.riskRules.maxLotSize) {
-      res.status(400).json({
+    if (action !== 'REJECT') {
+      return res.status(403).json({
         ok: false,
-        error: `ขนาด Lot ที่แก้ไข (${item.lots} Lots) เกินเพดานสูงสุดของ Rule-Based Risk Engine (${state.riskRules.maxLotSize} Lots)`,
+        status: 'WRITE_DISABLED',
+        error: 'BROKER_EXECUTION_DISABLED',
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        detail: 'Approval cannot authorize or simulate a broker order in read-only mode.',
       });
-      return;
     }
 
-    // Pitfall 2 Fix: Re-validate & Refresh Token Credential immediately on Approve before Worker execution
-    const nowIso = new Date().toISOString();
+    if (!item) {
+      return res.status(404).json({
+        ok: false,
+        status: 'NOT_FOUND',
+        error: 'INTERRUPT_NOT_FOUND',
+      });
+    }
+
+    item.status = 'REJECTED';
     item.credentialStatus = {
-      ...item.credentialStatus,
-      isValid: true,
-      revalidatedOnResume: true,
-      revalidatedAt: nowIso,
-      expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+      provider: 'not_configured',
+      tokenFingerprint: '',
+      issuedAt: item.createdAt,
+      expiresAt: item.createdAt,
+      isValid: false,
+      revalidatedOnResume: false,
     };
+    state.updatedAt = new Date().toISOString();
 
-    item.status = editedParams ? 'EDITED_AND_EXECUTED' : 'APPROVED_EXECUTED';
-    state.updatedAt = nowIso;
-
-    const ticket = `EX-MCP-${Math.floor(100000 + Math.random() * 900000)}`;
-    state.tradeLogs.unshift({
-      logId: `LOG-${Date.now().toString().slice(-6)}`,
-      threadId: state.threadId,
-      ticket,
-      symbol: item.symbol,
-      side: item.side,
-      lots: item.lots,
-      entryPrice: item.entryPrice,
-      stopLoss: item.stopLoss,
-      takeProfit: item.takeProfit,
-      tokenRevalidated: true,
-      brokerSideSlTpActive: true,
-      executedAt: nowIso,
-    });
-
-    res.json({
+    return res.json({
       ok: true,
       threadId: state.threadId,
       interruptCheckpoint: item,
-      executionTicket: ticket,
-      detail: `✅ [Command(resume=...) → Token Re-validated → Worker Executed]: ตรวจสอบอายุ Token สำเร็จ ส่งคำสั่ง ${item.side} ${item.symbol} (${item.lots} Lots) พร้อมตั้ง SL ${item.stopLoss} / TP ${item.takeProfit} ที่ฝั่ง Broker Worker โดยตรง และบันทึกลงตาราง trade_logs เรียบร้อย!`,
+      detail: 'Intent rejected. No credentials were revalidated and no broker action was attempted.',
     });
   });
 
@@ -1409,15 +1319,19 @@ async function startServer() {
       transport: 'streamable-http',
       horizontalScaling: true,
       semanticCacheActive: true,
-      brokerDirectSlTpWorker: true,
+      brokerDirectSlTpWorker: false,
       databaseTables: ['threads', 'checkpoints', 'trade_logs', 'user_configs'],
       tools: [
-        { name: 'get_portfolio_status', interrupt: false, description: 'Read Exness/Portfolio balance, equity & free margin' },
-        { name: 'calculate_risk', interrupt: false, description: 'Run Quantum VQC + TFT + Rule-Based Risk calculation' },
-        { name: 'place_trade_order', interrupt: true, description: 'Execute market/limit order via LangGraph interrupt() + Token Re-validation + Broker-side SL/TP' },
-        { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read Dynamic Grid daily P&L calendar' },
-        { name: 'update_risk_parameters', interrupt: true, description: 'Update Risk Per Trade % & Max Drawdown guard in user_configs' },
+        { name: 'get_portfolio_status', interrupt: false, description: 'Read-only account summary when an owner-scoped Demo adapter is verified' },
+        { name: 'calculate_risk', interrupt: false, description: 'Research-only risk calculation; no execution authority' },
+        { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read-only strategy research calendar' },
       ],
+      brokerExecution: {
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        mode: 'read-only',
+      },
     });
   });
 
