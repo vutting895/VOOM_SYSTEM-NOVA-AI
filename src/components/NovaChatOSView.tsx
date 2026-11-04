@@ -240,18 +240,7 @@ const AI_COMMAND_AGENTS: AIAgentNode[] = [
   },
 ];
 
-const MINI_CALENDAR_DAYS = [
-  { day: '1 ต.ค.', pnl: '+2,383.05', closes: 80, win: true },
-  { day: '2 ต.ค.', pnl: '+1,239.05', closes: 23, win: true },
-  { day: '6 ต.ค.', pnl: '-23.57', closes: 27, win: false },
-  { day: '7 ต.ค.', pnl: '+134.17', closes: 29, win: true },
-  { day: '14 ต.ค.', pnl: '+132.79', closes: 33, win: true },
-  { day: '21 ต.ค.', pnl: '+374.30', closes: 37, win: true },
-  { day: '22 ต.ค.', pnl: '+538.34', closes: 77, win: true },
-  { day: '28 ต.ค.', pnl: '+263.77', closes: 30, win: true },
-  { day: '29 ต.ค.', pnl: '+753.99', closes: 24, win: true },
-  { day: '30 ต.ค. (วันนี้)', pnl: '+342.15', closes: 19, win: true },
-];
+
 
 const FOREX_MAJOR_PAIRS = [
   { symbol: 'XAU/USDm', label: 'XAU/USDm (ทองคำ)', basePrice: 2749.4, dec: 2 },
@@ -301,7 +290,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 1',
     title: 'สภาพแวดล้อม Workers + ระบบตั้ง SL/TP ที่ฝั่ง Broker โดยตรง',
     desc: 'เชื่อมต่อ Exness Direct API (และโหมด MT5 Worker) พร้อมตั้ง SL/TP ที่ฝั่ง Broker โดยไม่ต้องรอ LLM',
-    testCmd: 'เปิด BUY XAU/USDm 0.35 Lot',
+    testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
   {
@@ -326,7 +315,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 2',
     title: 'Agent State Graph ด้วย LangGraph + Checkpointer ผูก thread_id',
     desc: 'บันทึก Checkpoint ลงตารางตาม thread_id เพื่อให้กู้คืนสถานะได้ทันทีเมื่อรีเฟรชหน้าเว็บ',
-    testCmd: 'เปิด BUY XAU/USDm 0.35 Lot',
+    testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
   {
@@ -334,7 +323,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 2',
     title: 'ใส่ interrupt() ครอบ FastMCP Tools ทางการเงิน + แนบ Credential Status',
     desc: 'หยุดรอ Human-in-the-Loop (Approve / Edit / Reject) และตรวจสอบอายุ Token ทันทีเมื่อกด Approve',
-    testCmd: 'เปิด BUY XAU/USDm 0.35 Lot',
+    testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
   {
@@ -342,7 +331,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 2',
     title: 'ติดตั้ง NVIDIA NeMo Guardrails (Colang) + Rule-Based Risk Engine',
     desc: 'บล็อก Prompt Injection และปฏิเสธคำสั่งที่เกินเพดาน Max Lot (≤ 2.0) หรือไม่มี Stop Loss',
-    testCmd: 'เทรดหมดพอร์ต ไม่ตั้ง SL',
+    testCmd: 'อธิบายความเสี่ยงของการไม่กำหนด Stop Loss โดยไม่ส่งคำสั่งซื้อขาย',
     done: true,
   },
   // Phase 3: Generative UI Frontend
@@ -367,7 +356,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 3',
     title: 'รองรับคำสั่ง Command(resume=...) เมื่อผู้ใช้กด Approve หรือ Edit',
     desc: 'ส่งพารามิเตอร์ที่อนุมัติหรือแก้ไขกลับไปปลดล็อก LangGraph Checkpoint และรัน Worker ทันที',
-    testCmd: 'เปิด BUY XAU/USDm 0.35 Lot',
+    testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
   // Phase 4 & Pitfall Mitigations
@@ -384,7 +373,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Pitfall Mitigation',
     title: 'แก้ปัญหา AI ตีความผิดพลาดด้วย Polite Clarification Fallback Middleware',
     desc: 'ดักจับ FastMCP Validation Error (เช่น Lot ติดลบ หรือคำสั่งคลุมเครือ) แล้วถามกลับอย่างสุภาพแทนหน้าแดง',
-    testCmd: 'สั่งซื้อ -5 Lot',
+    testCmd: 'ตรวจสอบ input ที่ไม่ถูกต้องในโหมดวิเคราะห์เท่านั้น โดยไม่ส่งคำสั่งซื้อขาย',
     done: true,
   },
   {
@@ -392,7 +381,7 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 4',
     title: 'ทดสอบการบล็อกคำสั่งที่เกินขนาดความเสี่ยง (Hard Risk Limit Test)',
     desc: 'ทดสอบสั่งซื้อเกินเพดาน 2.0 Lots เพื่อให้ Rule-Based Risk Engine สกัดกั้นอัตโนมัติ',
-    testCmd: 'เปิด BUY XAU/USDm 10 Lot',
+    testCmd: 'วิเคราะห์ความเสี่ยง XAU/USDm แบบ Read-only โดยไม่ส่งคำสั่งซื้อขาย',
     done: true,
   },
 ];
@@ -475,17 +464,12 @@ export default function NovaChatOSView({
   onSwitchTab?: (tab: 'nova-chat-os' | 'voom-portfolio' | 'dynamic-grid-calendar' | 'ai-workflow-command') => void;
 }) {
   const [activeAgentId, setActiveAgentId] = useState<string>('gemini');
-  const [accountEnv, setAccountEnv] = useState<'demo' | 'real'>('demo');
   const [pairGroup, setPairGroup] = useState<'FOREX' | 'CRYPTO'>('FOREX');
   const [selectedPair, setSelectedPair] = useState<string>('XAU/USDm');
   const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
-    'Backend Auto-Train: ซิงค์กราฟสด & เทรนโมเดลสำเร็จ (Epoch #148 · 94.8%)'
+    'Backend Auto-Train: ยังไม่มีหลักฐานยืนยันสถานะ ingestion หรือ training ล่าสุด'
   );
   const [autoTrainSyncing, setAutoTrainSyncing] = useState<boolean>(false);
-  const [botRunning, setBotRunning] = useState<boolean>(true);
-  const [accountId] = useState<string>('23908764');
-  const [todayProfit, setTodayProfit] = useState<number>(342.15);
-  const [todayCloses, setTodayCloses] = useState<number>(19);
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
 
@@ -502,29 +486,19 @@ export default function NovaChatOSView({
     }
   });
 
-  // Inline Edit State for LangGraph Interrupt Approval Cards
-  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
-  const [editLots, setEditLots] = useState<string>('0.35');
-  const [editSl, setEditSl] = useState<string>('2724.65');
-  const [editTp, setEditTp] = useState<string>('2813.73');
-  const [editRiskPct, setEditRiskPct] = useState<string>('1.5');
-  const [editError, setEditError] = useState<string | null>(null);
-
   // CLEAN ON-DEMAND STATE: Nothing is shown until the user invokes a chat or workflow panel
   const [messages, setMessages] = useState<ChatOSMessage[]>([]);
   const [activeWorkflowPanel, setActiveWorkflowPanel] = useState<'none' | 'inbox' | 'calendar' | 'docs' | 'crm'>('none');
   const [checklistState, setChecklistState] = useState<ActionableChecklistItem[]>(FULL_ACTIONABLE_CHECKLIST);
   const [checklistFilter, setChecklistFilter] = useState<string>('ALL');
   const [roadmapGoals, setRoadmapGoals] = useState([
-    { id: 'g1', label: 'Pitfall 1 Fix: Semantic Caching (< 2ms) + Broker-Side Direct SL/TP', done: true },
-    { id: 'g2', label: 'Pitfall 2 Fix: Attach Credential Status + Token Re-validation on Approve', done: true },
-    { id: 'g3', label: 'Pitfall 3 Fix: Polite Clarification Middleware on FastMCP Schema Error', done: true },
+    { id: 'g1', label: 'Execution Guard: Broker-side writes remain disabled in Read-only mode', done: true },
+    { id: 'g2', label: 'Credential Boundary: No broker token or customer credential is collected by this UI', done: true },
+    { id: 'g3', label: 'Research UX: Clarify incomplete market inputs without enabling broker actions', done: true },
   ]);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const msgSeqRef = useRef<number>(1);
-  const profitRef = useRef<number>(342.15);
-  const closesRef = useRef<number>(19);
 
   const activeAgent = AI_COMMAND_AGENTS.find((a) => a.id === activeAgentId) || AI_COMMAND_AGENTS[1];
 
@@ -553,7 +527,10 @@ export default function NovaChatOSView({
               widget: 'langgraph-interrupt-approval-card',
               interruptData: item,
             }));
-            setMessages(restoredMsgs);
+            setMessages(restoredMsgs.map((message) => ({
+              ...message,
+              text: 'พบ checkpoint การดำเนินการเดิม ระบบแสดงข้อมูลนี้เป็น Research Draft เท่านั้น ไม่สามารถอนุมัติหรือส่งคำสั่งซื้อขายได้',
+            })));
             setActiveWorkflowPanel('inbox');
           }
         }
@@ -602,84 +579,16 @@ export default function NovaChatOSView({
         }
       })
       .catch(() => {
-        setAutoTrainNotice(`Backend Auto-Train: ซิงค์กราฟสด ${symbol} & อัปเดตโมเดลหลังบ้านสำเร็จ`);
+        setAutoTrainNotice(`Backend Auto-Train: ไม่สามารถยืนยันการดึงข้อมูลหรือฝึกโมเดล ${symbol} ได้`);
       })
       .finally(() => {
         setAutoTrainSyncing(false);
       });
   }
 
-  // Command(resume=...) — Resolve LangGraph Interrupt + Token Re-validation
-  async function handleResolveInterrupt(
-    msgId: string,
-    interruptId: string,
-    action: 'APPROVE' | 'EDIT_AND_APPROVE' | 'REJECT'
-  ) {
-    setEditError(null);
-    const editedParams =
-      action === 'EDIT_AND_APPROVE'
-        ? {
-            lots: Number(editLots),
-            stopLoss: Number(editSl),
-            takeProfit: Number(editTp),
-            riskPerTradePct: Number(editRiskPct),
-          }
-        : undefined;
-
-    try {
-      const res = await fetch('/api/intent/interrupt/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          threadId,
-          interruptId,
-          action,
-          editedParams,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || data?.ok === false) {
-        setEditError(data?.error || 'พารามิเตอร์ที่แก้ไขเกินขอบเขตของ Rule-Based Risk Engine');
-        return;
-      }
-
-      if (action !== 'REJECT') {
-        const harvested = Number((26.4 + Math.random() * 18.5).toFixed(2));
-        const nextProfit = Number((profitRef.current + harvested).toFixed(2));
-        const nextCloses = closesRef.current + 1;
-        profitRef.current = nextProfit;
-        closesRef.current = nextCloses;
-        setTodayProfit(nextProfit);
-        setTodayCloses(nextCloses);
-      }
-
-      setEditingMsgId(null);
-      setMessages((prev) =>
-        prev.map((m) => {
-          if (m.id !== msgId || !m.interruptData) return m;
-          return {
-            ...m,
-            interruptData: {
-              ...m.interruptData,
-              ...(data?.interruptCheckpoint || {}),
-              status:
-                action === 'REJECT'
-                  ? 'REJECTED'
-                  : action === 'EDIT_AND_APPROVE'
-                  ? 'EDITED_AND_EXECUTED'
-                  : 'APPROVED_EXECUTED',
-              executionTicket: data?.executionTicket,
-            },
-          };
-        })
-      );
-    } catch {
-      setEditingMsgId(null);
-    }
-  }
-
+  // Research-only UI shortcut. No broker approval or resume action is available.
   function triggerQuickAutoHarvestNow() {
-    handleSendChat(`เปิด BUY ${selectedPair} 0.35 Lot`);
+    handleSendChat(`วิเคราะห์ตลาด ${selectedPair} แบบ Read-only พร้อม Scenario แนวรับแนวต้าน และความเสี่ยง โดยไม่ส่งคำสั่งซื้อขาย`);
   }
 
   // Dispatch natural language intent through the 5-Layer Backend Engine
@@ -739,7 +648,7 @@ export default function NovaChatOSView({
         senderName: `${activeAgent.name} (${activeAgent.role})`,
         senderRole: selectedPair,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-        text: `ดึงข้อมูลยอดเงินคงเหลือและสถานะพอร์ตปัจจุบันของบัญชี Exness #${accountId}:`,
+        text: 'ตรวจสอบสถานะ Exness Demo read-only session โดยไม่เปิดเผย account identifier:',
         widget: 'balance-summary-card',
       };
       setMessages((prev) => [...prev, fallbackMsg]);
@@ -752,7 +661,7 @@ export default function NovaChatOSView({
   function clearAllChatAndPanels() {
     setMessages([]);
     setActiveWorkflowPanel('none');
-    setEditingMsgId(null);
+
   }
 
   const hasActiveContent = messages.length > 0 || activeWorkflowPanel !== 'none';
@@ -805,7 +714,7 @@ export default function NovaChatOSView({
               <span className="w-2 h-2 rounded-full bg-cyan-300 shadow-[0_0_8px_#67e8f9]" />
             </div>
             <p className="text-[11px] sm:text-xs text-cyan-200/80 mt-1 font-medium tracking-wide">
-              Zero-Menu Intent-Driven · Semantic Cache · Token Re-validation · Polite Fallback
+              Zero-Menu Intent-Driven · Semantic Cache · Credential boundary · Polite Fallback
             </p>
           </div>
 
@@ -857,10 +766,6 @@ export default function NovaChatOSView({
                 onClick={() => {
                   setActiveAgentId(agent.id);
                 }}
-                onDoubleClick={() => {
-                  setActiveAgentId(agent.id);
-                  handleSendChat(`เปิด BUY ${selectedPair} 0.35 Lot`);
-                }}
                 className={`group relative rounded-2xl p-3 bg-gradient-to-b ${agent.bgGradient} border transition-all flex flex-col items-center text-center ${
                   isSelected
                     ? `${agent.border} ${agent.glow} scale-[1.02] ring-1 ring-cyan-300/60`
@@ -902,7 +807,7 @@ export default function NovaChatOSView({
               type="text"
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
-              placeholder='Ask anything. Automate anything. เช่น "ขอดูยอดเงินคงเหลือหน่อย", "เปิด BUY ทอง 0.35 Lot"...'
+              placeholder='วิเคราะห์ตลาดและกลยุทธ์ได้ในโหมด Read-only เท่านั้น · ไม่มีการส่งคำสั่งซื้อขาย'
               className="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-cyan-200/60 focus:outline-none px-2 py-2"
             />
             <button
@@ -982,9 +887,9 @@ export default function NovaChatOSView({
             <div className="flex flex-wrap items-center justify-center gap-2">
               {[
                 { label: '💰 "ขอดูยอดเงินคงเหลือหน่อย" (Semantic Cache · ไม่ติด Interrupt)', cmd: 'ขอดูยอดเงินคงเหลือหน่อย' },
-                { label: `⏸️ "เปิด BUY ${selectedPair} 0.35 Lot" (Interrupt + Token Re-validation)`, cmd: `เปิด BUY ${selectedPair} 0.35 Lot` },
-                { label: '💬 "สั่งซื้อ -5 Lot" (ทดสอบ Fallback เมื่อพารามิเตอร์ผิดพลาด)', cmd: 'สั่งซื้อ -5 Lot' },
-                { label: `🛑 "เปิด BUY ${selectedPair} 10 Lot" (ทดสอบ Risk Engine บล็อกอัตโนมัติ)`, cmd: `เปิด BUY ${selectedPair} 10 Lot` },
+                { label: `⏸️ "วิเคราะห์ตลาด ${selectedPair} แบบ Read-only พร้อม Scenario และระดับความเสี่ยง" (Interrupt + Credential boundary)`, cmd: `วิเคราะห์ตลาด ${selectedPair} แบบ Read-only พร้อม Scenario และระดับความเสี่ยง` },
+                { label: '💬 "ตรวจสอบ input ที่ไม่ถูกต้องในโหมดวิเคราะห์เท่านั้น โดยไม่ส่งคำสั่งซื้อขาย" (ทดสอบ Fallback เมื่อพารามิเตอร์ผิดพลาด)', cmd: 'ตรวจสอบ input ที่ไม่ถูกต้องในโหมดวิเคราะห์เท่านั้น โดยไม่ส่งคำสั่งซื้อขาย' },
+                { label: `🛑 "วิเคราะห์ความเสี่ยง ${selectedPair} แบบ Read-only โดยไม่ส่งคำสั่งซื้อขาย" (ทดสอบ Risk Engine บล็อกอัตโนมัติ)`, cmd: `วิเคราะห์ความเสี่ยง ${selectedPair} แบบ Read-only โดยไม่ส่งคำสั่งซื้อขาย` },
                 { label: '🧩 "ดูคลังคอมโพเนนต์ Phase 3 Catalog"', cmd: 'เปิดคลังคอมโพเนนต์ Component Catalog' },
                 { label: '📋 "สรุปแผนการดำเนินงาน Phase 1–4 Checklist"', cmd: 'สรุปแผนการดำเนินงาน Phase 1 - Phase 4 Checklist' },
               ].map((q) => (
@@ -1022,45 +927,12 @@ export default function NovaChatOSView({
             </div>
 
             <div className="p-4 sm:p-5 space-y-4 max-h-[620px] overflow-y-auto">
-              {/* If user clicked CALENDAR workflow step directly */}
+              {/* Trading history is hidden until verified account data exists. */}
               {activeWorkflowPanel === 'calendar' && (
-                <div className="p-4 rounded-2xl bg-[#0A1326] border border-cyan-500/35 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
-                    <div>
-                      <div className="text-sm font-extrabold text-white">
-                        CALENDAR · DYNAMIC GRID ({selectedPair} · บัญชี #{accountId})
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        กำไรสะสมเดือนนี้: <strong className="text-emerald-400 font-mono">+$7,008.38 (+395.72%)</strong> · วันนี้ +${todayProfit.toFixed(2)}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setBotRunning((r) => !r)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 ${
-                        botRunning ? 'bg-emerald-400 text-slate-950' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      }`}
-                    >
-                      {botRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                      {botRunning ? 'ACTIVE' : 'PAUSED'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono tabular-nums">
-                    {MINI_CALENDAR_DAYS.map((d) => (
-                      <div
-                        key={d.day}
-                        className={`p-2.5 rounded-xl border text-xs ${
-                          d.win ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'
-                        }`}
-                      >
-                        <div className="text-[10px] text-slate-400">{d.day}</div>
-                        <div className={`font-extrabold mt-0.5 ${d.win ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {d.pnl} USD
-                        </div>
-                        <div className="text-[10px] text-slate-500">{d.closes} closes</div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="p-4 rounded-2xl bg-[#0A1326] border border-amber-500/35 space-y-3 text-xs">
+                  <div className="font-extrabold text-white">RESEARCH CALENDAR · {selectedPair}</div>
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200">ยังไม่มีประวัติจาก Exness Demo ที่ยืนยันได้ จึงไม่แสดงกำไร จำนวนออเดอร์ หรือสถานะ Bot</div>
+                  <div className="text-slate-400">Read-only · Live Trading OFF · Broker session not configured</div>
                 </div>
               )}
 
@@ -1070,7 +942,7 @@ export default function NovaChatOSView({
                   <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                     <div>
                       <h3 className="text-sm font-extrabold text-white">
-                        Q2 Strategy &amp; Pitfall Mitigations · {selectedPair}
+                        Q2 Research &amp; Risk Review · {selectedPair}
                       </h3>
                       <p className="text-[11px] text-slate-400">
                         ร่างแผนกลยุทธ์อัตโนมัติโดย {activeAgent.name} ({activeAgent.role})
@@ -1081,7 +953,7 @@ export default function NovaChatOSView({
                       onClick={triggerQuickAutoHarvestNow}
                       className="px-3 py-1.5 rounded-xl font-bold bg-cyan-400 text-slate-950 hover:bg-cyan-300"
                     >
-                      ⚡ ส่งคำสั่งขออนุมัติ (Interrupt)
+                      วิเคราะห์ตลาดแบบ Read-only
                     </button>
                   </div>
                   <div className="space-y-1.5">
@@ -1108,45 +980,15 @@ export default function NovaChatOSView({
                 </div>
               )}
 
-              {/* If user clicked CRM workflow step directly */}
+              {/* Portfolio status requires an authenticated tenant-scoped broker session. */}
               {activeWorkflowPanel === 'crm' && (
-                <div className="p-4 rounded-2xl bg-[#0A1326] border border-cyan-500/35 space-y-3 text-xs">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
-                    <div>
-                      <div className="text-sm font-extrabold text-white">
-                        CRM · Portfolio &amp; Exness #{accountId}
-                      </div>
-                      <div className="text-slate-400">
-                        Account Score: <strong className="text-emerald-400 font-mono">95/100</strong> · Equity:{' '}
-                        <strong className="text-white font-mono">$51,695.58</strong>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAccountEnv((e) => (e === 'demo' ? 'real' : 'demo'))}
-                      className="px-3 py-1 rounded-xl font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                    >
-                      โหมด: {accountEnv === 'demo' ? 'DEMO LIVE (Exness-Trial)' : 'REAL LIVE (Exness-Real)'}
-                    </button>
-                  </div>
+                <div className="p-4 rounded-2xl bg-[#0A1326] border border-amber-500/35 space-y-3 text-xs">
+                  <div className="font-extrabold text-white">Broker &amp; Portfolio Status</div>
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200">Exness Demo · Not configured · Owner/session not verified</div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono">
-                    <div className="p-3 rounded-xl bg-[#060B16] border border-slate-800">
-                      <div className="text-[10px] text-slate-400">Portfolio Equity</div>
-                      <div className="text-sm font-bold text-white mt-0.5">$51,695.58</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#060B16] border border-slate-800">
-                      <div className="text-[10px] text-slate-400">Today Profit</div>
-                      <div className="text-sm font-bold text-emerald-400 mt-0.5">+${todayProfit.toFixed(2)}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#060B16] border border-slate-800">
-                      <div className="text-[10px] text-slate-400">Closes Today</div>
-                      <div className="text-sm font-bold text-cyan-300 mt-0.5">{todayCloses} closes</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#060B16] border border-slate-800">
-                      <div className="text-[10px] text-slate-400">Risk Level</div>
-                      <div className="text-sm font-bold text-emerald-400 mt-0.5">23% Low</div>
-                    </div>
+                    {['Account ID', 'Balance', 'Equity', 'Open Positions'].map((label) => (<div key={label} className="p-3 rounded-xl bg-[#060B16] border border-slate-800"><div className="text-[10px] text-slate-400">{label}</div><div className="text-sm font-bold text-slate-400 mt-0.5">Not verified</div></div>))}
                   </div>
+                  <div className="text-slate-400">No connected account, no broker actions and no simulated P&amp;L.</div>
                 </div>
               )}
 
@@ -1215,46 +1057,13 @@ export default function NovaChatOSView({
                       </div>
 
                       {/* =====================================================
-                          WIDGET A: DEDICATED BALANCE SUMMARY CARD (get_portfolio_status)
+                          WIDGET A: BROKER STATUS (UNVERIFIED)
                          ===================================================== */}
                       {msg.widget === 'balance-summary-card' && (
-                        <div className="p-4 rounded-2xl bg-[#09152B] border border-cyan-400/45 text-left space-y-3 shadow-[0_0_25px_rgba(34,211,238,0.15)]">
-                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
-                            <div>
-                              <div className="text-xs font-mono text-cyan-300">
-                                💰 FastMCP get_portfolio_status · Exness Account #{accountId}
-                              </div>
-                              <div className="text-lg sm:text-xl font-extrabold text-white font-mono tabular-nums mt-0.5">
-                                $51,695.58 USD
-                              </div>
-                            </div>
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                              ● {accountEnv === 'demo' ? 'DEMO LIVE (Exness-Trial)' : 'REAL LIVE (Exness-Real)'}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono tabular-nums text-xs">
-                            <div className="p-3 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">ยอดเงินคงเหลือ (Balance)</div>
-                              <div className="font-extrabold text-white mt-0.5">$51,695.58</div>
-                            </div>
-                            <div className="p-3 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">อิควิตี้สุทธิ (Equity)</div>
-                              <div className="font-extrabold text-cyan-300 mt-0.5">
-                                ${(51695.58 + todayProfit).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </div>
-                            </div>
-                            <div className="p-3 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">มาร์จิ้นว่าง (Free Margin)</div>
-                              <div className="font-extrabold text-emerald-300 mt-0.5">$49,810.20</div>
-                            </div>
-                            <div className="p-3 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">กำไรวันนี้ (Today P/L)</div>
-                              <div className="font-extrabold text-emerald-400 mt-0.5">
-                                +${todayProfit.toFixed(2)} ({todayCloses} ไม้)
-                              </div>
-                            </div>
-                          </div>
+                        <div className="p-4 rounded-2xl bg-[#09152B] border border-amber-500/40 text-left space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800"><div className="text-xs font-mono text-cyan-300">Exness Demo · Read-only account status</div><span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-amber-500/15 text-amber-200 border border-amber-500/40">NOT CONFIGURED · NOT VERIFIED</span></div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono tabular-nums text-xs">{['Account ID', 'Balance', 'Equity', 'Free Margin'].map((label) => (<div key={label} className="p-3 rounded-xl bg-[#050B16] border border-slate-800"><div className="text-[10px] text-slate-400">{label}</div><div className="font-extrabold text-slate-400 mt-0.5">—</div></div>))}</div>
+                          <p className="text-[11px] text-slate-400">แสดงข้อมูลได้หลังผ่าน authenticated owner-scoped Exness Demo read session เท่านั้น · No orders · Live Trading OFF</p>
                         </div>
                       )}
 
@@ -1289,195 +1098,19 @@ export default function NovaChatOSView({
                       )}
 
                       {/* =====================================================
-                          WIDGET C: LANGGRAPH INTERRUPT APPROVAL CARD (place_trade_order)
-                          Includes Pitfall 1 (Broker-Side SL/TP) + Pitfall 2 (Token Credential Re-validation)
+                          WIDGET C: NON-EXECUTABLE RESEARCH DRAFT
                          ===================================================== */}
                       {msg.widget === 'langgraph-interrupt-approval-card' && msg.interruptData && (
-                        <div className="p-4 rounded-2xl bg-[#0A1528] border-2 border-amber-400/50 text-left space-y-3 text-xs shadow-[0_0_30px_rgba(245,158,11,0.15)]">
-                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
-                            <div className="flex items-center gap-2 font-mono">
-                              <span className="px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-extrabold text-[11px]">
-                                ⏸️ LANGGRAPH INTERRUPT
-                              </span>
-                              <span className="font-extrabold text-white">
-                                {msg.interruptData.side} {msg.interruptData.symbol} · {msg.interruptData.lots} Lots
-                              </span>
-                            </div>
-                            <span className="text-[11px] font-mono text-cyan-300 flex items-center gap-1">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              Risk Engine: PASSED (Risk {msg.interruptData.riskPerTradePct}% · VQC {msg.interruptData.confidencePct}%)
-                            </span>
+                        <div className="p-4 rounded-2xl bg-[#0A1528] border border-amber-400/40 text-left space-y-3 text-xs">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800"><div className="font-extrabold text-white">RESEARCH DRAFT · {msg.interruptData.symbol}</div><span className="px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-200 border border-amber-500/40 font-mono text-[10px]">NON-EXECUTABLE</span></div>
+                          <p className="text-slate-300">ข้อมูลจากคำขอเดิมแสดงเพื่อการศึกษาเท่านั้น ไม่ใช่คำสั่งที่รออนุมัติ และไม่ได้ตรวจสอบกับ Broker</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
+                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800"><div className="text-[10px] text-slate-400">Direction scenario</div><div className="font-bold text-white">{msg.interruptData.side || '—'}</div></div>
+                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800"><div className="text-[10px] text-slate-400">Entry reference</div><div className="font-bold text-white">{msg.interruptData.entryPrice ?? '—'}</div></div>
+                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800"><div className="text-[10px] text-slate-400">Stop reference</div><div className="font-bold text-rose-300">{msg.interruptData.stopLoss ?? '—'}</div></div>
+                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800"><div className="text-[10px] text-slate-400">Target reference</div><div className="font-bold text-emerald-300">{msg.interruptData.takeProfit ?? '—'}</div></div>
                           </div>
-
-                          {/* Pitfall 1 & Pitfall 2 Telemetry Bar inside interrupt() payload */}
-                          <div className="p-2.5 rounded-xl bg-[#060D1A] border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-                            <span className="text-emerald-300 flex items-center gap-1.5">
-                              <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                              Broker-Side Direct SL/TP Worker: ACTIVE (ทำงานทันทีไม่รอ LLM เมื่อตลาดผันผวน)
-                            </span>
-                            {msg.interruptData.credentialStatus && (
-                              <span className="text-cyan-300 flex items-center gap-1.5">
-                                <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                                Token: {msg.interruptData.credentialStatus.tokenFingerprint} (
-                                {msg.interruptData.credentialStatus.revalidatedOnResume
-                                  ? '✅ Re-validated on Approve'
-                                  : 'Valid · พร้อม Re-validate เมื่อกด Approve'}
-                                )
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono tabular-nums">
-                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">Entry Price</div>
-                              <div className="font-bold text-white mt-0.5">${msg.interruptData.entryPrice}</div>
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">ขนาดออเดอร์ / Risk</div>
-                              <div className="font-bold text-cyan-300 mt-0.5">
-                                {msg.interruptData.lots} Lots ({msg.interruptData.riskPerTradePct}%)
-                              </div>
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-rose-400">Broker Stop Loss (SL)</div>
-                              <div className="font-bold text-rose-400 mt-0.5">${msg.interruptData.stopLoss}</div>
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-emerald-400">Broker Take Profit (TP)</div>
-                              <div className="font-bold text-emerald-400 mt-0.5">${msg.interruptData.takeProfit}</div>
-                            </div>
-                          </div>
-
-                          {/* Inline Parameter Editor when user clicks "Edit" */}
-                          {editingMsgId === msg.id && msg.interruptData.status === 'PAUSED_WAITING_HUMAN' && (
-                            <div className="p-3.5 rounded-xl bg-[#050A14] border border-cyan-400/50 space-y-3">
-                              <div className="text-xs font-bold text-cyan-300">
-                                ✏️ แก้ไขพารามิเตอร์ก่อนส่งคำสั่ง Command(resume=...) (ต้องไม่เกิน Max Lot 2.00)
-                              </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono">
-                                <div>
-                                  <label className="block text-[10px] text-slate-400 mb-1">Lots (Max 2.0)</label>
-                                  <input
-                                    type="number"
-                                    step="0.05"
-                                    value={editLots}
-                                    onChange={(e) => setEditLots(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#0A1326] border border-slate-700 text-white text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] text-slate-400 mb-1">Stop Loss ($)</label>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    value={editSl}
-                                    onChange={(e) => setEditSl(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#0A1326] border border-slate-700 text-rose-300 text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] text-slate-400 mb-1">Take Profit ($)</label>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    value={editTp}
-                                    onChange={(e) => setEditTp(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#0A1326] border border-slate-700 text-emerald-300 text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] text-slate-400 mb-1">Risk / Trade (%)</label>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    value={editRiskPct}
-                                    onChange={(e) => setEditRiskPct(e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#0A1326] border border-slate-700 text-cyan-300 text-xs"
-                                  />
-                                </div>
-                              </div>
-                              {editError && (
-                                <div className="text-[11px] text-rose-400 font-bold">🛑 {editError}</div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleResolveInterrupt(
-                                      msg.id,
-                                      msg.interruptData!.interruptId,
-                                      'EDIT_AND_APPROVE'
-                                    )
-                                  }
-                                  className="px-4 py-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-xs"
-                                >
-                                  ✅ บันทึกค่าที่แก้ไข &amp; ส่ง Command(resume=...)
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingMsgId(null);
-                                    setEditError(null);
-                                  }}
-                                  className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
-                                >
-                                  ยกเลิกการแก้ไข
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 3 Interactive Human-in-the-Loop Buttons: Approve / Edit / Reject */}
-                          {msg.interruptData.status === 'PAUSED_WAITING_HUMAN' ? (
-                            <div className="flex flex-wrap items-center gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleResolveInterrupt(msg.id, msg.interruptData!.interruptId, 'APPROVE')
-                                }
-                                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-extrabold flex items-center justify-center gap-1.5 transition-colors"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                                ยืนยันส่งคำสั่ง (Approve &amp; Re-validate Token)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingMsgId(msg.id);
-                                  setEditLots(String(msg.interruptData!.lots));
-                                  setEditSl(String(msg.interruptData!.stopLoss));
-                                  setEditTp(String(msg.interruptData!.takeProfit));
-                                  setEditRiskPct(String(msg.interruptData!.riskPerTradePct));
-                                  setEditError(null);
-                                }}
-                                className="py-2.5 px-4 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-400/50 font-bold flex items-center justify-center gap-1.5 transition-colors"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                                แก้ไขพารามิเตอร์ (Edit)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleResolveInterrupt(msg.id, msg.interruptData!.interruptId, 'REJECT')
-                                }
-                                className="py-2.5 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/35 font-bold flex items-center justify-center gap-1.5 transition-colors"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                ยกเลิก (Reject)
-                              </button>
-                            </div>
-                          ) : msg.interruptData.status === 'REJECTED' ? (
-                            <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-mono font-bold">
-                              ❌ ยกเลิกคำสั่งซื้อขายเรียบร้อยแล้ว (บันทึกสถานะลงตาราง checkpoints)
-                            </div>
-                          ) : (
-                            <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono font-bold flex flex-wrap items-center justify-between gap-2">
-                              <span>
-                                ✅ Token Re-validated &amp; {msg.interruptData.status === 'EDITED_AND_EXECUTED' ? 'แก้ไขพารามิเตอร์ + ยิงออเดอร์สำเร็จ' : 'อนุมัติยิงออเดอร์สำเร็จ'} ({msg.interruptData.lots} Lots · ตั้ง SL/TP ที่ฝั่ง Broker เรียบร้อย)
-                              </span>
-                              <span>Ticket #{msg.interruptData.executionTicket || 'EX-MCP-FILLED'}</span>
-                            </div>
-                          )}
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-amber-200">Broker session: Not configured · Token not requested or displayed · This card cannot approve or submit an order.</div>
                         </div>
                       )}
 
@@ -1541,11 +1174,11 @@ export default function NovaChatOSView({
                                 <span className="text-[10px] text-slate-400">Human-in-the-Loop</span>
                               </div>
                               <p className="text-[11px] text-slate-300">
-                                การ์ดขออนุมัติคำสั่งเทรดเมื่อเกิด LangGraph interrupt() รองรับ Approve, Edit และ Reject พร้อมตรวจอายุ Token
+                                การ์ด Research Draft สำหรับดู Scenario เท่านั้น ไม่มี Approve, Edit หรือ broker action
                               </p>
                               <button
                                 type="button"
-                                onClick={() => handleSendChat(`เปิด BUY ${selectedPair} 0.35 Lot`)}
+                                onClick={() => handleSendChat(`วิเคราะห์ตลาด ${selectedPair} แบบ Read-only พร้อม Scenario และระดับความเสี่ยง`)}
                                 className="w-full py-1.5 rounded-lg bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 border border-amber-400/40 font-bold text-[11px]"
                               >
                                 เรียกใช้งาน &lt;ApprovalCard /&gt; →
@@ -1574,7 +1207,7 @@ export default function NovaChatOSView({
                             <div className="p-3.5 rounded-xl bg-[#050B16] border border-emerald-400/40 space-y-2">
                               <div className="flex items-center justify-between font-mono">
                                 <span className="font-bold text-emerald-300">&lt;TradeSummaryCard /&gt;</span>
-                                <span className="text-[10px] text-emerald-400">$51,695.58 · +$7,008</span>
+                                <span className="text-[10px] text-emerald-400">— · +$7,008</span>
                               </div>
                               <p className="text-[11px] text-slate-300">
                                 การ์ดสรุปยอดเงินคงเหลือ อิควิตี้ และตารางกำไรรายวันจากตาราง trade_logs แบบไม่ต้องรอ Interrupt
@@ -1595,7 +1228,7 @@ export default function NovaChatOSView({
                                 <span className="text-[10px] text-emerald-400">● Epoch #148 (94.8%)</span>
                               </div>
                               <p className="text-[11px] text-slate-300">
-                                วิดเจ็ตแสดงสถานะบอท Dynamic Grid, Backend Auto-Train 16 คู่เงินหลัก และ Broker-Side SL/TP Worker
+                                วิดเจ็ตแสดงสถานะบอท Dynamic Grid, Backend Auto-Train 16 คู่เงินหลัก และ Read-only broker guard
                               </p>
                               <button
                                 type="button"
@@ -1617,7 +1250,7 @@ export default function NovaChatOSView({
                           <div className="flex items-center justify-between text-rose-300 font-mono font-extrabold">
                             <span className="flex items-center gap-1.5">
                               <ShieldAlert className="w-4 h-4 text-rose-400" />
-                              🛑 REJECTED BY RULE-BASED RISK ENGINE (สกัดกั้นก่อนส่งไปโบรกเกอร์)
+                              🛑 RESEARCH GUARD · NON-EXECUTABLE
                             </span>
                             <span>HARD RULE VIOLATION</span>
                           </div>
@@ -1632,10 +1265,10 @@ export default function NovaChatOSView({
                             </span>
                             <button
                               type="button"
-                              onClick={() => handleSendChat(`เปิด BUY ${selectedPair} 0.35 Lot`)}
+                              onClick={() => handleSendChat(`วิเคราะห์ตลาด ${selectedPair} แบบ Read-only พร้อม Scenario และระดับความเสี่ยง`)}
                               className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold"
                             >
-                              ลองสั่งใหม่ด้วยขนาดปลอดภัย (0.35 Lot) →
+                              วิเคราะห์ Scenario ต่อแบบ Read-only →
                             </button>
                           </div>
                         </div>
@@ -1730,22 +1363,10 @@ export default function NovaChatOSView({
                         </div>
                       )}
 
-                      {/* Dynamic Grid Calendar Widget inside Chat */}
+                      {/* Dynamic Grid research calendar has no fabricated trading history. */}
                       {msg.widget === 'dynamic-grid-calendar' && (
-                        <div className="p-4 rounded-2xl bg-[#0A1326] border border-emerald-500/35 text-left space-y-3">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-extrabold text-white">
-                              DYNAMIC GRID · {selectedPair} (+$7,008.38 / +395.72%)
-                            </span>
-                            {onSwitchTab && (
-                              <button
-                                type="button"
-                                onClick={() => onSwitchTab('dynamic-grid-calendar')}
-                                className="text-cyan-300 hover:underline font-mono text-[11px]"
-                              >
-                                เปิดหน้าปฏิทินเต็มจอ →
-                              </button>
-                            )}
+                        <div className="p-4 rounded-2xl bg-[#0A1326] border border-amber-500/35 text-left space-y-3"><div className="font-extrabold text-white">RESEARCH CALENDAR · {selectedPair}</div><div className="text-xs text-amber-200">ยังไม่มี verified broker history จึงไม่แสดง P&amp;L หรือจำนวนการปิดออเดอร์</div>{onSwitchTab && <button type="button" onClick={() => onSwitchTab('dynamic-grid-calendar')} className="text-cyan-300 hover:underline font-mono text-[11px]">เปิดปฏิทินวิจัย →</button>}</div>
+                      )}             )}
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
                             {MINI_CALENDAR_DAYS.map((d) => (
