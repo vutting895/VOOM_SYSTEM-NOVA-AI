@@ -428,3 +428,118 @@ test("provider outcomes and operation records never expose plaintext secret fiel
   const operation = await store.getOperation("rotate-redaction-01");
   assert.equal(JSON.stringify(operation).includes("SYNTHETIC-SECRET-NOT-REAL"), false);
 });
+
+
+test("capability registry outage fails closed without exposing or reusing the old version", async () => {
+  let available = false;
+  const registry = {
+    async resolve() {
+      if (!available) throw new Error("synthetic registry outage");
+      return { rotationKind: "API_KEY_ROTATION", supportsRevoke: true };
+    }
+  };
+  const { coordinator, store, calls } = coordinatorFor({ registry });
+  await coordinator.markSuccessfulUse({
+    bindingId: "binding-a", operationId: "use-registry-01", expectedGeneration: 1
+  });
+  const unavailable = await coordinator.prepareNextUse({
+    bindingId: "binding-a", operationId: "rotate-registry-01"
+  });
+  assert.equal(unavailable.result_code, "CAPABILITY_REGISTRY_UNAVAILABLE");
+  assert.equal((await store.getBinding("binding-a")).state, "ROTATION_REQUIRED");
+  assert.equal(calls.some(call => call.method === "rotateApiKey"), false);
+
+  available = true;
+  const retried = await coordinator.prepareNextUse({
+    bindingId: "binding-a", operationId: "rotate-registry-02"
+  });
+  assert.equal(retried.state, "ROTATED");
+});
+
+test("ambiguous revoke is reconciled without restoring the old version", async () => {
+  const { coordinator, store, calls } = coordinatorFor({
+    providerOverrides: {
+      async revokeApiKey(input) {
+        calls.push({ method: "revokeApiKey", input });
+        const error = new Error("synthetic revoke timeout after send");
+        error.outcomeUnknown = true;
+        throw error;
+      },
+      async reconcileRevoke(input) {
+        calls.push({ method: "reconcileRevoke", input });
+        return { status: "REVOKED" };
+      }
+    }
+  });
+  const unknown = await coordinator.revoke({
+    bindingId: "binding-a", operationId: "revoke-unknown-01"
+  });
+  assert.equal(unknown.state, "REVOKE_UNKNOWN");
+  assert.equal(unknown.reconciliation_required, true);
+  assert.equal((await store.getBinding("binding-a")).activeVersionId, null);
+
+  const reconciled = await coordinator.reconcileRevoke({
+    bindingId: "binding-a",
+    operationId: "reconcile-revoke-01",
+    originalOperationId: "revoke-unknown-01"
+  });
+  assert.equal(reconciled.state, "REVOKED");
+  const saved = await store.getBinding("binding-a");
+  assert.equal(saved.state, "REVOKED");
+  assert.equal(saved.activeVersionId, null);
+  assert.equal(saved.generation, 2);
+  assert.equal(calls.some(call => call.method === "reconcileRevoke"), true);
+});
+
+test("revoke reconciliation that cannot confirm revocation keeps the old version blocked", async () => {
+  const { coordinator, store } = coordinatorFor({
+    providerOverrides: {
+      async revokeApiKey() {
+        const error = new Error("synthetic revoke timeout");
+        error.outcomeUnknown = true;
+        throw error;
+      },
+      async reconcileRevoke() {
+        return { status: "NOT_REVOKED" };
+      }
+    }
+  });
+  await coordinator.revoke({
+    bindingId: "binding-a", operationId: "revoke-not-confirmed-01"
+  });
+  const reconciled = await coordinator.reconcileRevoke({
+    bindingId: "binding-a",
+    operationId: "reconcile-revoke-not-confirmed-01",
+    originalOperationId: "revoke-not-confirmed-01"
+  });
+  assert.equal(reconciled.state, "REVOKE_FAILED");
+  const saved = await store.getBinding("binding-a");
+  assert.equal(saved.activeVersionId, null);
+  assert.equal(saved.blockedVersionId, "version-1");
+});
+
+test("ledger persistence failure after provider success is retryable but never redispatches", async () => {
+  const store = createStore();
+  const complete = store.completeOperation.bind(store);
+  store.completeOperation = async (operationId, value) => {
+    if (operationId === "rotate-ledger-fail-01") throw new Error("synthetic ledger outage");
+    return complete(operationId, value);
+  };
+  const { provider, calls } = createProvider();
+  const coordinator = createRotationCoordinator({ store, registry: createRegistry(), provider });
+
+  await coordinator.markSuccessfulUse({
+    bindingId: "binding-a", operationId: "use-ledger-fail-01", expectedGeneration: 1
+  });
+  const failed = await coordinator.prepareNextUse({
+    bindingId: "binding-a", operationId: "rotate-ledger-fail-01"
+  });
+  assert.equal(failed.result_code, "LEDGER_PERSISTENCE_FAILED");
+  assert.equal((await store.getBinding("binding-a")).activeVersionId, "version-2");
+
+  const retry = await coordinator.prepareNextUse({
+    bindingId: "binding-a", operationId: "rotate-ledger-fail-01"
+  });
+  assert.equal(retry.result_code, "OPERATION_IN_PROGRESS");
+  assert.equal(calls.filter(call => call.method === "rotateApiKey").length, 1);
+});
