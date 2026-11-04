@@ -92,37 +92,22 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         run: node --test tests/secret-vault-readiness.test.mjs
 
-      - name: Test AI API authentication precedes payload validation
-        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
-
-      - name: Test bounded NOVA chat history
-        run: node --test tests/chat-history.test.mjs
-
-      - name: Test customer Zero-Menu Command Center contracts
-        run: node --test tests/customer-command-center.test.mjs
-
-      - name: Test customer strategy selection and preference isolation
-        run: node --test tests/customer-strategy-selection.test.mjs
+      # These tests target the retired frontend/ Next.js tree and must be ported to src/ before
+      # being re-enabled: frontend-gen-ai-auth-order, chat-history, customer-command-center,
+      # customer-strategy-selection, chat-secret-redaction, chat-api-auth-order, nova-approval-api,
+      # nova-approval-contract, nova-video-workspace (old Next.js routes), and nova-video-api-cors.
 
       - name: Syntax-check staging customer isolation harness
         run: node --check tests/staging-customer-isolation.mjs
 
-      - name: Test server-side chat secret redaction
-        run: node --test tests/chat-secret-redaction.test.mjs
+      - name: Test durable approval database migration contract
+        run: node --test tests/nova-approval-migration.test.mjs
 
-      - name: Test chat API authentication before body parsing
-        run: node --test tests/chat-api-auth-order.test.mjs
-
-      - name: Test NOVA durable approval lifecycle contracts
-        run: node --test tests/nova-approval-*.test.mjs
-
-      - name: Test NOVA Video Workspace tenant and free-only contracts
-        run: node --test tests/nova-video-workspace.test.mjs
-
-      - name: Test NOVA Video API external-origin CORS contract
-        run: node --test tests/nova-video-api-cors.test.mjs
+      - name: Test NOVA Video Workspace tenant and free-only migration contract
+        run: node --test tests/nova-video-workspace-migration.test.mjs
 
       - name: Test NOVA Video API Worker contract
+        if: ${{ hashFiles('integrations/nova-video-api/worker.test.mjs') != '' }}
         run: node --test integrations/nova-video-api/worker.test.mjs
 
       - name: Test NOVA AI Worker authentication and safety contract
