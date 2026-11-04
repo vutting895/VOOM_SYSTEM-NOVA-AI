@@ -56,8 +56,8 @@ test('server routes use fail-closed responses and contain no synthetic live fill
   assert.ok(s.includes("app.post('/api/live-trading/toggle'"));
   assert.ok(s.includes("app.post('/api/orders/execute'"));
   assert.ok(s.includes("app.post('/api/broker/status'"));
-  assert.ok(s.includes('getOrderExecutionBlockedResponse()')));
-  assert.ok(s.includes('getBrokerUnverifiedSnapshot(broker)')));
+  assert.ok(s.includes('getOrderExecutionBlockedResponse()'));
+  assert.ok(s.includes('getBrokerUnverifiedSnapshot(broker)'));
   assert.equal(s.includes('FILLED_LIVE'), false);
   assert.equal(s.includes('LIVE_REAL_EXECUTION'), false);
   assert.equal(s.includes('orders.create.live'), false);
