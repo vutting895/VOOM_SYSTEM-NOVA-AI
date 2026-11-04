@@ -133,6 +133,50 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
 
 async function startServer() {
   const app = express();
+
+  // Fail closed before request-body parsing. This app has no approved broker-write runtime.
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && req.path === '/api/broker/status') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'broker_identity_unverified',
+        status: 'not_configured',
+        connected: false,
+        accountConnected: false,
+        environment: 'demo',
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    const blockedMutation =
+      req.method !== 'GET' && (
+        req.path.startsWith('/api/orders/') ||
+        req.path.startsWith('/api/live-trading/') ||
+        req.path === '/api/broker/status' ||
+        req.path === '/api/mt5-bridge/toggle' ||
+        req.path === '/api/agent/approvals/decision' ||
+        req.path === '/api/intent/interrupt/resolve' ||
+        (req.path.startsWith('/api/agent/threads/') && /\\/approvals(?:\\/|$)/.test(req.path))
+      );
+
+    if (blockedMutation) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(403).json({
+        ok: false,
+        error: 'trading_execution_disabled',
+        mode: 'read-only',
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
+    return next();
+  });
+
   app.use(express.json());
 
   // Hard fail-closed defaults. No runtime API may enable broker writes.
