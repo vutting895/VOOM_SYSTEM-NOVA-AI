@@ -1,0 +1,194 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import worker from "./worker.js";
+
+const ENV = {
+  SUPABASE_URL: "https://supabase.example.test",
+  SUPABASE_PUBLISHABLE_KEY: "public-test-key",
+  NOVA_VIDEO_ALLOWED_ORIGINS: "https://creator.example.test",
+};
+const ORIGIN = "https://creator.example.test";
+const SESSION = "user-session-token";
+
+function request(path, { method = "GET", headers = {}, body } = {}) {
+  return new Request("https://video-worker.example.test" + path, {
+    method,
+    headers: { ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...headers },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+}
+function authResponse(status = 200) {
+  return new Response(JSON.stringify(status === 200 ? { id: "user-a" } : { error: "invalid" }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+test("rejects missing and invalid sessions before reading a request body", async () => {
+  let calls = 0;
+  const previous = globalThis.fetch;
+  globalThis.fetch = async () => { calls += 1; return authResponse(); };
+  try {
+    const response = await worker.fetch(request("/api/video/projects", {
+      method: "POST",
+      body: { title: "Project" },
+    }), ENV);
+    assert.equal(response.status, 401);
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("CORS allows only the configured exact frontend origin", async () => {
+  const allow = await worker.fetch(request("/api/video/projects", {
+    method: "OPTIONS",
+    headers: { Origin: ORIGIN },
+  }), ENV);
+  assert.equal(allow.status, 204);
+  assert.equal(allow.headers.get("Access-Control-Allow-Origin"), ORIGIN);
+  assert.match(allow.headers.get("Access-Control-Allow-Headers"), /Authorization/);
+
+  const deny = await worker.fetch(request("/api/video/projects", {
+    method: "OPTIONS",
+    headers: { Origin: "https://attacker.example.test" },
+  }), ENV);
+  assert.equal(deny.status, 403);
+  assert.equal(deny.headers.get("Access-Control-Allow-Origin"), null);
+});
+
+test("authenticated skills catalog returns 22 free-only, non-executable skills", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    calls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    return authResponse();
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/skills", {
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+    }), ENV);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.skillCount, 22);
+    assert.equal(data.policy.executionEnabled, false);
+    assert.equal(data.policy.paidApiAllowed, false);
+    assert.equal(data.skillGroups.reduce((n, group) => n + group.skills.length, 0), 22);
+    for (const group of data.skillGroups) {
+      for (const skill of group.skills) {
+        assert.equal(skill.executionEnabled, false);
+        assert.equal(skill.estimatedCost, 0);
+      }
+    }
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("project listing uses the caller bearer token and owner filter", async () => {
+  const previous = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    seen.push({ url, init });
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(url.pathname, "/rest/v1/nova_video_projects");
+    assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    return Response.json([{ id: "project-a", title: "Demo", status: "active" }]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/projects", {
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+    }), ENV);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.projects[0].id, "project-a");
+    assert.equal(seen.length, 2);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("job creation records blocked zero-cost metadata and never dispatches work", async () => {
+  const previous = globalThis.fetch;
+  let inserted;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(url.pathname, "/rest/v1/nova_video_jobs");
+    assert.equal(init.method, "POST");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    inserted = JSON.parse(init.body);
+    return Response.json([{
+      id: "job-a",
+      project_id: inserted.project_id,
+      task_type: inserted.task_type,
+      status: inserted.status,
+      prompt: inserted.prompt,
+      execution_mode: inserted.execution_mode,
+      estimated_cost: inserted.estimated_cost,
+      created_at: "2026-11-04T00:00:00Z",
+    }], { status: 201 });
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/jobs", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        project_id: "123e4567-e89b-42d3-a456-426614174000",
+        task_type: "video_generation",
+        prompt: "Create a short sample clip",
+        idempotency_key: "request-key-123",
+      },
+    }), ENV);
+    assert.equal(response.status, 202);
+    const data = await response.json();
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+    assert.equal(data.job.status, "blocked_no_free_gpu");
+    assert.equal(inserted.execution_mode, "free_only");
+    assert.equal(inserted.estimated_cost, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("job creation rejects invalid task types and extra fields without database writes", async () => {
+  const previous = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (input) => {
+    if (new URL(input).pathname === "/auth/v1/user") return authResponse();
+    writes += 1;
+    return Response.json([]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/jobs", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        project_id: "123e4567-e89b-42d3-a456-426614174000",
+        task_type: "live_execution",
+        prompt: "not allowed",
+        idempotency_key: "request-key-123",
+        execute: true,
+      },
+    }), ENV);
+    assert.equal(response.status, 400);
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("Worker contract contains no service-role credential path or media execution", () => {
+  const source = readFileSync(new URL("./worker.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /service_role|SERVICE_ROLE_KEY/i);
+  assert.doesNotMatch(source, /dispatchWorker|invokeModel|generateVideo|uploadMedia/i);
+  assert.match(source, /executionEnabled: false/);
+  assert.match(source, /estimated_cost: 0/);
+});
