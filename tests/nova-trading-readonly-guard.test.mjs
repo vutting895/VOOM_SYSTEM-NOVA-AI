@@ -109,6 +109,9 @@ test('intent dispatcher refuses all write intents before creating an approval ch
   const dispatch = section(server, "app.post('/api/intent/dispatch'", '// Approval resolution is research-only');
   assert.match(dispatch, /accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT'/);
   assert.match(dispatch, /WRITE_INTENTS_DISABLED/);
+  const writeBlockAt = dispatch.indexOf('WRITE_INTENTS_DISABLED');
+  const checkpointAt = dispatch.indexOf('getOrCreateThreadCheckpoint');
+  assert.ok(writeBlockAt >= 0 && checkpointAt > writeBlockAt, 'high-impact writes must be rejected before checkpoint creation');
   assert.doesNotMatch(dispatch, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED|PAUSED_WAITING_HUMAN/);
   assert.doesNotMatch(server, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED/);
   assert.doesNotMatch(server, /brokerDirectSlTpEnabled:\s*true/);
