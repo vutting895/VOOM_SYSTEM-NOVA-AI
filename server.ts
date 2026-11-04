@@ -348,8 +348,8 @@ async function startServer() {
   app.get('/api/broker/instruments', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
     // This endpoint returns a static instrument catalogue, not an authenticated broker session.
-    const connectionMode = 'demo-read-only';
-    const mt5Server = 'not_configured';
+    const connectionMode: string = 'demo-read-only';
+    const mt5Server: string = 'not_configured';
     const accountId = 'not_configured';
 
     const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
