@@ -6,12 +6,47 @@ info:
     Tenant-scoped, bearer-authenticated API for video project metadata and job requests.
     This release records requests only. It does not upload media, invoke models, dispatch
     workers, generate videos, analyze clips, edit, or export media.
-servers:
-  - url: https://voomsystem.netlify.app
-    description: Intended Netlify API origin; verify the deployed commit before production use.
+# The Worker origin is withheld until a reviewed deployment SHA and staging acceptance are verified.
+servers: []
 security:
   - SupabaseBearer: []
 paths:
+  /api/video/skills:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    get:
+      summary: Get the authenticated NOVA Video skill registry
+      description: Read-only 22-skill catalog. Every skill is non-executable and reports zero estimated cost.
+      responses:
+        '200':
+          description: Versioned skill registry and free-only execution policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, registryVersion, product, deliveryModel, policy, statusVocabulary, skillCount, skillGroups]
+                properties:
+                  schemaVersion: { type: string }
+                  registryVersion: { type: string }
+                  product: { const: NOVA AI Video Platform }
+                  deliveryModel: { const: api_only }
+                  skillCount: { type: integer, const: 22 }
+                  policy:
+                    type: object
+                    required: [costMode, executionEnabled, paidApiAllowed, paidGpuAllowed]
+                    properties:
+                      costMode: { const: free_only }
+                      executionEnabled: { const: false }
+                      paidApiAllowed: { const: false }
+                      paidGpuAllowed: { const: false }
+                  skillGroups:
+                    type: array
+                    items: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { description: Supabase Auth unavailable or not configured }
   /api/video/projects:
     options:
       security: []
