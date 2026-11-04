@@ -159,7 +159,7 @@ async function startServer() {
         req.path === '/api/mt5-bridge/toggle' ||
         req.path === '/api/agent/approvals/decision' ||
         req.path === '/api/intent/interrupt/resolve' ||
-        (req.path.startsWith('/api/agent/threads/') && /\\/approvals(?:\\/|$)/.test(req.path))
+        (req.path.startsWith('/api/agent/threads/') && req.path.includes('/approvals'))
       );
 
     if (blockedMutation) {
