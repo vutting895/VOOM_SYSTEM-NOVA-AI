@@ -17,6 +17,25 @@ This is the control plane for viewing integration metadata, listing the signed-i
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
 
+## NOVA System Core enforcement
+
+Tenant-scoped connection reads pass through the shared `shared/nova-system-core-contract.mjs` capability policy after Supabase Auth verifies the caller and the Hub retrieves the connection through the caller's own user-scoped PostgREST/RLS query.
+
+The Hub maps:
+- Connection status to `connection.own.read`
+- Account/check operations to `account.summary.read`
+- Quotes/candles to `market.quote.read`
+
+The policy context is constructed only inside the Worker. Identity is taken from the verified Supabase Auth response; tenant authorization is true only when the returned connection row's `user_id` exactly matches that verified user ID. A mismatch is denied before the MT5 Proxy is called. Callers cannot submit policy context, capability grants, tenant IDs, upstream URLs, or secret material.
+
+This enforcement does not replace Supabase RLS or downstream Proxy/Relay owner checks. The capability helper is a second fail-closed layer. Broker writes and secret-value access remain forbidden.
+
+Run the Core and Hub contract suites:
+```sh
+node --test tests/nova-system-core-contract.test.mjs
+node --test integrations/system-hub/tests/system-hub.test.mjs
+```
+
 ## Deployment
 
 `wrangler.jsonc` declares the Worker name and the fixed UI/MT5 adapter URLs. The GitHub Actions Cloudflare deployment workflow passes `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from existing Actions secrets at deploy time. The customer-facing Broker Settings page uses `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaulting to this Worker) and sends the signed-in Supabase access token; it no longer calls the MT5 Proxy directly. Do not put credentials or tokens in source control.
