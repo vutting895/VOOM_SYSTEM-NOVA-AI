@@ -163,7 +163,7 @@ async function startServer() {
     const blockedIntentMutation =
       req.method !== 'GET' &&
       (req.path.startsWith('/api/intent/') ||
-        /^\\/api\\/agent\\/threads\\/[^/]+\\/approvals(?:\\/.*)?$/.test(req.path));
+        (req.path.startsWith('/api/agent/threads/') && req.path.includes('/approvals')));
     const blockedOrderMutation =
       req.path.startsWith('/api/orders/') ||
       (req.method !== 'GET' && req.path.startsWith('/api/live-trading/'));
@@ -188,7 +188,7 @@ async function startServer() {
 
   // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
   let mt5BridgeEnabled = false;
-  // Live Trading Mode explicitly ENABLED per user request
+  // Live Trading Mode is hard-disabled pending a separately approved execution release.
   let liveTradingEnabled = false;
 
   // =========================================================================
