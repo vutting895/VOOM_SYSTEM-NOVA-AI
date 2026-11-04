@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
 const read = (relativePath) => readFileSync(new URL(relativePath, root), 'utf8');
 const server = read('server.ts');
-const bridge = read('backend/mt5_bridge.py');
+const bridge = read('integrations/mt5-readonly-bridge/bridge.py');
+const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
@@ -20,9 +21,9 @@ function section(source, startMarker, endMarker) {
 
 test('default environment is Exness Demo read-only and all execution flags are off', () => {
   assert.match(envExample, /^MT5_BRIDGE_ENABLED=false$/m);
-  assert.match(envExample, /^MT5_BRIDGE_MODE=demo-read-only$/m);
   assert.match(envExample, /^VOOM_LIVE_TRADING_ENABLED=false$/m);
   assert.doesNotMatch(envExample, /(?:EXNESS|BINANCE|BYBIT)_(?:API_KEY|API_SECRET|PASSWORD)=/);
+  assert.doesNotMatch(envExample, /^MT5_(?:TENANT_ID|BRIDGE_TOKEN)=/m);
   assert.match(server, /const liveTradingEnabled = false as const/);
   assert.match(server, /const mt5BridgeEnabled = false as const/);
 });
@@ -60,14 +61,19 @@ test('broker status does not assert account verification or accept configuration
   assert.doesNotMatch(routes, /accountConnected: true|REAL LIVE|credentials authenticated/);
 });
 
-test('MT5 bridge has read-only routes, requires a token, and refuses non-Exness Demo terminals', () => {
-  assert.match(bridge, /BRIDGE_ENABLED = os\.getenv\("MT5_BRIDGE_ENABLED", "false"\)/);
-  assert.match(bridge, /secrets\.compare_digest/);
-  assert.match(bridge, /trade_mode != demo_mode or not exness_terminal/);
-  assert.match(bridge, /@app\.get\("\/account"\)/);
-  assert.match(bridge, /@app\.get\("\/quotes\/\{symbol\}"\)/);
-  assert.match(bridge, /BRIDGE_HOST = "127\.0\.0\.1"/);
-  assert.doesNotMatch(bridge, /order_send|TRADE_ACTION|@app\.post|EXNESS_LOGIN|EXNESS_PASSWORD|0\.0\.0\.0/);
+test('only the tenant-scoped Exness Demo read-only bridge is retained', () => {
+  assert.equal(existsSync(new URL('../backend/mt5_bridge.py', import.meta.url)), false);
+  assert.match(bridge, /TENANT_ID = os\\.environ\\.get\\("MT5_TENANT_ID"/);
+  assert.match(bridge, /BRIDGE_TOKEN = os\\.environ\\.get\\("MT5_BRIDGE_TOKEN"/);
+  assert.match(bridge, /hmac\\.compare_digest\\(tenant_id, TENANT_ID\\)/);
+  assert.match(bridge, /trade_mode != demo_mode/);
+  assert.match(bridge, /"exness" not in f"\\{server_name\\} \\{company_name\\}"\\.lower\\(\\)/);
+  assert.match(bridge, /@app\\.get\\("\\/api\\/account"\\)/);
+  assert.match(bridge, /@app\\.get\\("\\/api\\/quotes"\\)/);
+  assert.match(bridge, /request\\.method not in \\{"GET", "OPTIONS"\\}/);
+  assert.match(relay, /ALLOWED_PATHS = \\{.*"\\/api\\/account".*"\\/api\\/quotes"\\}/);
+  assert.match(relay, /X-VOOM-TENANT-ID/);
+  assert.doesNotMatch(bridge + relay, /order_send|TRADE_ACTION|@app\\.post|0\\.0\\.0\\.0/);
 });
 
 test('no broker account identifier or fake credential fingerprint is hardcoded in server metadata', () => {
