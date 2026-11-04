@@ -147,28 +147,63 @@ async function postgrest(env, auth, table, query, init = {}) {
   }
 }
 
+async function readLimitedText(request) {
+  if (!request.body) return { ok: true, text: "" };
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = value instanceof Uint8Array ? value : new Uint8Array(value);
+      totalBytes += chunk.byteLength;
+      if (totalBytes > MAX_BODY_BYTES) {
+        try {
+          await reader.cancel("request_body_too_large");
+        } catch {
+          // The stream is already being terminated; retain the size-limit response.
+        }
+        return { ok: false, status: 413, error: "request_body_too_large" };
+      }
+      chunks.push(chunk);
+    }
+  } catch {
+    try {
+      await reader.cancel();
+    } catch {
+      // Preserve the request parsing failure.
+    }
+    return { ok: false, status: 400, error: "invalid_json" };
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, text: new TextDecoder().decode(bytes) };
+}
+
 async function readJson(request) {
   if (!String(request.headers.get("Content-Type") || "").toLowerCase().includes("application/json")) {
     return { ok: false, status: 415, error: "content_type_must_be_json" };
   }
 
-  const declaredLength = Number(request.headers.get("Content-Length") || 0);
-  if (declaredLength > MAX_BODY_BYTES) {
+  const contentLength = request.headers.get("Content-Length");
+  if (contentLength && /^\d+$/.test(contentLength) && Number(contentLength) > MAX_BODY_BYTES) {
     return { ok: false, status: 413, error: "request_body_too_large" };
   }
 
-  let raw;
-  try {
-    raw = await request.text();
-  } catch {
-    return { ok: false, status: 400, error: "invalid_json" };
-  }
-  if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) {
-    return { ok: false, status: 413, error: "request_body_too_large" };
-  }
+  const body = await readLimitedText(request);
+  if (!body.ok) return body;
 
   try {
-    const value = JSON.parse(raw);
+    const value = JSON.parse(body.text);
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       return { ok: false, status: 400, error: "json_object_required" };
     }
