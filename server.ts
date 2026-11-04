@@ -133,7 +133,6 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
 
 async function startServer() {
   const app = express();
-  app.use(express.json());
 
   // Fail-closed safety boundary: this Vite/Express shell is not an approved broker
   // execution runtime. Trading mutations remain blocked until a separately reviewed
@@ -214,6 +213,9 @@ async function startServer() {
 
     next();
   });
+
+  // Reject disabled trading mutations before parsing attacker-controlled JSON bodies.
+  app.use(express.json());
 
   // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
   let mt5BridgeEnabled = false;
