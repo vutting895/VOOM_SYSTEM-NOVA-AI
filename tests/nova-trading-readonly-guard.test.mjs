@@ -119,6 +119,7 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.doesNotMatch(novaChat, /23908764|DEMO LIVE|REAL LIVE|EX-MCP-FILLED/);
   assert.doesNotMatch(novaChat, /todayProfit|todayCloses|profitRef|MINI_CALENDAR_DAYS/);
   assert.doesNotMatch(novaChat, /handleResolveInterrupt|EDIT_AND_APPROVE|เปิด BUY|place_trade_order/);
+  assert.doesNotMatch(novaChat, /tokenFingerprint|executionTicket|APPROVED_EXECUTED|EDITED_AND_EXECUTED|CredentialStatusPayload/);
   assert.doesNotMatch(novaChat, /ยืนยันส่งคำสั่ง|Approve &amp; Re-validate Token|Broker-Side Direct SL\/TP Worker: ACTIVE/);
   assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
   assert.match(novaChat, /NON-EXECUTABLE/);
