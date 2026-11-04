@@ -85,15 +85,37 @@ export function createRotationCoordinator({ store, registry, provider, leaseMs =
   }
 
   async function finish(operationId, response) {
-    await store.completeOperation(operationId, response);
-    return response;
+    try {
+      await store.completeOperation(operationId, response);
+      return response;
+    } catch {
+      // Keep the operation claim RUNNING. A retry must not redispatch the provider.
+      return result(503, "RECONCILIATION_REQUIRED", "LEDGER_PERSISTENCE_FAILED", {
+        reconciliation_required: true
+      });
+    }
+  }
+
+  async function resolveStrategy(binding) {
+    try {
+      return {
+        strategy: await registry.resolve({
+          provider: binding.provider,
+          environment: binding.environment,
+          credentialType: binding.credentialType
+        }),
+        unavailable: false
+      };
+    } catch {
+      return { strategy: null, unavailable: true };
+    }
   }
 
   async function blockVersion(binding, nextState, resultCode, operationId, lease) {
     const next = {
       ...binding,
       state: nextState,
-      rotationRequired: true,
+      rotationRequired: nextState.startsWith("ROTATION_"),
       blockedVersionId: binding.activeVersionId || binding.blockedVersionId || null,
       activeVersionId: null,
       pendingOperationId: operationId || null
@@ -189,11 +211,12 @@ export function createRotationCoordinator({ store, registry, provider, leaseMs =
         return result(409, "FAILED_FINAL", "BINDING_STATE_CONFLICT");
       }
 
-      const strategy = await registry.resolve({
-        provider: current.provider,
-        environment: current.environment,
-        credentialType: current.credentialType
-      });
+      const strategyResult = await resolveStrategy(current);
+      if (strategyResult.unavailable) {
+        await store.abandonOperation(operationId);
+        return result(503, "RUNNING", "CAPABILITY_REGISTRY_UNAVAILABLE", { retry_after_ms: 1000 });
+      }
+      const strategy = strategyResult.strategy;
       if (!validStrategy(strategy)) {
         const blocked = await blockVersion(current, "ROTATION_UNSUPPORTED", "ROTATION_UNSUPPORTED", operationId, lease);
         return finish(operationId, blocked);
@@ -315,11 +338,12 @@ export function createRotationCoordinator({ store, registry, provider, leaseMs =
         await store.abandonOperation(operationId);
         return result(409, "FAILED_FINAL", "BINDING_STATE_CONFLICT");
       }
-      const strategy = await registry.resolve({
-        provider: current.provider,
-        environment: current.environment,
-        credentialType: current.credentialType
-      });
+      const strategyResult = await resolveStrategy(current);
+      if (strategyResult.unavailable) {
+        await store.abandonOperation(operationId);
+        return result(503, "RUNNING", "CAPABILITY_REGISTRY_UNAVAILABLE", { retry_after_ms: 1000 });
+      }
+      const strategy = strategyResult.strategy;
       if (!validStrategy(strategy) || typeof provider.reconcileRotation !== "function") {
         return finish(operationId, result(202, "ROTATION_UNKNOWN", "MANUAL_RECONCILIATION_REQUIRED", {
           reconciliation_required: true
@@ -442,11 +466,12 @@ export function createRotationCoordinator({ store, registry, provider, leaseMs =
         await store.abandonOperation(operationId);
         return result(409, "FAILED_FINAL", "BINDING_STATE_CONFLICT");
       }
-      const strategy = await registry.resolve({
-        provider: current.provider,
-        environment: current.environment,
-        credentialType: current.credentialType
-      });
+      const strategyResult = await resolveStrategy(current);
+      if (strategyResult.unavailable) {
+        await store.abandonOperation(operationId);
+        return result(503, "RUNNING", "CAPABILITY_REGISTRY_UNAVAILABLE", { retry_after_ms: 1000 });
+      }
+      const strategy = strategyResult.strategy;
       const revokeMethod = validStrategy(strategy) ? provider[REVOKE_METHOD[strategy.rotationKind]] : null;
       if (strategy?.supportsRevoke !== true || typeof revokeMethod !== "function") {
         const blocked = await blockVersion(current, "REVOKE_UNSUPPORTED", "REVOKE_UNSUPPORTED", operationId, lease);
@@ -503,5 +528,117 @@ export function createRotationCoordinator({ store, registry, provider, leaseMs =
     }
   }
 
-  return { markSuccessfulUse, prepareNextUse, reconcileRotation, revoke };
+  async function reconcileRevoke({ bindingId, operationId, originalOperationId }) {
+    if (typeof bindingId !== "string" || !bindingId ||
+        !OPERATION_ID.test(String(operationId || "")) ||
+        !OPERATION_ID.test(String(originalOperationId || ""))) {
+      return result(400, "FAILED_FINAL", "INVALID_REQUEST");
+    }
+
+    const fingerprint = operationFingerprint("reconcile-revoke", bindingId, originalOperationId);
+    const prior = replayResult(await store.getOperation(operationId), fingerprint);
+    if (prior) return prior;
+
+    const binding = await store.getBinding(bindingId);
+    if (!binding || binding.state !== "REVOKE_UNKNOWN" ||
+        binding.pendingOperationId !== originalOperationId) {
+      return result(409, "FAILED_FINAL", "NO_MATCHING_UNKNOWN_REVOKE");
+    }
+    const claim = await reserve(operationId, fingerprint);
+    if (claim.kind === "RETURN") return claim.result;
+
+    const lease = await store.acquireLease(bindingId, operationId, leaseMs);
+    if (!lease) {
+      await store.abandonOperation(operationId);
+      return result(202, "RUNNING", "REVOKE_RECONCILIATION_LEASE_BUSY", { retry_after_ms: 1000 });
+    }
+
+    try {
+      const current = await store.getBinding(bindingId);
+      if (!current || current.state !== "REVOKE_UNKNOWN" ||
+          current.pendingOperationId !== originalOperationId) {
+        await store.abandonOperation(operationId);
+        return result(409, "FAILED_FINAL", "BINDING_STATE_CONFLICT");
+      }
+
+      const strategyResult = await resolveStrategy(current);
+      if (strategyResult.unavailable) {
+        await store.abandonOperation(operationId);
+        return result(503, "RUNNING", "CAPABILITY_REGISTRY_UNAVAILABLE", { retry_after_ms: 1000 });
+      }
+      const strategy = strategyResult.strategy;
+      if (!validStrategy(strategy) || typeof provider.reconcileRevoke !== "function") {
+        return finish(operationId, result(202, "REVOKE_UNKNOWN", "MANUAL_RECONCILIATION_REQUIRED", {
+          reconciliation_required: true
+        }));
+      }
+
+      let outcome;
+      try {
+        outcome = await provider.reconcileRevoke({
+          binding: safeBinding(current),
+          originalOperationId,
+          rotationKind: strategy.rotationKind
+        });
+      } catch {
+        outcome = { status: "UNKNOWN" };
+      }
+
+      if (outcome?.status === "REVOKED") {
+        const next = {
+          ...current,
+          state: "REVOKED",
+          generation: current.generation + 1,
+          activeVersionId: null,
+          blockedVersionId: current.blockedVersionId || null,
+          previousVersionState: "REVOKED",
+          rotationRequired: false,
+          pendingOperationId: null,
+          revokedOperationId: originalOperationId
+        };
+        const saved = await store.compareAndSet(
+          bindingId,
+          { generation: current.generation, state: "REVOKE_UNKNOWN" },
+          next,
+          lease
+        );
+        if (!saved) {
+          return finish(operationId, result(503, "RECONCILIATION_REQUIRED", "FENCED_STATE_CHANGE", {
+            reconciliation_required: true
+          }));
+        }
+        return finish(operationId, result(200, "REVOKED", "RECONCILED_REVOKE_CONFIRMED", {
+          generation: next.generation
+        }));
+      }
+
+      if (outcome?.status === "NOT_REVOKED") {
+        const next = {
+          ...current,
+          state: "REVOKE_FAILED",
+          activeVersionId: null,
+          rotationRequired: false,
+          pendingOperationId: null
+        };
+        const saved = await store.compareAndSet(
+          bindingId,
+          { generation: current.generation, state: "REVOKE_UNKNOWN" },
+          next,
+          lease
+        );
+        const failed = saved
+          ? result(409, "REVOKE_FAILED", "REVOKE_NOT_CONFIRMED_MANUAL_ACTION_REQUIRED")
+          : result(503, "RECONCILIATION_REQUIRED", "FENCED_STATE_CHANGE", { reconciliation_required: true });
+        return finish(operationId, failed);
+      }
+
+      return finish(operationId, result(202, "REVOKE_UNKNOWN", "PROVIDER_REVOKE_OUTCOME_STILL_UNKNOWN", {
+        reconciliation_required: true
+      }));
+    } finally {
+      await store.releaseLease(bindingId, lease).catch(() => {});
+    }
+  }
+
+  return { markSuccessfulUse, prepareNextUse, reconcileRotation, revoke, reconcileRevoke };
 }
