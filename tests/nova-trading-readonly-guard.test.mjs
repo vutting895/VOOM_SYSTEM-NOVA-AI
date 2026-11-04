@@ -10,6 +10,7 @@ const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
+const settings = read('src/components/SystemSettingsView.tsx');
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
 function section(source, startMarker, endMarker) {
@@ -127,4 +128,21 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
+});
+
+
+test('auto-training never reports synthetic progress or success before a verified data and model pipeline exists', () => {
+  const statusRoute = section(server, "app.get('/api/auto-train/status'", "app.post('/api/auto-train/trigger'");
+  const triggerRoute = section(server, "app.post('/api/auto-train/trigger'", "app.get('/api/mt5-bridge/status'");
+  assert.match(statusRoute, /status\(503\)/);
+  assert.match(statusRoute, /state: 'NOT_CONFIGURED'/);
+  assert.match(statusRoute, /validationAccuracyPct: null/);
+  assert.match(statusRoute, /dataSource: 'not_connected'/);
+  assert.match(triggerRoute, /status\(503\)/);
+  assert.match(triggerRoute, /TRAINING_PIPELINE_NOT_CONFIGURED/);
+  assert.doesNotMatch(server, /setInterval\(\(\) => \{\s*runBackendTrainingCycle/);
+  assert.doesNotMatch(server, /autoTrainEpoch \+= 1|autoTrainSamples \+= 512|lastValidationAcc = Number/);
+  assert.match(settings, /Backend Auto-Train · Not Configured/);
+  assert.match(settings, /Training OFF/);
+  assert.doesNotMatch(settings, /94\.8%|Exness Direct Feed|Binance \/ Bybit Feed/);
 });
