@@ -288,8 +288,8 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
   {
     id: 'p1-2',
     phase: 'Phase 1',
-    title: 'สภาพแวดล้อม Workers + ระบบตั้ง SL/TP ที่ฝั่ง Broker โดยตรง',
-    desc: 'เชื่อมต่อ Exness Direct API (และโหมด MT5 Worker) พร้อมตั้ง SL/TP ที่ฝั่ง Broker โดยไม่ต้องรอ LLM',
+    title: 'Exness Demo Read-only Bridge และการตรวจสอบ tenant',
+    desc: 'เตรียมเส้นทางอ่านข้อมูล Demo แบบ tenant-scoped เท่านั้น โดยไม่เปิดคำสั่งหรือแก้ไข SL/TP ที่ Broker',
     testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
@@ -305,8 +305,8 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
   {
     id: 'p2-1',
     phase: 'Phase 2',
-    title: 'สร้าง MCP Tools: get_portfolio_status, calculate_risk, place_trade_order',
-    desc: 'แยกฟังก์ชัน Read (ไม่ติด Interrupt) และ Write/Execute (ติด Interrupt) อย่างชัดเจน',
+    title: 'แยก MCP research tools และ broker-write boundary',
+    desc: 'อนุญาตเฉพาะ market research และ risk analysis; broker write/execute ยังคงปิดใช้งาน',
     testCmd: 'ขอดูยอดเงินคงเหลือหน่อย',
     done: true,
   },
@@ -321,8 +321,8 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
   {
     id: 'p2-3',
     phase: 'Phase 2',
-    title: 'ใส่ interrupt() ครอบ FastMCP Tools ทางการเงิน + แนบ Credential Status',
-    desc: 'หยุดรอ Human-in-the-Loop (Approve / Edit / Reject) และตรวจสอบอายุ Token ทันทีเมื่อกด Approve',
+    title: 'กำหนด policy สำหรับ approval intent โดยไม่ให้ client ส่งคำสั่งซื้อขาย',
+    desc: 'การ์ดเดิมถูกแสดงเป็น Research Draft เท่านั้น ไม่มี token revalidation หรือ broker approval ใน UI',
     testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
@@ -340,22 +340,22 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
     phase: 'Phase 3',
     title: 'หน้าบ้าน React + Declarative A2UI / CopilotKit Engine (Least Privilege UI)',
     desc: 'รับเฉพาะ JSON Data จากเซิร์ฟเวอร์มาเปิดวิดเจ็ต ป้องกันช่องโหว่ UI Injection 100%',
-    testCmd: 'เปิดคลังคอมโพเนนต์ Component Catalog',
+    testCmd: 'เปิดคลังคอมโพเนนต์ Research Catalog',
     done: true,
   },
   {
     id: 'p3-2',
     phase: 'Phase 3',
-    title: 'คลังคอมโพเนนต์: ApprovalCard, RiskChart, TradeSummaryCard, BotStatusWidget',
-    desc: 'สร้างชุดวิดเจ็ตมาตรฐานที่เรนเดอร์ตามเจตจำนงของผู้ใช้โดยไม่ต้องมีเมนูกดค้างไว้',
+    title: 'คลังคอมโพเนนต์: ResearchDraftCard, RiskChart และ Read-only Status',
+    desc: 'แสดงข้อมูลวิจัยและสถานะที่ยืนยันได้ โดยไม่เปิดปุ่มอนุมัติหรือส่งคำสั่งซื้อขาย',
     testCmd: 'เปิดคลังคอมโพเนนต์ Component Catalog',
     done: true,
   },
   {
     id: 'p3-3',
     phase: 'Phase 3',
-    title: 'รองรับคำสั่ง Command(resume=...) เมื่อผู้ใช้กด Approve หรือ Edit',
-    desc: 'ส่งพารามิเตอร์ที่อนุมัติหรือแก้ไขกลับไปปลดล็อก LangGraph Checkpoint และรัน Worker ทันที',
+    title: 'ปิด Command resume ใน customer-facing UI',
+    desc: 'เก็บ checkpoint เดิมเป็นประวัติเท่านั้น ไม่สามารถปลดล็อก worker หรือสั่ง broker จาก UI ได้',
     testCmd: 'วิเคราะห์ XAU/USDm แบบ Read-only พร้อม Scenario และระดับความเสี่ยง',
     done: true,
   },
@@ -379,8 +379,8 @@ const FULL_ACTIONABLE_CHECKLIST: ActionableChecklistItem[] = [
   {
     id: 'p4-3',
     phase: 'Phase 4',
-    title: 'ทดสอบการบล็อกคำสั่งที่เกินขนาดความเสี่ยง (Hard Risk Limit Test)',
-    desc: 'ทดสอบสั่งซื้อเกินเพดาน 2.0 Lots เพื่อให้ Rule-Based Risk Engine สกัดกั้นอัตโนมัติ',
+    title: 'ตรวจสอบ risk boundary ในโหมด Read-only',
+    desc: 'ยืนยันว่าคำขอที่เกี่ยวข้องกับการซื้อขายไม่สามารถสร้าง approval หรือส่งไปยัง broker ได้',
     testCmd: 'วิเคราะห์ความเสี่ยง XAU/USDm แบบ Read-only โดยไม่ส่งคำสั่งซื้อขาย',
     done: true,
   },
@@ -832,7 +832,7 @@ export default function NovaChatOSView({
                     : 'bg-[#071326] text-slate-300 border border-cyan-500/30'
                 }`}
               >
-                🌍 8 คู่หลัก Forex &amp; ทองคำ
+                🌍 8 คู่หลัก Forex &amp; ทองคำ · ราคาอ้างอิง
               </button>
               <button
                 type="button"
@@ -843,7 +843,7 @@ export default function NovaChatOSView({
                     : 'bg-[#071326] text-slate-300 border border-cyan-500/30'
                 }`}
               >
-                🪙 8 คู่หลัก Crypto
+                🪙 8 คู่หลัก Crypto · ราคาอ้างอิง
               </button>
             </div>
 
@@ -1086,11 +1086,11 @@ export default function NovaChatOSView({
                               <div className="font-bold text-white mt-0.5">{msg.quantTelemetry.vpinScore} (ปลอดภัย)</div>
                             </div>
                             <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">Broker-Side Stop Loss</div>
+                              <div className="text-[10px] text-slate-400">Scenario Stop Reference</div>
                               <div className="font-bold text-rose-400 mt-0.5">${msg.quantTelemetry.sl}</div>
                             </div>
                             <div className="p-2.5 rounded-xl bg-[#050B16] border border-slate-800">
-                              <div className="text-[10px] text-slate-400">Broker-Side Take Profit</div>
+                              <div className="text-[10px] text-slate-400">Scenario Target Reference</div>
                               <div className="font-bold text-emerald-400 mt-0.5">${msg.quantTelemetry.tp}</div>
                             </div>
                           </div>
@@ -1365,24 +1365,10 @@ export default function NovaChatOSView({
 
                       {/* Dynamic Grid research calendar has no fabricated trading history. */}
                       {msg.widget === 'dynamic-grid-calendar' && (
-                        <div className="p-4 rounded-2xl bg-[#0A1326] border border-amber-500/35 text-left space-y-3"><div className="font-extrabold text-white">RESEARCH CALENDAR · {selectedPair}</div><div className="text-xs text-amber-200">ยังไม่มี verified broker history จึงไม่แสดง P&amp;L หรือจำนวนการปิดออเดอร์</div>{onSwitchTab && <button type="button" onClick={() => onSwitchTab('dynamic-grid-calendar')} className="text-cyan-300 hover:underline font-mono text-[11px]">เปิดปฏิทินวิจัย →</button>}</div>
-                      )}             )}
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-                            {MINI_CALENDAR_DAYS.map((d) => (
-                              <div
-                                key={d.day}
-                                className={`p-2 rounded-xl border ${
-                                  d.win ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'
-                                }`}
-                              >
-                                <div className="text-[10px] text-slate-400">{d.day}</div>
-                                <div className={`font-bold ${d.win ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {d.pnl}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="p-4 rounded-2xl bg-[#0A1326] border border-amber-500/35 text-left space-y-3">
+                          <div className="font-extrabold text-white">RESEARCH CALENDAR · {selectedPair}</div>
+                          <div className="text-xs text-amber-200">ยังไม่มี verified broker history จึงไม่แสดง P&amp;L หรือจำนวนการปิดออเดอร์</div>
+                          {onSwitchTab && <button type="button" onClick={() => onSwitchTab('dynamic-grid-calendar')} className="text-cyan-300 hover:underline font-mono text-[11px]">เปิดปฏิทินวิจัย →</button>}
                         </div>
                       )}
                     </div>
