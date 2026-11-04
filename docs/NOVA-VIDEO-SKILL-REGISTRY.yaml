@@ -1,0 +1,193 @@
+schema_version: "1.0"
+registry_id: nova-video-skills
+product: NOVA AI Video Platform
+delivery_model: api_only
+policy:
+  cost_mode: free_only
+  paid_api_allowed: false
+  paid_gpu_allowed: false
+  trial_credits_qualify_as_free: false
+  automatic_topups_allowed: false
+  execution_default: disabled
+  production_activation_requires_explicit_approval: true
+  private_media_upload_allowed: false
+  notes:
+    - A skill is not available merely because it appears in this registry.
+    - No candidate engine is approved until exact version, license, hardware, privacy terms and zero-cost eligibility are evidenced.
+    - If no eligible free runtime is available, keep the skill blocked; never fall back to paid infrastructure.
+status_vocabulary:
+  - planned
+  - research
+  - blocked_no_free_compute
+  - blocked_license_review
+  - blocked_runtime
+  - implemented_metadata_only
+  - staging_verified
+  - production_enabled
+skill_groups:
+  - id: generation
+    name: Video Generation
+    skills:
+      - id: text_to_video
+        name: Text-to-Video
+        description: Generate a video from a text prompt and structured shot brief.
+        candidate_engines: [Wan 2.2 TI2V-5B, LTX-Video, CogVideoX, ComfyUI]
+        compute_lane: gpu
+        status: blocked_no_free_compute
+        api_task_type: video_generation
+      - id: image_to_video
+        name: Image-to-Video
+        description: Animate an approved still image into a video.
+        candidate_engines: [Wan 2.2 TI2V-5B, LTX-Video, CogVideoX, ComfyUI]
+        compute_lane: gpu
+        status: blocked_no_free_compute
+        api_task_type: video_generation
+      - id: video_to_video
+        name: Video-to-Video
+        description: Transform an input clip while preserving selected content or motion.
+        candidate_engines: [ComfyUI, Wan 2.2, LTX-Video]
+        compute_lane: gpu
+        status: blocked_no_free_compute
+        api_task_type: video_generation
+      - id: storyboard_generation
+        name: Storyboard Generation
+        description: Turn a brief into ordered scenes, shot descriptions and prompts; text-only planning can be CPU-side.
+        candidate_engines: [NOVA deterministic planner, approved open text model]
+        compute_lane: cpu_or_external_model
+        status: research
+        api_task_type: video_planning
+  - id: analysis
+    name: Video Analysis
+    skills:
+      - id: scene_detection
+        name: Scene Detection
+        description: Detect shot boundaries and scene segments.
+        candidate_engines: [PySceneDetect, FFmpeg]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_analysis
+      - id: object_detection
+        name: Object Detection
+        description: Detect and label objects in sampled frames.
+        candidate_engines: [OpenCV, Qwen2.5-VL]
+        compute_lane: cpu_or_gpu
+        status: blocked_license_review
+        api_task_type: video_analysis
+      - id: action_recognition
+        name: Action Recognition
+        description: Classify actions and temporal events across frames.
+        candidate_engines: [Qwen2.5-VL, OpenCV-based pipeline]
+        compute_lane: gpu_preferred
+        status: blocked_license_review
+        api_task_type: video_analysis
+      - id: ocr
+        name: OCR
+        description: Extract visible text from sampled frames.
+        candidate_engines: [PaddleOCR]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_analysis
+      - id: speech_to_text
+        name: Speech-to-Text
+        description: Transcribe speech and produce timestamps.
+        candidate_engines: [Whisper]
+        compute_lane: cpu_or_gpu
+        status: blocked_license_review
+        api_task_type: video_analysis
+      - id: subtitles
+        name: Subtitle and Caption Generation
+        description: Generate timed captions from approved transcription.
+        candidate_engines: [Whisper, FFmpeg]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_analysis
+      - id: video_summary
+        name: Video Summarization
+        description: Produce a concise, timestamp-grounded summary of a clip.
+        candidate_engines: [Qwen2.5-VL, approved open text model]
+        compute_lane: gpu_preferred
+        status: blocked_license_review
+        api_task_type: video_analysis
+      - id: video_qa
+        name: Video Q&A
+        description: Answer questions using evidence from sampled frames, transcript and timestamps.
+        candidate_engines: [Qwen2.5-VL]
+        compute_lane: gpu_preferred
+        status: blocked_license_review
+        api_task_type: video_analysis
+  - id: editing
+    name: Video Editing
+    skills:
+      - id: auto_cut
+        name: Auto Cut and Transcoding
+        description: Trim, concatenate and transcode clips with validated FFmpeg operations.
+        candidate_engines: [FFmpeg]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_edit_export
+      - id: smart_highlight
+        name: Smart Highlight
+        description: Select important segments using scene, speech and action signals.
+        candidate_engines: [PySceneDetect, Whisper, approved vision model, FFmpeg]
+        compute_lane: cpu_or_gpu
+        status: planned
+        api_task_type: video_edit_export
+      - id: audio_video_sync
+        name: Audio and Video Sync
+        description: Align audio tracks, voice-over and video timelines.
+        candidate_engines: [FFmpeg]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_edit_export
+      - id: background_removal
+        name: Background Removal
+        description: Segment foreground subjects and remove or replace backgrounds.
+        candidate_engines: [OpenCV, approved segmentation model]
+        compute_lane: gpu_preferred
+        status: blocked_license_review
+        api_task_type: video_edit_export
+      - id: resolution_enhancement
+        name: Resolution Enhancement
+        description: Upscale frames and validate the resulting video.
+        candidate_engines: [approved open video super-resolution model, FFmpeg]
+        compute_lane: gpu
+        status: blocked_no_free_compute
+        api_task_type: video_edit_export
+      - id: export_validation
+        name: Export and Quality Validation
+        description: Validate container, codecs, duration, frame rate, resolution and audio streams.
+        candidate_engines: [FFmpeg, ffprobe]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_edit_export
+  - id: production
+    name: Video Production
+    skills:
+      - id: script_to_video
+        name: Script-to-Video Planning
+        description: Convert a script into scenes, shot list, narration and generation prompts; does not itself render video.
+        candidate_engines: [NOVA deterministic planner, approved open text model]
+        compute_lane: cpu_or_external_model
+        status: research
+        api_task_type: video_planning
+      - id: voiceover
+        name: Voice-over Generation
+        description: Generate narration audio from approved text and licensed voices.
+        candidate_engines: [Piper]
+        compute_lane: cpu
+        status: blocked_license_review
+        api_task_type: video_audio
+      - id: multilingual_subtitles
+        name: Multilingual Subtitles
+        description: Create translated subtitle tracks after transcription and translation quality checks.
+        candidate_engines: [Whisper, approved open translation model, FFmpeg]
+        compute_lane: cpu_or_gpu
+        status: planned
+        api_task_type: video_analysis
+      - id: social_formatting
+        name: Social Platform Formatting
+        description: Reframe and export approved clips to target aspect ratios and dimensions.
+        candidate_engines: [FFmpeg, OpenCV]
+        compute_lane: cpu
+        status: research
+        api_task_type: video_edit_export
