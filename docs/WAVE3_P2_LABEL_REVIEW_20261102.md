@@ -42,7 +42,7 @@ A regression test has been added for a 23:45 UTC signal that enters and stops at
 
 ## Remaining P2 blockers
 
-1. **Gap-through fills:** current barrier fills use stop/target price plus slippage even when an OHLC bar opens beyond the barrier. A conservative gap-through rule and adversarial tests are required before net outcomes are cost-complete.
+1. **Gap-through fills (partial remediation):** subsequent-bar opening gaps now use conservative fills: stop gaps execute at the worse opening Bid, while target gaps are capped at target; entry-bar opens are excluded because they predate the trigger fill. Adversarial tests cover both directions and the OHLC sequencing caveat. Exact-head CI is pending. This does not make the entire execution model tick-accurate.
 2. **Swap/rollover:** swap is not modeled. A 12-bar M15 holding period can cross broker rollover; the dataset metadata's symbol-spec fields do not, by themselves, establish the applicable realized swap charge for each trade. Obtain and model the account-specific rollover schedule and applicable long-swap charge, or prove eligibility excludes rollover.
 3. **Commission evidence:** `commission_verified=True` and a free-text source are caller assertions, not independent broker evidence. Attach a dated, versioned Exness Demo commission schedule and verify the amount and charging basis before generating accepted labels.
 4. **Real-data integration:** current passing tests use synthetic fixtures. No real Exness first-hit labels have been accepted, and the builder has not been integrated into a challenger dataset/schema/manifest.
@@ -54,3 +54,10 @@ A regression test has been added for a 23:45 UTC signal that enters and stops at
 - The new regression test and this review update are isolated to PR #147. Fresh exact-head P2 CI is required before claiming the update is validated.
 - No full benchmark training, final-OOS tuning, broker order, live trading, deployment, or merge was performed.
 - Keep PR #147 Draft/open/unmerged. Keep PR #66 independent and unchanged by challenger implementation.
+
+
+## P2 gap-through implementation update — 2026-11-04
+
+The PR #147 label builder now records and models subsequent-bar opening gaps without changing the BUY-only contract: a stop gap fills at the worse opening Bid less exit slippage; a target gap is capped at the target less exit slippage. The entry bar's open is not used because it predates the trigger fill. Three adversarial regressions cover stop gap, target gap, and entry-bar sequencing. Exact-head P2 CI is pending for this update.
+
+The remaining P2 acceptance blockers are unchanged: independently verified Exness Demo commission amount/basis, applicable account-specific swap/rollover charges, real Exness label/schema/manifest integration, and a preregistered future untouched holdout. No synthetic fixture is accepted as broker evidence.

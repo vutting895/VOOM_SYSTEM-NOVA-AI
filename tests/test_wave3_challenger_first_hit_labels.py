@@ -184,6 +184,45 @@ class TestFirstHitLabels(unittest.TestCase):
         self.assertLess(trade["signal_timestamp_utc"], trade["entry_timestamp_utc"])
         self.assertEqual(trade["spread_model"], "MT5 Bid OHLC; spread charged at BUY entry only")
 
+    def test_gap_through_stop_uses_worse_subsequent_bar_open(self):
+        market = bars(5)
+        # The open is below the stop; the later intrabar high also reaches
+        # target, but the opening gap is the first event and must stop first.
+        market[2].update({"open": 94.0, "high": 112.0, "low": 93.0, "close": 94.5})
+        trade = self.build(market, [{"signal_index": 0, "entry_trigger_price": 100.1}])[0]
+        self.assertEqual(trade["outcome_class"], "stop_first")
+        self.assertTrue(trade["gap_through_barrier"])
+        self.assertEqual(trade["gap_through_side"], "stop")
+        self.assertEqual(trade["gap_open_price"], 94.0)
+        self.assertAlmostEqual(trade["exit_price"], 93.98)
+        self.assertFalse(trade["ambiguous_stop_and_target_same_bar"])
+
+    def test_gap_through_target_is_capped_at_target_not_favorable_open(self):
+        market = bars(5)
+        # The open is above target; the later low also crosses stop, but the
+        # target opening event is first. Do not grant the better opening price.
+        market[2].update({"open": 112.0, "high": 113.0, "low": 90.0, "close": 112.5})
+        trade = self.build(market, [{"signal_index": 0, "entry_trigger_price": 100.1}])[0]
+        self.assertEqual(trade["outcome_class"], "target_first")
+        self.assertTrue(trade["gap_through_barrier"])
+        self.assertEqual(trade["gap_through_side"], "target")
+        self.assertEqual(trade["gap_open_price"], 112.0)
+        self.assertAlmostEqual(trade["exit_price"], trade["target_price"] - 0.02)
+        self.assertLess(trade["exit_price"], 112.0 - 0.02)
+        self.assertFalse(trade["ambiguous_stop_and_target_same_bar"])
+
+    def test_entry_bar_open_predates_trigger_and_is_not_a_gap_fill(self):
+        market = bars(4)
+        # Entry occurs only after the trigger is reached. The bar's open is
+        # earlier than that fill and must not be used as the exit gap price.
+        market[1].update({"open": 90.0, "high": 101.0, "low": 89.0, "close": 100.5})
+        trade = self.build(market, [{"signal_index": 0, "entry_trigger_price": 100.1}])[0]
+        self.assertEqual(trade["outcome_class"], "stop_first")
+        self.assertFalse(trade["gap_through_barrier"])
+        self.assertIsNone(trade["gap_through_side"])
+        self.assertAlmostEqual(trade["exit_price"], trade["stop_price"] - 0.02)
+        self.assertNotAlmostEqual(trade["exit_price"], 90.0 - 0.02)
+
     def test_invalid_bar_order_and_signal_order_are_rejected(self):
         market = bars(4)
         market[2]["timestamp"] = market[1]["timestamp"]

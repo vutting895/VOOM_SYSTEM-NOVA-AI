@@ -63,10 +63,13 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
                            contract_size=CONTRACT, slippage_per_side=SLIPPAGE,
                            max_daily_trades=MAX_DAILY_TRADES,
                            max_daily_loss_usd=MAX_DAILY_LOSS_USD):
-    """Use only next-bar BUY fills; stop-first ties; censor incomplete horizons.
+    """Use next-bar BUY fills, conservative gap handling, and stop-first ties.
 
-    OHLC is MT5 Bid: charge spread at BUY entry, then one-side slippage at each
-    fill. Gap-through fills are not modeled. Commission must be verified.
+    OHLC is MT5 Bid. Subsequent-bar opening gaps through the stop fill at the
+    worse opening Bid; target gaps are capped at the target price. The entry
+    bar's open predates the trigger fill, so its intrabar sequence remains
+    OHLC-ambiguous and retains the existing stop-first barrier treatment.
+    Commission must be verified.
     """
     if commission_verified is not True:
         raise ValueError("commission_schedule_unverified")
@@ -131,8 +134,22 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
         scan_end = end if complete else len(market) - 1
         exit_i = exit_price = outcome = None
         ambiguous = False
+        gap_through_side = gap_open_price = None
         for j in range(entry_i, scan_end + 1):
             bar = market[j]
+            # On bars after entry, the opening Bid is the first observable
+            # price. A stop gap fills at the worse open; a target gap is
+            # conservatively capped at the target instead of granting a
+            # favorable opening improvement. The entry-bar open predates the
+            # trigger fill, so it is deliberately excluded from this rule.
+            if j > entry_i and bar["open"] < stop:
+                exit_i, exit_price, outcome = j, bar["open"] - slip, "stop_first"
+                gap_through_side, gap_open_price = "stop", bar["open"]
+                break
+            if j > entry_i and bar["open"] > target:
+                exit_i, exit_price, outcome = j, target - slip, "target_first"
+                gap_through_side, gap_open_price = "target", bar["open"]
+                break
             sl, tp = bar["low"] <= stop, bar["high"] >= target
             if sl and tp:
                 ambiguous, exit_i, exit_price, outcome = True, j, stop - slip, "stop_first"; break
@@ -153,7 +170,8 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
                 "mae_price": min(x["low"] for x in path) - entry, "mfe_price": max(x["high"] for x in path) - entry,
                 "mae_mfe_are_ohlc_bar_bounds": True,
                 "bars_held": None, "ambiguous_stop_and_target_same_bar": False, "spread_cost_usd": spread_cost,
-                "slippage_cost_usd": None, "risk_usd_before_costs": risk, "exit_reason": None})
+                "slippage_cost_usd": None, "risk_usd_before_costs": risk, "exit_reason": None,
+                "gap_through_barrier": False, "gap_through_side": None, "gap_open_price": None})
             break
         if exit_i is None:
             exit_i, outcome = end, "time_exit"
@@ -173,7 +191,10 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
             "spread_cost_usd": spread_cost, "slippage_cost_usd": 2 * slip * lots * contract_size,
             "risk_usd_before_costs": risk, "exit_reason": outcome,
             "spread_model": "MT5 Bid OHLC; spread charged at BUY entry only",
-            "gap_fill_model": "barrier-price fill plus slippage; gap-through execution not modeled",
+            "gap_fill_model": "subsequent-bar stop gaps fill at worse opening Bid; target gaps capped at target; entry-bar open excluded because it predates trigger fill",
+            "gap_through_barrier": gap_through_side is not None,
+            "gap_through_side": gap_through_side,
+            "gap_open_price": gap_open_price,
             "training_eligible": True})
         daily_count[entry_day] = daily_count.get(entry_day, 0) + 1
         daily_net[xb["day"]] = daily_net.get(xb["day"], 0.0) + net

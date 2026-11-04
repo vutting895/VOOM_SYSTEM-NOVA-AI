@@ -197,7 +197,7 @@ The existing 12-bar direction label is not a trade-outcome label. The challenger
 - Signal is evaluated only after the signal M15 bar closes.
 - Entry is eligible on the next M15 bar only, using the existing Wave3 breakout trigger: the next bar must reach the frozen entry level; fill at the greater of next-bar open and trigger level, plus that bar's recorded spread and one-side slippage.
 - Long stop distance is fixed at $5.00 from executable entry; target distance is $11.00 (2.2R); maximum holding period is 12 bars. Preserve one open position, no more than five entries per day, and the $500 daily realized-loss stop.
-- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. MT5 OHLC is treated as Bid: charge recorded spread at BUY entry only; stop/target/time exits use Bid prices plus one-side exit slippage, without charging spread a second time at exit. Gap-through fills are not modeled and remain a P4 execution-cost stress test.
+- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. MT5 OHLC is treated as Bid: charge recorded spread at BUY entry only; stop/target/time exits use Bid prices plus one-side exit slippage, without charging spread a second time at exit. On subsequent bars, a stop gap through the opening Bid fills at the worse open minus slippage; a target gap is conservatively capped at the target minus slippage. The entry-bar open predates the trigger fill and is excluded from gap handling; its intrabar sequence remains OHLC-ambiguous and stop-first.
 - Persist signal, entry and exit indices/timestamps; barrier prices; exit reason; gross P&L; spread; entry/exit slippage; commission; net P&L; R multiple; MAE/MFE; bars held; and ambiguity flags.
 
 ### Cost and provenance blockers
@@ -245,3 +245,13 @@ The current pipeline constants show slippage of $0.02 per side and commission of
 - The prior dedicated P2 CI #29 passed 12 tests on head `df2e2c92d97eccdb8f768b64a3facdc9c1e9118f`; it predates the new regression test. Exact-head CI after the 2026-11-03 test/documentation update is required before claiming the update is validated.
 - P2 remains blocked by unmodeled gap-through fills, missing swap/rollover charges, lack of independent Exness Demo commission evidence, no accepted real-data challenger labels/manifest, and the need for a genuinely new future final holdout. Do not train or tune on the already-inspected 2026-07-01 benchmark OOS.
 - This remains isolated to PR #147. It does not change PR #66, frozen v6.2.6.3 weights/lookbacks/thresholds/gates, or any broker/live-trading/deployment state.
+
+
+## P2 gap-through revalidation — 2026-11-04
+
+- The isolated PR #147 BUY label builder now handles subsequent-bar opening gaps explicitly. If a later bar opens below the stop, the stop fills at the worse opening Bid minus exit slippage. If it opens above target, the target is conservatively capped at target minus slippage rather than granting a favorable gap price.
+- The opening event determines order before that bar's later high/low extremes; adversarial tests cover a stop-gap bar that later reaches target and a target-gap bar that later reaches stop.
+- The entry candle's open is earlier than the trigger fill, so it is not used as a post-entry gap fill. Entry-bar OHLC sequencing remains ambiguous; the existing stop-first rule is retained and is not tick-level execution proof.
+- Added persisted gap_through_barrier, gap_through_side, and gap_open_price fields for closed outcomes. This remains challenger-only; no benchmark feature, label, weight, lookback, threshold, or gate is changed.
+- Exact-head P2 CI is pending for this code/test update. Remaining acceptance blockers are independent Exness Demo commission evidence, account-specific swap/rollover charges, real-data challenger label/schema/manifest integration, and a genuinely new future untouched holdout. Synthetic tests do not resolve those broker/data blockers.
+- No benchmark training, final-OOS tuning, broker order, deployment, merge, or Live Trading was performed.
