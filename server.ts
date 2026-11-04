@@ -116,9 +116,9 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
     approvalCard: {
       approvalId: `APV-${Date.now().toString().slice(-6)}`,
       instrument,
-      broker: meta.category === 'FOREX' ? 'Exness Trader API (Ed25519 REST v1)' : 'Binance / Bybit Unified REST API',
+      broker: 'Research-only · no broker session connected',
       side,
-      orderType: 'LIMIT_FVG_RETRACEMENT',
+      orderType: 'NON_EXECUTABLE_RESEARCH_SCENARIO',
       recommendedLots,
       entryPrice,
       stopLossPrice,
@@ -126,7 +126,7 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
       rewardRiskRatio: `1 : ${rewardRisk}`,
       tripleBarrierVerticalBars: 12,
       enginePipeline: 'Outer: Cloud Gemini LLM → Inner: TFT + FinRL + Quantum VQC/QRL',
-      status: 'PENDING_HUMAN_APPROVAL',
+      status: 'RESEARCH_DRAFT_ONLY',
     },
   };
 }
@@ -759,7 +759,7 @@ async function startServer() {
         ],
         exit: { takeProfitPct: quantResult.tpPct, stopLossPct: quantResult.slPct },
         rationale: `สมองส่วนหน้า (Cloud LLM) สกัดโจทย์ "${prompt || 'กลยุทธ์ Hybrid'}" และส่งต่อให้สมองส่วนคำนวณหลังบ้าน (TFT + FinRL + Quantum VQC/QRL) สแกนกราฟ ${market || quantResult.instrument} คำนวณขนาดออเดอร์ ${quantResult.recommendedLots} Lots พร้อมกรอบ Triple-Barrier`,
-        warning: 'ทุกคำสั่งต้องผ่านวิดเจ็ต <ApprovalCard /> และ <RiskGauge /> ก่อนส่งเข้าโบรกเกอร์ (โหมด Read-Only)',
+        warning: 'Research draft only. This application is read-only and has no broker order submission path.',
       },
       llm: { provider: 'gemini-3.8-flash-hybrid', available: true },
     });
@@ -770,8 +770,8 @@ async function startServer() {
   // Layer 1: Declarative A2UI / CopilotKit JSON Protocol (Least Privilege UI)
   // Layer 2: LangGraph Stateful Checkpoint Saver (threads, checkpoints, trade_logs, user_configs)
   // Layer 3: NeMo Guardrails (Colang Policy Filter against Prompt Injection)
-  // Layer 4: FastMCP Server (Streamable HTTP: get_portfolio_status, calculate_risk, place_trade_order)
-  // Layer 5: Rule-Based Risk Engine + Broker-Side SL/TP Workers & Token Re-validation
+  // Layer 4: Read-only FastMCP metadata (no broker execution tools)
+  // Layer 5: Research-only risk calculations; no broker-side execution authority
   // =========================================================================
   interface CredentialStatusPayload {
     provider: string;
@@ -801,7 +801,7 @@ async function startServer() {
     regime: string;
     brokerSideSlTpGuard: boolean;
     credentialStatus: CredentialStatusPayload;
-    status: 'PAUSED_WAITING_HUMAN' | 'APPROVED_EXECUTED' | 'EDITED_AND_EXECUTED' | 'REJECTED';
+    status: 'REJECTED';
     createdAt: string;
   }
 
@@ -853,10 +853,10 @@ async function startServer() {
         maxDrawdownPct: 5.0,
         maxLotSize: 2.0,
         maxMarginUsagePct: 35.0,
-        brokerDirectSlTpEnabled: true,
+        brokerDirectSlTpEnabled: false,
       },
       gridStatus: {
-        enabled: true,
+        enabled: false,
         direction: 'BOTH',
         symbol: 'XAU/USDm',
       },
@@ -1052,7 +1052,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'WRITE_UPDATE_RISK_PARAMS' as const,
         accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/update_risk_parameters',
+        mcpTool: 'disabled:write-intent',
         requiresInterrupt: true,
         params: {
           symbol,
@@ -1068,7 +1068,7 @@ async function startServer() {
       schemaVersion: 'zod-intent-v2.5',
       intentType: 'WRITE_EXECUTE_ORDER' as const,
       accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
-      mcpTool: 'mcp://fastmcp.streamable/place_trade_order',
+      mcpTool: 'disabled:write-intent',
       requiresInterrupt: true,
       params: {
         symbol,
@@ -1170,6 +1170,20 @@ async function startServer() {
     // 3. Check Strategy 1: Intent-to-Parameter Extraction (Zod Structured Output)
     const structuredIntent = extractStructuredIntentSchema(rawPrompt, symbol);
 
+    // Refuse every high-impact write before risk calculation, checkpoint creation, or approval UI.
+    if (structuredIntent.accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT' || structuredIntent.requiresInterrupt) {
+      return res.status(403).json({
+        ok: false,
+        error: 'WRITE_INTENTS_DISABLED',
+        intentType: structuredIntent.intentType,
+        mode: 'read-only',
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        detail: 'This application accepts market research intents only; broker and risk-setting mutations are disabled.',
+      });
+    }
+
     // Pitfall 1 Fix: Semantic Caching Telemetry (< 2ms Cache Hit for frequent intents)
     const cacheKey = `${structuredIntent.intentType}:${structuredIntent.params.symbol}`;
     const existingCache = semanticIntentCache.get(cacheKey);
@@ -1239,56 +1253,14 @@ async function startServer() {
       return;
     }
 
-    // 6. High-Impact Write/Execute Intent -> Trigger LangGraph interrupt() + Attach Credential Status (Pitfall 2 Fix)
-    const quant = runInternalQuantExecutionEngine(rawPrompt, structuredIntent.params.symbol);
-    const meta = ALL_MAJOR_PAIRS[quant.instrument] || ALL_MAJOR_PAIRS['XAU/USDm'];
-    const customLots = structuredIntent.params.lots || quant.recommendedLots;
-    const interruptId = `INT-${Date.now().toString().slice(-6)}`;
-    const nowIso = new Date().toISOString();
-    const expIso = new Date(Date.now() + 3600 * 1000).toISOString();
-
-    const checkpointItem: LangGraphInterruptCheckpoint = {
-      interruptId,
-      threadId: state.threadId,
-      intentType: structuredIntent.intentType,
-      mcpTool: structuredIntent.mcpTool,
-      symbol: quant.instrument,
-      side: structuredIntent.params.side,
-      lots: customLots,
-      entryPrice: meta.price,
-      stopLoss: quant.stopLossPrice,
-      takeProfit: quant.takeProfitPrice,
-      riskPerTradePct: structuredIntent.params.riskPerTradePct ?? state.riskRules.riskPerTradePct,
-      confidencePct: Number((quant.tftConfidence * 100).toFixed(1)),
-      vpinScore: quant.vpinToxicity,
-      var95Pct: quant.riskGauge.var99Pct,
-      regime: quant.tftRegime,
-      brokerSideSlTpGuard: true,
-      credentialStatus: {
-        provider: 'not_configured',
-        tokenFingerprint: '',
-        issuedAt: nowIso,
-        expiresAt: nowIso,
-        isValid: false,
-        revalidatedOnResume: false,
-      },
-      status: 'PAUSED_WAITING_HUMAN',
-      createdAt: nowIso,
-    };
-
-    state.pendingInterrupts[interruptId] = checkpointItem;
-    state.updatedAt = nowIso;
-
-    res.json({
-      ok: true,
-      threadId: state.threadId,
-      layerTriggered: 'LAYER_2_LANGGRAPH_INTERRUPT_CHECKPOINT',
-      declarativeUiType: 'langgraph-interrupt-approval-card',
-      structuredIntent,
-      riskCheck,
-      semanticCache: { hit: isCacheHit, latencyMs },
-      interruptCheckpoint: checkpointItem,
-      reply: `⏸️ [LangGraph interrupt() · Thread ${state.threadId}]: หยุดรอการยืนยันสำหรับ FastMCP place_trade_order พร้อมแนบสถานะ Token Credential และตั้งค่า Stop Loss / Take Profit อัตโนมัติที่ฝั่ง Broker Worker โดยตรง:`,
+    // Defensive fallback: no write-intent may create an approval checkpoint.
+    return res.status(403).json({
+      ok: false,
+      error: 'WRITE_INTENTS_DISABLED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
     });
   });
 
