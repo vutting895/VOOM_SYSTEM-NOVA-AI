@@ -1,54 +1,40 @@
 # NOVA AI Video API — External Frontend Integration
 
-## Scope
+## Scope and runtime
 
-NOVA Video is an API service for an independently hosted frontend. This repository does not need to build, host, or deploy the consumer's web UI for the API to be called. The existing `/video` page is a legacy/demo client and is not a dependency of the API contract.
+NOVA Video is an API-only service for the independently hosted consumer frontend. The current implementation target is a dedicated Cloudflare Worker in `integrations/nova-video-api/`. The root Vite/Express application and Netlify site are not the API runtime. Do not create or deploy another NOVA consumer UI.
 
-## Current capability boundary
+The Worker URL is intentionally unpublished. Publish it only after a reviewed deployment, exact deployed SHA verification, and authenticated staging acceptance. Do not call `https://voomsystem.netlify.app` as the Video API origin.
 
-Implemented API routes:
-- `GET/POST /api/video/projects` — list and create tenant-owned project metadata.
-- `GET/POST /api/video/jobs` — list and record tenant-owned job requests.
+## Endpoints
 
-Not implemented:
-- media upload or private object storage;
-- job detail/cancel endpoints or webhook callbacks;
-- actual video generation, analysis, editing, transcoding or export;
-- worker dispatch, model inference or GPU execution.
+- `GET /api/video/skills` — authenticated 22-skill catalog.
+- `GET/POST /api/video/projects` — owner-scoped project metadata.
+- `GET/POST /api/video/jobs` — owner-scoped job-request metadata.
 
-Every accepted job is currently recorded in a blocked state:
-- `video_generation` → `blocked_no_free_gpu`
-- `video_analysis` and `video_edit_export` → `blocked_worker_unavailable`
-
-The API returns `executionEnabled: false` and zero estimated cost. A successful HTTP response means the request was recorded, not that a video was processed.
-
-## API origin and deployment
-
-The routes currently live in the Next.js application under `frontend/app/api/video`. The intended public origin is `https://voomsystem.netlify.app`, but production use must wait until Netlify confirms a deploy containing the reviewed API commit. Do not treat the current website deployment as proof that this API revision is live.
-
-Configure the external frontend's exact HTTPS origin(s) in Netlify environment variable:
-
-```text
-NOVA_VIDEO_ALLOWED_ORIGINS=https://your-frontend.example,https://app.your-domain.example
-```
-
-Use exact origins only: scheme + hostname + optional port; no path or wildcard. The API does not enable cookie credentials. Cross-origin requests use the Authorization bearer header. Unlisted origins receive no CORS permission and preflight is rejected.
-
-## Authentication
-
-The frontend must sign the user in through the same Supabase Auth project used by NOVA and send its short-lived access token:
+Every request requires a short-lived Supabase Auth access token from the same Supabase project:
 
 ```http
 Authorization: Bearer <supabase_access_token>
 Content-Type: application/json
 ```
 
-Never expose a Supabase service-role key in browser code. The API validates the token with Supabase Auth and performs database requests under the authenticated user's JWT, relying on RLS. Do not send refresh tokens to the API.
+Never expose a service-role key or refresh token in browser code. The Worker validates the access token with Supabase Auth, then accesses PostgREST using the same user's bearer token and the publishable key. RLS remains authoritative.
 
-## Example integration
+## CORS and Worker configuration
+
+Configure these Worker variables only after the external frontend's exact HTTPS origin is confirmed:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `NOVA_VIDEO_ALLOWED_ORIGINS` — comma-separated exact origins (scheme + hostname + optional port). No wildcard, no credentials, and no default allowlist.
+
+An unset allowlist denies browser-origin requests. Do not infer the origin from a preview URL or use the Netlify API origin as a substitute.
+
+## Project example
 
 ```js
-const API_BASE = "https://voomsystem.netlify.app";
+const API_BASE = "<verified Cloudflare Worker origin>";
 const accessToken = session.access_token;
 
 const headers = {
@@ -56,63 +42,34 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-const projectResponse = await fetch(`${API_BASE}/api/video/projects`, {
+const response = await fetch(`${API_BASE}/api/video/projects`, {
   headers,
   cache: "no-store",
 });
-if (!projectResponse.ok) throw new Error("Could not load projects");
-const { projects } = await projectResponse.json();
-
-const createResponse = await fetch(`${API_BASE}/api/video/projects`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({ title: "Campaign video", description: "" }),
-});
-if (!createResponse.ok) throw new Error("Could not create project");
-const { project } = await createResponse.json();
-
-const jobResponse = await fetch(`${API_BASE}/api/video/jobs`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    project_id: project.id,
-    task_type: "video_generation",
-    prompt: "A short cinematic product introduction",
-    idempotency_key: crypto.randomUUID().replaceAll("-", ""),
-  }),
-});
-const jobPayload = await jobResponse.json();
-if (!jobResponse.ok) throw new Error(jobPayload.error || "Could not record job");
-// 202 means accepted for recording only. jobPayload.executionEnabled is false.
+if (!response.ok) throw new Error("Could not load projects");
+const { projects } = await response.json();
 ```
 
-## HTTP behavior
+## Job status and capability boundary
 
-- `401`: missing/invalid/expired Supabase access token.
-- `400`: invalid JSON or unsupported fields/values.
-- `403`: CORS preflight Origin is not allowlisted.
-- `409`: same idempotency key reused with a different project/task/prompt.
-- `413`: request body exceeds the endpoint size limit.
-- `415`: request content type is not application/json.
-- `503`: auth provider or Supabase data store unavailable/not configured.
-- `202`: new job request recorded but blocked and not executed.
-- `200`: list response or identical idempotent replay.
+A successful job POST means that the request was recorded, not that any media was processed.
 
-## Required deployment configuration
+- `video_generation` → `blocked_no_free_gpu`
+- `video_analysis` and `video_edit_export` → `blocked_worker_unavailable`
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NOVA_VIDEO_ALLOWED_ORIGINS`
+Every skill and job returns `executionEnabled: false` and `estimatedCost: 0`. There is no media upload, private object storage, worker dispatch, model inference, GPU execution, video generation, analysis, editing, transcoding or export.
 
-The Supabase migration `202610310001_nova_video_workspace` is not yet applied to the hosted project. The API will return 503 for project/job operations until the migration is applied to an approved isolated staging environment and then an explicitly approved production release. Do not apply it to production as part of this API-only branch.
+## Database and acceptance gates
 
-## Release gates
+The additive migration `202610310001_nova_video_workspace` defines owner-scoped project/job tables, RLS, a composite project-owner foreign key, and a per-user idempotency key. The migration is not applied to the hosted Supabase project. Do not apply it to production or create a billable Supabase branch as part of this work.
 
-1. Frontend CI and disposable PostgreSQL migration CI must execute and pass with inspectable logs.
-2. Independent security review must verify token handling, CORS allowlist, owner RLS and composite project-owner foreign key.
-3. Test two distinct Supabase Auth users against staging; each must be unable to read or reference the other's projects/jobs.
-4. Verify CORS preflight and actual requests from the exact external frontend origin.
-5. Deploy the API commit and verify the deployed commit SHA before publishing the base URL.
-6. Keep all media processing disabled until a truly zero-cost worker, private storage and model-license review are proven.
+Before publication:
 
-See `docs/openapi/nova-video-api.yaml` for the machine-readable contract.
+1. Run Worker contract CI on the exact PR head with inspectable logs.
+2. Review authentication, exact-origin CORS, PostgREST redirects, RLS, project-owner binding and idempotency.
+3. Apply the migration only to an explicitly approved, isolated staging environment.
+4. Test two distinct Supabase users; each must be unable to list, reference or create jobs against the other user's projects.
+5. Verify preflight and authenticated calls from the exact external frontend origin.
+6. Verify the deployed Worker SHA before publishing its URL.
+
+No paid API, GPU, trial credits, auto-top-up, paid storage or unapproved production resource is allowed.
