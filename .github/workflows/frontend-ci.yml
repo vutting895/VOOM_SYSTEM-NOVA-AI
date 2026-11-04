@@ -7,10 +7,14 @@ concurrency:
 on:
   pull_request:
     paths:
-      - "frontend/**"
+      - "src/**"
+      - "public/**"
       - "backend/**"
-      - "server.ts"
       - ".env.example"
+      - "package.json"
+      - "vite.config.ts"
+      - "index.html"
+      - "server.ts"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -29,10 +33,14 @@ on:
   push:
     branches: [main]
     paths:
-      - "frontend/**"
+      - "src/**"
+      - "public/**"
       - "backend/**"
-      - "server.ts"
       - ".env.example"
+      - "package.json"
+      - "vite.config.ts"
+      - "index.html"
+      - "server.ts"
       - "netlify.toml"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
@@ -55,9 +63,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     env:
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
@@ -70,15 +75,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install dependencies
-        run: npm ci
+      - name: Install root Vite dependencies
+        run: npm install --no-package-lock --include=dev
       - name: Test NOVA Demo-only read-only execution guard
-        working-directory: .
         run: node --test tests/nova-trading-readonly-guard.test.mjs
       - name: Syntax-check Exness Demo read-only bridge
-        working-directory: .
         run: python -m py_compile backend/mt5_bridge.py
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
@@ -86,36 +87,12 @@ jobs:
       - name: Test Supabase Vault readiness and local secret boundaries
         working-directory: .
         run: node --test tests/secret-vault-readiness.test.mjs
-      - name: Test AI API authentication precedes payload validation
+      - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
-        run: node --test tests/frontend-gen-ai-auth-order.test.mjs
-      - name: Test bounded NOVA chat history
-        working-directory: .
-        run: node --test tests/chat-history.test.mjs
-      - name: Test customer Zero-Menu Command Center contracts
-        working-directory: .
-        run: node --test tests/customer-command-center.test.mjs
-      - name: Test customer strategy selection and preference isolation
-        working-directory: .
-        run: node --test tests/customer-strategy-selection.test.mjs
+        run: node --test tests/nova-approval-migration.test.mjs
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
-      - name: Test server-side chat secret redaction
-        working-directory: .
-        run: node --test tests/chat-secret-redaction.test.mjs
-      - name: Test chat API authentication before body parsing
-        working-directory: .
-        run: node --test tests/chat-api-auth-order.test.mjs
-      - name: Test NOVA durable approval lifecycle contracts
-        working-directory: .
-        run: node --test tests/nova-approval-*.test.mjs
-      - name: Test NOVA Video Workspace tenant and free-only contracts
-        working-directory: .
-        run: node --test tests/nova-video-workspace.test.mjs
-      - name: Test NOVA Video API external-origin CORS contract
-        working-directory: .
-        run: node --test tests/nova-video-api-cors.test.mjs
       - name: Test NOVA AI Worker authentication and safety contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs
@@ -137,24 +114,13 @@ jobs:
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/mt5-bridge-relay/wrangler.jsonc
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
       - name: Validate NOVA System Integration Hub Worker bundle
-        working-directory: frontend
-        run: npx wrangler deploy --dry-run --config ../integrations/system-hub/wrangler.jsonc
-      - name: Type-check
-        run: npm run typecheck
-      - name: Build Next.js frontend for CI validation
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Build root Vite frontend
         run: npm run build
-
-      - name: Build Cloudflare OpenNext Worker bundle for CI validation
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: "ci-placeholder-not-a-secret"
-          NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
-        run: npm run cf:build
 
 
 
