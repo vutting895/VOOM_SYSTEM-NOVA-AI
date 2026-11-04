@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   Bot,
@@ -49,28 +49,6 @@ const BROKER_PROVIDERS = [
 
 type SettingsTab = 'broker-api' | 'trading-execution' | 'backend-autotrain' | 'security-risk';
 
-const MAJOR_FOREX_LIST = [
-  'XAU/USDm',
-  'EUR/USDm',
-  'GBP/USDm',
-  'USD/JPYm',
-  'USD/CHFm',
-  'AUD/USDm',
-  'USD/CADm',
-  'NZD/USDm',
-];
-
-const MAJOR_CRYPTO_LIST = [
-  'BTC/USDT',
-  'ETH/USDT',
-  'SOL/USDT',
-  'BNB/USDT',
-  'XRP/USDT',
-  'ADA/USDT',
-  'DOGE/USDT',
-  'TON/USDT',
-];
-
 export default function SystemSettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('broker-api');
 
@@ -80,26 +58,9 @@ export default function SystemSettingsView() {
   const [defaultBotMode, setDefaultBotMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
 
-  // 3. Backend Auto-Train Settings State
-  const [autoTrainEnabled, setAutoTrainEnabled] = useState<boolean>(true);
-  const [autoTrainIntervalSec, setAutoTrainIntervalSec] = useState<number>(18);
-  const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
-    '🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้านสำเร็จ (Epoch #148 · ความแม่นยำ 94.8%)'
-  );
-  const [syncingBackend, setSyncingBackend] = useState<boolean>(false);
-
   // 4. Risk & Security Guard State
   const [maxDailyDrawdownPct, setMaxDailyDrawdownPct] = useState<string>('3.0');
   const [defaultLotSize, setDefaultLotSize] = useState<string>('0.35');
-
-  useEffect(() => {
-    fetch('/api/auto-train/status', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) setAutoTrainNotice(data.statusNotification);
-      })
-      .catch(() => {});
-  }, []);
 
   function notifySaved(msg: string) {
     setSaveBanner(msg);
@@ -107,24 +68,6 @@ export default function SystemSettingsView() {
   }
 
 
-  function handleTriggerBackendTrain(symbol: string) {
-    setSyncingBackend(true);
-    setAutoTrainNotice(`🔄 Backend Auto-Train: กำลังดึงกราฟสด ${symbol} มาเทรนโมเดลอัตโนมัติที่ Backend...`);
-    fetch('/api/auto-train/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) {
-          setAutoTrainNotice(data.statusNotification);
-        }
-        notifySaved(`สั่งซิงค์ข้อมูลและเทรนโมเดล ${symbol} ที่ Backend เรียบร้อยแล้ว`);
-      })
-      .catch(() => {})
-      .finally(() => setSyncingBackend(false));
-  }
 
   const activeProvider =
     BROKER_PROVIDERS.find((b) => b.id === selectedBrokerId) || BROKER_PROVIDERS[0];
@@ -398,124 +341,38 @@ export default function SystemSettingsView() {
           TAB 3: BACKEND AUTO-TRAIN DAEMON SETTINGS
          ===================================================================== */}
       {activeTab === 'backend-autotrain' && (
-        <div className="p-6 rounded-3xl bg-[#0A101F] border border-cyan-500/30 space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-            <div>
-              <span className="text-[11px] font-mono text-cyan-400 uppercase">
-                Backend Autonomous Data Ingestion &amp; Model Training
-              </span>
-              <h2 className="text-base font-bold text-white mt-0.5">
-                ตั้งค่าระบบดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้าน (Backend 100%)
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                ทำงานอัตโนมัติในเซิร์ฟเวอร์ Backend โดยไม่ต้องเปิดหน้ากราฟเทรนบน Frontend และแจ้งเฉพาะสถานะความพร้อมใช้งาน
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setAutoTrainEnabled(!autoTrainEnabled)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
-                autoTrainEnabled
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {autoTrainEnabled ? '🟢 เปิด Auto-Train หลังบ้าน (ON)' : 'ปิดชั่วคราว (OFF)'}
-            </button>
+        <div className="p-6 rounded-3xl bg-[#0A101F] border border-amber-500/30 space-y-4">
+          <div className="pb-4 border-b border-slate-800">
+            <span className="text-[11px] font-mono text-amber-300 uppercase">
+              Backend Auto-Train · Not Configured
+            </span>
+            <h2 className="text-base font-bold text-white mt-1">
+              ระบบดึงข้อมูลและฝึกโมเดลอัตโนมัติ
+            </h2>
+            <p className="text-xs text-slate-300 mt-2">
+              ปิดการรายงานผลสำเร็จและการสั่งเทรนชั่วคราว เพราะยังไม่มี authenticated market-data feed
+              และ training pipeline ที่ตรวจสอบย้อนกลับได้
+            </p>
           </div>
-
-          {/* Current Backend Status Notification Bar */}
-          <div className="p-4 rounded-2xl bg-[#060A14] border border-emerald-500/35 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 text-xs font-mono text-emerald-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <span>{autoTrainNotice}</span>
-            </div>
-            <button
-              type="button"
-              disabled={syncingBackend}
-              onClick={() => handleTriggerBackendTrain('XAU/USDm')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncingBackend ? 'animate-spin' : ''}`} />
-              สั่งดึงข้อมูลและเทรนซ้ำทันที
-            </button>
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+            <div className="text-sm font-bold text-amber-200">สถานะ: NOT CONFIGURED</div>
+            <p className="text-xs text-slate-300">
+              ยังไม่ยืนยัน Exness Demo feed, แหล่งข้อมูลย้อนหลัง, dataset lineage,
+              training schedule, model artifact หรือ out-of-sample validation
+            </p>
+            <p className="text-xs text-slate-400">
+              เป้าหมายคือดึงข้อมูลและฝึกโมเดลวันละครั้ง แต่จะยังไม่แสดงว่าเปิดใช้งาน
+              จนกว่าทุกขั้นตอนจะผ่านการทดสอบจริง
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Major Forex Pairs Auto-Trained */}
-            <div className="p-4 rounded-2xl bg-[#060A14] border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-white">
-                  🌍 คู่หลัก Forex &amp; ทองคำที่ดึงข้อมูลเทรนอัตโนมัติ (8 คู่)
-                </span>
-                <span className="font-mono text-cyan-400">Exness Direct Feed</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {MAJOR_FOREX_LIST.map((sym) => (
-                  <button
-                    key={sym}
-                    type="button"
-                    onClick={() => handleTriggerBackendTrain(sym)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#0D1528] hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-colors"
-                  >
-                    {sym} · เทรนซ้ำ
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Major Crypto Pairs Auto-Trained */}
-            <div className="p-4 rounded-2xl bg-[#060A14] border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-white">
-                  🪙 คู่หลัก Crypto ที่ดึงข้อมูลเทรนอัตโนมัติ (8 คู่)
-                </span>
-                <span className="font-mono text-indigo-400">Binance / Bybit Feed</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {MAJOR_CRYPTO_LIST.map((sym) => (
-                  <button
-                    key={sym}
-                    type="button"
-                    onClick={() => handleTriggerBackendTrain(sym)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#0D1528] hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 border border-slate-800 hover:border-indigo-500/40 transition-colors"
-                  >
-                    {sym} · เทรนซ้ำ
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-2 text-xs text-slate-400">
-            <div>
-              ความถี่ในการดึงแท่งเทียนและอัปเดตพารามิเตอร์โมเดลหลังบ้าน (VQC + TFT + FinRL): ทุกๆ{' '}
-              <strong className="text-white font-mono">{autoTrainIntervalSec} วินาที</strong>
-            </div>
-            <div className="flex items-center gap-2">
-              {[10, 18, 30, 60].map((sec) => (
-                <button
-                  key={sec}
-                  type="button"
-                  onClick={() => {
-                    setAutoTrainIntervalSec(sec);
-                    notifySaved(`ตั้งค่ารอบการดึงข้อมูลเทรนหลังบ้านเป็นทุกๆ ${sec} วินาที`);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg font-mono text-xs border ${
-                    autoTrainIntervalSec === sec
-                      ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                      : 'bg-[#060A14] border-slate-800 text-slate-400'
-                  }`}
-                >
-                  {sec}s
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-2 text-xs font-mono">
+            <span className="px-3 py-2 rounded-xl border border-slate-700 text-slate-300">Training OFF</span>
+            <span className="px-3 py-2 rounded-xl border border-slate-700 text-slate-300">Data feed NOT VERIFIED</span>
+            <span className="px-3 py-2 rounded-xl border border-slate-700 text-slate-300">Validation NOT AVAILABLE</span>
           </div>
         </div>
       )}
-
+      
       {/* =====================================================================
           TAB 4: SECURITY, VAULT ENCRYPTION & RISK GUARD SETTINGS
          ===================================================================== */}
