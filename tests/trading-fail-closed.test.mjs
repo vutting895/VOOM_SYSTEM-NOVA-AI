@@ -56,3 +56,11 @@ test("legacy live and broker read endpoints fail closed instead of claiming acco
 test("unsafe prototype MT5 bridge with unauthenticated real-order routes is retired", () => {
   assert.equal(existsSync(new URL("../backend/mt5_bridge.py", import.meta.url)), false);
 });
+
+test("fail-closed mutation guard runs before JSON body parsing", () => {
+  const guardAt = server.indexOf("const blockedTradingMutationPaths");
+  const parserAt = server.indexOf("app.use(express.json())");
+  assert.notEqual(guardAt, -1, "safety guard must be registered");
+  assert.notEqual(parserAt, -1, "JSON parser must be registered");
+  assert.ok(guardAt < parserAt, "disabled mutations must be rejected before parsing request bodies");
+});
