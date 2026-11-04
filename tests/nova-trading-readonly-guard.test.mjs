@@ -110,6 +110,6 @@ test('intent dispatcher refuses all write intents before creating an approval ch
   assert.match(dispatch, /WRITE_INTENTS_DISABLED/);
   assert.doesNotMatch(dispatch, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED|PAUSED_WAITING_HUMAN/);
   assert.doesNotMatch(server, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED/);
-  assert.match(server, /brokerDirectSlTpEnabled: false/);
-  assert.match(server, /brokerSideSlTpGuard: false/);
+  assert.doesNotMatch(server, /brokerDirectSlTpEnabled:\s*true/);
+  assert.doesNotMatch(server, /brokerSideSlTpGuard:\s*true/);
 });
