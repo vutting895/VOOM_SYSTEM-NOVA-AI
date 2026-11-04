@@ -10,6 +10,7 @@ const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
+const novaChat = read('src/components/NovaChatOSView.tsx');
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -112,4 +113,14 @@ test('intent dispatcher refuses all write intents before creating an approval ch
   assert.doesNotMatch(server, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED/);
   assert.doesNotMatch(server, /brokerDirectSlTpEnabled:\s*true/);
   assert.doesNotMatch(server, /brokerSideSlTpGuard:\s*true/);
+});
+
+test('customer-facing NOVA Chat is research-only and never suggests broker execution', () => {
+  assert.doesNotMatch(novaChat, /23908764|DEMO LIVE|REAL LIVE|EX-MCP-FILLED/);
+  assert.doesNotMatch(novaChat, /todayProfit|todayCloses|profitRef|MINI_CALENDAR_DAYS/);
+  assert.doesNotMatch(novaChat, /handleResolveInterrupt|EDIT_AND_APPROVE|เปิด BUY|place_trade_order/);
+  assert.doesNotMatch(novaChat, /ยืนยันส่งคำสั่ง|Approve &amp; Re-validate Token|Broker-Side Direct SL\/TP Worker: ACTIVE/);
+  assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
+  assert.match(novaChat, /NON-EXECUTABLE/);
+  assert.match(novaChat, /RESEARCH CALENDAR/);
 });
