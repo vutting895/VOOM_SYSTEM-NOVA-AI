@@ -183,92 +183,36 @@ async function startServer() {
   const mt5BridgeEnabled = false as const;
   const liveTradingEnabled = false as const;
 
-  // =========================================================================
-  // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
-  // Runs strictly in the backend; frontend only receives a compact status notification
-  // =========================================================================
-  const pairList = Object.keys(ALL_MAJOR_PAIRS);
-  let autoTrainCursor = 0;
-  let autoTrainEpoch = 148;
-  let autoTrainSamples = 248900;
-  let autoTrainState: 'SYNCED_READY' | 'INGESTING_AND_TRAINING' = 'SYNCED_READY';
-  let activeTrainedPair = 'XAU/USDm';
-  let lastValidationAcc = 94.8;
-  let lastTrainedAt = new Date().toISOString();
-
-  async function runBackendTrainingCycle(targetSymbol?: string) {
-    autoTrainState = 'INGESTING_AND_TRAINING';
-    const symbol = targetSymbol && ALL_MAJOR_PAIRS[targetSymbol] ? targetSymbol : pairList[autoTrainCursor % pairList.length];
-    if (!targetSymbol) autoTrainCursor += 1;
-    activeTrainedPair = symbol;
-
-    // Pull live market klines from Binance REST API when Crypto pair is selected (or Exness feed for Forex)
-    if (ALL_MAJOR_PAIRS[symbol]?.category === 'CRYPTO') {
-      const binanceSym = symbol.replace('/', '');
-      try {
-        const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSym}`);
-        if (resp.ok) {
-          const json = (await resp.json()) as { price?: string };
-          const livePrice = Number(json?.price);
-          if (Number.isFinite(livePrice) && livePrice > 0) {
-            ALL_MAJOR_PAIRS[symbol].price = livePrice;
-          }
-        }
-      } catch {
-        // Fallback to cached tick if external network is restricted
-      }
-    }
-
-    autoTrainEpoch += 1;
-    autoTrainSamples += 512;
-    lastValidationAcc = Number((93.8 + (autoTrainEpoch % 19) * 0.12).toFixed(2));
-    lastTrainedAt = new Date().toISOString();
-    autoTrainState = 'SYNCED_READY';
-  }
-
-  // Run autonomous background training every 18 seconds in the backend
-  setInterval(() => {
-    runBackendTrainingCycle().catch(() => {
-      autoTrainState = 'SYNCED_READY';
-    });
-  }, 18000);
-
+  // Training remains unavailable until a real, owner-scoped market-data source and
+  // reproducible model-training pipeline are implemented and independently validated.
+  // Do not emit synthetic epochs, sample counts, validation accuracy, or success notices.
   app.get('/api/auto-train/status', (_req, res) => {
-    res.json({
-      ok: true,
-      mode: 'BACKEND_AUTONOMOUS_DAEMON',
-      state: autoTrainState,
-      activePair: activeTrainedPair,
-      category: ALL_MAJOR_PAIRS[activeTrainedPair]?.category || 'FOREX',
-      livePrice: ALL_MAJOR_PAIRS[activeTrainedPair]?.price || 2749.4,
-      epoch: autoTrainEpoch,
-      samplesIngested: autoTrainSamples,
-      validationAccuracyPct: lastValidationAcc,
-      totalPairsMonitored: pairList.length,
-      lastTrainedAt,
-      statusNotification:
-        autoTrainState === 'INGESTING_AND_TRAINING'
-          ? `🔄 Backend Auto-Train: กำลังดึงกราฟสดและอัปเดตโมเดล ${activeTrainedPair} หลังบ้าน...`
-          : `🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดล ${activeTrainedPair} อัตโนมัติสำเร็จ (Epoch #${autoTrainEpoch} · ความแม่นยำ ${lastValidationAcc}%)`,
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      mode: 'not_configured',
+      state: 'NOT_CONFIGURED',
+      trainingEnabled: false,
+      executionEnabled: false,
+      liveTradingEnabled: false,
+      dataSource: 'not_connected',
+      modelTraining: 'not_configured',
+      samplesIngested: null,
+      validationAccuracyPct: null,
+      lastTrainedAt: null,
+      statusNotification: 'ยังไม่เปิด Auto-Train: ยังไม่มี authenticated market-data feed และ training pipeline ที่ผ่านการตรวจสอบ',
     });
   });
 
-  app.post('/api/auto-train/trigger', async (req, res) => {
-    const requestedSymbol = String(req.body?.symbol || 'XAU/USDm');
-    await runBackendTrainingCycle(requestedSymbol);
-    res.json({
-      ok: true,
-      mode: 'BACKEND_AUTONOMOUS_DAEMON',
-      state: autoTrainState,
-      activePair: activeTrainedPair,
-      category: ALL_MAJOR_PAIRS[activeTrainedPair]?.category || 'FOREX',
-      livePrice: ALL_MAJOR_PAIRS[activeTrainedPair]?.price || 2749.4,
-      epoch: autoTrainEpoch,
-      samplesIngested: autoTrainSamples,
-      validationAccuracyPct: lastValidationAcc,
-      totalPairsMonitored: pairList.length,
-      lastTrainedAt,
-      statusNotification: `🟢 Backend Auto-Train: ดึงข้อมูลกราฟสด ${activeTrainedPair} และเทรนโมเดล (VQC + TFT + FinRL) หลังบ้านเสร็จสมบูรณ์ · ความแม่นยำ ${lastValidationAcc}% (Epoch #${autoTrainEpoch})`,
+  app.post('/api/auto-train/trigger', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      error: 'TRAINING_PIPELINE_NOT_CONFIGURED',
+      trainingEnabled: false,
+      executionEnabled: false,
+      liveTradingEnabled: false,
+      detail: 'Manual or scheduled training is disabled until a verified data source and reproducible training pipeline are available.',
     });
   });
 
