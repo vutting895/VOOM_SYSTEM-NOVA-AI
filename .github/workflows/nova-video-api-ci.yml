@@ -1,0 +1,29 @@
+name: NOVA Video API CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/nova-video-api/**"
+      - "docs/NOVA-VIDEO-API-INTEGRATION.md"
+      - "docs/openapi/nova-video-api.yaml"
+      - ".github/workflows/nova-video-api-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run NOVA Video API tests
+        run: node --test integrations/nova-video-api/worker.test.mjs
+      - name: Syntax-check Worker modules
+        run: |
+          node --check integrations/nova-video-api/worker.js
+          node --check integrations/nova-video-api/skill-registry.js
