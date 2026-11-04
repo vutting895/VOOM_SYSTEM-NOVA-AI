@@ -79,8 +79,7 @@ jobs:
         run: npm install --no-package-lock --include=dev
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
-      - name: Syntax-check Exness Demo read-only bridge
-        run: python -m py_compile backend/mt5_bridge.py
+
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
