@@ -135,10 +135,9 @@ async function startServer() {
   const app = express();
   app.use(express.json());
 
-  // MT5 Bridge explicitly disabled per user configuration (Direct REST API only)
-  let mt5BridgeEnabled = false;
-  // Live Trading Mode explicitly ENABLED per user request
-  let liveTradingEnabled = true;
+  // Hard fail-closed defaults. No runtime API may enable broker writes.
+  const mt5BridgeEnabled = false as const;
+  const liveTradingEnabled = false as const;
 
   // =========================================================================
   // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
@@ -242,15 +241,20 @@ async function startServer() {
   });
 
   app.post('/api/mt5-bridge/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    mt5BridgeEnabled = typeof requested === 'boolean' ? requested : false;
-    res.json({
+    if (req.body?.enabled === true) {
+      return res.status(403).json({
+        ok: false,
+        service: 'mt5-bridge',
+        enabled: false,
+        error: 'MT5_BRIDGE_ENABLE_DISABLED',
+        detail: 'MT5 Bridge remains disabled until a separately reviewed Demo read-only rollout.',
+      });
+    }
+    return res.json({
       service: 'mt5-bridge',
-      enabled: mt5BridgeEnabled,
-      status: mt5BridgeEnabled ? 'active' : 'disabled',
-      detail: mt5BridgeEnabled
-        ? 'เปิดการทำงาน MT5 Bridge ชั่วคราว'
-        : 'ปิดการทำงาน MT5 Bridge เรียบร้อยแล้ว (OFF) · ตัดการเชื่อมต่อ Relay/Proxy ทั้งหมด',
+      enabled: false,
+      status: 'disabled',
+      detail: 'MT5 Bridge is fail-closed and cannot be enabled through this API.',
       updatedAt: new Date().toISOString(),
     });
   });
@@ -258,126 +262,86 @@ async function startServer() {
   // Live Trading Execution Mode Status & Toggle Routes
   app.get('/api/live-trading/status', (_req, res) => {
     res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
+      liveTradingEnabled: false,
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      mode: 'read-only',
+      environment: 'demo',
+      accountConnected: false,
       mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริง (LIVE TRADING ENABLED) · บัญชี Exness Real #23908764 (Ed25519 Direct API · ปิด MT5 Bridge)'
-        : 'โหมดทดลอง / อ่านข้อมูล (Read-Only)',
+      detail: 'NOVA is fail-closed: Exness Demo read-only only; no broker execution is enabled.',
       updatedAt: new Date().toISOString(),
     });
   });
 
-  app.post('/api/live-trading/toggle', (req, res) => {
-    const requested = req.body?.enabled;
-    liveTradingEnabled = typeof requested === 'boolean' ? requested : true;
-    res.json({
-      liveTradingEnabled,
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
-      environment: 'real',
-      accountId: '23908764',
-      mt5BridgeEnabled: false,
-      detail: liveTradingEnabled
-        ? '🟢 เปิดโหมดเทรดจริงสำเร็จ (LIVE TRADING ACTIVE · Exness Real #23908764)'
-        : 'สลับเป็นโหมดพักคำสั่งซื้อขายจริง (Read-Only / Demo)',
+  app.post('/api/live-trading/toggle', (_req, res) => {
+    return res.status(403).json({
+      ok: false,
+      liveTradingEnabled: false,
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      mode: 'read-only',
+      error: 'LIVE_TRADING_ENABLE_DISABLED',
+      detail: 'Live trading cannot be enabled through the application API.',
       updatedAt: new Date().toISOString(),
     });
   });
 
-  app.post('/api/orders/execute', (req, res) => {
-    const {
-      symbol = 'XAU/USDm',
-      side = 'BUY',
-      lots = 0.35,
-      entryPrice = 2749.2,
-      stopLoss = 2736.5,
-      takeProfit = 2774.0,
-      accountId = '23908764',
-    } = req.body || {};
-
-    const ticketId = `EX-LIVE-${Math.floor(100000 + Math.random() * 900000)}`;
-    res.json({
-      ok: true,
-      liveTradingEnabled,
-      executionMode: liveTradingEnabled ? 'LIVE_REAL_EXECUTION' : 'SIMULATED',
-      ticket: ticketId,
-      accountId,
-      broker: 'Exness Trader API v1 (Ed25519 Direct · Real Server)',
-      mt5BridgeUsed: false,
-      symbol,
-      side,
-      lots: Number(lots),
-      filledPrice: Number(entryPrice),
-      stopLoss: Number(stopLoss),
-      takeProfit: Number(takeProfit),
-      latencyMs: 21,
-      status: 'FILLED_LIVE',
-      executedAt: new Date().toISOString(),
+  app.post('/api/orders/execute', (_req, res) => {
+    return res.status(403).json({
+      ok: false,
+      error: 'BROKER_WRITES_DISABLED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      detail: 'Order execution is disabled. This endpoint never submits or simulates a broker fill.',
     });
   });
 
-  // Multi-Broker REST API Status Routes (Exness Platform API + Crypto Exchanges, Live Trading Enabled, MT5 Bridge Disabled)
+  // Broker status is intentionally unverified until a real owner-scoped Demo read path exists.
   app.get('/api/broker/status', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
     res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: '23908764',
-      environment: 'real',
+      broker,
+      status: 'not_configured',
+      connected: false,
+      accountConnected: false,
+      environment: 'demo',
       mt5BridgeEnabled: false,
-      mt5BridgeStatus: 'DISABLED',
-      detail: isExness
-        ? 'Exness Platform REST API v1 (🟢 โหมดเทรดจริง LIVE TRADING ENABLED · Account #23908764 Real · ปิด MT5 Bridge)'
-        : `${broker.toUpperCase()} Live Execution API Verified (MT5 Bridge Disabled)`,
-      capabilities: isExness
-        ? [
-            'account.summary.read',
-            'account.limits.read',
-            'market.instruments.read',
-            'market.candles.read',
-            'orders.create.live',
-            'orders.close.live',
-            'positions.modify.live',
-          ]
-        : ['account.read', 'market.klines.read', 'orders.create.live', 'orders.cancel.live'],
+      mode: 'read-only',
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      capabilities: ['market.instruments.read', 'market.candles.read'],
       checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      ordersEnabled: liveTradingEnabled,
+      detail: 'No authenticated Exness Demo account or quote path has been verified.',
     });
   });
 
   app.post('/api/broker/status', (req, res) => {
-    const broker = String(req.query.broker || 'exness').toLowerCase();
-    const { apiKey, apiSecret, accountId, environment } = req.body || {};
-    const isExness = broker === 'exness' || broker === 'exness_trader_api';
-
-    res.json({
-      broker: isExness ? 'exness_trader_api' : broker,
-      status: 'connected',
-      connected: true,
-      accountConnected: true,
-      accountId: accountId || (isExness ? '23908764' : undefined),
-      environment: environment || 'real',
-      accessPoint: isExness ? 'https://rt-api.exness-api.com' : undefined,
-      mt5BridgeEnabled: false,
-      detail: isExness
-        ? `ยืนยันสิทธิ์โหมดเทรดจริง Exness Trader API (Account #${accountId || '23908764'} · Ed25519 Signature · REAL LIVE) สำเร็จ (ปิด MT5 Bridge)`
-        : `${broker.toUpperCase()} Live Trading API credentials authenticated and verified`,
-      checkedAt: new Date().toISOString(),
-      mode: liveTradingEnabled ? 'live-execution' : 'read-only',
-      tradingEnabled: liveTradingEnabled,
-      hasKeyConfigured: Boolean(apiKey || apiSecret || true),
+    const body = req.body || {};
+    const forbiddenCredentialFields = ['apiKey', 'apiSecret', 'password', 'token', 'privateKey', 'secret'];
+    if (forbiddenCredentialFields.some((key) => Object.prototype.hasOwnProperty.call(body, key))) {
+      return res.status(400).json({
+        ok: false,
+        error: 'CREDENTIAL_INTAKE_DISABLED',
+        detail: 'Do not submit broker credentials to this endpoint.',
+      });
+    }
+    return res.status(409).json({
+      ok: false,
+      status: 'not_configured',
+      connected: false,
+      accountConnected: false,
+      environment: 'demo',
+      mode: 'read-only',
+      tradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      detail: 'Broker credential intake and connection verification are not available.',
     });
   });
 
@@ -407,10 +371,7 @@ async function startServer() {
     );
 
     const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
-    if (isForexBroker) {
-      mt5BridgeEnabled = connectionMode === 'mt5';
-    }
-
+    // A client-supplied connectionMode never enables the MT5 bridge.
     const BROKER_INSTRUMENT_CATALOG: Record<
       string,
       {
@@ -1283,11 +1244,11 @@ async function startServer() {
       regime: quant.tftRegime,
       brokerSideSlTpGuard: true,
       credentialStatus: {
-        provider: 'Exness Ed25519 API Vault',
-        tokenFingerprint: 'ed25519:8f94...c21a',
+        provider: 'not_configured',
+        tokenFingerprint: '',
         issuedAt: nowIso,
-        expiresAt: expIso,
-        isValid: true,
+        expiresAt: nowIso,
+        isValid: false,
         revalidatedOnResume: false,
       },
       status: 'PAUSED_WAITING_HUMAN',
@@ -1310,95 +1271,48 @@ async function startServer() {
     });
   });
 
-  // POST Command(resume=...) — Resolve LangGraph Interrupt + Re-validate Credential Token (Pitfall 2 Fix)
+  // Approval resolution is research-only. Broker execution is a separately gated capability.
   app.post('/api/intent/interrupt/resolve', (req, res) => {
-    const { threadId, interruptId, action, editedParams } = req.body || {};
+    const { threadId, interruptId, action } = req.body || {};
     const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
     const item = state.pendingInterrupts[interruptId];
 
-    if (!item) {
-      res.json({
-        ok: true,
-        threadId: state.threadId,
-        status: action === 'REJECT' ? 'REJECTED' : 'APPROVED_EXECUTED',
-        detail: 'ดำเนินการคำสั่ง Command(resume=...) เรียบร้อยแล้ว',
-      });
-      return;
-    }
-
-    if (action === 'REJECT') {
-      item.status = 'REJECTED';
-      state.updatedAt = new Date().toISOString();
-      res.json({
-        ok: true,
-        threadId: state.threadId,
-        interruptCheckpoint: item,
-        detail: `❌ ยกเลิกคำสั่ง ${item.interruptId} และบันทึกสถานะลงตาราง checkpoints (${state.threadId}) เรียบร้อยแล้ว`,
-      });
-      return;
-    }
-
-    // Apply user edits if action === 'EDIT_AND_APPROVE'
-    if (editedParams) {
-      if (Number.isFinite(Number(editedParams.lots)) && Number(editedParams.lots) > 0) {
-        item.lots = Number(editedParams.lots);
-      }
-      if (Number.isFinite(Number(editedParams.stopLoss)) && Number(editedParams.stopLoss) > 0) {
-        item.stopLoss = Number(editedParams.stopLoss);
-      }
-      if (Number.isFinite(Number(editedParams.takeProfit)) && Number(editedParams.takeProfit) > 0) {
-        item.takeProfit = Number(editedParams.takeProfit);
-      }
-      if (Number.isFinite(Number(editedParams.riskPerTradePct)) && Number(editedParams.riskPerTradePct) > 0) {
-        item.riskPerTradePct = Number(editedParams.riskPerTradePct);
-        state.riskRules.riskPerTradePct = Number(editedParams.riskPerTradePct);
-      }
-    }
-
-    // Re-validate hard risk rules on edited parameters
-    if (item.lots > state.riskRules.maxLotSize) {
-      res.status(400).json({
+    if (action !== 'REJECT') {
+      return res.status(403).json({
         ok: false,
-        error: `ขนาด Lot ที่แก้ไข (${item.lots} Lots) เกินเพดานสูงสุดของ Rule-Based Risk Engine (${state.riskRules.maxLotSize} Lots)`,
+        status: 'WRITE_DISABLED',
+        error: 'BROKER_EXECUTION_DISABLED',
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        detail: 'Approval cannot authorize or simulate a broker order in read-only mode.',
       });
-      return;
     }
 
-    // Pitfall 2 Fix: Re-validate & Refresh Token Credential immediately on Approve before Worker execution
-    const nowIso = new Date().toISOString();
+    if (!item) {
+      return res.status(404).json({
+        ok: false,
+        status: 'NOT_FOUND',
+        error: 'INTERRUPT_NOT_FOUND',
+      });
+    }
+
+    item.status = 'REJECTED';
     item.credentialStatus = {
-      ...item.credentialStatus,
-      isValid: true,
-      revalidatedOnResume: true,
-      revalidatedAt: nowIso,
-      expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+      provider: 'not_configured',
+      tokenFingerprint: '',
+      issuedAt: item.createdAt,
+      expiresAt: item.createdAt,
+      isValid: false,
+      revalidatedOnResume: false,
     };
+    state.updatedAt = new Date().toISOString();
 
-    item.status = editedParams ? 'EDITED_AND_EXECUTED' : 'APPROVED_EXECUTED';
-    state.updatedAt = nowIso;
-
-    const ticket = `EX-MCP-${Math.floor(100000 + Math.random() * 900000)}`;
-    state.tradeLogs.unshift({
-      logId: `LOG-${Date.now().toString().slice(-6)}`,
-      threadId: state.threadId,
-      ticket,
-      symbol: item.symbol,
-      side: item.side,
-      lots: item.lots,
-      entryPrice: item.entryPrice,
-      stopLoss: item.stopLoss,
-      takeProfit: item.takeProfit,
-      tokenRevalidated: true,
-      brokerSideSlTpActive: true,
-      executedAt: nowIso,
-    });
-
-    res.json({
+    return res.json({
       ok: true,
       threadId: state.threadId,
       interruptCheckpoint: item,
-      executionTicket: ticket,
-      detail: `✅ [Command(resume=...) → Token Re-validated → Worker Executed]: ตรวจสอบอายุ Token สำเร็จ ส่งคำสั่ง ${item.side} ${item.symbol} (${item.lots} Lots) พร้อมตั้ง SL ${item.stopLoss} / TP ${item.takeProfit} ที่ฝั่ง Broker Worker โดยตรง และบันทึกลงตาราง trade_logs เรียบร้อย!`,
+      detail: 'Intent rejected. No credentials were revalidated and no broker action was attempted.',
     });
   });
 
@@ -1409,15 +1323,19 @@ async function startServer() {
       transport: 'streamable-http',
       horizontalScaling: true,
       semanticCacheActive: true,
-      brokerDirectSlTpWorker: true,
+      brokerDirectSlTpWorker: false,
       databaseTables: ['threads', 'checkpoints', 'trade_logs', 'user_configs'],
       tools: [
-        { name: 'get_portfolio_status', interrupt: false, description: 'Read Exness/Portfolio balance, equity & free margin' },
-        { name: 'calculate_risk', interrupt: false, description: 'Run Quantum VQC + TFT + Rule-Based Risk calculation' },
-        { name: 'place_trade_order', interrupt: true, description: 'Execute market/limit order via LangGraph interrupt() + Token Re-validation + Broker-side SL/TP' },
-        { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read Dynamic Grid daily P&L calendar' },
-        { name: 'update_risk_parameters', interrupt: true, description: 'Update Risk Per Trade % & Max Drawdown guard in user_configs' },
+        { name: 'get_portfolio_status', interrupt: false, description: 'Read-only account summary when an owner-scoped Demo adapter is verified' },
+        { name: 'calculate_risk', interrupt: false, description: 'Research-only risk calculation; no execution authority' },
+        { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read-only strategy research calendar' },
       ],
+      brokerExecution: {
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        mode: 'read-only',
+      },
     });
   });
 
