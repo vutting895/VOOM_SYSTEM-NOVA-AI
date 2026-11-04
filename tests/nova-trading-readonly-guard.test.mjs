@@ -84,7 +84,7 @@ test('settings and trading terminal disclose unverified status and expose no bro
   assert.match(settings, /Live Trading OFF · Read-only/);
   assert.match(settings, /MT5 Bridge OFF/);
   assert.doesNotMatch(terminal, /Math\.random|setInterval|POS-904|FILLED_LIVE|Live Execution Desk/i);
-  assert.match(terminal, /No verified broker session/);
+  assert.match(terminal, /NO VERIFIED BROKER SESSION/i);
   assert.match(terminal, /Order submission disabled \(Read-only\)/);
 });
 
