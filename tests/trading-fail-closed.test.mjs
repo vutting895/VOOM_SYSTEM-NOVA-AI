@@ -36,6 +36,23 @@ test("server blocks order, approval, broker credential and live-mode mutations b
   assert.doesNotMatch(server, /name: 'place_trade_order'/);
 });
 
+test("legacy live and broker read endpoints fail closed instead of claiming account or market verification", () => {
+  const guardAt = server.indexOf("const blockedTradingMutationPaths");
+  for (const path of [
+    "req.path === '/api/live-trading/status'",
+    "req.path === '/api/broker/instruments'",
+    "req.path === '/api/broker/status'",
+  ]) {
+    const at = server.indexOf(path);
+    assert.notEqual(at, -1, path);
+    assert.ok(guardAt < at, path);
+  }
+  assert.match(server, /live_trading_status_unavailable/);
+  assert.match(server, /broker_market_data_unverified/);
+  assert.match(server, /environment: 'unverified'/);
+  assert.match(server, /dataVerified: false/);
+});
+
 test("unsafe prototype MT5 bridge with unauthenticated real-order routes is retired", () => {
   assert.equal(existsSync(new URL("../backend/mt5_bridge.py", import.meta.url)), false);
 });
