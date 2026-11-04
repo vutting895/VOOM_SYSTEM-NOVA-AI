@@ -160,6 +160,35 @@ async function startServer() {
       });
     }
 
+    if (req.method === 'GET' && req.path === '/api/live-trading/status') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'live_trading_status_unavailable',
+        mode: 'read-only',
+        liveTradingEnabled: false,
+        tradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        environment: 'unverified',
+        mt5BridgeEnabled: false,
+      });
+    }
+
+    if (req.method === 'GET' && req.path === '/api/broker/instruments') {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'broker_market_data_unverified',
+        status: 'unavailable',
+        dataVerified: false,
+        instruments: [],
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
+    }
+
     const blockedIntentMutation =
       req.method !== 'GET' &&
       (req.path.startsWith('/api/intent/') ||
