@@ -27,8 +27,10 @@ except ImportError:
 
 
 BRIDGE_ENABLED = os.getenv("MT5_BRIDGE_ENABLED", "false").strip().lower() == "true"
+BRIDGE_MODE = os.getenv("MT5_BRIDGE_MODE", "demo-read-only").strip().lower()
 BRIDGE_TOKEN = os.getenv("MT5_BRIDGE_TOKEN", "")
-BRIDGE_HOST = os.getenv("MT5_BRIDGE_HOST", "127.0.0.1")
+# The local bridge is intentionally loopback-only; relay access must use a separate reviewed outbound tunnel.
+BRIDGE_HOST = "127.0.0.1"
 BRIDGE_PORT = int(os.getenv("MT5_BRIDGE_PORT", "8005"))
 
 app = FastAPI(title="NOVA Exness Demo Read-only Bridge", version="1.0.0")
@@ -42,7 +44,7 @@ def require_bridge_token(x_bridge_token: str | None) -> None:
 
 
 def connect_demo_terminal() -> Any:
-    if not BRIDGE_ENABLED:
+    if not BRIDGE_ENABLED or BRIDGE_MODE != "demo-read-only":
         raise HTTPException(status_code=503, detail="MT5 Demo read-only bridge is disabled")
     if not MT5_AVAILABLE:
         raise HTTPException(status_code=503, detail="MetaTrader5 package is unavailable")
@@ -105,7 +107,7 @@ def health_check() -> dict[str, Any]:
     # Deliberately does not reveal account state or secrets.
     return {
         "service": "nova-mt5-bridge",
-        "enabled": BRIDGE_ENABLED,
+        "enabled": BRIDGE_ENABLED and BRIDGE_MODE == "demo-read-only" and bool(BRIDGE_TOKEN),
         "mode": "demo-read-only",
         "ordersEnabled": False,
         "executionEnabled": False,
