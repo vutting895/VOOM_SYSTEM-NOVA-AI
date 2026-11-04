@@ -323,12 +323,11 @@ async function startServer() {
 
   app.post('/api/broker/status', (req, res) => {
     const body = req.body || {};
-    const forbiddenCredentialFields = ['apiKey', 'apiSecret', 'password', 'token', 'privateKey', 'secret'];
-    if (forbiddenCredentialFields.some((key) => Object.prototype.hasOwnProperty.call(body, key))) {
+    if (Object.keys(body).length > 0) {
       return res.status(400).json({
         ok: false,
-        error: 'CREDENTIAL_INTAKE_DISABLED',
-        detail: 'Do not submit broker credentials to this endpoint.',
+        error: 'BROKER_CONFIGURATION_INTAKE_DISABLED',
+        detail: 'This endpoint does not accept broker credentials or connection configuration.',
       });
     }
     return res.status(409).json({
@@ -348,27 +347,10 @@ async function startServer() {
   // Fetch tradable currency/crypto pairs directly from the logged-in Broker session (supports MT5 or Direct API for Forex)
   app.get('/api/broker/instruments', (req, res) => {
     const broker = String(req.query.broker || 'exness').toLowerCase();
-    const connectionMode = String(req.query.connectionMode || 'api').toLowerCase() === 'mt5' ? 'mt5' : 'api';
-    const mt5Server = String(
-      req.query.mt5Server ||
-        (broker === 'icmarkets'
-          ? 'ICMarketsSC-MT5-4'
-          : broker === 'xm'
-          ? 'XMGlobal-MT5 2'
-          : 'Exness-MT5Real14')
-    );
-    const accountId = String(
-      req.query.accountId ||
-        (broker === 'exness'
-          ? '23908764'
-          : broker === 'icmarkets'
-          ? '51092841'
-          : broker === 'xm'
-          ? '68019245'
-          : broker === 'binance'
-          ? 'BN-88412'
-          : 'BY-51902')
-    );
+    // This endpoint returns a static instrument catalogue, not an authenticated broker session.
+    const connectionMode = 'demo-read-only';
+    const mt5Server = 'not_configured';
+    const accountId = 'not_configured';
 
     const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
     // A client-supplied connectionMode never enables the MT5 bridge.
@@ -391,16 +373,10 @@ async function startServer() {
       }
     > = {
       exness: {
-        brokerName: connectionMode === 'mt5' ? 'Exness MetaTrader 5 (MT5)' : 'Exness Trader Direct API',
-        serverLabel:
-          connectionMode === 'mt5'
-            ? `${mt5Server} (MT5 Terminal / EA Bridge)`
-            : 'Exness-Real14 (Ed25519 Direct REST API)',
+        brokerName: 'Exness MT5 Demo (read-only catalogue)',
+        serverLabel: 'Demo terminal not configured or verified',
         accountId,
-        protocol:
-          connectionMode === 'mt5'
-            ? 'MetaTrader 5 (MT5 Python Worker / ZeroMQ Bridge)'
-            : 'Exness REST API v1 (Ed25519 Signed · No MT5)',
+        protocol: 'MT5 Demo read-only; authenticated data path not yet verified',
         instruments: [
           { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
           { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
@@ -476,8 +452,9 @@ async function startServer() {
       ok: true,
       brokerId: broker,
       isForexBroker,
-      connectionMode: isForexBroker ? connectionMode : 'api',
-      mt5Server: isForexBroker && connectionMode === 'mt5' ? mt5Server : undefined,
+      connectionMode: isForexBroker ? 'demo-read-only' : 'catalog-only',
+      mt5Server: undefined,
+      dataStatus: 'static-sample-unverified',
       brokerName: selectedCatalog.brokerName,
       serverLabel: selectedCatalog.serverLabel,
       accountId: selectedCatalog.accountId,
