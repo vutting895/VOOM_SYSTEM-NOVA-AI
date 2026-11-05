@@ -65,7 +65,7 @@ The current-main `supabase/migrations/` directory still contains five files. The
 
 | Current active file | Current status against Production |
 |---|---|
-| `202610240001_alpaca_oauth.sql` | Not byte-identical to the Production file at `20261024154354`. A preliminary comparison with comments/whitespace removed yields the same non-comment SQL text, but this is not a formal SQL-AST equivalence proof. Preserve both sources and complete a parser-aware diff before deciding canonicalization. |
+| `202610240001_alpaca_oauth.sql` | Not byte-identical to the Production file at `20261024154354`. A SQL lexical-token comparison (comments and insignificant whitespace excluded; quoted strings and quoted identifiers preserved; dollar-quoted PL/pgSQL bodies tokenized recursively) produced 301 tokens on each side with identical token streams. This is stronger than a line/whitespace comparison, but it is not a PostgreSQL AST equivalence proof or a clean-replay test. Preserve both source files and retain the migration identity mismatch until parser-aware validation is available. |
 | `202610270001_mt5_customer_connections.sql` | Exact SQL payload match for live version `20261027160402`, name `mt5_customer_connections`; active filename version differs. |
 | `202610290001_security_definer_marketplace_hardening.sql` | Exact SQL payload match for live version `20261029084244`, name `security_definer_marketplace_hardening`; active filename version differs. |
 | `202610300001_nova_durable_approval_lifecycle.sql` | Exact SQL payload match for live version `20261031070311`, name `nova_durable_approval_lifecycle`; active filename version differs. |
