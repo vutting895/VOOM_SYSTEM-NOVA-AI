@@ -19,6 +19,11 @@ const FORBIDDEN_CAPABILITIES = new Set([
   "broker.credentials.export", "secret.value.read", "secret.value.write",
   "runtime.arbitrary-url.fetch",
 ]);
+const FORBIDDEN_INPUT_KEYS = new Set([
+  "user_id", "userid", "user", "tenant_id", "tenantid", "tenant",
+  "access_token", "authorization", "token", "secret", "credential",
+  "upstream_url", "upstreamurl",
+]);
 const CLASSIFICATIONS = new Set(["public", "internal", "tenant", "confidential"]);
 const HEALTH_STATES = new Set(["not_configured", "configured", "reachable", "authenticated", "data_verified", "degraded", "unavailable"]);
 const REQUEST_FIELDS = new Set(["schema", "request_id", "project_id", "api_version", "intent", "capability", "resource", "input", "idempotency_key", "requested_at"]);
@@ -36,6 +41,21 @@ function isTimestamp(value) {
 }
 function hasOnlyKeys(value, allowed) {
   return Object.keys(value).every((key) => allowed.has(key));
+}
+function containsForbiddenInputKey(value, depth = 0) {
+  if (depth > 16) return true;
+  if (Array.isArray(value)) return value.some((item) => containsForbiddenInputKey(item, depth + 1));
+  if (!plainObject(value)) return false;
+  return Object.entries(value).some(([key, child]) =>
+    FORBIDDEN_INPUT_KEYS.has(key.toLowerCase().replace(/[-.]/g, "_")) ||
+    containsForbiddenInputKey(child, depth + 1));
+}
+function serializedByteLength(value) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  } catch {
+    return Infinity;
+  }
 }
 
 export function validateProjectRegistration(record) {
@@ -81,7 +101,8 @@ export function validateProjectRequest(envelope, projectRecord) {
   if (!plainObject(envelope.resource) || !hasOnlyKeys(envelope.resource, new Set(["kind", "id"])) ||
       !isString(envelope.resource.kind, 2, 48, /^[a-z][a-z0-9_-]*$/) || !isString(envelope.resource.id, 1, 128)) return fail("resource_invalid");
   if (!plainObject(envelope.input)) return fail("input_invalid");
-  if (JSON.stringify(envelope).length > projectRecord.limits.max_request_bytes) return fail("request_too_large");
+  if (containsForbiddenInputKey(envelope.input)) return fail("input_contains_identity_or_secret_field");
+  if (serializedByteLength(envelope) > projectRecord.limits.max_request_bytes) return fail("request_too_large");
   if (!isString(envelope.idempotency_key, 16, 128, /^[A-Za-z0-9._:-]+$/)) return fail("idempotency_key_invalid");
   if (!isTimestamp(envelope.requested_at)) return fail("requested_at_invalid");
   return ok(Object.freeze({
