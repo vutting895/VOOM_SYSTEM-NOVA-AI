@@ -700,6 +700,7 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
     const data = await response.json();
     assert.equal(inserted.user_id, "user-a");
     assert.equal(inserted.decision, "approved");
+    assert.equal(inserted.snapshot_hash, snapshotHash);
     assert.equal(data.jobStatus, "blocked_no_free_gpu");
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
