@@ -50,6 +50,33 @@ if (!response.ok) throw new Error("Could not load projects");
 const { projects } = await response.json();
 ```
 
+## NOVA Director planning
+
+- `POST /api/video/plan` — authenticated, deterministic NOVA Director planning.
+- Input fields: `title`, `concept`, optional `audience`, `platform`, `language`, `style`, `callToAction`, `durationSeconds` (3–60), `aspectRatio` (`9:16`, `16:9`, `1:1`), `goal`, `verifiedFacts`, and `mustAvoid`.
+- Returns a 24 FPS, frame-accurate shot plan with beat, framing, camera movement, lighting, transitions, visual prompts and continuity rules.
+- This route runs NOVA-owned deterministic CPU logic only. It does not call an LLM, video model, GPU, database, worker or media storage.
+- Every response includes `executionEnabled: false`, `estimatedCost: 0` and `requiresHumanApproval: true`.
+- It does not create a project/job record. Use the jobs endpoint separately to record a request.
+
+Example:
+
+```js
+const response = await fetch(`${API_BASE}/api/video/plan`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    title: "NOVA Product Film",
+    concept: "A premium product on a quiet morning table",
+    durationSeconds: 15,
+    aspectRatio: "9:16",
+    goal: "product_ad",
+    language: "th"
+  })
+});
+const { directorPlan } = await response.json();
+```
+
 ## Job status and capability boundary
 
 A successful job POST means that the request was recorded, not that any media was processed.
