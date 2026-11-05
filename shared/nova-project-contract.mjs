@@ -24,6 +24,12 @@ const FORBIDDEN_INPUT_KEYS = new Set([
   "token", "bearertoken", "secret", "secretvalue", "credential", "password",
   "apikey", "upstreamurl", "endpointurl", "webhookurl", "url",
 ]);
+const FORBIDDEN_OUTPUT_KEYS = new Set([
+  "user", "userid", "tenant", "tenantid", "accesstoken", "authorization",
+  "token", "bearertoken", "secret", "secretvalue", "credential", "password",
+  "apikey", "clientsecret", "privatekey", "refreshtoken", "upstreamurl",
+  "endpointurl", "webhookurl",
+]);
 const CLASSIFICATIONS = new Set(["public", "internal", "tenant", "confidential"]);
 const HEALTH_STATES = new Set(["not_configured", "configured", "reachable", "authenticated", "data_verified", "degraded", "unavailable"]);
 const REQUEST_FIELDS = new Set(["schema", "request_id", "project_id", "api_version", "intent", "capability", "resource", "input", "idempotency_key", "requested_at"]);
@@ -42,13 +48,29 @@ function isTimestamp(value) {
 function hasOnlyKeys(value, allowed) {
   return Object.keys(value).every((key) => allowed.has(key));
 }
+function normalizedKey(key) {
+  return key.toLowerCase().replace(/[-_.]/g, "");
+}
 function containsForbiddenInputKey(value, depth = 0) {
   if (depth > 16) return true;
   if (Array.isArray(value)) return value.some((item) => containsForbiddenInputKey(item, depth + 1));
   if (!plainObject(value)) return false;
   return Object.entries(value).some(([key, child]) =>
-    FORBIDDEN_INPUT_KEYS.has(key.toLowerCase().replace(/[-_.]/g, "")) ||
+    FORBIDDEN_INPUT_KEYS.has(normalizedKey(key)) ||
     containsForbiddenInputKey(child, depth + 1));
+}
+function containsForbiddenOutput(value, depth = 0) {
+  if (depth > 16) return true;
+  if (Array.isArray(value)) return value.some((item) => containsForbiddenOutput(item, depth + 1));
+  if (plainObject(value)) {
+    return Object.entries(value).some(([key, child]) =>
+      FORBIDDEN_OUTPUT_KEYS.has(normalizedKey(key)) ||
+      containsForbiddenOutput(child, depth + 1));
+  }
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return typeof value === "string" && /(?:Bearer\s+\S+|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/i.test(value);
+  }
+  return typeof value === "number" && Number.isFinite(value) ? false : true;
 }
 function serializedByteLength(value) {
   try {
@@ -127,7 +149,8 @@ export function validateProjectResponse(response, expectedRequestId) {
   if (response.status === "error") {
     if (!plainObject(response.error) || !hasOnlyKeys(response.error, new Set(["code", "message"])) ||
         !isString(response.error.code, 1, 64) || !isString(response.error.message, 1, 240) ||
-        response.result !== undefined) return fail("response_error_invalid");
-  } else if (response.error !== undefined || !Object.prototype.hasOwnProperty.call(response, "result")) return fail("response_result_invalid");
+        containsForbiddenOutput(response.error.message) || response.result !== undefined) return fail("response_error_invalid");
+  } else if (response.error !== undefined || !Object.prototype.hasOwnProperty.call(response, "result") ||
+      containsForbiddenOutput(response.result)) return fail("response_result_invalid");
   return ok(response);
 }
