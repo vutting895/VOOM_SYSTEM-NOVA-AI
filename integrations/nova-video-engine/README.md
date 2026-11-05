@@ -32,7 +32,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Durable queue, worker dispatch and private asset storage | Not implemented; current job store is in-memory reference only |
 | Supabase production schema / migration | Not included in this package |
 
-The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
+The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute, pinned 40-character upstream revision, checkpoint-integrity and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
 
 ## Safety defaults
 
