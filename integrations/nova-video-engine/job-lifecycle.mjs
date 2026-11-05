@@ -32,7 +32,7 @@ export function attachVideoJobArtifact(job, artifact, options = {}) {
   const contentType = requiredText(artifact.contentType, "artifact_content_type", 80);
   const bytes = Number(artifact.bytes);
   if (!ARTIFACT_KINDS.has(kind) || !ARTIFACT_TYPES.has(contentType)) throw new TypeError("unsupported_video_job_artifact");
-  if (assetPath.startsWith("/") || assetPath.includes("\\\\") || assetPath.split("/").some((part) => part === "." || part === ".." || !part)) throw new TypeError("unsafe_video_job_artifact_path");
+  if (assetPath.startsWith("/") || assetPath.includes("\\") || assetPath.split("/").some((part) => part === "." || part === ".." || !part)) throw new TypeError("unsafe_video_job_artifact_path");
   if (!Number.isSafeInteger(bytes) || bytes < 1 || bytes > 2 * 1024 * 1024 * 1024) throw new RangeError("invalid_video_job_artifact_size");
   if (job.artifacts.some((item) => item.assetPath === assetPath)) throw new Error("video_job_artifact_duplicate");
   const at = options.at ?? new Date().toISOString();
