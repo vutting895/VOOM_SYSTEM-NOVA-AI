@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createNovaVideoEngine, createStoryboard, ENGINE_STATES } from "./engine.mjs";
-import { buildFfmpegArgs, resolveWithinRoot } from "./ffmpeg-renderer.mjs";
+import { buildFfmpegArgs, createFfmpegRenderer, resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 
 const brief = {
   title: "NOVA product story", aspectRatio: "9:16", durationSeconds: 10,
@@ -601,4 +601,39 @@ test("Wan local runtime blocks when NVIDIA hardware probe is unavailable", async
   const result = await runtime.preflight();
   assert.equal(result.ready, false);
   assert.equal(result.reason, "nvidia_gpu_probe_failed");
+});
+
+test("FFmpeg renderer rejects an input symlink that escapes the workspace", async () => {
+  let spawned = 0;
+  const renderer = createFfmpegRenderer({
+    workspaceRoot: "/workspace",
+    realpathImpl: async (value) => value === "/workspace/assets/scene-1.png" ? "/tmp/private.png" : value,
+    accessImpl: async () => {}, mkdirImpl: async () => {},
+    spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
+  });
+  await assert.rejects(() => renderer.render(createStoryboard(brief)), /media_input_symlink_outside_workspace/);
+  assert.equal(spawned, 0);
+});
+
+test("FFmpeg renderer rejects an output directory symlink outside the workspace", async () => {
+  let spawned = 0;
+  const renderer = createFfmpegRenderer({
+    workspaceRoot: "/workspace",
+    realpathImpl: async (value) => value === "/workspace/renders" ? "/tmp/private-renders" : value,
+    accessImpl: async () => {}, mkdirImpl: async () => {},
+    spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
+  });
+  await assert.rejects(() => renderer.render(createStoryboard(brief)), /media_output_symlink_outside_workspace/);
+  assert.equal(spawned, 0);
+});
+
+test("FFmpeg renderer never overwrites an existing output file", async () => {
+  let spawned = 0;
+  const renderer = createFfmpegRenderer({
+    workspaceRoot: "/workspace", realpathImpl: async (value) => value, mkdirImpl: async () => {},
+    accessImpl: async (value) => { if (value === "/workspace/renders/video.mp4") return; },
+    spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
+  });
+  await assert.rejects(() => renderer.render(createStoryboard(brief)), /ffmpeg_output_already_exists/);
+  assert.equal(spawned, 0);
 });
