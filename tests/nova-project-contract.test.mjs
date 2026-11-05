@@ -57,6 +57,10 @@ test("rejects identity and secret fields nested inside project input", () => {
     { nested: { user_id: "other-user" } },
     { provider: { authorization: "Bearer secret" } },
     { endpoint: { upstream_url: "https://attacker.invalid" } },
+    { accessToken: "bearer-secret" },
+    { api_key: "private-key" },
+    { tenantId: "another-tenant" },
+    { callback: { url: "https://attacker.invalid" } },
   ]) {
     assert.equal(validateProjectRequest({ ...request(), input }, project).reason, "input_contains_identity_or_secret_field");
   }
