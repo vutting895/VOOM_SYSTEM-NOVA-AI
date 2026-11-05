@@ -1,3 +1,4 @@
+import { evaluateCoreCapability } from "../../shared/nova-system-core-contract.mjs";
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -158,6 +159,16 @@ async function queryOwnConnections(env, user, connectionId = "") {
   } catch {
     return { ok: false, status: 503, error: "connection_service_unavailable" };
   }
+}
+
+function authorizeCoreCapability(capability, auth, tenantAuthorized) {
+  return evaluateCoreCapability(
+    { capability },
+    {
+      identityVerified: auth?.ok === true && typeof auth.userId === "string" && auth.userId.length > 0,
+      tenantAuthorized: tenantAuthorized === true
+    }
+  );
 }
 
 async function createConnection(request, env, user, origin) {
@@ -561,6 +572,16 @@ export default {
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
+      const capability = match[2] === "quotes" ? "market.quote.read"
+        : match[2] === "status" ? "connection.own.read" : "account.summary.read";
+      const policy = authorizeCoreCapability(
+        capability,
+        auth,
+        result.row.user_id === auth.userId
+      );
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
       if (match[2] === "account") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
