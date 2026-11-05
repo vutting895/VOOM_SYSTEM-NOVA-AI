@@ -1,4 +1,5 @@
 import { getVideoSkillRegistry } from "./skill-registry.js";
+import { createDirectorPlan } from "./video-director-intelligence.js";
 
 const BASE_HEADERS = Object.freeze({
   "Cache-Control": "no-store",
@@ -385,6 +386,30 @@ async function createJob(request, env, auth, origin) {
       ? "No verified zero-cost GPU is available; generation remains blocked."
       : "No video worker is deployed; this request is recorded but not executed.",
   }, 202, origin, env);
+}
+
+async function createDirectorPlanResponse(request, origin, env) {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
+  const body = parsed.value;
+  const allowedFields = ["title", "concept", "audience", "platform", "language", "style", "callToAction", "durationSeconds", "aspectRatio", "goal", "verifiedFacts", "mustAvoid"];
+  if (Object.keys(body).some((key) => !allowedFields.includes(key))) {
+    return json({ error: "video_plan_fields_invalid" }, 400, origin, env);
+  }
+  try {
+    const directorPlan = createDirectorPlan(body);
+    return json({
+      directorPlan,
+      executionEnabled: false,
+      estimatedCost: 0,
+      requiresHumanApproval: true,
+      explanation: "NOVA Director generated a deterministic production plan. No LLM, video model, GPU or worker was invoked.",
+    }, 200, origin, env);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "video_plan_invalid";
+    const known = /^(invalid_|creative_brief_required|director_|scene_|script_|director_timeline_|video_)/.test(message);
+    return json({ error: known ? message : "video_plan_invalid" }, 400, origin, env);
+  }
 }
 
 async function handle(request, env) {
