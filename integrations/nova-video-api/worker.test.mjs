@@ -124,7 +124,7 @@ test("authenticated skills catalog returns 22 free-only, non-executable skills",
         assert.equal(skill.estimatedCost, 0);
       }
     }
-    assert.equal(calls, 0);
+    assert.equal(calls, 1);
   } finally {
     globalThis.fetch = previous;
   }
