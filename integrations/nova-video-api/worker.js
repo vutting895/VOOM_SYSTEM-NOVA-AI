@@ -414,7 +414,7 @@ async function createDirectorPlanResponse(request, origin, env) {
 
 async function handle(request, env) {
   const url = new URL(request.url);
-  const match = /^\/api\/video\/(skills|projects|jobs)$/.exec(url.pathname);
+  const match = /^\/api\/video\/(skills|projects|jobs|plan)$/.exec(url.pathname);
   if (!match) return json({ error: "not_found" }, 404);
 
   const origin = request.headers.get("Origin") || "";
@@ -446,6 +446,11 @@ async function handle(request, env) {
 
   if (resource === "skills") {
     return json(getVideoSkillRegistry(), 200, origin, env);
+  }
+  if (resource === "plan") {
+    return request.method === "POST"
+      ? createDirectorPlanResponse(request, origin, env)
+      : json({ error: "method_not_allowed" }, 405, origin, env);
   }
   if (resource === "projects") {
     return request.method === "GET"
