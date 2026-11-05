@@ -90,7 +90,7 @@ Each independent product registers a server-controlled record containing:
 - \`project_id\`: stable slug, e.g. \`trading\`, \`video\`.
 - \`api_version\`: explicit major/minor contract version.
 - \`owner_scope\`: resolved from authenticated server context, never trusted from request JSON.
-- \`capabilities\`: allowlisted names such as \`market.data.read\`, \`model.inference.run\`, \`video.job.create\`.
+- \`capabilities\`: only exact capability IDs in the active NOVA System Core allowlist. Product-local operation names and proposed extensions are not NOVA permissions; they require a separately reviewed Core policy change before registration.
 - \`data_classification\`: public, internal, tenant, confidential.
 - \`health_state\`: not_configured, configured, reachable, authenticated, data_verified, degraded, unavailable.
 - \`release_ref\`: repository, commit SHA and deployment evidence.
@@ -109,7 +109,7 @@ Illustrative contract (all fields are validated server-side):
   "project_id": "trading",
   "api_version": "1",
   "intent": "research.market_regime",
-  "capability": "market.data.read",
+  "capability": "market.quote.read",
   "resource": {
     "kind": "instrument",
     "id": "XAUUSD"
@@ -175,22 +175,26 @@ TRADING UI / RESEARCH WORKBENCH
           Exness Demo via current Hub
 ~~~
 
-### 4.3 Trading API capabilities exposed to NOVA
+### 4.3 Trading domain operations and NOVA capability mapping
 
-Initial allowed capability set:
+The following are proposed Trading-internal operation IDs, **not NOVA System Core capability IDs**. They do not become callable through NOVA merely by appearing in this design. The project may expose internal endpoints to its own isolated runtime, but every NOVA-to-Trading request must use an exact capability already approved by the active Core policy.
 
-- \`trading.project.status.read\`
-- \`trading.market.snapshot.read\`
-- \`trading.market.history.read\`
-- \`trading.strategy.catalog.read\`
-- \`trading.strategy.draft.create\`
-- \`trading.backtest.run\`
-- \`trading.experiment.read\`
-- \`trading.model.inference.run\` (shadow/research only)
-- \`trading.paper.portfolio.read\`
-- \`trading.broker.demo.status.read\`
+| Trading domain operation | Existing NOVA Core v1 capability | Availability through NOVA |
+|---|---|---|
+| \`trading.project.status.read\` | \`system.health.read\` | Allowed only for bounded project health metadata |
+| \`trading.market.snapshot.read\` | \`market.quote.read\` | Allowed for tenant-authorized read-only quotes |
+| \`trading.market.history.read\` | \`market.candles.read\` | Allowed for tenant-authorized historical candles |
+| \`trading.strategy.draft.create\` | \`strategy.draft.create\` | Allowed as a non-executable draft |
+| \`trading.model.inference.run\` | \`research.analysis.run\` | Allowed for bounded shadow/research inference only |
+| \`trading.broker.demo.status.read\` | \`connection.own.read\` | Allowed for the authenticated owner's Demo connection metadata only |
+| \`trading.strategy.catalog.read\` | None | Not exposed through NOVA v1; requires policy review |
+| \`trading.backtest.run\` | None | Not exposed through NOVA v1; requires policy review |
+| \`trading.experiment.read\` | \`learning.evaluation.read\` | Metadata/evaluation reads only; no model artifact or tenant bypass |
+| \`trading.paper.portfolio.read\` | None | Not exposed through NOVA v1; requires policy review |
 
-Explicitly absent from v1:
+Any additional capability (including a new \`trading.*\` identifier) requires a separate change to System Core's allowlist, Hub enforcement, negative tests and independent security review. A project registration may narrow permissions but never expand the Core allowlist. No capability is implicitly granted by this document.
+
+Explicitly absent from NOVA Core v1 and therefore not available as NOVA-authorized operations:
 
 - broker order submit/modify/cancel;
 - withdrawals, transfers, leverage changes;
