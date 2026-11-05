@@ -161,7 +161,7 @@ BEGIN
       '1.0.0'
     );
     RAISE EXCEPTION 'Cross-tenant preparation insert unexpectedly succeeded';
-  EXCEPTION WHEN foreign_key_violation OR check_violation THEN
+  EXCEPTION WHEN foreign_key_violation OR check_violation OR insufficient_privilege THEN
     NULL;
   END;
 END
