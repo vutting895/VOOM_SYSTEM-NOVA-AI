@@ -53,17 +53,11 @@ test("rejects identity, tenant, secret, route, and unknown fields from caller in
 });
 test("rejects identity and secret fields nested inside project input", () => {
   for (const input of [
-    { tenant: "other-tenant" },
-    { nested: { user_id: "other-user" } },
-    { provider: { authorization: "Bearer secret" } },
-    { endpoint: { upstream_url: "https://attacker.invalid" } },
-    { accessToken: "bearer-secret" },
-    { api_key: "private-key" },
-    { tenantId: "another-tenant" },
-    { callback: { url: "https://attacker.invalid" } },
-  ]) {
-    assert.equal(validateProjectRequest({ ...request(), input }, project).reason, "input_contains_identity_or_secret_field");
-  }
+    { tenant: "other-tenant" }, { nested: { user_id: "other-user" } },
+    { provider: { authorization: "Bearer secret" } }, { endpoint: { upstream_url: "https://attacker.invalid" } },
+    { accessToken: "bearer-secret" }, { api_key: "private-key" },
+    { tenantId: "another-tenant" }, { callback: { url: "https://attacker.invalid" } },
+  ]) assert.equal(validateProjectRequest({ ...request(), input }, project).reason, "input_contains_identity_or_secret_field");
 });
 test("rejects project mismatch, version mismatch, and unregistered capability", () => {
   assert.equal(validateProjectRequest({ ...request(), project_id: "video" }, project).reason, "project_id_mismatch");
@@ -103,4 +97,22 @@ test("rejects response correlation, provenance, error/result ambiguity, and extr
   assert.equal(validateProjectResponse({ ...base, status: "error", error: { code: "failed", message: "No data" } }, request().request_id).reason, "response_error_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data", secret: "leak" } }, request().request_id).reason, "response_error_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data" } }, request().request_id).valid, true);
+});
+test("rejects secret-bearing project result fields and bearer tokens in error messages", () => {
+  for (const result of [
+    { balance: "100.00", access_token: "secret" },
+    { nested: { apiKey: "private" } },
+    [{ account: "demo" }, { authorization: "Bearer token" }],
+    { token: "eyJhbGciOiJIUzI1NiJ9.payload.signature" },
+  ]) {
+    assert.equal(validateProjectResponse({
+      schema: NOVA_PROJECT_RESPONSE_SCHEMA, request_id: request().request_id, status: "ok",
+      data_timestamp: null, provenance: { source: "test", version: "1", checksum: null }, result,
+    }, request().request_id).reason, "response_result_invalid");
+  }
+  assert.equal(validateProjectResponse({
+    schema: NOVA_PROJECT_RESPONSE_SCHEMA, request_id: request().request_id, status: "error",
+    data_timestamp: null, provenance: { source: "test", version: "1", checksum: null },
+    error: { code: "failed", message: "Bearer very-secret-token" },
+  }, request().request_id).reason, "response_error_invalid");
 });
