@@ -82,5 +82,5 @@ test('Vite build configuration preserves the root SPA settings', async () => {
   assert.match(vite, /@vitejs\/plugin-react/);
   assert.match(vite, /@tailwindcss\/vite/);
   assert.match(vite, /hmr: false/);
-  assert.match(vite, /npm/ === false ? /nope/ : /loadEnv/);
+  assert.match(vite, /loadEnv/);
 });
