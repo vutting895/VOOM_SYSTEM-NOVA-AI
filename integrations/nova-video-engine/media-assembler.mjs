@@ -221,7 +221,7 @@ export function createNOVAMediaAssembler(options = {}) {
         await linkImpl(temporaryOutputPath, outputPath);
         await unlinkImpl(temporaryOutputPath).catch(() => {});
         temporaryOutputCreated = false;
-        return { state: "assembled", asset: { assetPath: path.relative(rootReal, outputPath).split(path.sep).join("/"), ...finalMeta }, renderer: "ffmpeg-local", executionEnabled: true, estimatedCost: 0 };
+        return { state: "assembled", asset: { assetPath: path.relative(rootReal, outputPath).split(path.sep).join("/"), ...finalMeta, bytes: outputInfo.size }, renderer: "ffmpeg-local", executionEnabled: true, estimatedCost: 0 };
       } catch (error) {
         if (temporaryOutputCreated && temporaryOutputPath) await unlinkImpl(temporaryOutputPath).catch(() => {});
         return { state: "failed", reason: error instanceof Error ? error.message : "assembly_failed", executionEnabled: true, estimatedCost: 0 };
