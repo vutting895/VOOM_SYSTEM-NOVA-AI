@@ -32,7 +32,7 @@ export function createVideoJob(input, now = new Date().toISOString()) {
   if (!request || typeof request !== "object" || Array.isArray(request)) throw new TypeError("invalid_job_request");
   return Object.freeze({
     id, tenantId, projectId, idempotencyKey, state: "queued",
-    retryCount: 0, createdAt: timestamp.toISOString(), updatedAt: timestamp.toISOString(),
+    version: 0, retryCount: 0, createdAt: timestamp.toISOString(), updatedAt: timestamp.toISOString(),
     request: copy(request), audit: Object.freeze([{ state: "queued", at: timestamp.toISOString(), event: "job_created" }]),
   });
 }
@@ -53,7 +53,7 @@ export function transitionVideoJob(job, nextState, options = {}) {
     ? "approval_granted"
     : "state_transition";
   const auditEntry = Object.freeze({ state: nextState, at: new Date(at).toISOString(), event, retryCount });
-  return Object.freeze({ ...job, state: nextState, retryCount, updatedAt: auditEntry.at, audit: Object.freeze([...job.audit, auditEntry]) });
+  return Object.freeze({ ...job, state: nextState, version: (Number.isInteger(job.version) ? job.version : 0) + 1, retryCount, updatedAt: auditEntry.at, audit: Object.freeze([...job.audit, auditEntry]) });
 }
 
 export function createInMemoryVideoJobStore() {
