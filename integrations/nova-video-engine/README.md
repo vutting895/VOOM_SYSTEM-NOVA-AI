@@ -19,6 +19,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | NOVA Director Intelligence | Implemented: beat selection, shot framing, camera, lighting, continuity and frame-accurate timeline |
 | Production pipeline planner | Implemented: approval gate, per-scene generation tasks, assembly, QC and delivery dependencies |
 | Tenant-scoped job lifecycle | Implemented as an in-memory reference store with idempotency, approval transition, retry limit and tenant checks |
+| Local durable job journal | Implemented: append-only JSONL, fsync per event, startup replay, idempotency recovery, tenant isolation and a single-writer lock; local development only |
 | Video quality control | Implemented: timeline integrity, clip metadata, dimensions, continuity and safe asset paths |
 | NOVA model specialization governance | Implemented: dataset provenance, rights, commercial-use permission, privacy review and explicit consent scopes; adaptation remains planning-only |
 | Render orchestration and state machine | Implemented |
@@ -30,7 +31,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
 | Voice, music, subtitles and audio mix | Not implemented |
 | Video analysis / editing / transcoding pipeline | Not implemented |
-| Durable queue, worker dispatch and private asset storage | Not implemented; current job store is in-memory reference only |
+| Distributed durable queue, worker dispatch and private asset storage | Not implemented; local journal is single-writer and not a shared cloud queue |
 | Supabase production schema / migration | Not included in this package |
 
 The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute, pinned 40-character upstream revision, checkpoint-integrity and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
@@ -59,7 +60,7 @@ The Wan 2.2 adapter can invoke an already-installed local upstream repository an
 
 ## NOVA Director and production pipeline
 
-`director-intelligence.mjs` is NOVA-owned planning logic: it chooses narrative beats, camera framing/movement, lighting, transitions and continuity constraints, and allocates scenes on a 24 FPS frame timeline. It is deterministic decision logic, not a trained foundation model or an external LLM call. `pipeline-orchestrator.mjs` turns the plan into per-scene Wan task contracts and explicit stage dependencies; it always requires human approval and remains non-executing. `job-lifecycle.mjs` supplies an in-memory reference state machine only; it is not durable and is not connected to Supabase. `quality-control.mjs` verifies timeline and output metadata, but does not yet inspect actual MP4 frames or perceptual quality. `dataset-governance.mjs` prepares a future NOVA-specific adapter/LoRA path using only datasets with documented provenance, model-training and commercial rights, privacy review and consent where people are identifiable. It validates manifests only; it does not upload data or train weights.
+`director-intelligence.mjs` is NOVA-owned planning logic: it chooses narrative beats, camera framing/movement, lighting, transitions and continuity constraints, and allocates scenes on a 24 FPS frame timeline. It is deterministic decision logic, not a trained foundation model or an external LLM call. `pipeline-orchestrator.mjs` turns the plan into per-scene Wan task contracts and explicit stage dependencies; it always requires human approval and remains non-executing. `job-lifecycle.mjs` supplies the state machine. `file-job-store.mjs` adds a local append-only journal with fsync-per-event and single-writer locking; it is not encrypted at rest, is not a distributed queue and is not connected to Supabase. `quality-control.mjs` verifies timeline and output metadata, but does not yet inspect actual MP4 frames or perceptual quality. `dataset-governance.mjs` prepares a future NOVA-specific adapter/LoRA path using only datasets with documented provenance, model-training and commercial rights, privacy review and consent where people are identifiable. It validates manifests only; it does not upload data or train weights.
 
 ## Model catalog
 
