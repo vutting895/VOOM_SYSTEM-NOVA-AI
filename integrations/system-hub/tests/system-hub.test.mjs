@@ -309,7 +309,17 @@ test("signed-in user can create one pending Exness Demo connection request", asy
   try {
     const response = await worker.fetch(request("/v1/connections", {
       method: "POST",
-      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN, "Content-Type": "application/json" }
+      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: "attacker-selected-user",
+        tenant_id: "attacker-selected-tenant",
+        provider: "unapproved-provider",
+        environment: "live",
+        status: "connected",
+        bridge_route_id: "attacker-route",
+        password: "synthetic-secret",
+        upstream_url: "https://attacker.invalid"
+      })
     }), env);
     const bodyText = await response.text();
     const body = JSON.parse(bodyText);
@@ -320,7 +330,12 @@ test("signed-in user can create one pending Exness Demo connection request", asy
     assert.equal(body.ordersEnabled, false);
     assert.equal(body.liveTradingEnabled, false);
     assert.doesNotMatch(bodyText, /bridge_route_id|access_token|password/);
-    assert.ok(insertPayload);
+    assert.deepEqual(insertPayload, {
+      provider: "exness_mt5",
+      environment: "demo",
+      status: "pending",
+      account_label: "Exness MT5 Demo"
+    });
   } finally {
     globalThis.fetch = original;
   }
