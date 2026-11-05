@@ -258,3 +258,98 @@ test("CORS allowlist rejects HTTP origins and URL values that are not canonical 
   }), invalidEnv);
   assert.equal(withPath.status, 403);
 });
+
+test("authenticated NOVA Director planning returns a frame-accurate plan without model or database calls", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    calls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    return authResponse();
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/plan", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        title: "NOVA Product Film",
+        concept: "A premium coffee cup on a quiet morning table",
+        durationSeconds: 15,
+        aspectRatio: "9:16",
+        goal: "product_ad",
+        language: "th",
+        verifiedFacts: ["Ceramic body"],
+      },
+    }), ENV);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+    assert.equal(data.requiresHumanApproval, true);
+    assert.equal(data.directorPlan.generatedBy, "nova-owned-director-rules");
+    assert.equal(data.directorPlan.frameRate, 24);
+    assert.equal(data.directorPlan.totalFrames, 360);
+    assert.equal(data.directorPlan.scenes.length, 3);
+    assert.equal(data.directorPlan.scenes.reduce((sum, scene) => sum + scene.frameCount, 0), 360);
+    assert.equal(data.directorPlan.scenes[0].beat, "hook");
+    assert.match(data.directorPlan.scenes[0].visualPrompt, /Do not invent specifications/);
+    assert.equal(calls, 1, "only Supabase Auth is called; no DB, LLM, model or worker call is made");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("Director planning rejects unknown fields and invalid duration without database writes", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return authResponse(); };
+  try {
+    const headers = { Origin: ORIGIN, Authorization: "Bearer " + SESSION };
+    const base = { title: "Demo", concept: "A simple product film", durationSeconds: 15 };
+    const extra = await worker.fetch(request("/api/video/plan", {
+      method: "POST", headers, body: { ...base, execute: true },
+    }), ENV);
+    assert.equal(extra.status, 400);
+    assert.deepEqual(await extra.json(), { error: "video_plan_fields_invalid" });
+    const long = await worker.fetch(request("/api/video/plan", {
+      method: "POST", headers, body: { ...base, durationSeconds: 90 },
+    }), ENV);
+    assert.equal(long.status, 400);
+    assert.equal((await long.json()).error, "director_plan_max_duration_60_seconds");
+    assert.equal(calls, 2, "only authentication requests occurred; no database write was attempted");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("Director planning authenticates before reading a request body", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return authResponse(); };
+  try {
+    const response = await worker.fetch(request("/api/video/plan", {
+      method: "POST", body: { title: "Demo", concept: "Concept" },
+    }), ENV);
+    assert.equal(response.status, 401);
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("Worker exposes plan as POST-only and keeps the engine non-executable", async () => {
+  const previous = globalThis.fetch;
+  globalThis.fetch = async () => authResponse();
+  try {
+    const getResponse = await worker.fetch(request("/api/video/plan", {
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+    }), ENV);
+    assert.equal(getResponse.status, 405);
+  } finally {
+    globalThis.fetch = previous;
+  }
+  const source = readFileSync(new URL("./worker.js", import.meta.url), "utf8");
+  assert.match(source, /createDirectorPlan\(body\)/);
+  assert.doesNotMatch(source, /dispatchWorker|invokeModel|generateVideo|uploadMedia/i);
+});
