@@ -353,3 +353,100 @@ test("Worker exposes plan as POST-only and keeps the engine non-executable", asy
   assert.match(source, /createDirectorPlan\(body\)/);
   assert.doesNotMatch(source, /dispatchWorker|invokeModel|generateVideo|uploadMedia/i);
 });
+
+test("job creation persists the NOVA Director plan in the owner-scoped job request", async () => {
+  const previous = globalThis.fetch;
+  let inserted;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(url.pathname, "/rest/v1/nova_video_jobs");
+    inserted = JSON.parse(init.body);
+    return Response.json([{
+      id: "job-with-plan",
+      project_id: inserted.project_id,
+      task_type: inserted.task_type,
+      status: inserted.status,
+      prompt: inserted.prompt,
+      request: inserted.request,
+      execution_mode: inserted.execution_mode,
+      estimated_cost: inserted.estimated_cost,
+      created_at: "2026-11-05T00:00:00Z",
+    }], { status: 201 });
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/jobs", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        project_id: "123e4567-e89b-42d3-a456-426614174000",
+        task_type: "video_generation",
+        prompt: "Create the reviewed NOVA product film",
+        idempotency_key: "director-job-key-01",
+        brief: {
+          title: "NOVA Product Film",
+          concept: "A premium coffee cup on a quiet morning table",
+          durationSeconds: 15,
+          aspectRatio: "9:16",
+          goal: "product_ad",
+        },
+      },
+    }), ENV);
+    assert.equal(response.status, 202);
+    assert.equal(inserted.request.schema_version, "nova.video-job.v2");
+    assert.equal(inserted.request.director_plan.generatedBy, "nova-owned-director-rules");
+    assert.equal(inserted.request.director_plan.totalFrames, 360);
+    assert.equal(inserted.request.director_plan.scenes.length, 3);
+    const data = await response.json();
+    assert.equal(data.job.request.director_plan.totalFrames, 360);
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("job idempotency detects a different Director brief even when prompt and project match", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    calls += 1;
+    if (init.method === "POST") return new Response(JSON.stringify({ code: "23505" }), { status: 409 });
+    const existingPlan = {
+      generatedBy: "nova-owned-director-rules",
+      totalFrames: 360,
+      title: "Different existing concept",
+    };
+    return Response.json([{
+      id: "existing-job",
+      project_id: "123e4567-e89b-42d3-a456-426614174000",
+      task_type: "video_generation",
+      prompt: "Same prompt",
+      request: { schema_version: "nova.video-job.v2", director_plan: existingPlan },
+    }]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/jobs", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        project_id: "123e4567-e89b-42d3-a456-426614174000",
+        task_type: "video_generation",
+        prompt: "Same prompt",
+        idempotency_key: "director-job-key-02",
+        brief: {
+          title: "New concept",
+          concept: "A different product",
+          durationSeconds: 15,
+        },
+      },
+    }), ENV);
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: "video_idempotency_key_reused" });
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
