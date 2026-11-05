@@ -16,6 +16,10 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Capability | State |
 |---|---|
 | Brief and storyboard planner | Implemented (deterministic CPU logic) |
+| NOVA Director Intelligence | Implemented: beat selection, shot framing, camera, lighting, continuity and frame-accurate timeline |
+| Production pipeline planner | Implemented: approval gate, per-scene generation tasks, assembly, QC and delivery dependencies |
+| Tenant-scoped job lifecycle | Implemented as an in-memory reference store with idempotency, approval transition, retry limit and tenant checks |
+| Video quality control | Implemented: timeline integrity, clip metadata, dimensions, continuity and safe asset paths |
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
@@ -24,7 +28,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
 | Voice, music, subtitles and audio mix | Not implemented |
 | Video analysis / editing / transcoding pipeline | Not implemented |
-| Persistent queue, worker dispatch and private asset storage | Not implemented |
+| Durable queue, worker dispatch and private asset storage | Not implemented; current job store is in-memory reference only |
 | Supabase production schema / migration | Not included in this package |
 
 The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
@@ -50,6 +54,10 @@ The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a rea
 4. Add private object storage and signed delivery only after tenant isolation and backup/restore acceptance.
 5. Benchmark candidate open models and compute against verified zero-cost eligibility; otherwise keep generative tasks blocked.
 6. Prove two-user staging isolation before connecting execution to the production API.
+
+## NOVA Director and production pipeline
+
+`director-intelligence.mjs` is NOVA-owned planning logic: it chooses narrative beats, camera framing/movement, lighting, transitions and continuity constraints, and allocates scenes on a 24 FPS frame timeline. It is deterministic decision logic, not a trained foundation model or an external LLM call. `pipeline-orchestrator.mjs` turns the plan into per-scene Wan task contracts and explicit stage dependencies; it always requires human approval and remains non-executing. `job-lifecycle.mjs` supplies an in-memory reference state machine only; it is not durable and is not connected to Supabase. `quality-control.mjs` verifies timeline and output metadata, but does not yet inspect actual MP4 frames or perceptual quality.
 
 ## Model catalog
 
