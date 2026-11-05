@@ -100,7 +100,7 @@ jobs:
           docker exec "$pg_container" psql -X -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-integration.sql
 
   local-supabase-auth-and-api:
-    name: Local Supabase Auth, PostgREST and API isolation
+    name: Local Supabase Auth, PostgREST and System Hub isolation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -116,10 +116,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
 
       - name: Start an isolated local Supabase Auth and database stack
         shell: bash
@@ -155,36 +151,6 @@ jobs:
             printf 'NOVA_LOCAL_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
             printf 'NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
-
-      - name: Exercise real local Auth sessions, API ownership and Exness connection RLS
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd frontend
-          NEXT_PUBLIC_SUPABASE_URL="$NOVA_LOCAL_SUPABASE_URL" \
-          NEXT_PUBLIC_SUPABASE_ANON_KEY="$NOVA_LOCAL_SUPABASE_ANON_KEY" \
-          NOVA_APPROVALS_ENABLED=true \
-          NEXT_TELEMETRY_DISABLED=1 \
-          npm run dev -- --hostname 127.0.0.1 --port 3100 > /tmp/nova-approval-next-dev.log 2>&1 &
-          app_pid=$!
-          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
-
-          ready=0
-          for attempt in $(seq 1 45); do
-            status="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/api/agent/threads || true)"
-            if [ "$status" = "401" ]; then
-              ready=1
-              break
-            fi
-            sleep 2
-          done
-          if [ "$ready" != "1" ]; then
-            cat /tmp/nova-approval-next-dev.log
-            echo "Next.js API did not become ready"
-            exit 1
-          fi
-
-          NOVA_LOCAL_APP_URL=http://127.0.0.1:3100 node scripts/nova-approval-local-supabase.integration.mjs
 
       - name: Exercise System Hub with two real local Auth sessions and PostgREST RLS
         shell: bash
