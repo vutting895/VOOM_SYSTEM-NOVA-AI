@@ -51,6 +51,16 @@ test("rejects identity, tenant, secret, route, and unknown fields from caller in
     assert.equal(validateProjectRequest({ ...request(), [field]: "untrusted" }, project).reason, "request_unknown_fields", field);
   }
 });
+test("rejects identity and secret fields nested inside project input", () => {
+  for (const input of [
+    { tenant: "other-tenant" },
+    { nested: { user_id: "other-user" } },
+    { provider: { authorization: "Bearer secret" } },
+    { endpoint: { upstream_url: "https://attacker.invalid" } },
+  ]) {
+    assert.equal(validateProjectRequest({ ...request(), input }, project).reason, "input_contains_identity_or_secret_field");
+  }
+});
 test("rejects project mismatch, version mismatch, and unregistered capability", () => {
   assert.equal(validateProjectRequest({ ...request(), project_id: "video" }, project).reason, "project_id_mismatch");
   assert.equal(validateProjectRequest({ ...request(), api_version: "2" }, project).reason, "api_version_mismatch");
