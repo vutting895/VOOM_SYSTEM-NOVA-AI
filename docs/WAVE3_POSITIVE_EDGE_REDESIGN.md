@@ -255,3 +255,17 @@ The current pipeline constants show slippage of $0.02 per side and commission of
 - Added persisted gap_through_barrier, gap_through_side, and gap_open_price fields for closed outcomes. This remains challenger-only; no benchmark feature, label, weight, lookback, threshold, or gate is changed.
 - Exact-head P2 CI #35 passed all 16 tests on code/test commit efc950f49953c742a50f0925f3c778415edce438 (workflow run 41766967379); duplicate pull-request-triggered run #36 on the same SHA also passed. This confirms synthetic regression coverage only and does not resolve broker-cost or holdout blockers. Remaining acceptance blockers are independent Exness Demo commission evidence, account-specific swap/rollover charges, real-data challenger label/schema/manifest integration, and a genuinely new future untouched holdout. Synthetic tests do not resolve those broker/data blockers.
 - No benchmark training, final-OOS tuning, broker order, deployment, merge, or Live Trading was performed.
+
+
+## P1 FVG challenger prototype — 2026-11-05
+
+Added an isolated, pure-Python event trace in `research/wave3_challenger/fvg_events.py`; the frozen benchmark module `workers/strategy/wave3_ml_pipeline.py` is not imported or changed.
+
+The trace emits all three preregistered comparators side by side without choosing a winner:
+- `first_touch_only`: one event at the first OHLC overlap after the third candle has closed.
+- `first_full_mitigation_only`: one event at the first lower-boundary mitigation, with later touches marked separately as `post_full_mitigation_retouch`.
+- `repeat_touch_within_48`: every overlap for the latest active bullish FVG at ages 1–48, retained only as the existing-behavior comparator.
+
+The previous active gap is evaluated before a new gap is registered at the current candle close; the new gap becomes active from the next candle. The implementation exposes immutable first-touch and first-full-mitigation indices and reads no future bars.
+
+The isolated tests cover third-candle confirmation, immutable event indices, post-mitigation retouches, new-gap supersession timing, future-bar perturbation, and the inclusive 48-bar expiry. This is an event-definition prototype only: it does not change the benchmark feature matrix, train models, create signal candidates, or determine which comparator should be selected. Net-cost comparison remains blocked until Exness Demo commission and rollover evidence are available, and final challenger acceptance still requires a newly preregistered future holdout.

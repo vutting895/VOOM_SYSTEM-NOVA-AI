@@ -1,4 +1,4 @@
-name: Wave3 Challenger P2 CI
+name: Wave3 Challenger Research CI
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
     paths:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
+      - "tests/test_wave3_challenger_fvg_events.py"
       - "docs/WAVE3_POSITIVE_EDGE_REDESIGN.md"
       - ".github/workflows/wave3-challenger-p2-ci.yml"
   push:
@@ -14,6 +15,7 @@ on:
     paths:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
+      - "tests/test_wave3_challenger_fvg_events.py"
       - "docs/WAVE3_POSITIVE_EDGE_REDESIGN.md"
       - ".github/workflows/wave3-challenger-p2-ci.yml"
 
@@ -21,16 +23,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: wave3-challenger-p2-${{ github.ref }}
+  group: wave3-challenger-research-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  first-hit-label-tests:
+  challenger-research-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run isolated challenger P2 tests
+      - name: Compile isolated challenger research modules
+        run: python -m py_compile research/wave3_challenger/first_hit_labels.py research/wave3_challenger/fvg_events.py
+      - name: Run isolated challenger P2 first-hit label tests
         run: python -m unittest discover -s tests -p "test_wave3_challenger_first_hit_labels.py" -v
+      - name: Run isolated challenger P1 FVG semantics tests
+        run: python -m unittest discover -s tests -p "test_wave3_challenger_fvg_events.py" -v
