@@ -1,0 +1,257 @@
+name: Deploy VOOM Workers to Cloudflare
+
+on:
+  workflow_run:
+    workflows: ["Frontend CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voom-cloudflare-workers-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SYSTEM_HUB_URL: ${{ vars.NEXT_PUBLIC_SYSTEM_HUB_URL || 'https://voom-system-hub.suwapat787.workers.dev' }}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY || vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAAFlosj98ci8iYugG' }}
+      NEXT_PUBLIC_NOVA_APPROVALS_ENABLED: "false"
+      NOVA_APPROVALS_ENABLED: "false"
+    steps:
+      - name: Checkout exact commit validated by Frontend CI
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Verify Cloudflare deployment configuration without printing values
+        shell: bash
+        run: |
+          missing=()
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_URL SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!key}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Deployment blocked. Configure the required GitHub Actions secrets (names only): ${missing[*]}"
+            exit 1
+          fi
+          echo "Required Cloudflare deployment configuration is present."
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install project dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Detect changed backend Worker directories in the validated commit
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          head="$(git rev-parse HEAD)"
+          if ! git rev-parse "${head}^" >/dev/null 2>&1; then
+            echo "Could not inspect the validated commit's parent; refusing implicit full redeploy."
+            exit 1
+          fi
+          changed="$(git diff --name-only "${head}^" "${head}")"
+          printf '%s\n' "$changed"
+          if grep -Eq '^integrations/mt5-bridge-relay/' <<< "$changed"; then echo "mt5_relay=true" >> "$GITHUB_OUTPUT"; else echo "mt5_relay=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/mt5-readonly-proxy/' <<< "$changed"; then echo "mt5_proxy=true" >> "$GITHUB_OUTPUT"; else echo "mt5_proxy=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/remote-mcp-worker/' <<< "$changed"; then echo "remote_mcp=true" >> "$GITHUB_OUTPUT"; else echo "remote_mcp=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^integrations/system-hub/' <<< "$changed"; then echo "system_hub=true" >> "$GITHUB_OUTPUT"; else echo "system_hub=false" >> "$GITHUB_OUTPUT"; fi
+          if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Install pinned Wrangler whenever a Worker will be deployed
+        if: steps.changed.outputs.mt5_relay == 'true' || steps.changed.outputs.mt5_proxy == 'true' || steps.changed.outputs.remote_mcp == 'true' || steps.changed.outputs.system_hub == 'true' || (steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true')
+        working-directory: frontend
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+
+      - name: Verify Cloudflare frontend public configuration without printing values
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        shell: bash
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ -z "$NEXT_PUBLIC_TURNSTILE_SITE_KEY" ]; then
+            echo "Cloudflare frontend deployment blocked. Configure NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and NEXT_PUBLIC_TURNSTILE_SITE_KEY in GitHub Actions secrets/variables."
+            exit 1
+          fi
+          echo "Cloudflare frontend public configuration is present."
+
+      - name: Build OpenNext frontend for Cloudflare from the validated commit
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        working-directory: frontend
+        run: npm run cf:build
+
+      - name: Deploy customer frontend to the Cloudflare UI Worker
+        if: steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true'
+        working-directory: frontend
+        run: |
+          sha="$(git rev-parse HEAD)"
+          npx wrangler deploy --config wrangler.jsonc --keep-vars \
+            --var "NOVA_BUILD_SHA:$sha" \
+            --var "SUPABASE_URL:$SUPABASE_URL" \
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "SUPABASE_ANON_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "NOVA_APPROVALS_ENABLED:false"
+
+      # Deploy only changed Worker directories from the exact commit that passed CI.
+      # Stable workers.dev relay removes dependency on a custom domain or public Windows origin.
+      - name: Deploy tenant-isolated MT5 Bridge relay
+        if: steps.changed.outputs.mt5_relay == 'true'
+        working-directory: frontend
+        run: npx wrangler deploy --config ../integrations/mt5-bridge-relay/wrangler.jsonc --keep-vars
+
+      # Deploy only when its source/config changed; the frontend routes through the System Hub.
+      - name: Deploy authenticated Exness MT5 read-only proxy
+        if: steps.changed.outputs.mt5_proxy == 'true'
+        working-directory: frontend
+        run: |
+          npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars \
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Deploy authenticated read-only Remote MCP Worker
+        if: steps.changed.outputs.remote_mcp == 'true'
+        working-directory: frontend
+        run: npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars
+
+      # Separate control plane; no Alpaca OAuth logic or order-submission routes are reused.
+      - name: Deploy NOVA System Integration Hub
+        if: steps.changed.outputs.system_hub == 'true'
+        working-directory: frontend
+        run: |
+          npx wrangler deploy --config ../integrations/system-hub/wrangler.jsonc --keep-vars \
+            --var "ALLOWED_ORIGINS:https://voomsystem.netlify.app,https://voom-system-nova-ui.suwapat787.workers.dev" \
+            --var "SUPABASE_URL:$SUPABASE_URL" \
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
+
+      - name: Smoke-test Cloudflare backend worker safety contracts
+        shell: bash
+        env:
+          FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true' }}
+        run: |
+          set -euo pipefail
+          proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
+          relay="https://voom-mt5-bridge-relay.suwapat787.workers.dev"
+          mcp="https://voom-system-mcp.suwapat787.workers.dev"
+          hub="https://voom-system-hub.suwapat787.workers.dev"
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$relay/health" || true)"
+          if [ "$code" != "200" ] || ! grep -q '"status":"relay_ready"' "$body" || ! grep -q '"ordersEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
+            echo "MT5 relay health or read-only safety check failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$relay/api/account" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"authentication_required"' "$body"; then
+            echo "MT5 relay did not reject unauthenticated account access (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$proxy/health" || true)"
+          if [ "$code" != "200" ] || ! grep -q '"ordersEnabled":false' "$body"; then
+            echo "MT5 Proxy health or read-only safety check failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$proxy/api/account?connection_id=00000000-0000-4000-8000-000000000000" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"authentication_required"' "$body"; then
+            echo "MT5 Proxy did not reject unauthenticated private account access (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -H 'Authorization: Bearer invalid-ci-session-token' "$proxy/api/account?connection_id=00000000-0000-4000-8000-000000000000" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"error":"invalid_or_expired_session"' "$body"; then
+            echo "MT5 Proxy did not reject an invalid Supabase session with HTTP 401 (HTTP $code)."
+            exit 1
+          fi
+
+          # A brand-new workers.dev hostname can briefly return 404 while edge routing propagates.
+          # Retry boundedly; never treat retries as a pass unless the expected health contract is returned.
+          hub_health_ok=false
+          for attempt in $(seq 1 10); do
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$hub/health" || true)"
+            if [ "$code" = "200" ] && grep -q '"service":"voom-system-hub"' "$body" && grep -q '"authConfigured":true' "$body" && grep -q '"ordersEnabled":false' "$body" && grep -q '"liveTradingEnabled":false' "$body"; then
+              hub_health_ok=true
+              break
+            fi
+            echo "System Hub health check attempt ${attempt}/10 returned HTTP ${code}; retrying boundedly for edge propagation."
+            sleep 3
+          done
+          if [ "$hub_health_ok" != "true" ]; then
+            echo "System Hub health, auth configuration, or read-only safety check failed after bounded retries."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$hub/v1/integrations" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
+            echo "System Hub did not reject unauthenticated integration inventory access (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -H 'Authorization: Bearer invalid-ci-session-token' "$hub/v1/integrations" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"error":"invalid_or_expired_session"' "$body"; then
+            echo "System Hub did not reject an invalid Supabase session with HTTP 401 (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$mcp/health" || true)"
+          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"toolCount":15' "$body"; then
+            echo "Remote MCP health or read-only tool contract failed (HTTP $code)."
+            exit 1
+          fi
+
+          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' "$mcp/mcp" || true)"
+          if [ "$code" != "401" ] || ! grep -q '"unauthorized"' "$body"; then
+            echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
+            exit 1
+          fi
+          if [ "$FRONTEND_DEPLOYED" = "true" ]; then
+            ui="https://voom-system-nova-ui.suwapat787.workers.dev"
+            for path in / /login /command-center /settings/broker; do
+              code="$(curl --silent --show-error --location --max-time 25 -o "$body" -w '%{http_code}' "$ui$path" || true)"
+              if [ "$code" != "200" ]; then
+                echo "Cloudflare frontend route $path failed with HTTP $code."
+                exit 1
+              fi
+            done
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{invalid-json' "$ui/api/chat" || true)"
+            if [ "$code" != "401" ] || ! grep -q '"error":"authentication_required"' "$body"; then
+              echo "Cloudflare frontend chat API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/broker/status?broker=mt5" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Cloudflare frontend broker API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$ui/api/agent/threads" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Cloudflare frontend approvals API did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
+            echo "Cloudflare frontend root, login, command center, broker settings, and unauthenticated API denial checks passed."
+          fi
+
+          echo "Cloudflare deployment workflow completed. Smoke checks were executed only for components deployed by this commit."

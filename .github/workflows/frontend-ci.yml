@@ -1,0 +1,164 @@
+name: Frontend CI
+
+concurrency:
+  group: nova-frontend-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "public/**"
+      - "backend/**"
+      - ".env.example"
+      - "package.json"
+      - "vite.config.ts"
+      - "index.html"
+      - "server.ts"
+      - "netlify.toml"
+      - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/cloudflare-deploy.yml"
+      - ".github/workflows/ai-worker-deploy.yml"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "integrations/remote-mcp-worker/**"
+      - "integrations/nova-ai-worker/**"
+      - "shared/nova-intent-envelope.schema.json"
+      - "integrations/system-hub/**"
+      - "supabase/migrations/**"
+      - "tests/**"
+      - "infra/**"
+      - "supabase/verification/**"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "backend/**"
+      - ".env.example"
+      - "package.json"
+      - "vite.config.ts"
+      - "index.html"
+      - "server.ts"
+      - "netlify.toml"
+      - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/cloudflare-deploy.yml"
+      - ".github/workflows/ai-worker-deploy.yml"
+      - "integrations/mt5-readonly-proxy/**"
+      - "integrations/mt5-bridge-relay/**"
+      - "integrations/mt5-readonly-bridge/**"
+      - "integrations/remote-mcp-worker/**"
+      - "integrations/nova-ai-worker/**"
+      - "shared/nova-intent-envelope.schema.json"
+      - "integrations/system-hub/**"
+      - "supabase/migrations/**"
+      - "tests/**"
+      - "infra/**"
+      - "supabase/verification/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install root Vite dependencies
+        run: npm install --no-package-lock --include=dev
+      - name: Test NOVA Demo-only read-only execution guard
+        run: node --test tests/nova-trading-readonly-guard.test.mjs
+
+      - name: Test Supabase Marketplace security migration contract
+        working-directory: .
+        run: node --test tests/supabase-marketplace-security-migration.test.mjs
+      - name: Test Supabase Vault readiness and local secret boundaries
+        working-directory: .
+        run: node --test tests/secret-vault-readiness.test.mjs
+      - name: Test NOVA durable approval lifecycle contracts
+        working-directory: .
+        run: node --test tests/nova-approval-migration.test.mjs
+      - name: Syntax-check staging customer isolation harness
+        working-directory: .
+        run: node --check tests/staging-customer-isolation.mjs
+      - name: Test NOVA AI Worker authentication and safety contract
+        working-directory: .
+        run: node --test integrations/nova-ai-worker/*.test.mjs
+      - name: Test NOVA System Integration Hub authorization and tenant boundaries
+        working-directory: .
+        run: node --test integrations/system-hub/tests/*.test.mjs
+      - name: Test Remote MCP Exness MT5 read-only tools
+        working-directory: .
+        run: node --test integrations/remote-mcp-worker/tests/*.test.mjs
+      - name: Test tenant-isolated MT5 Bridge relay and proxy
+        working-directory: .
+        run: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - name: Syntax-check MT5 Bridge and outbound relay client
+        working-directory: .
+        run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+      - name: Test MT5 tenant guard contract
+        working-directory: .
+        run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
+        run: npm install --no-save --package-lock=false wrangler@4.156.0
+      - name: Validate tenant relay Durable Object configuration
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+      - name: Validate NOVA System Integration Hub Worker bundle
+        working-directory: .
+        run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Build root Vite frontend
+        run: npm run build
+
+
+
+  # Secret-bearing preview and staging acceptance jobs are intentionally excluded from pull_request CI.
+  # PR-controlled code must never receive Cloudflare deployment or Supabase service-role secrets.
+  # Netlify creates the PR Preview independently; hosted staging acceptance requires a separate
+  # trusted workflow using main-owned test code and a protected GitHub Environment.
+
+  netlify-production-smoke-test:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production Netlify routes after deployment propagation
+        shell: bash
+        env:
+          NETLIFY_SITE_URL: https://voomsystem.netlify.app
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          trap 'rm -f "$body"' EXIT
+          for path in / /login /settings/broker; do
+            healthy=false
+            for attempt in $(seq 1 12); do
+              code="$(curl --silent --show-error --location --max-time 20 -o "$body" -w '%{http_code}' "$NETLIFY_SITE_URL$path" || true)"
+              if [ "$code" = "200" ]; then
+                healthy=true
+                break
+              fi
+              echo "Netlify route $path returned HTTP $code on attempt $attempt/12; retrying boundedly."
+              sleep 10
+            done
+            if [ "$healthy" != "true" ]; then
+              echo "Netlify production route $path did not return HTTP 200 after bounded retries."
+              exit 1
+            fi
+          done
+          if ! grep -q 'Exness Demo' "$body" && ! grep -q 'Exness MT5' "$body"; then
+            echo "Netlify broker settings route did not render the expected Exness MT5 content."
+            exit 1
+          fi
+          echo "Netlify root, login, and Exness broker settings routes returned HTTP 200."

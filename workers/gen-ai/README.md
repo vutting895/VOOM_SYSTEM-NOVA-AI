@@ -1,0 +1,3 @@
+# NOVA Gen AI
+
+Local inference adapter uses an Ollama-compatible runtime (`NOVA_LLM_BASE_URL`, default `http://127.0.0.1:11434`; `NOVA_LLM_MODEL`, default `llama3.2:1b`). It is an adapter, not a language model trained from scratch. Output is JSON-validated and limited to allow-listed workers and bounded TP/SL values. Drafts always have `executionEnabled=false` and `backtestStatus=not_run`. If the model is unavailable, callers should explicitly label any fallback; never misrepresent a template as LLM output.
