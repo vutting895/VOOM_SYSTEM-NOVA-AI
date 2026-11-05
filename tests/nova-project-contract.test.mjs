@@ -57,6 +57,10 @@ test("rejects identity and secret fields nested inside project input", () => {
     { provider: { authorization: "Bearer secret" } }, { endpoint: { upstream_url: "https://attacker.invalid" } },
     { accessToken: "bearer-secret" }, { api_key: "private-key" },
     { tenantId: "another-tenant" }, { callback: { url: "https://attacker.invalid" } },
+    { auth: { client_secret: "do-not-forward" } }, { keys: { secret_key: "do-not-forward" } },
+    { oauth: { refreshToken: "do-not-forward" } }, { session: { id_token: "do-not-forward" } },
+    { prompt: "Bearer hidden-token" },
+    { pem: "-----BEGIN PRIVATE KEY-----" },
   ]) assert.equal(validateProjectRequest({ ...request(), input }, project).reason, "input_contains_identity_or_secret_field");
 });
 test("rejects project mismatch, version mismatch, and unregistered capability", () => {
@@ -94,6 +98,7 @@ test("rejects response correlation, provenance, error/result ambiguity, and extr
   };
   assert.equal(validateProjectResponse({ ...base, request_id: "wrong" }, request().request_id).reason, "response_request_id_mismatch");
   assert.equal(validateProjectResponse({ ...base, provenance: { source: "test", version: "1", secret: "x" } }, request().request_id).reason, "response_provenance_invalid");
+  assert.equal(validateProjectResponse({ ...base, provenance: { source: "Bearer hidden-token", version: "1", checksum: null } }, request().request_id).reason, "response_provenance_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", error: { code: "failed", message: "No data" } }, request().request_id).reason, "response_error_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data", secret: "leak" } }, request().request_id).reason, "response_error_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data" } }, request().request_id).valid, true);
@@ -102,7 +107,11 @@ test("rejects secret-bearing project result fields and bearer tokens in error me
   for (const result of [
     { balance: "100.00", access_token: "secret" },
     { nested: { apiKey: "private" } },
+    { nested: { client_secret: "private" } },
+    { nested: { secret_key: "private" } },
+    { nested: { refreshToken: "private" } },
     [{ account: "demo" }, { authorization: "Bearer token" }],
+    { note: "Bearer hidden-token" },
     { token: "eyJhbGciOiJIUzI1NiJ9.payload.signature" },
   ]) {
     assert.equal(validateProjectResponse({
