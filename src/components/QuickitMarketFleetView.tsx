@@ -739,9 +739,6 @@ export default function QuickitMarketFleetView({
   const [fleetBots, setFleetBots] = useState<FleetBotConfig[]>(INITIAL_FLEET_BOTS);
   const [marketFilter, setMarketFilter] = useState<'all' | 'running' | 'crypto' | 'forex'>('all');
 
-  // Backend Auto-Train compact status
-  const [autoTrainTick, setAutoTrainTick] = useState(0);
-
   const isForexBrokerSelected =
     loggedInBroker === 'exness' || loggedInBroker === 'icmarkets';
 
@@ -817,24 +814,6 @@ export default function QuickitMarketFleetView({
   useEffect(() => {
     syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
   }, [loggedInBroker, forexConnectionMode, mt5Server]);
-
-  // Simulate 2-second memory tick for running bots & backend auto-train status
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAutoTrainTick((t) => t + 1);
-      setFleetBots((prev) =>
-        prev.map((bot) => {
-          if (!bot.running) return bot;
-          const delta = Math.round((Math.random() - 0.44) * 18);
-          return {
-            ...bot,
-            todayPnlBaht: bot.todayPnlBaht + delta,
-          };
-        })
-      );
-    }, 2500);
-    return () => clearInterval(timer);
-  }, []);
 
   const currentPlan = useMemo(
     () => SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[2],
@@ -1283,7 +1262,7 @@ export default function QuickitMarketFleetView({
                 type="button"
                 onClick={() =>
                   showNotification(
-                    `เชื่อมต่อ ${loggedInBroker.toUpperCase()} #${brokerAccountId} • ดึงข้อมูลคู่เงินสด ${brokerInstruments.length} คู่ • เทรนหลังบ้านรอบที่ #${142 + autoTrainTick}`
+                    `Broker data status: ${brokerSessionVerified ? 'verified read-only' : 'not verified'} • Auto-Train: NOT CONFIGURED`
                   )
                 }
                 aria-label="Notifications"
@@ -1663,110 +1642,15 @@ export default function QuickitMarketFleetView({
                   </div>
                 </div>
 
-                {/* Right Card: Portfolio Analytics */}
-                <div className="lg:col-span-9 rounded-[24px] bg-[#1B1C2B] border border-white/[0.06] p-5 flex flex-col justify-between">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                    <div>
-                      <h2 className="text-base font-bold text-white">Portfolio Analytics</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        January 1, 2024 - February 28, 2024 · AI Fleet Equity Curve
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#242638] border border-white/[0.07] text-xs font-medium text-slate-200"
-                      >
-                        <span>Profit / Loss over time</span>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      </button>
-
-                      <div className="flex items-center gap-1 p-1 rounded-full bg-[#12131F] border border-white/[0.06]">
-                        {(['5D', '7D', '1M', '1Y', 'All'] as const).map((tf) => (
-                          <button
-                            key={tf}
-                            type="button"
-                            onClick={() => setAnalyticsRange(tf)}
-                            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                              analyticsRange === tf
-                                ? 'bg-white text-[#12131F] font-bold'
-                                : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            {tf}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                {/* Portfolio analytics is intentionally unavailable until account history is verified. */}
+                <div className="lg:col-span-9 rounded-[24px] bg-[#1B1C2B] border border-white/[0.06] p-5 flex flex-col justify-center min-h-[280px]">
+                  <div>
+                    <h2 className="text-base font-bold text-white">Portfolio Analytics</h2>
+                    <p className="text-xs text-slate-400 mt-1">ข้อมูลผลพอร์ตจะปรากฏเมื่อมี Account History ที่ยืนยันจาก Exness MT5 Demo เท่านั้น</p>
                   </div>
-
-                  <div className="relative mt-2">
-                    <svg
-                      viewBox={`0 0 ${analyticsChart.width} ${analyticsChart.height}`}
-                      className="w-full h-56 overflow-visible"
-                    >
-                      <defs>
-                        <linearGradient id="quickitAnalyticsGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#818CF8" stopOpacity="0.28" />
-                          <stop offset="100%" stopColor="#818CF8" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {[
-                        { y: 28, label: '53.00K' },
-                        { y: 78, label: '51.50K' },
-                        { y: 128, label: '50.00K' },
-                        { y: 178, label: '48.50K' },
-                      ].map((row) => (
-                        <g key={row.label}>
-                          <line
-                            x1="18"
-                            x2={analyticsChart.width - 58}
-                            y1={row.y}
-                            y2={row.y}
-                            stroke="rgba(255,255,255,0.07)"
-                            strokeDasharray="4 4"
-                            strokeWidth="1"
-                          />
-                          <text
-                            x={analyticsChart.width - 48}
-                            y={row.y + 4}
-                            className="fill-slate-400 text-[10px] font-mono"
-                          >
-                            {row.label}
-                          </text>
-                        </g>
-                      ))}
-
-                      <path d={analyticsChart.areaPath} fill="url(#quickitAnalyticsGrad)" />
-                      <path
-                        d={analyticsChart.linePath}
-                        fill="none"
-                        stroke="#FFFFFF"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-
-                      <g transform={`translate(${analyticsChart.width - 54}, 54)`}>
-                        <rect x="0" y="0" width="48" height="20" rx="10" fill="#FFFFFF" />
-                        <text
-                          x="24"
-                          y="13"
-                          textAnchor="middle"
-                          className="fill-[#141522] text-[10px] font-bold font-mono"
-                        >
-                          51.69K
-                        </text>
-                      </g>
-                    </svg>
-
-                    <div className="flex items-center justify-between px-4 pt-1 text-[10px] text-slate-500 font-mono">
-                      {analyticsChart.labels.map((lbl) => (
-                        <span key={lbl}>{lbl}</span>
-                      ))}
-                    </div>
+                  <div role="status" className="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-5 text-sm leading-6 text-amber-100">
+                    <strong>PORTFOLIO EQUITY DATA NOT AVAILABLE</strong>
+                    <p className="mt-1">ยังไม่มี Account History / Equity Curve ที่ผ่านการยืนยัน ระบบจึงไม่แสดงกราฟกำไรขาดทุนตัวอย่างหรือสถิติพอร์ตจำลอง</p>
                   </div>
                 </div>
               </div>
