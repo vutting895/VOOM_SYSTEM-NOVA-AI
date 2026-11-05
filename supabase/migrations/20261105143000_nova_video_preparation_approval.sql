@@ -53,8 +53,13 @@ create table if not exists public.nova_video_preparations (
       jsonb_typeof(snapshot) = 'object'
       and snapshot->>'schemaVersion' = 'nova.video-preparation.v1'
       and snapshot->'job'->>'id' = job_id::text
+      and snapshot->'job'->>'taskType' = 'video_generation'
+      and snapshot->'job'->>'status' = 'blocked_no_free_gpu'
+      and snapshot->'policy'->>'requiresHumanApproval' = 'true'
       and snapshot->'policy'->>'executionEnabled' = 'false'
       and snapshot->'policy'->>'estimatedCost' = '0'
+      and snapshot->'productionPlan'->>'schemaVersion' = 'nova.video-production-plan.v1'
+      and snapshot->'productionPlan'->>'requiresHumanApproval' = 'true'
       and snapshot->'productionPlan'->>'executionEnabled' = 'false'
       and snapshot->'productionPlan'->>'status' = 'blocked_no_free_gpu'
     ),
