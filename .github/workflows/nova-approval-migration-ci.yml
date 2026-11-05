@@ -9,6 +9,10 @@ on:
       - "frontend/app/api/agent/**"
       - "frontend/lib/agent-approval-server.js"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
+      - "integrations/system-hub/worker.js"
+      - "integrations/system-hub/tests/system-hub.test.mjs"
+      - "integrations/system-hub/tests/system-hub-local-supabase.integration.mjs"
+      - "shared/nova-system-core-contract.mjs"
       - "frontend/package-lock.json"
       - ".github/workflows/nova-approval-migration-ci.yml"
   push:
@@ -22,6 +26,10 @@ on:
       - "frontend/app/api/agent/**"
       - "frontend/lib/agent-approval-server.js"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
+      - "integrations/system-hub/worker.js"
+      - "integrations/system-hub/tests/system-hub.test.mjs"
+      - "integrations/system-hub/tests/system-hub-local-supabase.integration.mjs"
+      - "shared/nova-system-core-contract.mjs"
       - "frontend/package-lock.json"
       - ".github/workflows/nova-approval-migration-ci.yml"
 
@@ -179,6 +187,10 @@ jobs:
           fi
 
           NOVA_LOCAL_APP_URL=http://127.0.0.1:3100 node scripts/nova-approval-local-supabase.integration.mjs
+
+      - name: Exercise System Hub with two real local Auth sessions and PostgREST RLS
+        shell: bash
+        run: node integrations/system-hub/tests/system-hub-local-supabase.integration.mjs
 
       - name: Stop the disposable Supabase stack
         if: always()
