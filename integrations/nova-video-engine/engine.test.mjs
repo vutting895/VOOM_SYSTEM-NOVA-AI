@@ -45,12 +45,17 @@ test("does not pretend to render when no renderer is configured", async () => {
 test("rejects media path traversal and absolute paths", () => {
   assert.throws(() => resolveWithinRoot("/workspace", "../secret.png"), /media_path_outside_workspace/);
   assert.throws(() => resolveWithinRoot("/workspace", "/tmp/secret.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot("/workspace", "assets\\\\..\\\\secret.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot("/workspace", "C:\\\\private.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot("/workspace", "assets//scene.png"), /media_path_traversal_rejected/);
 });
 
 test("builds an FFmpeg command without shell interpolation", () => {
   const { args, outputPath } = buildFfmpegArgs(createStoryboard(brief), "/workspace");
   assert.equal(args.includes("-filter_complex"), true);
   assert.equal(args.includes("-an"), true);
+  assert.equal(args.includes("-n"), true);
+  assert.equal(args.includes("-y"), false);
   assert.equal(args.includes("/workspace/assets/scene-1.png"), true);
   assert.equal(outputPath, "/workspace/renders/video.mp4");
   assert.equal(args.some((arg) => arg.includes("&&") || arg.includes("; rm")), false);
