@@ -26,6 +26,7 @@ on:
       - "integrations/nova-ai-worker/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
+      - "integrations/nova-video-engine/**"
       - "supabase/migrations/**"
       - "tests/**"
       - "infra/**"
@@ -79,6 +80,9 @@ jobs:
         run: npm install --no-package-lock --include=dev
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
+
+      - name: Test NOVA CPU-first Video Engine Core
+        run: npm run test:video-engine
 
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
