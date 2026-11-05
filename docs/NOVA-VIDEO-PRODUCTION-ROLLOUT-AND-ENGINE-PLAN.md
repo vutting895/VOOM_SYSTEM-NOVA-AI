@@ -17,23 +17,29 @@ Read-only inspection on 2026-11-05 found:
 
 - Project `Voom_system` is `ACTIVE_HEALTHY`, Postgres 17.11, region `ap-southeast-1`.
 - The applied migration ledger ends at `20261031070311` (`nova_durable_approval_lifecycle`).
-- The repository contains `supabase/migrations/202610310001_nova_video_workspace.sql`, but that version is absent from the Production migration ledger.
+- The Production migration ledger contains 25 applied versions and ends at `20261031070311` (`nova_durable_approval_lifecycle`).
+- The active `supabase/migrations/` directory on main contains only 5 SQL files, and **none of their version IDs match any of the 25 versions in the Production ledger**.
+- The repository contains `supabase/migrations/202610310001_nova_video_workspace.sql`, but that version is absent from the Production ledger.
 - The current Production public schema contains 21 tables; all 21 report RLS enabled.
 - Neither `public.nova_video_projects` nor `public.nova_video_jobs` currently exists.
-- Supabase Branch status reports `MIGRATIONS_FAILED`; the branch listing does not expose the underlying failure log.
+- Supabase Branch status reports `MIGRATIONS_FAILED`.
+- The Supabase workflow log on 2026-11-04 16:27:56 UTC records the exact error: `Remote migration versions not found in local migrations directory.`
+- The existing migration-reconciliation PR #109 is still open/Draft, based on an older main SHA `a2acfd8...`, and currently reports `mergeable=false`; its recovered-history work is not part of current main.
 - The current NOVA Video Worker PR is metadata-only. Its exact-head CI validates Worker contract behavior and syntax; it does not validate live Supabase RLS or run a real media pipeline.
 
-### Migration ordering / preview blocker
+### Migration history blocker — diagnosed
 
-The pending repository migration version `202610310001` is earlier than the latest applied Production version `20261031070311`. The Preview/Branch migration failure has not yet been diagnosed from its deployment log. Do not assume the timestamp is the sole cause and do not work around the failure by applying SQL directly to Production.
+The confirmed root cause is repository/Production migration-history divergence: 25 versions already recorded by Production are missing from the active local migration directory. The pending Video migration version `202610310001` is also earlier than the latest applied Production version `20261031070311`, but the workflow's explicit error points first to the missing remote migration files. Do not treat a timestamp-only rename as a fix.
 
 Required correction path:
 
-1. Retrieve the actual Supabase Branch deployment log and identify the failing migration and database error.
-2. Reconcile repository migration history with the Production ledger and the recovered migration baseline.
-3. Produce a corrected, forward-only migration history in a reviewed GitHub PR. Do not rewrite an already-applied migration or fabricate a successful ledger entry.
-4. Run clean replay and schema-fingerprint checks against a disposable local PostgreSQL/Supabase environment.
-5. Confirm the corrected migration is additive and does not alter existing NOVA tables, policies, roles, or data.
+1. Recover the exact SQL payloads for all 25 applied Production versions from authoritative migration history or backups; do not reconstruct them from table definitions or invent SQL.
+2. Reconcile the recovered files with the Production migration ledger and repository history in a reviewed GitHub PR. PR #109 is a stale Draft candidate and must be refreshed against current main before it can be considered.
+3. Verify every recovered file's version and checksum against the authoritative source and ensure clean replay matches the recorded Production schema fingerprint.
+4. Resolve the pending Video migration ordering only after the baseline is complete; use a unique forward-only version greater than the latest applied version, without changing any already-applied migration identity.
+5. Run clean replay and schema-fingerprint checks against a disposable local PostgreSQL/Supabase environment.
+6. Confirm the Video migration is additive and does not alter existing NOVA tables, policies, roles, or data.
+7. Re-run Supabase Preview migration workflow and inspect its logs before considering any Production action.
 
 ## 3. Backup plan — mandatory before Production migration
 
@@ -98,16 +104,17 @@ Before approval, the migration review must verify:
 
 | Gate | Required evidence | Current state |
 |---|---|---|
-| A. Source review | Current main SHA, migration diff, dependency and history reconciliation | IN PROGRESS |
-| B. Migration diagnosis | Supabase Branch deployment log and root cause for `MIGRATIONS_FAILED` | BLOCKED |
-| C. Backup | Encrypted role/schema/data + Storage export | NOT DONE |
-| D. Restore rehearsal | Successful isolated restore and fingerprint comparison | NOT DONE |
-| E. Migration CI | Clean replay, idempotency/constraint/RLS checks | NOT VERIFIED |
-| F. Independent security review | Approval of migration, Worker auth, CORS, RLS and tenant boundaries | PENDING |
-| G. Two-user staging | User B cannot list, reference or create jobs for User A's project | NOT DONE |
-| H. Production authorization | Explicit owner approval after all evidence is reviewed | NOT GRANTED |
-| I. Production migration | Apply only the reviewed exact migration SHA | PROHIBITED UNTIL H IS GRANTED |
-| J. Post-apply verification | Ledger, tables, constraints, RLS, grants, advisors and API smoke tests | NOT DONE |
+| A. Source review | Current main SHA and migration inventory | IN PROGRESS |
+| B. Migration history recovery | Recover/checksum all 25 applied versions; refresh stale PR #109 | BLOCKED |
+| C. Preview diagnosis | Re-run branch migration after history reconciliation and inspect logs | BLOCKED |
+| D. Backup | Encrypted role/schema/data + Storage export | NOT DONE |
+| E. Restore rehearsal | Successful isolated restore and fingerprint comparison | NOT DONE |
+| F. Migration CI | Clean replay, idempotency/constraint/RLS checks | NOT VERIFIED |
+| G. Independent security review | Approval of migration, Worker auth, CORS, RLS and tenant boundaries | PENDING |
+| H. Two-user staging | User B cannot list, reference or create jobs for User A's project | NOT DONE |
+| I. Production authorization | Explicit owner approval after all evidence is reviewed | NOT GRANTED |
+| J. Production migration | Apply only the reviewed exact migration SHA | PROHIBITED UNTIL I IS GRANTED |
+| K. Post-apply verification | Ledger, tables, constraints, RLS, grants, advisors and API smoke tests | NOT DONE |
 
 A Supabase Preview Branch may incur compute/egress/storage charges. Do not create a branch unless zero-cost eligibility is verified and separately approved. Prefer a disposable local PostgreSQL/Supabase replay for SQL validation where available.
 
