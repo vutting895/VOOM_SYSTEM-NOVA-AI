@@ -275,7 +275,7 @@ test("failed video jobs enforce a bounded retry budget", () => {
   assert.throws(() => store.transition("job-3", "queued", { actorTenantId: "tenant-a" }), /video_job_retry_limit_reached/);
 });
 
-import { buildWan22Command, createWan22LocalRuntime, parseNvidiaSmiMemory, wan22FrameCount } from "./wan22-local-runtime.mjs";
+import { buildWan22Command, createWan22LocalRuntime, ensureSafeOutputDirectory, parseNvidiaSmiMemory, wan22FrameCount } from "./wan22-local-runtime.mjs";
 
 test("Wan runtime builds a safe direct argument vector and frame-aligned clip", () => {
   const task = createGenerativeVideoTask({ prompt: "A product; ignore shell", durationSeconds: 5, imagePath: "assets/source.png" });
@@ -337,52 +337,59 @@ test("Wan local runtime checks FREE VRAM rather than total VRAM", async () => {
     hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 24000 }],
   }));
   assert.equal((await lowFree.preflight()).reason, "verified_24gb_vram_required");
-  assert.equal((await enoughFree.preflight()).ready, true);
+  assert.equal((await enoughFree.preflight()).reason, "wan22_process_isolation_not_implemented");
 });
 
-test("Wan local runtime rejects group/world-writable output directories before starting inference", async () => {
+test("Wan output-directory validator rejects a symlinked job directory without creating it", async () => {
   const jobDirectory = "/workspace/jobs/job-1";
-  let spawned = 0;
-  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
-    lstatImpl: async (value) => ({
-      isSymbolicLink: () => false,
-      isDirectory: () => true,
-      mode: value === jobDirectory ? 0o777 : 0o700,
+  const created = [];
+  await assert.rejects(
+    () => ensureSafeOutputDirectory("/workspace", jobDirectory, {
+      lstatImpl: async (value) => ({
+        isSymbolicLink: () => value === jobDirectory,
+        isDirectory: () => true,
+        mode: 0o700,
+      }),
+      mkdirImpl: async (value) => { created.push(value); },
+      realpathImpl: async (value) => value,
     }),
-    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
-  }));
-  const result = await runtime.render({
-    task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }),
-    jobId: "job-1",
-    sceneId: "scene-01",
-  });
-  assert.equal(result.state, "blocked");
-  assert.equal(result.reason, "wan22_output_directory_permissions_unsafe");
-  assert.equal(spawned, 0);
-});
-
-test("Wan local runtime rejects a pre-existing symlinked job output directory before starting inference", async () => {
-  const jobDirectory = "/workspace/jobs/job-1";
-  let spawned = 0;
-  let created = [];
-  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
-    lstatImpl: async (value) => ({
-      isSymbolicLink: () => value === jobDirectory,
-      isDirectory: () => true,
-      mode: 0o700,
-    }),
-    mkdirImpl: async (value) => { created.push(value); },
-    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
-  }));
-  const result = await runtime.render({
-    task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }),
-    jobId: "job-1",
-    sceneId: "scene-01",
-  });
-  assert.equal(result.state, "blocked");
-  assert.equal(result.reason, "wan22_output_directory_symlink_rejected");
-  assert.equal(spawned, 0);
+    /wan22_output_directory_symlink_rejected/,
+  );
   assert.equal(created.includes(jobDirectory), false);
+});
+
+test("Wan output-directory validator rejects group/world-writable directories", async () => {
+  const jobDirectory = "/workspace/jobs/job-1";
+  await assert.rejects(
+    () => ensureSafeOutputDirectory("/workspace", jobDirectory, {
+      lstatImpl: async (value) => ({
+        isSymbolicLink: () => false,
+        isDirectory: () => true,
+        mode: value === jobDirectory ? 0o777 : 0o700,
+      }),
+      mkdirImpl: async () => {},
+      realpathImpl: async (value) => value,
+    }),
+    /wan22_output_directory_permissions_unsafe/,
+  );
+});
+
+test("Wan local runtime blocks inference even when all caller-supplied flags pass until sandboxing exists", async () => {
+  let spawned = 0;
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    revisionVerifier: async () => true,
+    spawnImpl: () => { spawned += 1; throw new Error("inference_must_not_start"); },
+  }));
+  const result = await runtime.render({
+    task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }),
+    jobId: "job-1",
+    sceneId: "scene-01",
+  });
+  assert.deepEqual(
+    { state: result.state, reason: result.reason, executionEnabled: result.executionEnabled },
+    { state: "blocked", reason: "wan22_process_isolation_not_implemented", executionEnabled: false },
+  );
+  assert.equal(spawned, 0);
 });
 
 test("Wan local runtime verifies the exact installed repository revision", async () => {
@@ -401,12 +408,13 @@ test("Wan local runtime verifies the exact installed repository revision", async
   assert.equal(verifiedRevision, "a".repeat(40));
 });
 
-test("Wan local runtime accepts preflight only when pinned revision verification succeeds", async () => {
+test("Wan local runtime verifies the pinned revision but stays blocked until process isolation exists", async () => {
   const runtime = createWan22LocalRuntime(readyWanRuntimeOptions());
   const result = await runtime.preflight();
-  assert.equal(result.ready, true);
+  assert.equal(result.ready, false);
+  assert.equal(result.reason, "wan22_process_isolation_not_implemented");
   assert.equal(result.modelRevision, "a".repeat(40));
-  assert.equal(result.generateScript, "/models/Wan2.2/generate.py");
+  assert.equal(result.minimumFreeVramMiB, 24000);
 });
 
 test("Wan local runtime rejects a symlinked generation entrypoint outside the pinned repository", async () => {
@@ -418,18 +426,19 @@ test("Wan local runtime rejects a symlinked generation entrypoint outside the pi
   assert.equal(result.reason, "wan22_entrypoint_outside_pinned_repo");
 });
 
-test("Wan local runtime refuses to overwrite an existing generated scene", async () => {
+test("Wan local runtime does not inspect or touch render output while process isolation is missing", async () => {
   const output = "/workspace/jobs/job-1/scene-01.mp4";
   let spawned = 0;
+  let outputAccessed = false;
   const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
-    accessImpl: async (value) => {
-      if (value === output) return;
-    },
-    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
+    accessImpl: async (value) => { if (value === output) outputAccessed = true; },
+    revisionVerifier: async () => true,
+    spawnImpl: () => { spawned += 1; throw new Error("inference_must_not_start"); },
   }));
   const result = await runtime.render({ task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }), jobId: "job-1", sceneId: "scene-01" });
   assert.equal(result.state, "blocked");
-  assert.equal(result.reason, "wan22_output_already_exists");
+  assert.equal(result.reason, "wan22_process_isolation_not_implemented");
+  assert.equal(outputAccessed, false);
   assert.equal(spawned, 0);
 });
 
