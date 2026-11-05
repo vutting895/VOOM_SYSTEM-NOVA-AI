@@ -522,3 +522,231 @@ test("production planning rejects unknown fields and requires authentication bef
     globalThis.fetch = previous;
   }
 });
+
+
+function sampleDirectorPlan() {
+  const scenes = Array.from({ length: 3 }, (_, index) => ({
+    sceneId: "scene-" + String(index + 1).padStart(2, "0"),
+    order: index + 1,
+    startFrame: index * 120,
+    frameCount: 120,
+    endFrameExclusive: (index + 1) * 120,
+    visualPrompt: "A premium ceramic cup in soft morning light, scene " + (index + 1),
+    negativePrompt: "watermark, text",
+    sourceImagePath: null,
+  }));
+  return {
+    schemaVersion: "nova.director-plan.v1",
+    plannerVersion: "1.0.0",
+    title: "NOVA Approval Sample",
+    aspectRatio: "9:16",
+    frameRate: 24,
+    totalFrames: 360,
+    scenes,
+  };
+}
+
+async function testHash(value) {
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(value, Object.keys(value).sort())),
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+test("preparation persists an immutable server-derived Engine snapshot for the owning user", async () => {
+  const previous = globalThis.fetch;
+  const job = {
+    id: "123e4567-e89b-42d3-a456-426614174001",
+    project_id: "123e4567-e89b-42d3-a456-426614174000",
+    task_type: "video_generation",
+    status: "blocked_no_free_gpu",
+    prompt: "NOVA demo",
+    request: { schema_version: "nova.video-job.v2", director_plan: sampleDirectorPlan() },
+    execution_mode: "free_only",
+    estimated_cost: 0,
+    created_at: "2026-11-05T00:00:00Z",
+  };
+  let inserted = null;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("id"), "eq." + job.id);
+      assert.equal(init.method, "GET");
+      return Response.json([job]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      if (init.method === "GET") return Response.json([]);
+      assert.equal(init.method, "POST");
+      inserted = JSON.parse(init.body);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        ...inserted,
+        created_at: "2026-11-05T00:01:00Z",
+      }], { status: 201 });
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparations", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { job_id: job.id },
+    }), ENV);
+    assert.equal(response.status, 201);
+    const data = await response.json();
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+    assert.equal(data.approvalRequired, true);
+    assert.equal(inserted.user_id, "user-a");
+    assert.equal(inserted.job_id, job.id);
+    assert.equal(inserted.snapshot.schemaVersion, "nova.video-preparation.v1");
+    assert.equal(inserted.snapshot.productionPlan.generationTasks.length, 3);
+    assert.equal(inserted.snapshot.policy.executionEnabled, false);
+    assert.match(inserted.snapshot_hash, /^[a-f0-9]{64}$/);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("preparation endpoint refuses another user's job and never inserts a preparation", async () => {
+  const previous = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([]);
+    }
+    writes += 1;
+    return Response.json([]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparations", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { job_id: "123e4567-e89b-42d3-a456-426614174099" },
+    }), ENV);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "video_job_not_found" });
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("approval is append-only, owner-scoped and cannot enable rendering", async () => {
+  const previous = globalThis.fetch;
+  const snapshot = {
+    schemaVersion: "nova.video-preparation.v1",
+    job: { id: "123e4567-e89b-42d3-a456-426614174001", status: "blocked_no_free_gpu" },
+    productionPlan: { status: "blocked_no_free_gpu", executionEnabled: false },
+    policy: { executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
+  };
+  const snapshotHash = await (async () => {
+    const stable = (value) => {
+      if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
+      if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stable(value[key])).join(",") + "}";
+      return JSON.stringify(value);
+    };
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(stable(snapshot)));
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  })();
+  let inserted = null;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        job_id: snapshot.job.id,
+        snapshot,
+        snapshot_hash: snapshotHash,
+        planner_version: "1.0.0",
+        created_at: "2026-11-05T00:01:00Z",
+      }]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_approval_decisions") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      if (init.method === "GET") return Response.json([]);
+      inserted = JSON.parse(init.body);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174003",
+        ...inserted,
+        created_at: "2026-11-05T00:02:00Z",
+      }], { status: 201 });
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparation-decisions", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        preparation_id: "123e4567-e89b-42d3-a456-426614174002",
+        decision: "approved",
+        decision_note: "Reviewed creative plan",
+      },
+    }), ENV);
+    assert.equal(response.status, 201);
+    const data = await response.json();
+    assert.equal(inserted.user_id, "user-a");
+    assert.equal(inserted.decision, "approved");
+    assert.equal(data.jobStatus, "blocked_no_free_gpu");
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+    assert.deepEqual(data.executionBlockers, ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"]);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("approval decision rejects unknown fields and unapproved decisions", async () => {
+  const previous = globalThis.fetch;
+  let databaseCalls = 0;
+  globalThis.fetch = async (input) => {
+    if (new URL(input).pathname === "/auth/v1/user") return authResponse();
+    databaseCalls += 1;
+    return Response.json([]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparation-decisions", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { preparation_id: "123e4567-e89b-42d3-a456-426614174002", decision: "execute", execute: true },
+    }), ENV);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "video_approval_decision_invalid" });
+    assert.equal(databaseCalls, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("approval routes authenticate before parsing bodies and expose GET only for preparation lookup", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return authResponse(); };
+  try {
+    const unauthenticated = await worker.fetch(request("/api/video/preparations", {
+      method: "POST",
+      body: { job_id: "123e4567-e89b-42d3-a456-426614174001" },
+    }), ENV);
+    assert.equal(unauthenticated.status, 401);
+    const wrongMethod = await worker.fetch(request("/api/video/preparation-decisions", {
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+    }), ENV);
+    assert.equal(wrongMethod.status, 405);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
