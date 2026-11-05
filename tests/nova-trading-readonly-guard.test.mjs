@@ -173,3 +173,16 @@ test('subscription tiers and dashboard ticker remain explicit preview-only witho
   assert.match(quickit, /ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก/);
   assert.match(quickit, /ระบบ Checkout, การชำระเงิน และการยืนยันสิทธิ์สมาชิกยังไม่ได้เชื่อมต่อ/);
 });
+
+test('Fleet performance metrics stay unavailable until verified account history and closed trades exist', () => {
+  assert.match(quickit, /P&amp;L วันนี้:.*NOT AVAILABLE/);
+  assert.match(quickit, /Win Rate:.*NOT VALIDATED/);
+  assert.match(quickit, /RESEARCH DRAFT ONLY/);
+  assert.match(quickit, /P&amp;L NOT AVAILABLE/);
+  assert.match(quickit, /Win Rate \(NOT VALIDATED\)/);
+  assert.match(quickit, /Profit Factor \(NOT VALIDATED\)/);
+  assert.match(quickit, /Trades \(NOT VERIFIED\)/);
+  assert.match(quickit, /TP1 \(NOT VALIDATED\)/);
+  assert.match(quickit, /TP2 \(NOT VALIDATED\)/);
+  assert.doesNotMatch(quickit, /totalFleetPnlToday|avgWinRate|pnlUp \?|bot\.todayPnlBaht\}|bot\.winRatePct\.toFixed|bot\.profitFactor\.toFixed|bot\.totalTrades\}|bot\.tp1HitPct%|bot\.tp2HitPct%/);
+});
