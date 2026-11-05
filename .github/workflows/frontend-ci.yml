@@ -118,6 +118,8 @@ jobs:
       - name: Validate NOVA System Integration Hub Worker bundle
         working-directory: .
         run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Validate Netlify Vite deployment configuration
+        run: node --test tests/netlify-vite-deploy-config.test.mjs
       - name: Build root Vite frontend
         run: npm run build
 
