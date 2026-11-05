@@ -54,9 +54,9 @@ The Wan 2.2 adapter can invoke an already-installed local upstream repository an
 ## Next engine milestones
 
 1. Review and register a model provider only after independent license, commercial-use and zero-cost compute evidence.
-2. Add a CPU-capable audio/subtitle composition lane.
-3. Add isolated job queue, cancellation, retries and idempotency.
-4. Add private object storage and signed delivery only after tenant isolation and backup/restore acceptance.
+2. Add an end-to-end FFmpeg acceptance fixture with real generated scene clips, audio and SRT inputs, then inspect output on a pinned FFmpeg build.
+3. Replace local single-writer journal with a shared distributed queue after two-tenant staging isolation and idempotency/CAS review.
+4. Add encrypted tenant-private object storage, signed delivery, retention and deletion only after backup/restore acceptance.
 5. Benchmark candidate open models and compute against verified zero-cost eligibility; otherwise keep generative tasks blocked.
 6. Prove two-user staging isolation before connecting execution to the production API.
 
