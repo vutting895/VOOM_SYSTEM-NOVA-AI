@@ -85,7 +85,9 @@ async function createUser(label) {
   assert.equal(signedIn.body?.user?.id, id, "Issued session identity differs from created user");
   assert.ok(typeof signedIn.body?.access_token === "string", "Local Auth did not issue a JWT");
 
-  return { id, email, password, token: signedIn.body.access_token };
+  const user = { id, email, password, token: signedIn.body.access_token };
+  users.push(user);
+  return user;
 }
 
 async function hubRequest(path, token, method = "GET", payload = undefined) {
@@ -157,9 +159,7 @@ let primaryError = null;
 
 try {
   const userA = await createUser("a");
-  users.push(userA);
   const userB = await createUser("b");
-  users.push(userB);
 
   const health = await hubRequest("/health", null);
   assert.equal(health.response.status, 200);
