@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
-    "start": "node server.ts"
+    "start": "node server.ts",
+    "test:video-engine": "node --test integrations/nova-video-engine/tests/*.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",
