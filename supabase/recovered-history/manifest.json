@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "source_project": "tlyyxufuiimrbaksoitf",
+  "source_project_name": "Voom_system",
+  "source_region": "ap-southeast-1",
+  "generated_from": "supabase_migrations.schema_migrations.statements[1]",
+  "extracted_on": "2026-11-06",
+  "hash_algorithm": "SHA-256 over exact UTF-8 SQL payload (no added newline)",
+  "purpose": "Forensic recovery only; not active Supabase migrations.",
+  "environments": {
+    "production": {
+      "migration_count": 25,
+      "first_version": "20261023110233",
+      "latest_version": "20261031070311",
+      "migrations": [
+        {
+          "version": "20261023110233",
+          "name": "voom_system_core_schema",
+          "path": "supabase/recovered-history/production/20261023110233_voom_system_core_schema.sql",
+          "statement_count": 1,
+          "sql_chars": 6976,
+          "sha256": "0e634ea0bc6dd6043cd9db7605f70f0188fe39bbee91fd89a05bef468dc4a0ae"
+        },
+        {
+          "version": "20261023110249",
+          "name": "voom_system_security_hardening",
+          "path": "supabase/recovered-history/production/20261023110249_voom_system_security_hardening.sql",
+          "statement_count": 1,
+          "sql_chars": 790,
+          "sha256": "94ae6fc4603baa1a5e5f0b20a6672edb6375ec966ef23ad10a7915da6190bab1"
+        },
+        {
+          "version": "20261023110825",
+          "name": "voom_auth_roles",
+          "path": "supabase/recovered-history/production/20261023110825_voom_auth_roles.sql",
+          "statement_count": 1,
+          "sql_chars": 517,
+          "sha256": "b2ce88e41c2f0862bc5a8a67e1b617817f463202856084ade86cb6d78c5f5"
+        },
+        {
+          "version": "20261023122933",
+          "name": "voom_ai_strategies_registry",
+          "path": "supabase/recovered-history/production/20261023122933_voom_ai_strategies_registry.sql",
+          "statement_count": 1,
+          "sql_chars": 1545,
+          "sha256": "5639805ec795da59cbb3b31f29e88eead2f5fe7295ec7fa83da689862faf12dd"
+        },
+        {
+          "version": "20261023122940",
+          "name": "voom_customer_ai_subscriptions",
+          "path": "supabase/recovered-history/production/20261023122940_voom_customer_ai_subscriptions.sql",
+          "statement_count": 1,
+          "sql_chars": 1077,
+          "sha256": "c22695a0a91cd7e2dc184a9e752cfc663c49ad36ead6994760413ec8091816cd"
+        },
+        {
+          "version": "20261023122947",
+          "name": "voom_signal_delivery_log",
+          "path": "supabase/recovered-history/production/20261023122947_voom_signal_delivery_log.sql",
+          "statement_count": 1,
+          "sql_chars": 900,
+          "sha256": "e8795a2452043a690d5622d3af5bbd03d6a717ac80f5cc5ad6e2cb70783c026c"
+        },
+        {
+          "version": "20261023123015",
+          "name": "voom_customer_marketplace_read_rpcs",
+          "path": "supabase/recovered-history/production/20261023123015_voom_customer_marketplace_read_rpcs.sql",
+          "statement_count": 1,
+          "sql_chars": 2830,
+          "sha256": "1710826e621e43b1995effd966f8eeffcea60a7288cc877287b8467fbcfb878d"
+        },
+        {
+          "version": "20261023123038",
+          "name": "voom_customer_marketplace_activation_rpcs",
+          "path": "supabase/recovered-history/production/20261023123038_voom_customer_marketplace_activation_rpcs.sql",
+          "statement_count": 1,
+          "sql_chars": 4314,
+          "sha256": "f9689ff72f69f1f59cec4567efc605155fac5734387e76fda95c14e27f53802b"
+        },
+        {
+          "version": "20261023123626",
+          "name": "voom_marketplace_resume_paused_subscription",
+          "path": "supabase/recovered-history/production/20261023123626_voom_marketplace_resume_paused_subscription.sql",
+          "statement_count": 1,
+          "sql_chars": 3922,
+          "sha256": "10699029a238c00274bd4b9daaa4591f5a63c7ea5df60fddc09b2b2f7d554fa3"
+        },
+        {
+          "version": "20261023134347",
+          "name": "voom_dashboard_readonly_rls_v1",
+          "path": "supabase/recovered-history/production/20261023134347_voom_dashboard_readonly_rls_v1.sql",
+          "statement_count": 1,
+          "sql_chars": 1558,
+          "sha256": "0ede75593e628258d0c6fffd4eb76bb67cad50a6d8c704028ddc54b9dfafdf8c"
+        },
+        {
+          "version": "20261023134425",
+          "name": "voom_staff_dashboard_read_policies_v2",
+          "path": "supabase/recovered-history/production/20261023134425_voom_staff_dashboard_read_policies_v2.sql",
+          "statement_count": 1,
+          "sql_chars": 2340,
+          "sha256": "e1f142f77ea225b0eea7f3c16d9e67ed8e30b292ac09be55d1c5d8a36edd499b"
+        },
+        {
+          "version": "20261023134437",
+          "name": "voom_signal_delivery_log_deny_client_v1",
+          "path": "supabase/recovered-history/production/20261023134437_voom_signal_delivery_log_deny_client_v1.sql",
+          "statement_count": 1,
+          "sql_chars": 147,
+          "sha256": "d513f95f538c0139952d8119dfdb3360d06eb619dc21a5aea4226c5b52451ef4"
+        },
+        {
+          "version": "20261023211000",
+          "name": "customer_signup_profile_trigger",
+          "path": "supabase/recovered-history/production/20261023211000_customer_signup_profile_trigger.sql",
+          "statement_count": 1,
+          "sql_chars": 713,
+          "sha256": "3ca5ff40a60be87b97ad34c152f45a9f07c6ad3878e5790265c96a42c8e01f4d"
+        },
+        {
+          "version": "20261023211405",
+          "name": "customer_profiles_select_own_policy",
+          "path": "supabase/recovered-history/production/20261023211405_customer_profiles_select_own_policy.sql",
+          "statement_count": 1,
+          "sql_chars": 132,
+          "sha256": "51fb19ba19a125afea67de571c4c63ea25d54b8b592366443fee132e548e9bd8"
+        },
+        {
+          "version": "20261023211417",
+          "name": "remove_redundant_customer_profile_select_policy",
+          "path": "supabase/recovered-history/production/20261023211417_remove_redundant_customer_profile_select_policy.sql",
+          "statement_count": 1,
+          "sql_chars": 83,
+          "sha256": "3637885404f705e4530956461fcbc155fb91da9ead0d710a5b7dcc8234483829"
+        },
+        {
+          "version": "20261023213059",
+          "name": "remove_duplicate_profile_policy_and_index_foreign_keys",
+          "path": "supabase/recovered-history/production/20261023213059_remove_duplicate_profile_policy_and_index_foreign_keys.sql",
+          "statement_count": 1,
+          "sql_chars": 1065,
+          "sha256": "7c4831fc27783be5f1ac8c61b01ab7bec03671ef1e2cbc455507227cb37b43c0"
+        },
+        {
+          "version": "20261024121812",
+          "name": "nova_governance_tables",
+          "path": "supabase/recovered-history/production/20261024121812_nova_governance_tables.sql",
+          "statement_count": 1,
+          "sql_chars": 5599,
+          "sha256": "d85d2224d42deadd4de14388d31feb2cc07f631845c7d2958d49192d78aeab88"
+        },
+        {
+          "version": "20261024121826",
+          "name": "nova_governance_rls_and_seed",
+          "path": "supabase/recovered-history/production/20261024121826_nova_governance_rls_and_seed.sql",
+          "statement_count": 1,
+          "sql_chars": 3130,
+          "sha256": "20345562c99985198ddd4cf1f8a39fe0790733b731203d1c1b66d3fda704891e"
+        },
+        {
+          "version": "20261024154354",
+          "name": "alpaca_oauth",
+          "path": "supabase/recovered-history/production/20261024154354_alpaca_oauth.sql",
+          "statement_count": 1,
+          "sql_chars": 1922,
+          "sha256": "13f0c29fa81b88568f204ed91b204b1c9ca82d71489644c187d929e5c80b5747"
+        },
+        {
+          "version": "20261024231905",
+          "name": "secure_alpaca_secret_tables",
+          "path": "supabase/recovered-history/production/20261024231905_secure_alpaca_secret_tables.sql",
+          "statement_count": 1,
+          "sql_chars": 876,
+          "sha256": "80195d9db471e96a763fd460b3faf9af9ccce888f3bc1e23bd327198ce64ef4f"
+        },
+        {
+          "version": "20261025142554",
+          "name": "enable_rls_ai_strategies",
+          "path": "supabase/recovered-history/production/20261025142554_enable_rls_ai_strategies.sql",
+          "statement_count": 1,
+          "sql_chars": 59,
+          "sha256": "d7b17c47b716c786c2b5e8a94b19a9119b515d596dc8ad77a07f3ae1a4a734c7"
+        },
+        {
+          "version": "20261025142708",
+          "name": "index_alpaca_oauth_states_user_id",
+          "path": "supabase/recovered-history/production/20261025142708_index_alpaca_oauth_states_user_id.sql",
+          "statement_count": 1,
+          "sql_chars": 99,
+          "sha256": "0396569e35c555a2a43e05dfd1fc2839a53b1995f587c7930222225f36188d0a"
+        },
+        {
+          "version": "20261027160402",
+          "name": "mt5_customer_connections",
+          "path": "supabase/recovered-history/production/20261027160402_mt5_customer_connections.sql",
+          "statement_count": 1,
+          "sql_chars": 2750,
+          "sha256": "30fde3da05f90de888d2cf6bb252551ec52102dcc16b0cb8f0bbe5e271addd14"
+        },
+        {
+          "version": "20261029084244",
+          "name": "security_definer_marketplace_hardening",
+          "path": "supabase/recovered-history/production/20261029084244_security_definer_marketplace_hardening.sql",
+          "statement_count": 1,
+          "sql_chars": 6195,
+          "sha256": "5b02013f1829d825d486146302280f98b72088c9a0bfb309af0ee670eebe6342"
+        },
+        {
+          "version": "20261031070311",
+          "name": "nova_durable_approval_lifecycle",
+          "path": "supabase/recovered-history/production/20261031070311_nova_durable_approval_lifecycle.sql",
+          "statement_count": 1,
+          "sql_chars": 15377,
+          "sha256": "7eb494acd6f498cd50e4d52ec06f7c21fe7f8d91ec28afcfb3c8396b804deb3e"
+        }
+      ]
+    }
+  }
+}
