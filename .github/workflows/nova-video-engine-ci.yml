@@ -31,4 +31,4 @@ jobs:
           node --check integrations/nova-video-engine/src/workflow-planner.mjs
           node --check integrations/nova-video-engine/src/ffmpeg-plan.mjs
       - name: Run deterministic engine tests
-        run: node --test integrations/nova-video-engine/tests/*.test.mjs
+        run: npm run test:video-engine
