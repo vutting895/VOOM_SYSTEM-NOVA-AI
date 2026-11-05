@@ -10,7 +10,7 @@ The Worker URL is intentionally unpublished. Publish it only after a reviewed de
 
 - `GET /api/video/skills` — authenticated 22-skill catalog.
 - `GET/POST /api/video/projects` — owner-scoped project metadata.
-- `GET/POST /api/video/jobs` — owner-scoped job-request metadata.
+- `GET/POST /api/video/jobs` — owner-scoped job-request metadata.\n- `POST /api/video/production-plan` — authenticated projection from Director timeline to Engine task/stage contracts; no execution.
 
 Every request requires a short-lived Supabase Auth access token from the same Supabase project:
 
@@ -78,7 +78,7 @@ const response = await fetch(`${API_BASE}/api/video/plan`, {
 const { directorPlan } = await response.json();
 ```
 
-## Job status and capability boundary
+## Engine production-plan projection\n\n- `POST /api/video/production-plan` accepts the same bounded creative-brief fields as `/api/video/plan`.\n- NOVA Director creates the 24 FPS frame timeline; the Worker-safe production planner validates the scene boundaries and creates one bounded Wan 2.2 task contract per scene, plus human-approval, assembly, QC and delivery dependencies.\n- Each generation task remains `blocked_no_free_gpu`; the response sets `executionEnabled: false`, `estimatedCost: 0` and `requiresHumanApproval: true`.\n- This is a control-plane plan projection, not a model invocation, queue submission, media upload or proof of generated video.\n\n## Job status and capability boundary
 
 A successful job POST means that the request and optional deterministic Director plan were recorded, not that any media was processed. When `brief` is supplied, the Worker computes the plan again server-side and persists it in `request.director_plan`; the client-supplied plan is never trusted.
 
