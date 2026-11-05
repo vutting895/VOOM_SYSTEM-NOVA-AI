@@ -78,12 +78,16 @@ export function createDirectorPlan(input, options = {}) {
     cursor += frameCount;
     const sourceDescription = sceneScript?.visualPrompt ?? brief.concept;
     const factGuard = verifiedFacts.length ? "Use only these supplied facts when a factual claim is needed: " + verifiedFacts.join("; ") + "." : "Do not invent specifications, performance claims, prices, testimonials or guarantees.";
+    const callToActionInstruction = beat === "call_to_action" && brief.callToAction
+      ? "End with this supplied call to action: " + brief.callToAction + "."
+      : "";
     const visualPrompt = [
       brief.style + " visual direction.",
       "Scene purpose: " + beat + ".",
       "Subject and concept: " + brief.concept + ".",
       "Shot description: " + sourceDescription + ".",
       "Framing: " + shot.framing + "; camera: " + shot.camera + "; lighting: " + shot.lighting + ".",
+      callToActionInstruction,
       "Maintain identical subject identity, product geometry, wardrobe, palette and environment continuity across all scenes.",
       factGuard,
       "Do not render text, logos, watermarks or extra objects unless explicitly supplied as approved assets.",
