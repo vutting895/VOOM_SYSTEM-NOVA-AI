@@ -506,7 +506,12 @@ async function handle(request, env) {
       ? createDirectorPlanResponse(request, origin, env)
       : json({ error: "method_not_allowed" }, 405, origin, env);
   }
-  if (resource === "production-plan") {\n    return request.method === "POST"\n      ? createProductionPlanResponse(request, origin, env)\n      : json({ error: "method_not_allowed" }, 405, origin, env);\n  }\n  if (resource === "projects") {
+  if (resource === "production-plan") {
+    return request.method === "POST"
+      ? createProductionPlanResponse(request, origin, env)
+      : json({ error: "method_not_allowed" }, 405, origin, env);
+  }
+  if (resource === "projects") {
     return request.method === "GET"
       ? listProjects(env, auth, origin)
       : createProject(request, env, auth, origin);
