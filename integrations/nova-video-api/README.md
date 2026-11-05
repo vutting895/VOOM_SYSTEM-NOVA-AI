@@ -6,6 +6,7 @@ This package exposes the API-only NOVA Video control plane on Cloudflare Workers
 
 - `GET /api/video/skills` — authenticated 22-skill catalog.
 - `POST /api/video/plan` — authenticated NOVA Director deterministic shot planning (CPU-only, no model inference).
+- `POST /api/video/jobs` accepts an optional `brief`; when supplied, it stores the generated Director plan in the tenant-owned `request` JSONB field.
 - `GET/POST /api/video/projects` — owner-scoped project metadata.
 - `GET/POST /api/video/jobs` — owner-scoped blocked job metadata.
 
