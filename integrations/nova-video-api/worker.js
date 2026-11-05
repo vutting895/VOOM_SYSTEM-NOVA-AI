@@ -737,7 +737,7 @@ async function handle(request, env) {
 
   const resource = match[1];
   if (request.method === "OPTIONS") {
-    const methods = resource === "skills" ? "GET, OPTIONS" : "GET, POST, OPTIONS";
+    const methods = resource === "skills" ? "GET, OPTIONS" : ["plan", "production-plan", "preparation-decisions"].includes(resource) ? "POST, OPTIONS" : "GET, POST, OPTIONS";
     return new Response(null, {
       status: 204,
       headers: {
@@ -748,7 +748,7 @@ async function handle(request, env) {
     });
   }
 
-  const allowedMethods = resource === "skills" ? ["GET"] : ["GET", "POST"];
+  const allowedMethods = resource === "skills"\n    ? ["GET"]\n    : ["plan", "production-plan", "preparation-decisions"].includes(resource)\n      ? ["POST"]\n      : ["GET", "POST"];
   if (!allowedMethods.includes(request.method)) {
     return json({ error: "method_not_allowed" }, 405, origin, env);
   }
