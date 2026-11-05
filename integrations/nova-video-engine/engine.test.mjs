@@ -194,6 +194,12 @@ test("NOVA Director creates a deterministic multi-shot plan with frame-accurate 
   assert.equal(first.executionEnabled, false);
 });
 
+test("Director includes the user's supplied call to action only in the final scene", () => {
+  const plan = createDirectorPlan({ ...creativeBrief, callToAction: "Shop the collection" });
+  assert.match(plan.scenes.at(-1).visualPrompt, /Shop the collection/);
+  assert.equal(plan.scenes.slice(0, -1).some((scene) => scene.visualPrompt.includes("Shop the collection")), false);
+});
+
 test("Director never invents unsupported claims and applies user exclusions", () => {
   const plan = createDirectorPlan({ ...creativeBrief, verifiedFacts: [], mustAvoid: ["medical claims"] });
   assert.match(plan.scenes[0].visualPrompt, /Do not invent specifications/);
