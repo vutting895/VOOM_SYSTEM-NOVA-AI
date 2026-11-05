@@ -30,3 +30,4 @@ jobs:
           node --check integrations/nova-video-api/skill-registry.js
           node --check integrations/nova-video-api/video-script-intelligence.js
           node --check integrations/nova-video-api/video-director-intelligence.js
+          node --check integrations/nova-video-api/video-production-planner.js
