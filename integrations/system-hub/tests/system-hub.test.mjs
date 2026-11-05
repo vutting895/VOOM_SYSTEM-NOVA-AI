@@ -12,6 +12,7 @@ const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "test-user-access-token";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
+const FRESH_AT = new Date().toISOString();
 const env = {
   SUPABASE_URL: "https://supabase.test",
   SUPABASE_PUBLISHABLE_KEY: "publishable-test-key",
@@ -433,9 +434,9 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
       };
       return Response.json({
         symbol: "XAUUSDm", timeframe: "M1", digits: 3,
-        tick: { bid: 4038.9, ask: 4039.1, last: 0, time: "2026-10-29T04:55:00Z" },
-        bars: [{ time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
-        count: 1, order_submission_enabled: false, mode: "read-only", as_of: "2026-10-29T04:55:00Z"
+        tick: { bid: 4038.9, ask: 4039.1, last: 0, time: "FRESH_AT" },
+        bars: [{ time: "FRESH_AT", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
+        count: 1, order_submission_enabled: false, mode: "read-only", as_of: "FRESH_AT"
       });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
@@ -615,6 +616,83 @@ test("quotes response with impossible OHLC values is rejected before data verifi
         tick: { bid: 4038.9, ask: 4039.1, last: 4039.0, time: "2026-11-06T04:55:00Z" },
         bars: [{ time: "2026-11-06T04:55:00Z", open: 4038.8, high: 4038.7, low: 4038.6, close: 4039.0 }],
         count: 1, as_of: "2026-11-06T04:55:01Z"
+      });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=10",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "quote_data_unverified");
+    assert.equal(body.dataVerified, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes response with a stale tick is never marked data verified", async () => {
+  const original = globalThis.fetch;
+  const stale = new Date(Date.now() - 121_000).toISOString();
+  const fresh = new Date().toISOString();
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({
+        symbol: "XAUUSDm", timeframe: "M1", digits: 3,
+        tick: { bid: 4038.9, ask: 4039.1, last: 4039.0, time: stale },
+        bars: [{ time: stale, open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
+        count: 1, as_of: fresh
+      });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=10",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "quote_data_unverified");
+    assert.equal(body.dataVerified, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes response with a future timestamp outside allowed clock skew is rejected", async () => {
+  const original = globalThis.fetch;
+  const future = new Date(Date.now() + 60_000).toISOString();
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({
+        symbol: "XAUUSDm", timeframe: "M1", digits: 3,
+        tick: { bid: 4038.9, ask: 4039.1, last: 4039.0, time: future },
+        bars: [{ time: future, open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
+        count: 1, as_of: future
       });
     }
     throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
