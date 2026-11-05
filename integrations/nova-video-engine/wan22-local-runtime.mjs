@@ -100,6 +100,8 @@ export function createWan22LocalRuntime(options = {}) {
   const modelLicenseApproved = options.modelLicenseApproved === true;
   const securityReviewApproved = options.securityReviewApproved === true;
   const zeroCostComputeVerified = options.zeroCostComputeVerified === true;
+  const modelRevision = options.modelRevision || "";
+  const checkpointIntegrityVerified = options.checkpointIntegrityVerified === true;
   const hardware = options.hardware || {};
   const generationTimeoutMs = options.generationTimeoutMs ?? 1_200_000;
   const probeTimeoutMs = options.probeTimeoutMs ?? 30_000;
@@ -115,6 +117,8 @@ export function createWan22LocalRuntime(options = {}) {
     if (!securityReviewApproved) return { ready: false, reason: "runtime_security_review_required" };
     if (!zeroCostComputeVerified) return { ready: false, reason: "zero_cost_compute_not_verified" };
     if (hardware.verified !== true || Number(hardware.availableVramGB) < MINIMUM_VRAM_GB) return { ready: false, reason: "verified_24gb_vram_required" };
+    if (!/^[a-f0-9]{40}$/i.test(modelRevision)) return { ready: false, reason: "wan22_upstream_revision_not_pinned" };
+    if (!checkpointIntegrityVerified) return { ready: false, reason: "wan22_checkpoint_integrity_not_verified" };
     if (!repoRoot || !checkpointDir || !workspaceRoot) return { ready: false, reason: "wan22_local_paths_not_configured" };
     try {
       await accessImpl(path.join(repoRoot, "generate.py"));
