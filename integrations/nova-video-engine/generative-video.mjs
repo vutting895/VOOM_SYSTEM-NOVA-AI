@@ -8,6 +8,14 @@ function safeText(value, field, maxLength) {
   return value.trim();
 }
 
+function validateInputImagePath(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !value.trim() || value.startsWith("/") || value.includes("\\") || value.split("/").some((part) => part === ".." || part === "." || !part)) throw new TypeError("invalid_input_image_path");
+  const extension = value.split(".").pop().toLowerCase();
+  if (!["png", "jpg", "jpeg", "webp"].includes(extension)) throw new TypeError("unsupported_input_image_type");
+  return value;
+}
+
 export function createGenerativeVideoTask(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new TypeError("generation_request_required");
   const aspectRatio = input.aspectRatio ?? "9:16";
@@ -16,6 +24,7 @@ export function createGenerativeVideoTask(input) {
   if (!Number.isFinite(durationSeconds) || durationSeconds < 1 || durationSeconds > 5.05) throw new RangeError("wan22_clip_duration_out_of_range");
   const prompt = safeText(input.prompt, "prompt", 2000);
   const negativePrompt = typeof input.negativePrompt === "string" ? input.negativePrompt.trim().slice(0, 1000) : "";
+  const imagePath = validateInputImagePath(input.imagePath);
   const dimensions = FORMATS[aspectRatio];
   return Object.freeze({
     schemaVersion: "nova.video-generation.v1",
@@ -24,7 +33,7 @@ export function createGenerativeVideoTask(input) {
     mode: input.imagePath ? "image_to_video" : "text_to_video",
     prompt, negativePrompt, aspectRatio, durationSeconds,
     width: dimensions.width, height: dimensions.height, frameRate: 24,
-    imagePath: input.imagePath ?? null,
+    imagePath,
     executionEnabled: false,
     estimatedCost: 0,
   });
