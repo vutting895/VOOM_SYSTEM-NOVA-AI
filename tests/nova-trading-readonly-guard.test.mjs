@@ -164,3 +164,12 @@ test('portfolio analytics and auto-train never fabricate account history or trai
   assert.doesNotMatch(quickit, /ANALYTICS_SERIES|AI Fleet Equity Curve|51\.69K|Math\.random|setAutoTrainTick|เทรนหลังบ้านรอบที่/);
   assert.doesNotMatch(quickit, /todayPnlBaht: bot\.todayPnlBaht \+ delta/);
 });
+
+test('subscription tiers and dashboard ticker remain explicit preview-only without fake activation', () => {
+  assert.match(quickit, /SUBSCRIPTION CHECKOUT NOT CONFIGURED/);
+  assert.match(quickit, /STATIC SAMPLE TICKER DATA — NOT LIVE MARKET DATA/);
+  assert.match(quickit, /Preview tier:/);
+  assert.doesNotMatch(quickit, /สมัครและเปิดใช้งาน|🎉 สมัคร|setCurrentPlanId|Active: \{currentPlan\.badgeText\}/);
+  assert.match(quickit, /ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก/);
+  assert.match(quickit, /ยังไม่ได้เชื่อมต่อ/);
+});
