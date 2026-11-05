@@ -123,3 +123,41 @@ test("returns a blocked result when no approved provider is available", async ()
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "approved_script_provider_unavailable");
 });
+
+import { createGenerativeVideoTask, generateVideoClip, validateGeneratedClip } from "./generative-video.mjs";
+
+test("creates a bounded Wan 2.2 task with supported 720p dimensions", () => {
+  const task = createGenerativeVideoTask({ prompt: "A cinematic product reveal" });
+  assert.equal(task.modelId, "Wan-AI/Wan2.2-TI2V-5B");
+  assert.equal(task.width, 704);
+  assert.equal(task.height, 1280);
+  assert.equal(task.frameRate, 24);
+  assert.equal(task.executionEnabled, false);
+});
+
+test("rejects unsupported Wan aspect ratios and clip durations", () => {
+  assert.throws(() => createGenerativeVideoTask({ prompt: "test", aspectRatio: "1:1" }), /wan22_unsupported_aspect_ratio/);
+  assert.throws(() => createGenerativeVideoTask({ prompt: "test", durationSeconds: 20 }), /wan22_clip_duration_out_of_range/);
+});
+
+test("keeps generative inference disabled without invoking a provider", async () => {
+  let calls = 0;
+  const result = await generateVideoClip({ prompt: "A sunrise over a city" }, { invoke: async () => { calls += 1; } });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "video_generation_disabled");
+  assert.equal(calls, 0);
+});
+
+test("validates generated MP4 metadata and rejects unsafe asset paths", () => {
+  const task = createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 });
+  const valid = { assetPath: "jobs/job-1/output.mp4", contentType: "video/mp4", width: 704, height: 1280, frameRate: 24, durationSeconds: 5 };
+  assert.equal(validateGeneratedClip(valid, task).assetPath, "jobs/job-1/output.mp4");
+  assert.throws(() => validateGeneratedClip({ ...valid, assetPath: "../private.mp4" }, task), /invalid_generated_asset_path/);
+  assert.throws(() => validateGeneratedClip({ ...valid, width: 1920 }, task), /generated_clip_dimensions_mismatch/);
+});
+
+test("does not claim generated output when no approved provider is available", async () => {
+  const result = await generateVideoClip({ prompt: "A product reveal" }, { invoke: async () => { throw new Error("approved_zero_cost_provider_unavailable"); } }, { executionEnabled: true });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "approved_zero_cost_video_provider_unavailable");
+});
