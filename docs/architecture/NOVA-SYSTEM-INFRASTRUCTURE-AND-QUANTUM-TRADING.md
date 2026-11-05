@@ -363,6 +363,24 @@ The following hosted catalog inspection was performed with read-only SQL. It did
 - Production catalog presence and policy definitions do not prove the complete Supabase Auth → System Hub → Proxy/Relay path works in a deployed environment. No hosted customer/test identities were created and no production request was exercised.
 - The safe next acceptance path is a disposable Local Supabase stack in GitHub Actions using synthetic users and the exact migrations from the PR head. Hosted Staging acceptance requires a separately verified NOVA-only environment; Production must never be used as a test tenant.
 
+
+## 9.2 Migration lineage and schema parity follow-up — read-only evidence (2026-11-05)
+
+A second read-only comparison inspected the complete hosted migration ledgers, checked-in migration filenames/SQL, and the live Production catalog. No hosted migration or data change was made.
+
+- **Production ledger:** `mt5_customer_connections` is recorded as version `20261027160402`; the checked-in file is `202610270001_mt5_customer_connections.sql`. `nova_durable_approval_lifecycle` is recorded as `20261031070311`; the checked-in file is `202610300001_nova_durable_approval_lifecycle.sql`.
+- **Existing Staging ledger:** those same names are recorded as `20261030125402` and `20261030052224`, respectively. The Staging ledger also contains `affiliate_cleanup_legacy_tables` and `affiliate_core_state_persistence`, which are not present in this repository's current `supabase/migrations/` tree.
+- Production's migration ledger contains numerous earlier `voom_*`, customer-profile, governance and Alpaca migrations that are not represented in the current five-file `supabase/migrations/` tree on main. Therefore the repository migration directory is not a complete, proven reconstruction of the Production database history. Do not infer that a timestamp mismatch alone proves SQL divergence; the ledger stores version/name, not the applied SQL body.
+- The Production table columns, constraints, owner policies, core indexes, and trigger/function definitions inspected for the two NOVA migration files are materially aligned with the checked-in SQL. This is catalog-level structural comparison, not a cryptographic comparison against the SQL that was originally applied.
+- **Confirmed performance gap:** `nova_approval_owner_thread_fk` references `(thread_id, user_id)`, but Production has no child-side index whose leading columns cover that pair. The existing `nova_approval_user_thread_created_idx` begins with `(user_id, thread_id, created_at)`, so it does not cover the FK in the required leading-column order. Supabase Performance Advisor reports this single unindexed FK. A future additive migration may create `(thread_id, user_id)`; do not apply it to Production until it is reviewed, tested on a reconciled staging database, and separately approved.
+- **Staging remains disqualified for acceptance:** its migration ledger records NOVA migration names, but its live public catalog is missing all three expected NOVA tables. This is direct evidence that the Staging migration ledger cannot be treated as proof of a matching live schema.
+
+Required reconciliation before any hosted migration:
+1. Obtain a trusted copy/export of the historical SQL actually applied to Production and its migration source history.
+2. Map every Production ledger row to an immutable checked-in migration or explicitly documented legacy baseline.
+3. Compare normalized definitions and dependencies, then produce a forward-only reconciliation plan; never rewrite migration history or replay a create-table migration blindly.
+4. Rebuild/verify a NOVA-only staging environment and run migration + two-tenant E2E there before any Production change.
+
 ## 10. Definition of done
 
 NOVA infrastructure is ready only when:
