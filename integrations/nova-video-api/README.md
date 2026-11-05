@@ -24,6 +24,19 @@ Content-Type: application/json
 
 The Worker validates the token with Supabase Auth, then calls PostgREST using the same caller bearer token and publishable key. RLS remains authoritative. No service-role key or refresh token is used.
 
+## Frontend Director Studio
+
+The consumer app includes a local workspace at `/video` (primary navigation: **Video Studio**). It reuses the repository's canonical `createDirectorPlan` and `createVideoProductionPlan` modules to build a 24 FPS storyboard, camera/lighting directions, scene prompts, and blocked Engine task contracts in the browser.
+
+This first UI increment is intentionally **local Draft only**:
+- It does not call the Worker, Supabase, an LLM, or a video model.
+- It does not persist Projects, Jobs, Preparations, or decisions.
+- `Export JSON` downloads a local draft package.
+- `Save to API` and `Generate Video` remain disabled.
+- Supported Engine generation aspect ratios are `9:16` and `16:9`; square `1:1` is not available in the current Wan adapter.
+
+The UI route is not a deployed or production-connected Video service. API Save remains gated on authenticated frontend session integration, trusted server-side preparation/approval writes, a deployed Worker, and isolated tenant staging.
+
 ## Job → Preparation → Approval
 
 1. Create a project using `POST /api/video/projects`.
@@ -58,7 +71,9 @@ All four tables have RLS. Authenticated access is limited to owner-scoped `SELEC
 
 **Do not apply this migration to Production.** The currently connected Production project has no `nova_video_projects` or `nova_video_jobs` tables, its recorded latest migration is `20261031070311`, the repository contains older pending migration files, and the Supabase `main` branch currently reports `MIGRATIONS_FAILED`. There is no verified staging database. Reconcile migration history, repair the failed branch state, verify an encrypted backup and restore, and pass isolated two-user RLS tests before any migration or Worker deployment.
 
-## Validation\n\nThe NOVA Video API CI runs the Worker contract tests, validates the OpenAPI 3.1 YAML syntax, and syntax-checks the Worker/Engine adapter modules.\n\n## Acceptance gates
+## Validation
+
+The NOVA Video API CI runs the Worker contract tests, validates the OpenAPI 3.1 YAML syntax, and syntax-checks the Worker/Engine adapter modules.\n\n## Acceptance gates
 
 - Exact-head GitHub Actions tests and syntax checks pass.
 - Independent security review and inline review threads are resolved.
