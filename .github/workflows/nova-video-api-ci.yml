@@ -27,7 +27,8 @@ jobs:
       - name: Run NOVA Video API tests
         run: node --test integrations/nova-video-api/worker.test.mjs
       - name: Validate OpenAPI YAML syntax
-        run: ruby -e 'require "yaml"; spec = YAML.safe_load_file("docs/openapi/nova-video-api.yaml", aliases: false); abort "invalid OpenAPI contract" unless spec["openapi"] == "3.1.0" && spec["paths"].is_a?(Hash)'
+        run: |
+          ruby -e 'require "yaml"; spec = YAML.safe_load_file("docs/openapi/nova-video-api.yaml", aliases: false); abort "invalid OpenAPI contract" unless spec["openapi"] == "3.1.0" && spec["paths"].is_a?(Hash)'
       - name: Syntax-check Worker modules
         run: |
           node --check integrations/nova-video-api/worker.js
