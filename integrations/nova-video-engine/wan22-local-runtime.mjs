@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, stat, realpath } from "node:fs/promises";
+import { access, lstat, mkdir, stat, realpath } from "node:fs/promises";
 import path from "node:path";
 import { validateGeneratedClip } from "./generative-video.mjs";
 import { resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 
 const MINIMUM_VRAM_GB = 24;
+const MINIMUM_VRAM_MIB = MINIMUM_VRAM_GB * 1000;
 const OUTPUT_LIMIT = 128_000;
 
 export function parseNvidiaSmiMemory(output) {
@@ -17,6 +18,54 @@ export function parseNvidiaSmiMemory(output) {
     if (!Number.isSafeInteger(totalVramMiB) || !Number.isSafeInteger(freeVramMiB) || totalVramMiB <= 0 || freeVramMiB < 0 || freeVramMiB > totalVramMiB) return null;
     return { totalVramMiB, freeVramMiB };
   }).filter(Boolean);
+}
+
+function isWithinWorkspace(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative));
+}
+
+async function ensureSafeOutputDirectory(workspaceRoot, outputDirectory, { lstatImpl, mkdirImpl, realpathImpl }) {
+  if (!isWithinWorkspace(workspaceRoot, outputDirectory) || outputDirectory === workspaceRoot) {
+    throw new Error("wan22_output_directory_outside_workspace");
+  }
+
+  const relative = path.relative(workspaceRoot, outputDirectory);
+  let current = workspaceRoot;
+  for (const segment of relative.split(path.sep)) {
+    current = path.join(current, segment);
+    let info;
+    try {
+      info = await lstatImpl(current);
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+      try {
+        // Create one component at a time. Never let recursive mkdir follow an
+        // existing symlink in an untrusted job directory.
+        await mkdirImpl(current, { mode: 0o700 });
+      } catch (createError) {
+        if (createError?.code !== "EEXIST") throw createError;
+      }
+      info = await lstatImpl(current);
+    }
+
+    if (info.isSymbolicLink()) throw new Error("wan22_output_directory_symlink_rejected");
+    if (!info.isDirectory()) throw new Error("wan22_output_directory_not_directory");
+    if (typeof info.mode === "number" && (info.mode & 0o022) !== 0) {
+      throw new Error("wan22_output_directory_permissions_unsafe");
+    }
+
+    const resolved = await realpathImpl(current);
+    if (!isWithinWorkspace(workspaceRoot, resolved)) {
+      throw new Error("wan22_output_directory_outside_workspace");
+    }
+  }
+
+  const resolvedDirectory = await realpathImpl(outputDirectory);
+  if (!isWithinWorkspace(workspaceRoot, resolvedDirectory)) {
+    throw new Error("wan22_output_directory_outside_workspace");
+  }
+  return resolvedDirectory;
 }
 
 function safeId(value, field) {
@@ -130,6 +179,7 @@ export function createWan22LocalRuntime(options = {}) {
   const statImpl = options.statImpl || stat;
   const mkdirImpl = options.mkdirImpl || mkdir;
   const realpathImpl = options.realpathImpl || realpath;
+  const lstatImpl = options.lstatImpl || lstat;
 
   async function preflight() {
     if (!executionEnabled) return { ready: false, reason: "wan22_execution_disabled" };
@@ -141,7 +191,7 @@ export function createWan22LocalRuntime(options = {}) {
     if (!repoRoot || !checkpointDir || !workspaceRoot) return { ready: false, reason: "wan22_local_paths_not_configured" };
     let detectedGpus;
     try { detectedGpus = await hardwareProbe(); } catch { return { ready: false, reason: "nvidia_gpu_probe_failed" }; }
-    if (!Array.isArray(detectedGpus) || !detectedGpus.some((gpu) => Number(gpu.totalVramMiB) >= 24_000)) return { ready: false, reason: "verified_24gb_vram_required", detectedGpuCount: Array.isArray(detectedGpus) ? detectedGpus.length : 0 };
+    if (!Array.isArray(detectedGpus) || !detectedGpus.some((gpu) => Number.isFinite(Number(gpu?.freeVramMiB)) && Number(gpu.freeVramMiB) >= MINIMUM_VRAM_MIB)) return { ready: false, reason: "verified_24gb_vram_required", detectedGpuCount: Array.isArray(detectedGpus) ? detectedGpus.length : 0 };
     try {
       await accessImpl(path.join(repoRoot, "generate.py"));
       await accessImpl(checkpointDir);
@@ -175,11 +225,30 @@ export function createWan22LocalRuntime(options = {}) {
           resolvedImagePath = inputRealPath;
         }
         command = buildWan22Command({ task, repoRoot: check.repoRoot, checkpointDir: check.checkpointDir, workspaceRoot: check.workspaceRoot, jobId, sceneId, pythonBinary, resolvedImagePath });
-        await mkdirImpl(path.dirname(command.outputPath), { recursive: true });
-        try { await accessImpl(command.outputPath); return { state: "blocked", reason: "wan22_output_already_exists", executionEnabled: false }; } catch (error) { if (error.code !== "ENOENT") throw error; }
-        await spawnProcess(command.command, command.args, { cwd: command.cwd }, { timeoutMs: generationTimeoutMs, captureStdout: false }, spawnImpl);
-        const outputRealPath = await realpathImpl(command.outputPath);
-        if (!outputRealPath.startsWith(check.workspaceRoot + path.sep)) throw new Error("generated_output_outside_workspace");
+        let outputDirectoryReal;
+        try {
+          outputDirectoryReal = await ensureSafeOutputDirectory(check.workspaceRoot, path.dirname(command.outputPath), {
+            lstatImpl, mkdirImpl, realpathImpl,
+          });
+        } catch (error) {
+          return {
+            state: "blocked",
+            reason: error instanceof Error ? error.message : "wan22_output_directory_validation_failed",
+            executionEnabled: false,
+          };
+        }
+        const outputPath = path.join(outputDirectoryReal, path.basename(command.outputPath));
+        if (!isWithinWorkspace(check.workspaceRoot, outputPath)) {
+          return { state: "blocked", reason: "wan22_output_directory_outside_workspace", executionEnabled: false };
+        }
+        try { await accessImpl(outputPath); return { state: "blocked", reason: "wan22_output_already_exists", executionEnabled: false }; } catch (error) { if (error.code !== "ENOENT") throw error; }
+        const safeArgs = [...command.args];
+        const saveFileIndex = safeArgs.indexOf("--save_file");
+        if (saveFileIndex < 0 || saveFileIndex + 1 >= safeArgs.length) throw new Error("wan22_output_argument_missing");
+        safeArgs[saveFileIndex + 1] = outputPath;
+        await spawnProcess(command.command, safeArgs, { cwd: command.cwd }, { timeoutMs: generationTimeoutMs, captureStdout: false }, spawnImpl);
+        const outputRealPath = await realpathImpl(outputPath);
+        if (!isWithinWorkspace(check.workspaceRoot, outputRealPath)) throw new Error("generated_output_outside_workspace");
         const outputStat = await statImpl(outputRealPath);
         if (!outputStat.isFile() || outputStat.size <= 0) throw new Error("wan22_output_file_missing_or_empty");
         const media = await inspectMp4(ffprobeBinary, outputRealPath, probeTimeoutMs, spawnImpl);

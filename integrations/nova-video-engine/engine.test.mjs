@@ -304,7 +304,7 @@ test("Wan local runtime refuses inference unless all explicit approval and hardw
 test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", async () => {
   const noCost = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, hardware: { verified: true, availableVramGB: 24 } });
   assert.equal((await noCost.preflight()).reason, "zero_cost_compute_not_verified");
-  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", hardwareProbe: async () => [{ totalVramMiB: 16384, freeVramMiB: 12000 }] });
+  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 12000 }] });
   assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
 });
 
@@ -319,13 +319,49 @@ test("Wan local runtime requires a pinned upstream revision and verified checkpo
 const readyWanRuntimeOptions = (overrides = {}) => ({
   executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true,
   zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true,
-  hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 23000 }],
+  hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 24564 }],
   repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace",
   accessImpl: async () => {}, mkdirImpl: async () => {},
+  lstatImpl: async () => ({ isSymbolicLink: () => false, isDirectory: () => true, mode: 0o700 }),
   realpathImpl: async (value) => value,
   statImpl: async () => ({ isDirectory: () => true, isFile: () => true, size: 4096 }),
   revisionVerifier: async () => true,
   ...overrides,
+});
+
+test("Wan local runtime checks FREE VRAM rather than total VRAM", async () => {
+  const lowFree = createWan22LocalRuntime(readyWanRuntimeOptions({
+    hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 23999 }],
+  }));
+  const enoughFree = createWan22LocalRuntime(readyWanRuntimeOptions({
+    hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 24000 }],
+  }));
+  assert.equal((await lowFree.preflight()).reason, "verified_24gb_vram_required");
+  assert.equal((await enoughFree.preflight()).ready, true);
+});
+
+test("Wan local runtime rejects a pre-existing symlinked job output directory before starting inference", async () => {
+  const jobDirectory = "/workspace/jobs/job-1";
+  let spawned = 0;
+  let created = [];
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    lstatImpl: async (value) => ({
+      isSymbolicLink: () => value === jobDirectory,
+      isDirectory: () => true,
+      mode: 0o700,
+    }),
+    mkdirImpl: async (value) => { created.push(value); },
+    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
+  }));
+  const result = await runtime.render({
+    task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }),
+    jobId: "job-1",
+    sceneId: "scene-01",
+  });
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "wan22_output_directory_symlink_rejected");
+  assert.equal(spawned, 0);
+  assert.equal(created.includes(jobDirectory), false);
 });
 
 test("Wan local runtime verifies the exact installed repository revision", async () => {
