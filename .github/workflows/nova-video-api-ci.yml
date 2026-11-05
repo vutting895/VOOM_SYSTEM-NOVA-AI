@@ -7,6 +7,8 @@ on:
       - "integrations/nova-video-engine/**"
       - "docs/NOVA-VIDEO-API-INTEGRATION.md"
       - "docs/openapi/nova-video-api.yaml"
+      - "docs/NOVA-VIDEO-SUPABASE-MIGRATION-RECONCILIATION.md"
+      - "supabase/migrations/**"
       - ".github/workflows/nova-video-api-ci.yml"
 
 permissions:
