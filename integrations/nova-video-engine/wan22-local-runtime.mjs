@@ -159,9 +159,9 @@ export function createWan22LocalRuntime(options = {}) {
         const media = await inspectMp4(ffprobeBinary, outputRealPath, probeTimeoutMs, spawnImpl);
         const relativePath = path.relative(check.workspaceRoot, outputRealPath).split(path.sep).join("/");
         const asset = validateGeneratedClip({ assetPath: relativePath, ...media }, task);
-        return { state: "generated", asset, executionEnabled: true, modelId: this.modelId, costEvidence: "zero_cost_compute_verified_by_runtime_configuration" };
+        return { state: "generated", asset, executionEnabled: true, modelId: "Wan-AI/Wan2.2-TI2V-5B", costEvidence: "zero_cost_compute_verified_by_runtime_configuration" };
       } catch (error) {
-        return { state: "failed", reason: error instanceof Error ? error.message : "wan22_runtime_failed", executionEnabled: true, modelId: this.modelId };
+        return { state: "failed", reason: error instanceof Error ? error.message : "wan22_runtime_failed", executionEnabled: true, modelId: "Wan-AI/Wan2.2-TI2V-5B" };
       }
     },
   });
