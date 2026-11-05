@@ -725,3 +725,6 @@ test("FFmpeg renderer never overwrites an existing output file", async () => {
   await assert.rejects(() => renderer.render(createStoryboard(brief)), /ffmpeg_output_already_exists/);
   assert.equal(spawned, 0);
 });
+
+// Include focused regression coverage in the existing CI test entrypoint.
+import "./engine-duration.test.mjs";
