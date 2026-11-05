@@ -590,7 +590,7 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
       headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
       body: { job_id: job.id },
     }), ENV);
-    assert.equal(response.status, 201);
+    assert.equal(response.status, 201, await response.clone().text());
     const data = await response.json();
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
@@ -637,9 +637,9 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
   const previous = globalThis.fetch;
   const snapshot = {
     schemaVersion: "nova.video-preparation.v1",
-    job: { id: "123e4567-e89b-42d3-a456-426614174001", status: "blocked_no_free_gpu" },
-    productionPlan: { status: "blocked_no_free_gpu", executionEnabled: false },
-    policy: { executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
+    job: { id: "123e4567-e89b-42d3-a456-426614174001", taskType: "video_generation", status: "blocked_no_free_gpu" },
+    productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
+    policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
   };
   const snapshotHash = await (async () => {
     const stable = (value) => {
