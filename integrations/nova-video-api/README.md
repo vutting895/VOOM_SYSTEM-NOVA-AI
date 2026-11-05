@@ -5,6 +5,7 @@ This package exposes the API-only NOVA Video control plane on Cloudflare Workers
 ## Endpoints
 
 - `GET /api/video/skills` — authenticated 22-skill catalog.
+- `POST /api/video/plan` — authenticated NOVA Director deterministic shot planning (CPU-only, no model inference).
 - `GET/POST /api/video/projects` — owner-scoped project metadata.
 - `GET/POST /api/video/jobs` — owner-scoped blocked job metadata.
 
@@ -18,7 +19,7 @@ The Worker validates the Supabase session against `/auth/v1/user` and calls Post
 
 ## Capability boundary
 
-This Worker records metadata only. Generation remains `blocked_no_free_gpu`; analysis/edit/export remain `blocked_worker_unavailable`. All results keep `executionEnabled=false` and `estimatedCost=0`. It does not upload/store media, dispatch workers, invoke models, generate, analyze, edit, or export video.
+This Worker provides deterministic Director planning and records metadata only. The planning endpoint does not invoke an LLM, video model, GPU, database or worker. Generation remains `blocked_no_free_gpu`; analysis/edit/export remain `blocked_worker_unavailable`. All results keep `executionEnabled=false` and `estimatedCost=0`. It does not upload/store media, dispatch workers, invoke models, generate, analyze, edit, or export video.
 
 ## Staging/release gates
 
