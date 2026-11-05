@@ -24,7 +24,7 @@ NOVA owns the control plane, creative planning, story/shot decisions, prompt con
 - NOVA does not train a new foundation model from scratch in this phase. That requires a licensed dataset, substantial compute, evaluation and ongoing maintenance that cannot be justified under the current zero-cost constraint.
 - NOVA owns its Director Intelligence, prompt compiler, policy gates, orchestration, job semantics, compositing pipeline and evaluation criteria.
 - External/open model weights remain replaceable adapters. Provider eligibility requires independent license review, commercial-use evidence, zero-cost compute evidence, security review and reproducible output benchmarks.
-- Wan 2.2 TI2V-5B is research-only; no checkpoint download, GPU runtime, provider call or billing action has occurred. The local adapter requires a pinned source revision and externally verified checkpoint integrity before preflight can pass.
+- Wan 2.2 TI2V-5B is research-only; no checkpoint download, GPU runtime, provider call or billing action has occurred. The local adapter requires a pinned source revision, externally verified checkpoint integrity and an actual NVIDIA `nvidia-smi` result showing at least 24,000 MiB on one GPU before preflight can pass.
 
 ## Release phases
 
