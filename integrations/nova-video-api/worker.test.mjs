@@ -856,5 +856,5 @@ test("Video migration keeps workspace, preparations and decisions owner-scoped a
 test("Video CI validates the OpenAPI 3.1 YAML before syntax checks", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/nova-video-api-ci.yml", import.meta.url), "utf8");
   assert.match(workflow, /Validate OpenAPI YAML syntax/);
-  assert.match(workflow, /YAML\\.safe_load_file\\("docs\\/openapi\\/nova-video-api\\.yaml"/);
+  assert.ok(workflow.includes('YAML.safe_load_file("docs/openapi/nova-video-api.yaml"'));
 });
