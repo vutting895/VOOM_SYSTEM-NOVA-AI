@@ -24,6 +24,14 @@ Never expose a service-role key or refresh token in browser code. The Worker ver
 - `GET /api/video/preparations?job_id=<uuid>` — read the preparation and any approval decision.
 - `POST /api/video/preparation-decisions` — one-time approval or rejection bound to the snapshot hash.
 
+## NOVA Video Director Studio UI
+
+The consumer application route `/video` opens the **NOVA Video Director Studio**. The primary navigation also exposes a Video Studio shortcut.
+
+The current UI is a local-only Draft workspace. It invokes the same repository-owned Director and Production Planner modules used by the API/Engine source, and can export a JSON storyboard package. It does not call the API, use an authenticated Supabase session, write to a database, invoke an LLM/video model, or create media. The Save-to-API and Generate Video buttons are disabled until the frontend authentication and trusted write/deployment gates are completed.
+
+Engine generation currently accepts only `9:16` and `16:9`. The UI does not offer square output. The Director-only planning endpoint may still produce a square creative outline, but the Engine Production Plan and video-generation Job API reject `1:1` rather than creating an unsupported model task.
+
 ## Project and Job workflow
 
 Create a project:
@@ -122,7 +130,7 @@ There is one immutable preparation per job and one append-only decision per prep
 
 Required: `title`, `concept`.
 
-Optional: `audience`, `platform`, `language`, `style`, `callToAction`, `durationSeconds` (3–60), `aspectRatio` (`9:16`, `16:9`, `1:1`), `goal` (`product_ad`, `explainer`, `story`, `brand_film`), `verifiedFacts`, `mustAvoid`.
+Optional: `audience`, `platform`, `language`, `style`, `callToAction`, `durationSeconds` (3–60), `aspectRatio` (`9:16`, `16:9`; the Director-only plan endpoint can accept `1:1`, but Engine video generation does not), `goal` (`product_ad`, `explainer`, `story`, `brand_film`), `verifiedFacts`, `mustAvoid`.
 
 NOVA Director returns a deterministic shot plan with narrative beats, framing, camera movement, lighting, transitions, subject continuity, verified-fact guard and 24 FPS frame allocation. This is NOVA-owned planning logic, not a trained foundation video model or an LLM inference result.
 
