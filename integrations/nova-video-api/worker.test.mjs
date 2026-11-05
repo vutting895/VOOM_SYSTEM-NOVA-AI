@@ -561,8 +561,10 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
     created_at: "2026-11-05T00:00:00Z",
   };
   let inserted = null;
+  const observed = [];
   globalThis.fetch = async (input, init) => {
     const url = new URL(input);
+    observed.push({ path: url.pathname, method: init?.method, userFilter: url.searchParams.get("user_id"), authPresent: !!new Headers(init?.headers).get("Authorization"), bodyBytes: typeof init?.body === "string" ? init.body.length : 0 });
     if (url.pathname === "/auth/v1/user") return authResponse();
     assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
     if (url.pathname === "/rest/v1/nova_video_jobs") {
@@ -590,7 +592,7 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
       headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
       body: { job_id: job.id },
     }), ENV);
-    assert.equal(response.status, 201, await response.clone().text());
+    assert.equal(response.status, 201, (await response.clone().text()) + " calls=" + JSON.stringify(observed));
     const data = await response.json();
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
