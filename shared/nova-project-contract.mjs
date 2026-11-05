@@ -22,18 +22,24 @@ const FORBIDDEN_CAPABILITIES = new Set([
 const FORBIDDEN_INPUT_KEYS = new Set([
   "user", "userid", "tenant", "tenantid", "accesstoken", "authorization",
   "token", "bearertoken", "secret", "secretvalue", "credential", "password",
-  "apikey", "upstreamurl", "endpointurl", "webhookurl", "url",
+  "apikey", "clientsecret", "secretkey", "privatekey", "refreshtoken",
+  "idtoken", "sessiontoken", "oauthtoken", "signingkey", "sshprivatekey",
+  "apisecret", "authsecret", "accesskey", "cookie", "setcookie",
+  "upstreamurl", "endpointurl", "webhookurl", "url",
 ]);
 const FORBIDDEN_OUTPUT_KEYS = new Set([
   "user", "userid", "tenant", "tenantid", "accesstoken", "authorization",
   "token", "bearertoken", "secret", "secretvalue", "credential", "password",
-  "apikey", "clientsecret", "privatekey", "refreshtoken", "upstreamurl",
-  "endpointurl", "webhookurl",
+  "apikey", "clientsecret", "secretkey", "privatekey", "refreshtoken",
+  "idtoken", "sessiontoken", "oauthtoken", "signingkey", "sshprivatekey",
+  "apisecret", "authsecret", "accesskey", "cookie", "setcookie",
+  "upstreamurl", "endpointurl", "webhookurl",
 ]);
 const CLASSIFICATIONS = new Set(["public", "internal", "tenant", "confidential"]);
 const HEALTH_STATES = new Set(["not_configured", "configured", "reachable", "authenticated", "data_verified", "degraded", "unavailable"]);
 const REQUEST_FIELDS = new Set(["schema", "request_id", "project_id", "api_version", "intent", "capability", "resource", "input", "idempotency_key", "requested_at"]);
 const RESPONSE_FIELDS = new Set(["schema", "request_id", "status", "data_timestamp", "provenance", "result", "error"]);
+const SENSITIVE_VALUE_PATTERN = /(?:\bBearer\s+\S+|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i;
 
 const plainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value) &&
   (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
@@ -53,6 +59,7 @@ function normalizedKey(key) {
 }
 function containsForbiddenInputKey(value, depth = 0) {
   if (depth > 16) return true;
+  if (typeof value === "string") return SENSITIVE_VALUE_PATTERN.test(value);
   if (Array.isArray(value)) return value.some((item) => containsForbiddenInputKey(item, depth + 1));
   if (!plainObject(value)) return false;
   return Object.entries(value).some(([key, child]) =>
@@ -68,7 +75,7 @@ function containsForbiddenOutput(value, depth = 0) {
       containsForbiddenOutput(child, depth + 1));
   }
   if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return typeof value === "string" && /(?:Bearer\s+\S+|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/i.test(value);
+    return typeof value === "string" && SENSITIVE_VALUE_PATTERN.test(value);
   }
   return typeof value === "number" && Number.isFinite(value) ? false : true;
 }
@@ -145,11 +152,12 @@ export function validateProjectResponse(response, expectedRequestId) {
   if (response.data_timestamp !== null && !isTimestamp(response.data_timestamp)) return fail("response_data_timestamp_invalid");
   if (!plainObject(response.provenance) || !hasOnlyKeys(response.provenance, new Set(["source", "version", "checksum"])) ||
       !isString(response.provenance.source, 1, 128) || !isString(response.provenance.version, 1, 64) ||
-      (response.provenance.checksum !== null && !isString(response.provenance.checksum, 16, 128, /^[A-Za-z0-9._:-]+$/))) return fail("response_provenance_invalid");
+      (response.provenance.checksum !== null && !isString(response.provenance.checksum, 16, 128, /^[A-Za-z0-9._:-]+$/)) ||
+      containsForbiddenOutput(response.provenance)) return fail("response_provenance_invalid");
   if (response.status === "error") {
     if (!plainObject(response.error) || !hasOnlyKeys(response.error, new Set(["code", "message"])) ||
         !isString(response.error.code, 1, 64) || !isString(response.error.message, 1, 240) ||
-        containsForbiddenOutput(response.error.message) || response.result !== undefined) return fail("response_error_invalid");
+        containsForbiddenOutput(response.error) || response.result !== undefined) return fail("response_error_invalid");
   } else if (response.error !== undefined || !Object.prototype.hasOwnProperty.call(response, "result") ||
       containsForbiddenOutput(response.result)) return fail("response_result_invalid");
   return ok(response);
