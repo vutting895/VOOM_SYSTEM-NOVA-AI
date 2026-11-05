@@ -170,7 +170,6 @@ export function createNOVAMediaAssembler(options = {}) {
       try {
         await mkdirImpl(workspaceRoot, { recursive: true, mode: 0o700 });
         const rootReal = await realpathImpl(workspaceRoot);
-        const inputPaths = command.args.filter((value, index) => value === "-i" && command.args[index + 1]).map((_, index) => null);
         const declaredInputs = command.args.reduce((list, value, index, args) => { if (value === "-i" && args[index + 1]) list.push(args[index + 1]); return list; }, []);
         for (const candidate of declaredInputs) {
           const resolved = await realpathImpl(candidate);
@@ -191,8 +190,12 @@ export function createNOVAMediaAssembler(options = {}) {
           actualSubtitlePath = subtitlePath;
         }
         const ffmpegArgs = [...command.args];
-        const subtitleInputPosition = ffmpegArgs.findIndex((value, index) => value === "-i" && ffmpegArgs[index + 1] === resolveWithinRoot(workspaceRoot, subtitleRelative || ""));
-        if (subtitleInputPosition >= 0 && actualSubtitlePath) ffmpegArgs[subtitleInputPosition + 1] = actualSubtitlePath;
+        if (actualSubtitlePath) {
+          const expectedSubtitleInput = resolveWithinRoot(workspaceRoot, subtitleRelative);
+          const subtitleInputPosition = ffmpegArgs.findIndex((value, index) => value === "-i" && ffmpegArgs[index + 1] === expectedSubtitleInput);
+          if (subtitleInputPosition < 0) throw new Error("assembly_subtitle_input_missing");
+          ffmpegArgs[subtitleInputPosition + 1] = actualSubtitlePath;
+        }
         ffmpegArgs[ffmpegArgs.length - 1] = outputPath;
         for (const asset of input.assets) {
           const relative = safeRelativePath(asset.assetPath, "scene_asset", VIDEO_EXTENSIONS);
