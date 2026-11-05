@@ -74,19 +74,23 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install CPU-only benchmark dependencies
+        run: |
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2,<3"
+          python -m pip install -r benchmark-data/requirements-wave3.txt
       - name: Run isolated challenger tests
         working-directory: challenger
         run: |
           python -m py_compile research/wave3_challenger/fvg_events.py research/wave3_challenger/compare_fvg_training_inner.py
           python -m unittest discover -s tests -p "test_wave3_challenger_fvg_*.py" -v
           python -m unittest discover -s tests -p "test_wave3_challenger_manifest.py" -v
-      - name: Compare FVG definitions on pre-OOS training and inner folds only
+      - name: Derive exact benchmark inner folds and compare pre-OOS FVG definitions
         working-directory: challenger
         run: |
           python research/wave3_challenger/compare_fvg_training_inner.py \
             --bars-csv ../benchmark-data/datasets/exness-demo/XAUUSDm_M15_2022-2026.csv \
             --metadata-json ../benchmark-data/datasets/exness-demo/metadata.json \
-            --model-manifest ../benchmark-data/models/wave3_auto_tuned_20261030/model_manifest.json \
+            --benchmark-root ../benchmark-data \
             --output reports/wave3_fvg_training_inner_comparison.json
       - name: Upload aggregate event-count comparison only
         uses: actions/upload-artifact@v4
