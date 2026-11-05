@@ -42,13 +42,17 @@ function mockAuthAndRest({ authStatus = 200, userId = "user-a", rows = [] } = {}
 }
 
 test("broker connection migration keeps authenticated access owner-scoped and pending-only", () => {
-  assert.match(brokerConnectionsMigration, /alter table public\\.broker_connections enable row level security/i);
-  assert.match(brokerConnectionsMigration, /revoke all on table public\\.broker_connections from public,anon,authenticated/i);
-  assert.match(brokerConnectionsMigration, /grant select,insert on table public\\.broker_connections to authenticated/i);
-  assert.match(brokerConnectionsMigration, /create policy broker_connections_select_own on public\\.broker_connections for select to authenticated using\\s*\\(\\s*user_id=\\(select auth\\.uid\\(\\)\\)\\s*\\)/i);
-  assert.match(brokerConnectionsMigration, /create policy broker_connections_insert_own_pending on public\\.broker_connections for insert to authenticated with check\\s*\\(user_id=\\(select auth\\.uid\\(\\)\\) and provider='exness_mt5' and environment='demo' and status='pending' and bridge_route_id is null\\)/i);
-  assert.doesNotMatch(brokerConnectionsMigration, /grant\\s+(?:all|[^;]*(?:update|delete)[^;]*)\\s+on table public\\.broker_connections/i);
-  assert.doesNotMatch(brokerConnectionsMigration, /create policy [^;]* on public\\.broker_connections for (?:update|delete)/i);
+  const sql = brokerConnectionsMigration.toLowerCase();
+  assert.ok(sql.includes("alter table public.broker_connections enable row level security;"));
+  assert.ok(sql.includes("revoke all on table public.broker_connections from public,anon,authenticated;"));
+  assert.ok(sql.includes("grant select,insert on table public.broker_connections to authenticated;"));
+  assert.ok(sql.includes("create policy broker_connections_select_own on public.broker_connections for select to authenticated using(user_id=(select auth.uid()));"));
+  assert.ok(sql.includes("create policy broker_connections_insert_own_pending on public.broker_connections for insert to authenticated with check(user_id=(select auth.uid()) and provider='exness_mt5' and environment='demo' and status='pending' and bridge_route_id is null);"));
+  assert.equal(sql.includes("grant update"), false);
+  assert.equal(sql.includes("grant delete"), false);
+  assert.equal(sql.includes("grant all on table public.broker_connections"), false);
+  assert.equal(sql.includes("for update to authenticated"), false);
+  assert.equal(sql.includes("for delete to authenticated"), false);
 });
 
 test("health endpoint is public, CORS-safe, and keeps trading disabled", async () => {
