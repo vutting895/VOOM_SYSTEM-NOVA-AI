@@ -353,6 +353,16 @@ Rollback: disable project registration/capability at NOVA Core, stop project wor
 - Trading PRs #66 and #147 are research drafts; final-OOS edge is not established.
 - Supabase migration history reconciliation, encrypted backup/restore and tenant isolation remain release blockers.
 
+## 9.1 Live Supabase schema verification — read-only evidence (2026-11-05)
+
+The following hosted catalog inspection was performed with read-only SQL. It did not create users, insert/update/delete rows, apply migrations, change grants, or alter project settings.
+
+- **Voom_system project:** `broker_connections`, `nova_agent_threads`, and `nova_approval_requests` exist in `public` with RLS enabled. The broker connection grants/policies observed for `authenticated` were SELECT and INSERT only; SELECT was owner-scoped through `auth.uid()`; INSERT was restricted to the authenticated owner, `exness_mt5`, `demo`, `pending`, and `bridge_route_id IS NULL`. Approval tables were owner-scoped; approval mutation functions used private SECURITY DEFINER implementations with a fixed `pg_catalog` search path and public SECURITY INVOKER wrappers.
+- **Existing PR #85 staging project:** its migration history contains records for `mt5_customer_connections` and `nova_durable_approval_lifecycle`, but the live catalog inspection did not find `public.broker_connections`, `public.nova_agent_threads`, or `public.nova_approval_requests`. Its public schema currently exposes an Affiliate state table, and its migration history includes Affiliate cleanup/state migrations not present in this NOVA repository.
+- The staging migration ledger and live schema therefore disagree. Do not re-apply the existing migration, create test users, or use this project for NOVA two-tenant acceptance until ownership, migration history, and schema drift have been reconciled.
+- Production catalog presence and policy definitions do not prove the complete Supabase Auth → System Hub → Proxy/Relay path works in a deployed environment. No hosted customer/test identities were created and no production request was exercised.
+- The safe next acceptance path is a disposable Local Supabase stack in GitHub Actions using synthetic users and the exact migrations from the PR head. Hosted Staging acceptance requires a separately verified NOVA-only environment; Production must never be used as a test tenant.
+
 ## 10. Definition of done
 
 NOVA infrastructure is ready only when:
