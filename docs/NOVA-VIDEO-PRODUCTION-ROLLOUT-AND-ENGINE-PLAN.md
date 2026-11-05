@@ -24,7 +24,8 @@ Read-only inspection on 2026-11-05 found:
 - Neither `public.nova_video_projects` nor `public.nova_video_jobs` currently exists.
 - Supabase Branch status reports `MIGRATIONS_FAILED`.
 - The Supabase workflow log on 2026-11-04 16:27:56 UTC records the exact error: `Remote migration versions not found in local migrations directory.`
-- The existing migration-reconciliation PR #109 is still open/Draft, based on an older main SHA `a2acfd8...`, and currently reports `mergeable=false`; its recovered-history work is not part of current main.
+- Migration-reconciliation PR #109 remains open/Draft and is based on `a2acfd8ec9b598e6593413549bef760e8f596a72`; current `main` is `6e8d390ac45187fb70b6acb23f1e428a20ca7006`. GitHub currently reports `mergeable=true`, but commit comparison shows the PR branch is 34 commits ahead and 120 commits behind current main, so it is stale and must not be merged or retargeted blindly.
+- PR #109's forensic manifest contains 24 Production records plus 2 records for a separate Staging project. The live Production ledger now contains 25 records, latest `20261031070311` (`nova_durable_approval_lifecycle`). PR #109's `production-plus-nova` replay adds the local migration file version `202610300001`, which does not match the live Production version `20261031070311`. The archive therefore does not yet prove exact version-for-version recovery of current Production history; all 25 live `(version, name, statements)` payloads and checksums must be reconciled first.
 - The current NOVA Video Worker PR is metadata-only. Its exact-head CI validates Worker contract behavior and syntax; it does not validate live Supabase RLS or run a real media pipeline.
 
 ### Migration history blocker — diagnosed
