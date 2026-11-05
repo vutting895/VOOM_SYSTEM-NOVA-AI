@@ -313,6 +313,7 @@ The previously defined Wave3 / XGBoost / LSTM / SMC gates remain the trading pro
 
 ### Phase 2 — Independent Trading project foundation
 - Create the separate repository after confirming its name and ownership.
+- The working target `vutting895/NOVA-QUANTUM-TRADING` was not found by the connected GitHub repository lookup in this review, and the available GitHub integration does not expose a repository-creation action. Repository provisioning is therefore blocked; do not place Trading business logic in NOVA Core as a workaround.
 - Port no code blindly; select audited modules from existing research prototypes.
 - Implement data ingestion, quality checks, immutable experiment metadata and classical baseline.
 - Integrate with NOVA in read-only mode.
@@ -341,6 +342,7 @@ Rollback: disable project registration/capability at NOVA Core, stop project wor
 
 ## 9. Current known blockers / dependencies
 
+- Separate Trading repository provisioning remains blocked: `vutting895/NOVA-QUANTUM-TRADING` was not found by the connected GitHub lookup, and no create-repository action is exposed. This is not evidence that a local substitute or NOVA-monorepo Trading implementation exists.
 - Main baseline for this document is \`6e8d390ac45187fb70b6acb23f1e428a20ca7006\`.
 - NOVA System Core capability contract is tracked by PR #217; Hub enforcement PR #218 is stacked on #217. PR #205 is a stale-base predecessor superseded by #217 and must not be merged. Central capability enforcement is not live until the reviewed Core/Hub changes and runtime tenant-isolation gates are accepted.
 - Central data plane work is open as PR #195 and is based on an older main SHA; do not merge or rebase blindly.
