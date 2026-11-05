@@ -157,3 +157,10 @@ test('customer Trading Dashboard labels sample data honestly and remains Demo re
   assert.match(singleStartHandler, /if \(shouldRun\)/);
   assert.match(singleStartHandler, /LIVE TRADING OFF/);
 });
+
+test('portfolio analytics and auto-train never fabricate account history or training rounds', () => {
+  assert.match(quickit, /PORTFOLIO EQUITY DATA NOT AVAILABLE/);
+  assert.match(quickit, /Auto-Train: NOT CONFIGURED/);
+  assert.doesNotMatch(quickit, /ANALYTICS_SERIES|AI Fleet Equity Curve|51\.69K|Math\.random|setAutoTrainTick|เทรนหลังบ้านรอบที่/);
+  assert.doesNotMatch(quickit, /todayPnlBaht: bot\.todayPnlBaht \+ delta/);
+});
