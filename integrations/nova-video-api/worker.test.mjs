@@ -592,7 +592,7 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
       headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
       body: { job_id: job.id },
     }), ENV);
-    assert.equal(response.status, 201, (await response.clone().text()) + " calls=" + JSON.stringify(observed));
+    assert.equal(response.status, 201, (await response.clone().text()) + " calls=" + JSON.stringify(observed) + " inserted=" + JSON.stringify(inserted));
     const data = await response.json();
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
@@ -691,7 +691,7 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
         decision_note: "Reviewed creative plan",
       },
     }), ENV);
-    assert.equal(response.status, 201);
+    assert.equal(response.status, 201, (await response.clone().text()) + " inserted=" + JSON.stringify(inserted));
     const data = await response.json();
     assert.equal(inserted.user_id, "user-a");
     assert.equal(inserted.decision, "approved");
