@@ -293,7 +293,7 @@ test("authenticated NOVA Director planning returns a frame-accurate plan without
     assert.equal(data.directorPlan.scenes.length, 3);
     assert.equal(data.directorPlan.scenes.reduce((sum, scene) => sum + scene.frameCount, 0), 360);
     assert.equal(data.directorPlan.scenes[0].beat, "hook");
-    assert.match(data.directorPlan.scenes[0].visualPrompt, /Do not invent specifications/);
+    assert.match(data.directorPlan.scenes[0].visualPrompt, /Use only these supplied facts when a factual claim is needed: Ceramic body/);
     assert.equal(calls, 1, "only Supabase Auth is called; no DB, LLM, model or worker call is made");
   } finally {
     globalThis.fetch = previous;
