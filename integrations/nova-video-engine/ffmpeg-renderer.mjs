@@ -6,7 +6,7 @@ const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const DIMENSIONS = Object.freeze({ "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080] });
 
 export function resolveWithinRoot(root, relativePath) {
-  if (typeof relativePath !== "string" || !relativePath || relativePath.includes("\\\\") || relativePath.includes("\\0") || path.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath)) throw new TypeError("relative_media_path_required");
+  if (typeof relativePath !== "string" || !relativePath || relativePath.includes("\\") || relativePath.includes("\0") || path.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath)) throw new TypeError("relative_media_path_required");
   if (relativePath.split("/").some((part) => part === "." || part === ".." || !part)) throw new TypeError("media_path_traversal_rejected");
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(resolvedRoot, relativePath);
