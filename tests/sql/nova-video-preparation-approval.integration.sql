@@ -232,7 +232,7 @@ BEGIN
       'approved'
     );
     RAISE EXCEPTION 'Cross-tenant approval insert unexpectedly succeeded';
-  EXCEPTION WHEN foreign_key_violation OR check_violation THEN
+  EXCEPTION WHEN foreign_key_violation OR check_violation OR insufficient_privilege THEN
     NULL;
   END;
 END
