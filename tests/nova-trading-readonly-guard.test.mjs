@@ -171,5 +171,5 @@ test('subscription tiers and dashboard ticker remain explicit preview-only witho
   assert.match(quickit, /Preview tier:/);
   assert.doesNotMatch(quickit, /สมัครและเปิดใช้งาน|🎉 สมัคร|setCurrentPlanId|Active: \{currentPlan\.badgeText\}/);
   assert.match(quickit, /ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก/);
-  assert.match(quickit, /ยังไม่ได้เชื่อมต่อ/);
+  assert.match(quickit, /ระบบ Checkout, การชำระเงิน และการยืนยันสิทธิ์สมาชิกยังไม่ได้เชื่อมต่อ/);
 });
