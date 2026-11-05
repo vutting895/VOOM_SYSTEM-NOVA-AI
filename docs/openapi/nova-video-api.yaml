@@ -47,6 +47,54 @@ paths:
                     items: { type: object }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { description: Supabase Auth unavailable or not configured }
+  /api/video/plan:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    post:
+      summary: Create a deterministic NOVA Director production plan
+      description: >
+        Authenticated CPU-only planning. Does not invoke an LLM, video model, GPU,
+        database, worker or media storage. Execution is disabled and human approval is required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, concept]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120 }
+                concept: { type: string, minLength: 1, maxLength: 1200 }
+                audience: { type: string, maxLength: 240 }
+                platform: { type: string, maxLength: 120 }
+                language: { type: string, maxLength: 32 }
+                style: { type: string, maxLength: 240 }
+                callToAction: { type: string, maxLength: 240 }
+                durationSeconds: { type: number, minimum: 3, maximum: 60, default: 15 }
+                aspectRatio: { type: string, enum: ["9:16", "16:9", "1:1"] }
+                goal: { type: string, enum: [product_ad, explainer, story, brand_film] }
+                verifiedFacts: { type: array, maxItems: 12, items: { type: string, maxLength: 240 } }
+                mustAvoid: { type: array, maxItems: 20, items: { type: string, maxLength: 160 } }
+      responses:
+        '200':
+          description: Frame-accurate Director plan; no media execution occurs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [directorPlan, executionEnabled, estimatedCost, requiresHumanApproval]
+                properties:
+                  directorPlan: { type: object }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  requiresHumanApproval: { const: true }
+                  explanation: { type: string }
+        '400': { description: Invalid creative brief }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/video/projects:
     options:
       security: []
