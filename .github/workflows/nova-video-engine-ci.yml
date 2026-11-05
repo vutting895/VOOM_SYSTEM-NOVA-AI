@@ -28,3 +28,7 @@ jobs:
           node --check integrations/nova-video-engine/provider-registry.mjs
           node --check integrations/nova-video-engine/script-intelligence.mjs
           node --check integrations/nova-video-engine/generative-video.mjs
+          node --check integrations/nova-video-engine/director-intelligence.mjs
+          node --check integrations/nova-video-engine/job-lifecycle.mjs
+          node --check integrations/nova-video-engine/quality-control.mjs
+          node --check integrations/nova-video-engine/pipeline-orchestrator.mjs
