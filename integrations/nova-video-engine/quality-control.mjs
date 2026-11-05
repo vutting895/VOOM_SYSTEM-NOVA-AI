@@ -1,4 +1,5 @@
 const ALLOWED_ASSETS = new Set(["video/mp4"]);
+const OUTPUT_DIMENSIONS = Object.freeze({ "9:16": [704, 1280], "16:9": [1280, 704] });
 
 function safeAssetPath(value) {
   if (typeof value !== "string" || !value.trim() || value.startsWith("/") || value.includes("\\") || value.split("/").some((part) => part === ".." || part === "." || !part)) return false;
@@ -28,6 +29,8 @@ export function validateGeneratedAssets(plan, assets) {
   const issues = [];
   if (!plan || !Array.isArray(plan.scenes) || !Array.isArray(assets)) return { valid: false, issues: ["invalid_asset_validation_input"] };
   const expected = new Map(plan.scenes.map((scene) => [scene.sceneId, scene]));
+  const dimensions = OUTPUT_DIMENSIONS[plan.aspectRatio];
+  if (!dimensions) issues.push("unsupported_output_aspect_ratio");
   const seen = new Set();
   for (const asset of assets) {
     if (!asset || typeof asset !== "object" || !expected.has(asset.sceneId)) { issues.push("unexpected_scene_asset"); continue; }
@@ -36,7 +39,8 @@ export function validateGeneratedAssets(plan, assets) {
     const scene = expected.get(asset.sceneId);
     if (!ALLOWED_ASSETS.has(asset.contentType)) issues.push("unsupported_asset_content_type:" + asset.sceneId);
     if (!safeAssetPath(asset.assetPath)) issues.push("unsafe_asset_path:" + asset.sceneId);
-    if (Number(asset.width) <= 0 || Number(asset.height) <= 0) issues.push("invalid_dimensions:" + asset.sceneId);
+    if (!Number.isFinite(Number(asset.width)) || !Number.isFinite(Number(asset.height)) || Number(asset.width) <= 0 || Number(asset.height) <= 0) issues.push("invalid_dimensions:" + asset.sceneId);
+    else if (dimensions && (Number(asset.width) !== dimensions[0] || Number(asset.height) !== dimensions[1])) issues.push("resolution_mismatch:" + asset.sceneId);
     if (Number(asset.frameRate) !== plan.frameRate) issues.push("frame_rate_mismatch:" + asset.sceneId);
     if (!Number.isFinite(Number(asset.durationSeconds)) || Math.abs(Number(asset.durationSeconds) - scene.durationSeconds) > 0.1) issues.push("clip_duration_mismatch:" + asset.sceneId);
     if (asset.continuityGroup !== scene.continuityGroup) issues.push("continuity_group_mismatch:" + asset.sceneId);
