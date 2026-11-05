@@ -58,7 +58,7 @@ All four tables have RLS. Authenticated access is limited to owner-scoped `SELEC
 
 **Do not apply this migration to Production.** The currently connected Production project has no `nova_video_projects` or `nova_video_jobs` tables, its recorded latest migration is `20261031070311`, the repository contains older pending migration files, and the Supabase `main` branch currently reports `MIGRATIONS_FAILED`. There is no verified staging database. Reconcile migration history, repair the failed branch state, verify an encrypted backup and restore, and pass isolated two-user RLS tests before any migration or Worker deployment.
 
-## Acceptance gates
+## Validation\n\nThe NOVA Video API CI runs the Worker contract tests, validates the OpenAPI 3.1 YAML syntax, and syntax-checks the Worker/Engine adapter modules.\n\n## Acceptance gates
 
 - Exact-head GitHub Actions tests and syntax checks pass.
 - Independent security review and inline review threads are resolved.
