@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: "22"
       - name: Test NOVA-owned engine core
-        run: node --test integrations/nova-video-engine/engine.test.mjs
+        run: node --test integrations/nova-video-engine/engine.test.mjs integrations/nova-video-engine/engine-duration.test.mjs
       - name: Syntax-check engine modules
         run: |
           node --check integrations/nova-video-engine/engine.mjs
