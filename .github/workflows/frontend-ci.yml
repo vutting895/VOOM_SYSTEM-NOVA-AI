@@ -53,6 +53,7 @@ on:
       - "integrations/nova-ai-worker/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
+      - "integrations/nova-video-engine/**"
       - "supabase/migrations/**"
       - "tests/**"
       - "infra/**"
