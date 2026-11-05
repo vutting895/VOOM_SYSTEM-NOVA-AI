@@ -20,6 +20,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Production pipeline planner | Implemented: approval gate, per-scene generation tasks, assembly, QC and delivery dependencies |
 | Tenant-scoped job lifecycle | Implemented as an in-memory reference store with idempotency, approval transition, retry limit and tenant checks |
 | Video quality control | Implemented: timeline integrity, clip metadata, dimensions, continuity and safe asset paths |
+| NOVA model specialization governance | Implemented: dataset provenance, rights, commercial-use permission, privacy review and explicit consent scopes; adaptation remains planning-only |
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
@@ -58,7 +59,7 @@ The Wan 2.2 adapter can invoke an already-installed local upstream repository an
 
 ## NOVA Director and production pipeline
 
-`director-intelligence.mjs` is NOVA-owned planning logic: it chooses narrative beats, camera framing/movement, lighting, transitions and continuity constraints, and allocates scenes on a 24 FPS frame timeline. It is deterministic decision logic, not a trained foundation model or an external LLM call. `pipeline-orchestrator.mjs` turns the plan into per-scene Wan task contracts and explicit stage dependencies; it always requires human approval and remains non-executing. `job-lifecycle.mjs` supplies an in-memory reference state machine only; it is not durable and is not connected to Supabase. `quality-control.mjs` verifies timeline and output metadata, but does not yet inspect actual MP4 frames or perceptual quality.
+`director-intelligence.mjs` is NOVA-owned planning logic: it chooses narrative beats, camera framing/movement, lighting, transitions and continuity constraints, and allocates scenes on a 24 FPS frame timeline. It is deterministic decision logic, not a trained foundation model or an external LLM call. `pipeline-orchestrator.mjs` turns the plan into per-scene Wan task contracts and explicit stage dependencies; it always requires human approval and remains non-executing. `job-lifecycle.mjs` supplies an in-memory reference state machine only; it is not durable and is not connected to Supabase. `quality-control.mjs` verifies timeline and output metadata, but does not yet inspect actual MP4 frames or perceptual quality. `dataset-governance.mjs` prepares a future NOVA-specific adapter/LoRA path using only datasets with documented provenance, model-training and commercial rights, privacy review and consent where people are identifiable. It validates manifests only; it does not upload data or train weights.
 
 ## Model catalog
 
