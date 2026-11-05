@@ -71,7 +71,7 @@ test("provider registry fails closed until license and zero-cost evidence are ap
   let calls = 0;
   registry.register({
     id: "candidate-provider", version: "0.0.1", taskTypes: ["video_generation"],
-    reviewStatus: "research", license: { commercialUse: false }, compute: { zeroCostVerified: false },
+    reviewStatus: "research", license: { commercialUse: false, sourceUrl: "https://github.com/Wan-Video/Wan2.2/blob/main/LICENSE.txt", reviewedAt: "2026-11-05" }, compute: { zeroCostVerified: false, evidenceUrl: "https://github.com/Wan-Video/Wan2.2", verifiedAt: "2026-11-05" }, approval: { reviewer: "pending", reviewedAt: "2026-11-05", evidenceRefs: ["https://github.com/Wan-Video/Wan2.2"] },
   }, { invoke: async () => { calls += 1; } });
   assert.equal(registry.list()[0].eligible, false);
   await assert.rejects(() => registry.invoke("video_generation", {}, { executionEnabled: true }), /approved_zero_cost_provider_unavailable/);
@@ -83,7 +83,7 @@ test("provider registry only invokes explicitly approved, zero-cost commercial a
   const registry = createProviderRegistry();
   registry.register({
     id: "verified-provider", version: "1.0.0", taskTypes: ["video_planning"],
-    reviewStatus: "approved", license: { commercialUse: true }, compute: { zeroCostVerified: true },
+    reviewStatus: "approved", license: { commercialUse: true, sourceUrl: "https://github.com/Wan-Video/Wan2.2/blob/main/LICENSE.txt", reviewedAt: "2026-11-05" }, compute: { zeroCostVerified: true, evidenceUrl: "https://github.com/Wan-Video/Wan2.2", verifiedAt: "2026-11-05" }, approval: { reviewer: "test-independent-reviewer", reviewedAt: "2026-11-05", evidenceRefs: ["https://github.com/Wan-Video/Wan2.2"] },
   }, { invoke: async (task, payload) => ({ task, accepted: payload.accepted }) });
   assert.deepEqual(await registry.invoke("video_planning", { accepted: true }, { executionEnabled: true }), { task: "video_planning", accepted: true });
 });
