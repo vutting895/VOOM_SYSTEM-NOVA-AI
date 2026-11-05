@@ -543,3 +543,21 @@ test("connection check fails closed when the proxy omits explicit connected=true
     globalThis.fetch = original;
   }
 });
+
+test("connection create rejects a foreign-owner row returned by its lookup adapter", async () => {
+  mockAuthAndRest({ userId: "user-a", rows: [{
+    id: CONNECTION_ID,
+    user_id: "user-b",
+    provider: "exness_mt5",
+    environment: "demo",
+    status: "connected",
+    bridge_route_id: "tenant-b"
+  }] });
+  const response = await worker.fetch(request("/v1/connections", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN, "Content-Type": "application/json" },
+    body: JSON.stringify({ provider: "exness_mt5", environment: "demo" })
+  }), env);
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "tenant_scope_violation");
+});
