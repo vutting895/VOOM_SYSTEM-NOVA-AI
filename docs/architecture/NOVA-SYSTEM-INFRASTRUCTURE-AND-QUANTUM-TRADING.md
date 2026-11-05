@@ -75,7 +75,7 @@ The following are logical module boundaries. Reuse existing implementations wher
 | Identity Context | Verify Supabase token server-side; derive user and tenant context | Existing authenticated Workers / System Hub |
 | Project Registry | Register project ID, owner, API version, capabilities, health and release metadata | Typed registry; no client-controlled tenant routing |
 | Intent Registry | Versioned discriminated intent schemas; reject unknown fields | Shared JSON Schema + TS validation |
-| Capability Policy | Allow/deny capabilities using server-derived identity and project policy | Existing NOVA System Core policy chain (#205/#217/#218) |
+| Capability Policy | Allow/deny capabilities using server-derived identity and project policy | Existing NOVA System Core policy chain (#217 plus stacked Hub enforcement #218; #205 is superseded stale-base work) |
 | Agent & Tool Registry | Allowlisted tool IDs, schemas, timeouts, rate limits and data classifications | Existing Remote MCP Worker and AI Worker |
 | Model Registry | Model ID, provider, version/hash, license, data class, inference mode and status | Metadata first; no model auto-download |
 | Workflow Service | Idempotency, bounded retries, durable job state and human review | Reuse project job systems; shared envelope |
@@ -301,7 +301,7 @@ The previously defined Wave3 / XGBoost / LSTM / SMC gates remain the trading pro
 
 ### Phase 0 — Architecture baseline
 - Adopt this document as the target design after review.
-- Reconcile existing Core (#205/#217/#218), data plane (#195), auth (#219), video (#221/#222), training guard (#216) and trading research (#66/#147) work.
+- Reconcile System Core PR #217 and Hub enforcement PR #218 (stacked on #217); PR #205 is a superseded stale-base proposal and must not be merged. Also coordinate data plane (#195), auth (#219), video (#221/#222), training guard (#216) and trading research (#66/#147) work.
 - Do not merge stale or stacked PRs out of order.
 
 ### Phase 1 — NOVA infrastructure contracts
@@ -342,7 +342,7 @@ Rollback: disable project registration/capability at NOVA Core, stop project wor
 ## 9. Current known blockers / dependencies
 
 - Main baseline for this document is \`6e8d390ac45187fb70b6acb23f1e428a20ca7006\`.
-- NOVA System Core policy work is still represented by open stacked PRs #205, #217 and #218; the stack must be reconciled before claiming the central capability policy is live.
+- NOVA System Core capability contract is tracked by PR #217; Hub enforcement PR #218 is stacked on #217. PR #205 is a stale-base predecessor superseded by #217 and must not be merged. Central capability enforcement is not live until the reviewed Core/Hub changes and runtime tenant-isolation gates are accepted.
 - Central data plane work is open as PR #195 and is based on an older main SHA; do not merge or rebase blindly.
 - Frontend Auth work is open as PR #219; production auth acceptance is not implied.
 - Video Engine Core PR #221 and CPU-first PR #222 are open drafts; neither establishes deployed generation.
