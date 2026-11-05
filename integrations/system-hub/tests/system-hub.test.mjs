@@ -561,3 +561,74 @@ test("connection create rejects a foreign-owner row returned by its lookup adapt
   assert.equal(response.status, 403);
   assert.equal((await response.json()).error, "tenant_scope_violation");
 });
+
+test("quotes response without a valid tick and OHLC history is never marked verified", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({ symbol: "XAUUSDm", timeframe: "M1", digits: 3, bars: [], count: 0 });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=10",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "quote_data_unverified");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes response with impossible OHLC values is rejected before data verification", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({
+        symbol: "XAUUSDm", timeframe: "M1", digits: 3,
+        tick: { bid: 4038.9, ask: 4039.1, last: 4039.0, time: "2026-11-06T04:55:00Z" },
+        bars: [{ time: "2026-11-06T04:55:00Z", open: 4038.8, high: 4038.7, low: 4038.6, close: 4039.0 }],
+        count: 1, as_of: "2026-11-06T04:55:01Z"
+      });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=10",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "quote_data_unverified");
+    assert.equal(body.dataVerified, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
