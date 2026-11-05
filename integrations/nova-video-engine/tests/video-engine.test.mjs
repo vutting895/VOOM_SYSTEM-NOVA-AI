@@ -69,7 +69,7 @@ test("FFmpeg plans are argument arrays and preserve paths with spaces", () => {
 });
 
 test("FFmpeg plans reject traversal, absolute paths, and invalid time ranges", () => {
-  assert.throws(() => buildFfprobeArgs({ inputPath: "../secret.mp4" }), /unsafe workspace/);
+  assert.throws(() => buildFfprobeArgs({ inputPath: "../secret.mp4" }), /escape the isolated workspace/);
   assert.throws(() => buildFfprobeArgs({ inputPath: "/etc/passwd" }), /unsafe path/);
   assert.throws(() => buildFfmpegTrimArgs({
     inputPath: "assets/in.mp4", outputPath: "assets/out.mp4", startSeconds: 0, durationSeconds: 0,
