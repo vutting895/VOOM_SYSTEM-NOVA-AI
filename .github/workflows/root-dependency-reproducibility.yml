@@ -1,0 +1,45 @@
+name: Root Dependency Reproducibility
+
+on:
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/root-dependency-reproducibility.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-root-dependencies-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Generate lockfile from the unchanged manifest when absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          fi
+          test -s package-lock.json
+      - name: Verify clean deterministic install
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build root Vite frontend
+        run: npm run build
+      - name: Upload generated or committed root lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-root-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
