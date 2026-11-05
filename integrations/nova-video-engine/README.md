@@ -73,3 +73,9 @@ See `MODEL-SELECTION.md` for the acceptance checklist. `generative-video.mjs` de
 ## Script Intelligence
 
 `script-intelligence.mjs` normalizes creative briefs, builds a structured prompt/schema request, and validates the model response. It treats user brief text as data. It does not contain or select a model. Calls are blocked unless execution is explicitly enabled and the provider registry contains a reviewed, commercially permitted, zero-cost provider with evidence URLs and review metadata.
+
+## Local inference preflight (not yet enabled)
+
+The Wan adapter checks gates in this order: explicit execution flag; model-license and independent-security approval flags; externally attested zero-cost compute; pinned 40-character source revision; checkpoint-integrity attestation; configured local paths; then a real `nvidia-smi --query-gpu=memory.total,memory.free --format=csv,noheader,nounits` probe requiring at least 24,000 MiB of total VRAM on one GPU. The adapter also resolves `generate.py` inside the pinned repository and verifies `git rev-parse HEAD` matches the configured revision before it can render.
+
+The zero-cost and checkpoint-integrity values are external operator attestations, not facts inferred by the code. They must be supported by independent evidence before a local runtime can be enabled. No checkpoint is downloaded or modified by the adapter.
