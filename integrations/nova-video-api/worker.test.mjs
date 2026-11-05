@@ -574,8 +574,10 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
       return Response.json([job]);
     }
     if (url.pathname === "/rest/v1/nova_video_preparations") {
-      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
-      if (init.method === "GET") return Response.json([]);
+      if (init.method === "GET") {
+        assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+        return Response.json([]);
+      }
       assert.equal(init.method, "POST");
       inserted = JSON.parse(init.body);
       return Response.json([{
@@ -670,8 +672,10 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
       }]);
     }
     if (url.pathname === "/rest/v1/nova_video_approval_decisions") {
-      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
-      if (init.method === "GET") return Response.json([]);
+      if (init.method === "GET") {
+        assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+        return Response.json([]);
+      }
       inserted = JSON.parse(init.body);
       return Response.json([{
         id: "123e4567-e89b-42d3-a456-426614174003",
