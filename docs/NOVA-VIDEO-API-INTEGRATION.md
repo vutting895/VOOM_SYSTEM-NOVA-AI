@@ -109,7 +109,7 @@ The Supabase migration `202610310001_nova_video_workspace` is not yet applied to
 ## Release gates
 
 1. Frontend CI and disposable PostgreSQL migration CI must execute and pass with inspectable logs.
-2. Independent security review must verify token handling, CORS allowlist, owner RLS and composite project-owner foreign key.
+2. Internal security review must verify token handling, CORS allowlist, owner RLS, composite project-owner foreign key and fail-closed behavior. The owner canceled the external-reviewer step on 2026-11-05; third-party approval is not a release gate.
 3. Test two distinct Supabase Auth users against staging; each must be unable to read or reference the other's projects/jobs.
 4. Verify CORS preflight and actual requests from the exact external frontend origin.
 5. Deploy the API commit and verify the deployed commit SHA before publishing the base URL.
