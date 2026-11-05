@@ -43,7 +43,7 @@ test("does not pretend to render when no renderer is configured", async () => {
 });
 
 test("rejects media path traversal and absolute paths", () => {
-  assert.throws(() => resolveWithinRoot("/workspace", "../secret.png"), /media_path_outside_workspace/);
+  assert.throws(() => resolveWithinRoot("/workspace", "../secret.png"), /media_path_traversal_rejected/);
   assert.throws(() => resolveWithinRoot("/workspace", "/tmp/secret.png"), /relative_media_path_required/);
   assert.throws(() => resolveWithinRoot("/workspace", "assets\\\\..\\\\secret.png"), /relative_media_path_required/);
   assert.throws(() => resolveWithinRoot("/workspace", "C:\\\\private.png"), /relative_media_path_required/);
