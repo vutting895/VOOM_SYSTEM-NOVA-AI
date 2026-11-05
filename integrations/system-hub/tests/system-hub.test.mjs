@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "../worker.js";
+import { readFile } from "node:fs/promises";
+
+const brokerConnectionsMigration = await readFile(
+  new URL("../../../supabase/migrations/202610270001_mt5_customer_connections.sql", import.meta.url),
+  "utf8",
+);
 
 const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
@@ -34,6 +40,16 @@ function mockAuthAndRest({ authStatus = 200, userId = "user-a", rows = [] } = {}
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
 }
+
+test("broker connection migration keeps authenticated access owner-scoped and pending-only", () => {
+  assert.match(brokerConnectionsMigration, /alter table public\\.broker_connections enable row level security/i);
+  assert.match(brokerConnectionsMigration, /revoke all on table public\\.broker_connections from public,anon,authenticated/i);
+  assert.match(brokerConnectionsMigration, /grant select,insert on table public\\.broker_connections to authenticated/i);
+  assert.match(brokerConnectionsMigration, /create policy broker_connections_select_own on public\\.broker_connections for select to authenticated using\\s*\\(\\s*user_id=\\(select auth\\.uid\\(\\)\\)\\s*\\)/i);
+  assert.match(brokerConnectionsMigration, /create policy broker_connections_insert_own_pending on public\\.broker_connections for insert to authenticated with check\\s*\\(user_id=\\(select auth\\.uid\\(\\)\\) and provider='exness_mt5' and environment='demo' and status='pending' and bridge_route_id is null\\)/i);
+  assert.doesNotMatch(brokerConnectionsMigration, /grant\\s+(?:all|[^;]*(?:update|delete)[^;]*)\\s+on table public\\.broker_connections/i);
+  assert.doesNotMatch(brokerConnectionsMigration, /create policy [^;]* on public\\.broker_connections for (?:update|delete)/i);
+});
 
 test("health endpoint is public, CORS-safe, and keeps trading disabled", async () => {
   const response = await worker.fetch(request("/health", { headers: { Origin: UI_ORIGIN } }), env);
