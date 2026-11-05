@@ -89,6 +89,17 @@ def get_terminal_and_account() -> tuple[Any, Any]:
             raise HTTPException(status_code=503, detail="MT5 terminal status unavailable")
         if account is None:
             raise HTTPException(status_code=503, detail="No MT5 account session detected")
+
+        # Restrict this tenant-bound terminal to Exness Demo only.
+        trade_mode = getattr(account, "trade_mode", None)
+        demo_mode = getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None)
+        server_name = str(getattr(account, "server", "") or "")
+        company_name = str(getattr(terminal, "company", "") or "")
+        if trade_mode != demo_mode or "exness" not in f"{server_name} {company_name}".lower():
+            raise HTTPException(
+                status_code=403,
+                detail="Only an Exness Demo MT5 terminal is permitted.",
+            )
         return terminal, account
 
 
