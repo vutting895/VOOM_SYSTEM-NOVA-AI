@@ -7,6 +7,18 @@ import { resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 const MINIMUM_VRAM_GB = 24;
 const OUTPUT_LIMIT = 128_000;
 
+export function parseNvidiaSmiMemory(output) {
+  if (typeof output !== "string" || !output.trim()) return [];
+  return output.split(/\\r?\\n/).map((line) => {
+    const match = /^\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$/.exec(line);
+    if (!match) return null;
+    const totalVramMiB = Number(match[1]);
+    const freeVramMiB = Number(match[2]);
+    if (!Number.isSafeInteger(totalVramMiB) || !Number.isSafeInteger(freeVramMiB) || totalVramMiB <= 0 || freeVramMiB < 0 || freeVramMiB > totalVramMiB) return null;
+    return { totalVramMiB, freeVramMiB };
+  }).filter(Boolean);
+}
+
 function safeId(value, field) {
   if (typeof value !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)) throw new TypeError("invalid_" + field);
   return value;
@@ -102,7 +114,11 @@ export function createWan22LocalRuntime(options = {}) {
   const zeroCostComputeVerified = options.zeroCostComputeVerified === true;
   const modelRevision = options.modelRevision || "";
   const checkpointIntegrityVerified = options.checkpointIntegrityVerified === true;
-  const hardware = options.hardware || {};
+  const nvidiaSmiBinary = options.nvidiaSmiBinary || "nvidia-smi";
+  const hardwareProbe = options.hardwareProbe || (async () => {
+    const result = await spawnProcess(nvidiaSmiBinary, ["--query-gpu=memory.total,memory.free", "--format=csv,noheader,nounits"], {}, { timeoutMs: 15_000, captureStdout: true }, spawnImpl);
+    return parseNvidiaSmiMemory(result.stdout);
+  });
   const generationTimeoutMs = options.generationTimeoutMs ?? 1_200_000;
   const probeTimeoutMs = options.probeTimeoutMs ?? 30_000;
   const spawnImpl = options.spawnImpl || spawn;
@@ -120,7 +136,9 @@ export function createWan22LocalRuntime(options = {}) {
     if (!modelLicenseApproved) return { ready: false, reason: "model_license_review_required" };
     if (!securityReviewApproved) return { ready: false, reason: "runtime_security_review_required" };
     if (!zeroCostComputeVerified) return { ready: false, reason: "zero_cost_compute_not_verified" };
-    if (hardware.verified !== true || Number(hardware.availableVramGB) < MINIMUM_VRAM_GB) return { ready: false, reason: "verified_24gb_vram_required" };
+    let detectedGpus;
+    try { detectedGpus = await hardwareProbe(); } catch { return { ready: false, reason: "nvidia_gpu_probe_failed" }; }
+    if (!Array.isArray(detectedGpus) || !detectedGpus.some((gpu) => Number(gpu.totalVramMiB) >= 24_000)) return { ready: false, reason: "verified_24gb_vram_required", detectedGpuCount: Array.isArray(detectedGpus) ? detectedGpus.length : 0 };
     if (!/^[a-f0-9]{40}$/i.test(modelRevision)) return { ready: false, reason: "wan22_upstream_revision_not_pinned" };
     if (!checkpointIntegrityVerified) return { ready: false, reason: "wan22_checkpoint_integrity_not_verified" };
     if (!repoRoot || !checkpointDir || !workspaceRoot) return { ready: false, reason: "wan22_local_paths_not_configured" };
