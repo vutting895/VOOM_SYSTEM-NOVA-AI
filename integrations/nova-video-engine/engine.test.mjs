@@ -400,3 +400,58 @@ test("file job store rejects sensitive request fields and corrupt journals", asy
     await assert.rejects(() => createFileVideoJobStore({ journalPath }), /video_job_journal_incomplete_tail/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+import { buildNOVAAssemblyCommand, buildSrtSubtitles, createNOVAMediaAssembler } from "./media-assembler.mjs";
+
+test("NOVA media assembler builds multi-scene video with voice, music and soft subtitles", () => {
+  const plan = createDirectorPlan(creativeBrief);
+  const assets = plan.scenes.map((scene) => ({
+    sceneId: scene.sceneId, assetPath: "jobs/job-1/" + scene.sceneId + ".mp4", contentType: "video/mp4",
+    width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
+  }));
+  const command = buildNOVAAssemblyCommand({
+    plan, assets, workspaceRoot: "/workspace", jobId: "job-1",
+    voiceoverPath: "audio/voice.wav", musicPath: "audio/music.mp3",
+    subtitlePath: "jobs/job-1/subtitles.srt",
+  });
+  assert.equal(command.command, "ffmpeg");
+  assert.equal(command.audioIncluded, true);
+  assert.equal(command.subtitlesIncluded, true);
+  assert.equal(command.width, 704);
+  assert.equal(command.height, 1280);
+  assert.equal(command.args.includes("-filter_complex"), true);
+  assert.equal(command.args.includes("amix=inputs=2:duration=longest:dropout_transition=2"), true);
+  assert.equal(command.args.includes("mov_text"), true);
+  assert.equal(command.args.includes("-n"), true);
+  assert.equal(command.args.includes("-y"), false);
+  assert.equal(command.outputPath, "/workspace/jobs/job-1/final.mp4");
+  assert.equal(command.args.some((arg) => arg.includes("; rm -rf")), false);
+});
+
+test("SRT generation validates time bounds, cue overlap and strips markup", () => {
+  const srt = buildSrtSubtitles([{ startSeconds: 0, endSeconds: 2, text: "<b>Hello</b> world" }], 3);
+  assert.match(srt, /00:00:00,000 --> 00:00:02,000/);
+  assert.match(srt, /Hello world/);
+  assert.throws(() => buildSrtSubtitles([{ startSeconds: 0, endSeconds: 2, text: "one" }, { startSeconds: 1, endSeconds: 3, text: "two" }], 3), /overlapping_subtitle_cues/);
+  assert.throws(() => buildSrtSubtitles([{ startSeconds: 0, endSeconds: 4, text: "outside" }], 3), /invalid_subtitle_timing/);
+});
+
+test("NOVA media assembler remains blocked without execution and human approval", async () => {
+  let spawned = 0;
+  const disabled = createNOVAMediaAssembler({ spawnImpl: () => { spawned += 1; } });
+  assert.equal((await disabled.assemble({})).reason, "media_assembly_disabled");
+  const unapproved = createNOVAMediaAssembler({ executionEnabled: true, spawnImpl: () => { spawned += 1; } });
+  assert.equal((await unapproved.assemble({})).reason, "human_approval_required");
+  assert.equal(spawned, 0);
+});
+
+test("NOVA media assembler rejects unsafe or incomplete source clips", () => {
+  const plan = createDirectorPlan(creativeBrief);
+  const assets = plan.scenes.map((scene) => ({
+    sceneId: scene.sceneId, assetPath: "jobs/job-1/" + scene.sceneId + ".mp4", contentType: "video/mp4",
+    width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
+  }));
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.slice(1), workspaceRoot: "/workspace", jobId: "job-1" }), /assembly_assets_invalid/);
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.map((asset, index) => index === 0 ? { ...asset, assetPath: "../escape.mp4" } : asset), workspaceRoot: "/workspace", jobId: "job-1" }), /assembly_assets_invalid/);
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets, workspaceRoot: "/workspace", jobId: "job-1", voiceoverPath: "../secret.wav" }), /invalid_voiceover/);
+});
