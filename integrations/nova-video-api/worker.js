@@ -7,7 +7,7 @@ const BASE_HEADERS = Object.freeze({
   "Referrer-Policy": "no-referrer",
 });
 const PROJECT_FIELDS = "id,title,description,status,created_at,updated_at";
-const JOB_FIELDS = "id,project_id,task_type,status,prompt,execution_mode,estimated_cost,created_at";
+const JOB_FIELDS = "id,project_id,task_type,status,prompt,request,execution_mode,estimated_cost,created_at";
 const TASK_TYPES = new Set(["video_generation", "video_analysis", "video_edit_export"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9_-]{12,100}$/;
@@ -304,12 +304,20 @@ async function listJobs(request, env, auth, origin) {
   return json({ jobs: rows, executionEnabled: false, estimatedCost: 0 }, 200, origin, env);
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) return "[" + value.map(stableJson).join(",") + "]";
+  if (value && typeof value === "object") {
+    return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stableJson(value[key])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
 async function createJob(request, env, auth, origin) {
   const parsed = await readJson(request);
   if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
   const body = parsed.value;
 
-  if (Object.keys(body).some((key) => !["project_id", "task_type", "prompt", "idempotency_key"].includes(key))) {
+  if (Object.keys(body).some((key) => !["project_id", "task_type", "prompt", "idempotency_key", "brief"].includes(key))) {
     return json({ error: "video_job_fields_invalid" }, 400, origin, env);
   }
   if (typeof body.project_id !== "string" || !UUID_PATTERN.test(body.project_id)) {
@@ -323,6 +331,24 @@ async function createJob(request, env, auth, origin) {
     return json({ error: "video_idempotency_key_invalid" }, 400, origin, env);
   }
 
+  let requestPayload = { schema_version: "nova.video-job.v1" };
+  if (body.brief !== undefined) {
+    if (!body.brief || typeof body.brief !== "object" || Array.isArray(body.brief)) {
+      return json({ error: "video_brief_invalid" }, 400, origin, env);
+    }
+    const briefFields = ["title", "concept", "audience", "platform", "language", "style", "callToAction", "durationSeconds", "aspectRatio", "goal", "verifiedFacts", "mustAvoid"];
+    if (Object.keys(body.brief).some((key) => !briefFields.includes(key))) {
+      return json({ error: "video_brief_fields_invalid" }, 400, origin, env);
+    }
+    try {
+      requestPayload = { schema_version: "nova.video-job.v2", director_plan: createDirectorPlan(body.brief) };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "video_brief_invalid";
+      const known = /^(invalid_|creative_brief_required|director_|scene_|script_|director_timeline_|video_)/.test(message);
+      return json({ error: known ? message : "video_brief_invalid" }, 400, origin, env);
+    }
+  }
+
   const status = body.task_type === "video_generation"
     ? "blocked_no_free_gpu"
     : "blocked_worker_unavailable";
@@ -332,7 +358,7 @@ async function createJob(request, env, auth, origin) {
     task_type: body.task_type,
     status,
     prompt: body.prompt,
-    request: { schema_version: "nova.video-job.v1" },
+    request: requestPayload,
     execution_mode: "free_only",
     estimated_cost: 0,
     idempotency_key: body.idempotency_key,
@@ -363,7 +389,8 @@ async function createJob(request, env, auth, origin) {
     if (
       existing.project_id !== body.project_id ||
       existing.task_type !== body.task_type ||
-      existing.prompt !== body.prompt
+      existing.prompt !== body.prompt ||
+      stableJson(existing.request ?? {}) !== stableJson(requestPayload)
     ) {
       return json({ error: "video_idempotency_key_reused" }, 409, origin, env);
     }
