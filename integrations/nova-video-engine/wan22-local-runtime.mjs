@@ -9,8 +9,8 @@ const OUTPUT_LIMIT = 128_000;
 
 export function parseNvidiaSmiMemory(output) {
   if (typeof output !== "string" || !output.trim()) return [];
-  return output.split(/\\r?\\n/).map((line) => {
-    const match = /^\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$/.exec(line);
+  return output.split(/\r?\n/).map((line) => {
+    const match = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(line);
     if (!match) return null;
     const totalVramMiB = Number(match[1]);
     const freeVramMiB = Number(match[2]);
