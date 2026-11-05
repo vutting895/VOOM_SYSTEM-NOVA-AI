@@ -157,6 +157,25 @@ test("connections are filtered by the authenticated user and expose no credentia
   assert.match(text, /"dataVerified":false/);
 });
 
+test("Core policy rejects a foreign-owner row returned by the connections collection adapter", async () => {
+  mockAuthAndRest({ userId: "user-a", rows: [{
+    id: CONNECTION_ID,
+    user_id: "user-b",
+    provider: "exness_mt5",
+    environment: "demo",
+    status: "connected",
+    bridge_route_id: "tenant-b"
+  }] });
+  const response = await worker.fetch(request("/v1/connections", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), env);
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), {
+    error: "core_capability_denied",
+    reason: "tenant_not_authorized"
+  });
+});
+
 test("another user's connection is not found instead of leaking existence", async () => {
   mockAuthAndRest({ userId: "user-a", rows: [] });
   const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/status", {
