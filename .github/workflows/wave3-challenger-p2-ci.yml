@@ -86,6 +86,7 @@ jobs:
           python research/wave3_challenger/compare_fvg_training_inner.py \
             --bars-csv ../benchmark-data/datasets/exness-demo/XAUUSDm_M15_2022-2026.csv \
             --metadata-json ../benchmark-data/datasets/exness-demo/metadata.json \
+            --model-manifest ../benchmark-data/models/wave3_auto_tuned_20261030/model_manifest.json \
             --output reports/wave3_fvg_training_inner_comparison.json
       - name: Upload aggregate event-count comparison only
         uses: actions/upload-artifact@v4
