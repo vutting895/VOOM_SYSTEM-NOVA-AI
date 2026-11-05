@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, mkdir } from "node:fs/promises";
+import { access, mkdir, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -13,6 +13,11 @@ export function resolveWithinRoot(root, relativePath) {
   const rootPrefix = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
   if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(rootPrefix)) throw new TypeError("media_path_outside_workspace");
   return resolvedPath;
+}
+
+function isWithinRoot(root, candidate) {
+  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
+  return candidate === root || candidate.startsWith(prefix);
 }
 
 export function buildFfmpegArgs(storyboard, workspaceRoot, outputRelativePath = "renders/video.mp4") {
@@ -35,27 +40,53 @@ export function buildFfmpegArgs(storyboard, workspaceRoot, outputRelativePath = 
   return { args, outputPath };
 }
 
-export function createFfmpegRenderer({ workspaceRoot, binary = "ffmpeg", timeoutMs = 120_000 }) {
+export function createFfmpegRenderer({ workspaceRoot, binary = "ffmpeg", timeoutMs = 120_000, spawnImpl = spawn, accessImpl = access, mkdirImpl = mkdir, realpathImpl = realpath, statImpl = stat } = {}) {
   if (!workspaceRoot) throw new TypeError("workspace_root_required");
   return Object.freeze({
     async render(storyboard) {
-      const { args, outputPath } = buildFfmpegArgs(storyboard, workspaceRoot);
-      for (const scene of storyboard.scenes) await access(resolveWithinRoot(workspaceRoot, scene.imagePath));
-      await mkdir(path.dirname(outputPath), { recursive: true });
+      const rootReal = await realpathImpl(path.resolve(workspaceRoot));
+      const { args, outputPath } = buildFfmpegArgs(storyboard, rootReal);
+      for (const scene of storyboard.scenes) {
+        const lexicalInput = resolveWithinRoot(rootReal, scene.imagePath);
+        const inputReal = await realpathImpl(lexicalInput);
+        if (!isWithinRoot(rootReal, inputReal)) throw new Error("media_input_symlink_outside_workspace");
+        await accessImpl(inputReal);
+        const inputFlag = args.findIndex((value, index) => value === "-i" && args[index + 1] === lexicalInput);
+        if (inputFlag < 0) throw new Error("ffmpeg_scene_input_not_found");
+        args[inputFlag + 1] = inputReal;
+      }
+      const outputDirectory = path.dirname(outputPath);
+      await mkdirImpl(outputDirectory, { recursive: true, mode: 0o700 });
+      const outputDirectoryReal = await realpathImpl(outputDirectory);
+      if (!isWithinRoot(rootReal, outputDirectoryReal)) throw new Error("media_output_symlink_outside_workspace");
+      const finalOutputPath = path.join(outputDirectoryReal, path.basename(outputPath));
+      try {
+        await accessImpl(finalOutputPath);
+        throw new Error("ffmpeg_output_already_exists");
+      } catch (error) {
+        if (error?.message === "ffmpeg_output_already_exists") throw error;
+        if (error?.code !== "ENOENT") throw error;
+      }
+      args[args.length - 1] = finalOutputPath;
       await new Promise((resolve, reject) => {
-        const child = spawn(binary, args, { cwd: path.resolve(workspaceRoot), stdio: ["ignore", "ignore", "pipe"] });
+        const child = spawnImpl(binary, args, { cwd: rootReal, shell: false, stdio: ["ignore", "ignore", "pipe"] });
         let stderr = "";
-        const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
-        child.stderr.setEncoding("utf8");
-        child.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-4000); });
-        child.once("error", (error) => { clearTimeout(timer); reject(new Error("ffmpeg_start_failed: " + error.message)); });
-        child.once("close", (code) => {
+        let settled = false;
+        const finish = (error) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
-          if (code === 0) resolve();
-          else reject(new Error("ffmpeg_exit_" + code + ": " + stderr.trim().slice(-1000)));
-        });
+          error ? reject(error) : resolve();
+        };
+        const timer = setTimeout(() => { child.kill("SIGKILL"); finish(new Error("ffmpeg_timeout")); }, timeoutMs);
+        child.stderr?.setEncoding?.("utf8");
+        child.stderr?.on("data", (chunk) => { stderr = (stderr + chunk).slice(-4000); });
+        child.once("error", (error) => finish(new Error("ffmpeg_start_failed: " + error.message)));
+        child.once("close", (code) => code === 0 ? finish() : finish(new Error("ffmpeg_exit_" + code + ": " + stderr.trim().slice(-1000))));
       });
-      return { outputPath, format: "mp4", renderer: "ffmpeg", audioIncluded: false };
+      const outputInfo = await statImpl(finalOutputPath);
+      if (!outputInfo.isFile() || outputInfo.size <= 0) throw new Error("ffmpeg_output_missing_or_empty");
+      return { outputPath: path.relative(rootReal, finalOutputPath).split(path.sep).join("/"), bytes: outputInfo.size, contentType: "video/mp4", format: "mp4", renderer: "ffmpeg", audioIncluded: false };
     },
   });
 }
