@@ -91,7 +91,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreativeBrief' }
+            schema: { $ref: '#/components/schemas/ProductionCreativeBrief' }
       responses:
         '200':
           description: Non-executable Engine production plan
@@ -106,7 +106,7 @@ paths:
                   estimatedCost: { const: 0 }
                   requiresHumanApproval: { const: true }
                   explanation: { type: string }
-        '400': { description: Invalid creative brief or Director timeline }
+        '400': { description: Invalid creative brief, unsupported generation aspect ratio, or Director timeline }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/video/projects:
@@ -368,6 +368,14 @@ components:
         goal: { type: string, enum: [product_ad, explainer, story, brand_film] }
         verifiedFacts: { type: array, maxItems: 12, items: { type: string, maxLength: 240 } }
         mustAvoid: { type: array, maxItems: 20, items: { type: string, maxLength: 160 } }
+    ProductionCreativeBrief:
+      allOf:
+        - $ref: '#/components/schemas/CreativeBrief'
+        - type: object
+          properties:
+            aspectRatio:
+              type: string
+              enum: ["9:16", "16:9"]
     DirectorPlan:
       type: object
       required: [schemaVersion, frameRate, totalFrames, scenes]
