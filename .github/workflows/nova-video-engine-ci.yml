@@ -27,3 +27,4 @@ jobs:
           node --check integrations/nova-video-engine/ffmpeg-renderer.mjs
           node --check integrations/nova-video-engine/provider-registry.mjs
           node --check integrations/nova-video-engine/script-intelligence.mjs
+          node --check integrations/nova-video-engine/generative-video.mjs
