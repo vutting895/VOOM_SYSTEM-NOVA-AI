@@ -23,15 +23,16 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
-| Generative Video orchestration | Implemented as a fail-closed Wan 2.2 task adapter contract with output validation; no model runtime connected |
-| Text-to-video / image-to-video model inference | Not executed; Wan 2.2 TI2V-5B remains research-only pending compute and review |
+| Generative Video orchestration | Implemented as a fail-closed Wan 2.2 task adapter contract with output validation |
+| Wan 2.2 local runtime adapter | Implemented; direct Python argv, workspace-bound assets, ffprobe verification and execution/license/security/zero-cost/24GB VRAM gates; disabled by default |
+| Text-to-video / image-to-video model inference | Not executed; local adapter exists but Wan 2.2 TI2V-5B remains research-only pending compute and review |
 | AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
 | Voice, music, subtitles and audio mix | Not implemented |
 | Video analysis / editing / transcoding pipeline | Not implemented |
 | Durable queue, worker dispatch and private asset storage | Not implemented; current job store is in-memory reference only |
 | Supabase production schema / migration | Not included in this package |
 
-The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
+The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
 
 ## Safety defaults
 
