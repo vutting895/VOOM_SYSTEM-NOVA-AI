@@ -9,7 +9,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 - Scene ordering, duration allocation and aspect-ratio constraints.
 - Render lifecycle and fail-closed execution policy.
 - A renderer adapter contract, with an optional local FFmpeg still-image compositor.
-- A provider boundary for future model adapters; no provider is silently selected.
+- A provider registry with explicit commercial-license, zero-cost and review-status gates; no provider is silently selected.
 
 ## Current implementation
 
@@ -18,6 +18,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Brief and storyboard planner | Implemented (deterministic CPU logic) |
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
+| Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
 | Text-to-video / image-to-video model inference | Not implemented; blocked pending approved compute and model review |
 | AI scriptwriting / generative storyboard model | Adapter boundary only; deterministic planner is not a generative model |
 | Voice, music, subtitles and audio mix | Not implemented |
