@@ -4,13 +4,17 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/202610310001_nova_video_workspace.sql"
+      - "supabase/migrations/20261105143000_nova_video_preparation_approval.sql"
       - "tests/sql/nova-video-migration.integration.sql"
+      - "tests/sql/nova-video-preparation-approval.integration.sql"
       - ".github/workflows/nova-video-migration-ci.yml"
   push:
     branches: [main]
     paths:
       - "supabase/migrations/202610310001_nova_video_workspace.sql"
+      - "supabase/migrations/20261105143000_nova_video_preparation_approval.sql"
       - "tests/sql/nova-video-migration.integration.sql"
+      - "tests/sql/nova-video-preparation-approval.integration.sql"
       - ".github/workflows/nova-video-migration-ci.yml"
 
 permissions:
@@ -67,8 +71,8 @@ jobs:
           PGPASSWORD: nova-video-ci-only-password
         run: |
           set -euo pipefail
-          psql -h 127.0.0.1 -U postgres -d nova_video_test -v ON_ERROR_STOP=1 \
-            -f supabase/migrations/202610310001_nova_video_workspace.sql
+          psql -h 127.0.0.1 -U postgres -d nova_video_test -v ON_ERROR_STOP=1 -f supabase/migrations/202610310001_nova_video_workspace.sql
+          psql -h 127.0.0.1 -U postgres -d nova_video_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261105143000_nova_video_preparation_approval.sql
 
       - name: Verify owner access, cross-tenant denial and zero-cost database constraints
         shell: bash
@@ -76,5 +80,5 @@ jobs:
           PGPASSWORD: nova-video-ci-only-password
         run: |
           set -euo pipefail
-          psql -h 127.0.0.1 -U postgres -d nova_video_test -X -v ON_ERROR_STOP=1 \
-            -f tests/sql/nova-video-migration.integration.sql
+          psql -h 127.0.0.1 -U postgres -d nova_video_test -X -v ON_ERROR_STOP=1 -f tests/sql/nova-video-migration.integration.sql
+          psql -h 127.0.0.1 -U postgres -d nova_video_test -X -v ON_ERROR_STOP=1 -f tests/sql/nova-video-preparation-approval.integration.sql
