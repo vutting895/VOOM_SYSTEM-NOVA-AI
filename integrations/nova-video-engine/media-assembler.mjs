@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { access, mkdir, realpath, stat, writeFile, unlink } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, mkdir, realpath, stat, writeFile, unlink, link as linkFile } from "node:fs/promises";
 import path from "node:path";
 import { resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 import { validateGeneratedAssets } from "./quality-control.mjs";
@@ -154,6 +155,7 @@ export function createNOVAMediaAssembler(options = {}) {
   const mkdirImpl = options.mkdirImpl || mkdir;
   const writeFileImpl = options.writeFileImpl || writeFile;
   const unlinkImpl = options.unlinkImpl || unlink;
+  const linkImpl = options.linkImpl || linkFile;
 
   return Object.freeze({
     async assemble(input) {
@@ -166,7 +168,10 @@ export function createNOVAMediaAssembler(options = {}) {
       const subtitleRelative = srt ? "jobs/" + jobId + "/subtitles.srt" : null;
       const command = buildNOVAAssemblyCommand({ plan: input.plan, assets: input.assets, workspaceRoot, jobId, voiceoverPath: input.voiceoverPath, musicPath: input.musicPath, subtitlePath: subtitleRelative, outputRelativePath: input.outputRelativePath, musicVolume: input.musicVolume });
       let subtitlePath = null;
+      let subtitleCreated = false;
       let outputPath = null;
+      let temporaryOutputPath = null;
+      let temporaryOutputCreated = false;
       try {
         await mkdirImpl(workspaceRoot, { recursive: true, mode: 0o700 });
         const rootReal = await realpathImpl(workspaceRoot);
@@ -182,11 +187,13 @@ export function createNOVAMediaAssembler(options = {}) {
         if (!outputDirReal.startsWith(rootReal + path.sep)) throw new Error("assembly_output_outside_workspace");
         outputPath = path.join(outputDirReal, path.basename(command.outputPath));
         try { await accessImpl(outputPath); throw new Error("assembly_output_already_exists"); } catch (error) { if (error.message === "assembly_output_already_exists") throw error; if (error.code !== "ENOENT") throw error; }
+        temporaryOutputPath = path.join(outputDirReal, "." + path.basename(outputPath) + "." + randomUUID() + ".partial.mp4");
         let actualSubtitlePath = null;
         if (subtitleRelative) {
           subtitlePath = resolveWithinRoot(rootReal, subtitleRelative);
           await mkdirImpl(path.dirname(subtitlePath), { recursive: true, mode: 0o700 });
           await writeFileImpl(subtitlePath, srt, { encoding: "utf8", mode: 0o600, flag: "wx" });
+          subtitleCreated = true;
           actualSubtitlePath = subtitlePath;
         }
         const ffmpegArgs = [...command.args];
@@ -196,26 +203,30 @@ export function createNOVAMediaAssembler(options = {}) {
           if (subtitleInputPosition < 0) throw new Error("assembly_subtitle_input_missing");
           ffmpegArgs[subtitleInputPosition + 1] = actualSubtitlePath;
         }
-        ffmpegArgs[ffmpegArgs.length - 1] = outputPath;
+        ffmpegArgs[ffmpegArgs.length - 1] = temporaryOutputPath;
         for (const asset of input.assets) {
           const relative = safeRelativePath(asset.assetPath, "scene_asset", VIDEO_EXTENSIONS);
           const actual = await probe(ffprobeBinary, await realpathImpl(resolveWithinRoot(rootReal, relative)), rootReal, Math.min(timeoutMs, 30_000), spawnImpl);
           if (actual.width !== asset.width || actual.height !== asset.height || Math.abs(actual.frameRate - asset.frameRate) > 0.01 || Math.abs(actual.durationSeconds - asset.durationSeconds) > 0.1) throw new Error("assembly_source_metadata_mismatch:" + asset.sceneId);
         }
+        temporaryOutputCreated = true;
         await run(ffmpegBinary, ffmpegArgs, rootReal, timeoutMs, spawnImpl);
-        const outputInfo = await statImpl(outputPath);
+        const outputInfo = await statImpl(temporaryOutputPath);
         if (!outputInfo.isFile() || outputInfo.size <= 0) throw new Error("assembly_output_missing_or_empty");
-        const finalMeta = await probe(ffprobeBinary, outputPath, rootReal, Math.min(timeoutMs, 30_000), spawnImpl);
+        const finalMeta = await probe(ffprobeBinary, temporaryOutputPath, rootReal, Math.min(timeoutMs, 30_000), spawnImpl);
         const expected = OUTPUT_DIMENSIONS[input.plan.aspectRatio];
         if (finalMeta.width !== expected[0] || finalMeta.height !== expected[1] || Math.abs(finalMeta.frameRate - 24) > 0.01 || Math.abs(finalMeta.durationSeconds - input.plan.durationSeconds) > 0.15) throw new Error("assembly_output_metadata_mismatch");
         if (Boolean(input.voiceoverPath || input.musicPath) !== finalMeta.audioIncluded) throw new Error("assembly_output_audio_mismatch");
         if (Boolean(subtitleRelative) !== finalMeta.subtitlesIncluded) throw new Error("assembly_output_subtitle_mismatch");
+        await linkImpl(temporaryOutputPath, outputPath);
+        await unlinkImpl(temporaryOutputPath).catch(() => {});
+        temporaryOutputCreated = false;
         return { state: "assembled", asset: { assetPath: path.relative(rootReal, outputPath).split(path.sep).join("/"), ...finalMeta }, renderer: "ffmpeg-local", executionEnabled: true, estimatedCost: 0 };
       } catch (error) {
-        if (outputPath) await unlinkImpl(outputPath).catch(() => {});
+        if (temporaryOutputCreated && temporaryOutputPath) await unlinkImpl(temporaryOutputPath).catch(() => {});
         return { state: "failed", reason: error instanceof Error ? error.message : "assembly_failed", executionEnabled: true, estimatedCost: 0 };
       } finally {
-        if (subtitlePath) await unlinkImpl(subtitlePath).catch(() => {});
+        if (subtitleCreated && subtitlePath) await unlinkImpl(subtitlePath).catch(() => {});
       }
     },
   });
