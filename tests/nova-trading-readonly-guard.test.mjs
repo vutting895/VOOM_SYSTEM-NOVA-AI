@@ -145,9 +145,9 @@ test('customer Trading Dashboard labels sample data honestly and remains Demo re
   assert.match(quickit, /data\.liveTradingEnabled === false/);
   assert.match(quickit, /data\.dataStatus !== 'static-sample-unverified'/);
 
-  const initialFleet = section(quickit, 'const INITIAL_FLEET_BOTS:', '\\n];');
+  const initialFleet = section(quickit, 'const INITIAL_FLEET_BOTS:', '\n];');
   assert.doesNotMatch(initialFleet, /running: true|autoTradeEnabled: true|selectedInPackage: true/);
-  assert.doesNotMatch(initialFleet, /todayPnlBaht: -?\\d+|winRatePct: (?!0\\b)\\d|profitFactor: (?!0\\b)\\d|totalTrades: (?!0\\b)\\d/);
+  assert.doesNotMatch(initialFleet, /todayPnlBaht: (?!0\b)-?\d+|winRatePct: (?!0\b)\d|profitFactor: (?!0\b)\d|totalTrades: (?!0\b)\d/);
   assert.match(initialFleet, /No verified position/);
   assert.match(initialFleet, /RESEARCH PREVIEW ONLY/);
 
