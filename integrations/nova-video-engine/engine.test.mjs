@@ -298,7 +298,7 @@ test("Wan local runtime refuses inference unless all explicit approval and hardw
 test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", async () => {
   const noCost = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, hardware: { verified: true, availableVramGB: 24 } });
   assert.equal((await noCost.preflight()).reason, "zero_cost_compute_not_verified");
-  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, hardwareProbe: async () => [{ totalVramMiB: 16384, freeVramMiB: 12000 }] });
+  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", hardwareProbe: async () => [{ totalVramMiB: 16384, freeVramMiB: 12000 }] });
   assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
 });
 
