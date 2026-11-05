@@ -38,6 +38,25 @@ class TestFvgTrainingInnerComparison(unittest.TestCase):
         self.assertEqual(result["first_full_mitigation_only_events"], 1)
         self.assertEqual(result["repeat_touch_within_48_events"], 4)
 
+    def test_pre_oos_loader_keeps_production_minimum_by_default(self):
+        rows = [
+            {"timestamp": "2026-06-30T23:45:00Z", "open": 100, "high": 101, "low": 99,
+             "close": 100, "spread_price": 0.2, "tick_volume": 10},
+            {"timestamp": "2026-07-01T00:00:00Z", "open": "x", "high": "x", "low": "x",
+             "close": "x", "spread_price": "x", "tick_volume": "x"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            csv_path = Path(directory) / "bars.csv"
+            metadata_path = Path(directory) / "metadata.json"
+            with csv_path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+                writer.writeheader()
+                writer.writerows(rows)
+            digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+            metadata_path.write_text(json.dumps({"sha256": digest}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "insufficient_pre_oos_bars"):
+                load_pre_oos_frame(csv_path, metadata_path, expected_sha256=digest)
+
     def test_benchmark_fold_source_windows_respect_twelve_source_bar_purge(self):
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         stamps = [start + timedelta(minutes=15 * i) for i in range(100)]
@@ -67,7 +86,7 @@ class TestFvgTrainingInnerComparison(unittest.TestCase):
             digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
             metadata_path.write_text(json.dumps({"sha256": digest}), encoding="utf-8")
             _, actual, bars, timestamps, fvg_bars = load_pre_oos_frame(
-                csv_path, metadata_path, expected_sha256=digest
+                csv_path, metadata_path, expected_sha256=digest, min_pre_oos_bars=2
             )
             self.assertEqual(actual, digest)
             self.assertEqual(len(bars), 2)

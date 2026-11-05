@@ -100,7 +100,13 @@ def derive_fold_source_windows(timestamps, source_indices, split):
     }
 
 
-def load_pre_oos_frame(csv_path: Path, metadata_path: Path, *, expected_sha256=EXPECTED_DATA_SHA256):
+def load_pre_oos_frame(
+    csv_path: Path,
+    metadata_path: Path,
+    *,
+    expected_sha256=EXPECTED_DATA_SHA256,
+    min_pre_oos_bars: int = 3000,
+):
     """Read only closed pre-OOS bars; stop before converting the first OOS OHLCV."""
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     if metadata.get("sha256") != expected_sha256:
@@ -150,7 +156,9 @@ def load_pre_oos_frame(csv_path: Path, metadata_path: Path, *, expected_sha256=E
 
     if not stopped_at_cutoff:
         raise ValueError("dataset_does_not_reach_final_oos_boundary")
-    if len(rows) < 3000:
+    if type(min_pre_oos_bars) is not int or min_pre_oos_bars < 1:
+        raise ValueError("min_pre_oos_bars_must_be_positive_integer")
+    if len(rows) < min_pre_oos_bars:
         raise ValueError("insufficient_pre_oos_bars")
     return metadata, digest, rows, timestamps, fvg_bars
 
