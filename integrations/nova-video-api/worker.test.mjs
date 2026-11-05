@@ -239,3 +239,22 @@ test("Worker dev URL stays disabled until reviewed staging publication", () => {
   assert.match(config, /^workers_dev\s*=\s*false\s*$/m);
   assert.doesNotMatch(config, /^workers_dev\s*=\s*true\s*$/m);
 });
+
+test("CORS allowlist rejects HTTP origins and URL values that are not canonical origins", async () => {
+  const invalidEnv = {
+    ...ENV,
+    NOVA_VIDEO_ALLOWED_ORIGINS: "http://creator.example.test,https://creator.example.test/path",
+  };
+
+  const insecure = await worker.fetch(request("/api/video/projects", {
+    method: "OPTIONS",
+    headers: { Origin: "http://creator.example.test" },
+  }), invalidEnv);
+  assert.equal(insecure.status, 403);
+
+  const withPath = await worker.fetch(request("/api/video/projects", {
+    method: "OPTIONS",
+    headers: { Origin: "https://creator.example.test/path" },
+  }), invalidEnv);
+  assert.equal(withPath.status, 403);
+});
