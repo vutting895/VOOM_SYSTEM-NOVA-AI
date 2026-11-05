@@ -20,7 +20,7 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
 | Text-to-video / image-to-video model inference | Not implemented; blocked pending approved compute and model review |
-| AI scriptwriting / generative storyboard model | Adapter boundary only; deterministic planner is not a generative model |
+| AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
 | Voice, music, subtitles and audio mix | Not implemented |
 | Video analysis / editing / transcoding pipeline | Not implemented |
 | Persistent queue, worker dispatch and private asset storage | Not implemented |
@@ -43,9 +43,13 @@ The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a rea
 
 ## Next engine milestones
 
-1. Add a reviewed provider-adapter interface and model/license manifest.
+1. Review and register a model provider only after independent license, commercial-use and zero-cost compute evidence.
 2. Add a CPU-capable audio/subtitle composition lane.
 3. Add isolated job queue, cancellation, retries and idempotency.
 4. Add private object storage and signed delivery only after tenant isolation and backup/restore acceptance.
 5. Benchmark candidate open models and compute against verified zero-cost eligibility; otherwise keep generative tasks blocked.
 6. Prove two-user staging isolation before connecting execution to the production API.
+
+## Script Intelligence
+
+`script-intelligence.mjs` normalizes creative briefs, builds a structured prompt/schema request, and validates the model response. It treats user brief text as data. It does not contain or select a model. Calls are blocked unless execution is explicitly enabled and the provider registry contains a reviewed, commercially permitted, zero-cost provider with evidence URLs and review metadata.
