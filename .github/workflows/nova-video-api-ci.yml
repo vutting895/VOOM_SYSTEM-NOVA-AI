@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "integrations/nova-video-api/**"
+      - "integrations/nova-video-engine/**"
       - "docs/NOVA-VIDEO-API-INTEGRATION.md"
       - "docs/openapi/nova-video-api.yaml"
       - ".github/workflows/nova-video-api-ci.yml"
@@ -27,3 +28,5 @@ jobs:
         run: |
           node --check integrations/nova-video-api/worker.js
           node --check integrations/nova-video-api/skill-registry.js
+          node --check integrations/nova-video-api/video-script-intelligence.js
+          node --check integrations/nova-video-api/video-director-intelligence.js
