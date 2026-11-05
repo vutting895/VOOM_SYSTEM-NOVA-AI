@@ -5,7 +5,7 @@ This package exposes the API-only NOVA Video control plane on Cloudflare Workers
 ## Endpoints
 
 - `GET /api/video/skills` — authenticated 22-skill catalog.
-- `POST /api/video/plan` — authenticated NOVA Director deterministic shot planning (CPU-only, no model inference).
+- `POST /api/video/plan` — authenticated NOVA Director deterministic shot planning (CPU-only, no model inference).\n- `POST /api/video/production-plan` — projects the Director timeline into per-scene Engine generation-task contracts and approval/QC/delivery stages; all generation remains blocked.
 - `POST /api/video/jobs` accepts an optional `brief`; when supplied, it stores the generated Director plan in the tenant-owned `request` JSONB field.
 - `GET/POST /api/video/projects` — owner-scoped project metadata.
 - `GET/POST /api/video/jobs` — owner-scoped blocked job metadata.
@@ -20,7 +20,7 @@ The Worker validates the Supabase session against `/auth/v1/user` and calls Post
 
 ## Capability boundary
 
-This Worker provides deterministic Director planning and records metadata only. The planning endpoint does not invoke an LLM, video model, GPU, database or worker. Generation remains `blocked_no_free_gpu`; analysis/edit/export remain `blocked_worker_unavailable`. All results keep `executionEnabled=false` and `estimatedCost=0`. It does not upload/store media, dispatch workers, invoke models, generate, analyze, edit, or export video.
+This Worker provides deterministic Director planning, Worker-safe production-plan projection and records metadata only. The planning and production-plan endpoints do not invoke an LLM, video model, GPU, database or worker. The production planner creates immutable task-contract data from the Director timeline; it does not dispatch those tasks. Generation remains `blocked_no_free_gpu`; analysis/edit/export remain `blocked_worker_unavailable`. All results keep `executionEnabled=false` and `estimatedCost=0`. It does not upload/store media, dispatch workers, invoke models, generate, analyze, edit, or export video.
 
 ## Staging/release gates
 
