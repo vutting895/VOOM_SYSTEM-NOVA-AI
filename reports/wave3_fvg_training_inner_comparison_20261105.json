@@ -1,0 +1,99 @@
+{
+  "schema_version": "nova.wave3.fvg-inner-fold-comparison.v1",
+  "status": "event_semantics_counts_only",
+  "source": {
+    "dataset_branch": "feature/wave3-hybrid-backtest-20261029",
+    "dataset_commit": "507b2949e3fa1861f25262cc330fb84a28c96f3d",
+    "dataset_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "source_server": "Exness-MT5Trial7",
+    "account_mode": "DEMO",
+    "source_exported_at_utc": "2026-10-29T17:45:10.707919+00:00"
+  },
+  "analysis_boundary": {
+    "training_pool_end_exclusive_utc": "2026-07-01T00:00:00Z",
+    "final_oos_start_utc": "2026-07-01T00:00:00Z",
+    "final_oos_rows_parsed": 0,
+    "final_oos_ohlc_converted": false,
+    "final_oos_model_metrics_used": false,
+    "stopped_at_first_final_oos_timestamp": true
+  },
+  "definitions": {
+    "first_touch_only": "One event at the first post-confirmation candle-range overlap with the active latest bullish FVG.",
+    "first_full_mitigation_only": "One event at the first post-confirmation candle whose low reaches/crosses the lower FVG boundary; later retouches do not reactivate.",
+    "repeat_touch_within_48": "Every candle-range overlap with the active latest bullish FVG while age is 1-48 bars."
+  },
+  "pre_oos_training_pool": {
+    "bars": 93122,
+    "window_start_utc": "2022-07-21T00:00:00Z",
+    "window_end_exclusive_utc": "2026-07-01T00:00:00Z",
+    "bullish_fvg_creations": 10307,
+    "first_touch_only_events": 6243,
+    "first_full_mitigation_only_events": 5201,
+    "repeat_touch_within_48_events": 32563,
+    "bars_with_any_overlap": 32563,
+    "post_full_mitigation_retouch_bars": 20345,
+    "same_bar_intersections": {
+      "first_touch_and_full_mitigation": 3251,
+      "first_touch_and_repeat_touch": 6243,
+      "full_mitigation_and_repeat_touch": 5188,
+      "all_three": 3251
+    },
+    "rate_per_1000_bars": {
+      "first_touch_only": 67.041086,
+      "first_full_mitigation_only": 55.851464,
+      "repeat_touch_within_48": 349.681064
+    }
+  },
+  "inner_walk_forward_validation": {
+    "inner_fold_1_validation": {
+      "bars": 12091,
+      "window_start_utc": "2024-12-30T23:45:00Z",
+      "window_end_exclusive_utc": "2025-07-07T02:45:00Z",
+      "bullish_fvg_creations": 1404,
+      "first_touch_only_events": 820,
+      "first_full_mitigation_only_events": 667,
+      "repeat_touch_within_48_events": 4166,
+      "bars_with_any_overlap": 4166,
+      "post_full_mitigation_retouch_bars": 2532,
+      "rate_per_1000_bars": {
+        "first_touch_only": 67.819039,
+        "first_full_mitigation_only": 55.164999,
+        "repeat_touch_within_48": 344.5538
+      }
+    },
+    "inner_fold_2_validation": {
+      "bars": 12091,
+      "window_start_utc": "2025-10-14T00:30:00Z",
+      "window_end_exclusive_utc": "2026-04-21T01:30:00Z",
+      "bullish_fvg_creations": 1393,
+      "first_touch_only_events": 851,
+      "first_full_mitigation_only_events": 700,
+      "repeat_touch_within_48_events": 4196,
+      "bars_with_any_overlap": 4196,
+      "post_full_mitigation_retouch_bars": 2616,
+      "rate_per_1000_bars": {
+        "first_touch_only": 70.382929,
+        "first_full_mitigation_only": 57.894302,
+        "repeat_touch_within_48": 347.034985
+      }
+    }
+  },
+  "selection": {
+    "winner_selected": null,
+    "model_training_started": false,
+    "first_hit_labels_generated": false,
+    "trade_outcomes_generated": false,
+    "net_expectancy_calculated": false,
+    "feature_matrix_modified": false,
+    "frozen_benchmark_modified": false,
+    "final_oos_used": false
+  },
+  "limitations": [
+    "Event counts and inner-fold incidence only; not a model-performance or trade-outcome comparison.",
+    "First-hit net labels blocked until account-specific commission is confirmed and historical swap/rollover costs are modeled.",
+    "Only bullish XAUUSDm FVGs are compared."
+  ]
+}

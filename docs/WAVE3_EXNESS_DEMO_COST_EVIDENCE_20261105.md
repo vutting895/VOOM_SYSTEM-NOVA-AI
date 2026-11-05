@@ -72,3 +72,8 @@ Do not apply USD 0, USD 3.5, or USD 5.5 per lot per side to labels until the own
 - The previous backtest's zero commission assumption and omitted swap are not accepted as verified cost evidence.
 - First-hit net-label generation remains disabled. The existing builder is not considered cost-complete until both commission and timestamped swap/rollover charges are modeled.
 - No FVG definition is selected from the historical Final OOS; no model was trained; the frozen v6.2.6.3 benchmark was not changed.
+
+
+## Related FVG comparison result
+
+The separate challenger-only event comparison completed on Ubuntu/Python 3.11 run [42051432406](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42051432406). It parsed only pre-2026-07-01 OHLC and reported zero Final-OOS rows parsed. Event counts are persisted in `docs/WAVE3_FVG_TRAINING_INNER_COMPARISON_20261105.md` and `reports/wave3_fvg_training_inner_comparison_20261105.json`. No FVG definition was selected and no net labels or model training were generated.

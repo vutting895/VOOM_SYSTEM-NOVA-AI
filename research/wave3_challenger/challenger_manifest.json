@@ -1,6 +1,6 @@
 {
   "schema_version": "nova.wave3.challenger.manifest.v1",
-  "status": "research_only_cost_gated",
+  "status": "research_only_cost_gated_with_pre_oos_fvg_comparison_complete",
   "benchmark": {
     "frozen": true,
     "pr_number": 66,
@@ -24,7 +24,7 @@
     "pre_oos_training_pool_end_exclusive_utc": "2026-07-01T00:00:00Z"
   },
   "fvg_comparison": {
-    "status": "awaiting_exact_head_ubuntu_event_count_run",
+    "status": "completed_event_counts_only",
     "code": "research/wave3_challenger/compare_fvg_training_inner.py",
     "report_expected": "wave3-fvg-training-inner-comparison",
     "definitions": [
@@ -64,6 +64,58 @@
       "final_oos_rows_parsed": 0,
       "final_oos_used": false,
       "model_training_started": false
+    },
+    "latest_run": {
+      "run_id": 42051432406,
+      "run_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42051432406",
+      "pr_head_sha": "e04cc453b8345dad84a2f4e15f73ff2170fb834f",
+      "benchmark_data_commit": "507b2949e3fa1861f25262cc330fb84a28c96f3d",
+      "artifact_id": 13426916680,
+      "artifact_name": "wave3-fvg-training-inner-comparison",
+      "artifact_zip_sha256": "b61f76176721fe16dad2e5ad7e4938b0e0fb27bd0baeaefd06c3bc900ea42295",
+      "report_sha256": "3e7566eec3cd03341a68da14eead9f90a7d4a423b54116caaf7cc43d251c8113",
+      "final_oos_rows_parsed": 0
+    },
+    "pre_oos_training_pool": {
+      "bars": 93122,
+      "bullish_fvg_creations": 10307,
+      "first_touch_only_events": 6243,
+      "first_full_mitigation_only_events": 5201,
+      "repeat_touch_within_48_events": 32563,
+      "post_full_mitigation_retouch_bars": 20345,
+      "rate_per_1000_bars": {
+        "first_touch_only": 67.041086,
+        "first_full_mitigation_only": 55.851464,
+        "repeat_touch_within_48": 349.681064
+      }
+    },
+    "inner_fold_results": {
+      "inner_fold_1_validation": {
+        "bars": 12091,
+        "bullish_fvg_creations": 1404,
+        "first_touch_only_events": 820,
+        "first_full_mitigation_only_events": 667,
+        "repeat_touch_within_48_events": 4166,
+        "post_full_mitigation_retouch_bars": 2532,
+        "rate_per_1000_bars": {
+          "first_touch_only": 67.819039,
+          "first_full_mitigation_only": 55.164999,
+          "repeat_touch_within_48": 344.5538
+        }
+      },
+      "inner_fold_2_validation": {
+        "bars": 12091,
+        "bullish_fvg_creations": 1393,
+        "first_touch_only_events": 851,
+        "first_full_mitigation_only_events": 700,
+        "repeat_touch_within_48_events": 4196,
+        "post_full_mitigation_retouch_bars": 2616,
+        "rate_per_1000_bars": {
+          "first_touch_only": 70.382929,
+          "first_full_mitigation_only": 57.894302,
+          "repeat_touch_within_48": 347.034985
+        }
+      }
     }
   },
   "first_hit_labels": {

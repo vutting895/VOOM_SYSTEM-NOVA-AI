@@ -12,6 +12,8 @@ on:
       - "tests/test_wave3_challenger_fvg_comparison.py"
       - "tests/test_wave3_challenger_manifest.py"
       - "docs/WAVE3_EXNESS_DEMO_COST_EVIDENCE_20261105.md"
+      - "docs/WAVE3_FVG_TRAINING_INNER_COMPARISON_20261105.md"
+      - "reports/wave3_fvg_training_inner_comparison_20261105.json"
       - "docs/WAVE3_POSITIVE_EDGE_REDESIGN.md"
       - ".github/workflows/wave3-challenger-p2-ci.yml"
   push:
