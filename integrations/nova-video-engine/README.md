@@ -24,17 +24,18 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | NOVA model specialization governance | Implemented: dataset provenance, rights, commercial-use permission, privacy review and explicit consent scopes; adaptation remains planning-only |
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
+| Multi-clip media assembler | Implemented: concatenates validated generated MP4 scenes, mixes voice/music, adds SRT soft subtitles and re-probes final output; disabled until execution and human approval |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
 | Generative Video orchestration | Implemented as a fail-closed Wan 2.2 task adapter contract with output validation |
 | Wan 2.2 local runtime adapter | Implemented; direct Python argv, workspace-bound assets, ffprobe verification and execution/license/security/zero-cost/24GB VRAM gates; disabled by default |
 | Text-to-video / image-to-video model inference | Not executed; local adapter exists but Wan 2.2 TI2V-5B remains research-only pending compute and review |
 | AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
-| Voice, music, subtitles and audio mix | Not implemented |
+| Voice/music mix and SRT soft subtitles | Local assembly lane implemented; no speech synthesis or music generation model connected |
 | Video analysis / editing / transcoding pipeline | Not implemented |
 | Distributed durable queue, worker dispatch and private asset storage | Not implemented; local journal is single-writer and not a shared cloud queue |
 | Supabase production schema / migration | Not included in this package |
 
-The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute, pinned 40-character upstream revision, checkpoint-integrity and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a real composition path, not generative video. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
+The Wan 2.2 adapter can invoke an already-installed local upstream repository and already-present checkpoint only after explicit execution, model-license, security, zero-cost-compute, pinned 40-character upstream revision, checkpoint-integrity and 24GB-VRAM gates pass. It never downloads model weights. The adapter inspects the produced MP4 with FFprobe before accepting it. It is not connected to the Cloudflare Worker. `media-assembler.mjs` combines validated scene MP4s, optional voice-over and music tracks, and optional soft subtitles in MP4. It re-probes source and final media metadata and is disabled without explicit execution and human-approval gates. It does not synthesize speech or music. The FFmpeg slideshow adapter creates a silent MP4 from still images. These are composition paths, not generative motion. It requires a locally installed FFmpeg binary and local workspace images; it is not enabled in the Cloudflare Worker.
 
 ## Safety defaults
 
