@@ -640,6 +640,7 @@ async function createPreparationDecision(request, env, auth, origin) {
     }
     return json({
       decision: existing.row,
+      humanApprovalStatus: existing.row.decision,
       idempotentReplay: true,
       jobStatus: preparation.snapshot.job.status,
       executionEnabled: false,
@@ -685,6 +686,7 @@ async function createPreparationDecision(request, env, auth, origin) {
   if (!rows?.[0]?.id) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
   return json({
     decision: rows[0],
+    humanApprovalStatus: rows[0].decision,
     idempotentReplay: false,
     jobStatus: preparation.snapshot.job.status,
     executionEnabled: false,
