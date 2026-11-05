@@ -340,6 +340,27 @@ test("Wan local runtime checks FREE VRAM rather than total VRAM", async () => {
   assert.equal((await enoughFree.preflight()).ready, true);
 });
 
+test("Wan local runtime rejects group/world-writable output directories before starting inference", async () => {
+  const jobDirectory = "/workspace/jobs/job-1";
+  let spawned = 0;
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    lstatImpl: async (value) => ({
+      isSymbolicLink: () => false,
+      isDirectory: () => true,
+      mode: value === jobDirectory ? 0o777 : 0o700,
+    }),
+    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
+  }));
+  const result = await runtime.render({
+    task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }),
+    jobId: "job-1",
+    sceneId: "scene-01",
+  });
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "wan22_output_directory_permissions_unsafe");
+  assert.equal(spawned, 0);
+});
+
 test("Wan local runtime rejects a pre-existing symlinked job output directory before starting inference", async () => {
   const jobDirectory = "/workspace/jobs/job-1";
   let spawned = 0;
