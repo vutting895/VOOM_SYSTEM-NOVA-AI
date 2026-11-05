@@ -464,29 +464,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-BTC',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'BTC/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
     requiredPlan: 'pro',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: 343,
-    winRatePct: 51.0,
-    profitFactor: 1.92,
-    totalTrades: 84,
-    tp1HitPct: 68,
-    tp2HitPct: 42,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
     positionIsLong: false,
-    entryPrice: '66,842.20',
-    stopLossPrice: '66,510.00',
-    tp1Price: '67,340.50',
-    tp2Price: '68,120.00',
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
     featTags: [
       'การกระจาย: 12%',
@@ -496,9 +496,9 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาดล้าง: คว้าสภาพคล่องต่ำ',
     ],
     logs: [
-      'คำสั่งทำงาน - คำสั่ง Start',
-      '[09:12] ระบบเริ่มต้นทำงานแล้ว',
-      '[09:14] กำลังรอโครงสร้าง 4H',
+      'Research-only preset; no broker session connected',
+      'No broker session verified; no orders sent',
+      'Strategy signal not validated on out-of-sample data',
     ],
     accentColor: 'amber',
   },
@@ -508,29 +508,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'โมเมนตัม AI-ETH',
     strategyBadge: 'ติดตามเทรนด์',
     pair: 'ETH/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.2',
     requiredPlan: 'pro',
-    selectedInPackage: true,
-    running: true,
-    autoTradeEnabled: true,
+    selectedInPackage: false,
+    running: false,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: -52,
-    winRatePct: 46.5,
-    profitFactor: 1.76,
-    totalTrades: 112,
-    tp1HitPct: 62,
-    tp2HitPct: 38,
-    positionStateLabel: 'ซื้อ +0.4R',
-    positionIsLong: true,
-    entryPrice: '2,641.80',
-    stopLossPrice: '2,618.40',
-    tp1Price: '2,678.20',
-    tp2Price: '2,721.00',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
+    positionIsLong: false,
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '15m BOS + Momentum PA + OB',
     featTags: [
       'การกระจาย: 8%',
@@ -540,10 +540,10 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาด: ไม่มีการกวาด',
     ],
     liveScanningBanner:
-      'AI กำลังสแกนคลื่น 4 ชั่วโมง + โซน SMC... ETH/USDm 15 นาที • ซื้อ +0.4R • คะแนน 5/6',
+      'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
     logs: [
-      '[08:44] TP1 อัตราความแม่นยำในการสแกน 62%',
-      '[14:27] PnL -16.4 • Confluence 5/6',
+      'No live scanning or verified TP statistics',
+      'No live PnL; sample strategy only',
     ],
     accentColor: 'indigo',
   },
@@ -553,29 +553,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'คลื่นสภาพคล่อง SMC AI-XAU/USDm',
     strategyBadge: 'เก็งกำไรสภาพคล่อง',
     pair: 'XAU/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.8 / 3.5',
     requiredPlan: 'pro',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: 895,
-    winRatePct: 54.8,
-    profitFactor: 2.18,
-    totalTrades: 64,
-    tp1HitPct: 74,
-    tp2HitPct: 49,
-    positionStateLabel: 'ซื้อ +1.2R',
-    positionIsLong: true,
-    entryPrice: '2,742.50',
-    stopLossPrice: '2,734.00',
-    tp1Price: '2,756.00',
-    tp2Price: '2,768.50',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
+    positionIsLong: false,
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 6,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: 'London Sweep + 1H Order Block + FVG Displacement',
     featTags: [
       'การกระจาย: 14%',
@@ -585,10 +585,10 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาดล้าง: กวาด Low เซสชันเอเชีย',
     ],
     liveScanningBanner:
-      'AI ยืนยันโครงสร้างทองคำ XAU/USDm 15 นาที • ถือสถานะซื้อ +1.2R • คะแนน 6/6',
+      'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
     logs: [
-      '[10:05] ตรวจพบ Liquidity Sweep โซน 2,738.00',
-      '[10:15] เปิดสถานะซื้ออัตโนมัติ SL 2,734.00 / TP1 2,756.00',
+      'Sample setup only; no live market feed',
+      'No position exists; broker execution is disabled',
     ],
     accentColor: 'emerald',
   },
@@ -598,29 +598,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-EUR/USDm',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'EUR/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
     requiredPlan: 'elite',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
     autoTradeEnabled: false,
     riskPct: 0.8,
-    todayPnlBaht: 134,
-    winRatePct: 49.2,
-    profitFactor: 1.85,
-    totalTrades: 76,
-    tp1HitPct: 65,
-    tp2HitPct: 40,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
     positionIsLong: false,
-    entryPrice: '1.0842',
-    stopLossPrice: '1.0818',
-    tp1Price: '1.0878',
-    tp2Price: '1.0915',
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
     featTags: [
       'การกระจาย: 9%',
@@ -698,7 +698,7 @@ export default function QuickitMarketFleetView({
   const [analyticsRange, setAnalyticsRange] = useState<'5D' | '7D' | '1M' | '1Y' | 'All'>('5D');
 
   // Package Subscription State ("ให้ผู้ใช้กดเลือกได้เมื่อสมัครแพ็คเกต")
-  const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('elite');
+  const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('free');
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [toastBanner, setToastBanner] = useState<string | null>(null);
 
@@ -867,11 +867,8 @@ export default function QuickitMarketFleetView({
 
   // Handler when user finishes Step 1 (Select Pair from Broker) + Step 2 (Select Strategy)
   function handleDeployPairWithStrategy(startImmediately: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification(
-        'กรุณาสมัครแพ็คเกจ Pro หรือ ระดับ 3 เอลีต ก่อนนำคู่เงินและกลยุทธ์เข้ากองทัพ AI'
-      );
+    if (startImmediately) {
+      showNotification('LIVE TRADING OFF — บันทึกได้เฉพาะ Research Draft; ไม่สามารถเริ่มเทรดได้');
       return;
     }
 
@@ -882,7 +879,7 @@ export default function QuickitMarketFleetView({
         ? `MT5 (${mt5Server})`
         : 'Direct API'
       : 'REST API';
-    const brokerLabel = `${loggedInBroker.toUpperCase()} #${brokerAccountId} · ${connBadge}`;
+    const brokerLabel = `${loggedInBroker.toUpperCase()} · Static sample catalogue · not connected`;
     const newBotName = `${selectedStrategyObj.shortTitle} AI-${selectedBrokerPair.symbol}`;
 
     setFleetBots((prev) => {
@@ -905,31 +902,29 @@ export default function QuickitMarketFleetView({
         rrLabel: selectedStrategyObj.rrLabel,
         requiredPlan: 'pro',
         selectedInPackage: true,
-        running: startImmediately,
-        autoTradeEnabled: true,
+        running: false,
+        autoTradeEnabled: false,
         riskPct: selectedBuilderRisk,
         todayPnlBaht: existingIdx >= 0 ? prev[existingIdx].todayPnlBaht : 0,
-        winRatePct: selectedStrategyObj.winRatePct,
-        profitFactor: selectedStrategyObj.profitFactor,
-        totalTrades: existingIdx >= 0 ? prev[existingIdx].totalTrades : 42,
-        tp1HitPct: selectedStrategyObj.tp1HitPct,
-        tp2HitPct: selectedStrategyObj.tp2HitPct,
-        positionStateLabel: startImmediately ? 'ซื้อ +0.2R' : 'แฟลต +0.0R',
-        positionIsLong: startImmediately,
-        entryPrice: levels.entry,
-        stopLossPrice: levels.sl,
-        tp1Price: levels.tp1,
-        tp2Price: levels.tp2,
+        winRatePct: 0,
+        profitFactor: 0,
+        totalTrades: 0,
+        tp1HitPct: 0,
+        tp2HitPct: 0,
+        positionStateLabel: 'No verified position',
+        positionIsLong: false,
+        entryPrice: '—',
+        stopLossPrice: '—',
+        tp1Price: '—',
+        tp2Price: '—',
         confluenceScore: selectedStrategyObj.confluenceScore,
-        setupGrade: selectedStrategyObj.setupGrade,
+        setupGrade: 'NOT VALIDATED',
         featHeadline: selectedStrategyObj.featHeadline,
         featTags: selectedStrategyObj.featTags,
-        liveScanningBanner: startImmediately
-          ? `AI กำลังสแกน ${selectedBrokerPair.symbol} (${brokerLabel}) • กลยุทธ์ ${selectedStrategyObj.shortTitle} • ${selectedBuilderTimeframe}`
-          : undefined,
+        liveScanningBanner: 'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
         logs: [
-          `[${nowStr}] ดึงคู่เงิน ${selectedBrokerPair.symbol} ผ่านโหมด ${connBadge} (Spread ${selectedBrokerPair.spreadLabel})`,
-          `[${nowStr}] ผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" (${selectedStrategyObj.featHeadline}) สำเร็จ`,
+          `[${nowStr}] Saved local research draft for ${selectedBrokerPair.symbol}; no broker session connected`,
+          `[${nowStr}] Strategy ${selectedStrategyObj.shortTitle} is unvalidated; no orders submitted`,
         ],
         accentColor: selectedStrategyObj.accentColor,
       };
@@ -942,9 +937,7 @@ export default function QuickitMarketFleetView({
       return [configuredBot, ...prev];
     });
 
-    showNotification(
-      `✓ เลือกคู่เงิน "${selectedBrokerPair.symbol}" (${connBadge}) และผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" เข้ากองทัพ AI เรียบร้อยแล้ว`
-    );
+    showNotification('บันทึก Research Draft ในหน้าเว็บแล้ว — ไม่มีการเชื่อมต่อ Broker หรือส่งคำสั่งเทรด');
   }
 
   // Allow changing Pair or Strategy directly inside any Bot Card in the Fleet
@@ -1094,9 +1087,8 @@ export default function QuickitMarketFleetView({
   }
 
   function handleToggleBotRun(botId: string, shouldRun: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจก่อนสั่งเริ่มทำงานบอท AI');
+    if (shouldRun) {
+      showNotification('LIVE TRADING OFF — Bot Start ถูกปิด; ใช้ได้เฉพาะ Research Draft');
       return;
     }
 
@@ -1126,28 +1118,18 @@ export default function QuickitMarketFleetView({
   }
 
   function handleStartAllFleet() {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจ Pro หรือ เอลีต เพื่อสั่งเริ่มกองทัพ AI ทั้งหมด');
-      return;
-    }
-    setFleetBots((prev) =>
-      prev.map((bot, idx) => {
-        const canRun = idx < currentPlan.maxBots;
-        return canRun ? { ...bot, selectedInPackage: true, running: true } : bot;
-      })
-    );
-    showNotification('▷ เริ่มการทำงานกองทัพ AI Auto Trading Fleet ทั้งหมดในแพ็คเกจแล้ว');
+    showNotification('LIVE TRADING OFF — Start All ถูกปิด; ยังไม่มี Broker Session และ Execution Runtime ที่อนุญาต');
   }
 
   function handleEmergencyStopAll() {
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false })));
-    showNotification('🔇 หยุดฉุกเฉินบอท AI ทุกตัวเรียบร้อยแล้ว (Emergency Stop Executed)');
+    setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false, autoTradeEnabled: false })));
+    showNotification('ล้างสถานะ Bot จำลองในหน้าเว็บแล้ว — ไม่มีคำสั่งใดถูกส่งไปยัง Broker');
   }
 
   function handleRiskSyncAll() {
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, riskPct: 1.0 })));
-    showNotification('🎚️ RISK SYNC: ปรับความเสี่ยงทุกบอทในกองทัพเป็น 1.0% (ซึ่งอนุรักษนิยม) สำเร็จ');
+    showNotification('ปรับค่า Risk ใน Research Draft ภายในหน้าเว็บเท่านั้น — ไม่มีการ Sync ไปยัง Broker');
   }
 
   // Compute Portfolio Analytics SVG coordinates (Image 1 middle-right chart)
@@ -1194,6 +1176,11 @@ export default function QuickitMarketFleetView({
       {/* Main Window Shell (Image 1 Rounded Dark Glass Container) */}
       <div className="relative z-10 max-w-[1440px] mx-auto my-3 sm:my-5 px-3 sm:px-5">
         <div className="rounded-[30px] bg-[#141522]/95 border border-white/[0.08] shadow-[0_25px_90px_rgba(0,0,0,0.75)] backdrop-blur-2xl p-4 sm:p-6">
+          <div role="status" className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+            <strong>NOVA RESEARCH PREVIEW · LIVE TRADING OFF</strong>
+            <p>Broker Session is not connected. Market quotes, spreads, strategy statistics, portfolio values and bot history shown on this screen are sample UI data only — not live prices, a verified account, actual PnL, backtest results or open positions.</p>
+            <p className="mt-1">Orders, Auto Trade, Bot Start and Execution remain disabled. Exness is preset to Demo; credentials and account IDs are not collected here.</p>
+          </div>
           {/* Top Navigation Bar (Matches Image 1 Header) */}
           <header className="flex flex-wrap items-center justify-between gap-4 pb-5">
             {/* Left: Quickit Logo + Capsule Navigation */}
@@ -2342,7 +2329,8 @@ export default function QuickitMarketFleetView({
 
                       <button
                         type="button"
-                        onClick={() => handleDeployPairWithStrategy(true)}
+                        disabled
+                        aria-disabled="true"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#052016] text-xs font-extrabold shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
@@ -2402,7 +2390,8 @@ export default function QuickitMarketFleetView({
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={handleStartAllFleet}
+                    disabled
+                    aria-disabled="true"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#062219] font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
@@ -2855,7 +2844,8 @@ export default function QuickitMarketFleetView({
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
-                            onClick={() => handleToggleBotRun(bot.id, true)}
+                            disabled
+                            aria-disabled="true"
                             className="py-3 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#052016] font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/15 transition-all cursor-pointer"
                           >
                             <Play className="w-4 h-4 fill-current" />
@@ -2877,15 +2867,8 @@ export default function QuickitMarketFleetView({
                             <span className="text-slate-400">การซื้อขายอัตโนมัติ</span>
                             <button
                               type="button"
-                              onClick={() =>
-                                setFleetBots((prev) =>
-                                  prev.map((b) =>
-                                    b.id === bot.id
-                                      ? { ...b, autoTradeEnabled: !b.autoTradeEnabled }
-                                      : b
-                                  )
-                                )
-                              }
+                              disabled
+                              aria-disabled="true"
                               className={`w-11 h-6 rounded-full p-0.5 transition-colors flex items-center ${
                                 bot.autoTradeEnabled
                                   ? 'bg-emerald-500 justify-end'
