@@ -345,3 +345,58 @@ test("NOVA style adaptation plan remains blocked until data, model, compute and 
   assert.equal(ready.status, "ready_for_manual_approval");
   assert.equal(ready.executionEnabled, false);
 });
+
+import { mkdtemp, rm, appendFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { createFileVideoJobStore } from "./file-job-store.mjs";
+
+test("file job store persists lifecycle transitions and recovers idempotency after restart", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "nova-video-jobs-"));
+  const journalPath = path.join(root, "jobs.jsonl");
+  try {
+    const store = await createFileVideoJobStore({ journalPath });
+    const input = { id: "durable-1", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "same-request", request: { title: "Persist me" } };
+    assert.equal((await store.create(input, "2026-11-05T12:00:00.000Z")).created, true);
+    await store.transition("durable-1", "planning", { actorTenantId: "tenant-a", at: "2026-11-05T12:00:01.000Z" });
+    await store.transition("durable-1", "approval_required", { actorTenantId: "tenant-a", at: "2026-11-05T12:00:02.000Z" });
+    await store.transition("durable-1", "generating", { actorTenantId: "tenant-a", event: "approval_granted", at: "2026-11-05T12:00:03.000Z" });
+    assert.equal(store.get("durable-1", "tenant-b"), null);
+    assert.equal(store.diagnostics().durability, "fsync_per_event");
+    await store.close();
+    const restored = await createFileVideoJobStore({ journalPath });
+    const job = restored.get("durable-1", "tenant-a");
+    assert.equal(job.state, "generating");
+    assert.equal(job.version, 3);
+    assert.equal(job.audit.some((entry) => entry.event === "approval_granted"), true);
+    const duplicate = await restored.create({ ...input, id: "other-id" }, "2026-11-05T12:00:05.000Z");
+    assert.equal(duplicate.created, false);
+    assert.equal(duplicate.job.id, "durable-1");
+    assert.equal(restored.list("tenant-b").length, 0);
+    await restored.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("file job store enforces a single writer and closes cleanly", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "nova-video-lock-"));
+  const journalPath = path.join(root, "jobs.jsonl");
+  try {
+    const first = await createFileVideoJobStore({ journalPath });
+    await assert.rejects(() => createFileVideoJobStore({ journalPath }), /video_job_store_locked_single_writer_required/);
+    await first.close();
+    const second = await createFileVideoJobStore({ journalPath });
+    await second.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("file job store rejects sensitive request fields and corrupt journals", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "nova-video-journal-"));
+  const journalPath = path.join(root, "jobs.jsonl");
+  try {
+    const store = await createFileVideoJobStore({ journalPath });
+    await assert.rejects(() => store.create({ id: "bad-1", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "bad", request: { api_key: "must-not-persist" } }), /sensitive_job_field_not_allowed/);
+    await store.close();
+    await appendFile(journalPath, "{partial");
+    await assert.rejects(() => createFileVideoJobStore({ journalPath }), /video_job_journal_incomplete_tail/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
