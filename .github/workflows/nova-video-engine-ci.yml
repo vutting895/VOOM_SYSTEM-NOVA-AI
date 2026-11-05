@@ -25,3 +25,4 @@ jobs:
         run: |
           node --check integrations/nova-video-engine/engine.mjs
           node --check integrations/nova-video-engine/ffmpeg-renderer.mjs
+          node --check integrations/nova-video-engine/provider-registry.mjs
