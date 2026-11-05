@@ -588,4 +588,17 @@ test("NOVA service keeps cancellation owner-scoped and supports safe pre-executi
   assert.equal(await service.getJob({ principal: { id: "tenant-service-b" }, jobId: created.job.id }), null);
 });
 
-test("NVIDIA VRAM parser accepts only valid per-GPU total/free memory rows", () => {\n  assert.deepEqual(parseNvidiaSmiMemory("24564, 23100\\n16384, 12000\\n"), [\n    { totalVramMiB: 24564, freeVramMiB: 23100 },\n    { totalVramMiB: 16384, freeVramMiB: 12000 },\n  ]);\n  assert.deepEqual(parseNvidiaSmiMemory("not-a-gpu\\n24564, 99999\\n"), []);\n});\n\ntest("Wan local runtime blocks when NVIDIA hardware probe is unavailable", async () => {\n  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({ hardwareProbe: async () => { throw new Error("nvidia-smi unavailable"); } }));\n  const result = await runtime.preflight();\n  assert.equal(result.ready, false);\n  assert.equal(result.reason, "nvidia_gpu_probe_failed");\n});
+test("NVIDIA VRAM parser accepts only valid per-GPU total/free memory rows", () => {
+  assert.deepEqual(parseNvidiaSmiMemory("24564, 23100\n16384, 12000\n"), [
+    { totalVramMiB: 24564, freeVramMiB: 23100 },
+    { totalVramMiB: 16384, freeVramMiB: 12000 },
+  ]);
+  assert.deepEqual(parseNvidiaSmiMemory("not-a-gpu\n24564, 99999\n"), []);
+});
+
+test("Wan local runtime blocks when NVIDIA hardware probe is unavailable", async () => {
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({ hardwareProbe: async () => { throw new Error("nvidia-smi unavailable"); } }));
+  const result = await runtime.preflight();
+  assert.equal(result.ready, false);
+  assert.equal(result.reason, "nvidia_gpu_probe_failed");
+});
