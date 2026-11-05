@@ -586,6 +586,9 @@ async function getJobPreparation(request, env, auth, origin) {
     preparation_id: "eq." + preparation.id,
   });
   if (!decisionResult.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  if (decisionResult.row && decisionResult.row.snapshot_hash !== preparation.snapshot_hash) {
+    return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
+  }
   return json({
     preparation,
     decision: decisionResult.row,
@@ -629,6 +632,9 @@ async function createPreparationDecision(request, env, auth, origin) {
   if (!existing.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
   const normalizedNote = note?.trim() || null;
   if (existing.row) {
+    if (existing.row.snapshot_hash !== preparation.snapshot_hash) {
+      return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
+    }
     if (existing.row.decision !== body.decision || existing.row.decision_note !== normalizedNote) {
       return json({ error: "video_approval_already_decided" }, 409, origin, env);
     }
@@ -659,6 +665,9 @@ async function createPreparationDecision(request, env, auth, origin) {
       preparation_id: "eq." + preparation.id,
     });
     if (!replay.ok || !replay.row) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+    if (replay.row.snapshot_hash !== preparation.snapshot_hash) {
+      return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
+    }
     if (replay.row.decision !== body.decision || replay.row.decision_note !== normalizedNote) {
       return json({ error: "video_approval_already_decided" }, 409, origin, env);
     }
