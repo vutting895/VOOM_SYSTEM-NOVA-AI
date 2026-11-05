@@ -1,5 +1,6 @@
 import { getVideoSkillRegistry } from "./skill-registry.js";
 import { createDirectorPlan } from "./video-director-intelligence.js";
+import { createVideoProductionPlan } from "./video-production-planner.js";
 
 const BASE_HEADERS = Object.freeze({
   "Cache-Control": "no-store",
@@ -439,9 +440,35 @@ async function createDirectorPlanResponse(request, origin, env) {
   }
 }
 
+
+async function createProductionPlanResponse(request, origin, env) {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
+  const body = parsed.value;
+  const allowedFields = ["title", "concept", "audience", "platform", "language", "style", "callToAction", "durationSeconds", "aspectRatio", "goal", "verifiedFacts", "mustAvoid"];
+  if (Object.keys(body).some((key) => !allowedFields.includes(key))) {
+    return json({ error: "video_production_plan_fields_invalid" }, 400, origin, env);
+  }
+  try {
+    const directorPlan = createDirectorPlan(body);
+    const productionPlan = createVideoProductionPlan(directorPlan);
+    return json({
+      productionPlan,
+      executionEnabled: false,
+      estimatedCost: 0,
+      requiresHumanApproval: true,
+      explanation: "NOVA Director output has been projected into per-scene Engine task contracts. GPU, provider, worker and media execution remain disabled.",
+    }, 200, origin, env);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "video_production_plan_invalid";
+    const known = /^(invalid_|creative_brief_required|director_|scene_|script_|production_plan_|video_)/.test(message);
+    return json({ error: known ? message : "video_production_plan_invalid" }, 400, origin, env);
+  }
+}
+
 async function handle(request, env) {
   const url = new URL(request.url);
-  const match = /^\/api\/video\/(skills|projects|jobs|plan)$/.exec(url.pathname);
+  const match = /^\/api\/video\/(skills|projects|jobs|plan|production-plan)$/.exec(url.pathname);
   if (!match) return json({ error: "not_found" }, 404);
 
   const origin = request.headers.get("Origin") || "";
@@ -479,7 +506,7 @@ async function handle(request, env) {
       ? createDirectorPlanResponse(request, origin, env)
       : json({ error: "method_not_allowed" }, 405, origin, env);
   }
-  if (resource === "projects") {
+  if (resource === "production-plan") {\n    return request.method === "POST"\n      ? createProductionPlanResponse(request, origin, env)\n      : json({ error: "method_not_allowed" }, 405, origin, env);\n  }\n  if (resource === "projects") {
     return request.method === "GET"
       ? listProjects(env, auth, origin)
       : createProject(request, env, auth, origin);
