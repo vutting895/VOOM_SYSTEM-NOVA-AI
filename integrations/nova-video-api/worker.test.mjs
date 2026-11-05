@@ -744,3 +744,104 @@ test("approval routes authenticate before parsing bodies and expose GET only for
     globalThis.fetch = previous;
   }
 });
+
+
+test("GET preparation returns the owner-scoped snapshot and approval decision only after hash verification", async () => {
+  const previous = globalThis.fetch;
+  const snapshot = {
+    schemaVersion: "nova.video-preparation.v1",
+    job: { id: "123e4567-e89b-42d3-a456-426614174001", projectId: "123e4567-e89b-42d3-a456-426614174000", taskType: "video_generation", status: "blocked_no_free_gpu" },
+    productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
+    policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
+  };
+  const stable = (value) => {
+    if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
+    if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stable(value[key])).join(",") + "}";
+    return JSON.stringify(value);
+  };
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(stable(snapshot)));
+  const snapshotHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("job_id"), "eq." + snapshot.job.id);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        job_id: snapshot.job.id,
+        snapshot,
+        snapshot_hash: snapshotHash,
+        planner_version: "1.0.0",
+        created_at: "2026-11-05T00:01:00Z",
+      }]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_approval_decisions") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174003",
+        preparation_id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        snapshot_hash: snapshotHash,
+        decision: "approved",
+        decision_note: "Reviewed",
+        created_at: "2026-11-05T00:02:00Z",
+      }]);
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparations?job_id=" + snapshot.job.id, {
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+    }), ENV);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.humanApprovalStatus, "approved");
+    assert.equal(data.preparation.snapshot_hash, snapshotHash);
+    assert.equal(data.jobStatus, "blocked_no_free_gpu");
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("preparation decision lookup denies another tenant and never tries a cross-owner write", async () => {
+  const previous = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+    if (url.pathname === "/rest/v1/nova_video_preparations") return Response.json([]);
+    writes += 1;
+    return Response.json([]);
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/preparation-decisions", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { preparation_id: "123e4567-e89b-42d3-a456-426614174002", decision: "approved" },
+    }), ENV);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "video_preparation_not_found" });
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("Video migration keeps workspace, preparations and decisions owner-scoped and append-only", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20261105143000_nova_video_preparation_approval.sql", import.meta.url), "utf8");
+  for (const table of ["nova_video_projects", "nova_video_jobs", "nova_video_preparations", "nova_video_approval_decisions"]) {
+    assert.match(migration, new RegExp("alter table public\\." + table + " enable row level security"));
+    assert.match(migration, new RegExp("grant select, insert on table public\\." + table + " to authenticated"));
+  }
+  assert.match(migration, /unique \(preparation_id,user_id\)/);
+  assert.match(migration, /snapshot_hash = nova_video_approval_decisions\.snapshot_hash/);
+  assert.doesNotMatch(migration, /grant[^;]*\bupdate\b/i);
+  assert.doesNotMatch(migration, /grant[^;]*\bdelete\b/i);
+  assert.doesNotMatch(migration, /security definer/i);
+});
