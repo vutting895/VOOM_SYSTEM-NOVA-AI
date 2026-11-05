@@ -481,3 +481,44 @@ test("media assembler never deletes a pre-existing user output when refusing ove
   assert.equal(result.reason, "assembly_output_already_exists");
   assert.deepEqual(removed, []);
 });
+
+import { createNOVAEngineService } from "./video-job-service.mjs";
+
+test("NOVA video job service records tenant-owned director plans without invoking a model", async () => {
+  const store = createInMemoryVideoJobStore();
+  const service = createNOVAEngineService({ jobStore: store });
+  const input = { principal: { id: "tenant-service-a" }, projectId: "project-service-a", idempotencyKey: "video-request-0001", brief: creativeBrief };
+  const result = await service.createJob(input);
+  assert.equal(result.state, "queued");
+  assert.equal(result.executionEnabled, false);
+  assert.equal(result.estimatedCost, 0);
+  assert.equal(result.job.request.directorPlan.engine, "NOVA Director Intelligence");
+  assert.equal(result.plan.generationTasks.length, 3);
+  assert.equal(service.getJob({ principal: { id: "tenant-service-b" }, jobId: result.job.id }), null);
+  const replay = await service.createJob(input);
+  assert.equal(replay.idempotentReplay, true);
+  assert.equal(replay.job.id, result.job.id);
+  await assert.rejects(() => service.createJob({ ...input, brief: { ...creativeBrief, concept: "Different brief" } }), /video_job_idempotency_conflict/);
+});
+
+test("NOVA service advances queued jobs to approval-required but execution stays blocked", async () => {
+  const store = createInMemoryVideoJobStore();
+  const service = createNOVAEngineService({ jobStore: store });
+  const created = await service.createJob({ principal: { id: "tenant-service-a" }, projectId: "project-service-a", idempotencyKey: "video-request-0002", brief: creativeBrief });
+  const prepared = await service.prepareForApproval({ principal: { id: "tenant-service-a" }, jobId: created.job.id, at: "2026-11-05T13:00:00.000Z" });
+  assert.equal(prepared.job.state, "approval_required");
+  assert.equal(prepared.timeline.valid, true);
+  assert.equal(prepared.executionEnabled, false);
+  assert.equal((await service.execute()).reason, "video_model_execution_not_enabled");
+  assert.equal(service.getJob({ principal: { id: "tenant-service-a" }, jobId: created.job.id }).state, "approval_required");
+});
+
+test("NOVA service keeps cancellation owner-scoped and supports safe pre-execution cancellation", async () => {
+  const store = createInMemoryVideoJobStore();
+  const service = createNOVAEngineService({ jobStore: store });
+  const created = await service.createJob({ principal: { id: "tenant-service-a" }, projectId: "project-service-a", idempotencyKey: "video-request-0003", brief: creativeBrief });
+  assert.equal(await service.cancelJob({ principal: { id: "tenant-service-b" }, jobId: created.job.id }), null);
+  const cancelled = await service.cancelJob({ principal: { id: "tenant-service-a" }, jobId: created.job.id });
+  assert.equal(cancelled.state, "cancelled");
+  assert.equal(await service.getJob({ principal: { id: "tenant-service-b" }, jobId: created.job.id }), null);
+});
