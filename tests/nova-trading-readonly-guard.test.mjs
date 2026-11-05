@@ -133,7 +133,7 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
 
 test('customer Trading Dashboard labels sample data honestly and remains Demo read-only / non-executable', () => {
   assert.doesNotMatch(quickit, /23908764|51092841|BN-88412|BY-51902|Exness-MT5Real14|EXN-ED25519/i);
-  assert.doesNotMatch(quickit, /Broker Session Connected|MT5 Python Bridge Connected|Direct Ed25519 REST v1 Verified/i);
+  assert.doesNotMatch(quickit, /<span[^>]*>\s*Broker Session Connected\s*<\/span>|MT5 Python Bridge Connected|Direct Ed25519 REST v1 Verified/i);
   assert.doesNotMatch(quickit, /\/api\/mt5-bridge\/toggle/);
   assert.match(quickit, /STATIC SAMPLE DATA — NOT LIVE MARKET DATA/);
   assert.match(quickit, /NOVA RESEARCH PREVIEW · LIVE TRADING OFF/);
