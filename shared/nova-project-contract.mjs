@@ -20,9 +20,9 @@ const FORBIDDEN_CAPABILITIES = new Set([
   "runtime.arbitrary-url.fetch",
 ]);
 const FORBIDDEN_INPUT_KEYS = new Set([
-  "user_id", "userid", "user", "tenant_id", "tenantid", "tenant",
-  "access_token", "authorization", "token", "secret", "credential",
-  "upstream_url", "upstreamurl",
+  "user", "userid", "tenant", "tenantid", "accesstoken", "authorization",
+  "token", "bearertoken", "secret", "secretvalue", "credential", "password",
+  "apikey", "upstreamurl", "endpointurl", "webhookurl", "url",
 ]);
 const CLASSIFICATIONS = new Set(["public", "internal", "tenant", "confidential"]);
 const HEALTH_STATES = new Set(["not_configured", "configured", "reachable", "authenticated", "data_verified", "degraded", "unavailable"]);
@@ -47,7 +47,7 @@ function containsForbiddenInputKey(value, depth = 0) {
   if (Array.isArray(value)) return value.some((item) => containsForbiddenInputKey(item, depth + 1));
   if (!plainObject(value)) return false;
   return Object.entries(value).some(([key, child]) =>
-    FORBIDDEN_INPUT_KEYS.has(key.toLowerCase().replace(/[-.]/g, "_")) ||
+    FORBIDDEN_INPUT_KEYS.has(key.toLowerCase().replace(/[-_.]/g, "")) ||
     containsForbiddenInputKey(child, depth + 1));
 }
 function serializedByteLength(value) {
