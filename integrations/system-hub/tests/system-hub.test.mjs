@@ -166,6 +166,25 @@ test("another user's connection is not found instead of leaking existence", asyn
   assert.equal((await response.json()).error, "connection_not_found");
 });
 
+test("Core policy rejects a connection record not owned by the authenticated user", async () => {
+  mockAuthAndRest({ userId: "user-a", rows: [{
+    id: CONNECTION_ID,
+    user_id: "user-b",
+    provider: "exness_mt5",
+    environment: "demo",
+    status: "connected",
+    bridge_route_id: "tenant-b"
+  }] });
+  const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/account", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), env);
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), {
+    error: "core_capability_denied",
+    reason: "tenant_not_authorized"
+  });
+});
+
 test("malformed connection IDs are rejected", async () => {
   mockAuthAndRest();
   const response = await worker.fetch(request("/v1/connections/not-a-uuid/status", {
