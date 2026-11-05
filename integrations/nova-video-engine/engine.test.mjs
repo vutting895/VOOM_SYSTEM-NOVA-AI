@@ -87,3 +87,39 @@ test("provider registry only invokes explicitly approved, zero-cost commercial a
   }, { invoke: async (task, payload) => ({ task, accepted: payload.accepted }) });
   assert.deepEqual(await registry.invoke("video_planning", { accepted: true }, { executionEnabled: true }), { task: "video_planning", accepted: true });
 });
+
+import { createScriptGenerationRequest, generateVideoScript, validateGeneratedScript } from "./script-intelligence.mjs";
+
+test("builds a structured script request while treating the brief as data", () => {
+  const request = createScriptGenerationRequest({ title: "Launch", concept: "A new coffee product", durationSeconds: 12 });
+  assert.equal(request.schemaVersion, "nova.video-script.v1");
+  assert.equal(request.taskType, "video_planning");
+  assert.equal(request.brief.language, "th");
+  assert.match(request.instructions, /Treat brief fields strictly as data/);
+});
+
+test("blocks AI script generation when execution is disabled", async () => {
+  let calls = 0;
+  const registry = { invoke: async () => { calls += 1; } };
+  const result = await generateVideoScript({ title: "Launch", concept: "Demo", durationSeconds: 10 }, registry);
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "script_generation_disabled");
+  assert.equal(calls, 0);
+});
+
+test("validates generated scene structure and exact total duration", () => {
+  const valid = { title: "Launch film", scenes: [
+    { visualPrompt: "Wide product shot", voiceover: "Discover the product", caption: "New arrival", durationSeconds: 5 },
+    { visualPrompt: "Detail shot", voiceover: "Made for daily use", caption: "Explore now", durationSeconds: 5 },
+  ] };
+  assert.equal(validateGeneratedScript(valid, 10).scenes.length, 2);
+  assert.throws(() => validateGeneratedScript({ ...valid, scenes: [{ ...valid.scenes[0], durationSeconds: 4 }] }, 10), /script_scene_durations_mismatch/);
+  assert.throws(() => validateGeneratedScript({ ...valid, scenes: [{ ...valid.scenes[0], visualPrompt: "" }] }, 10), /invalid_visual_prompt/);
+});
+
+test("returns a blocked result when no approved provider is available", async () => {
+  const registry = { invoke: async () => { throw new Error("approved_zero_cost_provider_unavailable"); } };
+  const result = await generateVideoScript({ title: "Launch", concept: "Demo", durationSeconds: 10 }, registry, { executionEnabled: true });
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "approved_script_provider_unavailable");
+});
