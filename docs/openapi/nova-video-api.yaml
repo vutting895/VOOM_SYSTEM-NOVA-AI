@@ -188,7 +188,77 @@ paths:
                   type: string
                   enum: [video_generation, video_analysis, video_edit_export]
                 prompt: { type: string, maxLength: 4000 }
-                idempotency_key: { type: string, pattern: '^[A-Za-z0-9_-]{12,100}$' }
+                idempotency_key: { type: string, pattern: '^[A-Za-z0-9_-]{12,100}
+      responses:
+        '202':
+          description: Request recorded but blocked; no worker is dispatched
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job, executionEnabled]
+                properties:
+                  job: { $ref: '#/components/schemas/Job' }
+                  executionEnabled: { const: false }
+                  explanation: { type: string }
+        '200':
+          description: Idempotent replay of an identical request
+        '400': { description: Invalid request }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Idempotency key reused with a different payload }
+        '503': { description: Job store unavailable }
+components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase access token
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired access token
+  schemas:
+    Project:
+      type: object
+      required: [id, title, description, status, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, archived] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Job:
+      type: object
+      required: [id, project_id, task_type, status, prompt, request, execution_mode, estimated_cost, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        project_id: { type: string, format: uuid }
+        task_type: { type: string, enum: [video_generation, video_analysis, video_edit_export] }
+        status: { type: string, enum: [blocked_no_free_gpu, blocked_worker_unavailable] }
+        prompt: { type: string }
+        request: { type: object, description: Optional server-generated NOVA Director plan under director_plan }
+        execution_mode: { const: free_only }
+        estimated_cost: { const: 0 }
+        created_at: { type: string, format: date-time }
+ }
+                brief:
+                  type: object
+                  additionalProperties: false
+                  required: [title, concept]
+                  properties:
+                    title: { type: string, minLength: 1, maxLength: 120 }
+                    concept: { type: string, minLength: 1, maxLength: 1200 }
+                    audience: { type: string, maxLength: 240 }
+                    platform: { type: string, maxLength: 120 }
+                    language: { type: string, maxLength: 32 }
+                    style: { type: string, maxLength: 240 }
+                    callToAction: { type: string, maxLength: 240 }
+                    durationSeconds: { type: number, minimum: 3, maximum: 60, default: 15 }
+                    aspectRatio: { type: string, enum: ["9:16", "16:9", "1:1"] }
+                    goal: { type: string, enum: [product_ad, explainer, story, brand_film] }
+                    verifiedFacts: { type: array, maxItems: 12, items: { type: string, maxLength: 240 } }
+                    mustAvoid: { type: array, maxItems: 20, items: { type: string, maxLength: 160 } }
+
       responses:
         '202':
           description: Request recorded but blocked; no worker is dispatched
