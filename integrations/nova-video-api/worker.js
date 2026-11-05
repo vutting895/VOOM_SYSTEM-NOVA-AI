@@ -440,7 +440,12 @@ function preparationIntegrityValid(preparation) {
     !Array.isArray(snapshot) &&
     snapshot.schemaVersion === "nova.video-preparation.v1" &&
     snapshot.policy?.executionEnabled === false &&
+    snapshot.policy?.requiresHumanApproval === true &&
     snapshot.policy?.estimatedCost === 0 &&
+    snapshot.job?.taskType === "video_generation" &&
+    snapshot.job?.status === "blocked_no_free_gpu" &&
+    snapshot.productionPlan?.schemaVersion === "nova.video-production-plan.v1" &&
+    snapshot.productionPlan?.requiresHumanApproval === true &&
     snapshot.productionPlan?.executionEnabled === false &&
     snapshot.productionPlan?.status === "blocked_no_free_gpu";
 }
@@ -500,7 +505,9 @@ async function createJobPreparation(request, env, auth, origin) {
   });
   if (!existing.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   if (existing.row) {
-    if (existing.row.snapshot_hash !== snapshotHash || !preparationIntegrityValid(existing.row)) {
+    if (existing.row.snapshot_hash !== snapshotHash ||
+        await sha256Hex(stableJson(existing.row.snapshot)) !== existing.row.snapshot_hash ||
+        !preparationIntegrityValid(existing.row)) {
       return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
     }
     return json({
@@ -531,7 +538,9 @@ async function createJobPreparation(request, env, auth, origin) {
       job_id: "eq." + job.id,
     });
     if (!replay.ok || !replay.row) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
-    if (replay.row.snapshot_hash !== snapshotHash || !preparationIntegrityValid(replay.row)) {
+    if (replay.row.snapshot_hash !== snapshotHash ||
+        await sha256Hex(stableJson(replay.row.snapshot)) !== replay.row.snapshot_hash ||
+        !preparationIntegrityValid(replay.row)) {
       return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
     }
     return json({
