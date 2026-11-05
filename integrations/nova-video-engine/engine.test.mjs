@@ -269,7 +269,7 @@ test("failed video jobs enforce a bounded retry budget", () => {
   assert.throws(() => store.transition("job-3", "queued", { actorTenantId: "tenant-a" }), /video_job_retry_limit_reached/);
 });
 
-import { buildWan22Command, createWan22LocalRuntime, wan22FrameCount } from "./wan22-local-runtime.mjs";
+import { buildWan22Command, createWan22LocalRuntime, parseNvidiaSmiMemory, wan22FrameCount } from "./wan22-local-runtime.mjs";
 
 test("Wan runtime builds a safe direct argument vector and frame-aligned clip", () => {
   const task = createGenerativeVideoTask({ prompt: "A product; ignore shell", durationSeconds: 5, imagePath: "assets/source.png" });
@@ -298,7 +298,7 @@ test("Wan local runtime refuses inference unless all explicit approval and hardw
 test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", async () => {
   const noCost = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, hardware: { verified: true, availableVramGB: 24 } });
   assert.equal((await noCost.preflight()).reason, "zero_cost_compute_not_verified");
-  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, hardware: { verified: true, availableVramGB: 16 } });
+  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, hardwareProbe: async () => [{ totalVramMiB: 16384, freeVramMiB: 12000 }] });
   assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
 });
 
@@ -313,7 +313,7 @@ test("Wan local runtime requires a pinned upstream revision and verified checkpo
 const readyWanRuntimeOptions = (overrides = {}) => ({
   executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true,
   zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true,
-  hardware: { verified: true, availableVramGB: 24 },
+  hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 23000 }],
   repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace",
   accessImpl: async () => {}, mkdirImpl: async () => {},
   realpathImpl: async (value) => value,
@@ -587,3 +587,5 @@ test("NOVA service keeps cancellation owner-scoped and supports safe pre-executi
   assert.equal(cancelled.state, "cancelled");
   assert.equal(await service.getJob({ principal: { id: "tenant-service-b" }, jobId: created.job.id }), null);
 });
+
+test("NVIDIA VRAM parser accepts only valid per-GPU total/free memory rows", () => {\n  assert.deepEqual(parseNvidiaSmiMemory("24564, 23100\\n16384, 12000\\n"), [\n    { totalVramMiB: 24564, freeVramMiB: 23100 },\n    { totalVramMiB: 16384, freeVramMiB: 12000 },\n  ]);\n  assert.deepEqual(parseNvidiaSmiMemory("not-a-gpu\\n24564, 99999\\n"), []);\n});\n\ntest("Wan local runtime blocks when NVIDIA hardware probe is unavailable", async () => {\n  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({ hardwareProbe: async () => { throw new Error("nvidia-smi unavailable"); } }));\n  const result = await runtime.preflight();\n  assert.equal(result.ready, false);\n  assert.equal(result.reason, "nvidia_gpu_probe_failed");\n});
