@@ -167,3 +167,99 @@ test("rejects unsafe or unsupported source images for image-to-video", () => {
   assert.throws(() => createGenerativeVideoTask({ prompt: "Animate this", imagePath: "/tmp/source.png" }), /invalid_input_image_path/);
   assert.throws(() => createGenerativeVideoTask({ prompt: "Animate this", imagePath: "assets/source.mp4" }), /unsupported_input_image_type/);
 });
+
+import { createDirectorPlan } from "./director-intelligence.mjs";
+import { createNOVAProductionPlan } from "./pipeline-orchestrator.mjs";
+import { createInMemoryVideoJobStore } from "./job-lifecycle.mjs";
+import { createQualityReport, validateGeneratedAssets, validateDirectorTimeline } from "./quality-control.mjs";
+
+const creativeBrief = { title: "NOVA launch film", concept: "Introduce a new handcrafted coffee cup", durationSeconds: 15, aspectRatio: "9:16", goal: "product_ad", verifiedFacts: ["Handcrafted ceramic cup"] };
+
+test("NOVA Director creates a deterministic multi-shot plan with frame-accurate continuity", () => {
+  const first = createDirectorPlan(creativeBrief);
+  const second = createDirectorPlan(creativeBrief);
+  assert.deepEqual(first, second);
+  assert.equal(first.engine, "NOVA Director Intelligence");
+  assert.equal(first.scenes.length, 3);
+  assert.equal(first.totalFrames, 360);
+  assert.equal(first.scenes[0].startFrame, 0);
+  assert.equal(first.scenes[2].endFrameExclusive, 360);
+  assert.equal(first.scenes.every((scene) => scene.durationSeconds <= 5.05), true);
+  assert.equal(first.scenes.every((scene) => scene.continuityGroup === "subject-lock-01"), true);
+  assert.equal(first.executionEnabled, false);
+});
+
+test("Director never invents unsupported claims and applies user exclusions", () => {
+  const plan = createDirectorPlan({ ...creativeBrief, verifiedFacts: [], mustAvoid: ["medical claims"] });
+  assert.match(plan.scenes[0].visualPrompt, /Do not invent specifications/);
+  assert.match(plan.scenes[0].negativePrompt, /medical claims/);
+});
+
+test("Director rejects overlong plans and script shots that exceed the model clip limit", () => {
+  assert.throws(() => createDirectorPlan({ ...creativeBrief, durationSeconds: 90 }), /director_plan_max_duration_60_seconds/);
+  const script = { title: "Too long", scenes: [{ visualPrompt: "A long shot", voiceover: "", caption: "", durationSeconds: 15 }] };
+  assert.throws(() => createDirectorPlan(creativeBrief, { script }), /script_scene_exceeds_model_clip_limit/);
+});
+
+test("production planner creates a staged workflow but keeps every generation task disabled", () => {
+  const plan = createNOVAProductionPlan(creativeBrief);
+  assert.equal(plan.generationTasks.length, 3);
+  assert.equal(plan.generationTasks.every((item) => item.task.executionEnabled === false), true);
+  assert.equal(plan.requiresHumanApproval, true);
+  assert.equal(plan.executionEnabled, false);
+  assert.equal(plan.stages.find((stage) => stage.id === "human_approval").status, "required");
+  assert.equal(plan.stages.find((stage) => stage.id === "assembly").status, "blocked_waiting_for_clips");
+});
+
+test("quality control validates complete generated clips and catches missing or incorrect artifacts", () => {
+  const plan = createDirectorPlan(creativeBrief);
+  assert.equal(validateDirectorTimeline(plan).valid, true);
+  const assets = plan.scenes.map((scene) => ({
+    sceneId: scene.sceneId, assetPath: "jobs/job-1/" + scene.sceneId + ".mp4", contentType: "video/mp4",
+    width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
+  }));
+  assert.equal(createQualityReport(plan, assets).status, "passed");
+  assert.equal(validateGeneratedAssets(plan, assets.slice(1)).valid, false);
+  const bad = assets.map((asset, index) => index === 0 ? { ...asset, width: 1920, assetPath: "../leak.mp4" } : asset);
+  const report = createQualityReport(plan, bad);
+  assert.equal(report.status, "blocked");
+  assert.equal(report.issues.some((issue) => issue.startsWith("resolution_mismatch")), true);
+  assert.equal(report.issues.some((issue) => issue.startsWith("unsafe_asset_path")), true);
+});
+
+test("video job store enforces tenant scope and idempotent creation", () => {
+  const store = createInMemoryVideoJobStore();
+  const input = { id: "job-1", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "request-001", request: { title: "Test" } };
+  assert.equal(store.create(input, "2026-11-05T10:00:00.000Z").created, true);
+  const duplicate = store.create({ ...input, id: "job-duplicate" }, "2026-11-05T10:01:00.000Z");
+  assert.equal(duplicate.created, false);
+  assert.equal(duplicate.job.id, "job-1");
+  assert.equal(store.get("job-1", "tenant-b"), null);
+  assert.equal(store.list("tenant-b").length, 0);
+});
+
+test("video job cannot bypass approval and requires tenant ownership for transitions", () => {
+  const store = createInMemoryVideoJobStore();
+  store.create({ id: "job-2", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "request-002", request: {} });
+  assert.throws(() => store.transition("job-2", "planning", { actorTenantId: "tenant-b" }), /video_job_tenant_access_denied/);
+  store.transition("job-2", "planning", { actorTenantId: "tenant-a" });
+  assert.throws(() => store.transition("job-2", "generating", { actorTenantId: "tenant-a" }), /video_job_transition_not_allowed/);
+  store.transition("job-2", "approval_required", { actorTenantId: "tenant-a" });
+  store.transition("job-2", "generating", { actorTenantId: "tenant-a", event: "approval_granted" });
+  store.transition("job-2", "assembling", { actorTenantId: "tenant-a" });
+  store.transition("job-2", "quality_check", { actorTenantId: "tenant-a" });
+  const complete = store.transition("job-2", "completed", { actorTenantId: "tenant-a" });
+  assert.equal(complete.state, "completed");
+  assert.equal(complete.audit.some((entry) => entry.event === "approval_granted"), true);
+});
+
+test("failed video jobs enforce a bounded retry budget", () => {
+  const store = createInMemoryVideoJobStore();
+  store.create({ id: "job-3", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "request-003", request: {} });
+  for (let retry = 1; retry <= 3; retry += 1) {
+    store.transition("job-3", "planning", { actorTenantId: "tenant-a" });
+    store.transition("job-3", "failed", { actorTenantId: "tenant-a" });
+    if (retry < 3) store.transition("job-3", "queued", { actorTenantId: "tenant-a" });
+  }
+  assert.throws(() => store.transition("job-3", "queued", { actorTenantId: "tenant-a" }), /video_job_retry_limit_reached/);
+});
