@@ -225,9 +225,9 @@ const FALLBACK_BROKER_CATALOGS: Record<
 > = {
   exness: {
     brokerName: 'Exness Trader API / MT5',
-    serverLabel: 'Exness-Real14 (Ed25519 Direct API)',
-    accountId: '23908764',
-    protocol: 'Exness REST v1 / MT5 Bridge',
+    serverLabel: 'Exness MT5 Demo — not connected',
+    accountId: 'not_configured',
+    protocol: 'Static sample catalogue only; no authenticated broker session',
     instruments: [
       { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
       { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
@@ -246,7 +246,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   icmarkets: {
     brokerName: 'IC Markets Raw Spread (MT5 / API)',
     serverLabel: 'ICMarketsSC-MT5-4 (Raw Spread)',
-    accountId: '51092841',
+    accountId: 'not_configured',
     protocol: 'MetaTrader 5 / cTrader FIX API',
     instruments: [
       { symbol: 'XAU/USD', displayName: 'Gold Raw Spread (IC Markets)', group: 'Metals & Commodities', price: 2748.55, decimals: 2, spreadLabel: '0.5 pips', change24h: 1.42 },
@@ -262,7 +262,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   binance: {
     brokerName: 'Binance Futures & Spot',
     serverLabel: 'Binance USDⓈ-M Perpetual Mainnet',
-    accountId: 'BN-88412',
+    accountId: 'not_configured',
     protocol: 'Binance HMAC-SHA256 REST v3',
     instruments: [
       { symbol: 'BTC/USDT', displayName: 'Bitcoin Perpetual (BTCUSDT)', group: 'Crypto Majors', price: 62931.55, decimals: 2, spreadLabel: '0.01%', change24h: 0.75 },
@@ -278,7 +278,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   bybit: {
     brokerName: 'Bybit Unified Trading',
     serverLabel: 'Bybit V5 Linear & Gold USDT',
-    accountId: 'BY-51902',
+    accountId: 'not_configured',
     protocol: 'Bybit Unified REST V5',
     instruments: [
       { symbol: 'BTCUSDT.P', displayName: 'Bitcoin Linear Perp (Bybit)', group: 'Crypto Majors', price: 62935.0, decimals: 2, spreadLabel: '0.01%', change24h: 0.76 },
@@ -707,14 +707,16 @@ export default function QuickitMarketFleetView({
   // ("ทำให้เลือกได้ระหว่างใช้mt5 หรือ api ในโบรกเกอร์forex")
   // =========================================================================
   const [loggedInBroker, setLoggedInBroker] = useState<'exness' | 'icmarkets' | 'binance' | 'bybit'>('exness');
-  const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('api');
-  const [mt5Server, setMt5Server] = useState<string>('Exness-MT5Real14');
-  const [brokerAccountId, setBrokerAccountId] = useState<string>('23908764');
+  const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('mt5');
+  const [mt5Server, setMt5Server] = useState<string>('Exness-MT5Trial8');
+  const [brokerAccountId, setBrokerAccountId] = useState<string>('not_configured');
+  const [brokerSessionVerified, setBrokerSessionVerified] = useState(false);
+  const [brokerCatalogMessage, setBrokerCatalogMessage] = useState('STATIC SAMPLE CATALOGUE ONLY — ไม่มี Broker Session ที่ยืนยันแล้ว');
   const [brokerServerName, setBrokerServerName] = useState<string>(
     FALLBACK_BROKER_CATALOGS.exness.serverLabel
   );
   const [brokerProtocolLabel, setBrokerProtocolLabel] = useState<string>(
-    'Exness REST API v1 (Ed25519 Signed · No MT5)'
+    'Static sample catalogue only; no authenticated broker session'
   );
   const [brokerInstruments, setBrokerInstruments] = useState<BrokerInstrumentItem[]>(
     FALLBACK_BROKER_CATALOGS.exness.instruments
@@ -750,67 +752,70 @@ export default function QuickitMarketFleetView({
   // Fetch tradable pairs from the logged-in broker account via Backend API (passing connectionMode=mt5 or api)
   async function syncBrokerInstruments(
     targetBroker: 'exness' | 'icmarkets' | 'binance' | 'bybit',
-    customAccountId?: string,
     customConnMode?: 'mt5' | 'api',
     customMt5Server?: string
   ) {
     setLoadingBrokerPairs(true);
+    setBrokerSessionVerified(false);
+    setBrokerCatalogMessage('กำลังโหลดรายการ Instrument ตัวอย่างเท่านั้น ยังไม่มี Broker Session ที่ยืนยันแล้ว');
+
     const mode = customConnMode || forexConnectionMode;
     const serverParam = customMt5Server || mt5Server;
-    const accId =
-      customAccountId ||
-      (targetBroker === 'exness'
-        ? '23908764'
-        : targetBroker === 'icmarkets'
-        ? '51092841'
-        : targetBroker === 'binance'
-        ? 'BN-88412'
-        : 'BY-51902');
+
     try {
       const res = await fetch(
-        `/api/broker/instruments?broker=${targetBroker}&accountId=${encodeURIComponent(
-          accId
-        )}&connectionMode=${mode}&mt5Server=${encodeURIComponent(serverParam)}`,
+        `/api/broker/instruments?broker=${targetBroker}&connectionMode=${mode}&mt5Server=${encodeURIComponent(serverParam)}`,
         { cache: 'no-store' }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.instruments) && data.instruments.length > 0) {
           setBrokerInstruments(data.instruments);
-          setBrokerServerName(
-            data.serverLabel || FALLBACK_BROKER_CATALOGS[targetBroker].serverLabel
+          setBrokerServerName(data.serverLabel || 'Not configured');
+          setBrokerProtocolLabel(data.protocol || 'Static sample catalogue only');
+          const verifiedDemoReadOnly =
+            data.connected === true &&
+            data.accountConnected === true &&
+            data.environment === 'demo' &&
+            data.ordersEnabled === false &&
+            data.executionEnabled === false &&
+            data.liveTradingEnabled === false &&
+            data.dataStatus !== 'static-sample-unverified';
+          setBrokerSessionVerified(verifiedDemoReadOnly);
+          setBrokerAccountId(
+            verifiedDemoReadOnly && typeof data.accountId === 'string'
+              ? data.accountId
+              : 'not_configured'
           );
-          setBrokerProtocolLabel(
-            data.protocol || FALLBACK_BROKER_CATALOGS[targetBroker].protocol
-          );
-          setBrokerAccountId(data.accountId || accId);
           setSelectedBrokerPair(data.instruments[0]);
+          setBrokerCatalogMessage(
+            verifiedDemoReadOnly
+              ? 'ยืนยันเฉพาะ Exness Demo Read-only แล้ว; ไม่อนุญาตคำสั่งซื้อขาย'
+              : 'STATIC SAMPLE CATALOGUE ONLY — ไม่มีการยืนยันบัญชีหรือ Broker Session; ราคา, Spread และ % เปลี่ยนแปลงเป็นข้อมูลตัวอย่าง ไม่ใช่ราคาตลาดจริง'
+          );
           setLoadingBrokerPairs(false);
           return;
         }
       }
     } catch {
-      // Fallback to local broker catalog if offline
+      // Fall through to a clearly labelled local sample catalogue.
     }
+
     const fallback = FALLBACK_BROKER_CATALOGS[targetBroker];
     setBrokerInstruments(fallback.instruments);
-    setBrokerServerName(
-      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
-        ? `${serverParam} (MT5 Terminal / EA Bridge)`
-        : fallback.serverLabel
+    setBrokerServerName(fallback.serverLabel);
+    setBrokerProtocolLabel(fallback.protocol);
+    setBrokerAccountId('not_configured');
+    setBrokerSessionVerified(false);
+    setBrokerCatalogMessage(
+      'API ไม่พร้อมใช้งาน — กำลังแสดง Static Sample Catalogue เท่านั้น; ไม่ได้เชื่อมต่อ Broker และห้ามใช้ราคา/Spread นี้ตัดสินใจเทรด'
     );
-    setBrokerProtocolLabel(
-      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
-        ? 'MetaTrader 5 (MT5 Python Worker Bridge)'
-        : fallback.protocol
-    );
-    setBrokerAccountId(accId);
     setSelectedBrokerPair(fallback.instruments[0]);
     setLoadingBrokerPairs(false);
   }
 
   useEffect(() => {
-    syncBrokerInstruments(loggedInBroker, undefined, forexConnectionMode, mt5Server);
+    syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
   }, [loggedInBroker, forexConnectionMode, mt5Server]);
 
   // Simulate 2-second memory tick for running bots & backend auto-train status
@@ -1942,11 +1947,11 @@ export default function QuickitMarketFleetView({
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                          Broker Session Connected
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                          {brokerSessionVerified ? 'EXNESS DEMO SESSION VERIFIED · READ-ONLY' : 'BROKER SESSION NOT CONNECTED'}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/90 border border-emerald-500/40 text-[11px] font-mono text-emerald-300">
-                          🟢 Login: {loggedInBroker.toUpperCase()} #{brokerAccountId}
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-[11px] font-mono text-amber-200">
+                          {brokerSessionVerified ? `DEMO · ${brokerAccountId}` : `⚠️ ${loggedInBroker.toUpperCase()} · CATALOG ONLY · NOT CONNECTED`}
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-mono text-amber-300">
                           {isForexBrokerSelected
@@ -1967,13 +1972,13 @@ export default function QuickitMarketFleetView({
 
                   {/* Switch Logged-In Broker Account & Sync Symbols Button */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-400 mr-1">บัญชี Broker ที่ Login:</span>
+                    <span className="text-xs text-slate-400 mr-1">เลือก Static Catalog:</span>
                     {(
                       [
-                        { id: 'exness', label: 'Exness Forex (#23908764)' },
-                        { id: 'icmarkets', label: 'IC Markets Forex (#51092841)' },
-                        { id: 'binance', label: 'Binance Crypto (#BN-88412)' },
-                        { id: 'bybit', label: 'Bybit Crypto (#BY-51902)' },
+                        { id: 'exness', label: 'Exness MT5 Demo' },
+                        { id: 'icmarkets', label: 'IC Markets · Sample Catalog' },
+                        { id: 'binance', label: 'Binance · Sample Catalog' },
+                        { id: 'bybit', label: 'Bybit · Sample Catalog' },
                       ] as const
                     ).map((brk) => (
                       <button
@@ -1982,9 +1987,9 @@ export default function QuickitMarketFleetView({
                         onClick={() => {
                           setLoggedInBroker(brk.id);
                           if (brk.id === 'icmarkets') setMt5Server('ICMarketsSC-MT5-4');
-                          if (brk.id === 'exness') setMt5Server('Exness-MT5Real14');
+                          if (brk.id === 'exness') setMt5Server('Exness-MT5Trial8');
                           showNotification(
-                            `สลับบัญชีที่ Login เป็น ${brk.label} และดึงรายชื่อคู่เงินทั้งหมดเรียบร้อยแล้ว`
+                            `เลือก ${brk.label} สำหรับดู Catalog เท่านั้น — ยังไม่ได้ Login หรือเชื่อมต่อ Broker`
                           );
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
@@ -2000,17 +2005,8 @@ export default function QuickitMarketFleetView({
                     <button
                       type="button"
                       onClick={() => {
-                        syncBrokerInstruments(
-                          loggedInBroker,
-                          brokerAccountId,
-                          forexConnectionMode,
-                          mt5Server
-                        );
-                        showNotification(
-                          `🔄 ซิงค์รายชื่อคู่เงินล่าสุดจาก ${loggedInBroker.toUpperCase()} (${
-                            forexConnectionMode === 'mt5' ? `MT5: ${mt5Server}` : 'Direct API'
-                          }) สำเร็จ (${brokerInstruments.length} คู่เงิน)`
-                        );
+                        syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
+                        showNotification('โหลด Static Sample Catalogue แล้ว — ไม่มีการยืนยัน Broker Session หรือราคาเรียลไทม์');
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1C202B] hover:bg-[#252A38] border border-white/10 text-xs font-semibold text-cyan-300 transition-colors cursor-pointer"
                     >
@@ -2031,7 +2027,7 @@ export default function QuickitMarketFleetView({
                           ตัวเลือกการเชื่อมต่อโบรกเกอร์ Forex ({loggedInBroker.toUpperCase()})
                         </div>
                         <p className="text-xs text-slate-300 mt-0.5">
-                          เลือกว่าจะดึงคู่เงินและส่งคำสั่งเทรดผ่าน <strong>โปรแกรม MT5 (MetaTrader 5)</strong> หรือผ่าน <strong>Direct API ของโบรกเกอร์โดยตรง</strong>
+                          ส่วนนี้ใช้เลือกดู Static Catalog เท่านั้น ยังไม่มีการเชื่อมต่อบัญชี, ดึงราคาจริง หรือส่งคำสั่งซื้อขาย
                         </p>
                       </div>
 
@@ -2041,14 +2037,7 @@ export default function QuickitMarketFleetView({
                           type="button"
                           onClick={() => {
                             setForexConnectionMode('mt5');
-                            fetch('/api/mt5-bridge/toggle', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ enabled: true }),
-                            }).catch(() => {});
-                            showNotification(
-                              `🖥️ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ MT5 (${mt5Server})" สำเร็จ — ดึงคู่เงินจาก MT5 Market Watch`
-                            );
+                            showNotification('เลือก MT5 Demo สำหรับแสดง Catalog เท่านั้น — Bridge ยังไม่เชื่อมต่อและการเทรดยังปิดอยู่');
                           }}
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                             forexConnectionMode === 'mt5'
@@ -2065,23 +2054,14 @@ export default function QuickitMarketFleetView({
                             )}
                           </div>
                           <div className="text-[10px] opacity-85 mt-0.5">
-                            ดึงคู่เงินจาก MT5 Market Watch & ส่งคำสั่งผ่าน EA/Bridge
+                            MT5 Demo catalogue only — no authenticated bridge session
                           </div>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setForexConnectionMode('api');
-                            fetch('/api/mt5-bridge/toggle', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ enabled: false }),
-                            }).catch(() => {});
-                            showNotification(
-                              `⚡ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ Direct API (REST / Ed25519)" สำเร็จ — ไม่ต้องเปิดโปรแกรม MT5`
-                            );
-                          }}
+                          disabled
+                          aria-disabled="true"
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                             forexConnectionMode === 'api'
                               ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-lg'
@@ -2090,14 +2070,14 @@ export default function QuickitMarketFleetView({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-extrabold">
-                              ⚡ ใช้ Direct API (REST / Ed25519)
+                              ⚡ Direct API — Not Available
                             </span>
                             {forexConnectionMode === 'api' && (
                               <Check className="w-4 h-4 text-cyan-400 shrink-0" />
                             )}
                           </div>
                           <div className="text-[10px] opacity-85 mt-0.5">
-                            ยิงออเดอร์ตรงผ่าน API โบรกเกอร์ ไม่ต้องเปิดโปรแกรม MT5
+                            ปิดไว้จนกว่าจะมี Provider API ที่ยืนยันตัวตนและ Demo Read-only ได้จริง
                           </div>
                         </button>
                       </div>
@@ -2111,13 +2091,7 @@ export default function QuickitMarketFleetView({
                             ⚙️ ตั้งค่า MT5 Terminal:
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400">MT5 Login:</span>
-                            <input
-                              type="text"
-                              value={brokerAccountId}
-                              onChange={(e) => setBrokerAccountId(e.target.value)}
-                              className="w-28 px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-white font-mono text-xs"
-                            />
+                            <span className="text-amber-200">MT5 Login: NOT CONFIGURED</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-slate-400">MT5 Server:</span>
@@ -2126,14 +2100,13 @@ export default function QuickitMarketFleetView({
                               onChange={(e) => setMt5Server(e.target.value)}
                               className="px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-amber-300 font-mono text-xs"
                             >
-                              <option value="Exness-MT5Real14">Exness-MT5Real14 (Real)</option>
-                              <option value="Exness-MT5Trial8">Exness-MT5Trial8 (Demo)</option>
+                              <option value="Exness-MT5Trial8">Exness-MT5Trial8 (Demo only)</option>
                               <option value="ICMarketsSC-MT5-4">ICMarketsSC-MT5-4 (Raw)</option>
                               <option value="XMGlobal-MT5 2">XMGlobal-MT5 2</option>
                             </select>
                           </div>
-                          <span className="text-[11px] font-mono text-emerald-400">
-                            ● MT5 Python Bridge Connected (Latency 18ms)
+                          <span className="text-[11px] font-mono text-amber-300">
+                            ● MT5 Bridge NOT CONNECTED — no authenticated session or latency measurement
                           </span>
                         </div>
                       ) : (
@@ -2142,25 +2115,22 @@ export default function QuickitMarketFleetView({
                             ⚙️ ตั้งค่า Direct API:
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400">Account ID:</span>
-                            <input
-                              type="text"
-                              value={brokerAccountId}
-                              onChange={(e) => setBrokerAccountId(e.target.value)}
-                              className="w-28 px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-white font-mono text-xs"
-                            />
+                            <span className="text-amber-200">Account ID: NOT CONFIGURED</span>
                           </div>
-                          <span className="px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/10 font-mono text-[11px] text-slate-300">
-                            Key: EXN-ED25519-9F8A••••••1B0C
-                          </span>
-                          <span className="text-[11px] font-mono text-emerald-400">
-                            ● Direct Ed25519 REST v1 Verified (No MT5 Required · 21ms)
+                          <span className="text-[11px] font-mono text-amber-300">
+                            Direct API is not configured or verified; no key is stored or displayed.
                           </span>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
+
+                <div role="status" className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+                  <strong>STATIC SAMPLE DATA — NOT LIVE MARKET DATA</strong>
+                  <p>{brokerCatalogMessage}</p>
+                  <p className="mt-1">สถิติ Win Rate / Profit Factor / Spread ในหน้าตัวอย่างยังไม่ใช่ผล Backtest หรือข้อมูลตลาดที่ผ่านการยืนยัน</p>
+                </div>
 
                 {/* STEP 1: Select Trading Pair from Logged-In Broker */}
                 <div className="space-y-3">
@@ -2170,10 +2140,10 @@ export default function QuickitMarketFleetView({
                         1
                       </span>
                       <h3 className="text-sm font-extrabold text-white">
-                        เลือกคู่เงินที่มีในโบรกเกอร์ {loggedInBroker.toUpperCase()} (#{brokerAccountId})
+                        Instrument Sample Catalogue — {loggedInBroker.toUpperCase()}
                       </h3>
-                      <span className="text-xs text-slate-400">
-                        (พบ {filteredBrokerInstruments.length} คู่เงินที่พร้อมเทรด)
+                      <span className="text-xs text-amber-300">
+                        ({filteredBrokerInstruments.length} sample symbols · not verified for trading)
                       </span>
                     </div>
 
