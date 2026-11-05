@@ -20,7 +20,6 @@ function buildPlan(brief) {
     schemaVersion: "nova.video-job-request.v1",
     brief: structuredClone(brief),
     directorPlan: pipeline.directorPlan,
-    productionPlan: pipeline,
     timelineQuality: createQualityReport(pipeline.directorPlan),
   };
 }
@@ -32,7 +31,7 @@ export function createNOVAEngineService({ jobStore } = {}) {
 
   return Object.freeze({
     plan(brief) {
-      const plan = buildPlan(brief);
+      const plan = createNOVAProductionPlan(brief);
       return Object.freeze({ plan, executionEnabled: false, estimatedCost: 0 });
     },
     async createJob({ principal, projectId, idempotencyKey, brief, jobId = randomUUID(), now } = {}) {
@@ -44,7 +43,7 @@ export function createNOVAEngineService({ jobStore } = {}) {
       const result = await jobStore.create({ id: requiredText(jobId, "job_id", 160), tenantId, projectId: ownerProjectId, idempotencyKey: key, request }, now);
       return Object.freeze({
         job: result.job, idempotentReplay: !result.created,
-        plan: result.job.request.productionPlan,
+        plan: createNOVAProductionPlan(brief),
         state: result.job.state, executionEnabled: false, estimatedCost: 0,
         explanation: "Job and director plan recorded in the configured job store. No AI model or worker was invoked.",
       });
