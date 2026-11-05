@@ -9,6 +9,8 @@ const BASE_HEADERS = Object.freeze({
 });
 const PROJECT_FIELDS = "id,title,description,status,created_at,updated_at";
 const JOB_FIELDS = "id,project_id,task_type,status,prompt,request,execution_mode,estimated_cost,created_at";
+const PREPARATION_FIELDS = "id,job_id,user_id,snapshot,snapshot_hash,planner_version,created_at";
+const DECISION_FIELDS = "id,preparation_id,user_id,decision,decision_note,created_at";
 const TASK_TYPES = new Set(["video_generation", "video_analysis", "video_edit_export"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9_-]{12,100}$/;
@@ -416,6 +418,262 @@ async function createJob(request, env, auth, origin) {
   }, 202, origin, env);
 }
 
+
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function selectOwnedRow(env, auth, table, fields, filters) {
+  const result = await postgrest(env, auth, table, { select: fields, user_id: "eq." + auth.userId, ...filters, limit: "1" });
+  if (!result.ok || !result.response.ok) return { ok: false };
+  const rows = await readRows(result.response);
+  if (!rows) return { ok: false };
+  return { ok: true, row: rows[0] ?? null };
+}
+
+function preparationIntegrityValid(preparation) {
+  const snapshot = preparation?.snapshot;
+  return !!snapshot &&
+    typeof snapshot === "object" &&
+    !Array.isArray(snapshot) &&
+    snapshot.schemaVersion === "nova.video-preparation.v1" &&
+    snapshot.policy?.executionEnabled === false &&
+    snapshot.policy?.estimatedCost === 0 &&
+    snapshot.productionPlan?.executionEnabled === false &&
+    snapshot.productionPlan?.status === "blocked_no_free_gpu";
+}
+
+async function createJobPreparation(request, env, auth, origin) {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
+  const body = parsed.value;
+  if (Object.keys(body).some((key) => key !== "job_id") ||
+      typeof body.job_id !== "string" || !UUID_PATTERN.test(body.job_id)) {
+    return json({ error: "video_preparation_job_id_invalid" }, 400, origin, env);
+  }
+
+  const jobResult = await selectOwnedRow(env, auth, "nova_video_jobs", JOB_FIELDS, { id: "eq." + body.job_id });
+  if (!jobResult.ok) return json({ error: "video_job_store_unavailable" }, 503, origin, env);
+  const job = jobResult.row;
+  if (!job) return json({ error: "video_job_not_found" }, 404, origin, env);
+  if (job.task_type !== "video_generation" || job.status !== "blocked_no_free_gpu") {
+    return json({ error: "video_job_not_preparable" }, 409, origin, env);
+  }
+
+  const directorPlan = job.request?.director_plan;
+  if (!directorPlan || typeof directorPlan !== "object" || Array.isArray(directorPlan)) {
+    return json({ error: "video_job_director_plan_required" }, 409, origin, env);
+  }
+
+  let productionPlan;
+  try {
+    productionPlan = createVideoProductionPlan(directorPlan);
+  } catch {
+    return json({ error: "video_job_director_plan_invalid" }, 409, origin, env);
+  }
+
+  // This snapshot is derived only from the owner-scoped, server-read job request.
+  // It is immutable after insert; future execution must still re-validate all gates.
+  const snapshot = {
+    schemaVersion: "nova.video-preparation.v1",
+    job: {
+      id: job.id,
+      projectId: job.project_id,
+      taskType: job.task_type,
+      status: job.status,
+      createdAt: job.created_at,
+    },
+    directorPlan,
+    productionPlan,
+    policy: {
+      requiresHumanApproval: true,
+      executionEnabled: false,
+      estimatedCost: 0,
+      executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"],
+    },
+  };
+  const snapshotHash = await sha256Hex(stableJson(snapshot));
+  const existing = await selectOwnedRow(env, auth, "nova_video_preparations", PREPARATION_FIELDS, {
+    job_id: "eq." + job.id,
+  });
+  if (!existing.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  if (existing.row) {
+    if (existing.row.snapshot_hash !== snapshotHash || !preparationIntegrityValid(existing.row)) {
+      return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
+    }
+    return json({
+      preparation: existing.row,
+      idempotentReplay: true,
+      executionEnabled: false,
+      estimatedCost: 0,
+      jobStatus: job.status,
+    }, 200, origin, env);
+  }
+
+  const payload = {
+    user_id: auth.userId,
+    job_id: job.id,
+    snapshot,
+    snapshot_hash: snapshotHash,
+    planner_version: String(directorPlan.plannerVersion || "1.0.0").slice(0, 40),
+  };
+  const result = await postgrest(env, auth, "nova_video_preparations", { select: PREPARATION_FIELDS }, {
+    method: "POST",
+    prefer: "return=representation",
+    body: payload,
+  });
+  if (!result.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+
+  if (result.response.status === 409) {
+    const replay = await selectOwnedRow(env, auth, "nova_video_preparations", PREPARATION_FIELDS, {
+      job_id: "eq." + job.id,
+    });
+    if (!replay.ok || !replay.row) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+    if (replay.row.snapshot_hash !== snapshotHash || !preparationIntegrityValid(replay.row)) {
+      return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
+    }
+    return json({
+      preparation: replay.row,
+      idempotentReplay: true,
+      executionEnabled: false,
+      estimatedCost: 0,
+      jobStatus: job.status,
+    }, 200, origin, env);
+  }
+
+  if (!result.response.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  const rows = await readRows(result.response);
+  if (!rows?.[0]?.id) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  return json({
+    preparation: rows[0],
+    idempotentReplay: false,
+    executionEnabled: false,
+    estimatedCost: 0,
+    jobStatus: job.status,
+    approvalRequired: true,
+  }, 201, origin, env);
+}
+
+async function getJobPreparation(request, env, auth, origin) {
+  const url = new URL(request.url);
+  const jobId = url.searchParams.get("job_id");
+  if (!jobId || !UUID_PATTERN.test(jobId)) {
+    return json({ error: "video_preparation_job_id_invalid" }, 400, origin, env);
+  }
+  const selected = await selectOwnedRow(env, auth, "nova_video_preparations", PREPARATION_FIELDS, {
+    job_id: "eq." + jobId,
+  });
+  if (!selected.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  if (!selected.row) return json({ preparation: null, decision: null, executionEnabled: false }, 200, origin, env);
+  const preparation = selected.row;
+  if (!preparationIntegrityValid(preparation) ||
+      await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
+    return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
+  }
+
+  const decisionResult = await selectOwnedRow(env, auth, "nova_video_approval_decisions", DECISION_FIELDS, {
+    preparation_id: "eq." + preparation.id,
+  });
+  if (!decisionResult.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  return json({
+    preparation,
+    decision: decisionResult.row,
+    humanApprovalStatus: decisionResult.row?.decision || "pending",
+    executionEnabled: false,
+    estimatedCost: 0,
+    jobStatus: preparation.snapshot.job.status,
+    executionBlockers: preparation.snapshot.policy.executionBlockers,
+  }, 200, origin, env);
+}
+
+async function createPreparationDecision(request, env, auth, origin) {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
+  const body = parsed.value;
+  const allowed = ["preparation_id", "decision", "decision_note"];
+  if (Object.keys(body).some((key) => !allowed.includes(key)) ||
+      typeof body.preparation_id !== "string" || !UUID_PATTERN.test(body.preparation_id) ||
+      !["approved", "rejected"].includes(body.decision)) {
+    return json({ error: "video_approval_decision_invalid" }, 400, origin, env);
+  }
+  const note = body.decision_note === undefined ? null : body.decision_note;
+  if (note !== null && (typeof note !== "string" || note.length > 300)) {
+    return json({ error: "video_approval_note_invalid" }, 400, origin, env);
+  }
+
+  const preparationResult = await selectOwnedRow(env, auth, "nova_video_preparations", PREPARATION_FIELDS, {
+    id: "eq." + body.preparation_id,
+  });
+  if (!preparationResult.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  const preparation = preparationResult.row;
+  if (!preparation) return json({ error: "video_preparation_not_found" }, 404, origin, env);
+  if (!preparationIntegrityValid(preparation) ||
+      await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
+    return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
+  }
+
+  const existing = await selectOwnedRow(env, auth, "nova_video_approval_decisions", DECISION_FIELDS, {
+    preparation_id: "eq." + preparation.id,
+  });
+  if (!existing.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  const normalizedNote = note?.trim() || null;
+  if (existing.row) {
+    if (existing.row.decision !== body.decision || existing.row.decision_note !== normalizedNote) {
+      return json({ error: "video_approval_already_decided" }, 409, origin, env);
+    }
+    return json({
+      decision: existing.row,
+      idempotentReplay: true,
+      jobStatus: preparation.snapshot.job.status,
+      executionEnabled: false,
+      estimatedCost: 0,
+      executionBlockers: preparation.snapshot.policy.executionBlockers,
+    }, 200, origin, env);
+  }
+
+  const result = await postgrest(env, auth, "nova_video_approval_decisions", { select: DECISION_FIELDS }, {
+    method: "POST",
+    prefer: "return=representation",
+    body: {
+      user_id: auth.userId,
+      preparation_id: preparation.id,
+      decision: body.decision,
+      decision_note: normalizedNote,
+    },
+  });
+  if (!result.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  if (result.response.status === 409) {
+    const replay = await selectOwnedRow(env, auth, "nova_video_approval_decisions", DECISION_FIELDS, {
+      preparation_id: "eq." + preparation.id,
+    });
+    if (!replay.ok || !replay.row) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+    if (replay.row.decision !== body.decision || replay.row.decision_note !== normalizedNote) {
+      return json({ error: "video_approval_already_decided" }, 409, origin, env);
+    }
+    return json({
+      decision: replay.row,
+      idempotentReplay: true,
+      jobStatus: preparation.snapshot.job.status,
+      executionEnabled: false,
+      estimatedCost: 0,
+      executionBlockers: preparation.snapshot.policy.executionBlockers,
+    }, 200, origin, env);
+  }
+  if (!result.response.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  const rows = await readRows(result.response);
+  if (!rows?.[0]?.id) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  return json({
+    decision: rows[0],
+    idempotentReplay: false,
+    jobStatus: preparation.snapshot.job.status,
+    executionEnabled: false,
+    estimatedCost: 0,
+    executionBlockers: preparation.snapshot.policy.executionBlockers,
+  }, 201, origin, env);
+}
+
 async function createDirectorPlanResponse(request, origin, env) {
   const parsed = await readJson(request);
   if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
@@ -511,7 +769,7 @@ async function handle(request, env) {
       ? createProductionPlanResponse(request, origin, env)
       : json({ error: "method_not_allowed" }, 405, origin, env);
   }
-  if (resource === "projects") {
+  if (resource === "preparations") {\n    return request.method === "GET"\n      ? getJobPreparation(request, env, auth, origin)\n      : createJobPreparation(request, env, auth, origin);\n  }\n  if (resource === "preparation-decisions") {\n    return request.method === "POST"\n      ? createPreparationDecision(request, env, auth, origin)\n      : json({ error: "method_not_allowed" }, 405, origin, env);\n  }\n  if (resource === "projects") {
     return request.method === "GET"
       ? listProjects(env, auth, origin)
       : createProject(request, env, auth, origin);
