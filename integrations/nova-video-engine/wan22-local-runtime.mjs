@@ -136,12 +136,12 @@ export function createWan22LocalRuntime(options = {}) {
     if (!modelLicenseApproved) return { ready: false, reason: "model_license_review_required" };
     if (!securityReviewApproved) return { ready: false, reason: "runtime_security_review_required" };
     if (!zeroCostComputeVerified) return { ready: false, reason: "zero_cost_compute_not_verified" };
-    let detectedGpus;
-    try { detectedGpus = await hardwareProbe(); } catch { return { ready: false, reason: "nvidia_gpu_probe_failed" }; }
-    if (!Array.isArray(detectedGpus) || !detectedGpus.some((gpu) => Number(gpu.totalVramMiB) >= 24_000)) return { ready: false, reason: "verified_24gb_vram_required", detectedGpuCount: Array.isArray(detectedGpus) ? detectedGpus.length : 0 };
     if (!/^[a-f0-9]{40}$/i.test(modelRevision)) return { ready: false, reason: "wan22_upstream_revision_not_pinned" };
     if (!checkpointIntegrityVerified) return { ready: false, reason: "wan22_checkpoint_integrity_not_verified" };
     if (!repoRoot || !checkpointDir || !workspaceRoot) return { ready: false, reason: "wan22_local_paths_not_configured" };
+    let detectedGpus;
+    try { detectedGpus = await hardwareProbe(); } catch { return { ready: false, reason: "nvidia_gpu_probe_failed" }; }
+    if (!Array.isArray(detectedGpus) || !detectedGpus.some((gpu) => Number(gpu.totalVramMiB) >= 24_000)) return { ready: false, reason: "verified_24gb_vram_required", detectedGpuCount: Array.isArray(detectedGpus) ? detectedGpus.length : 0 };
     try {
       await accessImpl(path.join(repoRoot, "generate.py"));
       await accessImpl(checkpointDir);
