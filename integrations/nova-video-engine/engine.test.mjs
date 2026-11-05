@@ -310,6 +310,66 @@ test("Wan local runtime requires a pinned upstream revision and verified checkpo
   assert.equal((await runtime.preflight()).reason, "wan22_upstream_revision_not_pinned");
 });
 
+const readyWanRuntimeOptions = (overrides = {}) => ({
+  executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true,
+  zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true,
+  hardware: { verified: true, availableVramGB: 24 },
+  repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace",
+  accessImpl: async () => {}, mkdirImpl: async () => {},
+  realpathImpl: async (value) => value,
+  statImpl: async () => ({ isDirectory: () => true, isFile: () => true, size: 4096 }),
+  revisionVerifier: async () => true,
+  ...overrides,
+});
+
+test("Wan local runtime verifies the exact installed repository revision", async () => {
+  let verifiedPath = null;
+  let verifiedRevision = null;
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    revisionVerifier: async (repoPath, revision) => {
+      verifiedPath = repoPath;
+      verifiedRevision = revision;
+      return false;
+    },
+  }));
+  const result = await runtime.preflight();
+  assert.deepEqual({ ready: result.ready, reason: result.reason }, { ready: false, reason: "wan22_upstream_revision_mismatch" });
+  assert.equal(verifiedPath, "/models/Wan2.2");
+  assert.equal(verifiedRevision, "a".repeat(40));
+});
+
+test("Wan local runtime accepts preflight only when pinned revision verification succeeds", async () => {
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions());
+  const result = await runtime.preflight();
+  assert.equal(result.ready, true);
+  assert.equal(result.modelRevision, "a".repeat(40));
+  assert.equal(result.generateScript, "/models/Wan2.2/generate.py");
+});
+
+test("Wan local runtime rejects a symlinked generation entrypoint outside the pinned repository", async () => {
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    realpathImpl: async (value) => value.endsWith("/generate.py") ? "/tmp/untrusted-generate.py" : value,
+  }));
+  const result = await runtime.preflight();
+  assert.equal(result.ready, false);
+  assert.equal(result.reason, "wan22_entrypoint_outside_pinned_repo");
+});
+
+test("Wan local runtime refuses to overwrite an existing generated scene", async () => {
+  const output = "/workspace/jobs/job-1/scene-01.mp4";
+  let spawned = 0;
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    accessImpl: async (value) => {
+      if (value === output) return;
+    },
+    spawnImpl: () => { spawned += 1; throw new Error("wan_inference_must_not_start"); },
+  }));
+  const result = await runtime.render({ task: createGenerativeVideoTask({ prompt: "A product reveal", durationSeconds: 5 }), jobId: "job-1", sceneId: "scene-01" });
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "wan22_output_already_exists");
+  assert.equal(spawned, 0);
+});
+
 import { validateNOVAAdaptationDataset, createNOVAStyleAdaptationPlan } from "./dataset-governance.mjs";
 
 const trainingDataset = {
