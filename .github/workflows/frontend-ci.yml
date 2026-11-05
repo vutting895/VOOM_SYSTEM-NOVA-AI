@@ -71,6 +71,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Audit tracked paths for Linux filesystem portability
+        run: node scripts/ci/check-linux-portability.mjs
+      - name: Test Linux path portability audit
+        run: node --test tests/linux-portability.test.mjs
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
