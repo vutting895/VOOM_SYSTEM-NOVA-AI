@@ -28,6 +28,7 @@ jobs:
         run: |
           node --check integrations/nova-video-api/worker.js
           node --check integrations/nova-video-api/skill-registry.js
-          node --check integrations/nova-video-api/video-script-intelligence.js
-          node --check integrations/nova-video-api/video-director-intelligence.js
+          node --check integrations/nova-video-engine/script-intelligence.mjs
+          node --check integrations/nova-video-engine/director-intelligence.mjs
+          node --check integrations/nova-video-engine/generative-video.mjs
           node --check integrations/nova-video-api/video-production-planner.js

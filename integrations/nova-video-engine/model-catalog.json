@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "nova.video-model-catalog.v1",
+  "updatedAt": "2026-11-05",
+  "policy": {
+    "defaultProvider": "none",
+    "executionEnabled": false,
+    "paidHostedInferenceAllowed": false,
+    "zeroCostComputeRequired": true
+  },
+  "candidates": [
+    {
+      "id": "wan-2.2-ti2v-5b",
+      "publisher": "Wan-AI / Alibaba",
+      "modelId": "Wan-AI/Wan2.2-TI2V-5B",
+      "status": "research",
+      "tasks": [
+        "text_to_video",
+        "image_to_video"
+      ],
+      "license": {
+        "spdx": "Apache-2.0",
+        "commercialUse": "permitted_by_published_model_card",
+        "sourceUrl": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B"
+      },
+      "publishedCapabilities": {
+        "resolution": "720p",
+        "frameRate": 24,
+        "modes": [
+          "text-to-video",
+          "image-to-video"
+        ]
+      },
+      "hardware": {
+        "minimumVramGB": 24,
+        "sourceUrl": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B"
+      },
+      "runtime": {
+        "localInference": "possible_with_compatible_NVIDIA_GPU",
+        "hostedInference": "not_approved",
+        "zeroCostVerified": false,
+        "provisioned": false
+      },
+      "blockers": [
+        "No verified NOVA-owned GPU runtime with 24 GB VRAM",
+        "No zero-cost compute evidence",
+        "No independent model/license review recorded",
+        "No reproducible benchmark or generated acceptance clip"
+      ],
+      "sourceRefs": [
+        "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B",
+        "https://github.com/Wan-Video/Wan2.2"
+      ]
+    }
+  ]
+}

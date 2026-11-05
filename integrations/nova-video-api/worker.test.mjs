@@ -487,6 +487,10 @@ test("authenticated production planning projects Director scenes into Engine tas
     assert.equal(plan.generationTasks[0].task.mode, "text_to_video");
     assert.equal(plan.generationTasks[0].task.frameRate, 24);
     assert.equal(plan.generationTasks[0].task.height, 1280);
+    assert.equal(plan.generationTasks[0].task.width, 704);
+    assert.equal(plan.generationTasks[0].task.modelCandidate, "Wan-AI/Wan2.2-TI2V-5B");
+    assert.equal(plan.generationTasks[0].task.executionEnabled, false);
+    assert.equal(plan.generationTasks[0].task.estimatedCost, 0);
     assert.equal(plan.generationTasks.reduce((sum, item) => sum + item.task.frameCount, 0), 360);
     assert.equal(plan.stages.find((stage) => stage.id === "human_approval").status, "required");
     assert.ok(plan.generationTasks.every((task) => task.state === "blocked_no_free_gpu"));

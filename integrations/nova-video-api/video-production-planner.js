@@ -1,3 +1,5 @@
+import { createGenerativeVideoTask } from "../nova-video-engine/generative-video.mjs";
+
 const MAX_SCENES = 12;
 const MAX_CLIP_SECONDS = 5.05;
 
@@ -8,8 +10,8 @@ function requiredText(value, field, maxLength = 2000) {
   return value.trim();
 }
 
-// Worker-safe projection of the Director timeline into the Engine's task/stage contract.
-// It deliberately creates contracts only: no provider, queue, filesystem, GPU or model is called.
+// Worker-safe adapter over the Engine's canonical generation-task validator.
+// This module only projects contracts; it never invokes a provider, queue, filesystem, GPU or model.
 export function createVideoProductionPlan(directorPlan) {
   if (!directorPlan || typeof directorPlan !== "object" || Array.isArray(directorPlan)) {
     throw new TypeError("production_plan_director_plan_required");
@@ -31,11 +33,17 @@ export function createVideoProductionPlan(directorPlan) {
         scene.endFrameExclusive !== cursor + scene.frameCount) {
       throw new TypeError("production_plan_scene_timeline_invalid");
     }
-    const prompt = requiredText(scene.visualPrompt, "scene_prompt", 4000);
-    const negativePrompt = typeof scene.negativePrompt === "string" ? scene.negativePrompt.slice(0, 2000) : "";
+
     const durationSeconds = scene.frameCount / 24;
     if (durationSeconds > MAX_CLIP_SECONDS) throw new RangeError("production_plan_clip_duration_exceeded");
     const taskId = "generate-" + requiredText(scene.sceneId, "scene_id", 80);
+    const engineTask = createGenerativeVideoTask({
+      prompt: requiredText(scene.visualPrompt, "scene_prompt", 2000),
+      negativePrompt: typeof scene.negativePrompt === "string" ? scene.negativePrompt.slice(0, 1000) : "",
+      aspectRatio: directorPlan.aspectRatio,
+      durationSeconds,
+      imagePath: scene.sourceImagePath ?? null,
+    });
     cursor = scene.endFrameExclusive;
     return Object.freeze({
       taskId,
@@ -43,17 +51,19 @@ export function createVideoProductionPlan(directorPlan) {
       order: scene.order,
       task: Object.freeze({
         schemaVersion: "nova.video-generation-task.v1",
-        modelCandidate: "Wan-AI/Wan2.2-TI2V-5B",
-        mode: scene.sourceImagePath ? "image_to_video" : "text_to_video",
-        prompt,
-        negativePrompt,
-        aspectRatio: directorPlan.aspectRatio,
-        width: directorPlan.aspectRatio === "9:16" ? 720 : 1280,
-        height: directorPlan.aspectRatio === "9:16" ? 1280 : 720,
-        frameRate: 24,
-        durationSeconds,
+        modelCandidate: engineTask.modelId,
+        mode: engineTask.mode,
+        prompt: engineTask.prompt,
+        negativePrompt: engineTask.negativePrompt,
+        aspectRatio: engineTask.aspectRatio,
+        width: engineTask.width,
+        height: engineTask.height,
+        frameRate: engineTask.frameRate,
+        durationSeconds: engineTask.durationSeconds,
         frameCount: scene.frameCount,
-        sourceImagePath: scene.sourceImagePath ?? null,
+        sourceImagePath: engineTask.imagePath,
+        executionEnabled: false,
+        estimatedCost: 0,
       }),
       state: "blocked_no_free_gpu",
     });

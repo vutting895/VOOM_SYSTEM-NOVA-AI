@@ -1,5 +1,5 @@
 import { getVideoSkillRegistry } from "./skill-registry.js";
-import { createDirectorPlan } from "./video-director-intelligence.js";
+import { createDirectorPlan } from "../nova-video-engine/director-intelligence.mjs";
 import { createVideoProductionPlan } from "./video-production-planner.js";
 
 const BASE_HEADERS = Object.freeze({

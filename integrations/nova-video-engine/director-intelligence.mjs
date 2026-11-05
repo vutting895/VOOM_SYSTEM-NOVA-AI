@@ -1,4 +1,4 @@
-import { normalizeCreativeBrief, validateGeneratedScript } from "./video-script-intelligence.js";
+import { normalizeCreativeBrief, validateGeneratedScript } from "./script-intelligence.mjs";
 
 const MAX_CLIP_SECONDS = 5.05;
 const FRAMES_PER_SECOND = 24;
