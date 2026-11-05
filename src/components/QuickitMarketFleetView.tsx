@@ -961,17 +961,6 @@ export default function QuickitMarketFleetView({
     [fleetBots]
   );
 
-  const totalFleetPnlToday = useMemo(
-    () => fleetBots.reduce((acc, b) => acc + b.todayPnlBaht, 0),
-    [fleetBots]
-  );
-
-  const avgWinRate = useMemo(() => {
-    if (fleetBots.length === 0) return 0;
-    const sum = fleetBots.reduce((acc, b) => acc + b.winRatePct, 0);
-    return (sum / fleetBots.length).toFixed(1);
-  }, [fleetBots]);
-
   function handleSelectBotInPackage(botId: string) {
     if (currentPlanId === 'free') {
       setShowPlanModal(true);
@@ -2163,7 +2152,7 @@ export default function QuickitMarketFleetView({
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        กองทัพ AI เทรดอัตโนมัติ • {fleetBots.length} บอท • 3 Pillars Engine
+                        กองทัพ AI • Research Draft • ยังไม่มี Runtime หรือ Broker Session ที่ยืนยัน
                       </p>
                     </div>
                   </div>
@@ -2172,21 +2161,13 @@ export default function QuickitMarketFleetView({
                 {/* KPI Pills Row */}
                 <div className="flex flex-wrap items-center gap-2.5 text-xs">
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-300">
-                    กำไรขาดทุนรวมวันนี้:{' '}
-                    <span
-                      className={`font-mono font-bold ${
-                        totalFleetPnlToday >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      ฿{totalFleetPnlToday.toLocaleString('en-US')}
-                    </span>
+                    P&amp;L วันนี้: <span className="font-mono font-bold text-amber-300">NOT AVAILABLE</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-300">
-                    อัตราการชนะเฉลี่ย:{' '}
-                    <span className="font-mono font-bold text-white">{avgWinRate}%</span>
+                    Win Rate: <span className="font-mono font-bold text-amber-300">NOT VALIDATED</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-400">
-                    โหมด: การจำลองในหน่วยความจำ • จังหวะการทำงาน 2 วินาที
+                    สถานะ: RESEARCH DRAFT ONLY • ไม่มี Runtime/ข้อมูล Broker ที่ยืนยัน
                   </div>
                 </div>
 
@@ -2284,8 +2265,6 @@ export default function QuickitMarketFleetView({
                     (currentPlanId === 'pro' &&
                       bot.requiredPlan === 'elite' &&
                       !bot.selectedInPackage);
-                  const pnlUp = bot.todayPnlBaht >= 0;
-
                   return (
                     <div
                       key={bot.id}
@@ -2473,60 +2452,47 @@ export default function QuickitMarketFleetView({
                           </div>
                         </div>
 
-                        {/* Right: Today's PnL in Baht + Mini Bar */}
                         <div className="text-right">
-                          <div
-                            className={`text-lg font-extrabold font-mono ${
-                              pnlUp ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {pnlUp ? `+ ฿${bot.todayPnlBaht}` : `฿${bot.todayPnlBaht}`}
-                          </div>
-                          <div className="text-[11px] text-slate-400">วันนี้</div>
-                          <div
-                            className={`mt-2 w-24 h-5 rounded-md border-t-2 ${
-                              pnlUp
-                                ? 'bg-amber-500/10 border-amber-500/70'
-                                : 'bg-indigo-500/10 border-indigo-400/70'
-                            }`}
-                          />
+                          <div className="text-lg font-extrabold font-mono text-amber-300">—</div>
+                          <div className="text-[11px] text-slate-400">P&amp;L NOT AVAILABLE</div>
+                          <div className="text-[10px] text-slate-500">ไม่มี Account History ที่ยืนยัน</div>
                         </div>
                       </div>
 
                       {/* 6-Box KPI Grid (2 rows x 3 columns matching Image 2) */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">อัตราการชนะ</div>
+                          <div className="text-[11px] text-slate-400">Win Rate (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.winRatePct.toFixed(1)}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">พีเอฟ</div>
+                          <div className="text-[11px] text-slate-400">Profit Factor (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.profitFactor.toFixed(2)}
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">การค้า</div>
+                          <div className="text-[11px] text-slate-400">Trades (NOT VERIFIED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.totalTrades}
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">TP1 ฮิต</div>
+                          <div className="text-[11px] text-slate-400">TP1 (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp1HitPct}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">TP2 ฮิต</div>
+                          <div className="text-[11px] text-slate-400">TP2 (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp2HitPct}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">เสี่ยง</div>
+                          <div className="text-[11px] text-slate-400">Risk (Draft Config)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
                             {bot.riskPct.toFixed(1)}%
                           </div>
