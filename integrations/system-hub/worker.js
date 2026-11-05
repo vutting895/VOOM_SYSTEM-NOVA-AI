@@ -540,6 +540,10 @@ export default {
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const policy = authorizeCoreCapability("integration.registry.read", auth, true);
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       return json({
         service: "voom-system-hub",
         integrations: integrationRegistry(env),
@@ -555,6 +559,11 @@ export default {
       if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
+      const tenantAuthorized = result.rows.every((row) => row.user_id === auth.userId);
+      const policy = authorizeCoreCapability("connection.own.read", auth, tenantAuthorized);
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       return json({
         connections: result.rows.map(publicConnection),
         count: result.rows.length,
