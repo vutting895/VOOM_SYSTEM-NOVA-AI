@@ -19,7 +19,8 @@ This package introduces NOVA's own orchestration and media-composition core. It 
 | Render orchestration and state machine | Implemented |
 | FFmpeg still-image-to-MP4 compositor | Implemented as an optional local adapter |
 | Provider adapter registry | Implemented; default provider set is empty and all candidates fail closed until evidence is approved |
-| Text-to-video / image-to-video model inference | Not implemented; Wan 2.2 TI2V-5B is catalogued as research-only pending compute and review |
+| Generative Video orchestration | Implemented as a fail-closed Wan 2.2 task adapter contract with output validation; no model runtime connected |
+| Text-to-video / image-to-video model inference | Not executed; Wan 2.2 TI2V-5B remains research-only pending compute and review |
 | AI scriptwriting / generative storyboard model | Script Intelligence orchestration + structured output validation implemented; actual model inference blocked until provider approval |
 | Voice, music, subtitles and audio mix | Not implemented |
 | Video analysis / editing / transcoding pipeline | Not implemented |
@@ -54,7 +55,7 @@ The FFmpeg adapter creates a silent MP4 slideshow from scene images. It is a rea
 
 `model-catalog.json` records Wan 2.2 TI2V-5B as the first research candidate. Its published model card lists Apache-2.0, text/image-to-video, 720p at 24 FPS and a 24 GB VRAM requirement. The model is not downloaded, hosted or enabled. Model license and inference-compute cost are separate gates; the catalog explicitly records that zero-cost compute is not verified.
 
-See `MODEL-SELECTION.md` for the acceptance checklist.
+See `MODEL-SELECTION.md` for the acceptance checklist. `generative-video.mjs` defines the bounded 720p/24fps clip request and validates MP4 outputs, but it does not launch or download the model.
 
 ## Script Intelligence
 
