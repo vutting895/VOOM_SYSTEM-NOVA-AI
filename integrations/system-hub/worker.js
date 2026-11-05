@@ -1,3 +1,4 @@
+import { evaluateCoreCapability } from "../../shared/nova-system-core-contract.mjs";
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -160,10 +161,23 @@ async function queryOwnConnections(env, user, connectionId = "") {
   }
 }
 
+function authorizeCoreCapability(capability, auth, tenantAuthorized) {
+  return evaluateCoreCapability(
+    { capability },
+    {
+      identityVerified: auth?.ok === true && typeof auth.userId === "string" && auth.userId.length > 0,
+      tenantAuthorized: tenantAuthorized === true
+    }
+  );
+}
+
 async function createConnection(request, env, user, origin) {
   const existingResult = await queryOwnConnections(env, user);
   if (!existingResult.ok) {
     return json({ error: existingResult.error }, existingResult.status, origin, env);
+  }
+  if (!existingResult.rows.every((row) => row.user_id === user.userId)) {
+    return json({ error: "tenant_scope_violation" }, 403, origin, env);
   }
   const existing = existingResult.rows.find((row) => row.provider === "exness_mt5" && row.environment === "demo");
   if (existing) {
@@ -224,6 +238,9 @@ async function createConnection(request, env, user, origin) {
   // rather than returning a duplicate or retrying an uncertain write.
   const raced = await queryOwnConnections(env, user);
   if (raced.ok) {
+    if (!raced.rows.every((item) => item.user_id === user.userId)) {
+      return json({ error: "tenant_scope_violation" }, 403, origin, env);
+    }
     const row = raced.rows.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
     if (row) {
       return json({
@@ -312,6 +329,47 @@ const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
 function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
+const MAX_QUOTE_AGE_MS = 120_000;
+const MAX_FUTURE_CLOCK_SKEW_MS = 30_000;
+
+function validIsoTimestamp(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+function timestampIsFresh(timestamp, nowMs) {
+  return Number.isFinite(timestamp) &&
+    timestamp <= nowMs + MAX_FUTURE_CLOCK_SKEW_MS &&
+    nowMs - timestamp <= MAX_QUOTE_AGE_MS;
+}
+function validateQuotePayload(data, symbol, timeframe, requestedCount, nowMs = Date.now()) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (data.symbol !== symbol || String(data.timeframe || "").toUpperCase() !== timeframe) return false;
+  if (!Number.isInteger(data.digits) || data.digits < 0 || data.digits > 12) return false;
+  if (!validIsoTimestamp(data.as_of)) return false;
+  const asOfMs = Date.parse(data.as_of);
+  if (!timestampIsFresh(asOfMs, nowMs)) return false;
+  const tick = data.tick;
+  if (!tick || typeof tick !== "object" || Array.isArray(tick)) return false;
+  if (![tick.bid, tick.ask].every((value) => safeNumber(value) !== null && value > 0)) return false;
+  if (tick.ask < tick.bid || !validIsoTimestamp(tick.time)) return false;
+  const tickMs = Date.parse(tick.time);
+  if (!timestampIsFresh(tickMs, nowMs) || tickMs > asOfMs + MAX_FUTURE_CLOCK_SKEW_MS) return false;
+  if (tick.last !== undefined && (safeNumber(tick.last) === null || tick.last < 0)) return false;
+  if (!Array.isArray(data.bars) || data.bars.length < 1 || data.bars.length > requestedCount) return false;
+  if (data.count !== data.bars.length) return false;
+
+  let previousTime = -Infinity;
+  for (const bar of data.bars) {
+    if (!bar || typeof bar !== "object" || Array.isArray(bar) || !validIsoTimestamp(bar.time)) return false;
+    const timestamp = Date.parse(bar.time);
+    if (timestamp <= previousTime || timestamp > tickMs + MAX_FUTURE_CLOCK_SKEW_MS) return false;
+    previousTime = timestamp;
+    const prices = [bar.open, bar.high, bar.low, bar.close].map(safeNumber);
+    if (prices.some((value) => value === null || value <= 0)) return false;
+    const [open, high, low, close] = prices;
+    if (high < Math.max(open, close, low) || low > Math.min(open, close, high) || high < low) return false;
+  }
+  return true;
+}
 function proxyError(responseStatus, body) {
   const state = responseStatus === 401 ? "session_rejected"
     : responseStatus === 403 ? "tenant_guard_rejected"
@@ -383,7 +441,7 @@ async function checkConnection(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, result.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (result.body.connected !== true) {
     return json({
       connectionId: row.id,
       state: "bridge_unavailable",
@@ -473,25 +531,35 @@ async function readQuotes(request, env, user, row, origin) {
     }, result.status, origin, env);
   }
   const data = result.body;
+  if (!validateQuotePayload(data, symbol, timeframe, count)) {
+    return json({
+      connectionId: row.id,
+      state: "quote_data_unverified",
+      dataVerified: false,
+      error: "mt5_proxy_invalid_quote_data",
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     quote: {
-      symbol: typeof data.symbol === "string" ? data.symbol : symbol,
-      timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
-      digits: safeNumber(data.digits),
-      tick: data.tick && typeof data.tick === "object" ? {
-        bid: safeNumber(data.tick.bid),
-        ask: safeNumber(data.tick.ask),
+      symbol: data.symbol,
+      timeframe: data.timeframe,
+      digits: data.digits,
+      tick: {
+        bid: data.tick.bid,
+        ask: data.tick.ask,
         last: safeNumber(data.tick.last),
-        time: typeof data.tick.time === "string" ? data.tick.time : null
-      } : null,
-      bars: Array.isArray(data.bars) ? data.bars : [],
-      count: Number.isInteger(data.count) ? data.count : (Array.isArray(data.bars) ? data.bars.length : 0),
+        time: data.tick.time
+      },
+      bars: data.bars,
+      count: data.count,
       mode: "read-only",
       order_submission_enabled: false,
-      as_of: typeof data.as_of === "string" ? data.as_of : null
+      as_of: data.as_of
     },
     ordersEnabled: false,
     liveTradingEnabled: false
@@ -529,6 +597,10 @@ export default {
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const policy = authorizeCoreCapability("integration.registry.read", auth, true);
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       return json({
         service: "voom-system-hub",
         integrations: integrationRegistry(env),
@@ -544,6 +616,11 @@ export default {
       if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
+      const tenantAuthorized = result.rows.every((row) => row.user_id === auth.userId);
+      const policy = authorizeCoreCapability("connection.own.read", auth, tenantAuthorized);
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       return json({
         connections: result.rows.map(publicConnection),
         count: result.rows.length,
@@ -561,6 +638,16 @@ export default {
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
+      const capability = match[2] === "quotes" ? "market.quote.read"
+        : match[2] === "status" ? "connection.own.read" : "account.summary.read";
+      const policy = authorizeCoreCapability(
+        capability,
+        auth,
+        result.row.user_id === auth.userId
+      );
+      if (!policy.allowed) {
+        return json({ error: "core_capability_denied", reason: policy.reason }, 403, origin, env);
+      }
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
       if (match[2] === "account") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
