@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -21,18 +21,15 @@ export function buildFfmpegArgs(storyboard, workspaceRoot, outputRelativePath = 
   const args = ["-hide_banner", "-nostdin", "-y"];
   const filters = [];
   storyboard.scenes.forEach((scene, index) => {
-    if (!scene.imagePath) throw new TypeError(\`scene_image_required_\${index + 1}\`);
+    if (!scene.imagePath) throw new TypeError("scene_image_required_" + (index + 1));
     if (!IMAGE_EXTENSIONS.has(path.extname(scene.imagePath).toLowerCase())) throw new TypeError("unsupported_scene_image_type");
-    args.push("-loop", "1", "-framerate", String(storyboard.frameRate || 24), "-t", String(scene.durationSeconds), "-i",
-      resolveWithinRoot(workspaceRoot, scene.imagePath));
-    filters.push(\`[\${index}:v]scale=\${width}:\${height}:force_original_aspect_ratio=decrease,pad=\${width}:\${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=\${storyboard.frameRate || 24},format=yuv420p[v\${index}]\`);
+    args.push("-loop", "1", "-framerate", String(storyboard.frameRate || 24), "-t", String(scene.durationSeconds), "-i", resolveWithinRoot(workspaceRoot, scene.imagePath));
+    filters.push("[" + index + ":v]scale=" + width + ":" + height + ":force_original_aspect_ratio=decrease,pad=" + width + ":" + height + ":(ow-iw)/2:(oh-ih)/2,setsar=1,fps=" + (storyboard.frameRate || 24) + ",format=yuv420p[v" + index + "]");
   });
-  const concatInputs = storyboard.scenes.map((_, index) => \`[v\${index}]\`).join("");
-  filters.push(\`\${concatInputs}concat=n=\${storyboard.scenes.length}:v=1:a=0[outv]\`);
+  const concatInputs = storyboard.scenes.map((_, index) => "[v" + index + "]").join("");
+  filters.push(concatInputs + "concat=n=" + storyboard.scenes.length + ":v=1:a=0[outv]");
   const outputPath = resolveWithinRoot(workspaceRoot, outputRelativePath);
-  args.push("-filter_complex", filters.join(";"), "-map", "[outv]", "-an", "-c:v", "libx264",
-    "-preset", "veryfast", "-movflags", "+faststart", "-pix_fmt", "yuv420p",
-    "-t", String(storyboard.durationSeconds), outputPath);
+  args.push("-filter_complex", filters.join(";"), "-map", "[outv]", "-an", "-c:v", "libx264", "-preset", "veryfast", "-movflags", "+faststart", "-pix_fmt", "yuv420p", "-t", String(storyboard.durationSeconds), outputPath);
   return { args, outputPath };
 }
 
@@ -42,17 +39,18 @@ export function createFfmpegRenderer({ workspaceRoot, binary = "ffmpeg", timeout
     async render(storyboard) {
       const { args, outputPath } = buildFfmpegArgs(storyboard, workspaceRoot);
       for (const scene of storyboard.scenes) await access(resolveWithinRoot(workspaceRoot, scene.imagePath));
+      await mkdir(path.dirname(outputPath), { recursive: true });
       await new Promise((resolve, reject) => {
         const child = spawn(binary, args, { cwd: path.resolve(workspaceRoot), stdio: ["ignore", "ignore", "pipe"] });
         let stderr = "";
         const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-4000); });
-        child.once("error", (error) => { clearTimeout(timer); reject(new Error(\`ffmpeg_start_failed: \${error.message}\`)); });
+        child.once("error", (error) => { clearTimeout(timer); reject(new Error("ffmpeg_start_failed: " + error.message)); });
         child.once("close", (code) => {
           clearTimeout(timer);
           if (code === 0) resolve();
-          else reject(new Error(\`ffmpeg_exit_\${code}: \${stderr.trim().slice(-1000)}\`));
+          else reject(new Error("ffmpeg_exit_" + code + ": " + stderr.trim().slice(-1000)));
         });
       });
       return { outputPath, format: "mp4", renderer: "ffmpeg", audioIncluded: false };
