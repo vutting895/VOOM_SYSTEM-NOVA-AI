@@ -19,7 +19,7 @@ export function wan22FrameCount(durationSeconds) {
   return frameCount;
 }
 
-export function buildWan22Command({ task, repoRoot, checkpointDir, workspaceRoot, jobId, sceneId, pythonBinary = "python" }) {
+export function buildWan22Command({ task, repoRoot, checkpointDir, workspaceRoot, jobId, sceneId, pythonBinary = "python", resolvedImagePath = null }) {
   if (!task || task.modelId !== "Wan-AI/Wan2.2-TI2V-5B") throw new TypeError("wan22_task_required");
   const safeJobId = safeId(jobId, "job_id");
   const safeSceneId = safeId(sceneId, "scene_id");
@@ -36,7 +36,7 @@ export function buildWan22Command({ task, repoRoot, checkpointDir, workspaceRoot
     "--ckpt_dir", ckpt, "--offload_model", "True", "--convert_model_dtype", "--t5_cpu",
     "--frame_num", String(frameCount), "--prompt", task.prompt, "--save_file", outputPath,
   ];
-  if (task.imagePath) args.push("--image", resolveWithinRoot(workspace, task.imagePath));
+  if (task.imagePath) args.push("--image", resolvedImagePath || resolveWithinRoot(workspace, task.imagePath));
   return Object.freeze({ command: pythonBinary, args: Object.freeze(args), cwd: root, outputPath, outputRelativePath, frameCount });
 }
 
@@ -47,9 +47,9 @@ function parseFrameRate(value) {
   return numerator / denominator;
 }
 
-function spawnProcess(command, args, options, { timeoutMs, captureStdout = false } = {}) {
+function spawnProcess(command, args, options, { timeoutMs, captureStdout = false } = {}, spawnImpl = spawn) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { ...options, shell: false, stdio: ["ignore", captureStdout ? "pipe" : "ignore", "pipe"] });
+    const child = spawnImpl(command, args, { ...options, shell: false, stdio: ["ignore", captureStdout ? "pipe" : "ignore", "pipe"] });
     let stdout = "";
     let stderr = "";
     let settled = false;
@@ -78,7 +78,7 @@ function spawnProcess(command, args, options, { timeoutMs, captureStdout = false
 
 async function inspectMp4(ffprobeBinary, outputPath, timeoutMs, spawnImpl = spawn) {
   const args = ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type,width,height,r_frame_rate,duration:format=format_name,duration", "-of", "json", outputPath];
-  const { stdout } = await spawnProcess(ffprobeBinary, args, { cwd: path.dirname(outputPath) }, { timeoutMs, captureStdout: true });
+  const { stdout } = await spawnProcess(ffprobeBinary, args, { cwd: path.dirname(outputPath) }, { timeoutMs, captureStdout: true }, spawnImpl);
   let data;
   try { data = JSON.parse(stdout); } catch { throw new Error("ffprobe_invalid_json"); }
   const stream = Array.isArray(data.streams) ? data.streams.find((item) => item.codec_type === "video") : null;
@@ -137,17 +137,17 @@ export function createWan22LocalRuntime(options = {}) {
       if (!check.ready) return { state: "blocked", reason: check.reason, executionEnabled: false };
       let command;
       try {
-        command = buildWan22Command({ task, repoRoot: check.repoRoot, checkpointDir: check.checkpointDir, workspaceRoot: check.workspaceRoot, jobId, sceneId, pythonBinary });
+        let resolvedImagePath = null;
         if (task.imagePath) {
           const inputPath = resolveWithinRoot(check.workspaceRoot, task.imagePath);
           const inputRealPath = await realpathImpl(inputPath);
           if (!inputRealPath.startsWith(check.workspaceRoot + path.sep)) return { state: "blocked", reason: "source_image_outside_workspace", executionEnabled: false };
           await accessImpl(inputRealPath);
-          const imageIndex = command.args.indexOf("--image");
-          if (imageIndex >= 0) command.args[imageIndex + 1] = inputRealPath;
+          resolvedImagePath = inputRealPath;
         }
+        command = buildWan22Command({ task, repoRoot: check.repoRoot, checkpointDir: check.checkpointDir, workspaceRoot: check.workspaceRoot, jobId, sceneId, pythonBinary, resolvedImagePath });
         await mkdirImpl(path.dirname(command.outputPath), { recursive: true });
-        await spawnProcess(command.command, command.args, { cwd: command.cwd }, { timeoutMs: generationTimeoutMs, captureStdout: false });
+        await spawnProcess(command.command, command.args, { cwd: command.cwd }, { timeoutMs: generationTimeoutMs, captureStdout: false }, spawnImpl);
         const outputRealPath = await realpathImpl(command.outputPath);
         if (!outputRealPath.startsWith(check.workspaceRoot + path.sep)) throw new Error("generated_output_outside_workspace");
         const outputStat = await statImpl(outputRealPath);
