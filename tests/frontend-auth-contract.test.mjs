@@ -11,7 +11,8 @@ test('frontend routes require a Supabase session before displaying NOVA workspac
   assert.match(app, /useAuth\(\)/);
   assert.match(app, /Navigate to="\/login"/);
   assert.match(app, /if \(!session\)/);
-  assert.match(app, /path="\/login"/g) === false;
+  assert.match(app, /location\.pathname === '\/login'/);
+  assert.doesNotMatch(app, /<Route path="\/login"/);
   assert.match(main, /<AuthProvider>/);
 });
 
