@@ -63,3 +63,27 @@ test("requires each scene to have a supported still-image input", () => {
     ...noImage, scenes: [{ ...noImage.scenes[0], imagePath: "assets/clip.mp4" }],
   }, "/workspace"), /unsupported_scene_image_type/);
 });
+
+import { createProviderRegistry } from "./provider-registry.mjs";
+
+test("provider registry fails closed until license and zero-cost evidence are approved", async () => {
+  const registry = createProviderRegistry();
+  let calls = 0;
+  registry.register({
+    id: "candidate-provider", version: "0.0.1", taskTypes: ["video_generation"],
+    reviewStatus: "research", license: { commercialUse: false }, compute: { zeroCostVerified: false },
+  }, { invoke: async () => { calls += 1; } });
+  assert.equal(registry.list()[0].eligible, false);
+  await assert.rejects(() => registry.invoke("video_generation", {}, { executionEnabled: true }), /approved_zero_cost_provider_unavailable/);
+  await assert.rejects(() => registry.invoke("video_generation", {}, { executionEnabled: false }), /provider_execution_disabled/);
+  assert.equal(calls, 0);
+});
+
+test("provider registry only invokes explicitly approved, zero-cost commercial adapters", async () => {
+  const registry = createProviderRegistry();
+  registry.register({
+    id: "verified-provider", version: "1.0.0", taskTypes: ["video_planning"],
+    reviewStatus: "approved", license: { commercialUse: true }, compute: { zeroCostVerified: true },
+  }, { invoke: async (task, payload) => ({ task, accepted: payload.accepted }) });
+  assert.deepEqual(await registry.invoke("video_planning", { accepted: true }, { executionEnabled: true }), { task: "video_planning", accepted: true });
+});
