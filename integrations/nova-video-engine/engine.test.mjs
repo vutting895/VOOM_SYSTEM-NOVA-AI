@@ -329,6 +329,22 @@ const readyWanRuntimeOptions = (overrides = {}) => ({
   ...overrides,
 });
 
+test("Wan local runtime stays blocked when all caller approval flags are true but process isolation is absent", async () => {
+  let spawned = 0;
+  const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
+    spawnImpl: () => { spawned += 1; throw new Error("must_not_spawn_without_process_isolation"); },
+    hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 24564 }],
+  }));
+  const result = await runtime.render({
+    task: createGenerativeVideoTask({ prompt: "isolation gate regression", durationSeconds: 5 }),
+    jobId: "job-guard", sceneId: "scene-01",
+  });
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "wan22_process_isolation_not_implemented");
+  assert.equal(result.executionEnabled, false);
+  assert.equal(spawned, 0);
+});
+
 test("Wan local runtime checks FREE VRAM rather than total VRAM", async () => {
   const lowFree = createWan22LocalRuntime(readyWanRuntimeOptions({
     hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 23999 }],
