@@ -106,6 +106,10 @@ export function createWan22LocalRuntime(options = {}) {
   const generationTimeoutMs = options.generationTimeoutMs ?? 1_200_000;
   const probeTimeoutMs = options.probeTimeoutMs ?? 30_000;
   const spawnImpl = options.spawnImpl || spawn;
+  const revisionVerifier = options.revisionVerifier || (async (repoPath, expectedRevision) => {
+    const result = await spawnProcess("git", ["rev-parse", "HEAD"], { cwd: repoPath }, { timeoutMs: 15_000, captureStdout: true }, spawnImpl);
+    return result.stdout.trim() === expectedRevision;
+  });
   const accessImpl = options.accessImpl || access;
   const statImpl = options.statImpl || stat;
   const mkdirImpl = options.mkdirImpl || mkdir;
@@ -127,7 +131,10 @@ export function createWan22LocalRuntime(options = {}) {
       const [repoReal, checkpointReal, workspaceReal] = await Promise.all([realpathImpl(repoRoot), realpathImpl(checkpointDir), realpathImpl(workspaceRoot)]);
       const [repoInfo, checkpointInfo] = await Promise.all([statImpl(repoReal), statImpl(checkpointReal)]);
       if (!repoInfo.isDirectory() || !checkpointInfo.isDirectory()) return { ready: false, reason: "wan22_repo_or_checkpoint_not_directory" };
-      return { ready: true, repoRoot: repoReal, checkpointDir: checkpointReal, workspaceRoot: workspaceReal, minimumVramGB: MINIMUM_VRAM_GB };
+      const generateScript = await realpathImpl(path.join(repoReal, "generate.py"));
+      if (!generateScript.startsWith(repoReal + path.sep)) return { ready: false, reason: "wan22_entrypoint_outside_pinned_repo" };
+      if (!(await revisionVerifier(repoReal, modelRevision))) return { ready: false, reason: "wan22_upstream_revision_mismatch" };
+      return { ready: true, repoRoot: repoReal, checkpointDir: checkpointReal, workspaceRoot: workspaceReal, generateScript, minimumVramGB: MINIMUM_VRAM_GB, modelRevision };
     } catch {
       return { ready: false, reason: "wan22_local_repo_or_checkpoint_unavailable" };
     }
@@ -151,6 +158,7 @@ export function createWan22LocalRuntime(options = {}) {
         }
         command = buildWan22Command({ task, repoRoot: check.repoRoot, checkpointDir: check.checkpointDir, workspaceRoot: check.workspaceRoot, jobId, sceneId, pythonBinary, resolvedImagePath });
         await mkdirImpl(path.dirname(command.outputPath), { recursive: true });
+        try { await accessImpl(command.outputPath); return { state: "blocked", reason: "wan22_output_already_exists", executionEnabled: false }; } catch (error) { if (error.code !== "ENOENT") throw error; }
         await spawnProcess(command.command, command.args, { cwd: command.cwd }, { timeoutMs: generationTimeoutMs, captureStdout: false }, spawnImpl);
         const outputRealPath = await realpathImpl(command.outputPath);
         if (!outputRealPath.startsWith(check.workspaceRoot + path.sep)) throw new Error("generated_output_outside_workspace");
