@@ -726,7 +726,7 @@ async function createProductionPlanResponse(request, origin, env) {
 
 async function handle(request, env) {
   const url = new URL(request.url);
-  const match = /^\/api\/video\/(skills|projects|jobs|plan|production-plan)$/.exec(url.pathname);
+  const match = /^\/api\/video\/(skills|projects|jobs|plan|production-plan|preparations|preparation-decisions)$/.exec(url.pathname);
   if (!match) return json({ error: "not_found" }, 404);
 
   const origin = request.headers.get("Origin") || "";
@@ -769,7 +769,17 @@ async function handle(request, env) {
       ? createProductionPlanResponse(request, origin, env)
       : json({ error: "method_not_allowed" }, 405, origin, env);
   }
-  if (resource === "preparations") {\n    return request.method === "GET"\n      ? getJobPreparation(request, env, auth, origin)\n      : createJobPreparation(request, env, auth, origin);\n  }\n  if (resource === "preparation-decisions") {\n    return request.method === "POST"\n      ? createPreparationDecision(request, env, auth, origin)\n      : json({ error: "method_not_allowed" }, 405, origin, env);\n  }\n  if (resource === "projects") {
+  if (resource === "preparations") {
+    return request.method === "GET"
+      ? getJobPreparation(request, env, auth, origin)
+      : createJobPreparation(request, env, auth, origin);
+  }
+  if (resource === "preparation-decisions") {
+    return request.method === "POST"
+      ? createPreparationDecision(request, env, auth, origin)
+      : json({ error: "method_not_allowed" }, 405, origin, env);
+  }
+  if (resource === "projects") {
     return request.method === "GET"
       ? listProjects(env, auth, origin)
       : createProject(request, env, auth, origin);
