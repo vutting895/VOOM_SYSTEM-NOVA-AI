@@ -117,7 +117,11 @@ export async function createFileVideoJobStore(options = {}) {
         const candidate = createVideoJob(input, now);
         const key = candidate.tenantId + ":" + candidate.idempotencyKey;
         const existingId = idempotency.get(key);
-        if (existingId) return { created: false, job: clone(jobs.get(existingId)) };
+        if (existingId) {
+          const existing = jobs.get(existingId);
+          if (existing.projectId !== candidate.projectId || JSON.stringify(existing.request) !== JSON.stringify(candidate.request)) throw new Error("video_job_idempotency_conflict");
+          return { created: false, job: clone(existing) };
+        }
         if (jobs.has(candidate.id)) throw new Error("video_job_id_conflict");
         await append({ type: "job_created", job: candidate });
         jobs.set(candidate.id, clone(candidate));
