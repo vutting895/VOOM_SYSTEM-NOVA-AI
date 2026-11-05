@@ -637,54 +637,6 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
   },
 ];
 
-const ANALYTICS_SERIES: Record<'5D' | '7D' | '1M' | '1Y' | 'All', { points: number[]; labels: string[] }> = {
-  '5D': {
-    points: [
-      48900, 49200, 48850, 49400, 49100, 49850, 50200, 49900, 50600, 50450,
-      51100, 50800, 51400, 51950, 51500, 52100, 51750, 52300, 51850, 51695.58,
-    ],
-    labels: [
-      'Jan 1, 2024',
-      'Jan 5, 2024',
-      'Jan 10, 2024',
-      'Jan 15, 2024',
-      'Jan 20, 2024',
-      'Jan 25, 2024',
-      'Jan 30, 2024',
-      'Feb 5, 2024',
-      'Feb 10, 2024',
-      'Feb 15, 2024',
-    ],
-  },
-  '7D': {
-    points: [
-      48600, 49100, 49500, 49200, 49900, 50300, 50100, 50800, 51200, 50950,
-      51550, 51900, 51600, 52200, 51695.58,
-    ],
-    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
-  },
-  '1M': {
-    points: [
-      47500, 48100, 47900, 48800, 49400, 49100, 50050, 50700, 50400, 51300,
-      51850, 51695.58,
-    ],
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-  },
-  '1Y': {
-    points: [
-      36200, 38400, 40100, 39500, 42300, 44800, 43900, 46700, 48900, 50200,
-      51100, 51695.58,
-    ],
-    labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'],
-  },
-  All: {
-    points: [
-      28000, 32500, 35800, 39200, 41600, 44900, 47300, 49800, 51695.58,
-    ],
-    labels: ['2022', '2023', '2024', '2025', '2026'],
-  },
-};
-
 export default function QuickitMarketFleetView({
   initialTab = 'dashboard',
 }: {
@@ -695,7 +647,6 @@ export default function QuickitMarketFleetView({
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState<'all' | 'crypto' | 'forex'>('crypto');
-  const [analyticsRange, setAnalyticsRange] = useState<'5D' | '7D' | '1M' | '1Y' | 'All'>('5D');
 
   // Package Subscription State ("ให้ผู้ใช้กดเลือกได้เมื่อสมัครแพ็คเกต")
   const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('free');
@@ -1110,39 +1061,6 @@ export default function QuickitMarketFleetView({
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, riskPct: 1.0 })));
     showNotification('ปรับค่า Risk ใน Research Draft ภายในหน้าเว็บเท่านั้น — ไม่มีการ Sync ไปยัง Broker');
   }
-
-  // Compute Portfolio Analytics SVG coordinates (Image 1 middle-right chart)
-  const analyticsChart = useMemo(() => {
-    const data = ANALYTICS_SERIES[analyticsRange];
-    const pts = data.points;
-    const min = 47000;
-    const max = 53500;
-    const width = 760;
-    const height = 220;
-    const padLeft = 18;
-    const padRight = 58;
-    const padTop = 18;
-    const padBottom = 28;
-
-    const coords = pts.map((val, i) => {
-      const x = padLeft + (i / (pts.length - 1)) * (width - padLeft - padRight);
-      const clamped = Math.max(min, Math.min(max, val));
-      const y =
-        height -
-        padBottom -
-        ((clamped - min) / (max - min)) * (height - padTop - padBottom);
-      return { x, y, val };
-    });
-
-    const linePath = coords
-      .map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
-      .join(' ');
-    const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${
-      height - padBottom
-    } L ${coords[0].x.toFixed(1)} ${height - padBottom} Z`;
-
-    return { coords, linePath, areaPath, labels: data.labels, width, height };
-  }, [analyticsRange]);
 
   return (
     <div className="min-h-screen bg-[#090912] text-slate-100 relative overflow-x-hidden selection:bg-purple-500/30 selection:text-white">
