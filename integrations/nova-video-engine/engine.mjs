@@ -23,37 +23,85 @@ export function normalizeVideoBrief(input) {
     const description = asText(scene.description, "scene_" + (index + 1) + "_description", 500);
     const visualPrompt = scene.visualPrompt === undefined ? description : asText(scene.visualPrompt, "scene_" + (index + 1) + "_visual_prompt", 1000);
     const requestedDuration = scene.durationSeconds === undefined ? null : Number(scene.durationSeconds);
-    if (requestedDuration !== null && (!Number.isFinite(requestedDuration) || requestedDuration <= 0)) throw new RangeError("invalid_scene_" + (index + 1) + "_duration");
+    if (requestedDuration !== null && (!Number.isFinite(requestedDuration) || requestedDuration <= 0 || Math.round(requestedDuration * 1000) < 1)) {
+      throw new RangeError("invalid_scene_" + (index + 1) + "_duration");
+    }
     const imagePath = scene.imagePath === undefined ? null : asText(scene.imagePath, "scene_" + (index + 1) + "_image_path", 240);
     return { index, description, visualPrompt, requestedDuration, imagePath };
   });
-  const requestedTotal = scenes.reduce((sum, scene) => sum + (scene.requestedDuration ?? 0), 0);
-  if (scenes.every((scene) => scene.requestedDuration !== null) && Math.abs(requestedTotal - durationSeconds) > 0.01) throw new RangeError("scene_durations_must_match_video_duration");
+
+  // Allocate timing at millisecond precision so the timeline always covers the brief.
+  const totalMs = Math.round(durationSeconds * 1000);
+  const requestedScenes = scenes.filter((scene) => scene.requestedDuration !== null);
+  const requestedTotalMs = requestedScenes.reduce((sum, scene) => sum + Math.round(scene.requestedDuration * 1000), 0);
+  const unspecifiedCount = scenes.length - requestedScenes.length;
+  if (unspecifiedCount > 0 && requestedTotalMs > totalMs) {
+    throw new RangeError("scene_durations_exceed_video_duration");
+  }
+  if (unspecifiedCount === 0 && Math.abs(requestedTotalMs - totalMs) > 10) {
+    throw new RangeError("scene_durations_must_match_video_duration");
+  }
+  if (unspecifiedCount > 0 && totalMs - requestedTotalMs < unspecifiedCount) {
+    throw new RangeError("scene_duration_remainder_too_small");
+  }
   return Object.freeze({ title, aspectRatio, durationSeconds, scenes });
 }
 
 // NOVA-owned deterministic CPU planning; no external model is invoked here.
 export function createStoryboard(briefInput) {
   const brief = normalizeVideoBrief(briefInput);
-  const defaultSceneDuration = brief.durationSeconds / brief.scenes.length;
-  let cursor = 0;
-  const scenes = brief.scenes.map((scene) => {
-    const durationSeconds = scene.requestedDuration ?? defaultSceneDuration;
-    const startSeconds = Number(cursor.toFixed(3));
-    cursor += durationSeconds;
+  const totalMs = Math.round(brief.durationSeconds * 1000);
+  const durationsMs = brief.scenes.map((scene) => scene.requestedDuration === null
+    ? null
+    : Math.round(scene.requestedDuration * 1000));
+  const unspecifiedIndexes = durationsMs.flatMap((duration, index) => duration === null ? [index] : []);
+  const requestedTotalMs = durationsMs.reduce((sum, duration) => sum + (duration ?? 0), 0);
+
+  if (unspecifiedIndexes.length > 0) {
+    const remainingMs = totalMs - requestedTotalMs;
+    const baseMs = Math.floor(remainingMs / unspecifiedIndexes.length);
+    let remainderMs = remainingMs % unspecifiedIndexes.length;
+    for (const index of unspecifiedIndexes) {
+      durationsMs[index] = baseMs + (remainderMs > 0 ? 1 : 0);
+      remainderMs -= remainderMs > 0 ? 1 : 0;
+    }
+  } else {
+    // Preserve user timings within the existing 10 ms validation tolerance,
+    // assigning any rounding difference to the final scene.
+    durationsMs[durationsMs.length - 1] += totalMs - requestedTotalMs;
+  }
+
+  if (durationsMs.some((duration) => !Number.isInteger(duration) || duration <= 0)) {
+    throw new RangeError("scene_duration_allocation_invalid");
+  }
+
+  let cursorMs = 0;
+  const scenes = brief.scenes.map((scene, index) => {
+    const durationMs = durationsMs[index];
+    const startSeconds = cursorMs / 1000;
+    cursorMs += durationMs;
     return Object.freeze({
       sceneId: "scene-" + String(scene.index + 1).padStart(2, "0"),
-      order: scene.index + 1, startSeconds,
-      durationSeconds: Number(durationSeconds.toFixed(3)),
-      endSeconds: Number(cursor.toFixed(3)),
-      description: scene.description, visualPrompt: scene.visualPrompt, imagePath: scene.imagePath,
+      order: scene.index + 1,
+      startSeconds,
+      durationSeconds: durationMs / 1000,
+      endSeconds: cursorMs / 1000,
+      description: scene.description,
+      visualPrompt: scene.visualPrompt,
+      imagePath: scene.imagePath,
     });
   });
   return Object.freeze({
-    engineId: ENGINE_ID, engineVersion: ENGINE_VERSION, title: brief.title,
-    aspectRatio: brief.aspectRatio, durationSeconds: brief.durationSeconds, frameRate: 24,
-    scenes: Object.freeze(scenes), generatedBy: "nova-deterministic-planner",
-    executionEnabled: false, estimatedCost: 0,
+    engineId: ENGINE_ID,
+    engineVersion: ENGINE_VERSION,
+    title: brief.title,
+    aspectRatio: brief.aspectRatio,
+    durationSeconds: totalMs / 1000,
+    frameRate: 24,
+    scenes: Object.freeze(scenes),
+    generatedBy: "nova-deterministic-planner",
+    executionEnabled: false,
+    estimatedCost: 0,
   });
 }
 
