@@ -124,7 +124,7 @@ test("authenticated skills catalog returns 22 free-only, non-executable skills",
         assert.equal(skill.estimatedCost, 0);
       }
     }
-    assert.equal(calls, 1);
+    assert.equal(calls, 0);
   } finally {
     globalThis.fetch = previous;
   }
@@ -546,13 +546,6 @@ function sampleDirectorPlan() {
   };
 }
 
-async function testHash(value) {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(JSON.stringify(value, Object.keys(value).sort())),
-  );
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 test("preparation persists an immutable server-derived Engine snapshot for the owning user", async () => {
   const previous = globalThis.fetch;
