@@ -15,6 +15,10 @@ NOVA owns the control plane, creative planning, story/shot decisions, prompt con
 7. **Quality Control** — timeline continuity, frame count, duration, dimensions, content type, continuity group and safe asset-path checks. Pixel/perceptual checks require FFprobe/frame sampling and an acceptance dataset.
 8. **Delivery** — planned only; private object storage, signed URLs and retention/deletion are blocked pending tenant and backup gates.
 
+## NOVA specialization and data rights
+
+`dataset-governance.mjs` validates dataset provenance, hash declarations, training/commercial-use rights, privacy review, and explicit scopes for identifiable people before an adaptation plan can become ready for manual approval. It does not ingest or upload files and does not train weights. LoRA/adapter training is not promised until the chosen base model documents compatible fine-tuning, derivative rights are confirmed, and compute/dataset rights are proven.
+
 ## Model ownership strategy
 
 - NOVA does not train a new foundation model from scratch in this phase. That requires a licensed dataset, substantial compute, evaluation and ongoing maintenance that cannot be justified under the current zero-cost constraint.
