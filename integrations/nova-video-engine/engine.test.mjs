@@ -420,7 +420,7 @@ test("NOVA media assembler builds multi-scene video with voice, music and soft s
   assert.equal(command.width, 704);
   assert.equal(command.height, 1280);
   assert.equal(command.args.includes("-filter_complex"), true);
-  assert.equal(command.args.includes("amix=inputs=2:duration=longest:dropout_transition=2"), true);
+  assert.equal(command.args.join(";").includes("amix=inputs=2:duration=longest:dropout_transition=2"), true);
   assert.equal(command.args.includes("mov_text"), true);
   assert.equal(command.args.includes("-n"), true);
   assert.equal(command.args.includes("-y"), false);
