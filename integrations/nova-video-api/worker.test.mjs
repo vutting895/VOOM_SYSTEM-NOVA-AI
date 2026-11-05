@@ -858,3 +858,64 @@ test("Video CI validates the OpenAPI 3.1 YAML before syntax checks", () => {
   assert.match(workflow, /Validate OpenAPI YAML syntax/);
   assert.ok(workflow.includes('YAML.safe_load_file("docs/openapi/nova-video-api.yaml"'));
 });
+
+
+test("Production Plan rejects Engine-unsupported square output before Director planning", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input) => {
+    calls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    return authResponse();
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/production-plan", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        title: "Square Product Film",
+        concept: "A ceramic cup",
+        durationSeconds: 15,
+        aspectRatio: "1:1",
+      },
+    }), ENV);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "video_generation_aspect_ratio_unsupported" });
+    assert.equal(calls, 1, "no database, provider or model calls follow unsupported format validation");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("video-generation Job rejects unsupported output formats before database writes", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input) => {
+    calls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    return authResponse();
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/jobs", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        project_id: "123e4567-e89b-42d3-a456-426614174000",
+        task_type: "video_generation",
+        prompt: "Create a square product film",
+        idempotency_key: "video-square-format-01",
+        brief: {
+          title: "Square Product Film",
+          concept: "A ceramic cup",
+          durationSeconds: 15,
+          aspectRatio: "1:1",
+        },
+      },
+    }), ENV);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "video_generation_aspect_ratio_unsupported" });
+    assert.equal(calls, 1, "no PostgREST write occurs for unsupported generation dimensions");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
