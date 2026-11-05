@@ -648,8 +648,8 @@ export default function QuickitMarketFleetView({
   const [searchQuery, setSearchQuery] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState<'all' | 'crypto' | 'forex'>('crypto');
 
-  // Package Subscription State ("ให้ผู้ใช้กดเลือกได้เมื่อสมัครแพ็คเกต")
-  const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('free');
+  // Subscription is preview-only until checkout and entitlement verification exist.
+  const currentPlanId: SubscriptionPlanId = 'free';
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [toastBanner, setToastBanner] = useState<string | null>(null);
 
@@ -766,10 +766,7 @@ export default function QuickitMarketFleetView({
     syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
   }, [loggedInBroker, forexConnectionMode, mt5Server]);
 
-  const currentPlan = useMemo(
-    () => SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[2],
-    [currentPlanId]
-  );
+  const currentPlan = SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[0];
 
   const selectedStrategyObj = useMemo(
     () =>
@@ -978,7 +975,7 @@ export default function QuickitMarketFleetView({
   function handleSelectBotInPackage(botId: string) {
     if (currentPlanId === 'free') {
       setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจ Pro หรือ ระดับ 3 เอลีต เพื่อกดเลือกใช้งานบอท AI');
+      showNotification('SUBSCRIPTION CHECKOUT NOT CONFIGURED — แพ็กเกจยังเป็นตัวอย่าง จึงยังเปิดสิทธิ์ใช้งานบอทไม่ได้');
       return;
     }
 
@@ -1525,7 +1522,7 @@ export default function QuickitMarketFleetView({
                         PRO
                       </span>
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-black/30 text-emerald-300 border border-emerald-400/30">
-                        Active: {currentPlan.badgeText}
+                        Preview tier: {currentPlan.badgeText}
                       </span>
                     </div>
 
@@ -1546,7 +1543,7 @@ export default function QuickitMarketFleetView({
                       onClick={() => setShowPlanModal(true)}
                       className="w-full py-2.5 px-4 rounded-full bg-white text-[#141522] hover:bg-slate-100 text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.99]"
                     >
-                      <span>Upgrade to Pro Plan</span>
+                      <span>ดูแพ็กเกจตัวอย่าง</span>
                       <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                     </button>
 
@@ -1571,6 +1568,11 @@ export default function QuickitMarketFleetView({
                     <p className="mt-1">ยังไม่มี Account History / Equity Curve ที่ผ่านการยืนยัน ระบบจึงไม่แสดงกราฟกำไรขาดทุนตัวอย่างหรือสถิติพอร์ตจำลอง</p>
                   </div>
                 </div>
+              </div>
+
+              <div role="status" className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+                <strong>STATIC SAMPLE TICKER DATA — NOT LIVE MARKET DATA</strong>
+                <p>ราคาและเปอร์เซ็นต์เปลี่ยนแปลงต่อไปนี้เป็นข้อมูลตัวอย่างเท่านั้น ยังไม่มี Market Feed ที่ยืนยันแล้ว</p>
               </div>
 
               {/* BOTTOM ROW: 4 Coin Ticker Cards + "See all coins" Card */}
@@ -1715,7 +1717,7 @@ export default function QuickitMarketFleetView({
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-xs font-bold text-amber-300 transition-colors"
                   >
                     <Crown className="w-3.5 h-3.5" />
-                    <span>สลับ/สมัครแพ็คเกจ ({currentPlan.badgeText})</span>
+                    <span>ดูแพ็กเกจตัวอย่าง ({currentPlan.badgeText})</span>
                   </button>
                 </div>
               </div>
@@ -2456,7 +2458,7 @@ export default function QuickitMarketFleetView({
                                 {isLockedByPlan ? (
                                   <>
                                     <Lock className="w-3 h-3" />
-                                    <span>สมัครแพ็คเกจเพื่อเลือกบอทนี้</span>
+                                    <span>สิทธิ์แพ็กเกจยังไม่พร้อม — Checkout ยังไม่เชื่อมต่อ</span>
                                   </>
                                 ) : bot.selectedInPackage ? (
                                   <>
@@ -2769,13 +2771,13 @@ export default function QuickitMarketFleetView({
               <div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-xs font-bold text-purple-300">
                   <Crown className="w-3.5 h-3.5 text-amber-400" />
-                  Subscription Packages • เลือกแพ็คเกจเพื่อปลดล็อกกองทัพ AI
+                  Subscription Preview • ตัวอย่างแผนบริการเท่านั้น
                 </span>
                 <h2 className="mt-2 text-2xl font-extrabold text-white">
-                  เลือกแพ็คเกจสำหรับใช้งาน AI Auto Trading Fleet ในตลาด
+                  ดูตัวอย่างระดับแพ็กเกจของ NOVA
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  เมื่อสมัครแพ็คเกจแล้ว คุณสามารถเลือกคู่เงินจาก Broker ที่ Login แล้วเลือกกลยุทธ์ AI เพื่อสั่งเทรดอัตโนมัติได้ทันที
+                  ระบบ Checkout, การชำระเงิน และการยืนยันสิทธิ์สมาชิกยังไม่ได้เชื่อมต่อ การเลือกแผนด้านล่างจะไม่สมัครสมาชิกหรือเปิดใช้งานการเทรด
                 </p>
               </div>
               <button
@@ -2835,11 +2837,9 @@ export default function QuickitMarketFleetView({
                     <button
                       type="button"
                       onClick={() => {
-                        setCurrentPlanId(plan.id);
                         setShowPlanModal(false);
-                        setActiveTab('market');
                         showNotification(
-                          `🎉 สมัครและเปิดใช้งาน "${plan.name}" สำเร็จ! เลือกคู่เงินจาก Broker และกลยุทธ์ในหน้า Market ได้เลย`
+                          `SUBSCRIPTION CHECKOUT NOT CONFIGURED — "${plan.name}" เป็นเพียงแผนตัวอย่าง; ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก`
                         );
                       }}
                       className={`mt-6 w-full py-2.5 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
@@ -2848,7 +2848,7 @@ export default function QuickitMarketFleetView({
                           : 'bg-white text-[#141522] hover:bg-slate-200'
                       }`}
                     >
-                      {isCurrent ? 'ใช้งานแพ็คเกจนี้ต่อในหน้า Market →' : `สมัคร ${plan.name} →`}
+                      {isCurrent ? 'แพ็กเกจตัวอย่างปัจจุบัน (ยังไม่สมัครสมาชิก)' : `ดูตัวอย่าง ${plan.name}`}
                     </button>
                   </div>
                 );
