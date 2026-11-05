@@ -93,7 +93,7 @@ test("validates successful and accepted response envelopes", () => {
     assert.equal(validateProjectResponse(response, request().request_id).valid, true);
   }
 });
-test("rejects response correlation, provenance, and error/result ambiguity", () => {
+test("rejects response correlation, provenance, error/result ambiguity, and extra error fields", () => {
   const base = {
     schema: NOVA_PROJECT_RESPONSE_SCHEMA, request_id: request().request_id, status: "ok",
     data_timestamp: null, provenance: { source: "test", version: "1", checksum: null }, result: {},
@@ -101,5 +101,6 @@ test("rejects response correlation, provenance, and error/result ambiguity", () 
   assert.equal(validateProjectResponse({ ...base, request_id: "wrong" }, request().request_id).reason, "response_request_id_mismatch");
   assert.equal(validateProjectResponse({ ...base, provenance: { source: "test", version: "1", secret: "x" } }, request().request_id).reason, "response_provenance_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", error: { code: "failed", message: "No data" } }, request().request_id).reason, "response_error_invalid");
+  assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data", secret: "leak" } }, request().request_id).reason, "response_error_invalid");
   assert.equal(validateProjectResponse({ ...base, status: "error", result: undefined, error: { code: "failed", message: "No data" } }, request().request_id).valid, true);
 });
