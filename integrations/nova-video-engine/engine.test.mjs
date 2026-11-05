@@ -455,3 +455,23 @@ test("NOVA media assembler rejects unsafe or incomplete source clips", () => {
   assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.map((asset, index) => index === 0 ? { ...asset, assetPath: "../escape.mp4" } : asset), workspaceRoot: "/workspace", jobId: "job-1" }), /assembly_assets_invalid/);
   assert.throws(() => buildNOVAAssemblyCommand({ plan, assets, workspaceRoot: "/workspace", jobId: "job-1", voiceoverPath: "../secret.wav" }), /invalid_voiceover/);
 });
+
+test("media assembler never deletes a pre-existing user output when refusing overwrite", async () => {
+  const plan = createDirectorPlan(creativeBrief);
+  const assets = plan.scenes.map((scene) => ({
+    sceneId: scene.sceneId, assetPath: "jobs/job-1/" + scene.sceneId + ".mp4", contentType: "video/mp4",
+    width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
+  }));
+  const removed = [];
+  const assembler = createNOVAMediaAssembler({
+    workspaceRoot: "/workspace", executionEnabled: true, approvalGranted: true,
+    mkdirImpl: async () => {}, realpathImpl: async (value) => value,
+    accessImpl: async (value) => { if (value === "/workspace/jobs/job-1/final.mp4") return; },
+    unlinkImpl: async (value) => { removed.push(value); },
+    spawnImpl: () => { throw new Error("ffmpeg_must_not_start"); },
+  });
+  const result = await assembler.assemble({ jobId: "job-1", plan, assets });
+  assert.equal(result.state, "failed");
+  assert.equal(result.reason, "assembly_output_already_exists");
+  assert.deepEqual(removed, []);
+});
