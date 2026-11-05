@@ -95,6 +95,56 @@ paths:
                   explanation: { type: string }
         '400': { description: Invalid creative brief }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/video/production-plan:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    post:
+      summary: Project a NOVA Director timeline into Engine task contracts
+      description: >
+        Authenticated CPU-only planning. Creates per-scene generation task contracts and
+        approval, assembly, quality-control and delivery dependencies. Every generation task
+        remains blocked without verified zero-cost GPU capacity. No model, GPU, worker,
+        database or media storage is invoked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, concept]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 120 }
+                concept: { type: string, minLength: 1, maxLength: 1200 }
+                audience: { type: string, maxLength: 240 }
+                platform: { type: string, maxLength: 120 }
+                language: { type: string, maxLength: 32 }
+                style: { type: string, maxLength: 240 }
+                callToAction: { type: string, maxLength: 240 }
+                durationSeconds: { type: number, minimum: 3, maximum: 60, default: 15 }
+                aspectRatio: { type: string, enum: ["9:16", "16:9", "1:1"] }
+                goal: { type: string, enum: [product_ad, explainer, story, brand_film] }
+                verifiedFacts: { type: array, maxItems: 12, items: { type: string, maxLength: 240 } }
+                mustAvoid: { type: array, maxItems: 20, items: { type: string, maxLength: 160 } }
+      responses:
+        '200':
+          description: Non-executable Engine production plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [productionPlan, executionEnabled, estimatedCost, requiresHumanApproval]
+                properties:
+                  productionPlan: { type: object }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  requiresHumanApproval: { const: true }
+                  explanation: { type: string }
+        '400': { description: Invalid creative brief or Director timeline }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/video/projects:
     options:
       security: []
