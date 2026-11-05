@@ -10,6 +10,7 @@ const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
+const quickit = read('src/components/QuickitMarketFleetView.tsx');
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
 function section(source, startMarker, endMarker) {
@@ -127,4 +128,32 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
+});
+
+
+test('customer Trading Dashboard labels sample data honestly and remains Demo read-only / non-executable', () => {
+  assert.doesNotMatch(quickit, /23908764|51092841|BN-88412|BY-51902|Exness-MT5Real14|EXN-ED25519/i);
+  assert.doesNotMatch(quickit, /Broker Session Connected|MT5 Python Bridge Connected|Direct Ed25519 REST v1 Verified/i);
+  assert.doesNotMatch(quickit, /\/api\/mt5-bridge\/toggle/);
+  assert.match(quickit, /STATIC SAMPLE DATA — NOT LIVE MARKET DATA/);
+  assert.match(quickit, /NOVA RESEARCH PREVIEW · LIVE TRADING OFF/);
+  assert.match(quickit, /data\.connected === true/);
+  assert.match(quickit, /data\.accountConnected === true/);
+  assert.match(quickit, /data\.environment === 'demo'/);
+  assert.match(quickit, /data\.ordersEnabled === false/);
+  assert.match(quickit, /data\.executionEnabled === false/);
+  assert.match(quickit, /data\.liveTradingEnabled === false/);
+  assert.match(quickit, /data\.dataStatus !== 'static-sample-unverified'/);
+
+  const initialFleet = section(quickit, 'const INITIAL_FLEET_BOTS:', '\\n];');
+  assert.doesNotMatch(initialFleet, /running: true|autoTradeEnabled: true|selectedInPackage: true/);
+  assert.doesNotMatch(initialFleet, /todayPnlBaht: -?\\d+|winRatePct: (?!0\\b)\\d|profitFactor: (?!0\\b)\\d|totalTrades: (?!0\\b)\\d/);
+  assert.match(initialFleet, /No verified position/);
+  assert.match(initialFleet, /RESEARCH PREVIEW ONLY/);
+
+  const startHandler = section(quickit, 'function handleStartAllFleet()', 'function handleEmergencyStopAll()');
+  assert.match(startHandler, /LIVE TRADING OFF/);
+  const singleStartHandler = section(quickit, 'function handleToggleBotRun', 'function handleStartAllFleet()');
+  assert.match(singleStartHandler, /if \(shouldRun\)/);
+  assert.match(singleStartHandler, /LIVE TRADING OFF/);
 });
