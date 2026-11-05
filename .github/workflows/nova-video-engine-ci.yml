@@ -36,3 +36,4 @@ jobs:
           node --check integrations/nova-video-engine/dataset-governance.mjs
           node --check integrations/nova-video-engine/file-job-store.mjs
           node --check integrations/nova-video-engine/media-assembler.mjs
+          node --check integrations/nova-video-engine/video-job-service.mjs
