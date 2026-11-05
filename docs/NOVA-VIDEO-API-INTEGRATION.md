@@ -114,7 +114,7 @@ if (!decisionResponse.ok) throw new Error("Approval could not be recorded");
 const decision = await decisionResponse.json();
 ```
 
-There is one immutable preparation per job and one append-only decision per preparation. If the brief changes, create a new job and a new preparation. A conflicting second decision returns `409`.
+There is one immutable preparation per job and one append-only decision per preparation. If the brief changes, create a new job and a new preparation. A conflicting second decision returns `409`.\n\nThe Worker derives these records from the saved job and binds decisions to the snapshot hash. However, the current RLS design still grants the authenticated user direct `INSERT` on the preparation and decision tables. RLS prevents cross-tenant inserts and rows cannot be updated/deleted by the authenticated role, but it cannot prove that a row was created through the Worker rather than direct PostgREST. This is a known trust-boundary blocker for any future execution path. Before generation can be unlocked, direct client inserts must be removed and replaced with a reviewed server-only write identity or a cryptographically verified signature. No such secret or privileged write path is configured now.
 
 **An approval does not enable rendering.** The job remains `blocked_no_free_gpu`, `executionEnabled=false` and `estimatedCost=0`. The response also keeps explicit blockers for verified zero-cost GPU capacity and disabled worker dispatch. The future execution service must independently validate the snapshot and all compute/license/security gates.
 
