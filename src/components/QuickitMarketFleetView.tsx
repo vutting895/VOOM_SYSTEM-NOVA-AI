@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Activity,
   ArrowRight,
@@ -1248,6 +1249,14 @@ export default function QuickitMarketFleetView({
                   );
                 })}
               </nav>
+              <Link
+                to="/video"
+                className="inline-flex items-center gap-1.5 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 transition hover:bg-cyan-500/20"
+                aria-label="Open NOVA Video Director Studio"
+              >
+                <span>🎬</span>
+                <span className="hidden sm:inline">Video Studio</span>
+              </Link>
             </div>
 
             {/* Right: Search Bar + Logged-in Broker Status + Package Status + Bell + Avatar */}
