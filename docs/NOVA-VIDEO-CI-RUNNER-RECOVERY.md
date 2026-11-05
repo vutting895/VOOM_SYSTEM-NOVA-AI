@@ -3,12 +3,15 @@
 ## Verified observations (2026-11-05)
 
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI` (private).
-- Latest verified PR #215 head at time of this note: `f07ad6e99ab5a179ed1bb08ee16061541b4c556b`.
-- On exact PR #215 head `f07ad6e99ab5a179ed1bb08ee16061541b4c556b`, API, Engine Core, Frontend and Migration jobs failed before any step ran:
-  - Engine Core [#42073008898](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073008898)
-  - Video API [#42073008741](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073008741)
-  - Frontend [#42073008763](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073008763)
-  - Migration [#42073008685](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073008685)
+- Latest verified PR #215 head at time of this note: `6936c217423389c09672ed4c36002b41e51a31eb`.
+- On exact PR #215 head `6936c217423389c09672ed4c36002b41e51a31eb`, API, Engine Core, Frontend and Migration jobs failed before any step ran:
+  - Engine Core [#42073987413](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987413)
+  - Video API [#42073987423](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987423)
+  - Frontend [#42073987415](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987415)
+  - Migration [#42073987405](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987405)
+- All four exact-head job records have no step entries; direct log requests return `BlobNotFound`. These runs do not validate the new Wan path, free-VRAM or hard process-isolation gate tests.
+- Exact-head Netlify Deploy Preview [`6aecbb51b9fe83b2021cfbf6`](https://app.netlify.com/sites/b6a30a12-d976-464b-8d83-c59809519ef2/deploys/6aecbb51b9fe83b2021cfbf6) has `commit_ref=6936c217423389c09672ed4c36002b41e51a31eb` but was still `new` at the latest read; Preview is not READY.
+- Wan hardening in this head: check 24,000 MiB **free** VRAM (not total), validate every output-directory component before generation, and a hard-coded `WAN22_PROCESS_ISOLATION_IMPLEMENTED=false` gate that blocks inference regardless of caller flags. Regression tests were added, but no exact-head CI run has executed their steps yet.
 - GitHub REST job records returned `runner_id: 0`, `runner_name: ""`, and `steps: []`. API/Engine/Migration jobs completed within roughly 2–3 seconds of being created. The Actions job-log endpoint returned `BlobNotFound`; no step-level error text was available.
 - GitHub's public status page reported Actions Operational and no incident on November 5, 2026.
 - The GitHub connector confirms repository Admin/Push permissions for the authenticated owner, but cannot read the account's private Billing usage or spending-limit screen.
@@ -39,6 +42,13 @@ If a trusted machine is made available:
 - Do not run untrusted fork code or arbitrary externally supplied PR workflows on a persistent machine.
 - Do not upload secrets, workspace dumps, caches containing secrets, or user media as CI artifacts.
 - Keep model download, GPU inference, media upload, deployment and Production migrations out of CI.
+
+## Current exact-head safety state
+
+- PR #215 remains OPEN / DRAFT on exact head `6936c217423389c09672ed4c36002b41e51a31eb`, based on main `6e8d390ac45187fb70b6acb23f1e428a20ca7006`.
+- Wan local runtime now uses free-memory threshold, validates output-directory symlink/permissions before provider spawn, and hard-blocks all inference with `wan22_process_isolation_not_implemented`. This hard block must remain until an ephemeral sandbox with process-tree termination, CPU/RAM/GPU limits, disk quotas, and network/credential isolation has been implemented and verified.
+- The migration `20261105143000_nova_video_preparation_approval.sql` is a staging candidate only. Production migration history reconciliation and encrypted backup/restore have not been passed. Do not apply it.
+- Netlify Preview is Frontend-only; it does not publish the Cloudflare Worker or validate API routes.
 
 ## NOVA Video release gate
 
