@@ -145,7 +145,39 @@ A healthy process, open port, successful ping or generic health endpoint is not 
 5. Run one isolated CPU-only Trading research job and one Video Engine contract-test job.
 6. Review evidence before considering any runtime or hosting change.
 
-## 8. Definition of done
+## 8. Project update reconciliation — 2026-11-05
+
+The following open PRs were visible during the latest repository review. These are parallel project changes, not merged main-branch capabilities:
+
+| PR | Current scope/evidence | Cloud-first consequence |
+|---|---|---|
+| #226 | Linux path portability audit. Exact-head Frontend CI run 42023750031 passed, including path audit, tests, existing Node/Python contracts, Wrangler dry-runs and Vite build. Netlify production smoke test was skipped as expected for a PR. | First concrete Linux compatibility gate is green; still does not prove all subsystems are portable. |
+| #225 | NOVA Project Contract v1; dedicated contract CI run 42023704572 passed. Its Frontend CI run 42023704611 was cancelled. Contract validates payload shape and server-owned project metadata only. | Project integration contract is a candidate, not yet an authenticated runtime boundary. Reconcile with #217/#218 before adoption. |
+| #222 | CPU-first Video Engine Core plans scenes, workflow DAG and safe FFmpeg argument vectors. Its declared generation/export states remain blocked. | Suitable for CPU/Linux planning and contract tests only; not evidence of actual video rendering or inference. |
+| #221 | NOVA-owned Video Engine Core; exact-head run 42021722349 passed 34 tests. Actual model inference is disabled; no verified free GPU/checkpoint. | Separate Linux CI can validate the engine contracts; actual Wan inference remains blocked. |
+| #216 | Synthetic auto-training claims disabled; exact-head CI and Preview evidence are recorded in its PR. | Daily training remains unconfigured until authenticated data, lineage, reproducibility and out-of-sample gates exist. |
+| #220 | Video migration runbook identifies unreconciled Supabase Production migration history and missing encrypted backup/restore evidence. | Do not apply Video or other Supabase migrations as part of Linux migration. |
+
+### Newly confirmed reproducibility gap
+
+The repository-root `package.json` has no corresponding root `package-lock.json`. The current root Frontend CI installs with `npm install --no-package-lock --include=dev`, so successful Ubuntu builds prove compatibility for that run but do **not** prove deterministic dependency resolution.
+
+This is now an explicit Phase A blocker. The next safe implementation slice should create and review a root lockfile from the current package manifest in a clean Ubuntu environment, then switch only the root install step to `npm ci` after exact-head tests pass. Do not blindly generate or commit a lockfile from the full Windows workstation, and do not combine dependency upgrades with the lockfile change.
+
+### Current migration evidence
+
+- Main remains `6e8d390ac45187fb70b6acb23f1e428a20ca7006` at this review.
+- PR #226 head `519ba67fbd590bc02c9a303b47e2b2516d096019`; compare: 4 commits ahead, 0 behind.
+- PR #224 contains only this migration plan; compare: 1 commit ahead, 0 behind.
+- PR #224 and #226 have no submitted reviews or inline review threads at this review.
+- PR #226 exact-head Frontend CI: run `42023750031` SUCCESS; the production smoke job was skipped for the PR event.
+- No merge, production deploy, Worker publication, hosted setting, secret, schema or data change is authorized by this migration plan.
+
+## 9. Definition of done
+
+The workstation is no longer required for routine NOVA development when a clean Ubuntu runner can reproduce install, test, build and package steps for every in-scope subsystem; PR evidence is exact-head and reproducible; no local Windows-only dependency remains except the explicitly isolated MT5 bridge; and rollback to the existing hosted services is documented and tested.
+
+This plan is a controlled migration proposal. It does not claim that a Linux VM, production runtime, MT5 replacement, automatic training, AI video generation or quantum advantage is already running.
 
 The workstation is no longer required for routine NOVA development when a clean Ubuntu runner can reproduce install, test, build and package steps for every in-scope subsystem; PR evidence is exact-head and reproducible; no local Windows-only dependency remains except the explicitly isolated MT5 bridge; and rollback to the existing hosted services is documented and tested.
 
