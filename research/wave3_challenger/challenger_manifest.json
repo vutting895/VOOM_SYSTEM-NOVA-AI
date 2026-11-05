@@ -1,0 +1,186 @@
+{
+  "schema_version": "nova.wave3.challenger.manifest.v1",
+  "status": "research_only_cost_gated",
+  "benchmark": {
+    "frozen": true,
+    "pr_number": 66,
+    "branch": "feature/wave3-hybrid-backtest-20261029",
+    "head_sha": "507b2949e3fa1861f25262cc330fb84a28c96f3d",
+    "strategy_version": "6.2.6.3",
+    "do_not_modify": true
+  },
+  "data": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "source_branch": "feature/wave3-hybrid-backtest-20261029",
+    "source_commit": "507b2949e3fa1861f25262cc330fb84a28c96f3d",
+    "sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "timezone": "UTC",
+    "account_mode": "DEMO",
+    "server": "Exness-MT5Trial7",
+    "first_bar_utc": "2022-07-21T00:00:00Z",
+    "last_closed_bar_utc": "2026-10-29T16:45:00Z",
+    "pre_oos_training_pool_end_exclusive_utc": "2026-07-01T00:00:00Z"
+  },
+  "fvg_comparison": {
+    "status": "awaiting_exact_head_ubuntu_event_count_run",
+    "code": "research/wave3_challenger/compare_fvg_training_inner.py",
+    "report_expected": "wave3-fvg-training-inner-comparison",
+    "definitions": [
+      {
+        "id": "first_touch_only",
+        "rule": "One event at the first post-confirmation candle-range overlap with the active latest bullish FVG."
+      },
+      {
+        "id": "first_full_mitigation_only",
+        "rule": "One event at the first post-confirmation candle whose low reaches or crosses the lower gap boundary; later retouches do not reactivate the event."
+      },
+      {
+        "id": "repeat_touch_within_48",
+        "rule": "Every candle-range overlap with the active latest bullish FVG at ages 1 through 48 bars."
+      }
+    ],
+    "windows": {
+      "pre_oos_training_pool_end_exclusive_utc": "2026-07-01T00:00:00Z",
+      "inner_walk_forward_validation": [
+        {
+          "name": "inner_fold_1_validation",
+          "start_utc": "2024-12-30T23:45:00Z",
+          "end_exclusive_utc": "2025-07-07T02:45:00Z",
+          "purge_bars": 12
+        },
+        {
+          "name": "inner_fold_2_validation",
+          "start_utc": "2025-10-14T00:30:00Z",
+          "end_exclusive_utc": "2026-04-21T01:30:00Z",
+          "purge_bars": 12
+        }
+      ]
+    },
+    "selection": {
+      "winner": null,
+      "selection_basis": "Counts and inner-fold stability are diagnostics only. No winner may be selected until pre-OOS outcome labels and verified costs are available.",
+      "final_oos_rows_parsed": 0,
+      "final_oos_used": false,
+      "model_training_started": false
+    }
+  },
+  "first_hit_labels": {
+    "builder": "research/wave3_challenger/first_hit_labels.py",
+    "status": "blocked_pending_verified_commission_and_historical_swap_model",
+    "label_generation_enabled": false,
+    "settings": {
+      "direction": "BUY",
+      "stop_distance_price_units": 5,
+      "target_distance_price_units": 11,
+      "max_hold_bars": 12,
+      "lots": 0.01,
+      "contract_size": 100,
+      "slippage_price_per_side": 0.02,
+      "spread_source": "per-closed-MT5-bar recorded spread"
+    },
+    "commission": {
+      "status": "unverified_for_connected_account_and_XAUUSDm",
+      "terminal_evidence": {
+        "captured_at_utc": "2026-11-05T15:55:19.498191Z",
+        "company": "Exness Technologies Ltd",
+        "server": "Exness-MT5Trial7",
+        "account_mode": "DEMO",
+        "currency": "USD",
+        "xauusdm_deals_in_history_window": 2,
+        "distinct_positions": 1,
+        "entries": 1,
+        "exits": 1,
+        "entry_volume_lots": 0.01,
+        "exit_volume_lots": 0.01,
+        "commission_sum_usd": 0,
+        "swap_sum_usd": 0,
+        "interpretation": "One round trip with zero booked charges is insufficient to establish account type, commission-free status, or a historical schedule."
+      },
+      "official_public_specs_reference_only": {
+        "source": "https://get.exness.help/hc/en-us/articles/17854173039388-Commodities",
+        "xauusd_raw_spread_usd_per_lot_per_side": 3.5,
+        "xauusd_zero_usd_per_lot_per_side": 5.5,
+        "symbol_mapping_to_xauusdm_verified": false,
+        "connected_account_type_verified": false,
+        "applied_to_labels": false
+      }
+    },
+    "swap_rollover": {
+      "status": "current_snapshot_verified_historical_schedule_unverified",
+      "current_snapshot": {
+        "captured_at_utc": "2026-11-05T15:55:19.498191Z",
+        "symbol": "XAUUSDm",
+        "swap_mode": 1,
+        "swap_mode_interpretation": "points",
+        "point": 0.001,
+        "trade_tick_size": 0.001,
+        "trade_tick_value_usd_per_lot": 0.1,
+        "swap_long_points": -630.6,
+        "swap_short_points": 0,
+        "triple_rollover_enum": 3,
+        "triple_rollover_day": "Wednesday",
+        "currency_profit": "USD",
+        "estimates_for_0_01_lot_usd": {
+          "long_standard_rollover": -0.6306,
+          "long_wednesday_triple_rollover": -1.8918,
+          "short_standard_rollover": 0
+        }
+      },
+      "previous_market_export_snapshot": {
+        "captured_at_utc": "2026-10-29T17:45:10.707919Z",
+        "swap_long_points": -492,
+        "swap_short_points": 0,
+        "triple_rollover_day": "Wednesday"
+      },
+      "official_timing": {
+        "summer_rollover_utc": "21:00",
+        "winter_rollover_utc": "22:00",
+        "metals_triple_swap_day": "Wednesday",
+        "holiday_schedule_may_adjust": true,
+        "source": "https://get.exness.help/hc/en-us/articles/360014709151-About-swap"
+      },
+      "limitation": "The current swap rate changed from the prior export snapshot. No timestamped historical swap schedule or historical swap-free status has been verified; do not apply the current snapshot across the full dataset."
+    }
+  },
+  "future_holdout": {
+    "status": "preregistered_sealed_not_yet_observed",
+    "sealed": true,
+    "start_utc": "2026-11-06T00:00:00Z",
+    "end_exclusive_utc": "2027-05-06T00:00:00Z",
+    "access_not_before_utc": "2027-05-07T00:00:00Z",
+    "sampling_rule": "Fixed six-calendar-month interval. No extension, early stop, or window shift based on observed outcomes.",
+    "minimum_closed_trades": 30,
+    "acceptance": [
+      "At least 30 closed trades; fewer means the holdout gate fails without extension.",
+      "Positive net profit after verified spread, commission, swap/rollover and slippage.",
+      "Profit factor greater than 1.0.",
+      "Inner-fold robustness and full source/model provenance.",
+      "One-time unseal after the window closes and all preconditions are frozen."
+    ],
+    "forbidden_historical_window": {
+      "start_utc": "2026-07-01T00:00:00Z",
+      "end_exclusive_utc": "2026-11-06T00:00:00Z",
+      "reason": "Previously inspected historical Final OOS period; never reuse for challenger selection or the new final holdout."
+    },
+    "daily_capture": {
+      "status": "not_verified",
+      "source": "Exness MT5 Demo read-only XAUUSDm M15 closed bars",
+      "no_synthetic_fill": true,
+      "missing_bars_fail_closed": true,
+      "immutable_daily_hash_required": true,
+      "training_on_holdout_prohibited": true
+    }
+  },
+  "safety": {
+    "research_only": true,
+    "frozen_benchmark_modified": false,
+    "final_oos_used_for_selection": false,
+    "model_training_started": false,
+    "label_generation_enabled": false,
+    "orders_submitted": false,
+    "execution_enabled": false,
+    "live_trading_enabled": false
+  }
+}

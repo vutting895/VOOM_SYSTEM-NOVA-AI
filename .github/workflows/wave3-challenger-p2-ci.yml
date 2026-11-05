@@ -7,6 +7,11 @@ on:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
       - "tests/test_wave3_challenger_fvg_events.py"
+      - "research/wave3_challenger/compare_fvg_training_inner.py"
+      - "research/wave3_challenger/challenger_manifest.json"
+      - "tests/test_wave3_challenger_fvg_comparison.py"
+      - "tests/test_wave3_challenger_manifest.py"
+      - "docs/WAVE3_EXNESS_DEMO_COST_EVIDENCE_20261105.md"
       - "docs/WAVE3_POSITIVE_EDGE_REDESIGN.md"
       - ".github/workflows/wave3-challenger-p2-ci.yml"
   push:
@@ -16,6 +21,11 @@ on:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
       - "tests/test_wave3_challenger_fvg_events.py"
+      - "research/wave3_challenger/compare_fvg_training_inner.py"
+      - "research/wave3_challenger/challenger_manifest.json"
+      - "tests/test_wave3_challenger_fvg_comparison.py"
+      - "tests/test_wave3_challenger_manifest.py"
+      - "docs/WAVE3_EXNESS_DEMO_COST_EVIDENCE_20261105.md"
       - "docs/WAVE3_POSITIVE_EDGE_REDESIGN.md"
       - ".github/workflows/wave3-challenger-p2-ci.yml"
 
@@ -40,3 +50,45 @@ jobs:
         run: python -m unittest discover -s tests -p "test_wave3_challenger_first_hit_labels.py" -v
       - name: Run isolated challenger P1 FVG semantics tests
         run: python -m unittest discover -s tests -p "test_wave3_challenger_fvg_events.py" -v
+
+  fvg-training-inner-comparison:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout challenger code at exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: challenger
+          persist-credentials: false
+      - name: Checkout immutable Exness Demo dataset snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: 507b2949e3fa1861f25262cc330fb84a28c96f3d
+          path: benchmark-data
+          persist-credentials: false
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run isolated challenger tests
+        working-directory: challenger
+        run: |
+          python -m py_compile research/wave3_challenger/fvg_events.py research/wave3_challenger/compare_fvg_training_inner.py
+          python -m unittest discover -s tests -p "test_wave3_challenger_fvg_*.py" -v
+          python -m unittest discover -s tests -p "test_wave3_challenger_manifest.py" -v
+      - name: Compare FVG definitions on pre-OOS training and inner folds only
+        working-directory: challenger
+        run: |
+          python research/wave3_challenger/compare_fvg_training_inner.py \
+            --bars-csv ../benchmark-data/datasets/exness-demo/XAUUSDm_M15_2022-2026.csv \
+            --metadata-json ../benchmark-data/datasets/exness-demo/metadata.json \
+            --output reports/wave3_fvg_training_inner_comparison.json
+      - name: Upload aggregate event-count comparison only
+        uses: actions/upload-artifact@v4
+        with:
+          name: wave3-fvg-training-inner-comparison
+          path: challenger/reports/wave3_fvg_training_inner_comparison.json
+          if-no-files-found: error
+          retention-days: 7
