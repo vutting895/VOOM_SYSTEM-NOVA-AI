@@ -25,7 +25,7 @@ const env = {
   SUPABASE_URL: supabaseUrl,
   SUPABASE_PUBLISHABLE_KEY: publishableKey,
   ALLOWED_ORIGINS: origin,
-  MT5_READONLY_PROXY_URL: "https://voom-mt5-readonly-proxy.suwapat787.workers.dev",
+  MT5_READONLY_PROXY_URL: "https://must-not-be-called.invalid",
 };
 
 async function requestJson(url, options = {}) {
