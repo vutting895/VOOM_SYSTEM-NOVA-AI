@@ -325,9 +325,10 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [decision, executionEnabled, estimatedCost, jobStatus]
+                required: [decision, humanApprovalStatus, executionEnabled, estimatedCost, jobStatus]
                 properties:
                   decision: { $ref: '#/components/schemas/ApprovalDecision' }
+                  humanApprovalStatus: { type: string, enum: [approved, rejected] }
                   idempotentReplay: { type: boolean }
                   jobStatus: { const: blocked_no_free_gpu }
                   executionEnabled: { const: false }
