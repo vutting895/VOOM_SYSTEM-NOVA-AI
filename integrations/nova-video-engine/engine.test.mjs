@@ -296,3 +296,11 @@ test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", asy
   const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, hardware: { verified: true, availableVramGB: 16 } });
   assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
 });
+
+test("Wan local runtime requires a pinned upstream revision and verified checkpoint integrity", async () => {
+  const runtime = createWan22LocalRuntime({
+    executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true,
+    zeroCostComputeVerified: true, hardware: { verified: true, availableVramGB: 24 },
+  });
+  assert.equal((await runtime.preflight()).reason, "wan22_upstream_revision_not_pinned");
+});
