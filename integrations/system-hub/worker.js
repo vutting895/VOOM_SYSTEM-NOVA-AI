@@ -176,6 +176,9 @@ async function createConnection(request, env, user, origin) {
   if (!existingResult.ok) {
     return json({ error: existingResult.error }, existingResult.status, origin, env);
   }
+  if (!existingResult.rows.every((row) => row.user_id === user.userId)) {
+    return json({ error: "tenant_scope_violation" }, 403, origin, env);
+  }
   const existing = existingResult.rows.find((row) => row.provider === "exness_mt5" && row.environment === "demo");
   if (existing) {
     return json({
@@ -235,6 +238,9 @@ async function createConnection(request, env, user, origin) {
   // rather than returning a duplicate or retrying an uncertain write.
   const raced = await queryOwnConnections(env, user);
   if (raced.ok) {
+    if (!raced.rows.every((item) => item.user_id === user.userId)) {
+      return json({ error: "tenant_scope_violation" }, 403, origin, env);
+    }
     const row = raced.rows.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
     if (row) {
       return json({
