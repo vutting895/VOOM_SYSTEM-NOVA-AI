@@ -32,3 +32,4 @@ jobs:
           node --check integrations/nova-video-engine/job-lifecycle.mjs
           node --check integrations/nova-video-engine/quality-control.mjs
           node --check integrations/nova-video-engine/pipeline-orchestrator.mjs
+          node --check integrations/nova-video-engine/wan22-local-runtime.mjs
