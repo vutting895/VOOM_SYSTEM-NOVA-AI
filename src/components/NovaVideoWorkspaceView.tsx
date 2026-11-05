@@ -13,7 +13,7 @@ import { createDirectorPlan } from '../../integrations/nova-video-engine/directo
 import { createVideoProductionPlan } from '../../integrations/nova-video-api/video-production-planner.js';
 
 type CreativeGoal = 'product_ad' | 'explainer' | 'story' | 'brand_film';
-type AspectRatio = '9:16' | '16:9' | '1:1';
+type AspectRatio = '9:16' | '16:9';
 
 interface CreativeBrief {
   title: string;
@@ -131,7 +131,8 @@ function safeFileName(value: string): string {
 }
 
 function downloadJson(filename: string, value: unknown): void {
-  const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' });
+  const json = JSON.stringify(value, null, 2) ?? "{}";
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -262,7 +263,6 @@ export default function NovaVideoWorkspaceView() {
                 <select value={brief.aspectRatio} onChange={(e) => updateBrief('aspectRatio', e.target.value as AspectRatio)} className="w-full rounded-xl border border-slate-700 bg-[#080D18] px-3 py-2.5 text-sm text-white">
                   <option value="9:16">9:16 · Shorts / Reels / TikTok</option>
                   <option value="16:9">16:9 · YouTube</option>
-                  <option value="1:1">1:1 · Square</option>
                 </select>
               </label>
             </div>
