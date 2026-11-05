@@ -748,7 +748,11 @@ async function handle(request, env) {
     });
   }
 
-  const allowedMethods = resource === "skills"\n    ? ["GET"]\n    : ["plan", "production-plan", "preparation-decisions"].includes(resource)\n      ? ["POST"]\n      : ["GET", "POST"];
+  const allowedMethods = resource === "skills"
+    ? ["GET"]
+    : ["plan", "production-plan", "preparation-decisions"].includes(resource)
+      ? ["POST"]
+      : ["GET", "POST"];
   if (!allowedMethods.includes(request.method)) {
     return json({ error: "method_not_allowed" }, 405, origin, env);
   }
