@@ -256,10 +256,10 @@ test("video job cannot bypass approval and requires tenant ownership for transit
 test("failed video jobs enforce a bounded retry budget", () => {
   const store = createInMemoryVideoJobStore();
   store.create({ id: "job-3", tenantId: "tenant-a", projectId: "project-a", idempotencyKey: "request-003", request: {} });
-  for (let retry = 1; retry <= 3; retry += 1) {
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
     store.transition("job-3", "planning", { actorTenantId: "tenant-a" });
     store.transition("job-3", "failed", { actorTenantId: "tenant-a" });
-    if (retry < 3) store.transition("job-3", "queued", { actorTenantId: "tenant-a" });
+    if (attempt <= 3) store.transition("job-3", "queued", { actorTenantId: "tenant-a" });
   }
   assert.throws(() => store.transition("job-3", "queued", { actorTenantId: "tenant-a" }), /video_job_retry_limit_reached/);
 });
