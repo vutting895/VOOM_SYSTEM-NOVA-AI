@@ -13,12 +13,23 @@ const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9_-]{12,100}$/;
 const MAX_BODY_BYTES = 6000;
 
 function allowedOrigins(env) {
-  return new Set(
-    String(env.NOVA_VIDEO_ALLOWED_ORIGINS || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean),
-  );
+  const configured = String(env.NOVA_VIDEO_ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const origins = new Set();
+
+  for (const value of configured) {
+    try {
+      const parsed = new URL(value);
+      // Only canonical HTTPS origins are accepted; paths, queries and HTTP origins fail closed.
+      if (parsed.protocol === "https:" && parsed.origin === value) origins.add(value);
+    } catch {
+      // Ignore malformed allowlist entries rather than widening browser access.
+    }
+  }
+
+  return origins;
 }
 
 function originAllowed(origin, env) {
