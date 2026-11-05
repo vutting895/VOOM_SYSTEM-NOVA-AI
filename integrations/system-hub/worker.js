@@ -329,18 +329,30 @@ const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
 function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
+const MAX_QUOTE_AGE_MS = 120_000;
+const MAX_FUTURE_CLOCK_SKEW_MS = 30_000;
+
 function validIsoTimestamp(value) {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
-function validateQuotePayload(data, symbol, timeframe, requestedCount) {
+function timestampIsFresh(timestamp, nowMs) {
+  return Number.isFinite(timestamp) &&
+    timestamp <= nowMs + MAX_FUTURE_CLOCK_SKEW_MS &&
+    nowMs - timestamp <= MAX_QUOTE_AGE_MS;
+}
+function validateQuotePayload(data, symbol, timeframe, requestedCount, nowMs = Date.now()) {
   if (!data || typeof data !== "object" || Array.isArray(data)) return false;
   if (data.symbol !== symbol || String(data.timeframe || "").toUpperCase() !== timeframe) return false;
   if (!Number.isInteger(data.digits) || data.digits < 0 || data.digits > 12) return false;
   if (!validIsoTimestamp(data.as_of)) return false;
+  const asOfMs = Date.parse(data.as_of);
+  if (!timestampIsFresh(asOfMs, nowMs)) return false;
   const tick = data.tick;
   if (!tick || typeof tick !== "object" || Array.isArray(tick)) return false;
   if (![tick.bid, tick.ask].every((value) => safeNumber(value) !== null && value > 0)) return false;
   if (tick.ask < tick.bid || !validIsoTimestamp(tick.time)) return false;
+  const tickMs = Date.parse(tick.time);
+  if (!timestampIsFresh(tickMs, nowMs) || tickMs > asOfMs + MAX_FUTURE_CLOCK_SKEW_MS) return false;
   if (tick.last !== undefined && (safeNumber(tick.last) === null || tick.last < 0)) return false;
   if (!Array.isArray(data.bars) || data.bars.length < 1 || data.bars.length > requestedCount) return false;
   if (data.count !== data.bars.length) return false;
@@ -349,7 +361,7 @@ function validateQuotePayload(data, symbol, timeframe, requestedCount) {
   for (const bar of data.bars) {
     if (!bar || typeof bar !== "object" || Array.isArray(bar) || !validIsoTimestamp(bar.time)) return false;
     const timestamp = Date.parse(bar.time);
-    if (timestamp <= previousTime) return false;
+    if (timestamp <= previousTime || timestamp > tickMs + MAX_FUTURE_CLOCK_SKEW_MS) return false;
     previousTime = timestamp;
     const prices = [bar.open, bar.high, bar.low, bar.close].map(safeNumber);
     if (prices.some((value) => value === null || value <= 0)) return false;
