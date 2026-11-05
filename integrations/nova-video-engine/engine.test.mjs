@@ -377,6 +377,7 @@ test("file job store persists lifecycle transitions and recovers idempotency aft
     const duplicate = await restored.create({ ...input, id: "other-id" }, "2026-11-05T12:00:05.000Z");
     assert.equal(duplicate.created, false);
     assert.equal(duplicate.job.id, "durable-1");
+    await assert.rejects(() => restored.create({ ...input, id: "conflict-id", request: { title: "Different payload" } }), /video_job_idempotency_conflict/);
     assert.equal(restored.list("tenant-b").length, 0);
     await restored.close();
   } finally { await rm(root, { recursive: true, force: true }); }
