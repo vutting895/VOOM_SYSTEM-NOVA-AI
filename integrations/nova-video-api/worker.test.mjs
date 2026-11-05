@@ -739,7 +739,7 @@ test("approval routes authenticate before parsing bodies and expose GET only for
       headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
     }), ENV);
     assert.equal(wrongMethod.status, 405);
-    assert.equal(calls, 1);
+    assert.equal(calls, 0, "invalid method and missing bearer are rejected without an Auth or database request");
   } finally {
     globalThis.fetch = previous;
   }
