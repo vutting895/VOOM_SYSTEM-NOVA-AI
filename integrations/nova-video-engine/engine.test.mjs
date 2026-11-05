@@ -161,3 +161,9 @@ test("does not claim generated output when no approved provider is available", a
   assert.equal(result.status, "blocked");
   assert.equal(result.reason, "approved_zero_cost_video_provider_unavailable");
 });
+
+test("rejects unsafe or unsupported source images for image-to-video", () => {
+  assert.throws(() => createGenerativeVideoTask({ prompt: "Animate this", imagePath: "../private.png" }), /invalid_input_image_path/);
+  assert.throws(() => createGenerativeVideoTask({ prompt: "Animate this", imagePath: "/tmp/source.png" }), /invalid_input_image_path/);
+  assert.throws(() => createGenerativeVideoTask({ prompt: "Animate this", imagePath: "assets/source.mp4" }), /unsupported_input_image_type/);
+});
