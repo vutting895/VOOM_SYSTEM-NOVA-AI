@@ -6,10 +6,12 @@ const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 const DIMENSIONS = Object.freeze({ "9:16": [1080, 1920], "16:9": [1920, 1080], "1:1": [1080, 1080] });
 
 export function resolveWithinRoot(root, relativePath) {
-  if (typeof relativePath !== "string" || !relativePath || path.isAbsolute(relativePath)) throw new TypeError("relative_media_path_required");
+  if (typeof relativePath !== "string" || !relativePath || relativePath.includes("\\\\") || relativePath.includes("\\0") || path.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath)) throw new TypeError("relative_media_path_required");
+  if (relativePath.split("/").some((part) => part === "." || part === ".." || !part)) throw new TypeError("media_path_traversal_rejected");
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(resolvedRoot, relativePath);
-  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(resolvedRoot + path.sep)) throw new TypeError("media_path_outside_workspace");
+  const rootPrefix = resolvedRoot.endsWith(path.sep) ? resolvedRoot : resolvedRoot + path.sep;
+  if (resolvedPath !== resolvedRoot && !resolvedPath.startsWith(rootPrefix)) throw new TypeError("media_path_outside_workspace");
   return resolvedPath;
 }
 
@@ -18,7 +20,7 @@ export function buildFfmpegArgs(storyboard, workspaceRoot, outputRelativePath = 
   const dimensions = DIMENSIONS[storyboard.aspectRatio];
   if (!dimensions) throw new TypeError("unsupported_aspect_ratio");
   const [width, height] = dimensions;
-  const args = ["-hide_banner", "-nostdin", "-y"];
+  const args = ["-hide_banner", "-nostdin", "-n"];
   const filters = [];
   storyboard.scenes.forEach((scene, index) => {
     if (!scene.imagePath) throw new TypeError("scene_image_required_" + (index + 1));
