@@ -58,6 +58,8 @@ def _validate_bars(bars):
 
 def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
                            commission_source, commission_verified,
+                           swap_schedule_verified, swap_schedule_source,
+                           swap_cashflow_usd_by_signal_id,
                            stop_distance=STOP, target_distance=TARGET,
                            max_hold_bars=MAX_HOLD, lots=LOTS,
                            contract_size=CONTRACT, slippage_per_side=SLIPPAGE,
@@ -69,12 +71,21 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
     worse opening Bid; target gaps are capped at the target price. The entry
     bar's open predates the trigger fill, so its intrabar sequence remains
     OHLC-ambiguous and retains the existing stop-first barrier treatment.
-    Commission must be verified.
+    Both commission and historical swap/rollover costs must be verified. For
+    each closed signal, swap_cashflow_usd_by_signal_id must contain the signed
+    net swap cashflow (negative charge, positive credit). Missing swap values
+    are never silently treated as zero.
     """
     if commission_verified is not True:
         raise ValueError("commission_schedule_unverified")
     if not isinstance(commission_source, str) or not commission_source.strip():
         raise ValueError("commission_source_required")
+    if swap_schedule_verified is not True:
+        raise ValueError("swap_schedule_unverified")
+    if not isinstance(swap_schedule_source, str) or not swap_schedule_source.strip():
+        raise ValueError("swap_schedule_source_required")
+    if not isinstance(swap_cashflow_usd_by_signal_id, Mapping):
+        raise ValueError("swap_cashflow_map_required")
     commission = _num(commission_per_lot_per_side_usd, "commission_per_lot_per_side_usd")
     stop_distance, target_distance = _num(stop_distance, "stop_distance"), _num(target_distance, "target_distance")
     lots, contract_size = _num(lots, "lots"), _num(contract_size, "contract_size")
@@ -110,7 +121,9 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
         signal_bar = market[i]
         base = {"signal_id": sid, "signal_index": i, "signal_timestamp_utc": signal_bar["timestamp"],
                 "entry_trigger_price": trigger, "direction": "BUY", "commission_per_lot_per_side_usd": commission,
-                "commission_source": commission_source, "commission_verified": True, "training_eligible": False}
+                "commission_source": commission_source, "commission_verified": True,
+                "swap_schedule_source": swap_schedule_source, "swap_schedule_verified": True,
+                "swap_cashflow_usd": None, "training_eligible": False}
         if i <= busy:
             out.append({**base, "status": "blocked_overlap", "outcome_class": None}); continue
         entry_i = i + 1
@@ -178,12 +191,18 @@ def build_first_hit_labels(bars, signals, *, commission_per_lot_per_side_usd,
             exit_price = market[end]["close"] - slip
         xb = market[exit_i]
         gross = (exit_price - entry) * lots * contract_size
-        net = gross - commission_trade
+        swap_key = sid if sid is not None else str(i)
+        if swap_key not in swap_cashflow_usd_by_signal_id:
+            raise ValueError("swap_cashflow_missing_for_closed_trade")
+        swap_cashflow = _num(swap_cashflow_usd_by_signal_id[swap_key], "swap_cashflow_usd")
+        # Signed cashflow: negative is a charge; positive is a credit.
+        net = gross - commission_trade + swap_cashflow
         out.append({**base, "status": "closed", "outcome_class": outcome, "entry_index": entry_i,
             "entry_timestamp_utc": eb["timestamp"], "raw_entry_price": raw_entry, "entry_spread_price": spread,
             "entry_slippage_price": slip, "entry_price": entry, "stop_price": stop, "target_price": target,
             "exit_index": exit_i, "exit_timestamp_utc": xb["timestamp"], "exit_price": exit_price,
-            "gross_pnl_usd": gross, "commission_usd": commission_trade, "net_pnl_usd": net,
+            "gross_pnl_usd": gross, "commission_usd": commission_trade,
+            "swap_cashflow_usd": swap_cashflow, "net_pnl_usd": net,
             "gross_r_multiple": gross / risk, "net_r_multiple": net / risk,
             "mae_price": min(x["low"] for x in path) - entry, "mfe_price": max(x["high"] for x in path) - entry,
             "mae_mfe_are_ohlc_bar_bounds": True,

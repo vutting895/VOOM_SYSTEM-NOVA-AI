@@ -13,6 +13,11 @@ COMMISSION = {
     "commission_verified": True,
 }
 
+SWAP = {
+    "swap_schedule_verified": True,
+    "swap_schedule_source": "synthetic_test_fixture_not_broker_evidence",
+}
+
 
 def bars(count, *, start=None, spread=0.2, open_price=100.0, high=100.5, low=99.8, close=100.1):
     start = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -32,7 +37,16 @@ def bars(count, *, start=None, spread=0.2, open_price=100.0, high=100.5, low=99.
 
 class TestFirstHitLabels(unittest.TestCase):
     def build(self, market, signals, **overrides):
-        options = {**COMMISSION, **overrides}
+        synthetic_cashflows = {
+            (signal.get("signal_id") if signal.get("signal_id") is not None else str(signal["signal_index"])): 0.0
+            for signal in signals if isinstance(signal, dict) and type(signal.get("signal_index")) is int
+        }
+        options = {
+            **COMMISSION,
+            **SWAP,
+            "swap_cashflow_usd_by_signal_id": synthetic_cashflows,
+            **overrides,
+        }
         return build_first_hit_labels(market, signals, **options)
 
     def test_unverified_or_missing_commission_schedule_fails_closed(self):
@@ -41,20 +55,63 @@ class TestFirstHitLabels(unittest.TestCase):
             build_first_hit_labels(market, [{"signal_index": 0, "entry_trigger_price": 100.0}],
                                    commission_per_lot_per_side_usd=0.0,
                                    commission_source="unverified zero assumption",
-                                   commission_verified=False)
+                                   commission_verified=False,
+                                   swap_schedule_verified=False,
+                                   swap_schedule_source="unverified test fixture",
+                                   swap_cashflow_usd_by_signal_id={})
         with self.assertRaisesRegex(ValueError, "commission_source_required"):
             build_first_hit_labels(market, [{"signal_index": 0, "entry_trigger_price": 100.0}],
                                    commission_per_lot_per_side_usd=0.0,
-                                   commission_source=" ", commission_verified=True)
+                                   commission_source=" ", commission_verified=True,
+                                   swap_schedule_verified=True,
+                                   swap_schedule_source="synthetic test fixture",
+                                   swap_cashflow_usd_by_signal_id={})
         with self.assertRaisesRegex(ValueError, "commission_schedule_unverified"):
             build_first_hit_labels(market, [{"signal_index": 0, "entry_trigger_price": 100.0}],
                                    commission_per_lot_per_side_usd=0.0,
                                    commission_source="synthetic fixture",
-                                   commission_verified="true")
+                                   commission_verified="true",
+                                   swap_schedule_verified=False,
+                                   swap_schedule_source="synthetic test fixture",
+                                   swap_cashflow_usd_by_signal_id={})
         with self.assertRaisesRegex(ValueError, "signal_must_be_mapping"):
             self.build(market, [None])
         with self.assertRaisesRegex(ValueError, "bar_must_be_mapping"):
             self.build([None], [])
+
+    def test_unverified_swap_schedule_fails_closed(self):
+        market = bars(4)
+        with self.assertRaisesRegex(ValueError, "swap_schedule_unverified"):
+            build_first_hit_labels(
+                market,
+                [{"signal_index": 0, "entry_trigger_price": 100.1}],
+                **COMMISSION,
+                swap_schedule_verified=False,
+                swap_schedule_source="unverified live symbol snapshot",
+                swap_cashflow_usd_by_signal_id={"0": 0.0},
+            )
+
+    def test_closed_trade_requires_explicit_per_signal_swap_cashflow(self):
+        market = bars(4)
+        market[1].update({"high": 112.0})
+        with self.assertRaisesRegex(ValueError, "swap_cashflow_missing_for_closed_trade"):
+            self.build(
+                market,
+                [{"signal_index": 0, "entry_trigger_price": 100.1}],
+                swap_cashflow_usd_by_signal_id={},
+            )
+
+    def test_signed_swap_cashflow_is_included_in_net_pnl(self):
+        market = bars(4)
+        market[1].update({"high": 112.0})
+        trade = self.build(
+            market,
+            [{"signal_index": 0, "entry_trigger_price": 100.1}],
+            swap_cashflow_usd_by_signal_id={"0": -0.25},
+        )[0]
+        self.assertEqual(trade["swap_cashflow_usd"], -0.25)
+        self.assertAlmostEqual(trade["net_pnl_usd"], trade["gross_pnl_usd"] - 0.07 - 0.25)
+        self.assertEqual(trade["swap_schedule_source"], "synthetic_test_fixture_not_broker_evidence")
 
     def test_next_bar_only_trigger_and_no_next_bar(self):
         market = bars(3, high=100.0, close=100.0)

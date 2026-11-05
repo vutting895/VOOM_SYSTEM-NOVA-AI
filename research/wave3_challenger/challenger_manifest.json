@@ -194,7 +194,17 @@
         "source": "https://get.exness.help/hc/en-us/articles/360014709151-About-swap"
       },
       "limitation": "The current swap rate changed from the prior export snapshot. No timestamped historical swap schedule or historical swap-free status has been verified; do not apply the current snapshot across the full dataset."
-    }
+    },
+    "required_inputs": {
+      "commission_schedule_verified": true,
+      "commission_source_required": true,
+      "swap_schedule_verified": true,
+      "swap_schedule_source_required": true,
+      "signed_swap_cashflow_by_signal_id_required_for_each_closed_trade": true,
+      "missing_swap_cashflow_behavior": "fail_closed",
+      "missing_swap_never_defaults_to_zero": true
+    },
+    "builder_cost_contract": "The builder requires verified commission and verified historical swap/rollover schedule, and a signed per-signal swap cashflow (negative charge, positive credit) for every closed trade. It never treats missing swap data as zero."
   },
   "future_holdout": {
     "status": "preregistered_sealed_not_yet_observed",

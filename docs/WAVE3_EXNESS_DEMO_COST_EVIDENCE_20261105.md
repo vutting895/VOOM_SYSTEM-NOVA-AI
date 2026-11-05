@@ -77,3 +77,14 @@ Do not apply USD 0, USD 3.5, or USD 5.5 per lot per side to labels until the own
 ## Related FVG comparison result
 
 The separate challenger-only event comparison completed on Ubuntu/Python 3.11 run [42051432406](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42051432406). It parsed only pre-2026-07-01 OHLC and reported zero Final-OOS rows parsed. Event counts are persisted in `docs/WAVE3_FVG_TRAINING_INNER_COMPARISON_20261105.md` and `reports/wave3_fvg_training_inner_comparison_20261105.json`. No FVG definition was selected and no net labels or model training were generated.
+
+
+## First-hit builder cost guard
+
+The challenger first-hit builder now requires three verified inputs before it can produce a closed label:
+
+1. Verified account/instrument commission schedule and source.
+2. Verified historical swap/rollover schedule and source.
+3. Explicit signed swap cashflow for each closed signal (negative = charge, positive = credit).
+
+It fails closed when the swap schedule is unverified or when a closed signal has no swap cashflow. Missing swap data is never interpreted as zero. Unit tests use clearly marked synthetic fixtures only; they are not broker evidence. Manifest label generation remains disabled until real account/instrument and historical schedule evidence is available.
