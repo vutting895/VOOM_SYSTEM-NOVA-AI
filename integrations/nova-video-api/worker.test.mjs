@@ -450,3 +450,71 @@ test("job idempotency detects a different Director brief even when prompt and pr
     globalThis.fetch = previous;
   }
 });
+
+
+test("authenticated production planning projects Director scenes into Engine tasks without dispatch", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (input) => {
+    calls += 1;
+    assert.equal(new URL(input).pathname, "/auth/v1/user");
+    return authResponse();
+  };
+  try {
+    const response = await worker.fetch(request("/api/video/production-plan", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        title: "NOVA Product Film",
+        concept: "A premium coffee cup on a quiet morning table",
+        durationSeconds: 15,
+        aspectRatio: "9:16",
+        goal: "product_ad",
+        language: "th",
+        verifiedFacts: ["Ceramic body"],
+      },
+    }), ENV);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    const plan = data.productionPlan;
+    assert.equal(data.executionEnabled, false);
+    assert.equal(data.estimatedCost, 0);
+    assert.equal(data.requiresHumanApproval, true);
+    assert.equal(plan.schemaVersion, "nova.video-production-plan.v1");
+    assert.equal(plan.status, "blocked_no_free_gpu");
+    assert.equal(plan.generationTasks.length, 3);
+    assert.equal(plan.generationTasks[0].task.schemaVersion, "nova.video-generation-task.v1");
+    assert.equal(plan.generationTasks[0].task.mode, "text_to_video");
+    assert.equal(plan.generationTasks[0].task.frameRate, 24);
+    assert.equal(plan.generationTasks[0].task.height, 1280);
+    assert.equal(plan.generationTasks.reduce((sum, item) => sum + item.task.frameCount, 0), 360);
+    assert.equal(plan.stages.find((stage) => stage.id === "human_approval").status, "required");
+    assert.ok(plan.generationTasks.every((task) => task.state === "blocked_no_free_gpu"));
+    assert.equal(calls, 1, "only Supabase Auth is called; no database, provider, model, GPU or worker dispatch");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("production planning rejects unknown fields and requires authentication before body parsing", async () => {
+  const previous = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return authResponse(); };
+  try {
+    const invalid = await worker.fetch(request("/api/video/production-plan", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { title: "Demo", concept: "A product", durationSeconds: 15, execute: true },
+    }), ENV);
+    assert.equal(invalid.status, 400);
+    assert.deepEqual(await invalid.json(), { error: "video_production_plan_fields_invalid" });
+    const unauthenticated = await worker.fetch(request("/api/video/production-plan", {
+      method: "POST",
+      body: { title: "Demo", concept: "A product", durationSeconds: 15 },
+    }), ENV);
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
