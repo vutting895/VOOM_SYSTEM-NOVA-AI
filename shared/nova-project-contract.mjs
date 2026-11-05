@@ -125,8 +125,9 @@ export function validateProjectResponse(response, expectedRequestId) {
       !isString(response.provenance.source, 1, 128) || !isString(response.provenance.version, 1, 64) ||
       (response.provenance.checksum !== null && !isString(response.provenance.checksum, 16, 128, /^[A-Za-z0-9._:-]+$/))) return fail("response_provenance_invalid");
   if (response.status === "error") {
-    if (!plainObject(response.error) || !isString(response.error.code, 1, 64) ||
-        !isString(response.error.message, 1, 240) || response.result !== undefined) return fail("response_error_invalid");
+    if (!plainObject(response.error) || !hasOnlyKeys(response.error, new Set(["code", "message"])) ||
+        !isString(response.error.code, 1, 64) || !isString(response.error.message, 1, 240) ||
+        response.result !== undefined) return fail("response_error_invalid");
   } else if (response.error !== undefined || !Object.prototype.hasOwnProperty.call(response, "result")) return fail("response_result_invalid");
   return ok(response);
 }
