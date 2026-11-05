@@ -304,3 +304,44 @@ test("Wan local runtime requires a pinned upstream revision and verified checkpo
   });
   assert.equal((await runtime.preflight()).reason, "wan22_upstream_revision_not_pinned");
 });
+
+import { validateNOVAAdaptationDataset, createNOVAStyleAdaptationPlan } from "./dataset-governance.mjs";
+
+const trainingDataset = {
+  schemaVersion: "nova.video-training-dataset.v1", datasetId: "nova-style-v1", ownerId: "owner-a", reviewedAt: "2026-11-05T10:00:00Z",
+  provenance: { evidenceUrl: "https://example.com/dataset-provenance" },
+  rightsReview: { approved: true, reviewer: "independent-rights-reviewer", evidenceUrl: "https://example.com/rights-review" },
+  privacyReview: { approved: true, reviewer: "privacy-reviewer", evidenceUrl: "https://example.com/privacy-review" },
+  assets: [{
+    assetId: "asset-001", sha256: "a".repeat(64), sourceEvidenceUrl: "https://example.com/source/asset-001",
+    contentType: "video/mp4", rights: { allowsModelTraining: true, allowsCommercialUse: true, evidenceUrl: "https://example.com/license/asset-001" },
+    privacy: { reviewed: true, containsIdentifiablePeople: true, consent: { granted: true, revoked: false, scopes: ["model_training", "commercial_use", "retention"], evidenceUrl: "https://example.com/consent/asset-001" } },
+  }],
+};
+
+test("dataset governance accepts only assets with training/commercial rights and scoped consent", () => {
+  assert.equal(validateNOVAAdaptationDataset(trainingDataset).eligible, true);
+  const missingConsent = structuredClone(trainingDataset);
+  missingConsent.assets[0].privacy.consent.scopes = ["model_training"];
+  const result = validateNOVAAdaptationDataset(missingConsent);
+  assert.equal(result.eligible, false);
+  assert.equal(result.issues.includes("asset_1_explicit_person_consent_required"), true);
+});
+
+test("dataset governance blocks unlicensed training and missing independent reviews", () => {
+  const unlicensed = structuredClone(trainingDataset);
+  unlicensed.assets[0].rights.allowsModelTraining = false;
+  unlicensed.privacyReview.approved = false;
+  const result = validateNOVAAdaptationDataset(unlicensed);
+  assert.equal(result.eligible, false);
+  assert.equal(result.issues.includes("asset_1_training_and_commercial_rights_required"), true);
+  assert.equal(result.issues.includes("dataset_privacy_review_required"), true);
+});
+
+test("NOVA style adaptation plan remains blocked until data, model, compute and reviews pass", () => {
+  const blocked = createNOVAStyleAdaptationPlan({ datasetManifest: trainingDataset, model: { modelId: "candidate", parameterEfficientFineTuning: false, licenseAllowsDerivatives: true }, compute: { zeroCostVerified: false, hardwareVerified: false }, review: { independentReviewApproved: false, securityReviewApproved: false } });
+  assert.equal(blocked.status, "blocked");
+  const ready = createNOVAStyleAdaptationPlan({ datasetManifest: trainingDataset, model: { modelId: "candidate", parameterEfficientFineTuning: true, licenseAllowsDerivatives: true }, compute: { zeroCostVerified: true, hardwareVerified: true }, review: { independentReviewApproved: true, securityReviewApproved: true } });
+  assert.equal(ready.status, "ready_for_manual_approval");
+  assert.equal(ready.executionEnabled, false);
+});
