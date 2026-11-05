@@ -1,6 +1,6 @@
 import { open, mkdir, unlink } from "node:fs/promises";
 import path from "node:path";
-import { createVideoJob, transitionVideoJob } from "./job-lifecycle.mjs";
+import { createVideoJob, transitionVideoJob, attachVideoJobArtifact } from "./job-lifecycle.mjs";
 
 const DEFAULT_MAX_JOURNAL_BYTES = 64 * 1024 * 1024;
 const SENSITIVE_KEY = /(authorization|password|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|cookie|private[_-]?key)/i;
@@ -38,6 +38,14 @@ function applyJournalEvent(event, jobs, idempotency) {
     if (!current || current.tenantId !== event.tenantId || current.version + 1 !== event.version) throw new Error("video_job_journal_version_conflict");
     const next = transitionVideoJob(current, event.nextState, { actorTenantId: event.tenantId, at: event.at, event: event.eventName ?? undefined });
     if (JSON.stringify(next) !== JSON.stringify(event.job)) throw new Error("video_job_journal_transition_tampered");
+    jobs.set(next.id, clone(next));
+    return;
+  }
+  if (event.type === "job_artifact_added") {
+    const current = jobs.get(event.jobId);
+    if (!current || current.tenantId !== event.tenantId || current.version + 1 !== event.version) throw new Error("video_job_journal_artifact_version_conflict");
+    const next = attachVideoJobArtifact(current, event.artifact, { actorTenantId: event.tenantId, at: event.at });
+    if (JSON.stringify(next) !== JSON.stringify(event.job)) throw new Error("video_job_journal_artifact_tampered");
     jobs.set(next.id, clone(next));
     return;
   }
@@ -136,6 +144,16 @@ export async function createFileVideoJobStore(options = {}) {
           at: next.updatedAt, eventName: options.event ?? null, version: next.version, job: next,
         };
         await append(event);
+        jobs.set(jobId, clone(next));
+        return clone(next);
+      });
+    },
+    async attachArtifact(jobId, artifact, options = {}) {
+      return serialize(async () => {
+        const current = jobs.get(jobId);
+        if (!current) throw new Error("video_job_not_found");
+        const next = attachVideoJobArtifact(current, artifact, options);
+        await append({ type: "job_artifact_added", jobId, tenantId: current.tenantId, at: next.updatedAt, version: next.version, artifact, job: next });
         jobs.set(jobId, clone(next));
         return clone(next);
       });
