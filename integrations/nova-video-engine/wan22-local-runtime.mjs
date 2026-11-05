@@ -6,6 +6,9 @@ import { resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 
 const MINIMUM_VRAM_GB = 24;
 const MINIMUM_VRAM_MIB = MINIMUM_VRAM_GB * 1000;
+// No resource-limited isolated process runner is implemented in this repository yet.
+// Keep this immutable false so caller-supplied approval booleans cannot enable inference.
+const WAN22_PROCESS_ISOLATION_IMPLEMENTED = false;
 const OUTPUT_LIMIT = 128_000;
 
 export function parseNvidiaSmiMemory(output) {
@@ -25,7 +28,7 @@ function isWithinWorkspace(root, candidate) {
   return relative === "" || (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative));
 }
 
-async function ensureSafeOutputDirectory(workspaceRoot, outputDirectory, { lstatImpl, mkdirImpl, realpathImpl }) {
+export async function ensureSafeOutputDirectory(workspaceRoot, outputDirectory, { lstatImpl, mkdirImpl, realpathImpl }) {
   if (!isWithinWorkspace(workspaceRoot, outputDirectory) || outputDirectory === workspaceRoot) {
     throw new Error("wan22_output_directory_outside_workspace");
   }
@@ -202,7 +205,16 @@ export function createWan22LocalRuntime(options = {}) {
       const generateScript = await realpathImpl(path.join(repoReal, "generate.py"));
       if (!generateScript.startsWith(repoReal + path.sep)) return { ready: false, reason: "wan22_entrypoint_outside_pinned_repo" };
       if (!(await revisionVerifier(repoReal, modelRevision))) return { ready: false, reason: "wan22_upstream_revision_mismatch" };
-      return { ready: true, repoRoot: repoReal, checkpointDir: checkpointReal, workspaceRoot: workspaceReal, generateScript, minimumVramGB: MINIMUM_VRAM_GB, modelRevision };
+      if (!WAN22_PROCESS_ISOLATION_IMPLEMENTED) {
+        return {
+          ready: false,
+          reason: "wan22_process_isolation_not_implemented",
+          minimumVramGB: MINIMUM_VRAM_GB,
+          minimumFreeVramMiB: MINIMUM_VRAM_MIB,
+          modelRevision,
+        };
+      }
+      return { ready: true, repoRoot: repoReal, checkpointDir: checkpointReal, workspaceRoot: workspaceReal, generateScript, minimumVramGB: MINIMUM_VRAM_GB, minimumFreeVramMiB: MINIMUM_VRAM_MIB, modelRevision };
     } catch {
       return { ready: false, reason: "wan22_local_repo_or_checkpoint_unavailable" };
     }
