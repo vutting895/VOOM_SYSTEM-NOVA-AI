@@ -10,9 +10,9 @@ NOVA owns the control plane, creative planning, story/shot decisions, prompt con
 2. **NOVA Director Intelligence** — narrative beats, shot framing, camera movement, lighting, transition and subject continuity; frame-accurate 24 FPS timeline.
 3. **Script Intelligence** — strict structured request/response contract and output validation; model invocation requires an approved provider.
 4. **Generative Model Adapter** — task contract for text-to-video/image-to-video, safe source asset path and strict output metadata; model runtime remains disabled.
-5. **Job Orchestration** — tenant-scoped state transitions, approval gate, idempotency and bounded retries. The current implementation is an in-memory reference, not durable.
-6. **Composition** — FFmpeg still-image compositor is available as a local adapter; generated clip assembly, audio mixing and subtitle burn-in remain pending.
-7. **Quality Control** — timeline continuity, frame count, duration, dimensions, content type, continuity group and safe asset-path checks. Pixel/perceptual checks require FFprobe/frame sampling and an acceptance dataset.
+5. **Job Orchestration** — tenant-scoped state transitions, approval gate, idempotency, bounded retries and artifact metadata. The local append-only JSONL journal fsyncs each event and replays after restart; it is single-writer, unencrypted at rest and not a distributed/cloud queue.
+6. **Composition** — local FFmpeg still-image compositor plus a multi-clip assembler for already-generated MP4 scenes, optional voice-over/music mixing and SRT soft subtitles. It validates source/final metadata and prevents output overwrite; speech/music synthesis is not included.
+7. **Quality Control** — timeline continuity, frame count, duration, dimensions, content type, continuity group, safe asset paths and FFprobe metadata checks in local runtime/assembly. Pixel/perceptual checks and visual acceptance datasets remain pending.
 8. **Delivery** — planned only; private object storage, signed URLs and retention/deletion are blocked pending tenant and backup gates.
 
 ## NOVA specialization and data rights
@@ -30,8 +30,8 @@ NOVA owns the control plane, creative planning, story/shot decisions, prompt con
 
 - **Phase 1 — Core planning:** Director, storyboard, timeline, task contracts, job states and metadata QC.
 - **Phase 2 — Local inference proof:** compatible hardware discovery, manual opt-in local installation, model hash/license manifest, benchmark and first accepted clip.
-- **Phase 3 — Durable execution:** secure queue, owner/tenant-scoped asset storage, cancellation/retry, retention and two-user isolation.
-- **Phase 4 — Full creator pipeline:** multi-clip continuity, FFmpeg assembly, voice-over, subtitles, music, quality inspection and export profiles.
+- **Phase 3 — Shared durable execution:** distributed queue/worker dispatch, encrypted private object storage, cancellation/retry, retention/deletion, and two-user Supabase staging isolation. The local journal is a development durability layer only.
+- **Phase 4 — Full creator pipeline:** actual AI-generated multi-clip motion continuity, generated voice/music options, richer subtitle timing, perceptual quality inspection and export profiles. Local assembly of pre-generated MP4/audio/SRT inputs is implemented.
 - **Phase 5 — NOVA specialization:** collect permissioned examples and ratings; build evaluation sets and consider LoRA/adapters only after compute, dataset rights and measurable benefit are proven.
 
 ## Non-negotiable controls
