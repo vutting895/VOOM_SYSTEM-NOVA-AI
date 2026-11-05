@@ -15,6 +15,7 @@ const TASK_TYPES = new Set(["video_generation", "video_analysis", "video_edit_ex
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9_-]{12,100}$/;
 const MAX_BODY_BYTES = 6000;
+const VIDEO_GENERATION_ASPECT_RATIOS = new Set(["9:16", "16:9"]);
 
 function allowedOrigins(env) {
   const configured = String(env.NOVA_VIDEO_ALLOWED_ORIGINS || "")
@@ -342,6 +343,11 @@ async function createJob(request, env, auth, origin) {
     const briefFields = ["title", "concept", "audience", "platform", "language", "style", "callToAction", "durationSeconds", "aspectRatio", "goal", "verifiedFacts", "mustAvoid"];
     if (Object.keys(body.brief).some((key) => !briefFields.includes(key))) {
       return json({ error: "video_brief_fields_invalid" }, 400, origin, env);
+    }
+    if (body.task_type === "video_generation" &&
+        body.brief.aspectRatio !== undefined &&
+        !VIDEO_GENERATION_ASPECT_RATIOS.has(body.brief.aspectRatio)) {
+      return json({ error: "video_generation_aspect_ratio_unsupported" }, 400, origin, env);
     }
     try {
       requestPayload = { schema_version: "nova.video-job.v2", director_plan: createDirectorPlan(body.brief) };
@@ -727,6 +733,9 @@ async function createProductionPlanResponse(request, origin, env) {
   const allowedFields = ["title", "concept", "audience", "platform", "language", "style", "callToAction", "durationSeconds", "aspectRatio", "goal", "verifiedFacts", "mustAvoid"];
   if (Object.keys(body).some((key) => !allowedFields.includes(key))) {
     return json({ error: "video_production_plan_fields_invalid" }, 400, origin, env);
+  }
+  if (body.aspectRatio !== undefined && !VIDEO_GENERATION_ASPECT_RATIOS.has(body.aspectRatio)) {
+    return json({ error: "video_generation_aspect_ratio_unsupported" }, 400, origin, env);
   }
   try {
     const directorPlan = createDirectorPlan(body);
