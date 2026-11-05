@@ -73,6 +73,10 @@ async function createUser(label) {
   const id = created.body?.user?.id || created.body?.id;
   assert.ok(typeof id === "string" && id.length > 0, "Local Auth did not return a user id");
 
+  // Register the user for cleanup immediately after Auth creation, before sign-in can fail.
+  const user = { id, email, password, token: "" };
+  users.push(user);
+
   const signedIn = await requestJson(
     `${supabaseUrl}/auth/v1/token?grant_type=password`,
     {
@@ -84,9 +88,7 @@ async function createUser(label) {
   assert.equal(signedIn.response.status, 200, "Local Auth password sign-in failed");
   assert.equal(signedIn.body?.user?.id, id, "Issued session identity differs from created user");
   assert.ok(typeof signedIn.body?.access_token === "string", "Local Auth did not issue a JWT");
-
-  const user = { id, email, password, token: signedIn.body.access_token };
-  users.push(user);
+  user.token = signedIn.body.access_token;
   return user;
 }
 
