@@ -236,6 +236,6 @@ test("Worker contract contains no service-role credential path or media executio
 
 test("Worker dev URL stays disabled until reviewed staging publication", () => {
   const config = readFileSync(new URL("./wrangler.toml", import.meta.url), "utf8");
-  assert.match(config, /^workers_dev\\s*=\\s*false\\s*$/m);
-  assert.doesNotMatch(config, /^workers_dev\\s*=\\s*true\\s*$/m);
+  assert.match(config, /^workers_dev\s*=\s*false\s*$/m);
+  assert.doesNotMatch(config, /^workers_dev\s*=\s*true\s*$/m);
 });
