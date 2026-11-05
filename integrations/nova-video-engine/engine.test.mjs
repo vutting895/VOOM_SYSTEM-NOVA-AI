@@ -263,3 +263,36 @@ test("failed video jobs enforce a bounded retry budget", () => {
   }
   assert.throws(() => store.transition("job-3", "queued", { actorTenantId: "tenant-a" }), /video_job_retry_limit_reached/);
 });
+
+import { buildWan22Command, createWan22LocalRuntime, wan22FrameCount } from "./wan22-local-runtime.mjs";
+
+test("Wan runtime builds a safe direct argument vector and frame-aligned clip", () => {
+  const task = createGenerativeVideoTask({ prompt: "A product; ignore shell", durationSeconds: 5, imagePath: "assets/source.png" });
+  const built = buildWan22Command({ task, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", jobId: "job-1", sceneId: "scene-01" });
+  assert.equal(built.command, "python");
+  assert.equal(built.args.includes("--task"), true);
+  assert.equal(built.args[built.args.indexOf("--task") + 1], "ti2v-5B");
+  assert.equal(built.args[built.args.indexOf("--size") + 1], "704*1280");
+  assert.equal(built.args[built.args.indexOf("--frame_num") + 1], "121");
+  assert.equal(built.args[built.args.indexOf("--prompt") + 1], "A product; ignore shell");
+  assert.equal(built.args[built.args.indexOf("--image") + 1], "/workspace/assets/source.png");
+  assert.equal(built.outputPath, "/workspace/jobs/job-1/scene-01.mp4");
+  assert.equal(wan22FrameCount(5), 121);
+  assert.equal((wan22FrameCount(3) - 1) % 4, 0);
+});
+
+test("Wan local runtime refuses inference unless all explicit approval and hardware gates pass", async () => {
+  let spawned = 0;
+  const runtime = createWan22LocalRuntime({ spawnImpl: () => { spawned += 1; throw new Error("must_not_spawn"); } });
+  const result = await runtime.render({ task: createGenerativeVideoTask({ prompt: "test" }), jobId: "job-1", sceneId: "scene-01" });
+  assert.equal(result.state, "blocked");
+  assert.equal(result.reason, "wan22_execution_disabled");
+  assert.equal(spawned, 0);
+});
+
+test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", async () => {
+  const noCost = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, hardware: { verified: true, availableVramGB: 24 } });
+  assert.equal((await noCost.preflight()).reason, "zero_cost_compute_not_verified");
+  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, hardware: { verified: true, availableVramGB: 16 } });
+  assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
+});
