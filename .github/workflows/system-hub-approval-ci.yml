@@ -104,10 +104,6 @@ jobs:
 
       - name: Exercise real local Auth sessions, System Hub Approval API and A/B isolation
         run: node integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs
-        env:
-          NOVA_LOCAL_SUPABASE_URL: ${{ env.NOVA_LOCAL_SUPABASE_URL }}
-          NOVA_LOCAL_SUPABASE_ANON_KEY: ${{ env.NOVA_LOCAL_SUPABASE_ANON_KEY }}
-          NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY: ${{ env.NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Stop disposable local Supabase
         if: always()
