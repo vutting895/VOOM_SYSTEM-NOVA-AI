@@ -85,7 +85,7 @@ CREATE INDEX IF NOT EXISTS nova_approval_events_owner_history_idx
   ON public.nova_approval_events (user_id, approval_id, event_sequence ASC);
 
 ALTER TABLE public.nova_approval_events ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.nova_approval_events FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.nova_approval_events FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON TABLE public.nova_approval_events TO authenticated;
 
 DROP POLICY IF EXISTS nova_approval_events_select_own ON public.nova_approval_events;
@@ -117,6 +117,11 @@ DROP TRIGGER IF EXISTS nova_approval_events_immutable ON public.nova_approval_ev
 CREATE TRIGGER nova_approval_events_immutable
   BEFORE UPDATE OR DELETE ON public.nova_approval_events
   FOR EACH ROW EXECUTE FUNCTION private.nova_approval_events_guard_mutation();
+
+DROP TRIGGER IF EXISTS nova_approval_events_no_truncate ON public.nova_approval_events;
+CREATE TRIGGER nova_approval_events_no_truncate
+  BEFORE TRUNCATE ON public.nova_approval_events
+  FOR EACH STATEMENT EXECUTE FUNCTION private.nova_approval_events_guard_mutation();
 
 CREATE OR REPLACE FUNCTION private.nova_capture_approval_event()
 RETURNS trigger
