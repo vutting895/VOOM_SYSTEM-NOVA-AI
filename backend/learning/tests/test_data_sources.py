@@ -1,0 +1,155 @@
+"""Unit tests for integrity-gated market-data ingestion and purged splits."""
+import csv
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from decimal import Decimal
+
+import pytest
+
+from backend.learning.data_sources import (
+    BINANCE_5Y_DATASET_ID,
+    DataSourceError,
+    DatasetEligibilityError,
+    MarketBar,
+    MarketDataset,
+    chronological_splits,
+    load_binance_btcusdt_h1,
+    load_exness_xauusdm_m15,
+)
+
+
+def _digest(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _write_exness_fixture(root: Path) -> Path:
+    folder = root / "datasets/exness/demo/xauusdm_m15"
+    folder.mkdir(parents=True)
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    rows = []
+    for i in range(12):
+        ts = (start + timedelta(minutes=15 * i)).isoformat()
+        rows.append({
+            "timestamp": ts, "open": str(2000 + i), "high": str(2002 + i),
+            "low": str(1999 + i), "close": str(2001 + i), "volume": "10.5",
+            "tick_volume": "100", "spread_points": "20", "spread_price": "0.020",
+            "real_volume": "0",
+        })
+    csv_path = folder / "ohlcv.csv"
+    columns = list(rows[0])
+    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+    csv_bytes = csv_path.read_bytes()
+
+    metadata = {
+        "sha256": _digest(csv_bytes), "size_bytes": len(csv_bytes), "bar_count": len(rows),
+        "symbol": "XAUUSDm", "timeframe": "M15", "account_mode": "DEMO",
+        "account_identifier_stored": False,
+        "first_bar_utc": rows[0]["timestamp"], "last_closed_bar_utc": rows[-1]["timestamp"],
+    }
+    metadata_bytes = json.dumps(metadata, sort_keys=True).encode()
+    (folder / "metadata.json").write_bytes(metadata_bytes)
+    manifest = {
+        "dataset_id": "exness-test-dataset", "source": "test fixture",
+        "symbol": "XAUUSDm", "timeframe": "M15", "benchmark_eligibility": "candidate_only",
+        "csv_file": "ohlcv.csv", "csv_size_bytes": len(csv_bytes), "csv_sha256": _digest(csv_bytes),
+        "metadata_file": "metadata.json", "source_metadata_size_bytes": len(metadata_bytes),
+        "metadata_source_sha256": _digest(metadata_bytes), "row_count": len(rows),
+        "first_bar_utc": rows[0]["timestamp"], "last_closed_bar_utc": rows[-1]["timestamp"],
+    }
+    (folder / "dataset_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    return folder
+
+
+def test_exness_loader_requires_candidate_training_opt_in(tmp_path):
+    _write_exness_fixture(tmp_path)
+    with pytest.raises(DatasetEligibilityError):
+        load_exness_xauusdm_m15(tmp_path)
+
+
+def test_exness_loader_checks_csv_and_metadata_provenance(tmp_path):
+    _write_exness_fixture(tmp_path)
+    dataset = load_exness_xauusdm_m15(tmp_path, allow_research_training=True)
+    assert len(dataset.bars) == 12
+    assert dataset.symbol == "XAUUSDm"
+    assert dataset.eligibility == "candidate_only"
+    assert dataset.benchmark_eligible is False
+    assert dataset.live_feed is False
+    assert dataset.sha256
+
+    metadata_path = tmp_path / "datasets/exness/demo/xauusdm_m15/metadata.json"
+    metadata_path.write_text(metadata_path.read_text() + " ", encoding="utf-8")
+    with pytest.raises(DataSourceError, match="metadata hash"):
+        load_exness_xauusdm_m15(tmp_path, allow_research_training=True)
+
+
+def test_binance_loader_preserves_decimal_tokens_and_detects_gaps(tmp_path):
+    folder = tmp_path / "datasets/public/binance/btcusdt_h1"
+    folder.mkdir(parents=True)
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    stamps = [start, start + timedelta(hours=1), start + timedelta(hours=3)]
+    bars = []
+    for stamp in stamps:
+        bars.append({
+            "timestamp": stamp.isoformat(),
+            "close_timestamp": (stamp + timedelta(hours=1) - timedelta(milliseconds=1)).isoformat(),
+            "is_closed": True, "open": 100.123456789, "high": 101.0, "low": 99.0,
+            "close": 100.5, "volume": 5.25, "source": "binance_public",
+        })
+    payload = {"symbol": "BTCUSDT", "timeframe": "1h", "bars": bars}
+    raw = json.dumps(payload, separators=(",", ":")).encode()
+    (folder / "snapshot.json").write_bytes(raw)
+    manifest = {
+        "symbol": "BTCUSDT", "timeframe": "1h", "source": "Binance public klines API",
+        "five_year": {
+            "file": "snapshot.json", "row_count": 3, "first_bar_utc": stamps[0].isoformat(),
+            "last_bar_utc": stamps[-1].isoformat(), "bytes": len(raw), "sha256": _digest(raw),
+        },
+    }
+    (folder / "dataset_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(DatasetEligibilityError):
+        load_binance_btcusdt_h1(tmp_path)
+    dataset = load_binance_btcusdt_h1(tmp_path, allow_research_training=True)
+    assert dataset.bars[0].open == Decimal("100.123456789")
+    assert dataset.missing_interval_count == 1
+    assert dataset.gap_after_indices == (2,)
+
+
+def test_chronological_split_purges_horizon_and_embargo_and_reserves_test():
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    bars = tuple(
+        MarketBar(start + timedelta(hours=i), Decimal("10"), Decimal("11"),
+                  Decimal("9"), Decimal("10"), Decimal("1"), {})
+        for i in range(100)
+    )
+    dataset = MarketDataset(
+        dataset_id=BINANCE_5Y_DATASET_ID, source="test", symbol="BTCUSDT",
+        timeframe="1h", bars=bars, sha256="test", size_bytes=1,
+        eligibility="historical_research_candidate", benchmark_eligible=False,
+        live_feed=False, missing_interval_count=0, gap_after_indices=(),
+    )
+    splits = chronological_splits(
+        dataset, label_horizon_bars=3, embargo_bars=2,
+    )
+    assert len(splits.train.bars) == 57
+    assert len(splits.validation.bars) == 15
+    assert len(splits.test.bars) == 18
+    assert splits.train.bars[-1].timestamp < splits.validation.bars[0].timestamp
+    assert splits.validation.bars[-1].timestamp < splits.test.bars[0].timestamp
+    assert splits.test.name == "test_reserved"
+    assert splits.test_reserved is True
+
+
+def test_chronological_split_rejects_too_small_dataset():
+    dataset = MarketDataset(
+        dataset_id="small", source="test", symbol="XAUUSDm", timeframe="15m",
+        bars=(), sha256="test", size_bytes=0, eligibility="candidate_only",
+        benchmark_eligible=False, live_feed=False, missing_interval_count=0,
+        gap_after_indices=(),
+    )
+    with pytest.raises(DataSourceError):
+        chronological_splits(dataset, label_horizon_bars=1, embargo_bars=0)
