@@ -65,6 +65,8 @@ create table if not exists public.nova_video_preparations (
     ),
   snapshot_hash text not null check (snapshot_hash ~ '^[a-f0-9]{64}$'),
   planner_version text not null check (char_length(planner_version) between 1 and 40),
+  -- This record is preparation metadata only; it can never authorize a renderer.
+  execution_authorized boolean not null default false check (execution_authorized = false),
   created_at timestamptz not null default now(),
   constraint nova_video_preparations_job_owner_fk
     foreign key (job_id,user_id)
@@ -83,6 +85,8 @@ create table if not exists public.nova_video_approval_decisions (
   snapshot_hash text not null check (snapshot_hash ~ '^[a-f0-9]{64}$'),
   decision text not null check (decision in ('approved','rejected')),
   decision_note text check (decision_note is null or char_length(decision_note) <= 300),
+  -- An owner decision records human review intent only, never execution authority.
+  execution_authorized boolean not null default false check (execution_authorized = false),
   created_at timestamptz not null default now(),
   constraint nova_video_approval_decisions_owner_preparation_fk
     foreign key (preparation_id,user_id)
@@ -143,6 +147,8 @@ create policy nova_video_preparations_insert_own on public.nova_video_preparatio
         and j.user_id = (select auth.uid())
         and j.task_type = 'video_generation'
         and j.status = 'blocked_no_free_gpu'
+        and snapshot->'job'->>'projectId' = j.project_id::text
+        and snapshot->'directorPlan' = j.request->'director_plan'
     )
   );
 
@@ -164,4 +170,4 @@ create policy nova_video_approval_decisions_insert_own on public.nova_video_appr
 comment on table public.nova_video_preparations is
   'Owner-scoped immutable production-plan snapshots. They record readiness for human review; they never authorize model execution.';
 comment on table public.nova_video_approval_decisions is
-  'Append-only, one-time owner decision bound to the exact immutable preparation snapshot hash. Approval never enables rendering.';
+  'Append-only, one-time owner decision bound to the exact immutable preparation snapshot hash. It records human-review intent only and is constrained to execution_authorized=false.';
