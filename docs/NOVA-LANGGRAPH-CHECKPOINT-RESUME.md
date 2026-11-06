@@ -29,9 +29,9 @@ using the backend-only `NOVA_LANGGRAPH_THREAD_ID_SECRET`. The same owner/thread/
 
 ## PostgreSQL checkpoint store
 
-The runtime uses `PostgresSaver.fromConnString(connectionString, { schema: "nova_langgraph_private" })` followed by `await checkpointer.setup()`. The saver creates/updates its own checkpoint tables in the supplied schema. LangGraph checkpoint rows are not exposed through the public Supabase Data API.
+The runtime uses `PostgresSaver.fromConnString(connectionString, { schema: "nova_langgraph_private" })` followed by `await checkpointer.setup()`. The official saver implementation creates the requested schema when it is absent, then creates/updates its checkpoint tables and runs the checkpointer's schema migrations. The connection role therefore needs permission to create the schema on first use, or the schema must be pre-created and owned/granted to that role. LangGraph checkpoint rows are not exposed through the public Supabase Data API.
 
-Provision a dedicated backend-only PostgreSQL login for this schema before enabling the feature. The role must not own or mutate `public.nova_approval_requests`, `public.nova_approval_events`, broker tables or application schemas. Do not point the checkpointer at the public schema or reuse the Supabase service-role key. Example schema grants for a pre-created dedicated role (execute only in a disposable local DB until separately reviewed):
+Provision a dedicated backend-only PostgreSQL login for this schema before enabling the feature. The role must not own or mutate `public.nova_approval_requests`, `public.nova_approval_events`, broker tables or application schemas. Do not point the checkpointer at the public schema or reuse the Supabase service-role key. Provision the login and credentials out-of-band; the example below assumes that role already exists. Execute only in a disposable local DB until separately reviewed:
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS nova_langgraph_private
@@ -39,6 +39,8 @@ CREATE SCHEMA IF NOT EXISTS nova_langgraph_private
 REVOKE ALL ON SCHEMA nova_langgraph_private FROM PUBLIC, anon, authenticated, service_role;
 GRANT USAGE, CREATE ON SCHEMA nova_langgraph_private TO nova_langgraph_checkpointer;
 ```
+
+The saver runs its own migrations in this schema during `setup()`; grant the dedicated owner only the schema privileges needed to create and maintain those checkpoint tables. Do not grant it privileges on any application or broker schema. Checkpoint writes are awaited as part of `graph.invoke()`, so the API must await each invocation before returning.
 
 Set backend-only secrets:
 
@@ -57,7 +59,7 @@ Candidate exact versions to resolve and then pin together with the generated `bu
 - `@langchain/langgraph@1.6.1`
 - `@langchain/langgraph-checkpoint-postgres@1.1.2`
 
-The checkpoint package depends on node-postgres internally. Resolve peer dependencies from those exact package manifests during the next disk-capable dependency installation; do not use floating `latest` tags. The feature flag remains off by default, and the runtime reports a controlled unavailable status while these packages are missing.
+These are candidate exact pins to validate together, not installed dependencies. The current npm registry also lists LangGraph 1.7.1, published only hours before this review, so the branch deliberately does not chase a just-published version without a compatibility run. The PostgreSQL saver 1.1.2 uses node-postgres internally; resolve the matching checkpoint/core peer dependency tree from the package manifests during the next disk-capable installation. Commit the resulting `bun.lock` in the same change. Do not use floating `latest` tags. The feature flag remains off by default, and the runtime reports a controlled unavailable status while these packages are missing.
 
 Before enabling the flag, CI must prove all of the following on a disposable PostgreSQL 17 database:
 - graph interrupts persist across process restart and resume using the exact same HMAC thread ID;
