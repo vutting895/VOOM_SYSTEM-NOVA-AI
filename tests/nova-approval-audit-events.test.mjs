@@ -18,7 +18,7 @@ test("creates an owner-bound approval audit log with immutable event identity an
 
 test("event rows are owner-readable only and cannot be mutated by authenticated clients", () => {
   assert.match(migration, /ALTER TABLE public\.nova_approval_events ENABLE ROW LEVEL SECURITY/i);
-  assert.match(migration, /REVOKE ALL ON TABLE public\.nova_approval_events FROM PUBLIC, anon, authenticated/i);
+  assert.match(migration, /REVOKE ALL ON TABLE public\.nova_approval_events FROM PUBLIC, anon, authenticated, service_role/i);
   assert.match(migration, /GRANT SELECT ON TABLE public\.nova_approval_events TO authenticated/i);
   assert.match(migration, /nova_approval_events_select_own[\s\S]*?user_id = \(SELECT auth\.uid\(\)\)/i);
   assert.match(migration, /nova_approval_events_append_only/i);
