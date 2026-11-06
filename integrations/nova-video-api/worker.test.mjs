@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import worker from "./worker.js";
+import { createVideoProductionPlan } from "./video-production-planner.js";
 
 const ENV = {
   SUPABASE_URL: "https://supabase.example.test",
@@ -546,6 +547,56 @@ function sampleDirectorPlan() {
   };
 }
 
+function stableJsonValue(value) {
+  if (Array.isArray(value)) return "[" + value.map(stableJsonValue).join(",") + "]";
+  if (value && typeof value === "object") {
+    return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stableJsonValue(value[key])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
+async function hashSnapshot(snapshot) {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(stableJsonValue(snapshot)));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function sampleJobRecord() {
+  return {
+    id: "123e4567-e89b-42d3-a456-426614174001",
+    project_id: "123e4567-e89b-42d3-a456-426614174000",
+    task_type: "video_generation",
+    status: "blocked_no_free_gpu",
+    prompt: "NOVA demo",
+    request: { schema_version: "nova.video-job.v2", director_plan: sampleDirectorPlan() },
+    execution_mode: "free_only",
+    estimated_cost: 0,
+    created_at: "2026-11-05T00:00:00Z",
+  };
+}
+
+function samplePreparationSnapshot(job) {
+  const directorPlan = job.request.director_plan;
+  return {
+    schemaVersion: "nova.video-preparation.v1",
+    job: {
+      id: job.id,
+      projectId: job.project_id,
+      taskType: job.task_type,
+      status: job.status,
+      createdAt: job.created_at,
+    },
+    directorPlan,
+    productionPlan: createVideoProductionPlan(directorPlan),
+    policy: {
+      requiresHumanApproval: true,
+      executionEnabled: false,
+      estimatedCost: 0,
+      executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"],
+    },
+  };
+}
+
+
 
 test("preparation persists an immutable server-derived Engine snapshot for the owning user", async () => {
   const previous = globalThis.fetch;
@@ -640,27 +691,19 @@ test("preparation endpoint refuses another user's job and never inserts a prepar
 
 test("approval is append-only, owner-scoped and cannot enable rendering", async () => {
   const previous = globalThis.fetch;
-  const snapshot = {
-    schemaVersion: "nova.video-preparation.v1",
-    job: { id: "123e4567-e89b-42d3-a456-426614174001", projectId: "123e4567-e89b-42d3-a456-426614174000", taskType: "video_generation", status: "blocked_no_free_gpu" },
-    directorPlan: { schemaVersion: "nova.director-plan.v1", frameRate: 24 },
-    productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
-    policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
-  };
-  const snapshotHash = await (async () => {
-    const stable = (value) => {
-      if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
-      if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stable(value[key])).join(",") + "}";
-      return JSON.stringify(value);
-    };
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(stable(snapshot)));
-    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-  })();
+  const job = sampleJobRecord();
+  const snapshot = samplePreparationSnapshot(job);
+  const snapshotHash = await hashSnapshot(snapshot);
   let inserted = null;
   globalThis.fetch = async (input, init) => {
     const url = new URL(input);
     if (url.pathname === "/auth/v1/user") return authResponse();
     assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("id"), "eq." + job.id);
+      return Response.json([job]);
+    }
     if (url.pathname === "/rest/v1/nova_video_preparations") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-a");
       return Response.json([{
@@ -758,24 +801,18 @@ test("approval routes authenticate before parsing bodies and expose GET only for
 
 test("GET preparation returns the owner-scoped snapshot and approval decision only after hash verification", async () => {
   const previous = globalThis.fetch;
-  const snapshot = {
-    schemaVersion: "nova.video-preparation.v1",
-    job: { id: "123e4567-e89b-42d3-a456-426614174001", projectId: "123e4567-e89b-42d3-a456-426614174000", taskType: "video_generation", status: "blocked_no_free_gpu" },
-    directorPlan: { schemaVersion: "nova.director-plan.v1", frameRate: 24 },
-    productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
-    policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
-  };
-  const stable = (value) => {
-    if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
-    if (value && typeof value === "object") return "{" + Object.keys(value).sort().map((key) => JSON.stringify(key) + ":" + stable(value[key])).join(",") + "}";
-    return JSON.stringify(value);
-  };
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(stable(snapshot)));
-  const snapshotHash = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const job = sampleJobRecord();
+  const snapshot = samplePreparationSnapshot(job);
+  const snapshotHash = await hashSnapshot(snapshot);
   globalThis.fetch = async (input, init) => {
     const url = new URL(input);
     if (url.pathname === "/auth/v1/user") return authResponse();
     assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("id"), "eq." + job.id);
+      return Response.json([job]);
+    }
     if (url.pathname === "/rest/v1/nova_video_preparations") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-a");
       assert.equal(url.searchParams.get("job_id"), "eq." + snapshot.job.id);
