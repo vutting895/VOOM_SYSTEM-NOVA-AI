@@ -163,7 +163,12 @@ SELECT (
   count(*) = 2
   AND count(*) FILTER (WHERE event_type = 'edited'
     AND decision_payload ->> 'summary' = 'Revised research-only draft.'
+    AND decision_payload_hash = encode(
+      extensions.digest(convert_to(decision_payload::text, 'UTF8'), 'sha256'), 'hex')
     AND actor_type = 'owner') = 1
+  AND count(*) FILTER (WHERE event_type = 'requested'
+    AND decision_payload IS NULL
+    AND decision_payload_hash IS NULL) = 1
 ) AS edit_event_saved
 FROM public.nova_approval_events
 WHERE approval_id = :'audit_edit_approval_id' \gset
