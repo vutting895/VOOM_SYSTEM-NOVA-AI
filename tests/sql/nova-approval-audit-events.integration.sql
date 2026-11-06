@@ -224,6 +224,7 @@ DECLARE
   v_event_id uuid;
   v_update_blocked boolean := false;
   v_delete_blocked boolean := false;
+  v_truncate_blocked boolean := false;
 BEGIN
   SELECT id INTO v_event_id
   FROM public.nova_approval_events
@@ -255,11 +256,20 @@ BEGIN
     v_delete_blocked := true;
   END;
 
-  IF NOT v_update_blocked OR NOT v_delete_blocked THEN
-    RAISE EXCEPTION 'direct event mutation was not blocked';
+  BEGIN
+    EXECUTE 'TRUNCATE TABLE public.nova_approval_events';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'nova_approval_events_append_only' THEN
+      RAISE;
+    END IF;
+    v_truncate_blocked := true;
+  END;
+
+  IF NOT v_update_blocked OR NOT v_delete_blocked OR NOT v_truncate_blocked THEN
+    RAISE EXCEPTION 'direct event mutation or truncation was not blocked';
   END IF;
 END;
-$$;
+$;
 
 -- Account erasure cascades through the parent request and removes retained audit rows.
 DELETE FROM auth.users
