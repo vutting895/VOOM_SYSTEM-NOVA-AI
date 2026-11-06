@@ -66,6 +66,7 @@ function snapshotView(snapshot) {
   return {
     status: hasPendingInterrupt(snapshot) ? "awaiting_review" : values.reviewStatus ? "resumed" : "not_started",
     approvalId: values.approvalId || null,
+    proposalHash: values.proposalHash || null,
     reviewStatus: values.reviewStatus || null,
   };
 }
@@ -86,8 +87,14 @@ export async function createNovaApprovalCheckpointRuntime({
     throw checkpointError("NOVA_LANGGRAPH_DISABLED", "LangGraph checkpoint integration is disabled");
   }
   const connectionString = env.NOVA_LANGGRAPH_DATABASE_URL;
-  if (typeof connectionString !== "string" || !connectionString.startsWith("postgres")) {
-    throw checkpointError("NOVA_LANGGRAPH_DATABASE_URL_MISSING", "A private PostgreSQL checkpointer URL is required");
+  let parsedConnectionUrl;
+  try {
+    parsedConnectionUrl = new URL(connectionString);
+  } catch {
+    throw checkpointError("NOVA_LANGGRAPH_DATABASE_URL_INVALID", "NOVA_LANGGRAPH_DATABASE_URL must be a PostgreSQL connection URL");
+  }
+  if (!["postgres:", "postgresql:"].includes(parsedConnectionUrl.protocol) || !parsedConnectionUrl.hostname) {
+    throw checkpointError("NOVA_LANGGRAPH_DATABASE_URL_INVALID", "NOVA_LANGGRAPH_DATABASE_URL must use postgres:// or postgresql:// and include a host");
   }
 
   const secret = env.NOVA_LANGGRAPH_THREAD_ID_SECRET;
@@ -112,7 +119,17 @@ export async function createNovaApprovalCheckpointRuntime({
   const checkpointer = PostgresSaver.fromConnString(connectionString, {
     schema: NOVA_LANGGRAPH_CHECKPOINT_SCHEMA,
   });
-  await checkpointer.setup();
+  try {
+    await checkpointer.setup();
+  } catch (error) {
+    if (typeof checkpointer.end === "function") {
+      await checkpointer.end().catch(() => {});
+    }
+    throw checkpointError(
+      "NOVA_LANGGRAPH_CHECKPOINT_SETUP_FAILED",
+      error instanceof Error ? "PostgreSQL checkpoint setup failed: " + error.message : "PostgreSQL checkpoint setup failed",
+    );
+  }
 
   const State = Annotation.Root({
     approvalId: Annotation({ reducer: (_previous, next) => next, default: () => null }),
@@ -160,7 +177,11 @@ export async function createNovaApprovalCheckpointRuntime({
       if (current.approvalId !== identity.approvalId) {
         throw checkpointError("NOVA_LANGGRAPH_CHECKPOINT_COLLISION", "Checkpoint belongs to another approval");
       }
+      if (current.proposalHash !== identity.proposalHash) {
+        throw checkpointError("NOVA_LANGGRAPH_CHECKPOINT_MISMATCH", "Checkpoint proposal hash differs from the immutable Approval record");
+      }
       if (current.status === "awaiting_review" || current.status === "resumed") return current;
+      throw checkpointError("NOVA_LANGGRAPH_CHECKPOINT_STATE_INVALID", "Existing checkpoint is neither waiting for review nor complete");
     }
 
     await reviewGraph.invoke({
@@ -178,6 +199,12 @@ export async function createNovaApprovalCheckpointRuntime({
     const threadId = config.configurable.thread_id;
     if (typeof checkpointer.deleteThread !== "function") {
       throw checkpointError("NOVA_LANGGRAPH_DELETE_UNSUPPORTED", "Installed checkpointer does not support thread deletion");
+    }
+    const existing = await reviewGraph.getState(config);
+    if (existing?.values?.approvalId &&
+        (existing.values.approvalId !== identity.approvalId ||
+         existing.values.proposalHash !== identity.proposalHash)) {
+      throw checkpointError("NOVA_LANGGRAPH_CHECKPOINT_MISMATCH", "Refusing to erase a checkpoint that does not match the owned Approval identity");
     }
     await checkpointer.deleteThread(threadId);
     return { status: "deleted" };
