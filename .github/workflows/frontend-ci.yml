@@ -56,6 +56,20 @@ on:
       - "tests/**"
       - "infra/**"
       - "supabase/verification/**"
+      # Backend approval, SQL migration and tenant tests run in dedicated workflows.
+      # Keep the push-to-main filter below unchanged; these exclusions apply only to PR CI.
+      - "!server.ts"
+      - "!src/server/**"
+      - "!supabase/migrations/20261027160402_mt5_customer_connections.sql"
+      - "!supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql"
+      - "!supabase/pending-migrations/202611070001_nova_approval_audit_event_log.sql"
+      - "!tests/nova-approval-migration.test.mjs"
+      - "!tests/nova-approval-audit-events.test.mjs"
+      - "!tests/nova-approval-api.test.mjs"
+      - "!tests/nova-approval-contract.test.mjs"
+      - "!tests/nova-approval-checkpoint.test.mjs"
+      - "!tests/sql/nova-approval-migration.integration.sql"
+      - "!tests/sql/nova-approval-audit-events.integration.sql"
 
 permissions:
   contents: read
