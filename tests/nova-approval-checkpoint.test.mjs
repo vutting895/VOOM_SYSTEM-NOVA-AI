@@ -86,6 +86,22 @@ test("checkpoint runtime rejects a malformed or non-PostgreSQL database URL befo
   );
 });
 
+test("checkpoint runtime rejects PostgreSQL URLs without explicit TLS", async () => {
+  await assert.rejects(
+    createNovaApprovalCheckpointRuntime({
+      env: {
+        NOVA_LANGGRAPH_ENABLED: "true",
+        NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpointer@127.0.0.1/nova_test?sslmode=disable",
+        NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
+      },
+      dependenciesLoader: async () => {
+        throw new Error("must not load dependencies for a non-TLS URL");
+      },
+    }),
+    (error) => error.code === "NOVA_LANGGRAPH_TLS_REQUIRED",
+  );
+});
+
 test("failed PostgresSaver setup closes its connection pool", async () => {
   let closeCount = 0;
   const dependencies = {
@@ -109,7 +125,7 @@ test("failed PostgresSaver setup closes its connection pool", async () => {
     createNovaApprovalCheckpointRuntime({
       env: {
         NOVA_LANGGRAPH_ENABLED: "true",
-        NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpointer@127.0.0.1/nova_test",
+        NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpointer@127.0.0.1/nova_test?sslmode=require",
         NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
       },
       dependenciesLoader: async () => dependencies,
@@ -206,7 +222,7 @@ test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports th
   const runtime = await createNovaApprovalCheckpointRuntime({
     env: {
       NOVA_LANGGRAPH_ENABLED: "true",
-      NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpoint:local@127.0.0.1/nova_test",
+      NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpoint:local@127.0.0.1/nova_test?sslmode=require",
       NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
     },
     dependenciesLoader: async () => dependencies,
