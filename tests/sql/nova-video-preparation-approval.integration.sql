@@ -40,7 +40,8 @@ INSERT INTO public.nova_video_preparations (
   '11111111-1111-4111-8111-111111111111',
   '{
     "schemaVersion":"nova.video-preparation.v1",
-    "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","taskType":"video_generation","status":"blocked_no_free_gpu"},
+    "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","projectId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","taskType":"video_generation","status":"blocked_no_free_gpu"},
+    "directorPlan":{"schemaVersion":"nova.director-plan.v1","frameRate":24},
     "productionPlan":{"schemaVersion":"nova.video-production-plan.v1","requiresHumanApproval":true,"executionEnabled":false,"status":"blocked_no_free_gpu"},
     "policy":{"requiresHumanApproval":true,"executionEnabled":false,"estimatedCost":0,"executionBlockers":["verified_zero_cost_gpu_unavailable","worker_dispatch_disabled"]}
   }'::jsonb,
@@ -80,6 +81,64 @@ BEGIN
 END
 $$;
 
+-- A user may submit a preparation only when its Director plan matches
+-- the persisted immutable job request. A forged plan is rejected by RLS.
+INSERT INTO public.nova_video_jobs (
+  id, user_id, project_id, task_type, status, prompt, request,
+  execution_mode, estimated_cost, idempotency_key
+) VALUES (
+  '99999999-9999-4999-8999-999999999999',
+  '11111111-1111-4111-8111-111111111111',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'video_generation',
+  'blocked_no_free_gpu',
+  'Tenant A job for forged snapshot rejection',
+  '{"schema_version":"nova.video-job.v2","director_plan":{"schemaVersion":"nova.director-plan.v1","frameRate":24}}'::jsonb,
+  'free_only',
+  0,
+  'tenantAforgedjob01'
+);
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.nova_video_preparations (
+      job_id, user_id, snapshot, snapshot_hash, planner_version
+    ) VALUES (
+      '99999999-9999-4999-8999-999999999999',
+      '11111111-1111-4111-8111-111111111111',
+      '{
+        "schemaVersion":"nova.video-preparation.v1",
+        "job":{"id":"99999999-9999-4999-8999-999999999999","projectId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "directorPlan":{"schemaVersion":"nova.director-plan.v1","frameRate":23},
+        "productionPlan":{"schemaVersion":"nova.video-production-plan.v1","requiresHumanApproval":true,"executionEnabled":false,"status":"blocked_no_free_gpu"},
+        "policy":{"requiresHumanApproval":true,"executionEnabled":false,"estimatedCost":0}
+      }'::jsonb,
+      repeat('c', 64),
+      '1.0.0'
+    );
+    RAISE EXCEPTION 'Forged Director plan unexpectedly passed RLS';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.nova_video_approval_decisions (
+      preparation_id, user_id, snapshot_hash, decision, execution_authorized
+    ) VALUES (
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      '11111111-1111-4111-8111-111111111111',
+      repeat('a', 64),
+      'approved',
+      true
+    );
+    RAISE EXCEPTION 'Execution authorization unexpectedly accepted on human approval';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+END
+$$;
+
 -- A second preparation for the same owner/job and a second decision for the
 -- same owner/preparation must fail. Existing snapshots and decisions are immutable.
 DO $$
@@ -92,7 +151,8 @@ BEGIN
       '11111111-1111-4111-8111-111111111111',
       '{
         "schemaVersion":"nova.video-preparation.v1",
-        "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","projectId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "directorPlan":{"schemaVersion":"nova.director-plan.v1","frameRate":24},
         "productionPlan":{"schemaVersion":"nova.video-production-plan.v1","requiresHumanApproval":true,"executionEnabled":false,"status":"blocked_no_free_gpu"},
         "policy":{"requiresHumanApproval":true,"executionEnabled":false,"estimatedCost":0}
       }'::jsonb,
@@ -153,7 +213,8 @@ BEGIN
       '22222222-2222-4222-8222-222222222222',
       '{
         "schemaVersion":"nova.video-preparation.v1",
-        "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "job":{"id":"cccccccc-cccc-4ccc-8ccc-cccccccccccc","projectId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "directorPlan":{"schemaVersion":"nova.director-plan.v1","frameRate":24},
         "productionPlan":{"schemaVersion":"nova.video-production-plan.v1","requiresHumanApproval":true,"executionEnabled":false,"status":"blocked_no_free_gpu"},
         "policy":{"requiresHumanApproval":true,"executionEnabled":false,"estimatedCost":0}
       }'::jsonb,
