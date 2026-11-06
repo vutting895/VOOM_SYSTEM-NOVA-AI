@@ -70,6 +70,55 @@ test("checkpoint runtime uses PostgresSaver setup, a private schema and LangGrap
   assert.doesNotMatch(source, /place_order|execute_broker_order|submit_order|liveTradingEnabled\s*=\s*true/i);
 });
 
+test("checkpoint runtime rejects a malformed or non-PostgreSQL database URL before loading packages", async () => {
+  await assert.rejects(
+    createNovaApprovalCheckpointRuntime({
+      env: {
+        NOVA_LANGGRAPH_ENABLED: "true",
+        NOVA_LANGGRAPH_DATABASE_URL: "https://example.test/db",
+        NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
+      },
+      dependenciesLoader: async () => {
+        throw new Error("must not load dependencies for an invalid connection URL");
+      },
+    }),
+    (error) => error.code === "NOVA_LANGGRAPH_DATABASE_URL_INVALID",
+  );
+});
+
+test("failed PostgresSaver setup closes its connection pool", async () => {
+  let closeCount = 0;
+  const dependencies = {
+    Annotation: Object.assign((spec) => spec, { Root: (spec) => spec }),
+    StateGraph: class {},
+    START: "__start__",
+    END: "__end__",
+    interrupt() {},
+    Command: class {},
+    PostgresSaver: {
+      fromConnString() {
+        return {
+          async setup() { throw new Error("simulated schema permission denied"); },
+          async end() { closeCount += 1; },
+        };
+      },
+    },
+  };
+
+  await assert.rejects(
+    createNovaApprovalCheckpointRuntime({
+      env: {
+        NOVA_LANGGRAPH_ENABLED: "true",
+        NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpointer@127.0.0.1/nova_test",
+        NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
+      },
+      dependenciesLoader: async () => dependencies,
+    }),
+    (error) => error.code === "NOVA_LANGGRAPH_CHECKPOINT_SETUP_FAILED",
+  );
+  assert.equal(closeCount, 1);
+});
+
 test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports thread erasure", async () => {
   const checkpointRows = new Map();
   let activeInvocation = null;
@@ -166,6 +215,14 @@ test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports th
   const identity = { userId: userA, appThreadId: appThread, approvalId: approval, proposalHash };
   const waiting = await runtime.startReview(identity);
   assert.equal(waiting.status, "awaiting_review");
+  await assert.rejects(
+    runtime.startReview({ ...identity, proposalHash: "b".repeat(64) }),
+    (error) => error.code === "NOVA_LANGGRAPH_CHECKPOINT_MISMATCH",
+  );
+  await assert.rejects(
+    runtime.deleteReviewCheckpoint({ ...identity, proposalHash: "b".repeat(64) }),
+    (error) => error.code === "NOVA_LANGGRAPH_CHECKPOINT_MISMATCH",
+  );
   assert.equal(savedSchema, NOVA_LANGGRAPH_CHECKPOINT_SCHEMA);
   assert.equal(setupCount, 1);
 
