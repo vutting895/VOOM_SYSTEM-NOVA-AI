@@ -16,7 +16,6 @@ type NovaApprovalApi = ReturnType<typeof createNovaApprovalApi>;
 interface SupabaseSessionContextValue {
   isConfigured: boolean;
   loading: boolean;
-  session: Session | null;
   user: User | null;
   getAccessToken: () => Promise<string | null>;
   approvalApi: NovaApprovalApi | null;
@@ -71,7 +70,6 @@ export function SupabaseSessionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SupabaseSessionContextValue>(() => ({
     isConfigured: Boolean(supabaseClient),
     loading,
-    session,
     user: session?.user ?? null,
     getAccessToken,
     approvalApi,
