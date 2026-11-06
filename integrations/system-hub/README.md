@@ -37,6 +37,17 @@ The persisted workflow reuses `public.nova_agent_threads`, `public.nova_approval
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection or thread is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
 
+## Browser integration contract
+
+The root Vite SPA now has:
+- `src/services/supabaseClient.ts`: shared browser client configured with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (or the legacy anon-key alias).
+- `src/providers/SupabaseSessionProvider.tsx`: listens to Supabase Auth state changes, exposes the current user and a session-aware `approvalApi`, and does not expose the raw access token through component context.
+- `src/services/novaApprovalApi.ts`: typed client that obtains a fresh access token through a callback per request and calls the System Hub endpoints.
+- `docs/NOVA-APPROVAL-FRONTEND-INTEGRATION.md`: component usage, durable thread identity, proposal/decision shape and safety contract.
+
+The SPA provider is infrastructure only. It does not supply a login form or review-card design. The UI must wait for a real authenticated Supabase session, create/use a server-issued thread UUID, and clear user-specific UI state on sign-out or account change. Do not reuse the legacy `nova_langgraph_thread_id` localStorage value as an Approval API thread ID.
+
+
 ## Deployment
 
 `wrangler.jsonc` declares the Worker name and the fixed UI/MT5 adapter URLs. The GitHub Actions Cloudflare deployment workflow passes `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from existing Actions secrets at deploy time. The customer-facing Broker Settings page uses `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaulting to this Worker) and sends the signed-in Supabase access token; it no longer calls the MT5 Proxy directly. Do not put credentials or tokens in source control.
