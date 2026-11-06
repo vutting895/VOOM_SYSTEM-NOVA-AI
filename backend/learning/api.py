@@ -1,4 +1,8 @@
-"""FastAPI router for Learning Engine. Mount with app.include_router(router)."""
+"""FastAPI router for Learning Engine.
+
+The host application must override require_learning_approver with its
+authenticated RBAC dependency before approval can be performed.
+"""
 from __future__ import annotations
 
 import os
@@ -9,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import LearningBase
 from .service import LearningPromotionDenied, LearningService, LearningValidationError
 
 router = APIRouter(prefix="/learning", tags=["Learning"])
@@ -27,6 +30,14 @@ def get_learning_session():
         yield db
     finally:
         db.close()
+
+
+def require_learning_approver() -> str:
+    """Fail closed until the host injects its authenticated approver/RBAC check."""
+    raise HTTPException(
+        status_code=503,
+        detail="Learning approval is disabled until the host RBAC dependency is configured",
+    )
 
 
 class ExperienceIn(BaseModel):
@@ -55,10 +66,6 @@ class CandidateIn(BaseModel):
     feature_schema_version: str
     metrics: dict[str, Any]
     evaluation_summary: str = ""
-
-
-class ApprovalIn(BaseModel):
-    approved_by: str = Field(min_length=1, max_length=128)
 
 
 @router.post("/experiences", status_code=201)
@@ -90,9 +97,13 @@ def register_candidate(body: CandidateIn, db: Session = Depends(get_learning_ses
 
 
 @router.post("/models/{model_id}/approve")
-def approve_candidate(model_id: int, body: ApprovalIn, db: Session = Depends(get_learning_session)):
+def approve_candidate(
+    model_id: int,
+    approver: str = Depends(require_learning_approver),
+    db: Session = Depends(get_learning_session),
+):
     try:
-        result = LearningService(db).promote_candidate(model_id, approved_by=body.approved_by)
+        result = LearningService(db).promote_candidate(model_id, approved_by=approver)
         db.commit()
         return result
     except LearningPromotionDenied as exc:
@@ -105,6 +116,13 @@ def approve_candidate(model_id: int, body: ApprovalIn, db: Session = Depends(get
 
 @router.get("/health")
 def learning_health():
-    return {"module": "learning", "version": "0.1.0", "status": "ready",
-            "database_configured": _SessionLocal is not None,
-            "auto_training": False, "auto_promotion": False, "live_trading": False}
+    return {
+        "module": "learning",
+        "version": "0.1.0",
+        "status": "ready",
+        "database_configured": _SessionLocal is not None,
+        "approval_rbac_configured": False,
+        "auto_training": False,
+        "auto_promotion": False,
+        "live_trading": False,
+    }
