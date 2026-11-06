@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createNovaVideoEngine, createStoryboard, ENGINE_STATES } from "./engine.mjs";
 import { buildFfmpegArgs, createFfmpegRenderer, resolveWithinRoot } from "./ffmpeg-renderer.mjs";
+import path from "node:path";
 
-const workspaceRoot = path.resolve(workspaceRoot);
-const wanRepoRoot = path.resolve(wanRepoRoot);
+const workspaceRoot = path.resolve("/workspace");
+const wanRepoRoot = path.resolve("/models/Wan2.2");
 
 const brief = {
   title: "NOVA product story", aspectRatio: "9:16", durationSeconds: 10,
@@ -289,7 +290,7 @@ test("Wan runtime builds a safe direct argument vector and frame-aligned clip", 
   assert.equal(built.args[built.args.indexOf("--size") + 1], "704*1280");
   assert.equal(built.args[built.args.indexOf("--frame_num") + 1], "121");
   assert.equal(built.args[built.args.indexOf("--prompt") + 1], "A product; ignore shell");
-  assert.equal(built.args[built.args.indexOf("--image") + 1], "/workspace/assets/source.png");
+  assert.equal(built.args[built.args.indexOf("--image") + 1], path.join(workspaceRoot, "assets", "source.png"));
   assert.equal(built.outputPath, path.join(workspaceRoot, "jobs", "job-1", "scene-01.mp4"));
   assert.equal(wan22FrameCount(5), 121);
   assert.equal((wan22FrameCount(3) - 1) % 4, 0);
