@@ -44,6 +44,10 @@ SELECT (
   NOT has_table_privilege('authenticated', 'public.nova_approval_events', 'INSERT')
   AND NOT has_table_privilege('authenticated', 'public.nova_approval_events', 'UPDATE')
   AND NOT has_table_privilege('authenticated', 'public.nova_approval_events', 'DELETE')
+  AND NOT has_table_privilege('service_role', 'public.nova_approval_events', 'INSERT')
+  AND NOT has_table_privilege('service_role', 'public.nova_approval_events', 'UPDATE')
+  AND NOT has_table_privilege('service_role', 'public.nova_approval_events', 'DELETE')
+  AND NOT has_table_privilege('service_role', 'public.nova_approval_events', 'TRUNCATE')
 ) AS client_event_mutations_denied \gset
 \if :client_event_mutations_denied
 \else
@@ -269,7 +273,7 @@ BEGIN
     RAISE EXCEPTION 'direct event mutation or truncation was not blocked';
   END IF;
 END;
-$;
+$$;
 
 -- Account erasure cascades through the parent request and removes retained audit rows.
 DELETE FROM auth.users
