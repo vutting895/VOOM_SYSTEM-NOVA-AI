@@ -756,6 +756,59 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
   }
 });
 
+test("approval rejects a forged Production Plan even when its attacker-computed hash is valid", async () => {
+  const previous = globalThis.fetch;
+  const job = sampleJobRecord();
+  const forgedSnapshot = structuredClone(samplePreparationSnapshot(job));
+  forgedSnapshot.productionPlan.generationTasks[0].task.prompt = "Forged output not derived from the saved Director plan";
+  const forgedHash = await hashSnapshot(forgedSnapshot);
+  let decisionWrites = 0;
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        job_id: job.id,
+        snapshot: forgedSnapshot,
+        snapshot_hash: forgedHash,
+        planner_version: "1.0.0",
+        execution_authorized: false,
+        created_at: "2026-11-05T00:01:00Z",
+      }]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("id"), "eq." + job.id);
+      return Response.json([job]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_approval_decisions") {
+      if (init.method === "POST") decisionWrites += 1;
+      return Response.json([]);
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(request("/api/video/preparation-decisions", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        preparation_id: "123e4567-e89b-42d3-a456-426614174002",
+        decision: "approved",
+      },
+    }), ENV);
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: "video_preparation_snapshot_integrity_failed" });
+    assert.equal(decisionWrites, 0, "a forged snapshot must be rejected before an approval write");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
 test("approval decision rejects unknown fields and unapproved decisions", async () => {
   const previous = globalThis.fetch;
   let databaseCalls = 0;
