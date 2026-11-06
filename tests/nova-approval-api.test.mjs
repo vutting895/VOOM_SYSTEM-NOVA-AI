@@ -6,15 +6,16 @@ const api = readFileSync(new URL("../src/server/nova-approval-api.mjs", import.m
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 
 test("protected Approval API authenticates JWT before parsing JSON request bodies", () => {
-  const authUse = api.indexOf("router.use(authenticateAgentRequest)");
-  const enabledUse = api.indexOf("router.use(requireApprovalsEnabled)");
+  const threadAuthUse = api.indexOf('router.use("/threads", authenticateAgentRequest, requireApprovalsEnabled)');
+  const approvalAuthUse = api.indexOf('router.use("/approvals", authenticateAgentRequest, requireApprovalsEnabled)');
   const parser = api.indexOf("const JSON_BODY = express.json");
-  assert.notEqual(authUse, -1);
-  assert.ok(authUse < enabledUse);
-  assert.ok(authUse < api.indexOf('router.post("/threads", JSON_BODY'));
-  assert.ok(authUse < api.indexOf('router.post("/threads/:threadId/approvals", JSON_BODY'));
-  assert.ok(authUse < api.indexOf('router.post("/approvals/:approvalId/decision", JSON_BODY'));
+  assert.notEqual(threadAuthUse, -1);
+  assert.notEqual(approvalAuthUse, -1);
+  assert.ok(threadAuthUse < api.indexOf('router.post("/threads", JSON_BODY'));
+  assert.ok(threadAuthUse < api.indexOf('router.post("/threads/:threadId/approvals", JSON_BODY'));
+  assert.ok(approvalAuthUse < api.indexOf('router.post("/approvals/:approvalId/decision", JSON_BODY'));
   assert.ok(parser >= 0);
+  assert.doesNotMatch(api, /router\.use\(authenticateAgentRequest\)/);
   assert.match(api, /req\.get\("authorization"\)/);
   assert.match(api, /supabase\.auth\.getUser\(match\[1\]\)/);
 });
@@ -79,4 +80,11 @@ test("legacy broker/Live Trading and legacy simulated approval endpoints remain 
   assert.match(server, /req\.path\.startsWith\('\/api\/live-trading\/'\)/);
   assert.match(server, /req\.path === '\/api\/agent\/approvals\/decision'/);
   assert.match(server, /const liveTradingEnabled = false as const/);
+});
+
+test("Approval middleware does not intercept unrelated /api/agent endpoints", () => {
+  assert.match(api, /router\.use\("\/threads", authenticateAgentRequest, requireApprovalsEnabled\)/);
+  assert.match(api, /router\.use\("\/approvals", authenticateAgentRequest, requireApprovalsEnabled\)/);
+  assert.doesNotMatch(api, /router\.use\(authenticateAgentRequest, requireApprovalsEnabled\)/);
+  assert.match(server, /registerNovaApprovalRoutes\(app\)/);
 });
