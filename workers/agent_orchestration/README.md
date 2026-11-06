@@ -6,9 +6,9 @@ or expose broker execution.
 
 ## Boundary
 
-- The existing authenticated application boundary derives the user/tenant and
-  resolves owner-scoped resources. Model output cannot provide identity,
-  tenant, connection, route or upstream destination values.
+- A future authenticated application adapter must derive the user/tenant and
+  resolve owner-scoped resources. Model output cannot provide identity, tenant,
+  connection, route or upstream destination values.
 - Tool definitions are server-owned and allowlisted. A model may request only a
   tool already present in that registry.
 - V1 permits read-only tools and human-review-gated draft writes. External writes
@@ -29,8 +29,8 @@ or expose broker execution.
 - approval_resume.py validates a server-loaded approval snapshot against the
   current authenticated owner, checkpoint thread, pending approval ID, proposal
   hash, policy version, decision status and expiry before a future graph resume
-  command. This is a pure contract validator; it does not call Supabase or resume
-  LangGraph itself.
+  command. This is a pure contract validator; it does not create or connect to an
+  approval store, call Supabase, or resume LangGraph itself.
 - Tool calls carry application-generated call and idempotency IDs. Retry budgets
   are bounded, and non-idempotent calls cannot be configured for retries.
 
@@ -55,5 +55,6 @@ LangGraph nodes/checkpointer, tool execution, the API-to-graph approval adapter,
 AG-UI/SSE, MCP client integration, tracing backend, checkpoint database schema,
 retention/backup policy and production deployment remain separate milestones
 under Issue #104. The resume validator does not provide durable replay protection;
-the existing approval API's atomic one-time decision transition remains
-authoritative.
+the future approval persistence layer must provide an owner-scoped, atomic
+one-time decision/consume transition. No such durable adapter is implemented
+by this package.
