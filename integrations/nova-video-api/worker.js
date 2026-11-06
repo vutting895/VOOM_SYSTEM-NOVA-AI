@@ -441,7 +441,8 @@ async function selectOwnedRow(env, auth, table, fields, filters) {
 
 function preparationIntegrityValid(preparation) {
   const snapshot = preparation?.snapshot;
-  return !!snapshot &&
+  return preparation?.execution_authorized === false &&
+    !!snapshot &&
     typeof snapshot === "object" &&
     !Array.isArray(snapshot) &&
     snapshot.schemaVersion === "nova.video-preparation.v1" &&
