@@ -1,7 +1,10 @@
 """Focused unit tests for Learning Engine policy and persistence behavior."""
+import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from backend.learning.api import require_learning_approver
 from backend.learning.models import LearningBase, LearningExperience, LearningModelVersion
 from backend.learning.service import (
     LearningPolicy, LearningPromotionDenied, LearningService, calculate_reward,
@@ -29,6 +32,13 @@ def test_reward_penalizes_risk_and_drawdown_breaches():
     assert result.risk_breach is True
     assert result.drawdown_breach is True
     assert result.reward < result.pnl_component
+
+
+def test_reward_rejects_negative_risk_and_drawdown():
+    with pytest.raises(ValueError):
+        calculate_reward(1.0, -0.1, 0.0)
+    with pytest.raises(ValueError):
+        calculate_reward(1.0, 0.1, -0.1)
 
 
 def test_record_experience_is_idempotent():
@@ -76,8 +86,12 @@ def test_candidate_fails_closed_when_validation_metrics_fail():
             feature_schema_version="features-v1",
             metrics={"sample_count": 5, "win_rate": 0.3, "profit_factor": 0.7, "max_drawdown_pct": 15.0},
         )
-        try:
+        with pytest.raises(LearningPromotionDenied):
             service.promote_candidate(candidate["id"], approved_by="reviewer-1")
-            assert False, "promotion should have been denied"
-        except LearningPromotionDenied:
-            assert db.get(LearningModelVersion, candidate["id"]).status == "candidate"
+        assert db.get(LearningModelVersion, candidate["id"]).status == "candidate"
+
+
+def test_approval_endpoint_denies_by_default_until_host_rbac_override():
+    with pytest.raises(HTTPException) as exc:
+        require_learning_approver()
+    assert exc.value.status_code == 503
