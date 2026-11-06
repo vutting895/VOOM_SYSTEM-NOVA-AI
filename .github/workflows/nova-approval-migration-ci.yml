@@ -12,6 +12,7 @@ on:
       - "tests/nova-approval-audit-events.test.mjs"
       - "tests/nova-approval-api.test.mjs"
       - "tests/nova-approval-contract.test.mjs"
+      - "tests/nova-approval-checkpoint.test.mjs"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
       - "src/server/**"
       - "server.ts"
@@ -32,6 +33,7 @@ on:
       - "tests/nova-approval-audit-events.test.mjs"
       - "tests/nova-approval-api.test.mjs"
       - "tests/nova-approval-contract.test.mjs"
+      - "tests/nova-approval-checkpoint.test.mjs"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
       - "src/server/**"
       - "server.ts"
@@ -116,6 +118,7 @@ jobs:
           tests/nova-approval-audit-events.test.mjs
           tests/nova-approval-api.test.mjs
           tests/nova-approval-contract.test.mjs
+          tests/nova-approval-checkpoint.test.mjs
 
   local-supabase-auth-and-api:
     name: Local Supabase Auth, PostgREST and Express API A/B isolation
