@@ -357,6 +357,21 @@ test("create approval maps duplicate pending requests to conflict", async () => 
   assert.equal(calls.filter((call) => call.url.pathname === "/rest/v1/rpc/nova_create_approval").length, 1);
 });
 
+test("foreign-thread create failures do not reveal whether a thread exists", async () => {
+  const calls = installMocks({ rpcCreateError: "P0001" });
+  const response = await worker.fetch(request("/v1/agent/threads/" + THREAD_ID + "/approvals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requestType: "strategy_draft_review",
+      proposal: validProposal()
+    })
+  }), env);
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "thread_not_found");
+  assert.equal(calls.filter((call) => call.url.pathname === "/rest/v1/rpc/nova_create_approval").length, 1);
+});
+
 test("decision calls the atomic one-time RPC and never resumes a graph or broker action", async () => {
   const calls = installMocks();
   const response = await worker.fetch(request("/v1/agent/approvals/" + APPROVAL_ID + "/decision", {
