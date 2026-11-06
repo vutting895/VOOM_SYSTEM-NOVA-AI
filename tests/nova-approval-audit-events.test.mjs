@@ -46,3 +46,8 @@ test("existing review rows are backfilled without duplicate event identities", (
   assert.match(migration, /WHERE a\.status <> 'pending'/i);
   assert.equal((migration.match(/ON CONFLICT \(approval_id, event_type\) DO NOTHING/gi) || []).length, 3);
 });
+
+test("service role cannot mutate the audit log and the database blocks TRUNCATE", () => {
+  assert.ok(migration.includes("FROM PUBLIC, anon, authenticated, service_role"));
+  assert.ok(migration.includes("BEFORE TRUNCATE ON public.nova_approval_events"));
+});
