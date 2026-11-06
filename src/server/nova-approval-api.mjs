@@ -161,6 +161,7 @@ async function findOwnedTerminalAuditEvent(supabase, approval, userId) {
     .eq("user_id", userId)
     .eq("event_type", approval.status)
     .eq("to_status", approval.status)
+    .eq("proposal_hash", approval.proposal_hash)
     .maybeSingle();
 }
 
