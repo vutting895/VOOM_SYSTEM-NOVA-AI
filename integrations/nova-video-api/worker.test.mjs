@@ -712,6 +712,69 @@ test("preparation idempotent replay rejects a mismatched planner version", async
   }
 });
 
+test("preparation unique-conflict replay rejects a mismatched planner version", async () => {
+  const previous = globalThis.fetch;
+  const job = sampleJobRecord();
+  const snapshot = samplePreparationSnapshot(job);
+  const snapshotHash = await hashSnapshot(snapshot);
+  const expectedPlannerVersion = String(job.request.director_plan.plannerVersion || "1.0.0").slice(0, 40);
+  const mismatchedVersion = expectedPlannerVersion === "mismatched" ? "1.0.1" : "mismatched";
+  let preparationReads = 0;
+  let insertAttempts = 0;
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+
+    if (url.pathname === "/rest/v1/nova_video_jobs") {
+      assert.equal(init.method, "GET");
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("id"), "eq." + job.id);
+      return Response.json([job]);
+    }
+
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      if (init.method === "POST") {
+        insertAttempts += 1;
+        return new Response(JSON.stringify({ code: "23505", message: "duplicate preparation" }), { status: 409 });
+      }
+
+      assert.equal(init.method, "GET");
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      assert.equal(url.searchParams.get("job_id"), "eq." + job.id);
+      preparationReads += 1;
+      if (preparationReads === 1) return Response.json([]);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        job_id: job.id,
+        snapshot,
+        snapshot_hash: snapshotHash,
+        planner_version: mismatchedVersion,
+        execution_authorized: false,
+        created_at: "2026-11-05T00:01:00Z",
+      }]);
+    }
+
+    throw new Error("unexpected request " + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(request("/api/video/preparations", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { job_id: job.id },
+    }), ENV);
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: "video_preparation_immutable_snapshot_conflict" });
+    assert.equal(preparationReads, 2, "the unique-conflict path must reload the persisted preparation");
+    assert.equal(insertAttempts, 1, "the unique-conflict path must attempt exactly one insert");
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
 test("preparation endpoint refuses another user's job and never inserts a preparation", async () => {
   const previous = globalThis.fetch;
   let writes = 0;
