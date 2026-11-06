@@ -7,11 +7,12 @@ const migration = readFileSync(
   "utf8",
 );
 
-test("creates an owner-bound approval audit log with an immutable event identity", () => {
+test("creates an owner-bound approval audit log with immutable event identity and order", () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.nova_approval_events/i);
+  assert.match(migration, /event_sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE/i);
   assert.match(migration, /FOREIGN KEY \(approval_id, thread_id, user_id\)[\s\S]*?REFERENCES public\.nova_approval_requests\(id, thread_id, user_id\)/i);
   assert.match(migration, /UNIQUE \(id, thread_id, user_id\)/i);
-  assert.match(migration, /CHECK \(event_type IN \('requested', 'approved', 'rejected', 'edited', 'expired', 'cancelled'\)\)/i);
+  assert.match(migration, /CHECK\s*\(\s*event_type IN \('requested', 'approved', 'rejected', 'edited', 'expired', 'cancelled'\)\)/i);
   assert.match(migration, /nova_approval_events_transition_check/i);
 });
 
@@ -30,6 +31,7 @@ test("request and terminal events are captured transactionally by database trigg
   assert.match(migration, /v_event_type := NEW\.status/i);
   assert.match(migration, /ON CONFLICT \(approval_id, event_type\) DO NOTHING/i);
   assert.match(migration, /actor_type, actor_user_id,[\s\S]*?from_status,[\s\S]*?to_status/i);
+  assert.match(migration, /clock_timestamp\(\)/i);
 });
 
 test("expiry is system-attributed and edit payload is preserved without becoming approval", () => {
