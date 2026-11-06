@@ -41,7 +41,10 @@ export function normalizeCheckpointDecision(input, expected) {
   if (!RESUMABLE_STATUSES.has(input.status)) {
     throw checkpointError("NOVA_LANGGRAPH_RESUME_STATUS_INVALID", "Only terminal review statuses can resume an approval graph");
   }
-  const note = input.note == null ? null : String(input.note).trim() || null;
+  if (input.note !== undefined && input.note !== null && typeof input.note !== "string") {
+    throw checkpointError("NOVA_LANGGRAPH_RESUME_NOTE_INVALID", "Review note must be a string");
+  }
+  const note = input.note == null ? null : input.note.trim() || null;
   if (note && note.length > 300) {
     throw checkpointError("NOVA_LANGGRAPH_RESUME_NOTE_INVALID", "Review note exceeds 300 characters");
   }
