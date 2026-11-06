@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import worker from "../worker.js";
 
 const SUPABASE_ORIGIN = "https://supabase.test";
@@ -155,7 +156,7 @@ test("approval routes authenticate before parsing a request body", async () => {
   globalThis.fetch = async () => { outboundCalls += 1; throw new Error("must not call"); };
   const response = await worker.fetch(request("/v1/agent/threads", {
     method: "POST",
-    headers: { Origin: UI_ORIGIN, "Content-Type": "application/json" },
+    headers: { Origin: UI_ORIGIN, Authorization: "", "Content-Type": "application/json" },
     body: "{invalid-json"
   }), env);
   assert.equal(response.status, 401);
@@ -462,13 +463,10 @@ test("JSON body size and content type are bounded", async () => {
   assert.equal(tooLarge.status, 413);
 });
 
-test("module never exposes service-role access or broker/order mutation routes", async () => {
-  const response = await worker.fetch(request("/v1/agent/approvals/" + APPROVAL_ID + "/decision", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ decision: "approve", volume: 1 })
-  }), env);
-  assert.equal(response.status, 400);
-  const text = await response.text();
-  assert.doesNotMatch(text, /service_role|SERVICE_ROLE_KEY|order_submission_enabled|execute_broker_order/i);
+test("module uses only user-scoped publishable-key access and has no broker mutation capability", async () => {
+  const source = readFileSync(new URL("../agent-approval.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /service_role|SERVICE_ROLE_KEY|execute_broker_order|place_trade_order|order_submission_enabled/i);
+  assert.match(source, /SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(source, /Authorization: "Bearer " \+ user\.token/);
+  assert.match(source, /agentGraphResumeEnabled: false/);
 });
