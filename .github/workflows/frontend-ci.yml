@@ -89,6 +89,16 @@ jobs:
       - name: Test NOVA durable approval lifecycle contracts
         working-directory: .
         run: node --test tests/nova-approval-migration.test.mjs
+      - name: Set up Python for backend Learning Engine tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Learning Engine test dependencies
+        run: python -m pip install --upgrade pip pytest "SQLAlchemy>=2.0,<3" "fastapi>=0.100" "pydantic>=2"
+      - name: Compile and test Learning Engine
+        run: |
+          python -m compileall -q backend/learning
+          python -m pytest backend/learning/tests -q
       - name: Syntax-check staging customer isolation harness
         working-directory: .
         run: node --check tests/staging-customer-isolation.mjs
