@@ -107,7 +107,7 @@ jobs:
           npx wrangler deploy --config wrangler.jsonc --keep-vars \
             --var "NOVA_BUILD_SHA:$sha" \
             --var "SUPABASE_URL:$SUPABASE_URL" \
-            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \\
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
             --var "NOVA_APPROVALS_ENABLED:false" \
             --var "SUPABASE_ANON_KEY:$SUPABASE_PUBLISHABLE_KEY" \
             --var "NOVA_APPROVALS_ENABLED:false"
