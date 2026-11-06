@@ -173,7 +173,7 @@ test("chat returns a model response only when the AI binding succeeds", async ()
       run: async (model, input) => {
         assert.equal(model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
         assert.equal(input.messages[0].role, "system");
-        assert.match(input.messages[0].content, /Live trading and order submission are disabled/);
+        assert.match(input.messages[0].content, /Live Trading and all order submission are disabled/);
         assert.equal(input.messages.at(-1).content, "Explain EMA and RSI in Thai");
         return { response: "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม" };
       },
