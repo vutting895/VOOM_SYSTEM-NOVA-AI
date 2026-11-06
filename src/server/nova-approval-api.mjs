@@ -197,9 +197,10 @@ function resolveStatus(resultCode) {
 export function createNovaApprovalRouter() {
   const router = express.Router();
 
-  // Authentication and server-side feature gating run before any request body is parsed.
-  router.use(authenticateAgentRequest);
-  router.use(requireApprovalsEnabled);
+  // Scope authentication and feature gating to this router's owned resources.
+  // Do not intercept unrelated /api/agent endpoints mounted by the host application.
+  router.use("/threads", authenticateAgentRequest, requireApprovalsEnabled);
+  router.use("/approvals", authenticateAgentRequest, requireApprovalsEnabled);
 
   router.get("/threads", asyncRoute(async (req, res) => {
     const { supabase, user } = req.novaApproval;
