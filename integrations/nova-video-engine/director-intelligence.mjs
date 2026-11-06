@@ -36,7 +36,10 @@ function safeList(value, field, maxItems, maxLength) {
 
 function chooseBeats(count, goal) {
   const template = GOAL_BEATS[goal] ?? GOAL_BEATS.product_ad;
-  if (count <= template.length) return template.slice(0, count);
+  if (count <= template.length) {
+    // Keep the final call-to-action beat even when a short video has fewer scenes than the template.
+    return [...template.slice(0, count - 1), template.at(-1)];
+  }
   const result = [...template];
   while (result.length < count) result.splice(result.length - 1, 0, "detail");
   return result;
