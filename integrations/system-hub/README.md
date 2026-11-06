@@ -69,4 +69,8 @@ Security boundary:
 - This is a public-data adapter only; it does not prove private account access or customer connection readiness.
 - The current pilot is not deployed or registered in the active Worker. Do not report it as live until a separately reviewed integration PR and staging smoke test pass.
 
-Tests: `node --test integrations/system-hub/tests/*.test.mjs`
+Tests:
+- Unit/contracts: `node --test integrations/system-hub/tests/*.test.mjs`
+- Real Auth/PostgREST owner isolation against a disposable local Supabase stack: run `integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs` after exporting `NOVA_LOCAL_SUPABASE_URL`, `NOVA_LOCAL_SUPABASE_ANON_KEY`, and the local-only `NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY`. This script refuses non-loopback Supabase URLs and creates/deletes only its own temporary local test users.
+
+The local integration test uses real Auth-issued A/B JWTs and the actual Worker adapter. It verifies foreign thread/approval reads and decisions are denied, successful owner decisions persist, and replay is rejected. It does not contact hosted Supabase or any broker.
