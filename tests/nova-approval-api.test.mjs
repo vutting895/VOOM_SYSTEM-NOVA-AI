@@ -67,7 +67,7 @@ test("Graph recovery does not accept a client-provided decision and remains brok
   const recovery = api.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.match(recovery, /findOwnedApproval\(supabase, approvalId, user\.id\)/);
-  assert.match(recovery, /\.from\("nova_approval_events"\)/);
+  assert.match(recovery, /findOwnedTerminalAuditEvent\(supabase, approval, user\.id\)/);
   assert.doesNotMatch(recovery, /req\.body|req\.body\?/);
   assert.match(recovery, /resumeApprovalCheckpoint\(user\.id, approval/);
   assert.match(api, /brokerMutationEnabled: false/);
