@@ -344,7 +344,7 @@ async function createApproval(request, env, user, threadId, send) {
   });
   if (!result.ok) {
     if (result.code === "23505") return send({ error: "approval_already_pending" }, 409);
-    if (result.code === "P0001") return send({ error: "thread_not_found_or_not_active" }, 409);
+    if (result.code === "P0001") return send({ error: "thread_not_found" }, 404);
     if (result.code === "42501") return send({ error: "authentication_required" }, 401);
     if (result.code === "22023") return send({ error: "approval_proposal_invalid" }, 400);
     return serviceUnavailable(send, "approval_create_unavailable");
