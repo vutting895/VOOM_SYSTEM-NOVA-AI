@@ -18,6 +18,7 @@ END;
 $$;
 
 CREATE TABLE IF NOT EXISTS public.nova_approval_events (
+  event_sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   approval_id uuid NOT NULL,
   thread_id uuid NOT NULL,
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS public.nova_approval_events (
   proposal_hash text NOT NULL CHECK (proposal_hash ~ '^[a-f0-9]{64}$'),
   decision_note text CHECK (decision_note IS NULL OR char_length(decision_note) <= 300),
   decision_payload jsonb,
-  created_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
 
   CONSTRAINT nova_approval_events_request_owner_fk
     FOREIGN KEY (approval_id, thread_id, user_id)
@@ -81,7 +82,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS nova_approval_events_one_type_per_request_idx
   ON public.nova_approval_events (approval_id, event_type);
 
 CREATE INDEX IF NOT EXISTS nova_approval_events_owner_history_idx
-  ON public.nova_approval_events (user_id, approval_id, created_at ASC, id ASC);
+  ON public.nova_approval_events (user_id, approval_id, event_sequence ASC);
 
 ALTER TABLE public.nova_approval_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.nova_approval_events FROM PUBLIC, anon, authenticated;
@@ -177,7 +178,7 @@ BEGIN
     NEW.proposal_hash,
     CASE WHEN NEW.status IN ('approved', 'rejected', 'edited') THEN NEW.decision_note ELSE NULL END,
     CASE WHEN NEW.status = 'edited' THEN NEW.decision_payload ELSE NULL END,
-    CASE WHEN TG_OP = 'INSERT' THEN NEW.created_at ELSE COALESCE(NEW.decided_at, NEW.updated_at, now()) END
+    clock_timestamp()
   )
   ON CONFLICT (approval_id, event_type) DO NOTHING;
 
