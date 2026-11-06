@@ -4,25 +4,39 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql"
-      - "tests/sql/nova-approval-migration.integration.sql"
       - "supabase/migrations/20261027160402_mt5_customer_connections.sql"
-      - "frontend/app/api/agent/**"
-      - "frontend/lib/agent-approval-server.js"
+      - "supabase/pending-migrations/202611070001_nova_approval_audit_event_log.sql"
+      - "tests/sql/nova-approval-migration.integration.sql"
+      - "tests/sql/nova-approval-audit-events.integration.sql"
+      - "tests/nova-approval-migration.test.mjs"
+      - "tests/nova-approval-audit-events.test.mjs"
+      - "tests/nova-approval-api.test.mjs"
+      - "tests/nova-approval-contract.test.mjs"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
-      - "frontend/package-lock.json"
+      - "src/server/**"
+      - "server.ts"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/nova-approval-migration-ci.yml"
   push:
     branches:
       - main
-      - feat/nova-durable-approval-lifecycle-20261030
+      - feat/nova-approval-api-audit-stack-20261107
     paths:
       - "supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql"
-      - "tests/sql/nova-approval-migration.integration.sql"
       - "supabase/migrations/20261027160402_mt5_customer_connections.sql"
-      - "frontend/app/api/agent/**"
-      - "frontend/lib/agent-approval-server.js"
+      - "supabase/pending-migrations/202611070001_nova_approval_audit_event_log.sql"
+      - "tests/sql/nova-approval-migration.integration.sql"
+      - "tests/sql/nova-approval-audit-events.integration.sql"
+      - "tests/nova-approval-migration.test.mjs"
+      - "tests/nova-approval-audit-events.test.mjs"
+      - "tests/nova-approval-api.test.mjs"
+      - "tests/nova-approval-contract.test.mjs"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
-      - "frontend/package-lock.json"
+      - "src/server/**"
+      - "server.ts"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/nova-approval-migration-ci.yml"
 
 permissions:
@@ -75,45 +89,57 @@ jobs:
           CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
           SQL
 
-      - name: Apply migration to the ephemeral CI database
+      - name: Apply the owner-scoped approval lifecycle and append-only audit candidate
         shell: bash
         run: |
           set -euo pipefail
           pg_container="$(docker ps -q --filter 'ancestor=postgres:17' | head -n1)"
           docker cp supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql "$pg_container:/tmp/nova-approval-migration.sql"
+          docker cp supabase/pending-migrations/202611070001_nova_approval_audit_event_log.sql "$pg_container:/tmp/nova-approval-audit.sql"
           docker exec "$pg_container" psql -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-migration.sql
+          docker exec "$pg_container" psql -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-audit.sql
 
-      - name: Verify owner session, foreign-user denial and one-time decision in PostgreSQL
+      - name: Verify owner isolation, decisions and append-only audit events in PostgreSQL
         shell: bash
         run: |
           set -euo pipefail
           pg_container="$(docker ps -q --filter 'ancestor=postgres:17' | head -n1)"
           docker cp tests/sql/nova-approval-migration.integration.sql "$pg_container:/tmp/nova-approval-integration.sql"
+          docker cp tests/sql/nova-approval-audit-events.integration.sql "$pg_container:/tmp/nova-approval-audit-integration.sql"
           docker exec "$pg_container" psql -X -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-integration.sql
+          docker exec "$pg_container" psql -X -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-audit-integration.sql
+
+      - name: Run Approval and Audit source contract tests
+        run: >-
+          node --test
+          tests/nova-approval-migration.test.mjs
+          tests/nova-approval-audit-events.test.mjs
+          tests/nova-approval-api.test.mjs
+          tests/nova-approval-contract.test.mjs
 
   local-supabase-auth-and-api:
-    name: Local Supabase Auth, PostgREST and API isolation
+    name: Local Supabase Auth, PostgREST and Express API A/B isolation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Supabase CLI
+      - name: Set up Supabase CLI v2
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
-          version: latest
+          version: 2.122.1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root Express application dependencies from the committed lockfile
+        run: bun install --frozen-lockfile
 
       - name: Start an isolated local Supabase Auth and database stack
         shell: bash
@@ -123,14 +149,15 @@ jobs:
           echo "NOVA_SUPABASE_WORKDIR=$workdir" >> "$GITHUB_ENV"
           mkdir -p "$workdir/supabase/migrations"
 
-          # Bootstrap only pgcrypto, then the exact Exness connection and approval
-          # migrations under test. Do not replay unrelated production-dependent SQL.
+          # This throwaway local stack contains only the exact approval dependencies.
+          # The full 25-file Production migration history is independently replayed by PR #233.
           cat > "$workdir/supabase/migrations/202610260000_nova_ci_extensions.sql" <<'SQL'
           CREATE SCHEMA IF NOT EXISTS extensions;
           CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
           SQL
-          cp supabase/migrations/20261027160402_mt5_customer_connections.sql "$workdir/supabase/migrations/"
-          cp supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+          cp "$GITHUB_WORKSPACE/supabase/migrations/20261027160402_mt5_customer_connections.sql" "$workdir/supabase/migrations/"
+          cp "$GITHUB_WORKSPACE/supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql" "$workdir/supabase/migrations/"
+          cp "$GITHUB_WORKSPACE/supabase/pending-migrations/202611070001_nova_approval_audit_event_log.sql" "$workdir/supabase/migrations/"
 
           cd "$workdir"
           supabase init
@@ -138,7 +165,7 @@ jobs:
           supabase status -o env > "$workdir/status.env"
 
           set -a
-          # This file is generated by the local CLI and contains throwaway local keys only.
+          # Generated local-only keys are used for disposable Auth fixtures.
           source "$workdir/status.env"
           set +a
           test -n "${API_URL:-}"
@@ -150,16 +177,16 @@ jobs:
             printf 'NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
-      - name: Exercise real local Auth sessions, API ownership and Exness connection RLS
+      - name: Run the root Express Approval API with user-scoped Supabase credentials
         shell: bash
         run: |
           set -euo pipefail
-          cd frontend
-          NEXT_PUBLIC_SUPABASE_URL="$NOVA_LOCAL_SUPABASE_URL" \
-          NEXT_PUBLIC_SUPABASE_ANON_KEY="$NOVA_LOCAL_SUPABASE_ANON_KEY" \
+          SUPABASE_URL="$NOVA_LOCAL_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$NOVA_LOCAL_SUPABASE_ANON_KEY" \
           NOVA_APPROVALS_ENABLED=true \
-          NEXT_TELEMETRY_DISABLED=1 \
-          npm run dev -- --hostname 127.0.0.1 --port 3100 > /tmp/nova-approval-next-dev.log 2>&1 &
+          NODE_ENV=development \
+          PORT=3100 \
+          bun run dev > /tmp/nova-approval-express.log 2>&1 &
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
 
@@ -173,12 +200,13 @@ jobs:
             sleep 2
           done
           if [ "$ready" != "1" ]; then
-            cat /tmp/nova-approval-next-dev.log
-            echo "Next.js API did not become ready"
+            cat /tmp/nova-approval-express.log
+            echo "Root Express Approval API did not become ready"
             exit 1
           fi
 
-          NOVA_LOCAL_APP_URL=http://127.0.0.1:3100 node scripts/nova-approval-local-supabase.integration.mjs
+          NOVA_LOCAL_APP_URL=http://127.0.0.1:3100 \
+          node frontend/scripts/nova-approval-local-supabase.integration.mjs
 
       - name: Stop the disposable Supabase stack
         if: always()
