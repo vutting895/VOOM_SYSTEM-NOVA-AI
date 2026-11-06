@@ -2,7 +2,7 @@ name: Deploy authenticated NOVA AI Worker
 
 on:
   push:
-    branches: [main, feat/nova-readonly-agent-runtime]
+    branches: [main]
     paths:
       - "integrations/nova-ai-worker/**"
       - ".github/workflows/ai-worker-deploy.yml"
