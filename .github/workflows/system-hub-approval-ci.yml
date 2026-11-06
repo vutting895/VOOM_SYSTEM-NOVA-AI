@@ -13,6 +13,8 @@ on:
       - main
     paths:
       - "integrations/system-hub/**"
+      - "src/services/**"
+      - "tests/nova-approval-frontend-client.test.mjs"
       - ".github/workflows/system-hub-approval-ci.yml"
 
 permissions:
