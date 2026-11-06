@@ -168,6 +168,23 @@ try {
   assert.equal(ownerDecision.body?.liveTradingEnabled, false);
   assert.equal(ownerDecision.body?.brokerMutationEnabled, false);
 
+  const ownerAAudit = await appRequest(
+    `/api/agent/approvals/${approvalId}/events`,
+    userA.token,
+  );
+  assert.equal(ownerAAudit.status, 200, "Owner A must read the audit events for their approval");
+  assert.deepEqual(
+    ownerAAudit.body.events.map((event) => event.event_type),
+    ["requested", "approved"],
+    "Approval event history must be complete and ordered",
+  );
+
+  const foreignAudit = await appRequest(
+    `/api/agent/approvals/${approvalId}/events`,
+    userB.token,
+  );
+  assert.equal(foreignAudit.status, 404, "User B must not read User A's audit events");
+
   const replay = await appRequest(
     `/api/agent/approvals/${approvalId}/decision`,
     userA.token,
@@ -205,6 +222,22 @@ try {
   assert.equal(editDecision.body?.executionEnabled, false);
   assert.equal(editDecision.body?.liveTradingEnabled, false);
   assert.equal(editDecision.body?.brokerMutationEnabled, false);
+
+  const editedAudit = await appRequest(
+    `/api/agent/approvals/${secondApprovalId}/events`,
+    userA.token,
+  );
+  assert.equal(editedAudit.status, 200);
+  const editedEvent = editedAudit.body.events.find((event) => event.event_type === "edited");
+  assert.ok(editedEvent, "Edited decision must produce an append-only audit event");
+  assert.equal(editedEvent.decision_payload?.summary, editedProposal.summary);
+  assert.match(editedEvent.decision_payload_hash, /^[a-f0-9]{64}$/);
+
+  const foreignEditedAudit = await appRequest(
+    `/api/agent/approvals/${secondApprovalId}/events`,
+    userB.token,
+  );
+  assert.equal(foreignEditedAudit.status, 404, "User B must not read User A's edited audit payload");
 
   // A fresh GET is the refresh/recovery check: the edited state must be restored from Postgres.
   const restoredAfterEdit = await appRequest(`/api/agent/threads/${threadId}/approvals`, userA.token);
@@ -262,7 +295,7 @@ try {
   assert.equal(ownerBConnection.status, 200);
   assert.equal(ownerBConnection.body.length, 0, "User B must not read User A's Demo connection");
 
-  console.log("PASS: real local Supabase Auth users/JWTs; owner-scoped thread and approval APIs; foreign-user create/read/decision denied; approval replay rejected; Exness Demo connection RLS isolates owners.");
+  console.log("PASS: real local Supabase Auth users/JWTs; owner-scoped Approval RPC/API and Audit event reads; A/B isolation; approval replay rejection; edited-payload hash; Exness Demo connection RLS.");
   console.log("SAFETY: this test used only local containers; no hosted Supabase, production secrets, MT5 terminal, Relay, broker order, or account mutation was contacted.");
 } finally {
   for (const user of [userA, userB]) {
