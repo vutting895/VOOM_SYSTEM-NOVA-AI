@@ -97,18 +97,18 @@ function publicApproval(row) {
   if (!row) return null;
   return {
     id: row.id,
-    threadId: row.thread_id,
-    requestType: row.request_type,
+    thread_id: row.thread_id,
+    request_type: row.request_type,
     proposal: row.proposal,
-    proposalHash: row.proposal_hash,
-    policyVersion: row.policy_version,
+    proposal_hash: row.proposal_hash,
+    policy_version: row.policy_version,
     status: row.status,
-    decisionNote: row.decision_note,
-    decisionPayload: row.decision_payload,
-    expiresAt: row.expires_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    decidedAt: row.decided_at,
+    decision_note: row.decision_note,
+    decision_payload: row.decision_payload,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    decided_at: row.decided_at,
   };
 }
 
