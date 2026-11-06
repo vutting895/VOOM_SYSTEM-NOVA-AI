@@ -2,6 +2,8 @@
 -- Keep in pending-migrations until Production migration lineage PRs #231/#233 are reconciled.
 -- This records human review history only; it never grants broker execution authority.
 
+BEGIN;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -296,3 +298,5 @@ COMMENT ON FUNCTION public.nova_create_approval(uuid,text,jsonb,text,text,timest
 COMMENT ON FUNCTION public.nova_resolve_approval(uuid,text,text,jsonb,text) IS
   'Resolves a review request once; nova_approval_events captures the terminal decision in the same transaction.';
 NOTIFY pgrst, 'reload schema';
+
+COMMIT;
