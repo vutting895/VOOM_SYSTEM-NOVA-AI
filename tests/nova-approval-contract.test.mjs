@@ -7,7 +7,7 @@ import {
   isUuid,
   normalizeApprovalDecision,
   normalizeStrategyDraftProposal,
-} from "../frontend/lib/agent-approval-contract.mjs";
+} from "../src/server/nova-approval-contract.mjs";
 
 const validProposal = () => ({
   title: "NOVA EMA/RSI research draft",
@@ -37,10 +37,12 @@ test("proposal hash is stable and changes when the reviewed payload changes", ()
   assert.match(hashStrategyDraftProposal(proposal), /^[a-f0-9]{64}$/);
 });
 
-test("rejects executable order fields and unregistered proposal values", () => {
-  assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), volume: 1 }), /unknown_fields/);
-  assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), broker: "MT5" }), /unknown_fields/);
+test("rejects executable order fields, missing properties and unregistered proposal values", () => {
+  assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), volume: 1 }), /proposal_unknown_or_missing_fields/);
+  assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), broker: "MT5" }), /proposal_unknown_or_missing_fields/);
+  assert.throws(() => normalizeStrategyDraftProposal({ title: "Draft", summary: "Research only." }), /proposal_unknown_or_missing_fields/);
   assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), market: "foreign-user-account" }), /market_invalid/);
+  assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), timeframe: "2m" }), /timeframe_invalid/);
   assert.throws(() => normalizeStrategyDraftProposal({ ...validProposal(), summary: "x".repeat(601) }), /summary_invalid/);
 });
 
@@ -60,7 +62,7 @@ test("validates approve, reject and edit decisions with strict fields", () => {
 });
 
 test("rejects extra decision fields, oversize note and an edit without a valid replacement", () => {
-  assert.throws(() => normalizeApprovalDecision({ decision: "approve", volume: 1 }), /unknown_fields/);
+  assert.throws(() => normalizeApprovalDecision({ decision: "approve", volume: 1 }), /decision_unknown_fields/);
   assert.throws(() => normalizeApprovalDecision({ decision: "approve", note: "x".repeat(301) }), /note_invalid/);
   assert.throws(() => normalizeApprovalDecision({ decision: "edit" }), /proposal_must_be_an_object/);
   assert.throws(() => normalizeApprovalDecision({ decision: "approve", editedProposal: validProposal() }), /payload_not_allowed/);
