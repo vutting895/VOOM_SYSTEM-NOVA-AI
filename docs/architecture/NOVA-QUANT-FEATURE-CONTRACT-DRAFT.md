@@ -52,6 +52,27 @@ The current SMC analyzer computes some descriptive fields using the full candle 
 
 For historical dataset construction, do not call the analyzer once on the entire future-complete dataset and reuse its final-state outputs for earlier rows. Build each sample from a strictly truncated, point-in-time candle window, or implement and test an incremental causal feature extractor. Pivot fields may only become available after their declared right-bar confirmation. Future mitigation status, future candles, and post-`as_of` values must never leak into earlier feature rows.
 
+### Source-code findings that the extractor must address
+
+The current `smc_strategy.py` implementation has several concrete timing semantics that must not be hidden behind a generic four-number vector:
+
+- **Candle identity is not validated.** `_validate` checks finite OHLC values and high/low bounds, but the analyzer does not require a candle timestamp, UTC normalization, strictly increasing timestamps, duplicate rejection, source finality, or an explicit gap/session policy. The future feature boundary must validate these properties before computing a row; row index alone is not a durable time identity.
+- **Pivot availability is deliberately delayed.** A pivot is assigned `confirmed_at = index + swing_right`. Structure-break and sweep loops consume it only when `confirmed_at < current_index`, not when equal. The current implementation therefore waits until the bar after the right-confirmation bar before using that pivot. Preserve this conservative convention or change it only with a versioned decision and tests; do not backdate a pivot to its original swing index.
+- **FVG/OB mitigation is tail-relative.** Suffix minima/maxima are used to calculate FVG `mitigated` and OB `mitigated_after_confirmation` against candles after the candidate through the end of the supplied sequence. `latest_unmitigated_*`, `confluence_count`, and `setup_candidate` are likewise state-at-tail outputs. They are valid only for that analysis cutoff, not as historical values for every earlier bar in the same full-history result.
+- **OB displacement currently uses analysis-tail ATR.** `atr` is computed from the last up-to-14 true ranges of the supplied sequence, then used to qualify every historical OB event and copied into each event's `atr_at_analysis`. That field is not ATR-at-event. A future feature schema must either define this explicitly as a current-cutoff statistic or use a separately computed event-time ATR; it must not relabel the current field as an event-time value.
+- **The backtest consumes future outcomes by design.** `run_smc_backtest` scans later candles to resolve stop/target exits and calculate PnL. Those outcomes belong only in a label/evaluation pipeline after its forward horizon matures. They must never be exposed as inference features or used to decide a feature row at an earlier `as_of`.
+
+### Required point-in-time tests before a producer is accepted
+
+1. For a fixed `as_of`, appending or mutating candles strictly after that cutoff must not change the emitted feature snapshot.
+2. A pivot must not become eligible before its declared right-bar confirmation; the current strict-less-than consumption rule must be covered explicitly.
+3. FVG/OB mitigation and latest-zone state must be computed only through the sample cutoff, and an unmitigated zone at an earlier cutoff must not be rewritten using later bars.
+4. Any ATR-based event qualification must declare whether it uses event-time ATR or analysis-cutoff ATR and have a test that distinguishes the two.
+5. Timestamp order, duplicate timestamps, timezone normalization, unfinished candles, and data gaps must produce deterministic validation/quality outcomes rather than silently relying on array indices.
+6. Backtest exit prices, future stop/target hits, and matured labels must remain outside the feature payload and be generated only by the separately versioned label/evaluation process.
+
+The existing `tests/test_smc_strategy.py` covers basic OHLC validity, determinism, pivot retention, and backtest safety, but it does not currently establish these point-in-time invariants.
+
 ## 5. Model compatibility metadata
 
 Every trained artifact should persist, at minimum:
