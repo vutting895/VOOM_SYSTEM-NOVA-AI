@@ -11,14 +11,14 @@ metadata, and applies explicit approval gates to candidate promotion.
 - No order execution is possible from this package.
 - Training is offline and is not triggered by API requests.
 - Candidate approval does not deploy a model or switch a live strategy.
-- Paper/backtest/demo/live environments are recorded separately; use paper as
-  the default and do not mix environments in evaluation reports.
+- Paper/backtest/demo/live environments are recorded separately; do not mix
+  environments in evaluation reports.
 
 ## Files
 
 - `models.py`: SQLAlchemy 2.x tables for experiences, model versions and audit.
 - `service.py`: idempotent collection, reward calculation, summaries and gates.
-- `api.py`: optional FastAPI router.
+- `api.py`: optional FastAPI router with fail-closed approval authorization.
 
 ## Integration
 
@@ -58,20 +58,40 @@ from the originating trade/agent event. `pnl_pct`, `risk_pct`, and
 
 ## Promotion policy
 
-A candidate remains non-active until a human approver invokes the approval
-endpoint. The service requires at least 100 validation samples, win rate >= 50%,
-profit factor >= 1.10, and validation maximum drawdown <= 8%. These are
-conservative initial policy defaults, not evidence of strategy profitability.
-Promotion only changes metadata to `approved`; a separate reviewed deployment
-workflow must be designed before any model can affect an agent.
+A candidate remains non-active until an authenticated human approver invokes
+the approval endpoint. The service requires at least 100 validation samples,
+win rate >= 50%, profit factor >= 1.10, and validation maximum drawdown <= 8%.
+These are initial policy defaults, not evidence of strategy profitability.
+Approval changes metadata only; a separate reviewed deployment workflow must
+be designed before any model can affect an agent.
+
+**RBAC fail-closed behavior:** `require_learning_approver` returns HTTP 503 by
+default. The host application must override this exact dependency with its
+authenticated principal/role check before enabling approval. The approver ID
+is derived from that trusted dependency, never from a client-supplied request
+body. Do not expose the approval route until the override is installed and
+tested against the host's real RBAC implementation.
+
+Example host wiring:
+```python
+from backend.learning.api import require_learning_approver, router as learning_router
+
+def require_model_approver(current_user=Depends(get_current_user)) -> str:
+    if "models:approve" not in current_user.permissions:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return str(current_user.id)
+
+app.dependency_overrides[require_learning_approver] = require_model_approver
+app.include_router(learning_router)
+```
+Replace `get_current_user` and `current_user.permissions` with the project's
+actual authentication/RBAC contract; this example is illustrative.
 
 ## Known v0.1 limitations
 
 - No training algorithm, feature store, drift detector or model artifact loader.
-- No authentication/RBAC is implemented inside this module; the host API must
-  protect the approval endpoint with its existing authenticated approver
-  dependency before production exposure.
-- The supplied approver field is an audit label, not proof of identity.
+- Core API integration, actual Alembic migration and LangGraph event wiring are
+  pending host-repository inspection.
 - Profit factor and validation metrics must come from a reproducible,
   chronological out-of-sample evaluation. Never calculate them from training
   data or mix paper and live results.
