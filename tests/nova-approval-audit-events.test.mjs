@@ -51,3 +51,8 @@ test("service role cannot mutate the audit log and the database blocks TRUNCATE"
   assert.ok(migration.includes("FROM PUBLIC, anon, authenticated, service_role"));
   assert.ok(migration.includes("BEFORE TRUNCATE ON public.nova_approval_events"));
 });
+
+test("service role cannot mutate the audit log and the database blocks TRUNCATE", () => {
+  assert.ok(migration.includes("FROM PUBLIC, anon, authenticated, service_role"));
+  assert.ok(migration.includes("BEFORE TRUNCATE ON public.nova_approval_events"));
+});
