@@ -2,54 +2,55 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-function source(path) {
-  return readFileSync(new URL(path, import.meta.url), "utf8");
-}
+const api = readFileSync(new URL("../src/server/nova-approval-api.mjs", import.meta.url), "utf8");
+const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 
-const threads = source("../frontend/app/api/agent/threads/route.js");
-const approvals = source("../frontend/app/api/agent/threads/[threadId]/approvals/route.js");
-const decision = source("../frontend/app/api/agent/approvals/[approvalId]/decision/route.js");
-const serverHelper = source("../frontend/lib/agent-approval-server.js");
-const chatPage = source("../frontend/app/chat/page.jsx");
-
-test("every protected approval route authenticates before reading POST body", () => {
-  for (const [name, route] of [["threads", threads], ["approvals", approvals], ["decision", decision]]) {
-    const authAt = route.indexOf("await authenticateAgentRequest(request)");
-    assert.notEqual(authAt, -1, name + " route must authenticate");
-    const bodyAt = route.indexOf("await readAgentJson(request");
-    if (bodyAt !== -1) assert.ok(authAt < bodyAt, name + " route reads the body only after authentication");
-  }
+test("protected Approval API authenticates JWT before parsing JSON request bodies", () => {
+  const authUse = api.indexOf("router.use(authenticateAgentRequest)");
+  const enabledUse = api.indexOf("router.use(requireApprovalsEnabled)");
+  const parser = api.indexOf("const JSON_BODY = express.json");
+  assert.notEqual(authUse, -1);
+  assert.ok(authUse < enabledUse);
+  assert.ok(authUse < api.indexOf('router.post("/threads", JSON_BODY'));
+  assert.ok(authUse < api.indexOf('router.post("/threads/:threadId/approvals", JSON_BODY'));
+  assert.ok(authUse < api.indexOf('router.post("/approvals/:approvalId/decision", JSON_BODY'));
+  assert.ok(parser >= 0);
+  assert.match(api, /req\.get\("authorization"\)/);
+  assert.match(api, /supabase\.auth\.getUser\(match\[1\]\)/);
 });
 
-test("workflow is disabled by default and has independent server-side gating", () => {
-  for (const [name, route] of [["threads", threads], ["approvals", approvals], ["decision", decision]]) {
-    assert.match(route, /process\.env\.NOVA_APPROVALS_ENABLED === "true"/, name + " route requires the server-side flag");
-    assert.match(route, /approval_workflow_disabled/, name + " route fails closed when disabled");
-  }
-  assert.match(chatPage, /process\.env\.NEXT_PUBLIC_NOVA_APPROVALS_ENABLED === 'true'/);
+test("Approval API is disabled by default and uses only the request owner's JWT", () => {
+  assert.match(api, /process\.env\.NOVA_APPROVALS_ENABLED !== "true"/);
+  assert.match(api, /SUPABASE_ANON_KEY/);
+  assert.match(api, /Authorization: "Bearer " \+ match\[1\]/);
+  assert.match(api, /\.eq\("user_id", user\.id\)/);
+  assert.doesNotMatch(api, /service_role|SERVICE_ROLE_KEY/i);
+  assert.match(server, /registerNovaApprovalRoutes\(app\)/);
 });
 
-test("database calls are user-scoped and use RPCs for approval mutations", () => {
-  assert.match(threads, /\.eq\("user_id", auth\.user\.id\)/);
-  assert.match(approvals, /\.eq\("user_id", auth\.user\.id\)/);
-  assert.match(approvals, /\.rpc\("nova_create_approval"/);
-  assert.match(decision, /\.rpc\("nova_resolve_approval"/);
-  assert.doesNotMatch(threads + approvals + decision, /service_role|SERVICE_ROLE_KEY/i);
+test("Approval creation and resolution use the durable database RPCs", () => {
+  assert.match(api, /\.rpc\("nova_create_approval"/);
+  assert.match(api, /\.rpc\("nova_resolve_approval"/);
+  assert.match(api, /NOVA_APPROVAL_POLICY_VERSION/);
+  assert.match(api, /NOVA_APPROVAL_REQUEST_TYPE/);
+  assert.match(api, /approval_already_resolved/);
+  assert.match(api, /approval_expired/);
 });
 
-test("decision endpoint maps missing, expired and replayed approvals to fail-closed responses", () => {
-  assert.match(decision, /not_found: \["approval_not_found", 404\]/);
-  assert.match(decision, /already_resolved: \["approval_already_resolved", 409\]/);
-  assert.match(decision, /expired: \["approval_expired", 410\]/);
-  assert.match(decision, /p_policy_version: NOVA_APPROVAL_POLICY_VERSION/);
-  assert.match(decision, /brokerMutationEnabled: false/);
+test("audit history is read-only, ordered, owner-filtered and never grants execution", () => {
+  assert.match(api, /router\.get\("\/approvals\/:approvalId\/events"/);
+  assert.match(api, /\.from\("nova_approval_events"\)/);
+  assert.match(api, /\.eq\("approval_id", approvalId\)/);
+  assert.match(api, /\.eq\("user_id", user\.id\)/);
+  assert.match(api, /\.order\("event_sequence", \{ ascending: true \}\)/);
+  assert.match(api, /executionEnabled: false/);
+  assert.match(api, /liveTradingEnabled: false/);
+  assert.match(api, /brokerMutationEnabled: false/);
 });
 
-test("review UI states explicitly that approval is research-only, never broker execution", () => {
-  const card = source("../frontend/components/approval-card.jsx");
-  assert.match(card, /ไม่มีการส่งคำสั่งซื้อขาย/);
-  assert.match(card, /Broker mutation disabled/);
-  assert.match(card, /onReviewEdited/);
-  assert.match(serverHelper, /auth\.getUser\(accessToken\)/);
-  assert.match(serverHelper, /Cache-Control": "no-store"/);
+test("legacy broker/Live Trading and legacy simulated approval endpoints remain blocked", () => {
+  assert.match(server, /req\.path\.startsWith\('\/api\/orders\/'\)/);
+  assert.match(server, /req\.path\.startsWith\('\/api\/live-trading\/'\)/);
+  assert.match(server, /req\.path === '\/api\/agent\/approvals\/decision'/);
+  assert.match(server, /const liveTradingEnabled = false as const/);
 });
