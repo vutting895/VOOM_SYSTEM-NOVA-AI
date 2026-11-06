@@ -182,7 +182,7 @@ The UI must never collapse the two adapters into one generic "Exness connected" 
 
 ### Explicit current limitations
 
-- Current main migration `202610270001_mt5_customer_connections.sql` constrains both provider and environment to `exness_mt5` / `demo`.
+- Current main migration `20261027160402_mt5_customer_connections.sql` constrains both provider and environment to `exness_mt5` / `demo`.
 - Current MT5 Proxy rejects every environment other than Demo.
 - Current System Hub registry exposes only `exness-mt5-demo`.
 - Current frontend Broker Status endpoint creates/reads only an Exness MT5 Demo connection.
