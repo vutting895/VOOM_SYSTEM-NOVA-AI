@@ -662,6 +662,46 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
   }
 });
 
+test("preparation rejects a PostgREST insert representation that enables execution", async () => {
+  const previous = globalThis.fetch;
+  const job = sampleJobRecord();
+  const snapshot = samplePreparationSnapshot(job);
+  const snapshotHash = await hashSnapshot(snapshot);
+  let insertAttempts = 0;
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_jobs") return Response.json([job]);
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      if (init.method === "GET") return Response.json([]);
+      insertAttempts += 1;
+      const payload = JSON.parse(init.body);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        ...payload,
+        execution_authorized: true,
+        created_at: "2026-11-05T00:01:00Z",
+      }], { status: 201 });
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(request("/api/video/preparations", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: { job_id: job.id },
+    }), ENV);
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "video_preparation_store_response_invalid" });
+    assert.equal(insertAttempts, 1);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
 test("preparation idempotent replay rejects a mismatched planner version", async () => {
   const previous = globalThis.fetch;
   const job = sampleJobRecord();
@@ -864,6 +904,61 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
     assert.deepEqual(data.executionBlockers, ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"]);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+test("approval rejects a PostgREST insert representation that enables execution", async () => {
+  const previous = globalThis.fetch;
+  const job = sampleJobRecord();
+  const snapshot = samplePreparationSnapshot(job);
+  const snapshotHash = await hashSnapshot(snapshot);
+  let approvalWrites = 0;
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(input);
+    if (url.pathname === "/auth/v1/user") return authResponse();
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer " + SESSION);
+    if (url.pathname === "/rest/v1/nova_video_jobs") return Response.json([job]);
+    if (url.pathname === "/rest/v1/nova_video_preparations") {
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174002",
+        user_id: "user-a",
+        job_id: job.id,
+        snapshot,
+        snapshot_hash: snapshotHash,
+        planner_version: "1.0.0",
+        execution_authorized: false,
+        created_at: "2026-11-05T00:01:00Z",
+      }]);
+    }
+    if (url.pathname === "/rest/v1/nova_video_approval_decisions") {
+      if (init.method === "GET") return Response.json([]);
+      approvalWrites += 1;
+      const payload = JSON.parse(init.body);
+      return Response.json([{
+        id: "123e4567-e89b-42d3-a456-426614174003",
+        ...payload,
+        execution_authorized: true,
+        created_at: "2026-11-05T00:02:00Z",
+      }], { status: 201 });
+    }
+    throw new Error("unexpected request " + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(request("/api/video/preparation-decisions", {
+      method: "POST",
+      headers: { Origin: ORIGIN, Authorization: "Bearer " + SESSION },
+      body: {
+        preparation_id: "123e4567-e89b-42d3-a456-426614174002",
+        decision: "approved",
+      },
+    }), ENV);
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), { error: "video_approval_store_response_invalid" });
+    assert.equal(approvalWrites, 1);
   } finally {
     globalThis.fetch = previous;
   }
