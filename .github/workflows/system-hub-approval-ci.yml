@@ -1,0 +1,45 @@
+name: System Hub Approval CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/system-hub/**"
+      - ".github/workflows/system-hub-approval-ci.yml"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "integrations/system-hub/**"
+      - ".github/workflows/system-hub-approval-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: system-hub-approval-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  approval-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax-check approval API and System Hub Worker
+        run: |
+          node --check integrations/system-hub/agent-approval.js
+          node --check integrations/system-hub/worker.js
+
+      - name: Run isolated approval API tests
+        run: node --test integrations/system-hub/tests/agent-approval.test.mjs
+
+      - name: Run all System Hub contract tests
+        run: node --test integrations/system-hub/tests/*.test.mjs
