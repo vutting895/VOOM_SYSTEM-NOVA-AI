@@ -669,6 +669,7 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
         snapshot,
         snapshot_hash: snapshotHash,
         planner_version: "1.0.0",
+        execution_authorized: false,
         created_at: "2026-11-05T00:01:00Z",
       }]);
     }
