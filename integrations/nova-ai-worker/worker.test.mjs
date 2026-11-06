@@ -398,6 +398,126 @@ test("account snapshot tool uses Hub ownership checks and returns provider-suppl
   assert.equal(body.liveTradingEnabled, false);
 });
 
+test("agent reads Demo market quotes through the authenticated Hub and constrains returned bars", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    if (target === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    assert.equal(
+      target,
+      "https://voom-system-hub.suwapat787.workers.dev/v1/connections/123e4567-e89b-42d3-a456-426614174000/quotes?symbol=XAUUSD&timeframe=M5&count=2",
+    );
+    assert.equal(init.method, "GET");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    hubCalls += 1;
+    return new Response(JSON.stringify({
+      connectionId: "123e4567-e89b-42d3-a456-426614174000",
+      state: "data_verified",
+      dataVerified: true,
+      quote: {
+        symbol: "XAUUSD", timeframe: "M5", digits: 2,
+        tick: { bid: 2700.1, ask: 2700.3, last: 2700.2, time: "2026-11-07T02:00:00Z" },
+        bars: [
+          { time: "2026-11-07T01:55:00Z", open: 2699.1, high: 2701, low: 2698, close: 2700.2, volume: 12 },
+          { time: "2026-11-07T02:00:00Z", open: 2700.2, high: 2701.2, low: 2699.9, close: 2700.8, volume: 10, private_field: "must-not-leak" },
+        ],
+        count: 2, mode: "read-only", order_submission_enabled: false,
+        as_of: "2026-11-07T02:00:00Z",
+      },
+      ordersEnabled: false, liveTradingEnabled: false,
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_demo_market_quotes",
+            arguments: {
+              connection_id: "123e4567-e89b-42d3-a456-426614174000",
+              symbol: "XAUUSD",
+              timeframe: "M5",
+              count: 2,
+            },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.data.quote.tick.bid, 2700.1);
+        assert.equal(toolResult.data.quote.bars.length, 2);
+        assert.equal("private_field" in toolResult.data.quote.bars[1], false);
+        assert.equal(toolResult.data.quote.order_submission_enabled, false);
+        return { response: "ราคา XAUUSD ล่าสุดที่ Demo feed ส่งมา: Bid 2700.10 / Ask 2700.30" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "ขอราคา XAUUSD และแท่ง M5 ล่าสุด" }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].tool, "get_my_demo_market_quotes");
+  assert.equal(body.agent.toolCallCount, 1);
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
+  assert.equal(body.executionEnabled, false);
+});
+
+test("Hub ownership denial is returned to the Agent without exposing upstream details", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    if (target === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    assert.equal(target, "https://voom-system-hub.suwapat787.workers.dev/v1/connections/123e4567-e89b-42d3-a456-426614174000/status");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    hubCalls += 1;
+    return new Response(JSON.stringify({
+      error: "connection_not_found",
+      detail: "private upstream diagnostic that must not reach the model",
+    }), { status: 404, headers: { "Content-Type": "application/json" } });
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_connection_status",
+            arguments: { connection_id: "123e4567-e89b-42d3-a456-426614174000" },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.success, false);
+        assert.equal(toolResult.error, "connection_not_found");
+        assert.equal("detail" in toolResult, false);
+        assert.equal(toolResult.httpStatus, 404);
+        return { response: "ไม่พบบัญชีเชื่อมต่อที่เข้าถึงได้ในพื้นที่ผู้ใช้นี้" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check connection status." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].status, "rejected");
+  assert.equal(body.agent.toolCalls[0].error, "connection_not_found");
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
+});
+
 test("chat fails closed when Cloudflare AI binding is unavailable", async () => {
   authFetch();
   const response = await worker.fetch(new Request("https://worker.test/api/chat", {
