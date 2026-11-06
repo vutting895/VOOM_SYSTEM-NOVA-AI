@@ -102,6 +102,22 @@ test("checkpoint runtime rejects PostgreSQL URLs without explicit TLS", async ()
   );
 });
 
+test("checkpoint runtime stays unavailable when LangGraph packages are missing", async () => {
+  await assert.rejects(
+    createNovaApprovalCheckpointRuntime({
+      env: {
+        NOVA_LANGGRAPH_ENABLED: "true",
+        NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpointer@127.0.0.1/nova_test?sslmode=require",
+        NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
+      },
+      dependenciesLoader: async () => {
+        throw new Error("package not installed");
+      },
+    }),
+    (error) => error.code === "NOVA_LANGGRAPH_DEPENDENCIES_MISSING",
+  );
+});
+
 test("failed PostgresSaver setup closes its connection pool", async () => {
   let closeCount = 0;
   const dependencies = {
