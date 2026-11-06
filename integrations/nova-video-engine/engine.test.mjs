@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { createNovaVideoEngine, createStoryboard, ENGINE_STATES } from "./engine.mjs";
 import { buildFfmpegArgs, createFfmpegRenderer, resolveWithinRoot } from "./ffmpeg-renderer.mjs";
 
+const workspaceRoot = path.resolve(workspaceRoot);
+const wanRepoRoot = path.resolve(wanRepoRoot);
+
 const brief = {
   title: "NOVA product story", aspectRatio: "9:16", durationSeconds: 10,
   scenes: [
@@ -43,30 +46,30 @@ test("does not pretend to render when no renderer is configured", async () => {
 });
 
 test("rejects media path traversal and absolute paths", () => {
-  assert.throws(() => resolveWithinRoot("/workspace", "../secret.png"), /media_path_traversal_rejected/);
-  assert.throws(() => resolveWithinRoot("/workspace", "/tmp/secret.png"), /relative_media_path_required/);
-  assert.throws(() => resolveWithinRoot("/workspace", "assets\\\\..\\\\secret.png"), /relative_media_path_required/);
-  assert.throws(() => resolveWithinRoot("/workspace", "C:\\\\private.png"), /relative_media_path_required/);
-  assert.throws(() => resolveWithinRoot("/workspace", "assets//scene.png"), /media_path_traversal_rejected/);
+  assert.throws(() => resolveWithinRoot(workspaceRoot, "../secret.png"), /media_path_traversal_rejected/);
+  assert.throws(() => resolveWithinRoot(workspaceRoot, "/tmp/secret.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot(workspaceRoot, "assets\\\\..\\\\secret.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot(workspaceRoot, "C:\\\\private.png"), /relative_media_path_required/);
+  assert.throws(() => resolveWithinRoot(workspaceRoot, "assets//scene.png"), /media_path_traversal_rejected/);
 });
 
 test("builds an FFmpeg command without shell interpolation", () => {
-  const { args, outputPath } = buildFfmpegArgs(createStoryboard(brief), "/workspace");
+  const { args, outputPath } = buildFfmpegArgs(createStoryboard(brief), workspaceRoot);
   assert.equal(args.includes("-filter_complex"), true);
   assert.equal(args.includes("-an"), true);
   assert.equal(args.includes("-n"), true);
   assert.equal(args.includes("-y"), false);
-  assert.equal(args.includes("/workspace/assets/scene-1.png"), true);
-  assert.equal(outputPath, "/workspace/renders/video.mp4");
+  assert.equal(args.includes(path.join(workspaceRoot, "assets", "scene-1.png")), true);
+  assert.equal(outputPath, path.join(workspaceRoot, "renders", "video.mp4"));
   assert.equal(args.some((arg) => arg.includes("&&") || arg.includes("; rm")), false);
 });
 
 test("requires each scene to have a supported still-image input", () => {
   const noImage = createStoryboard({ ...brief, scenes: [{ description: "No image supplied" }] });
-  assert.throws(() => buildFfmpegArgs(noImage, "/workspace"), /scene_image_required_1/);
+  assert.throws(() => buildFfmpegArgs(noImage, workspaceRoot), /scene_image_required_1/);
   assert.throws(() => buildFfmpegArgs({
     ...noImage, scenes: [{ ...noImage.scenes[0], imagePath: "assets/clip.mp4" }],
-  }, "/workspace"), /unsupported_scene_image_type/);
+  }, workspaceRoot), /unsupported_scene_image_type/);
 });
 
 import { createProviderRegistry } from "./provider-registry.mjs";
@@ -279,7 +282,7 @@ import { buildWan22Command, createWan22LocalRuntime, ensureSafeOutputDirectory, 
 
 test("Wan runtime builds a safe direct argument vector and frame-aligned clip", () => {
   const task = createGenerativeVideoTask({ prompt: "A product; ignore shell", durationSeconds: 5, imagePath: "assets/source.png" });
-  const built = buildWan22Command({ task, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", jobId: "job-1", sceneId: "scene-01" });
+  const built = buildWan22Command({ task, repoRoot: wanRepoRoot, checkpointDir: path.join(wanRepoRoot, "TI2V-5B"), workspaceRoot: workspaceRoot, jobId: "job-1", sceneId: "scene-01" });
   assert.equal(built.command, "python");
   assert.equal(built.args.includes("--task"), true);
   assert.equal(built.args[built.args.indexOf("--task") + 1], "ti2v-5B");
@@ -287,7 +290,7 @@ test("Wan runtime builds a safe direct argument vector and frame-aligned clip", 
   assert.equal(built.args[built.args.indexOf("--frame_num") + 1], "121");
   assert.equal(built.args[built.args.indexOf("--prompt") + 1], "A product; ignore shell");
   assert.equal(built.args[built.args.indexOf("--image") + 1], "/workspace/assets/source.png");
-  assert.equal(built.outputPath, "/workspace/jobs/job-1/scene-01.mp4");
+  assert.equal(built.outputPath, path.join(workspaceRoot, "jobs", "job-1", "scene-01.mp4"));
   assert.equal(wan22FrameCount(5), 121);
   assert.equal((wan22FrameCount(3) - 1) % 4, 0);
 });
@@ -304,7 +307,7 @@ test("Wan local runtime refuses inference unless all explicit approval and hardw
 test("Wan local runtime exposes a fail-closed zero-cost and 24GB preflight", async () => {
   const noCost = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, hardware: { verified: true, availableVramGB: 24 } });
   assert.equal((await noCost.preflight()).reason, "zero_cost_compute_not_verified");
-  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true, repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace", hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 12000 }] });
+  const lowVram = createWan22LocalRuntime({ executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true, zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true, repoRoot: wanRepoRoot, checkpointDir: path.join(wanRepoRoot, "TI2V-5B"), workspaceRoot: workspaceRoot, hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 12000 }] });
   assert.equal((await lowVram.preflight()).reason, "verified_24gb_vram_required");
 });
 
@@ -320,7 +323,7 @@ const readyWanRuntimeOptions = (overrides = {}) => ({
   executionEnabled: true, modelLicenseApproved: true, securityReviewApproved: true,
   zeroCostComputeVerified: true, modelRevision: "a".repeat(40), checkpointIntegrityVerified: true,
   hardwareProbe: async () => [{ totalVramMiB: 24564, freeVramMiB: 24564 }],
-  repoRoot: "/models/Wan2.2", checkpointDir: "/models/Wan2.2/TI2V-5B", workspaceRoot: "/workspace",
+  repoRoot: wanRepoRoot, checkpointDir: path.join(wanRepoRoot, "TI2V-5B"), workspaceRoot: workspaceRoot,
   accessImpl: async () => {}, mkdirImpl: async () => {},
   lstatImpl: async () => ({ isSymbolicLink: () => false, isDirectory: () => true, mode: 0o700 }),
   realpathImpl: async (value) => value,
@@ -357,10 +360,10 @@ test("Wan local runtime checks FREE VRAM rather than total VRAM", async () => {
 });
 
 test("Wan output-directory validator rejects a symlinked job directory without creating it", async () => {
-  const jobDirectory = "/workspace/jobs/job-1";
+  const jobDirectory = path.join(workspaceRoot, "jobs", "job-1");
   const created = [];
   await assert.rejects(
-    () => ensureSafeOutputDirectory("/workspace", jobDirectory, {
+    () => ensureSafeOutputDirectory(workspaceRoot, jobDirectory, {
       lstatImpl: async (value) => ({
         isSymbolicLink: () => value === jobDirectory,
         isDirectory: () => true,
@@ -375,9 +378,9 @@ test("Wan output-directory validator rejects a symlinked job directory without c
 });
 
 test("Wan output-directory validator rejects group/world-writable directories", async () => {
-  const jobDirectory = "/workspace/jobs/job-1";
+  const jobDirectory = path.join(workspaceRoot, "jobs", "job-1");
   await assert.rejects(
-    () => ensureSafeOutputDirectory("/workspace", jobDirectory, {
+    () => ensureSafeOutputDirectory(workspaceRoot, jobDirectory, {
       lstatImpl: async (value) => ({
         isSymbolicLink: () => false,
         isDirectory: () => true,
@@ -420,7 +423,7 @@ test("Wan local runtime verifies the exact installed repository revision", async
   }));
   const result = await runtime.preflight();
   assert.deepEqual({ ready: result.ready, reason: result.reason }, { ready: false, reason: "wan22_upstream_revision_mismatch" });
-  assert.equal(verifiedPath, "/models/Wan2.2");
+  assert.equal(verifiedPath, wanRepoRoot);
   assert.equal(verifiedRevision, "a".repeat(40));
 });
 
@@ -435,7 +438,7 @@ test("Wan local runtime verifies the pinned revision but stays blocked until pro
 
 test("Wan local runtime rejects a symlinked generation entrypoint outside the pinned repository", async () => {
   const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
-    realpathImpl: async (value) => value.endsWith("/generate.py") ? "/tmp/untrusted-generate.py" : value,
+    realpathImpl: async (value) => value === path.join(wanRepoRoot, "generate.py") ? path.resolve("/tmp/untrusted-generate.py") : value,
   }));
   const result = await runtime.preflight();
   assert.equal(result.ready, false);
@@ -443,7 +446,7 @@ test("Wan local runtime rejects a symlinked generation entrypoint outside the pi
 });
 
 test("Wan local runtime does not inspect or touch render output while process isolation is missing", async () => {
-  const output = "/workspace/jobs/job-1/scene-01.mp4";
+  const output = path.join(workspaceRoot, "jobs", "job-1", "scene-01.mp4");
   let spawned = 0;
   let outputAccessed = false;
   const runtime = createWan22LocalRuntime(readyWanRuntimeOptions({
@@ -501,7 +504,6 @@ test("NOVA style adaptation plan remains blocked until data, model, compute and 
 
 import { mkdtemp, rm, appendFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import path from "node:path";
 import { createFileVideoJobStore } from "./file-job-store.mjs";
 
 test("file job store persists lifecycle transitions and recovers idempotency after restart", async () => {
@@ -569,7 +571,7 @@ test("NOVA media assembler builds multi-scene video with voice, music and soft s
     width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
   }));
   const command = buildNOVAAssemblyCommand({
-    plan, assets, workspaceRoot: "/workspace", jobId: "job-1",
+    plan, assets, workspaceRoot: workspaceRoot, jobId: "job-1",
     voiceoverPath: "audio/voice.wav", musicPath: "audio/music.mp3",
     subtitlePath: "jobs/job-1/subtitles.srt",
   });
@@ -583,7 +585,7 @@ test("NOVA media assembler builds multi-scene video with voice, music and soft s
   assert.equal(command.args.includes("mov_text"), true);
   assert.equal(command.args.includes("-n"), true);
   assert.equal(command.args.includes("-y"), false);
-  assert.equal(command.outputPath, "/workspace/jobs/job-1/final.mp4");
+  assert.equal(command.outputPath, path.join(workspaceRoot, "jobs", "job-1", "final.mp4"));
   assert.equal(command.args.some((arg) => arg.includes("; rm -rf")), false);
 });
 
@@ -610,9 +612,9 @@ test("NOVA media assembler rejects unsafe or incomplete source clips", () => {
     sceneId: scene.sceneId, assetPath: "jobs/job-1/" + scene.sceneId + ".mp4", contentType: "video/mp4",
     width: 704, height: 1280, frameRate: 24, durationSeconds: scene.durationSeconds, continuityGroup: scene.continuityGroup,
   }));
-  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.slice(1), workspaceRoot: "/workspace", jobId: "job-1" }), /assembly_assets_invalid/);
-  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.map((asset, index) => index === 0 ? { ...asset, assetPath: "../escape.mp4" } : asset), workspaceRoot: "/workspace", jobId: "job-1" }), /assembly_assets_invalid/);
-  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets, workspaceRoot: "/workspace", jobId: "job-1", voiceoverPath: "../secret.wav" }), /invalid_voiceover/);
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.slice(1), workspaceRoot: workspaceRoot, jobId: "job-1" }), /assembly_assets_invalid/);
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets: assets.map((asset, index) => index === 0 ? { ...asset, assetPath: "../escape.mp4" } : asset), workspaceRoot: workspaceRoot, jobId: "job-1" }), /assembly_assets_invalid/);
+  assert.throws(() => buildNOVAAssemblyCommand({ plan, assets, workspaceRoot: workspaceRoot, jobId: "job-1", voiceoverPath: "../secret.wav" }), /invalid_voiceover/);
 });
 
 test("media assembler never deletes a pre-existing user output when refusing overwrite", async () => {
@@ -623,9 +625,9 @@ test("media assembler never deletes a pre-existing user output when refusing ove
   }));
   const removed = [];
   const assembler = createNOVAMediaAssembler({
-    workspaceRoot: "/workspace", executionEnabled: true, approvalGranted: true,
+    workspaceRoot: workspaceRoot, executionEnabled: true, approvalGranted: true,
     mkdirImpl: async () => {}, realpathImpl: async (value) => value,
-    accessImpl: async (value) => { if (value === "/workspace/jobs/job-1/final.mp4") return; },
+    accessImpl: async (value) => { if (value === path.join(workspaceRoot, "jobs", "job-1", "final.mp4")) return; },
     unlinkImpl: async (value) => { removed.push(value); },
     spawnImpl: () => { throw new Error("ffmpeg_must_not_start"); },
   });
@@ -694,8 +696,8 @@ test("Wan local runtime blocks when NVIDIA hardware probe is unavailable", async
 test("FFmpeg renderer rejects an input symlink that escapes the workspace", async () => {
   let spawned = 0;
   const renderer = createFfmpegRenderer({
-    workspaceRoot: "/workspace",
-    realpathImpl: async (value) => value === "/workspace/assets/scene-1.png" ? "/tmp/private.png" : value,
+    workspaceRoot: workspaceRoot,
+    realpathImpl: async (value) => value === path.join(workspaceRoot, "assets", "scene-1.png") ? path.resolve("/tmp/private.png") : value,
     accessImpl: async () => {}, mkdirImpl: async () => {},
     spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
   });
@@ -706,8 +708,8 @@ test("FFmpeg renderer rejects an input symlink that escapes the workspace", asyn
 test("FFmpeg renderer rejects an output directory symlink outside the workspace", async () => {
   let spawned = 0;
   const renderer = createFfmpegRenderer({
-    workspaceRoot: "/workspace",
-    realpathImpl: async (value) => value === "/workspace/renders" ? "/tmp/private-renders" : value,
+    workspaceRoot: workspaceRoot,
+    realpathImpl: async (value) => value === path.join(workspaceRoot, "renders") ? path.resolve("/tmp/private-renders") : value,
     accessImpl: async () => {}, mkdirImpl: async () => {},
     spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
   });
@@ -718,8 +720,8 @@ test("FFmpeg renderer rejects an output directory symlink outside the workspace"
 test("FFmpeg renderer never overwrites an existing output file", async () => {
   let spawned = 0;
   const renderer = createFfmpegRenderer({
-    workspaceRoot: "/workspace", realpathImpl: async (value) => value, mkdirImpl: async () => {},
-    accessImpl: async (value) => { if (value === "/workspace/renders/video.mp4") return; },
+    workspaceRoot: workspaceRoot, realpathImpl: async (value) => value, mkdirImpl: async () => {},
+    accessImpl: async (value) => { if (value === path.join(workspaceRoot, "renders", "video.mp4")) return; },
     spawnImpl: () => { spawned += 1; throw new Error("ffmpeg_must_not_start"); },
   });
   await assert.rejects(() => renderer.render(createStoryboard(brief)), /ffmpeg_output_already_exists/);
