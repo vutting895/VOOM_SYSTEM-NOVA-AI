@@ -280,6 +280,20 @@ BEGIN
 END;
 $$;
 
+-- Deleting the parent approval is the only permitted event-erasure path.
+-- The owner still exists, so this specifically verifies the composite parent cascade.
+DELETE FROM public.nova_approval_requests
+WHERE id = :'audit_approval_id';
+
+SELECT (count(*) = 0) AS parent_request_cascade_erases_events
+FROM public.nova_approval_events
+WHERE approval_id = :'audit_approval_id' \gset
+\if :parent_request_cascade_erases_events
+\else
+  \echo 'FAIL: parent approval deletion did not cascade to audit events'
+  \quit 1
+\endif
+
 -- Account erasure cascades through the parent request and removes retained audit rows.
 DELETE FROM auth.users
 WHERE id = '33333333-3333-4333-8333-333333333333';
