@@ -37,6 +37,7 @@ jobs:
         run: |
           node --check integrations/system-hub/agent-approval.js
           node --check integrations/system-hub/worker.js
+          node --check integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs
 
       - name: Run isolated approval API tests
         run: node --test integrations/system-hub/tests/agent-approval.test.mjs
