@@ -642,7 +642,8 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
   const previous = globalThis.fetch;
   const snapshot = {
     schemaVersion: "nova.video-preparation.v1",
-    job: { id: "123e4567-e89b-42d3-a456-426614174001", taskType: "video_generation", status: "blocked_no_free_gpu" },
+    job: { id: "123e4567-e89b-42d3-a456-426614174001", projectId: "123e4567-e89b-42d3-a456-426614174000", taskType: "video_generation", status: "blocked_no_free_gpu" },
+    directorPlan: { schemaVersion: "nova.director-plan.v1", frameRate: 24 },
     productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
     policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
   };
@@ -760,6 +761,7 @@ test("GET preparation returns the owner-scoped snapshot and approval decision on
   const snapshot = {
     schemaVersion: "nova.video-preparation.v1",
     job: { id: "123e4567-e89b-42d3-a456-426614174001", projectId: "123e4567-e89b-42d3-a456-426614174000", taskType: "video_generation", status: "blocked_no_free_gpu" },
+    directorPlan: { schemaVersion: "nova.director-plan.v1", frameRate: 24 },
     productionPlan: { schemaVersion: "nova.video-production-plan.v1", status: "blocked_no_free_gpu", requiresHumanApproval: true, executionEnabled: false },
     policy: { requiresHumanApproval: true, executionEnabled: false, estimatedCost: 0, executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"] },
   };
