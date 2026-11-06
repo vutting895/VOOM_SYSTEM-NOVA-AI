@@ -232,7 +232,7 @@ async function generateChat(env, messages, accessToken) {
 
   const intent = classifyResearchIntent(messages[messages.length - 1].content);
   if (intent.intent === "blocked_action") {
-    const thai = /[\\u0E00-\\u0E7F]/.test(messages[messages.length - 1].content);
+    const thai = /[ก-๿]/.test(messages[messages.length - 1].content);
     return {
       message: thai
         ? "NOVA ไม่สามารถเปิด ปิด แก้ไข หรือส่งคำสั่งซื้อขายได้ในขณะนี้ ระบบอนุญาตเฉพาะการวิเคราะห์และอ่านข้อมูลแบบ Read-only เท่านั้น ผมช่วยตรวจความเสี่ยงหรืออธิบายแผนการเทรดเพื่อการวิจัยได้"
