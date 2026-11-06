@@ -6,7 +6,7 @@ function source(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
 }
 
-const migration = source("../supabase/migrations/202610310001_nova_video_workspace.sql");
+const migration = source("../supabase/pending-migrations/nova_video_workspace.sql");
 const projects = source("../frontend/app/api/video/projects/route.js");
 const jobs = source("../frontend/app/api/video/jobs/route.js");
 
