@@ -338,6 +338,47 @@ test("agent rejects unknown tools and malformed connection identifiers without H
   assert.equal(aiCalls, 2);
 });
 
+test("agent rejects malformed connection UUIDs before contacting System Hub", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    hubCalls += 1;
+    throw new Error("Hub must not receive malformed identifiers");
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_demo_account_snapshot",
+            arguments: { connection_id: "../../another-tenant" },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.success, false);
+        assert.equal(toolResult.error, "invalid_tool_arguments");
+        return { response: "รูปแบบรหัสการเชื่อมต่อไม่ถูกต้อง จึงไม่ได้ส่งคำขอไปยัง System Hub" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check this connection." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].status, "rejected");
+  assert.equal(body.agent.toolCalls[0].error, "invalid_tool_arguments");
+  assert.equal(hubCalls, 0);
+  assert.equal(aiCalls, 2);
+});
+
 test("account snapshot tool uses Hub ownership checks and returns provider-supplied values only", async () => {
   let aiCalls = 0;
   let hubCalls = 0;
