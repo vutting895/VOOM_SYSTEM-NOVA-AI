@@ -10,8 +10,8 @@ The existing `nova_approval_requests` table stores the current terminal result o
 
 - Events are written by PostgreSQL triggers in the same transaction as request creation or status resolution. A failed request/decision therefore cannot leave a detached audit event.
 - Every event is bound to the approval, thread and owner through a composite foreign key.
-- Authenticated users receive SELECT only, with RLS filtering by `auth.uid()`. They receive no INSERT, UPDATE or DELETE grants.
-- A database trigger rejects event UPDATE/DELETE. Foreign-key cascades remain available for account/thread/request erasure.
+- Authenticated users receive SELECT only, with RLS filtering by `auth.uid()`. Neither authenticated nor `service_role` receives event mutation grants.
+- Database triggers reject event UPDATE/DELETE/TRUNCATE. Foreign-key cascades remain available for account/thread/request erasure.
 - Event records retain the canonical proposal hash, status transition, actor type, decision note, and edited proposal payload when the event is `edited`.
 - Expiry is attributed to `system`; user decisions are attributed to the owning user.
 - A unique index prevents duplicate event types for one approval. Historical requests are backfilled once when the extension is applied.
