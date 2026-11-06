@@ -604,6 +604,7 @@ test("preparation persists an immutable server-derived Engine snapshot for the o
     assert.equal(inserted.snapshot.schemaVersion, "nova.video-preparation.v1");
     assert.equal(inserted.snapshot.productionPlan.generationTasks.length, 3);
     assert.equal(inserted.snapshot.policy.executionEnabled, false);
+    assert.equal(inserted.execution_authorized, false);
     assert.match(inserted.snapshot_hash, /^[a-f0-9]{64}$/);
   } finally {
     globalThis.fetch = previous;
@@ -700,6 +701,7 @@ test("approval is append-only, owner-scoped and cannot enable rendering", async 
     assert.equal(inserted.user_id, "user-a");
     assert.equal(inserted.decision, "approved");
     assert.equal(inserted.snapshot_hash, snapshotHash);
+    assert.equal(inserted.execution_authorized, false);
     assert.equal(data.jobStatus, "blocked_no_free_gpu");
     assert.equal(data.executionEnabled, false);
     assert.equal(data.estimatedCost, 0);
@@ -781,6 +783,7 @@ test("GET preparation returns the owner-scoped snapshot and approval decision on
         snapshot,
         snapshot_hash: snapshotHash,
         planner_version: "1.0.0",
+        execution_authorized: false,
         created_at: "2026-11-05T00:01:00Z",
       }]);
     }
@@ -793,6 +796,7 @@ test("GET preparation returns the owner-scoped snapshot and approval decision on
         snapshot_hash: snapshotHash,
         decision: "approved",
         decision_note: "Reviewed",
+        execution_authorized: false,
         created_at: "2026-11-05T00:02:00Z",
       }]);
     }
