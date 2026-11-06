@@ -26,6 +26,10 @@ test("event rows are owner-readable only and cannot be mutated by authenticated 
   assert.match(migration, /nova_approval_events_select_own[\s\S]*?user_id = \(SELECT auth\.uid\(\)\)/i);
   assert.match(migration, /nova_approval_events_append_only/i);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON public\.nova_approval_events/i);
+  assert.ok(migration.includes("DROP CONSTRAINT IF EXISTS nova_approval_events_user_id_fkey"));
+  assert.ok(migration.includes("a.id = OLD.approval_id"));
+  assert.doesNotMatch(migration, /pg_trigger_depth\(\)/i);
+  assert.doesNotMatch(migration, /user_id uuid NOT NULL REFERENCES auth\.users\(id\) ON DELETE CASCADE/i);
 });
 
 test("request and terminal events are captured transactionally by database triggers", () => {
