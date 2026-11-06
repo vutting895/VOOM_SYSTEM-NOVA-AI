@@ -1,3 +1,5 @@
+import { handleAgentApprovalRequest, isAgentApprovalRoute } from "./agent-approval.js";
+
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -515,6 +517,7 @@ export default {
         status: "ready",
         mode: "control-plane-read-only",
         authConfigured: Boolean(supabaseBase(env) && env.SUPABASE_PUBLISHABLE_KEY),
+        agentApprovalsEnabled: env.NOVA_APPROVALS_ENABLED === "true",
         mt5ProxyConfigured: Boolean(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL),
         ordersEnabled: false,
         executionEnabled: false,
@@ -524,6 +527,26 @@ export default {
 
     if (origin && !allowedOrigins(env).has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
+    }
+
+    if (isAgentApprovalRoute(url.pathname)) {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (env.NOVA_APPROVALS_ENABLED !== "true") {
+        return json({
+          error: "approval_workflow_disabled",
+          ordersEnabled: false,
+          executionEnabled: false,
+          liveTradingEnabled: false,
+          brokerMutationEnabled: false
+        }, 503, origin, env);
+      }
+      return handleAgentApprovalRequest(
+        request,
+        env,
+        auth,
+        (body, status = 200) => json(body, status, origin, env)
+      );
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {

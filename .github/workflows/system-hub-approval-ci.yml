@@ -1,0 +1,133 @@
+name: System Hub Approval CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/system-hub/**"
+      - "src/services/**"
+      - "src/providers/**"
+      - "src/main.tsx"
+      - ".env.example"
+      - "tests/nova-approval-frontend-client.test.mjs"
+      - ".github/workflows/system-hub-approval-ci.yml"
+      - ".github/workflows/frontend-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "integrations/system-hub/**"
+      - "src/services/**"
+      - "src/providers/**"
+      - "src/main.tsx"
+      - ".env.example"
+      - "tests/nova-approval-frontend-client.test.mjs"
+      - ".github/workflows/system-hub-approval-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: system-hub-approval-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runner-allocation-probe:
+    # Diagnostic only: no checkout, secrets, network calls, or deployment.
+    # Uses a second supported image to distinguish runner-pool allocation from workflow steps.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - name: Confirm GitHub-hosted runner assignment
+        run: echo "Hosted runner assigned and step execution started."
+
+  approval-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax-check approval API and System Hub Worker
+        run: |
+          node --check integrations/system-hub/agent-approval.js
+          node --check integrations/system-hub/worker.js
+          node --check integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs
+
+      - name: Run isolated approval API tests
+        run: node --test integrations/system-hub/tests/agent-approval.test.mjs
+
+      - name: Run all System Hub contract tests
+        run: node --test integrations/system-hub/tests/*.test.mjs
+
+      - name: Install root TypeScript test runner
+        run: npm install --no-package-lock --include=dev
+
+      - name: Test the frontend approval API client without UI dependencies
+        run: node --import tsx --test tests/nova-approval-frontend-client.test.mjs
+
+      - name: Build root Vite frontend (auth provider and API wiring)
+        run: npm run build
+  local-supabase-owner-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create disposable local Supabase migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d /tmp/nova-approval-local.XXXXXX)"
+          echo "NOVA_SUPABASE_WORKDIR=$workdir" >> "$GITHUB_ENV"
+          mkdir -p "$workdir/supabase/migrations"
+
+          cat > "$workdir/supabase/migrations/202610260000_nova_ci_extensions.sql" <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+          SQL
+          cp supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+
+          cd "$workdir"
+          supabase init
+          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          supabase status -o env > "$workdir/status.env"
+
+          set -a
+          source "$workdir/status.env"
+          set +a
+          test -n "${API_URL:-}"
+          test -n "${ANON_KEY:-}"
+          test -n "${SERVICE_ROLE_KEY:-}"
+          {
+            printf 'NOVA_LOCAL_SUPABASE_URL=%s\n' "$API_URL"
+            printf 'NOVA_LOCAL_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Exercise real local Auth sessions, System Hub Approval API and A/B isolation
+        run: node integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs
+
+      - name: Stop disposable local Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${NOVA_SUPABASE_WORKDIR:-}" ] && [ -d "$NOVA_SUPABASE_WORKDIR" ]; then
+            cd "$NOVA_SUPABASE_WORKDIR"
+            supabase stop --no-backup || true
+          fi
