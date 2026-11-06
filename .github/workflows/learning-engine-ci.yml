@@ -19,7 +19,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
       - name: Install test dependencies
         run: python -m pip install --upgrade pip pytest "SQLAlchemy>=2.0,<3" "fastapi>=0.100" "pydantic>=2"
       - name: Compile Learning Engine
