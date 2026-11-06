@@ -24,7 +24,7 @@ _HASH_RE = re.compile(r"^[a-f0-9]{64}$")
 
 @dataclass(frozen=True)
 class ApprovalDecisionSnapshot:
-    """Minimal owner-scoped approval row returned by the existing NOVA API."""
+    """Minimal owner-scoped approval record loaded by a trusted server-side adapter."""
 
     approval_id: str
     thread_id: str
@@ -55,9 +55,10 @@ def validate_approval_resume(
 ) -> VerifiedApprovalResume:
     """Validate an approval snapshot before a future LangGraph resume command.
 
-    The caller must obtain the snapshot from the existing owner-scoped approval
-    API using the current authenticated session. Never construct it from model
-    output or a browser-supplied approval payload.
+    The caller must obtain the snapshot from a trusted, owner-scoped persistence/API
+    adapter using the current authenticated session. This package does not implement
+    that store or an atomic one-time consume operation. Never construct the snapshot
+    from model output or a browser-supplied approval payload.
     """
     validate_agent_state(state)
     if not isinstance(approval, ApprovalDecisionSnapshot):
