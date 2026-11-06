@@ -387,7 +387,7 @@ export async function runNovaAgent({ AI, accessToken, publishableKey, messages }
 
     // Cloudflare Workers AI traditional function-calling transcript format.
     transcript.push({ role: "assistant", content: JSON.stringify({ name, arguments: call?.arguments ?? {} }) });
-    transcript.push({ role: "tool", name, content: JSON.stringify(dispatched) });
+    transcript.push({ role: "tool", content: JSON.stringify(dispatched) });
   }
 
   if (!responseText || responseText.length > 10000) {
