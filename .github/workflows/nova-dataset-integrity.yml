@@ -1,19 +1,21 @@
-﻿name: NOVA Dataset Integrity
+name: NOVA Dataset Integrity
 
 on:
   pull_request:
     paths:
-      - "datasets/exness/demo/xauusdm_m15/**"
+      - "datasets/**"
+      - "reports/legacy-learning-universe/**"
       - "scripts/validate_exness_dataset.py"
+      - "scripts/validate_market_datasets.py"
       - ".github/workflows/nova-dataset-integrity.yml"
 
 permissions:
   contents: read
 
 jobs:
-  validate-exness-demo-dataset:
+  validate-market-datasets:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +23,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate committed dataset and manifest
-        run: python scripts/validate_exness_dataset.py
-
+      - name: Validate imported historical sources and provenance
+        run: python scripts/validate_market_datasets.py
