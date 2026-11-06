@@ -31,6 +31,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runner-allocation-probe:
+    # Diagnostic only: no checkout, secrets, network calls, or deployment.
+    # Uses a second supported image to distinguish runner-pool allocation from workflow steps.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    steps:
+      - name: Confirm GitHub-hosted runner assignment
+        run: echo "Hosted runner assigned and step execution started."
+
   approval-api:
     runs-on: ubuntu-latest
     timeout-minutes: 10
