@@ -12,7 +12,7 @@ The existing `nova_approval_requests` table stores the current terminal result o
 - Every event is bound to the approval, thread and owner through a composite foreign key.
 - Authenticated users receive SELECT only, with RLS filtering by `auth.uid()`. Neither authenticated nor `service_role` receives event mutation grants.
 - Database triggers reject event UPDATE/DELETE/TRUNCATE. Foreign-key cascades remain available for account/thread/request erasure.
-- Event records retain the canonical proposal hash, status transition, actor type, decision note, and edited proposal payload when the event is `edited`.
+- Event records retain the original canonical proposal hash, status transition, actor type and decision note. For `edited`, the revised JSONB payload is retained with a separate SHA-256 hash calculated by PostgreSQL from its canonical JSONB text.
 - Expiry is attributed to `system`; user decisions are attributed to the owning user.
 - A unique index prevents duplicate event types for one approval. Historical requests are backfilled once when the extension is applied.
 
@@ -29,7 +29,7 @@ The repository's Production migration lineage is still being reconciled in PRs #
 The dedicated GitHub Actions workflow starts a disposable PostgreSQL 17 instance, applies the existing approval lifecycle migration and this candidate, then runs:
 
 - existing approval owner isolation, one-time decision, stale-policy and expiry tests;
-- append-only audit, decision attribution, edit payload, expiry attribution, replay and account-erasure tests;
+- append-only audit, decision attribution, edit payload integrity hash, expiry attribution, replay and account-erasure tests;
 - static database contract tests.
 
 These tests do not constitute hosted Supabase acceptance or authorization for a Production migration.
