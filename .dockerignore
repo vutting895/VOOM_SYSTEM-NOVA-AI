@@ -1,0 +1,14 @@
+# Build context allow-list: do not send the rest of the repository to Docker.
+**
+!mcp-server/
+!mcp-server/**
+!workers/
+!workers/**
+
+# Secrets and runtime state remain excluded even below allow-listed folders.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/__pycache__/
+**/*.pyc
