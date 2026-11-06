@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.nova_approval_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   approval_id uuid NOT NULL,
   thread_id uuid NOT NULL,
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
   event_type text NOT NULL CHECK (
     event_type IN ('requested', 'approved', 'rejected', 'edited', 'expired', 'cancelled')
   ),
@@ -83,6 +83,11 @@ CREATE TABLE IF NOT EXISTS public.nova_approval_events (
     )
 );
 
+-- Owner identity is enforced through the composite approval FK. Avoid a second
+-- direct auth.users cascade so audit erasure has one deterministic parent chain.
+ALTER TABLE public.nova_approval_events
+  DROP CONSTRAINT IF EXISTS nova_approval_events_user_id_fkey;
+
 -- Keep the candidate safe to re-apply after an interrupted local validation run.
 ALTER TABLE public.nova_approval_events
   ADD COLUMN IF NOT EXISTS decision_payload_hash text;
@@ -137,9 +142,16 @@ SECURITY DEFINER
 SET search_path = pg_catalog
 AS $function$
 BEGIN
-  -- Permit FK-driven erasure when the owning user/thread/request is deleted.
-  -- A direct DELETE remains blocked; ordinary application roles have no DELETE grant.
-  IF TG_OP = 'DELETE' AND pg_trigger_depth() > 1 THEN
+  -- Permit deletion only after the owning approval row is gone. The composite
+  -- FK then makes account/thread erasure cascade through this single parent chain.
+  -- A direct DELETE while its approval exists remains blocked.
+  IF TG_OP = 'DELETE' AND NOT EXISTS (
+    SELECT 1
+    FROM public.nova_approval_requests AS a
+    WHERE a.id = OLD.approval_id
+      AND a.thread_id = OLD.thread_id
+      AND a.user_id = OLD.user_id
+  ) THEN
     RETURN OLD;
   END IF;
 
