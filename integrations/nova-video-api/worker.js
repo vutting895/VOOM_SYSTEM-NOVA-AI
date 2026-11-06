@@ -9,8 +9,8 @@ const BASE_HEADERS = Object.freeze({
 });
 const PROJECT_FIELDS = "id,title,description,status,created_at,updated_at";
 const JOB_FIELDS = "id,project_id,task_type,status,prompt,request,execution_mode,estimated_cost,created_at";
-const PREPARATION_FIELDS = "id,job_id,user_id,snapshot,snapshot_hash,planner_version,created_at";
-const DECISION_FIELDS = "id,preparation_id,user_id,snapshot_hash,decision,decision_note,created_at";
+const PREPARATION_FIELDS = "id,job_id,user_id,snapshot,snapshot_hash,planner_version,execution_authorized,created_at";
+const DECISION_FIELDS = "id,preparation_id,user_id,snapshot_hash,decision,decision_note,execution_authorized,created_at";
 const TASK_TYPES = new Set(["video_generation", "video_analysis", "video_edit_export"]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9_-]{12,100}$/;
@@ -531,6 +531,7 @@ async function createJobPreparation(request, env, auth, origin) {
     snapshot,
     snapshot_hash: snapshotHash,
     planner_version: String(directorPlan.plannerVersion || "1.0.0").slice(0, 40),
+    execution_authorized: false,
   };
   const result = await postgrest(env, auth, "nova_video_preparations", { select: PREPARATION_FIELDS }, {
     method: "POST",
@@ -583,7 +584,8 @@ async function getJobPreparation(request, env, auth, origin) {
   if (!selected.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   if (!selected.row) return json({ preparation: null, decision: null, executionEnabled: false }, 200, origin, env);
   const preparation = selected.row;
-  if (!preparationIntegrityValid(preparation) ||
+  if (preparation.execution_authorized !== false ||
+      !preparationIntegrityValid(preparation) ||
       await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
     return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
   }
@@ -592,7 +594,8 @@ async function getJobPreparation(request, env, auth, origin) {
     preparation_id: "eq." + preparation.id,
   });
   if (!decisionResult.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
-  if (decisionResult.row && decisionResult.row.snapshot_hash !== preparation.snapshot_hash) {
+  if (decisionResult.row && (decisionResult.row.execution_authorized !== false ||
+      decisionResult.row.snapshot_hash !== preparation.snapshot_hash)) {
     return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
   }
   return json({
@@ -627,7 +630,8 @@ async function createPreparationDecision(request, env, auth, origin) {
   if (!preparationResult.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   const preparation = preparationResult.row;
   if (!preparation) return json({ error: "video_preparation_not_found" }, 404, origin, env);
-  if (!preparationIntegrityValid(preparation) ||
+  if (preparation.execution_authorized !== false ||
+      !preparationIntegrityValid(preparation) ||
       await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
     return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
   }
@@ -638,7 +642,7 @@ async function createPreparationDecision(request, env, auth, origin) {
   if (!existing.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
   const normalizedNote = note?.trim() || null;
   if (existing.row) {
-    if (existing.row.snapshot_hash !== preparation.snapshot_hash) {
+    if (existing.row.execution_authorized !== false || existing.row.snapshot_hash !== preparation.snapshot_hash) {
       return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
     }
     if (existing.row.decision !== body.decision || existing.row.decision_note !== normalizedNote) {
@@ -664,6 +668,7 @@ async function createPreparationDecision(request, env, auth, origin) {
       snapshot_hash: preparation.snapshot_hash,
       decision: body.decision,
       decision_note: normalizedNote,
+      execution_authorized: false,
     },
   });
   if (!result.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
@@ -672,7 +677,7 @@ async function createPreparationDecision(request, env, auth, origin) {
       preparation_id: "eq." + preparation.id,
     });
     if (!replay.ok || !replay.row) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
-    if (replay.row.snapshot_hash !== preparation.snapshot_hash) {
+    if (replay.row.execution_authorized !== false || replay.row.snapshot_hash !== preparation.snapshot_hash) {
       return json({ error: "video_approval_snapshot_binding_failed" }, 409, origin, env);
     }
     if (replay.row.decision !== body.decision || replay.row.decision_note !== normalizedNote) {
