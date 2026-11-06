@@ -622,9 +622,20 @@ async function createJobPreparation(request, env, auth, origin) {
 
   if (!result.response.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   const rows = await readRows(result.response);
-  if (!rows?.[0]?.id) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  const savedPreparation = rows?.[0];
+  if (!savedPreparation || !UUID_PATTERN.test(savedPreparation.id || "") ||
+      savedPreparation.user_id !== auth.userId ||
+      savedPreparation.job_id !== job.id ||
+      savedPreparation.execution_authorized !== false ||
+      savedPreparation.planner_version !== plannerVersion ||
+      savedPreparation.snapshot_hash !== snapshotHash ||
+      stableJson(savedPreparation.snapshot) !== stableJson(snapshot) ||
+      !preparationIntegrityValid(savedPreparation) ||
+      await sha256Hex(stableJson(savedPreparation.snapshot)) !== savedPreparation.snapshot_hash) {
+    return json({ error: "video_preparation_store_response_invalid" }, 502, origin, env);
+  }
   return json({
-    preparation: rows[0],
+    preparation: savedPreparation,
     idempotentReplay: false,
     executionEnabled: false,
     estimatedCost: 0,
@@ -751,10 +762,19 @@ async function createPreparationDecision(request, env, auth, origin) {
   }
   if (!result.response.ok) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
   const rows = await readRows(result.response);
-  if (!rows?.[0]?.id) return json({ error: "video_approval_store_unavailable" }, 503, origin, env);
+  const savedDecision = rows?.[0];
+  if (!savedDecision || !UUID_PATTERN.test(savedDecision.id || "") ||
+      savedDecision.user_id !== auth.userId ||
+      savedDecision.preparation_id !== preparation.id ||
+      savedDecision.snapshot_hash !== preparation.snapshot_hash ||
+      savedDecision.decision !== body.decision ||
+      savedDecision.decision_note !== normalizedNote ||
+      savedDecision.execution_authorized !== false) {
+    return json({ error: "video_approval_store_response_invalid" }, 502, origin, env);
+  }
   return json({
-    decision: rows[0],
-    humanApprovalStatus: rows[0].decision,
+    decision: savedDecision,
+    humanApprovalStatus: savedDecision.decision,
     idempotentReplay: false,
     jobStatus: preparation.snapshot.job.status,
     executionEnabled: false,
