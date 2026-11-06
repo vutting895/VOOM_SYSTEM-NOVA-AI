@@ -102,6 +102,7 @@ test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports th
     }
     compile({ checkpointer }) {
       assert.equal(checkpointer.setupCount, 1);
+      const handler = this.handler;
       return {
         async getState(config) {
           return checkpointRows.get(config.configurable.thread_id) || { values: {}, tasks: [] };
@@ -112,7 +113,7 @@ test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports th
           const base = isResume ? checkpointRows.get(key).values : input;
           activeInvocation = { resume: isResume ? input.resume : undefined, payload: null };
           try {
-            const patch = await this.handler(base);
+            const patch = await handler(base);
             const values = { ...base, ...patch };
             checkpointRows.set(key, { values, tasks: [] });
             return values;
