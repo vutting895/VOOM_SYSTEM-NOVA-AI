@@ -56,6 +56,7 @@ test("resume rejects forged identifiers, unsupported states, fields and oversize
   assert.throws(() => normalizeCheckpointDecision({ ...expected, status: "pending" }, expected), /Only terminal review statuses/);
   assert.throws(() => normalizeCheckpointDecision({ ...expected, status: "approved", executeOrder: true }, expected), /unsupported fields/);
   assert.throws(() => normalizeCheckpointDecision({ ...expected, status: "approved", note: "x".repeat(301) }, expected), /300 characters/);
+  assert.throws(() => normalizeCheckpointDecision({ ...expected, status: "approved", note: 123 }, expected), /note must be a string/);
 });
 
 test("checkpoint runtime uses PostgresSaver setup, a private schema and LangGraph interrupt resume", () => {
