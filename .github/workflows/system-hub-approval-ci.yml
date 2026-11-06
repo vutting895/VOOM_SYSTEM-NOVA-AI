@@ -43,3 +43,66 @@ jobs:
 
       - name: Run all System Hub contract tests
         run: node --test integrations/system-hub/tests/*.test.mjs
+  local-supabase-owner-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create disposable local Supabase migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d /tmp/nova-approval-local.XXXXXX)"
+          echo "NOVA_SUPABASE_WORKDIR=$workdir" >> "$GITHUB_ENV"
+          mkdir -p "$workdir/supabase/migrations"
+
+          cat > "$workdir/supabase/migrations/202610260000_nova_ci_extensions.sql" <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+          SQL
+          cp supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+
+          cd "$workdir"
+          supabase init
+          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          supabase status -o env > "$workdir/status.env"
+
+          set -a
+          source "$workdir/status.env"
+          set +a
+          test -n "${API_URL:-}"
+          test -n "${ANON_KEY:-}"
+          test -n "${SERVICE_ROLE_KEY:-}"
+          {
+            printf 'NOVA_LOCAL_SUPABASE_URL=%s\n' "$API_URL"
+            printf 'NOVA_LOCAL_SUPABASE_ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Exercise real local Auth sessions, System Hub Approval API and A/B isolation
+        run: node integrations/system-hub/scripts/agent-approval-local-supabase.integration.mjs
+        env:
+          NOVA_LOCAL_SUPABASE_URL: ${{ env.NOVA_LOCAL_SUPABASE_URL }}
+          NOVA_LOCAL_SUPABASE_ANON_KEY: ${{ env.NOVA_LOCAL_SUPABASE_ANON_KEY }}
+          NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY: ${{ env.NOVA_LOCAL_SUPABASE_SERVICE_ROLE_KEY }}
+
+      - name: Stop disposable local Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${NOVA_SUPABASE_WORKDIR:-}" ] && [ -d "$NOVA_SUPABASE_WORKDIR" ]; then
+            cd "$NOVA_SUPABASE_WORKDIR"
+            supabase stop --no-backup || true
+          fi
