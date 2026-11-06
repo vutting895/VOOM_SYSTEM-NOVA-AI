@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from math import isfinite
 from typing import Any, Mapping
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -64,11 +64,13 @@ def calculate_reward(
     drawdown_pct: float,
     policy: LearningPolicy | None = None,
 ) -> RewardBreakdown:
-    """Return a bounded, auditable reward in percentage-point units."""
+    """Return an auditable reward in percentage-point units."""
     policy = policy or LearningPolicy()
     pnl = _finite_number("pnl_pct", pnl_pct)
-    risk = max(0.0, _finite_number("risk_pct", risk_pct))
-    drawdown = max(0.0, _finite_number("drawdown_pct", drawdown_pct))
+    risk = _finite_number("risk_pct", risk_pct)
+    drawdown = _finite_number("drawdown_pct", drawdown_pct)
+    if risk < 0 or drawdown < 0:
+        raise LearningValidationError("risk_pct and drawdown_pct cannot be negative")
 
     risk_breach = risk > policy.max_risk_pct
     drawdown_breach = drawdown > policy.max_drawdown_pct
@@ -115,8 +117,8 @@ class LearningService:
         pnl = _finite_number("pnl_pct", payload["pnl_pct"])
         risk = _finite_number("risk_pct", payload["risk_pct"])
         drawdown = _finite_number("drawdown_pct", payload.get("drawdown_pct", 0.0))
-        if entry <= 0 or exit_price <= 0 or risk < 0 or drawdown < 0:
-            raise LearningValidationError("prices must be positive; risk and drawdown cannot be negative")
+        if entry <= 0 or exit_price <= 0:
+            raise LearningValidationError("prices must be positive")
 
         existing = self.session.scalar(
             select(LearningExperience).where(LearningExperience.event_id == event_id)
@@ -177,7 +179,7 @@ class LearningService:
             func.count(LearningExperience.id),
             func.coalesce(func.sum(LearningExperience.pnl_pct), 0.0),
             func.coalesce(func.avg(LearningExperience.reward), 0.0),
-            func.sum(func.case((LearningExperience.outcome == "win", 1), else_=0)),
+            func.coalesce(func.sum(case((LearningExperience.outcome == "win", 1), else_=0)), 0),
         ).where(*filters)
         total, pnl_sum, avg_reward, wins = self.session.execute(stmt).one()
         total = int(total or 0)
@@ -233,7 +235,7 @@ class LearningService:
         return {"id": row.id, "model_name": model_name, "version": version, "status": row.status}
 
     def promote_candidate(self, model_id: int, *, approved_by: str) -> dict[str, Any]:
-        """Promote only after explicit human approval and strict evaluation gates."""
+        """Promote metadata only, after explicit human approval and evaluation gates."""
         if not approved_by or not approved_by.strip():
             raise LearningPromotionDenied("An authenticated approver is required")
         row = self.session.get(LearningModelVersion, model_id)
@@ -260,8 +262,10 @@ class LearningService:
         row.approved_by = approved_by
         row.approved_at = datetime.now(timezone.utc)
         self._audit(approved_by, "candidate_approved", f"{row.model_name}:{row.version}", metrics)
-        return {"id": row.id, "model_name": row.model_name, "version": row.version, "status": row.status,
-                "approved_by": approved_by, "live_deployment": False}
+        return {
+            "id": row.id, "model_name": row.model_name, "version": row.version,
+            "status": row.status, "approved_by": approved_by, "live_deployment": False,
+        }
 
     def _audit(self, actor: str, action: str, subject: str, details: Mapping[str, Any]) -> None:
         self.session.add(LearningAuditEvent(
