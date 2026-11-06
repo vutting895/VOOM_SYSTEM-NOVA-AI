@@ -564,12 +564,14 @@ async function createJobPreparation(request, env, auth, origin) {
     },
   };
   const snapshotHash = await sha256Hex(stableJson(snapshot));
+  const plannerVersion = String(directorPlan.plannerVersion || "1.0.0").slice(0, 40);
   const existing = await selectOwnedRow(env, auth, "nova_video_preparations", PREPARATION_FIELDS, {
     job_id: "eq." + job.id,
   });
   if (!existing.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   if (existing.row) {
     if (existing.row.snapshot_hash !== snapshotHash ||
+        existing.row.planner_version !== plannerVersion ||
         await sha256Hex(stableJson(existing.row.snapshot)) !== existing.row.snapshot_hash ||
         !preparationIntegrityValid(existing.row)) {
       return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
@@ -588,7 +590,7 @@ async function createJobPreparation(request, env, auth, origin) {
     job_id: job.id,
     snapshot,
     snapshot_hash: snapshotHash,
-    planner_version: String(directorPlan.plannerVersion || "1.0.0").slice(0, 40),
+    planner_version: plannerVersion,
     execution_authorized: false,
   };
   const result = await postgrest(env, auth, "nova_video_preparations", { select: PREPARATION_FIELDS }, {
@@ -604,6 +606,7 @@ async function createJobPreparation(request, env, auth, origin) {
     });
     if (!replay.ok || !replay.row) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
     if (replay.row.snapshot_hash !== snapshotHash ||
+        replay.row.planner_version !== plannerVersion ||
         await sha256Hex(stableJson(replay.row.snapshot)) !== replay.row.snapshot_hash ||
         !preparationIntegrityValid(replay.row)) {
       return json({ error: "video_preparation_immutable_snapshot_conflict" }, 409, origin, env);
