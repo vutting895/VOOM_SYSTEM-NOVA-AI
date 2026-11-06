@@ -457,6 +457,63 @@ function preparationIntegrityValid(preparation) {
     snapshot.productionPlan?.status === "blocked_no_free_gpu";
 }
 
+async function storedPreparationMatchesJob(env, auth, preparation) {
+  if (!preparationIntegrityValid(preparation) ||
+      preparation.user_id !== auth.userId ||
+      typeof preparation.job_id !== "string" ||
+      !UUID_PATTERN.test(preparation.job_id)) {
+    return { ok: true, valid: false };
+  }
+
+  const jobResult = await selectOwnedRow(env, auth, "nova_video_jobs", JOB_FIELDS, {
+    id: "eq." + preparation.job_id,
+  });
+  if (!jobResult.ok) return { ok: false };
+  const job = jobResult.row;
+  if (!job || job.task_type !== "video_generation" || job.status !== "blocked_no_free_gpu") {
+    return { ok: true, valid: false };
+  }
+
+  const directorPlan = job.request?.director_plan;
+  if (!directorPlan || typeof directorPlan !== "object" || Array.isArray(directorPlan)) {
+    return { ok: true, valid: false };
+  }
+
+  let productionPlan;
+  try {
+    productionPlan = createVideoProductionPlan(directorPlan);
+  } catch {
+    return { ok: true, valid: false };
+  }
+
+  const expectedSnapshot = {
+    schemaVersion: "nova.video-preparation.v1",
+    job: {
+      id: job.id,
+      projectId: job.project_id,
+      taskType: job.task_type,
+      status: job.status,
+      createdAt: job.created_at,
+    },
+    directorPlan,
+    productionPlan,
+    policy: {
+      requiresHumanApproval: true,
+      executionEnabled: false,
+      estimatedCost: 0,
+      executionBlockers: ["verified_zero_cost_gpu_unavailable", "worker_dispatch_disabled"],
+    },
+  };
+  const expectedHash = await sha256Hex(stableJson(expectedSnapshot));
+  return {
+    ok: true,
+    valid: preparation.job_id === job.id &&
+      preparation.planner_version === String(directorPlan.plannerVersion || "1.0.0").slice(0, 40) &&
+      preparation.snapshot_hash === expectedHash &&
+      stableJson(preparation.snapshot) === stableJson(expectedSnapshot),
+  };
+}
+
 async function createJobPreparation(request, env, auth, origin) {
   const parsed = await readJson(request);
   if (!parsed.ok) return json({ error: parsed.error }, parsed.status, origin, env);
@@ -585,11 +642,9 @@ async function getJobPreparation(request, env, auth, origin) {
   if (!selected.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   if (!selected.row) return json({ preparation: null, decision: null, executionEnabled: false }, 200, origin, env);
   const preparation = selected.row;
-  if (preparation.execution_authorized !== false ||
-      !preparationIntegrityValid(preparation) ||
-      await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
-    return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
-  }
+  const verification = await storedPreparationMatchesJob(env, auth, preparation);
+  if (!verification.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  if (!verification.valid) return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
 
   const decisionResult = await selectOwnedRow(env, auth, "nova_video_approval_decisions", DECISION_FIELDS, {
     preparation_id: "eq." + preparation.id,
@@ -631,11 +686,9 @@ async function createPreparationDecision(request, env, auth, origin) {
   if (!preparationResult.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
   const preparation = preparationResult.row;
   if (!preparation) return json({ error: "video_preparation_not_found" }, 404, origin, env);
-  if (preparation.execution_authorized !== false ||
-      !preparationIntegrityValid(preparation) ||
-      await sha256Hex(stableJson(preparation.snapshot)) !== preparation.snapshot_hash) {
-    return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
-  }
+  const verification = await storedPreparationMatchesJob(env, auth, preparation);
+  if (!verification.ok) return json({ error: "video_preparation_store_unavailable" }, 503, origin, env);
+  if (!verification.valid) return json({ error: "video_preparation_snapshot_integrity_failed" }, 409, origin, env);
 
   const existing = await selectOwnedRow(env, auth, "nova_video_approval_decisions", DECISION_FIELDS, {
     preparation_id: "eq." + preparation.id,
