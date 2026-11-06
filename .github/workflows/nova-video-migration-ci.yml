@@ -3,13 +3,13 @@ name: NOVA Video Migration CI
 on:
   pull_request:
     paths:
-      - "supabase/migrations/202610310001_nova_video_workspace.sql"
+      - "supabase/pending-migrations/nova_video_workspace.sql"
       - "tests/sql/nova-video-migration.integration.sql"
       - ".github/workflows/nova-video-migration-ci.yml"
   push:
     branches: [main]
     paths:
-      - "supabase/migrations/202610310001_nova_video_workspace.sql"
+      - "supabase/pending-migrations/nova_video_workspace.sql"
       - "tests/sql/nova-video-migration.integration.sql"
       - ".github/workflows/nova-video-migration-ci.yml"
 
@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
           psql -h 127.0.0.1 -U postgres -d nova_video_test -v ON_ERROR_STOP=1 \
-            -f supabase/migrations/202610310001_nova_video_workspace.sql
+            -f supabase/pending-migrations/nova_video_workspace.sql
 
       - name: Verify owner access, cross-tenant denial and zero-cost database constraints
         shell: bash
