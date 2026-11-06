@@ -12,6 +12,7 @@ The existing `nova_approval_requests` table stores the current terminal result o
 - Every event is bound to the approval, thread and owner through a composite foreign key.
 - Authenticated users receive SELECT only, with RLS filtering by `auth.uid()`. Neither authenticated nor `service_role` receives event mutation grants.
 - Database triggers reject event UPDATE/DELETE/TRUNCATE. Erasure cascades through the composite approval/thread/owner foreign key; the guard allows DELETE only after the parent approval row is no longer present. This avoids a broad trigger-depth exception and keeps the cascade path deterministic.
+- The schema change, legacy payload-hash backfill, and immutable-trigger rebuild run inside one explicit transaction, so an interrupted migration cannot leave the event table without its guard.
 - Event records retain the original canonical proposal hash, status transition, actor type and decision note. For `edited`, the revised JSONB payload is retained with a separate SHA-256 hash calculated by PostgreSQL from its canonical JSONB text.
 - Expiry is attributed to `system`; user decisions are attributed to the owning user.
 - A unique index prevents duplicate event types for one approval. Historical requests are backfilled once when the extension is applied.
