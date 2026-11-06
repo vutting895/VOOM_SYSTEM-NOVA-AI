@@ -17,6 +17,8 @@
   "csv_file": "ohlcv_2022-07-21_2026-10-29.csv",
   "csv_size_bytes": 8584488,
   "csv_sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+  "metadata_file": "source_metadata.json",
+  "source_metadata_size_bytes": 1339,
   "metadata_source_sha256": "82e8d8a08398358f24cd005a6f9a3ab5370fc6aa6c72553274e91cec083a45e6",
   "orders_submitted": false,
   "live_trading_enabled": false,
