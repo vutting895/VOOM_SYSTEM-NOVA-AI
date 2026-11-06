@@ -111,7 +111,7 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION private.nova_approval_events_guard_mutation()
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 
 DROP TRIGGER IF EXISTS nova_approval_events_immutable ON public.nova_approval_events;
 CREATE TRIGGER nova_approval_events_immutable
@@ -192,7 +192,7 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION private.nova_capture_approval_event()
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon, authenticated, service_role;
 
 DROP TRIGGER IF EXISTS nova_approval_capture_event ON public.nova_approval_requests;
 CREATE TRIGGER nova_approval_capture_event
