@@ -136,8 +136,30 @@ BEGIN
   EXCEPTION WHEN check_violation THEN
     NULL;
   END;
+
+  BEGIN
+    INSERT INTO public.nova_video_preparations (
+      job_id, user_id, snapshot, snapshot_hash, planner_version, execution_authorized
+    ) VALUES (
+      '99999999-9999-4999-8999-999999999999',
+      '11111111-1111-4111-8111-111111111111',
+      '{
+        "schemaVersion":"nova.video-preparation.v1",
+        "job":{"id":"99999999-9999-4999-8999-999999999999","projectId":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","taskType":"video_generation","status":"blocked_no_free_gpu"},
+        "directorPlan":{"schemaVersion":"nova.director-plan.v1","frameRate":24},
+        "productionPlan":{"schemaVersion":"nova.video-production-plan.v1","requiresHumanApproval":true,"executionEnabled":false,"status":"blocked_no_free_gpu"},
+        "policy":{"requiresHumanApproval":true,"executionEnabled":false,"estimatedCost":0}
+      }'::jsonb,
+      repeat('d', 64),
+      '1.0.0',
+      true
+    );
+    RAISE EXCEPTION 'Execution authorization unexpectedly accepted on preparation';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
 END
-$$;
+$;
 
 -- A second preparation for the same owner/job and a second decision for the
 -- same owner/preparation must fail. Existing snapshots and decisions are immutable.
