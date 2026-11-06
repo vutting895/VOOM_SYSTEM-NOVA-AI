@@ -1,0 +1,28 @@
+name: NOVA Learning Engine CI
+
+on:
+  pull_request:
+    paths:
+      - "backend/learning/**"
+      - "docs/LEARNING_ENGINE_V0.1.md"
+      - ".github/workflows/learning-engine-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  learning-engine-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest "SQLAlchemy>=2.0,<3" "fastapi>=0.100" "pydantic>=2"
+      - name: Compile Learning Engine
+        run: python -m compileall -q backend/learning
+      - name: Run Learning Engine tests
+        run: python -m pytest backend/learning/tests -q
