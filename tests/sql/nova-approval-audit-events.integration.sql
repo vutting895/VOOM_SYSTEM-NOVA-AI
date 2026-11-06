@@ -99,12 +99,15 @@ SELECT (
     AND from_status = 'pending'
     AND to_status = 'approved'
     AND decision_note = 'Approved for research review only') = 1
+  AND (SELECT array_agg(event_type ORDER BY event_sequence)
+       FROM public.nova_approval_events
+       WHERE approval_id = :'audit_approval_id') = ARRAY['requested', 'approved']::text[]
 ) AS approval_event_appended
 FROM public.nova_approval_events
 WHERE approval_id = :'audit_approval_id' \gset
 \if :approval_event_appended
 \else
-  \echo 'FAIL: approval event is missing or malformed'
+  \echo 'FAIL: approval event is missing, unordered or malformed'
   \quit 1
 \endif
 
@@ -214,23 +217,46 @@ WHERE approval_id = :'audit_expiry_approval_id' \gset
   \quit 1
 \endif
 
--- A direct DELETE is rejected by the append-only trigger, while FK erasure is permitted.
+-- Both event UPDATE and DELETE are blocked; FK-driven account erasure remains allowed.
 RESET ROLE;
 DO $$
 DECLARE
-  v_blocked boolean := false;
+  v_event_id uuid;
+  v_update_blocked boolean := false;
+  v_delete_blocked boolean := false;
 BEGIN
+  SELECT id INTO v_event_id
+  FROM public.nova_approval_events
+  WHERE user_id = '33333333-3333-4333-8333-333333333333'::uuid
+  ORDER BY event_sequence
+  LIMIT 1;
+
+  IF v_event_id IS NULL THEN
+    RAISE EXCEPTION 'audit event fixture missing';
+  END IF;
+
   BEGIN
-    DELETE FROM public.nova_approval_events
-    WHERE approval_id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid;
+    UPDATE public.nova_approval_events
+    SET decision_note = 'tampered'
+    WHERE id = v_event_id;
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM <> 'nova_approval_events_append_only' THEN
       RAISE;
     END IF;
-    v_blocked := true;
+    v_update_blocked := true;
   END;
-  IF NOT v_blocked THEN
-    RAISE EXCEPTION 'direct event delete was not blocked';
+
+  BEGIN
+    DELETE FROM public.nova_approval_events WHERE id = v_event_id;
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'nova_approval_events_append_only' THEN
+      RAISE;
+    END IF;
+    v_delete_blocked := true;
+  END;
+
+  IF NOT v_update_blocked OR NOT v_delete_blocked THEN
+    RAISE EXCEPTION 'direct event mutation was not blocked';
   END IF;
 END;
 $$;
