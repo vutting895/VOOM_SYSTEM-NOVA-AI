@@ -150,6 +150,20 @@ async function findOwnedApproval(supabase, approvalId, userId) {
   return data || null;
 }
 
+async function findOwnedTerminalAuditEvent(supabase, approval, userId) {
+  if (!["approved", "rejected", "edited", "expired"].includes(approval.status)) {
+    return { data: null, error: null };
+  }
+  return supabase
+    .from("nova_approval_events")
+    .select("event_type,to_status,decision_note,proposal_hash")
+    .eq("approval_id", approval.id)
+    .eq("user_id", userId)
+    .eq("event_type", approval.status)
+    .eq("to_status", approval.status)
+    .maybeSingle();
+}
+
 function publicApproval(row) {
   if (!row) return null;
   return {
@@ -307,9 +321,22 @@ export function createNovaApprovalRouter() {
     if (!row?.result_code) return sendError(res, 500, "approval_resolution_empty_result");
     if (row.result_code !== "resolved") {
       const [errorCode, status] = resolveStatus(row.result_code);
-      const expiredCheckpoint = row.result_code === "expired"
-        ? await resumeApprovalCheckpoint(user.id, existing, { status: "expired", note: null })
-        : undefined;
+      let expiredCheckpoint;
+      if (row.result_code === "expired" && process.env.NOVA_LANGGRAPH_ENABLED === "true") {
+        const expiredApproval = { ...existing, status: "expired" };
+        const { data: expiredEvent, error: auditError } = await findOwnedTerminalAuditEvent(
+          supabase,
+          expiredApproval,
+          user.id,
+        );
+        if (auditError) return sendError(res, 500, "approval_audit_query_failed");
+        expiredCheckpoint = expiredEvent
+          ? await resumeApprovalCheckpoint(user.id, expiredApproval, {
+              status: expiredEvent.to_status,
+              note: expiredEvent.decision_note,
+            })
+          : { status: "resume_required", errorCode: "approval_terminal_audit_event_missing" };
+      }
       return sendError(res, status, errorCode, {
         resultCode: row.result_code,
         approval: publicApproval({ ...existing, status: row.status || existing.status }),
@@ -324,9 +351,20 @@ export function createNovaApprovalRouter() {
       decided_at: row.decided_at,
       decision_payload: row.decision_payload,
     };
+    const { data: terminalEvent, error: auditError } = await findOwnedTerminalAuditEvent(
+      supabase,
+      approvalSnapshot,
+      user.id,
+    );
+    if (auditError) return sendError(res, 500, "approval_audit_query_failed");
+    if (!terminalEvent) {
+      return sendError(res, 503, "approval_terminal_audit_event_missing", {
+        checkpoint: { status: "resume_required", errorCode: "approval_terminal_audit_event_missing" },
+      });
+    }
     const checkpoint = await resumeApprovalCheckpoint(user.id, approvalSnapshot, {
-      status: row.status,
-      note: decision.note,
+      status: terminalEvent.to_status,
+      note: terminalEvent.decision_note,
     });
     return res.status(200).json({
       ok: true,
@@ -368,14 +406,7 @@ export function createNovaApprovalRouter() {
       return sendError(res, 409, "approval_not_terminal");
     }
 
-    const { data: event, error } = await supabase
-      .from("nova_approval_events")
-      .select("event_type,to_status,decision_note")
-      .eq("approval_id", approvalId)
-      .eq("user_id", user.id)
-      .eq("event_type", approval.status)
-      .eq("to_status", approval.status)
-      .maybeSingle();
+    const { data: event, error } = await findOwnedTerminalAuditEvent(supabase, approval, user.id);
     if (error) return sendError(res, 500, "approval_audit_query_failed");
     if (!event) return sendError(res, 409, "approval_terminal_audit_event_missing");
 
