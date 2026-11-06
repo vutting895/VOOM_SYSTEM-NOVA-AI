@@ -45,7 +45,7 @@ The saver runs its own migrations in this schema during `setup()`; grant the ded
 Set backend-only secrets:
 
 - `NOVA_LANGGRAPH_ENABLED=false` until runtime acceptance is complete.
-- `NOVA_LANGGRAPH_DATABASE_URL` — TLS-protected connection string for the restricted checkpointer role; never expose it to the browser or Supabase Data API.
+- `NOVA_LANGGRAPH_DATABASE_URL` — connection string for the restricted checkpointer role; it must explicitly include `?sslmode=require`, `?sslmode=verify-ca` or `?sslmode=verify-full`. Runtime startup fails closed if TLS mode is missing or disabled. Never expose this string to the browser or Supabase Data API.
 - `NOVA_LANGGRAPH_THREAD_ID_SECRET` — stable random HMAC secret of at least 32 bytes.
 
 The checkpointer exposes `deleteReviewCheckpoint()`, which calls the saver’s `deleteThread()`. Account/thread/approval erasure workflows must call it for the derived ID before the HMAC secret is discarded. The current user/Approval deletion routes do not yet own the account-erasure workflow, so automated retention/erasure acceptance is still required before production use.
