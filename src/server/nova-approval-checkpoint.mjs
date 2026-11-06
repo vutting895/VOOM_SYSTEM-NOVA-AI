@@ -31,6 +31,10 @@ export function normalizeCheckpointDecision(input, expected) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw checkpointError("NOVA_LANGGRAPH_RESUME_INVALID", "Resume payload must be an object");
   }
+  const allowedKeys = new Set(["approvalId", "proposalHash", "status", "note"]);
+  if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
+    throw checkpointError("NOVA_LANGGRAPH_RESUME_FIELDS_INVALID", "Resume payload contains unsupported fields");
+  }
   if (input.approvalId !== expected.approvalId || input.proposalHash !== expected.proposalHash) {
     throw checkpointError("NOVA_LANGGRAPH_RESUME_MISMATCH", "Resume payload does not match the checkpointed approval");
   }
@@ -166,6 +170,16 @@ export async function createNovaApprovalCheckpointRuntime({
     return snapshotView(await reviewGraph.getState(config));
   }
 
+  async function deleteReviewCheckpoint(identity) {
+    const config = makeConfig(identity);
+    const threadId = config.configurable.thread_id;
+    if (typeof checkpointer.deleteThread !== "function") {
+      throw checkpointError("NOVA_LANGGRAPH_DELETE_UNSUPPORTED", "Installed checkpointer does not support thread deletion");
+    }
+    await checkpointer.deleteThread(threadId);
+    return { status: "deleted" };
+  }
+
   async function resumeReview(identity, input) {
     const config = makeConfig(identity);
     let existing = await reviewGraph.getState(config);
@@ -198,6 +212,7 @@ export async function createNovaApprovalCheckpointRuntime({
   return {
     startReview,
     resumeReview,
+    deleteReviewCheckpoint,
     async close() {
       if (typeof checkpointer.end === "function") await checkpointer.end();
     },
