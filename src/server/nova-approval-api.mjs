@@ -8,6 +8,7 @@ import {
   normalizeApprovalDecision,
   normalizeStrategyDraftProposal,
 } from "./nova-approval-contract.mjs";
+import { createNovaApprovalCheckpointRuntime } from "./nova-approval-checkpoint.mjs";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 const JSON_BODY = express.json({ limit: "16kb", strict: true });
@@ -65,6 +66,62 @@ function requireApprovalsEnabled(_req, res, next) {
 
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+let checkpointRuntimePromise = null;
+
+async function getCheckpointRuntime() {
+  if (process.env.NOVA_LANGGRAPH_ENABLED !== "true") return null;
+  if (!checkpointRuntimePromise) {
+    checkpointRuntimePromise = createNovaApprovalCheckpointRuntime().catch((error) => {
+      checkpointRuntimePromise = null;
+      throw error;
+    });
+  }
+  return checkpointRuntimePromise;
+}
+
+function checkpointIdentity(userId, approval) {
+  return {
+    userId,
+    appThreadId: approval.thread_id,
+    approvalId: approval.id,
+    proposalHash: approval.proposal_hash,
+  };
+}
+
+async function startApprovalCheckpoint(userId, approval) {
+  if (process.env.NOVA_LANGGRAPH_ENABLED !== "true") return { status: "disabled" };
+  try {
+    const runtime = await getCheckpointRuntime();
+    return await runtime.startReview(checkpointIdentity(userId, approval));
+  } catch (error) {
+    return {
+      status: "unavailable",
+      errorCode: error?.code || "NOVA_LANGGRAPH_UNAVAILABLE",
+    };
+  }
+}
+
+async function resumeApprovalCheckpoint(userId, approval, decision) {
+  if (process.env.NOVA_LANGGRAPH_ENABLED !== "true") return { status: "disabled" };
+  try {
+    const runtime = await getCheckpointRuntime();
+    return await runtime.resumeReview(
+      checkpointIdentity(userId, approval),
+      {
+        approvalId: approval.id,
+        proposalHash: approval.proposal_hash,
+        status: decision.status,
+        note: decision.note ?? null,
+      },
+    );
+  } catch (error) {
+    return {
+      status: "resume_required",
+      errorCode: error?.code || "NOVA_LANGGRAPH_RESUME_UNAVAILABLE",
+    };
+  }
 }
 
 function singleRow(data) {
@@ -211,9 +268,11 @@ export function createNovaApprovalRouter() {
     const row = singleRow(data);
     if (!row?.id) return sendError(res, 500, "approval_create_empty_result");
 
+    const checkpoint = await startApprovalCheckpoint(user.id, row);
     return res.status(201).json({
       ok: true,
       approval: publicApproval(row),
+      checkpoint,
       executionEnabled: false,
       liveTradingEnabled: false,
       brokerMutationEnabled: false,
@@ -248,25 +307,86 @@ export function createNovaApprovalRouter() {
     if (!row?.result_code) return sendError(res, 500, "approval_resolution_empty_result");
     if (row.result_code !== "resolved") {
       const [errorCode, status] = resolveStatus(row.result_code);
+      const expiredCheckpoint = row.result_code === "expired"
+        ? await resumeApprovalCheckpoint(user.id, existing, { status: "expired", note: null })
+        : undefined;
       return sendError(res, status, errorCode, {
         resultCode: row.result_code,
         approval: publicApproval({ ...existing, status: row.status || existing.status }),
+        ...(expiredCheckpoint ? { checkpoint: expiredCheckpoint } : {}),
       });
     }
 
     const refreshed = await findOwnedApproval(supabase, approvalId, user.id);
+    const approvalSnapshot = refreshed || {
+      ...existing,
+      status: row.status,
+      decided_at: row.decided_at,
+      decision_payload: row.decision_payload,
+    };
+    const checkpoint = await resumeApprovalCheckpoint(user.id, approvalSnapshot, {
+      status: row.status,
+      note: decision.note,
+    });
     return res.status(200).json({
       ok: true,
-      approval: publicApproval(refreshed || {
-        ...existing,
-        status: row.status,
-        decided_at: row.decided_at,
-        decision_payload: row.decision_payload,
-      }),
+      approval: publicApproval(approvalSnapshot),
+      checkpoint,
       executionEnabled: false,
       liveTradingEnabled: false,
       brokerMutationEnabled: false,
     });
+  }));
+
+  router.post("/approvals/:approvalId/graph/start", asyncRoute(async (req, res) => {
+    const { supabase, user } = req.novaApproval;
+    const { approvalId } = req.params;
+    if (!isUuid(approvalId)) return sendError(res, 400, "approval_id_invalid");
+    const approval = await findOwnedApproval(supabase, approvalId, user.id);
+    if (!approval) return sendError(res, 404, "approval_not_found");
+    if (approval.status !== "pending") return sendError(res, 409, "approval_not_pending");
+    if (process.env.NOVA_LANGGRAPH_ENABLED !== "true") return sendError(res, 503, "langgraph_checkpoint_disabled");
+
+    const checkpoint = await startApprovalCheckpoint(user.id, approval);
+    if (checkpoint.status === "unavailable") {
+      return sendError(res, 503, "langgraph_checkpoint_unavailable", { checkpoint });
+    }
+    return res.status(200).json({ ok: true, approvalId, checkpoint });
+  }));
+
+  // Recovery route: resume is derived exclusively from the owner's persisted terminal
+  // Approval row and matching append-only event, never from a client-supplied decision.
+  router.post("/approvals/:approvalId/graph/resume", asyncRoute(async (req, res) => {
+    const { supabase, user } = req.novaApproval;
+    const { approvalId } = req.params;
+    if (!isUuid(approvalId)) return sendError(res, 400, "approval_id_invalid");
+    if (process.env.NOVA_LANGGRAPH_ENABLED !== "true") return sendError(res, 503, "langgraph_checkpoint_disabled");
+
+    const approval = await findOwnedApproval(supabase, approvalId, user.id);
+    if (!approval) return sendError(res, 404, "approval_not_found");
+    if (!["approved", "rejected", "edited", "expired"].includes(approval.status)) {
+      return sendError(res, 409, "approval_not_terminal");
+    }
+
+    const { data: event, error } = await supabase
+      .from("nova_approval_events")
+      .select("event_type,to_status,decision_note")
+      .eq("approval_id", approvalId)
+      .eq("user_id", user.id)
+      .eq("event_type", approval.status)
+      .eq("to_status", approval.status)
+      .maybeSingle();
+    if (error) return sendError(res, 500, "approval_audit_query_failed");
+    if (!event) return sendError(res, 409, "approval_terminal_audit_event_missing");
+
+    const checkpoint = await resumeApprovalCheckpoint(user.id, approval, {
+      status: event.to_status,
+      note: event.decision_note,
+    });
+    if (checkpoint.status === "resume_required") {
+      return sendError(res, 503, "langgraph_resume_unavailable", { checkpoint });
+    }
+    return res.status(200).json({ ok: true, approvalId, checkpoint });
   }));
 
   router.get("/approvals/:approvalId/events", asyncRoute(async (req, res) => {
