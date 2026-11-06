@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "integrations/system-hub/**"
+      - "src/services/**"
+      - "tests/nova-approval-frontend-client.test.mjs"
       - ".github/workflows/system-hub-approval-ci.yml"
       - ".github/workflows/frontend-ci.yml"
   push:
@@ -44,6 +46,12 @@ jobs:
 
       - name: Run all System Hub contract tests
         run: node --test integrations/system-hub/tests/*.test.mjs
+
+      - name: Install root TypeScript test runner
+        run: npm install --no-package-lock --include=dev
+
+      - name: Test the frontend approval API client without UI dependencies
+        run: node --import tsx --test tests/nova-approval-frontend-client.test.mjs
   local-supabase-owner-isolation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
