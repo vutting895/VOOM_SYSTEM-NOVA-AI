@@ -96,6 +96,13 @@ export async function createNovaApprovalCheckpointRuntime({
   if (!["postgres:", "postgresql:"].includes(parsedConnectionUrl.protocol) || !parsedConnectionUrl.hostname) {
     throw checkpointError("NOVA_LANGGRAPH_DATABASE_URL_INVALID", "NOVA_LANGGRAPH_DATABASE_URL must use postgres:// or postgresql:// and include a host");
   }
+  const sslMode = parsedConnectionUrl.searchParams.get("sslmode");
+  if (!["require", "verify-ca", "verify-full"].includes(sslMode)) {
+    throw checkpointError(
+      "NOVA_LANGGRAPH_TLS_REQUIRED",
+      "NOVA_LANGGRAPH_DATABASE_URL must explicitly require TLS using sslmode=require, verify-ca or verify-full",
+    );
+  }
 
   const secret = env.NOVA_LANGGRAPH_THREAD_ID_SECRET;
   if (typeof secret !== "string" || Buffer.byteLength(secret, "utf8") < 32) {
