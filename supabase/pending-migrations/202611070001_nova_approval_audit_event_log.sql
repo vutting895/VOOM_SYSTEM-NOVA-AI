@@ -87,6 +87,10 @@ CREATE TABLE IF NOT EXISTS public.nova_approval_events (
 ALTER TABLE public.nova_approval_events
   ADD COLUMN IF NOT EXISTS decision_payload_hash text;
 
+-- Rebuild the immutability trigger only inside this migration transaction so
+-- legacy edited events can receive their integrity hash before the guard is restored.
+DROP TRIGGER IF EXISTS nova_approval_events_immutable ON public.nova_approval_events;
+
 UPDATE public.nova_approval_events
 SET decision_payload_hash = encode(
   extensions.digest(convert_to(decision_payload::text, 'UTF8'), 'sha256'),
