@@ -48,6 +48,29 @@ test("audit history is read-only, ordered, owner-filtered and never grants execu
   assert.match(api, /brokerMutationEnabled: false/);
 });
 
+test("Approval API starts LangGraph checkpoints and resumes only from the persisted approval outcome", () => {
+  assert.match(api, /startApprovalCheckpoint\(user\.id, row\)/);
+  assert.match(api, /resumeApprovalCheckpoint\(user\.id, approvalSnapshot/);
+  assert.match(api, /router\.post\("\/approvals\/:approvalId\/graph\/start"/);
+  assert.match(api, /router\.post\("\/approvals\/:approvalId\/graph\/resume"/);
+  assert.match(api, /\.from\("nova_approval_events"\)/);
+  assert.match(api, /\.eq\("event_type", approval\.status\)/);
+  assert.match(api, /\.eq\("to_status", approval\.status\)/);
+  assert.match(api, /NOVA_LANGGRAPH_ENABLED/);
+});
+
+test("Graph recovery does not accept a client-provided decision and remains broker-free", () => {
+  const start = api.indexOf('router.post("/approvals/:approvalId/graph/resume"');
+  const end = api.indexOf('router.get("/approvals/:approvalId/events"', start);
+  const recovery = api.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(recovery, /findOwnedApproval\(supabase, approvalId, user\.id\)/);
+  assert.match(recovery, /\.from\("nova_approval_events"\)/);
+  assert.doesNotMatch(recovery, /req\.body|req\.body\?/);
+  assert.match(recovery, /resumeApprovalCheckpoint\(user\.id, approval/);
+  assert.match(api, /brokerMutationEnabled: false/);
+});
+
 test("legacy broker/Live Trading and legacy simulated approval endpoints remain blocked", () => {
   assert.match(server, /req\.path\.startsWith\('\/api\/orders\/'\)/);
   assert.match(server, /req\.path\.startsWith\('\/api\/live-trading\/'\)/);
