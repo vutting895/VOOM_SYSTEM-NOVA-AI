@@ -1,63 +1,59 @@
 # NOVA Video CI — Zero-Cost Runner Recovery
 
-## Verified observations (2026-11-05)
+## Verified observations (2026-11-06)
 
-- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI` (private).
-- Latest verified PR #215 head at time of this note: `6936c217423389c09672ed4c36002b41e51a31eb`.
-- On exact PR #215 head `6936c217423389c09672ed4c36002b41e51a31eb`, API, Engine Core, Frontend and Migration jobs failed before any step ran:
-  - Engine Core [#42073987413](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987413)
-  - Video API [#42073987423](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987423)
-  - Frontend [#42073987415](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987415)
-  - Migration [#42073987405](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42073987405)
-- All four exact-head job records have no step entries; direct log requests return `BlobNotFound`. These runs do not validate the new Wan path, free-VRAM or hard process-isolation gate tests.
-- Exact-head Netlify Deploy Preview [`6aecbb51b9fe83b2021cfbf6`](https://app.netlify.com/sites/b6a30a12-d976-464b-8d83-c59809519ef2/deploys/6aecbb51b9fe83b2021cfbf6) has `commit_ref=6936c217423389c09672ed4c36002b41e51a31eb` but was still `new` at the latest read; Preview is not READY.
-- Wan hardening in this head: check 24,000 MiB **free** VRAM (not total), validate every output-directory component before generation, and a hard-coded `WAN22_PROCESS_ISOLATION_IMPLEMENTED=false` gate that blocks inference regardless of caller flags. Regression tests were added, but no exact-head CI run has executed their steps yet.
-- GitHub REST job records returned `runner_id: 0`, `runner_name: ""`, and `steps: []`. API/Engine/Migration jobs completed within roughly 2–3 seconds of being created. The Actions job-log endpoint returned `BlobNotFound`; no step-level error text was available.
-- GitHub's public status page reported Actions Operational and no incident on November 5, 2026.
-- The GitHub connector confirms repository Admin/Push permissions for the authenticated owner, but cannot read the account's private Billing usage or spending-limit screen.
-
-These observations mean **the jobs were rejected before a hosted runner executed the workflows**. They do not establish whether the specific cause is exhausted included compute, an account Usage blocked/spending-limit state, or repository Actions policy. Do not label this a source-code test failure because the test steps did not start; do not label it a GitHub-wide outage because public status was Operational.
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI` (private; default branch `main`).
+- Main SHA verified before this inspection: `6e8d390ac45187fb70b6acb23f1e428a20ca7006`.
+- PR #215 source head reviewed immediately before this documentation correction: `3bc42dadcf8ea36952217ed29d4e6da9431e32d6`, based on the verified main SHA above. This documentation-only correction creates a new PR head; all new-head CI must run again and must not be inferred from earlier evidence.
+- On source head `3bc42dadcf8ea36952217ed29d4e6da9431e32d6`, the four relevant Actions jobs failed before a hosted runner executed any workflow step:
+  - Engine Core [Run #42130443546](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42130443546), job `127640767084`.
+  - Video API [Run #42130443522](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42130443522), job `127640783421`.
+  - Frontend [Run #42130443436](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42130443436), job `127640738605`.
+  - Migration [Run #42130443535](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/42130443535), job `127640750932`.
+- Each of those four exact-head job records has `runner_id: 0`, an empty `runner_name`, and `steps: []`. The Frontend job completed in roughly 3 seconds; the three other job records have the same pre-runner signature. There is no step-level test output, so these runs do not pass or fail the source tests.
+- The Netlify Preview previously inspected was built for an older PR #215 commit (`6936c217423389c09672ed4c36002b41e51a31eb`) and was still in state `new`. It is stale and is not Preview evidence for the source head above. No current-head Worker deployment or MP4 runtime evidence exists.
+- The observed failure is a runner-admission failure. It does not establish whether the root cause is exhausted included compute, an account Usage blocked/budget state, repository Actions policy, or another account-specific restriction. Do not label it a source-code test failure or a GitHub-wide outage without additional evidence.
 
 ## No-cost diagnostic steps
 
-1. In the account that owns this private repository, open **GitHub Settings → Billing and licensing → Usage** (menu labels can vary). Inspect Actions included compute, current usage, reset date, and any `Usage blocked` or spending-limit notice. GitHub's published included-usage table currently lists 2,000 Actions minutes/month for GitHub Free personal accounts and 3,000 for GitHub Pro; confirm the actual owner plan rather than assuming it.
-2. Do not add a payment method, increase a spending limit, enable overage, or change repository visibility for this project. Keep the repository private.
-3. In the repository, open **Settings → Actions → General**. Confirm Actions are enabled for the repository and that the permitted actions/runners policy allows the existing workflow.
-4. If private-repository included compute is exhausted or the account is blocked, wait for the next included-usage reset or use a machine owned by the project as a self-hosted runner. GitHub documents that private repositories draw hosted-runner usage from plan allowances and that self-hosted runners are not billed as GitHub-hosted runner compute.
-5. Only after a self-hosted runner is registered and online should workflow files be changed from `ubuntu-latest` to its exact labels. No workflow has been switched to self-hosted in this PR because no runner is currently verified as available.
+1. In the personal account that owns this private repository, open **Settings → Billing & Licensing** and inspect Actions included compute, current usage, billing-cycle reset date, and any usage-blocked or budget notice. The current GitHub included-usage table expresses compute as a dollar-denominated allowance rather than a fixed monthly minute count: the published table lists **$12/month for GitHub Free personal accounts** and **$18/month for GitHub Pro**. Verify the actual owner plan and displayed balance; do not assume either value applies. Included compute can be shared with cloud sandbox compute and memory.
+2. GitHub documents that if the account has no valid payment method on file, usage is blocked after included compute is consumed. Do **not** add a payment method, increase a budget, enable overage, upgrade a plan, or change repository visibility for NOVA. Record the displayed allowance, usage and reset date only.
+3. In the repository, open **Settings → Actions → General**. Confirm Actions are enabled and inspect the allowed actions and runner restrictions. Do not relax security policy merely to force a run.
+4. If included compute remains available and the repository policy permits the current `ubuntu-latest` runner, escalate the exact run/job IDs above to GitHub Support. Include repository visibility, branch/head SHA, timestamps, `runner_id=0`, empty runner names, and empty steps. Ask Support to identify the specific runner-admission rejection reason.
+5. Do not switch workflows to self-hosted runners until a trusted project-owned machine/VM is explicitly selected, registered, hardened and verified online. A self-hosted runner avoids GitHub-hosted runner compute charges but the host itself may still have operating costs.
 
 Official documentation:
 - https://docs.github.com/en/actions/concepts/billing-and-usage
 - https://docs.github.com/en/billing/concepts/product-billing/github-actions
 - https://docs.github.com/en/billing/reference/product-usage-included
 - https://docs.github.com/en/actions/hosting-your-own-runners
+- https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository
 
 ## Self-hosted runner safety requirements
 
-If a trusted machine is made available:
-- Register a repository-scoped runner or a dedicated runner group; do not use a broad organization-wide runner.
-- Prefer an ephemeral/disposable runner image or VM and destroy/reimage it after the job.
+If a trusted machine is made available later:
+- Register a repository-scoped runner or dedicated runner group; do not use a broad organization-wide runner.
+- Prefer an ephemeral/disposable runner image or VM and destroy/reimage it after each job.
 - Do not store production credentials, API keys, Supabase service-role keys, signing secrets, or model-provider secrets on the runner.
 - Keep workflow permissions at least privilege (`contents: read` for CI).
 - Do not run untrusted fork code or arbitrary externally supplied PR workflows on a persistent machine.
 - Do not upload secrets, workspace dumps, caches containing secrets, or user media as CI artifacts.
-- Keep model download, GPU inference, media upload, deployment and Production migrations out of CI.
+- Keep model downloads, GPU inference, media upload, deployments and Production migrations out of CI.
 
-## Current exact-head safety state
+## Additional Video security blocker recorded on PR #215
 
-- PR #215 remains OPEN / DRAFT on exact head `6936c217423389c09672ed4c36002b41e51a31eb`, based on main `6e8d390ac45187fb70b6acb23f1e428a20ca7006`.
-- Wan local runtime now uses free-memory threshold, validates output-directory symlink/permissions before provider spawn, and hard-blocks all inference with `wan22_process_isolation_not_implemented`. This hard block must remain until an ephemeral sandbox with process-tree termination, CPU/RAM/GPU limits, disk quotas, and network/credential isolation has been implemented and verified.
-- The migration `20261105143000_nova_video_preparation_approval.sql` is a staging candidate only. Production migration history reconciliation and encrypted backup/restore have not been passed. Do not apply it.
-- Netlify Preview is Frontend-only; it does not publish the Cloudflare Worker or validate API routes.
+The Worker in `integrations/nova-video-api/worker.js` uses the caller's Supabase bearer token for PostgREST. The candidate migration grants `authenticated` direct INSERT on `nova_video_preparations` and `nova_video_approval_decisions` (lines 111–112), while the RLS policies only scope ownership/reference linkage. They do not prove Worker-originated snapshot creation or approval provenance. A signed-in owner can therefore call PostgREST directly and create self-consistent preparation/approval records.
 
-## NOVA Video release gate
+This does not mean rendering is currently executable: all execution flags remain false and the model runtime remains blocked. It does mean these approval rows cannot be trusted by a future dispatcher. The finding and required remediation were posted in the PR #215 conversation. Keep Save/Approval disconnected, do not add a service-role secret as a workaround, and add direct-PostgREST forgery tests before any future approval integration.
 
-Until exact-head API/Engine/Frontend/Migration jobs have actually run and passed:
-- PR #215 remains Draft.
-- Do not merge or deploy the Worker.
-- Do not apply the Production Migration.
-- Do not connect the frontend Save/Approval actions to a deployed endpoint.
+## Release gates
+
+Until CI has actually executed real steps and passed on the new exact PR #215 head, and the approval write boundary has been repaired:
+- PR #215 remains Draft; do not merge or deploy the Worker.
+- Do not apply the candidate Supabase migration to Production.
+- Do not connect frontend Save/Approval actions to a deployed endpoint.
 - The `/video` workspace remains a local-only Director Draft and JSON export tool.
-- Generate Video remains disabled and no MP4 generation is claimed.
+- Generate Video remains disabled; do not claim MP4 generation.
+- Keep Wan process isolation disabled until an ephemeral sandbox with process-tree termination, CPU/RAM/GPU limits, disk quotas, and network/credential isolation is implemented and verified.
 
-A successful hosted Actions run must show real job steps on the exact PR head. A job that exits with `runner_id: 0` and no steps is not CI evidence.
+A successful hosted Actions run must show real job steps on the exact current PR head. A job with `runner_id: 0` and no steps is not CI evidence.
