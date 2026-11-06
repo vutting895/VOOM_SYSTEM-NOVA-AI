@@ -57,6 +57,7 @@ test("Approval API starts LangGraph checkpoints and resumes only from the persis
   assert.match(api, /async function findOwnedTerminalAuditEvent[\s\S]*?\.from\("nova_approval_events"\)/);
   assert.match(api, /\.eq\("event_type", approval\.status\)/);
   assert.match(api, /\.eq\("to_status", approval\.status\)/);
+  assert.match(api, /\.eq\("proposal_hash", approval\.proposal_hash\)/);
   assert.doesNotMatch(api, /resumeApprovalCheckpoint\(user\.id, approvalSnapshot, \{\s*status: row\.status,\s*note: decision\.note/);
   assert.match(api, /NOVA_LANGGRAPH_ENABLED/);
 });
