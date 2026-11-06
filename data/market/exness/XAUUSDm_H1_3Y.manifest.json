@@ -1,0 +1,29 @@
+{
+  "dataset": "Exness XAUUSD H1 historical OHLC",
+  "source": "Exness MT5 Python API",
+  "server": "Exness-MT5Trial7",
+  "account_environment": "Demo",
+  "symbol": "XAUUSDm",
+  "symbol_description": "Gold vs US Dollar",
+  "timeframe": "H1",
+  "timezone": "UTC",
+  "price_basis": "MT5 broker chart OHLC (Bid chart mode)",
+  "requested_from_utc": "2023-11-06T20:20:15+00:00",
+  "requested_to_tick_utc": "2026-11-06T20:20:15+00:00",
+  "rows": 12733,
+  "columns": [
+    "timestamp_utc",
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "first_timestamp_utc": "2023-11-06T21:00:00+00:00",
+  "last_completed_bar_utc": "2026-11-06T19:00:00+00:00",
+  "invalid_rows_removed": 0,
+  "duplicate_timestamps_removed": 0,
+  "gaps_over_1h": 556,
+  "csv_bytes": 725815,
+  "sha256_csv": "4e7350d7a6cf324e59ff30e20a9c0a5952e4156d81eb12280e70272e5d03094e",
+  "note": "Only completed H1 candles are included. Gaps over one hour include broker market closures and session breaks; inspect timestamps before model training."
+}
