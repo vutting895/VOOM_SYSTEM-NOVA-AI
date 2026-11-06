@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import {
   NOVA_LANGGRAPH_CHECKPOINT_NAMESPACE,
   NOVA_LANGGRAPH_CHECKPOINT_SCHEMA,
+  createNovaApprovalCheckpointRuntime,
   deriveCheckpointThreadId,
   normalizeCheckpointDecision,
 } from "../src/server/nova-approval-checkpoint.mjs";
@@ -66,4 +67,133 @@ test("checkpoint runtime uses PostgresSaver setup, a private schema and LangGrap
   assert.match(source, /new Command\(\{ resume: decision \}\)/);
   assert.match(source, /checkpointer\.deleteThread/);
   assert.doesNotMatch(source, /place_order|execute_broker_order|submit_order|liveTradingEnabled\s*=\s*true/i);
+});
+
+test("Postgres checkpoint runtime pauses, resumes, is idempotent and supports thread erasure", async () => {
+  const checkpointRows = new Map();
+  let activeInvocation = null;
+  let setupCount = 0;
+  let deletedThreadId = null;
+  let savedSchema = null;
+
+  const fakeInterrupt = (payload) => {
+    if (!activeInvocation) throw new Error("interrupt called outside graph invocation");
+    if (activeInvocation.resume !== undefined) return activeInvocation.resume;
+    activeInvocation.payload = payload;
+    const error = new Error("interrupt");
+    error.isGraphInterrupt = true;
+    throw error;
+  };
+
+  class FakeCommand {
+    constructor(input) {
+      this.resume = input.resume;
+    }
+  }
+
+  class FakeStateGraph {
+    addNode(_name, handler) {
+      this.handler = handler;
+      return this;
+    }
+    addEdge() {
+      return this;
+    }
+    compile({ checkpointer }) {
+      assert.equal(checkpointer.setupCount, 1);
+      return {
+        async getState(config) {
+          return checkpointRows.get(config.configurable.thread_id) || { values: {}, tasks: [] };
+        },
+        async invoke(input, config) {
+          const key = config.configurable.thread_id;
+          const isResume = input instanceof FakeCommand;
+          const base = isResume ? checkpointRows.get(key).values : input;
+          activeInvocation = { resume: isResume ? input.resume : undefined, payload: null };
+          try {
+            const patch = await this.handler(base);
+            const values = { ...base, ...patch };
+            checkpointRows.set(key, { values, tasks: [] });
+            return values;
+          } catch (error) {
+            if (!error.isGraphInterrupt) throw error;
+            checkpointRows.set(key, {
+              values: base,
+              tasks: [{ interrupts: [{ value: activeInvocation.payload }] }],
+            });
+            return { __interrupt__: [{ value: activeInvocation.payload }] };
+          } finally {
+            activeInvocation = null;
+          }
+        },
+      };
+    }
+  }
+
+  const saver = {
+    setupCount: 0,
+    async setup() { this.setupCount += 1; setupCount += 1; },
+    async deleteThread(threadId) { deletedThreadId = threadId; checkpointRows.delete(threadId); },
+    async end() {},
+  };
+
+  const dependencies = {
+    Annotation: Object.assign((spec) => spec, { Root: (spec) => spec }),
+    StateGraph: FakeStateGraph,
+    START: "__start__",
+    END: "__end__",
+    interrupt: fakeInterrupt,
+    Command: FakeCommand,
+    PostgresSaver: {
+      fromConnString(_url, options) {
+        savedSchema = options.schema;
+        return saver;
+      },
+    },
+  };
+
+  const runtime = await createNovaApprovalCheckpointRuntime({
+    env: {
+      NOVA_LANGGRAPH_ENABLED: "true",
+      NOVA_LANGGRAPH_DATABASE_URL: "postgresql://checkpoint:local@127.0.0.1/nova_test",
+      NOVA_LANGGRAPH_THREAD_ID_SECRET: secret,
+    },
+    dependenciesLoader: async () => dependencies,
+  });
+
+  const identity = { userId: userA, appThreadId: appThread, approvalId: approval, proposalHash };
+  const waiting = await runtime.startReview(identity);
+  assert.equal(waiting.status, "awaiting_review");
+  assert.equal(savedSchema, NOVA_LANGGRAPH_CHECKPOINT_SCHEMA);
+  assert.equal(setupCount, 1);
+
+  const resumed = await runtime.resumeReview(identity, {
+    approvalId: approval, proposalHash, status: "approved", note: "Reviewed",
+  });
+  assert.equal(resumed.status, "resumed");
+  assert.equal(resumed.reviewStatus, "approved");
+
+  const duplicate = await runtime.resumeReview(identity, {
+    approvalId: approval, proposalHash, status: "approved", note: "Reviewed",
+  });
+  assert.equal(duplicate.idempotent, true);
+
+  const editedIdentity = {
+    ...identity,
+    approvalId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  };
+  await runtime.startReview(editedIdentity);
+  const edited = await runtime.resumeReview(editedIdentity, {
+    approvalId: editedIdentity.approvalId,
+    proposalHash,
+    status: "edited",
+    note: null,
+  });
+  assert.equal(edited.reviewStatus, "edited");
+  assert.notEqual(edited.reviewStatus, "approved");
+
+  await runtime.deleteReviewCheckpoint(identity);
+  assert.equal(deletedThreadId, deriveCheckpointThreadId({ ...identity, secret }));
+  assert.equal(checkpointRows.has(deletedThreadId), false);
+  await runtime.close();
 });
