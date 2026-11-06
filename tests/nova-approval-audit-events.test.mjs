@@ -68,8 +68,8 @@ test("service role cannot mutate the audit log and the database blocks TRUNCATE"
 
 test("audit deletion is permitted only through an erased parent approval", () => {
   assert.ok(migration.includes("DROP CONSTRAINT IF EXISTS nova_approval_events_user_id_fkey"));
-  assert.match(migration, /IF TG_OP = 'DELETE' AND NOT EXISTS \([\\s\\S]*?a\.id = OLD\.approval_id[\\s\\S]*?a\.thread_id = OLD\.thread_id[\\s\\S]*?a\.user_id = OLD\.user_id/i);
+  assert.match(migration, /IF TG_OP = 'DELETE' AND NOT EXISTS \([\s\S]*?a\.id = OLD\.approval_id[\s\S]*?a\.thread_id = OLD\.thread_id[\s\S]*?a\.user_id = OLD\.user_id/i);
   assert.doesNotMatch(migration, /pg_trigger_depth\(\)/i);
-  assert.match(integration, /DELETE FROM public\.nova_approval_requests[\\s\\S]*?parent_request_cascade_erases_events/i);
+  assert.match(integration, /DELETE FROM public\.nova_approval_requests[\s\S]*?parent_request_cascade_erases_events/i);
 });
 
