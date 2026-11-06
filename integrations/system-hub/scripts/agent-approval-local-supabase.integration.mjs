@@ -149,8 +149,8 @@ try {
     "POST",
     { requestType: "strategy_draft_review", proposal },
   );
-  assert.equal(foreignCreate.status, 409);
-  assert.equal(foreignCreate.body?.error, "thread_not_found_or_not_active");
+  assert.equal(foreignCreate.status, 404);
+  assert.equal(foreignCreate.body?.error, "thread_not_found");
 
   const createdApproval = await appRequest(
     "/v1/agent/threads/" + threadId + "/approvals",
