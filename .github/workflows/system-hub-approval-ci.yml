@@ -5,6 +5,9 @@ on:
     paths:
       - "integrations/system-hub/**"
       - "src/services/**"
+      - "src/providers/**"
+      - "src/main.tsx"
+      - ".env.example"
       - "tests/nova-approval-frontend-client.test.mjs"
       - ".github/workflows/system-hub-approval-ci.yml"
       - ".github/workflows/frontend-ci.yml"
@@ -14,6 +17,9 @@ on:
     paths:
       - "integrations/system-hub/**"
       - "src/services/**"
+      - "src/providers/**"
+      - "src/main.tsx"
+      - ".env.example"
       - "tests/nova-approval-frontend-client.test.mjs"
       - ".github/workflows/system-hub-approval-ci.yml"
 
@@ -54,6 +60,9 @@ jobs:
 
       - name: Test the frontend approval API client without UI dependencies
         run: node --import tsx --test tests/nova-approval-frontend-client.test.mjs
+
+      - name: Build root Vite frontend (auth provider and API wiring)
+        run: npm run build
   local-supabase-owner-isolation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
