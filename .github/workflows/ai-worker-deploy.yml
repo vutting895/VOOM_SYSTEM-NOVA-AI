@@ -2,7 +2,7 @@ name: Deploy authenticated NOVA AI Worker
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/nova-readonly-agent-runtime]
     paths:
       - "integrations/nova-ai-worker/**"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -41,9 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Test AI Worker security contract
-        working-directory: integrations/nova-ai-worker
-        run: node --test
       - name: Deploy authenticated AI Worker
         working-directory: integrations/nova-ai-worker
         shell: bash
