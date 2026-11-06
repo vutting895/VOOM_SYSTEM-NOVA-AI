@@ -66,6 +66,14 @@ test("service role cannot mutate the audit log and the database blocks TRUNCATE"
   assert.ok(migration.includes("BEFORE TRUNCATE ON public.nova_approval_events"));
 });
 
+test("migration changes commit atomically around immutable-trigger maintenance", () => {
+  assert.ok(migration.startsWith("-- Pending NOVA approval audit extension."));
+  assert.ok(migration.includes("\nBEGIN;\n"));
+  assert.ok(migration.trimEnd().endsWith("COMMIT;"));
+  assert.ok(migration.indexOf("BEGIN;") < migration.indexOf("DROP TRIGGER IF EXISTS nova_approval_events_immutable"));
+  assert.ok(migration.lastIndexOf("COMMIT;") > migration.indexOf("CREATE TRIGGER nova_approval_events_immutable"));
+});
+
 test("audit deletion is permitted only through an erased parent approval", () => {
   assert.ok(migration.includes("DROP CONSTRAINT IF EXISTS nova_approval_events_user_id_fkey"));
   assert.match(migration, /IF TG_OP = 'DELETE' AND NOT EXISTS \([\s\S]*?a\.id = OLD\.approval_id[\s\S]*?a\.thread_id = OLD\.thread_id[\s\S]*?a\.user_id = OLD\.user_id/i);
