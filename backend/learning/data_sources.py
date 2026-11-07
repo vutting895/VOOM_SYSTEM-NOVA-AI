@@ -48,6 +48,8 @@ class MarketDataset:
     live_feed: bool
     missing_interval_count: int
     gap_after_indices: tuple[int, ...]
+    # Gaps that exceed the bounded market-closure policy and must block training.
+    unexplained_gap_after_indices: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,7 @@ class ChronologicalSplits:
 
 
 EXNESS_DATASET_ID = "exness_xauusdm_m15"
+EXNESS_H1_DATASET_ID = "exness_xauusdm_h1_3y"
 BINANCE_5Y_DATASET_ID = "binance_btcusdt_h1_5y"
 BINANCE_500_DATASET_ID = "binance_btcusdt_h1_500"
 
@@ -138,6 +141,7 @@ def _check_ohlcv(bar: MarketBar) -> None:
 def _audit_timeline(
     bars: Sequence[MarketBar], timeframe: str
 ) -> tuple[int, tuple[int, ...]]:
+    """Count every missing timeframe slot and retain every observed gap index."""
     if not bars:
         raise DataSourceError("Dataset contains no bars")
     interval = _timeframe_delta(timeframe)
@@ -159,6 +163,50 @@ def _audit_timeline(
     return missing, tuple(gaps)
 
 
+def _crosses_weekend(previous: datetime, current: datetime) -> bool:
+    day = previous.date() + timedelta(days=1)
+    while day <= current.date():
+        if day.weekday() >= 5:
+            return True
+        day += timedelta(days=1)
+    return False
+
+
+def _is_bounded_market_closure(
+    previous: datetime,
+    current: datetime,
+    expected_interval: timedelta,
+    max_weekend_closure_hours: int = 96,
+) -> bool:
+    """Treat ordinary short gaps and bounded weekend closures as continuous trading history."""
+    gap = current - previous
+    if gap <= expected_interval * 3:
+        return True
+    return (
+        gap <= timedelta(hours=max_weekend_closure_hours)
+        and _crosses_weekend(previous, current)
+    )
+
+
+def _unexplained_gap_indices(
+    bars: Sequence[MarketBar],
+    timeframe: str,
+    *,
+    max_weekend_closure_hours: int = 96,
+) -> tuple[int, ...]:
+    interval = _timeframe_delta(timeframe)
+    return tuple(
+        index
+        for index in range(1, len(bars))
+        if not _is_bounded_market_closure(
+            bars[index - 1].timestamp,
+            bars[index].timestamp,
+            interval,
+            max_weekend_closure_hours,
+        )
+    )
+
+
 def _segments(bars: Sequence[MarketBar], timeframe: str) -> tuple[tuple[MarketBar, ...], ...]:
     if not bars:
         return ()
@@ -166,7 +214,7 @@ def _segments(bars: Sequence[MarketBar], timeframe: str) -> tuple[tuple[MarketBa
     result: list[tuple[MarketBar, ...]] = []
     current: list[MarketBar] = [bars[0]]
     for bar in bars[1:]:
-        if bar.timestamp - current[-1].timestamp != interval:
+        if not _is_bounded_market_closure(current[-1].timestamp, bar.timestamp, interval):
             result.append(tuple(current))
             current = [bar]
         else:
@@ -270,6 +318,7 @@ def load_exness_xauusdm_m15(
     if bars[-1].timestamp != _parse_utc(manifest["last_closed_bar_utc"]):
         raise DataSourceError("Exness last timestamp does not match manifest")
     missing, gaps = _audit_timeline(bars, manifest["timeframe"])
+    unexplained = _unexplained_gap_indices(bars, manifest["timeframe"])
     return MarketDataset(
         dataset_id=str(manifest["dataset_id"]),
         source=str(manifest["source"]),
@@ -283,6 +332,143 @@ def load_exness_xauusdm_m15(
         live_feed=False,
         missing_interval_count=missing,
         gap_after_indices=gaps,
+        unexplained_gap_after_indices=unexplained,
+    )
+
+
+def load_exness_xauusdm_h1(
+    repo_root: str | Path,
+    *,
+    allow_research_training: bool = False,
+) -> MarketDataset:
+    """Load the Exness Demo XAUUSDm H1 snapshot only after completeness and hash checks.
+
+    The manifest is an explicit training gate. Incomplete historical ranges are
+    reported by the dataset audit tool and rejected here; no rows are fabricated.
+    """
+    if not allow_research_training:
+        raise DatasetEligibilityError(
+            "Exness H1 is a historical research candidate; set "
+            "allow_research_training=True for explicitly approved offline research"
+        )
+
+    data_dir = Path(repo_root) / "data/market/exness"
+    manifest = _read_json(data_dir / "XAUUSDm_H1_3Y.manifest.json")
+    csv_path = data_dir / "XAUUSDm_H1_3Y.csv"
+    try:
+        csv_bytes = csv_path.read_bytes()
+    except FileNotFoundError as exc:
+        raise DataSourceError(f"Required Exness H1 CSV is missing: {exc.filename}") from exc
+
+    digest = _sha256_bytes(csv_bytes)
+    if len(csv_bytes) != int(manifest.get("csv_bytes", -1)) or digest != manifest.get("sha256_csv"):
+        raise DataSourceError("Exness H1 CSV size/hash does not match its manifest")
+
+    expected_columns = [
+        "timestamp_utc", "open", "high", "low", "close", "tick_volume"
+    ]
+    if manifest.get("columns") != expected_columns:
+        raise DataSourceError("Exness H1 manifest columns are not the approved OHLC/tick_volume schema")
+    if (
+        manifest.get("symbol") != "XAUUSDm"
+        or manifest.get("timeframe") != "H1"
+        or manifest.get("timezone") != "UTC"
+        or str(manifest.get("account_environment", "")).lower() != "demo"
+    ):
+        raise DataSourceError("Exness H1 manifest fails the symbol/timeframe/UTC/Demo contract")
+
+    try:
+        import io
+        reader = csv.DictReader(io.StringIO(csv_bytes.decode("utf-8-sig"), newline=""))
+        if reader.fieldnames != expected_columns:
+            raise DataSourceError("Exness H1 CSV header does not match its manifest")
+        rows = list(reader)
+    except UnicodeDecodeError as exc:
+        raise DataSourceError("Exness H1 CSV is not valid UTF-8") from exc
+
+    if len(rows) != int(manifest.get("rows", -1)) or not rows:
+        raise DataSourceError("Exness H1 CSV row count does not match its manifest")
+
+    bars: list[MarketBar] = []
+    for row in rows:
+        bar = MarketBar(
+            timestamp=_parse_utc(row["timestamp_utc"]),
+            open=_decimal(row, "open"),
+            high=_decimal(row, "high"),
+            low=_decimal(row, "low"),
+            close=_decimal(row, "close"),
+            volume=_decimal(row, "tick_volume"),
+            extras={"tick_volume": row["tick_volume"]},
+        )
+        if bar.volume != bar.volume.to_integral_value():
+            raise DataSourceError("Exness H1 tick_volume must be a non-negative integer")
+        _check_ohlcv(bar)
+        bars.append(bar)
+
+    if (
+        bars[0].timestamp != _parse_utc(manifest["first_timestamp_utc"])
+        or bars[-1].timestamp != _parse_utc(manifest["last_completed_bar_utc"])
+    ):
+        raise DataSourceError("Exness H1 CSV timestamp boundaries do not match its manifest")
+
+    missing, gaps = _audit_timeline(bars, "H1")
+    unexplained = _unexplained_gap_indices(bars, "H1")
+    observed_gaps_over_one_hour = sum(
+        1 for previous, current in zip(bars[:-1], bars[1:])
+        if current.timestamp - previous.timestamp > timedelta(hours=1)
+    )
+    observed_gaps_over_96h = sum(
+        1 for previous, current in zip(bars[:-1], bars[1:])
+        if current.timestamp - previous.timestamp > timedelta(hours=96)
+    )
+    max_gap_hours = max(
+        (current.timestamp - previous.timestamp).total_seconds() / 3600.0
+        for previous, current in zip(bars[:-1], bars[1:])
+    ) if len(bars) > 1 else 0.0
+    gap_audit = manifest.get("gap_audit", {})
+    if (
+        int(gap_audit.get("gap_count_over_1h", -1)) != observed_gaps_over_one_hour
+        or int(gap_audit.get("gap_count_over_96h", -1)) != observed_gaps_over_96h
+        or abs(float(gap_audit.get("largest_gap_hours", -1)) - max_gap_hours) > 1e-9
+    ):
+        raise DataSourceError("Exness H1 observed gap statistics do not match the manifest")
+
+    if manifest.get("max_allowed_gap_hours") != 96:
+        raise DataSourceError("Exness H1 maximum allowed historical gap must be 96 hours")
+    if unexplained:
+        raise DatasetEligibilityError(
+            f"Exness H1 contains {len(unexplained)} unexplained gap(s); training is blocked"
+        )
+    if (
+        manifest.get("training_eligible") is not True
+        or manifest.get("completeness_status") != "PASS"
+    ):
+        raise DatasetEligibilityError(
+            "Exness H1 manifest does not certify complete historical coverage; training is blocked"
+        )
+
+    volume_values = [bar.volume for bar in bars]
+    if (
+        min(volume_values) != Decimal(str(manifest.get("tick_volume_min")))
+        or max(volume_values) != Decimal(str(manifest.get("tick_volume_max")))
+        or sum(value == 0 for value in volume_values) != int(manifest.get("tick_volume_zero_rows", -1))
+    ):
+        raise DataSourceError("Exness H1 tick_volume summary does not match the manifest")
+
+    return MarketDataset(
+        dataset_id=EXNESS_H1_DATASET_ID,
+        source=str(manifest["source"]),
+        symbol="XAUUSDm",
+        timeframe="H1",
+        bars=tuple(bars),
+        sha256=digest,
+        size_bytes=len(csv_bytes),
+        eligibility="historical_research_candidate",
+        benchmark_eligible=False,
+        live_feed=False,
+        missing_interval_count=missing,
+        gap_after_indices=gaps,
+        unexplained_gap_after_indices=unexplained,
     )
 
 
@@ -344,6 +530,7 @@ def load_binance_btcusdt_h1(
         bars.append(bar)
 
     missing, gaps = _audit_timeline(bars, manifest["timeframe"])
+    unexplained = _unexplained_gap_indices(bars, manifest["timeframe"])
     if bars[0].timestamp != _parse_utc(entry["first_bar_utc"]):
         raise DataSourceError("Binance first timestamp differs from manifest")
     if bars[-1].timestamp != _parse_utc(entry["last_bar_utc"]):
@@ -361,6 +548,7 @@ def load_binance_btcusdt_h1(
         live_feed=False,
         missing_interval_count=missing,
         gap_after_indices=gaps,
+        unexplained_gap_after_indices=unexplained,
     )
 
 
@@ -372,6 +560,10 @@ def load_market_dataset(
 ) -> MarketDataset:
     if dataset_id == EXNESS_DATASET_ID:
         return load_exness_xauusdm_m15(repo_root, allow_research_training=allow_research_training)
+    if dataset_id == EXNESS_H1_DATASET_ID:
+        return load_exness_xauusdm_h1(
+            repo_root, allow_research_training=allow_research_training
+        )
     if dataset_id == BINANCE_5Y_DATASET_ID:
         return load_binance_btcusdt_h1(
             repo_root, snapshot="five_year", allow_research_training=allow_research_training

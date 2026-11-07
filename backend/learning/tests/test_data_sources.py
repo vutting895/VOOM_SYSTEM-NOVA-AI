@@ -10,13 +10,16 @@ import pytest
 
 from backend.learning.data_sources import (
     BINANCE_5Y_DATASET_ID,
+    EXNESS_H1_DATASET_ID,
     DataSourceError,
     DatasetEligibilityError,
     MarketBar,
     MarketDataset,
     chronological_splits,
     load_binance_btcusdt_h1,
+    load_exness_xauusdm_h1,
     load_exness_xauusdm_m15,
+    _segments,
 )
 
 
@@ -63,6 +66,139 @@ def _write_exness_fixture(root: Path) -> Path:
     }
     (folder / "dataset_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     return folder
+
+
+def _write_exness_h1_fixture(
+    root: Path,
+    timestamps: list[str],
+    *,
+    training_eligible: bool = True,
+    volumes: list[str] | None = None,
+) -> Path:
+    folder = root / "data/market/exness"
+    folder.mkdir(parents=True)
+    volumes = volumes or [str(100 + index) for index in range(len(timestamps))]
+    rows = [
+        {
+            "timestamp_utc": stamp,
+            "open": "2000.000",
+            "high": "2002.000",
+            "low": "1999.000",
+            "close": "2001.000",
+            "tick_volume": volume,
+        }
+        for stamp, volume in zip(timestamps, volumes, strict=True)
+    ]
+    csv_path = folder / "XAUUSDm_H1_3Y.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=[
+            "timestamp_utc", "open", "high", "low", "close", "tick_volume"
+        ])
+        writer.writeheader()
+        writer.writerows(rows)
+    raw = csv_path.read_bytes()
+    hours = [
+        (datetime.fromisoformat(current.replace("Z", "+00:00"))
+         - datetime.fromisoformat(previous.replace("Z", "+00:00"))).total_seconds() / 3600
+        for previous, current in zip(timestamps[:-1], timestamps[1:])
+    ]
+    manifest = {
+        "dataset": "Exness XAUUSD H1 historical OHLCV",
+        "source": "Exness MT5 Demo synthetic test fixture",
+        "account_environment": "Demo",
+        "symbol": "XAUUSDm",
+        "timeframe": "H1",
+        "timezone": "UTC",
+        "price_basis": "MT5 broker chart OHLC (Bid chart mode)",
+        "rows": len(rows),
+        "columns": ["timestamp_utc", "open", "high", "low", "close", "tick_volume"],
+        "first_timestamp_utc": timestamps[0],
+        "last_completed_bar_utc": timestamps[-1],
+        "csv_bytes": len(raw),
+        "sha256_csv": _digest(raw),
+        "training_eligible": training_eligible,
+        "completeness_status": "PASS" if training_eligible else "BLOCKED_MISSING_HISTORICAL_SEGMENT",
+        "max_allowed_gap_hours": 96,
+        "tick_volume_min": min(int(value) for value in volumes),
+        "tick_volume_max": max(int(value) for value in volumes),
+        "tick_volume_zero_rows": sum(int(value) == 0 for value in volumes),
+        "gap_audit": {
+            "gap_count_over_1h": sum(gap > 1 for gap in hours),
+            "gap_count_over_96h": sum(gap > 96 for gap in hours),
+            "largest_gap_hours": max(hours, default=0),
+        },
+    }
+    (folder / "XAUUSDm_H1_3Y.manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
+    return folder
+
+
+def test_exness_h1_loader_requires_explicit_research_training_opt_in(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T00:00:00Z", "2025-11-03T01:00:00Z", "2025-11-03T02:00:00Z"],
+    )
+    with pytest.raises(DatasetEligibilityError):
+        load_exness_xauusdm_h1(tmp_path)
+
+
+def test_exness_h1_loader_verifies_manifest_and_preserves_mt5_tick_volume(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T00:00:00Z", "2025-11-03T01:00:00Z", "2025-11-03T02:00:00Z"],
+    )
+    dataset = load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+    assert dataset.dataset_id == EXNESS_H1_DATASET_ID
+    assert dataset.symbol == "XAUUSDm"
+    assert dataset.timeframe == "H1"
+    assert dataset.bars[0].volume == Decimal("100")
+    assert dataset.bars[0].extras["tick_volume"] == "100"
+    assert dataset.unexplained_gap_after_indices == ()
+    assert dataset.benchmark_eligible is False
+    assert dataset.live_feed is False
+
+
+def test_exness_h1_loader_keeps_bounded_weekend_closure_in_one_segment(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-07T21:00:00Z", "2025-11-09T23:00:00Z"],
+    )
+    dataset = load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+    assert dataset.gap_after_indices == (1,)
+    assert dataset.unexplained_gap_after_indices == ()
+    assert len(dataset.bars) == 2
+    assert len(_segments(dataset.bars, dataset.timeframe)) == 1
+
+
+def test_exness_h1_loader_blocks_manifest_incomplete_7419_hour_gap(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-12-31T21:00:00Z", "2026-11-06T00:00:00Z"],
+        training_eligible=False,
+    )
+    with pytest.raises(DatasetEligibilityError, match="unexplained historical gaps"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+
+
+def test_exness_h1_loader_rechecks_data_even_if_manifest_claims_training_eligible(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-12-31T21:00:00Z", "2026-11-06T00:00:00Z"],
+        training_eligible=True,
+    )
+    with pytest.raises(DatasetEligibilityError, match="unexplained historical gaps"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+
+
+def test_exness_h1_loader_rejects_fractional_tick_volume(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T00:00:00Z", "2025-11-03T01:00:00Z"],
+        volumes=["100.5", "101"],
+    )
+    with pytest.raises(DataSourceError, match="tick_volume must be a non-negative integer"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
 
 
 def test_exness_loader_requires_candidate_training_opt_in(tmp_path):

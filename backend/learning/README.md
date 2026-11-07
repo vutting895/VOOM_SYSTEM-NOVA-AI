@@ -31,6 +31,7 @@ The data bridge expects the versioned inputs from [PR #197](https://github.com/v
 | Dataset ID | File | Declared range | Eligibility |
 |---|---|---|---|
 | `exness_xauusdm_m15` | `datasets/exness/demo/xauusdm_m15/` | XAUUSDm M15, 2022-07-21 to 2026-10-29 | candidate_only |
+| `exness_xauusdm_h1_3y` | `data/market/exness/XAUUSDm_H1_3Y.csv` | XAUUSDm H1, requested 2023-11-06 to 2026-11-06 | blocked until max historical gap <= 96h and manifest is PASS |
 | `binance_btcusdt_h1_5y` | `datasets/public/binance/btcusdt_h1/` | BTCUSDT H1, five-year snapshot | historical research candidate |
 | `binance_btcusdt_h1_500` | `datasets/public/binance/btcusdt_h1/` | BTCUSDT H1, 500 closed bars | historical research candidate |
 
@@ -38,6 +39,10 @@ These sources are not live feeds and are not the frozen Wave3 benchmark dataset.
 PR #197 must be merged or its versioned `datasets/` files must be made available
 in the checkout before these paths can be loaded. Do not copy code ZIP archives
 or random training tensors into the market-data directory.
+
+The Exness H1 snapshot is loaded only by `load_exness_xauusdm_h1()` after its CSV SHA-256, byte count, OHLC/tick-volume schema, UTC timestamps, MT5 Demo metadata and observed gap statistics match the manifest. The loader rejects any unexplained gap over 96 hours and requires `training_eligible=true` plus `completeness_status=PASS`. The current PR #238 snapshot contains a 7,419-hour gap from 2025-12-31T21:00:00Z to 2026-11-06T00:00:00Z, so it is intentionally blocked. Re-ingest the missing period from the authorized Exness Demo MT5 Bridge; never synthesize bars or alter the manifest to bypass the gate.
+
+Bounded weekend/market closures up to 96 hours are treated as continuous history for rolling features, while all missing intervals remain recorded in `missing_interval_count` and `gap_after_indices`. Unexplained gaps are separately exposed as `unexplained_gap_after_indices`; the trainer rejects a dataset carrying any such gap before feature generation. This avoids both wasting rolling warm-up rows after normal weekend closures and silently learning across a multi-month outage.
 
 Example loader and split preparation:
 
