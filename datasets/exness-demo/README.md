@@ -24,7 +24,7 @@ File: \`news/VOOM_USD_High_Impact_2022_2026.csv\`
 - Coverage: [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z), end exclusive.
 - 2,166 unique high-impact USD/US events; datetime mode only.
 - Exness Experts log evidence: two \`NEWS_EXPORT_SUCCESS\` markers, 15,853 queried values, zero unknown time modes.
-- Raw Windows Common Files CSV: 388,313 bytes; SHA-256 \`6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c\`.
+- Raw Windows Common Files CSV: 388,313 bytes; SHA-256 \`6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c\`.
 - Canonical Git LF CSV: 386,146 bytes; SHA-256 \`317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37\`.
 - Provenance manifest: \`news/VOOM_USD_High_Impact_2022_2026.manifest.json\`.
 
