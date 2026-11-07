@@ -34,6 +34,10 @@ class ExnessH1DatasetAuditTests(unittest.TestCase):
         self.assertEqual(report["long_gap_count"], 1)
         self.assertEqual(report["max_gap_hours"], 7419)
         self.assertFalse(report["training_eligible"])
+        self.assertFalse(report["manifest_checks"]["training_eligible_flag_is_true"])
+        self.assertFalse(report["manifest_checks"]["completeness_status_is_pass"])
+        self.assertIn("manifest_mismatch:training_eligible_flag_is_true", report["errors"])
+        self.assertIn("manifest_mismatch:completeness_status_is_pass", report["errors"])
 
     def test_normal_weekend_closure_under_96_hours_is_allowed(self):
         records = [
