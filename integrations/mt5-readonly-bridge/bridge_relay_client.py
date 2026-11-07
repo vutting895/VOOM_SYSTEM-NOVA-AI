@@ -24,7 +24,7 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/history"}
 TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
 
 
@@ -72,7 +72,7 @@ def normalize_read_path(value: object) -> str:
         limit = params.get("limit", ["100"])[0]
         if not limit.isdigit() or not 1 <= int(limit) <= 500:
             raise ValueError("Symbol limit is invalid.")
-    else:
+    elif parsed.path == "/api/quotes":
         if set(params) - {"symbol", "timeframe", "count"}:
             raise ValueError("Query parameter is not allowed.")
         symbol = params.get("symbol", [""])[0]
@@ -84,6 +84,26 @@ def normalize_read_path(value: object) -> str:
         count = params.get("count", ["100"])[0]
         if not count.isdigit() or not 1 <= int(count) <= 500:
             raise ValueError("Candle count is invalid.")
+    else:
+        if set(params) - {"symbol", "timeframe", "start_utc", "end_utc"}:
+            raise ValueError("Query parameter is not allowed.")
+        symbol = params.get("symbol", [""])[0]
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", symbol):
+            raise ValueError("Symbol is invalid.")
+        timeframe = params.get("timeframe", ["H1"])[0].upper()
+        if timeframe not in TIMEFRAMES:
+            raise ValueError("Timeframe is invalid.")
+        start = params.get("start_utc", [""])[0]
+        end = params.get("end_utc", [""])[0]
+        pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+        if not re.fullmatch(pattern, start) or not re.fullmatch(pattern, end):
+            raise ValueError("History range must use UTC ISO-8601 timestamps.")
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+        max_days = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 180, "D1": 730}[timeframe]
+        if start_dt >= end_dt or (end_dt - start_dt).total_seconds() > max_days * 86400:
+            raise ValueError("History range is invalid or too large.")
 
     return parsed.path + (("?" + urlencode({key: items[0] for key, items in params.items()})) if params else "")
 
