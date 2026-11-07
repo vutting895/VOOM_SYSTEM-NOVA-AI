@@ -29,3 +29,22 @@ The frontend is published on port 3000. The research worker is internal to the C
 ## Test
 
 Install `workers/requirements.txt`, then run `python -m pytest tests -q` and `python -m unittest discover -s tests -v`. CI runs the focused SMC pytest suite and the existing SMC unittest regression tests.
+
+## Combined SMC + Elliott Wave research pipeline
+
+- `POST /v1/research/pipeline` returns SMC structure analysis, heuristic Elliott-wave candidates, and directional agreement metadata.
+- `POST /v1/elliott-wave/analyze` returns the latest alternating-pivot candidate count.
+- Elliott labeling is deliberately heuristic: it is not a unique Elliott count, does not resolve wave degree/alternatives, and must not be treated as a trade signal.
+
+## Walk-forward / out-of-sample
+
+- `POST /v1/backtest/walk-forward` runs rolling expanding-window folds.
+- Configure `train_bars`, `test_bars`, `step_bars`, and `warmup_bars`.
+- Only trades entered inside each held-out test segment contribute to OOS metrics. Warmup candles provide swing context; no trade entered in the warmup is counted.
+- This evaluates the fixed SMC baseline; it does not fit/tune model parameters. Use additional walk-forward parameter selection, embargo/purge, gap-aware execution, spread/funding and portfolio sizing before production decisions.
+
+## Risk Guard → durable approval
+
+`POST /v1/risk/approval` first runs the fail-closed paper-only RiskWorker. A rejection returns without creating an approval. A pass requires an authenticated Supabase user bearer token plus `SUPABASE_URL` and `SUPABASE_ANON_KEY`, then calls the owner-scoped `nova_create_approval` RPC using the supplied active `thread_id`. The database validates proposal schema, owner/thread binding, policy version and expiry. This creates a human-review draft only: approval does not authorize broker execution and `live_trading_enabled` remains false.
+
+Do not put service-role keys or broker credentials in the request. Never log the Authorization header. A missing Supabase configuration fails closed.
