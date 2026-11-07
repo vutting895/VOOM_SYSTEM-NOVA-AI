@@ -7,6 +7,7 @@ on:
       - "tests/test_smc_strategy.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
+      - "tests/test_runtime_api.py"
       - "workers/alerts/**"
       - "workers/risk/**"
       - "workers/runtime.py"
@@ -27,6 +28,7 @@ on:
       - "tests/test_smc_strategy.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
+      - "tests/test_runtime_api.py"
       - "workers/alerts/**"
       - "workers/risk/**"
       - "workers/runtime.py"
@@ -61,7 +63,7 @@ jobs:
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
       - name: Run pytest regression suite
-        run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py -q
+        run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py -q
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
       - name: Build research worker container
