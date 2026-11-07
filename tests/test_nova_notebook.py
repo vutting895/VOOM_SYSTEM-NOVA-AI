@@ -45,6 +45,7 @@ class NotebookStructureTests(unittest.TestCase):
         self.assertIn("data_path = dataset_path", source)
         self.assertNotIn("/kaggle/input", source)
         self.assertIn("EXNESS_DEMO", source)
+        self.assertIn("MT5 tick_volume", source)
         self.assertIn("ordersEnabled", source)
         self.assertNotIn("order_send", source)
 
