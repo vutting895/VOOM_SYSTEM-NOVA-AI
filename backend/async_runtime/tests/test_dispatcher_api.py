@@ -89,5 +89,24 @@ class InternalDispatcherTests(unittest.TestCase):
             dispatcher_api.DispatchRequest.model_validate(raw)
 
 
+    def test_rejects_extra_fields_inside_ohlc_bar(self):
+        raw = valid_payload().model_dump()
+        raw["bars"][0]["broker_password"] = "must-never-be-accepted"
+        with self.assertRaises(Exception):
+            dispatcher_api.DispatchRequest.model_validate(raw)
+
+    def test_rejects_non_chronological_ohlc_before_enqueue(self):
+        raw = valid_payload().model_dump()
+        raw["bars"][8]["timestamp"] = raw["bars"][7]["timestamp"]
+        with self.assertRaises(Exception):
+            dispatcher_api.DispatchRequest.model_validate(raw)
+
+    def test_rejects_inconsistent_ohlc_before_enqueue(self):
+        raw = valid_payload().model_dump()
+        raw["bars"][0]["high"] = 0.5
+        with self.assertRaises(Exception):
+            dispatcher_api.DispatchRequest.model_validate(raw)
+
+
 if __name__ == "__main__":
     unittest.main()
