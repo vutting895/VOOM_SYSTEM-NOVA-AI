@@ -19,6 +19,7 @@ from backend.learning.data_sources import (
     load_binance_btcusdt_h1,
     load_exness_xauusdm_h1,
     load_exness_xauusdm_m15,
+    _segments,
 )
 
 
@@ -167,6 +168,7 @@ def test_exness_h1_loader_keeps_bounded_weekend_closure_in_one_segment(tmp_path)
     assert dataset.gap_after_indices == (1,)
     assert dataset.unexplained_gap_after_indices == ()
     assert len(dataset.bars) == 2
+    assert len(_segments(dataset.bars, dataset.timeframe)) == 1
 
 
 def test_exness_h1_loader_blocks_manifest_incomplete_7419_hour_gap(tmp_path):
