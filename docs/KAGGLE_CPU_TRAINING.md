@@ -28,7 +28,7 @@ The notebook computes the CSV bytes and SHA-256 in memory before persistence. If
 
 ## CPU training boundary
 
-CPU-only XGBoost and a small PyTorch LSTM are research baselines, not profitability claims or trading signals. The final holdout remains chronological and must not be tuned. Model promotion still requires untouched final OOS, walk-forward windows, cost-aware backtests, sufficient trade count, positive net results, PF above 1, baseline comparison and independent risk review.
+CPU-only XGBoost and a small PyTorch LSTM are research baselines, not profitability claims or trading signals. The notebook hard-caps the history request at `2026-07-01T00:00:00Z` (exclusive). Bars at or after that timestamp are never downloaded into this training run, preserving the sealed final OOS window. Do not move this cutoff to improve model metrics. The final holdout remains chronological and must not be tuned. Model promotion still requires untouched final OOS, walk-forward windows, cost-aware backtests, sufficient trade count, positive net results, PF above 1, baseline comparison and independent risk review.
 
 No broker order endpoint is used. No model is automatically promoted. Live trading remains disabled.
 
