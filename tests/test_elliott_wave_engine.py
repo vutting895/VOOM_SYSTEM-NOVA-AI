@@ -7,7 +7,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "workers" / "strategy"))
-from elliott_wave_engine import build_elliott_wave_features
+from elliott_wave_engine import build_elliott_wave_features, _confirmed_pivots
 
 
 def candles(close):
@@ -98,6 +98,19 @@ class ElliottWaveEngineTests(unittest.TestCase):
         changed.loc[60, ["open", "high", "low", "close"]] += 20
         after = build_elliott_wave_features(changed, left=2, right=2)
         pd.testing.assert_frame_equal(before.iloc[:60], after.iloc[:60])
+
+
+    def test_outside_bar_is_not_counted_as_two_ambiguous_swings(self):
+        high = np.array([11.0, 15.0, 12.0])
+        low = np.array([9.0, 5.0, 8.0])
+        events = list(_confirmed_pivots(high, low, left=1, right=1))
+        self.assertFalse(any(pivot_index == 1 for _, pivot_index, _, _ in events))
+
+    def test_duplicate_timestamps_are_rejected(self):
+        frame = candles([10, 11, 10, 12, 11])
+        frame.loc[2, "timestamp"] = frame.loc[1, "timestamp"]
+        with self.assertRaisesRegex(ValueError, "strictly chronological and unique"):
+            build_elliott_wave_features(frame)
 
     def test_rejects_invalid_ohlc(self):
         frame = candles([10, 11, 10, 12, 11])
