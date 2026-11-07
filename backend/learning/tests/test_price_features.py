@@ -36,7 +36,7 @@ def make_dataset(count=160, gap_after=(), gap_extra_hours=3):
             stamp, Decimal(str(price * .999)), Decimal(str(price * 1.002)),
             Decimal(str(price * .997)), Decimal(str(price)), Decimal(str(100 + i)),
         ))
-    return Dataset(tuple(bars), tuple(gap_after))
+    return Dataset(tuple(bars), tuple(gap_after), tuple(gap_after))
 
 
 def test_target_is_next_bar_log_return_and_lags_exist():
@@ -84,6 +84,7 @@ def test_bounded_weekend_closure_does_not_restart_rolling_warmup():
     # A Friday-to-Monday closure is explicitly classified as bounded, so it
     # may preserve the historical rolling window instead of discarding 60 bars.
     dataset = make_dataset(count=220, gap_after=(110,), gap_extra_hours=73)
+    dataset = Dataset(dataset.bars, dataset.gap_after_indices, unexplained_gap_after_indices=())
     result = build_price_features(dataset)
 
     assert dataset.unexplained_gap_after_indices == ()
