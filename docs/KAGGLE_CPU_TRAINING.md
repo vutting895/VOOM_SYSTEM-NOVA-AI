@@ -34,4 +34,11 @@ No broker order endpoint is used. No model is automatically promoted. Live tradi
 
 ## Bounded market-closure validation
 
-The notebook accepts weekend/holiday closures only when the interval is at most 96 hours. A larger gap is treated as a possible data outage even when it crosses one or more weekends, and the dataset is not persisted or used for training. This prevents a multi-month MT5 history outage from being misclassified as a normal weekend closure.
+The notebook accepts:
+- regular consecutive H1 bars;
+- Exness XAUUSDm's observed two-hour weekday rollover windows at 20:00-22:00 or 21:00-23:00 UTC, Monday-Thursday; Exness documents UTC+0 servers, seasonal rollover timing, and that gold is normally closed during rollover ([official instrument trading hours](https://get.exness.help/hc/en-us/articles/4405235684498-Instrument-trading-hours));
+- weekend closures of at most 96 hours.
+
+The rollover exception is symbol-specific and is not applied to Binance or 24/7 markets. Other weekday gaps (including 4-5 hour and longer gaps) remain unexplained until checked against the exact MT5 symbol session/holiday schedule; they are not accepted simply because they are shorter than 96 hours. The notebook reports these gaps and refuses to persist or train on the Dataset.
+
+The PR #238 H1 snapshot currently has a 7,419-hour outage from 2025-12-31T21:00:00Z to 2026-11-06T00:00:00Z, plus 17 additional weekday gaps of 4-29 hours that have not yet been verified. Recover the missing historical range from the authorized Exness Demo MT5 Bridge and reconcile the remaining closures with source session metadata. Never synthesize bars or change the manifest to bypass the gate.
