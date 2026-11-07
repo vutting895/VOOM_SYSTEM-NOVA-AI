@@ -26,7 +26,7 @@
   "gaps_over_1h": 556,
   "csv_bytes": 793335,
   "sha256_csv": "16bfd7e10d73784827f3e45f72313f3934431a26e275ada6b592e0cfca158c45",
-  "note": "Only completed H1 candles are included. tick_volume is genuine MT5 tick count from Exness Demo. No volume values were fabricated or imputed. Gaps over one hour include broker market closures and session breaks; inspect timestamps before model training.",
+  "note": "The file contains genuine MT5 Demo tick_volume and valid OHLC rows, but it is NOT a continuous three-year training dataset. A 7,419-hour gap exists between 2025-12-31T21:00:00Z and 2026-11-06T00:00:00Z. Do not train until the missing historical range is recovered from MT5 and the manifest/hash are regenerated. No bars or volume values may be synthesized.",
   "volume_basis": "MT5 tick_volume (tick count per H1 bar; not exchange-traded base volume)",
   "tick_volume_min": 254,
   "tick_volume_max": 124680,
@@ -50,5 +50,28 @@
     "missing_volume_rows": 0,
     "zero_volume_rows": 0
   },
-  "verified_at_utc": "2026-11-07T00:00:00Z"
+  "verified_at_utc": "2026-11-07T00:00:00Z",
+  "completeness_status": "BLOCKED_MISSING_HISTORICAL_SEGMENT",
+  "training_eligible": false,
+  "max_allowed_gap_hours_for_training": 96,
+  "gap_audit": {
+    "gap_count_over_1h": 556,
+    "gap_count_over_96h": 1,
+    "largest_gap_hours": 7419,
+    "largest_gap_start_utc": "2025-12-31T21:00:00Z",
+    "largest_gap_end_utc": "2026-11-06T00:00:00Z",
+    "segments": [
+      {
+        "first_timestamp_utc": "2023-11-06T21:00:00Z",
+        "last_timestamp_utc": "2025-12-31T21:00:00Z",
+        "rows": 12713
+      },
+      {
+        "first_timestamp_utc": "2026-11-06T00:00:00Z",
+        "last_timestamp_utc": "2026-11-06T19:00:00Z",
+        "rows": 20
+      }
+    ],
+    "decision": "BLOCK_TRAINING_UNTIL_MISSING_SEGMENT_IS_REINGESTED"
+  }
 }
