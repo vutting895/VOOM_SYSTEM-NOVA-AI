@@ -42,6 +42,8 @@ class NotebookStructureTests(unittest.TestCase):
         self.assertIn("sha256", source)
         self.assertIn("coverage_issues", source)
         self.assertIn("training_eligible", source)
+        self.assertIn("data_path = dataset_path", source)
+        self.assertNotIn("/kaggle/input", source)
         self.assertIn("EXNESS_DEMO", source)
         self.assertIn("ordersEnabled", source)
         self.assertNotIn("order_send", source)
