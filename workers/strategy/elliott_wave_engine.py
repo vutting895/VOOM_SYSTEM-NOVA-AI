@@ -139,6 +139,12 @@ def build_elliott_wave_features(
             columns["elliott_wave4_retrace"][i] = abs(p[3]["price"] - p[4]["price"]) / l3
             for j, point in enumerate(p, start=1):
                 columns[f"elliott_pivot_{j}_index"][i] = point["index"]
+            origin_price = float(p[0]["price"])
+            if (direction > 0 and close[i] < origin_price) or (direction < 0 and close[i] > origin_price):
+                columns["elliott_impulse_valid"][i] = 0
+                columns["elliott_impulse_complete"][i] = 0
+                columns["elliott_wave_number"][i] = 0
+                columns["elliott_direction"][i] = 0
             continue
 
         # Partial impulse state, using only pivots confirmed by this bar.
