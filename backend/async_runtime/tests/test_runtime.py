@@ -59,13 +59,16 @@ class SMCValidationTests(unittest.TestCase):
 
 class ElliottWaveTests(unittest.TestCase):
     def _bars_from_vertices(self, vertices):
-        # First vertex is at index 1 so it can be confirmed by a left neighbour.
-        closes = [float(vertices[0][1] + 2), float(vertices[0][1])]
+        # Make the first point a confirmed local low for bullish or local high for bearish.
+        first_offset = -2 if vertices[1][1] < vertices[0][1] else 2
+        closes = [float(vertices[0][1] + first_offset), float(vertices[0][1])]
         for (start_i, start_p), (end_i, end_p) in zip(vertices, vertices[1:]):
             for i in range(start_i + 1, end_i + 1):
                 fraction = (i - start_i) / (end_i - start_i)
                 closes.append(float(start_p + (end_p - start_p) * fraction))
-        closes.append(float(vertices[-1][1] - 1))
+        # One additional bar confirms the final pivot on the right-hand side.
+        final_offset = -1 if vertices[-1][1] > vertices[-2][1] else 1
+        closes.append(float(vertices[-1][1] + final_offset))
         return make_bars(closes)
 
     def test_bullish_impulse_candidate_is_confirmed_after_right_bar(self):
