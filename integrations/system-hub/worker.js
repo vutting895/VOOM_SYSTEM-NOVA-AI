@@ -498,6 +498,99 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+
+const NOVA_TIMEFRAME_MAP = Object.freeze({
+  M1: "1m", M5: "5m", M15: "15m", M30: "30m", H1: "1h", H4: "4h", D1: "1d"
+});
+function normalizeClosedMt5Bars(rawBars, count) {
+  if (!Array.isArray(rawBars) || rawBars.length < 26 || rawBars.length > 500) throw new Error("mt5_history_insufficient");
+  const closed = rawBars.slice(0, -1).slice(-count);
+  if (closed.length < 25) throw new Error("mt5_closed_history_insufficient");
+  let previousTime = -Infinity;
+  return closed.map((bar) => {
+    const time = Date.parse(typeof bar?.time === "string" ? bar.time : "");
+    if (!Number.isFinite(time) || time <= previousTime) throw new Error("mt5_bar_time_invalid");
+    previousTime = time;
+    const values = {};
+    for (const key of ["open", "high", "low", "close"]) {
+      values[key] = safeNumber(bar[key]);
+      if (values[key] === null || values[key] <= 0) throw new Error("mt5_bar_price_invalid");
+    }
+    if (values.high < Math.max(values.open, values.close, values.low) ||
+        values.low > Math.min(values.open, values.close, values.high)) throw new Error("mt5_bar_ohlc_invalid");
+    const volume = safeNumber(bar.tick_volume ?? bar.real_volume ?? 0);
+    if (volume === null || volume < 0) throw new Error("mt5_bar_volume_invalid");
+    return { timestamp: new Date(time).toISOString(), ...values, volume };
+  });
+}
+function analysisDispatchTarget(env) {
+  const configured = String(env.NOVA_ANALYSIS_DISPATCH_URL || "");
+  const expectedHost = String(env.NOVA_ANALYSIS_DISPATCH_HOST || "").toLowerCase();
+  if (!configured || !expectedHost || !env.NOVA_ANALYSIS_DISPATCH_TOKEN ||
+      String(env.NOVA_ANALYSIS_DISPATCH_TOKEN).length < 32) return null;
+  try {
+    const target = new URL(configured);
+    if (target.protocol !== "https:" || target.hostname.toLowerCase() !== expectedHost ||
+        target.username || target.password || target.port || target.search || target.hash ||
+        target.pathname !== "/internal/v1/analysis/smc") return null;
+    return target;
+  } catch { return null; }
+}
+async function dispatchSmcAnalysis(request, env, user, row, origin) {
+  let input;
+  try { input = await request.json(); } catch { return json({ error: "invalid_json_body" }, 400, origin, env); }
+  if (!input || typeof input !== "object" || Array.isArray(input)) return json({ error: "invalid_analysis_request" }, 400, origin, env);
+  const symbol = String(input.symbol || "").trim();
+  const mt5Timeframe = String(input.timeframe || "M5").trim().toUpperCase();
+  const count = input.count === undefined ? 200 : Number(input.count);
+  if (!MT5_SYMBOL.test(symbol)) return json({ error: "valid_mt5_symbol_required" }, 400, origin, env);
+  if (!MT5_TIMEFRAMES.has(mt5Timeframe)) return json({ error: "unsupported_mt5_timeframe" }, 400, origin, env);
+  if (!Number.isInteger(count) || count < 25 || count > 499) return json({ error: "analysis_count_must_be_between_25_and_499" }, 400, origin, env);
+  const target = analysisDispatchTarget(env);
+  if (!target) return json({ error: "analysis_dispatch_not_configured" }, 503, origin, env);
+  const market = await requestMt5Proxy(env, user, row, "/api/quotes", { symbol, timeframe: mt5Timeframe, count: count + 1 });
+  if (!market.ok) return json({
+    connectionId: row.id, state: market.error, detail: market.detail, dataVerified: false,
+    ordersEnabled: false, liveTradingEnabled: false
+  }, market.status, origin, env);
+  const source = market.body;
+  if (source.symbol !== symbol || source.timeframe !== mt5Timeframe) return json({ error: "mt5_market_data_identity_mismatch" }, 502, origin, env);
+  let bars;
+  try { bars = normalizeClosedMt5Bars(source.bars, count); }
+  catch (error) {
+    const code = typeof error?.message === "string" && /^mt5_[a-z_]+$/.test(error.message) ? error.message : "mt5_market_data_invalid";
+    return json({ error: code }, 502, origin, env);
+  }
+  const fetchedAt = new Date().toISOString();
+  let response;
+  try {
+    response = await fetch(target, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + env.NOVA_ANALYSIS_DISPATCH_TOKEN, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        tenant_id: user.userId, connection_id: row.id, symbol,
+        timeframe: NOVA_TIMEFRAME_MAP[mt5Timeframe], bars, last_bar_closed: true,
+        source_metadata: {
+          provider: "exness_mt5_demo", connection_id: row.id, fetched_at: fetchedAt,
+          source_as_of: typeof source.as_of === "string" ? source.as_of : fetchedAt
+        }
+      }),
+      cache: "no-store", redirect: "error", signal: AbortSignal.timeout(12000)
+    });
+  } catch { return json({ error: "analysis_dispatch_unavailable" }, 503, origin, env); }
+  const queued = await response.json().catch(() => ({}));
+  if (response.status !== 202 || typeof queued.task_id !== "string" ||
+      !queued.task_id || queued.task_id.length > 128 || queued.status !== "QUEUED") {
+    return json({ error: "analysis_dispatch_rejected" }, 503, origin, env);
+  }
+  return json({
+    connectionId: row.id, taskId: queued.task_id, status: "QUEUED", symbol, timeframe: mt5Timeframe,
+    analyzedBarCount: bars.length, lastClosedBarAt: bars[bars.length - 1].timestamp,
+    marketDataProvider: "exness_mt5_demo", dataVerified: true,
+    ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
+  }, 202, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -552,16 +645,20 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes|analyze)$/.exec(url.pathname);
     if (match && (
       (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
-      (match[2] === "check" && request.method === "POST")
+      (["check", "analyze"].includes(match[2]) && request.method === "POST")
     )) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
+      if (match[2] === "analyze") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return dispatchSmcAnalysis(request, env, auth, result.row, origin);
+      }
       if (match[2] === "account") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
         return readAccount(request, env, auth, result.row, origin);
