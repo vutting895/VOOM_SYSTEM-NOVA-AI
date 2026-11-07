@@ -36,6 +36,20 @@ The Kaggle CLI's \`kernels push\` workflow does not attach interactive Kaggle No
 3. Set Space variable \`HF_MODEL_REPO_ID\` to the private Model repo ID. Give the Space a read-only token for that Model repo.
 4. A push to \`main\` changing \`hf-space/**\` syncs Space code. Pull requests do not sync the production Space. \`workflow_dispatch\` supports manual sync.
 
+
+
+**Kaggle API token clarification:** the scheduled notebook runs inside Kaggle, so it does not need a Kaggle API token at runtime. A Kaggle API token is only needed on an external machine/CI runner when using the Kaggle CLI to push or manage notebooks/datasets. Never store a Kaggle API token in this repository or GitHub Actions. The notebook itself reads only the GitHub read token and Hugging Face token from Kaggle Notebook Secrets.
+
+## Configure GitHub Actions variables and secret
+
+In **Repository → Settings → Secrets and variables → Actions**, add:
+
+- Repository secret `HF_TOKEN`: Hugging Face token with write access to the private Space and private Model repositories used by NOVA.
+- Repository variable `HF_SPACE_REPO_ID`: exact Space repository ID, for example `account/nova-learning-space`.
+- Repository variable `HF_MODEL_REPO_ID`: exact private Model repository ID, for example `account/nova-learning-models`.
+
+After saving them, run **Actions → Verify NOVA Hugging Face configuration → Run workflow**. The workflow checks that both destinations are reachable and private; it never prints or uploads the token. The existing Space sync workflow uses `HF_TOKEN` and `HF_SPACE_REPO_ID`. Kaggle Notebook Secrets remain configured separately in Kaggle and are not readable by GitHub Actions.
+
 ## Safety and model lifecycle
 
 - This creates forecasting research candidates, not order signals. MAE is not proof of profitable trading; spread, commission, slippage, news and out-of-sample strategy gates remain separate.
