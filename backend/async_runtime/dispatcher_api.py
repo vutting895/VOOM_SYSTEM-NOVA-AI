@@ -10,6 +10,7 @@ from __future__ import annotations
 import hmac
 import os
 import re
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -30,6 +31,36 @@ _SYMBOL_RE = re.compile(r"^[A-Za-z0-9._/-]{2,32}$")
 _TIMEFRAME_RE = re.compile(r"^(1m|5m|15m|30m|1h|4h|1d|1w)$")
 
 
+class OHLCBar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    timestamp: str
+    open: float = Field(gt=0, allow_inf_nan=False)
+    high: float = Field(gt=0, allow_inf_nan=False)
+    low: float = Field(gt=0, allow_inf_nan=False)
+    close: float = Field(gt=0, allow_inf_nan=False)
+    volume: float = Field(ge=0, allow_inf_nan=False)
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: str) -> str:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("timestamp must be ISO-8601") from exc
+        if parsed.tzinfo is None:
+            raise ValueError("timestamp must include timezone")
+        return parsed.isoformat().replace("+00:00", "Z")
+
+    @model_validator(mode="after")
+    def validate_ohlc(self) -> "OHLCBar":
+        if self.high < max(self.open, self.close, self.low):
+            raise ValueError("high is inconsistent")
+        if self.low > min(self.open, self.close, self.high):
+            raise ValueError("low is inconsistent")
+        return self
+
+
 class DispatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -37,7 +68,7 @@ class DispatchRequest(BaseModel):
     connection_id: str
     symbol: str = Field(min_length=2, max_length=32)
     timeframe: str
-    bars: list[dict[str, Any]] = Field(min_length=25, max_length=500)
+    bars: list[OHLCBar] = Field(min_length=25, max_length=500)
     last_bar_closed: bool
     source_metadata: dict[str, str]
 
@@ -134,7 +165,7 @@ def dispatch_smc(
     task = scan_market_smc.delay(
         payload.symbol,
         payload.timeframe,
-        payload.bars,
+        [bar.model_dump() for bar in payload.bars],
         last_bar_closed=True,
         tenant_id=payload.tenant_id,
         source_metadata=source_metadata,
