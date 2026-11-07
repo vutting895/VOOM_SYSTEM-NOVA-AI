@@ -13,6 +13,25 @@ REPOSITORY = "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git"
 BRANCH = "main"
 
 
+DATASET_MANIFESTS = {
+    "exness_xauusdm_m15": "datasets/exness/demo/xauusdm_m15/dataset_manifest.json",
+    "exness_xauusdm_h1_3y": "data/market/exness/XAUUSDm_H1_3Y.manifest.json",
+    "binance_btcusdt_h1_5y": "datasets/public/binance/btcusdt_h1/dataset_manifest.json",
+    "binance_btcusdt_h1_500": "datasets/public/binance/btcusdt_h1/dataset_manifest.json",
+}
+
+
+def resolve_dataset_manifest(checkout: Path, dataset_id: str) -> Path:
+    """Resolve only an explicitly supported, repository-relative dataset manifest."""
+    relative_path = DATASET_MANIFESTS.get(dataset_id)
+    if relative_path is None:
+        supported = ", ".join(sorted(DATASET_MANIFESTS))
+        raise ValueError(
+            f"Unsupported NOVA_DATASET_ID {dataset_id!r}; supported IDs: {supported}"
+        )
+    return checkout / relative_path
+
+
 def secret(name: str, required: bool = True) -> str | None:
     try:
         from kaggle_secrets import UserSecretsClient
@@ -62,11 +81,14 @@ def main() -> None:
 
         requirements = checkout / "backend/learning/requirements-training.txt"
         trainer = checkout / "backend/learning/train_price_model.py"
-        manifest = checkout / "datasets/exness/demo/xauusdm_m15/dataset_manifest.json"
+        manifest = resolve_dataset_manifest(checkout, dataset_id)
         if not requirements.is_file() or not trainer.is_file():
             raise RuntimeError("Trainer is not on main; review and merge the Learning Engine PR first.")
         if not manifest.is_file():
-            raise RuntimeError("Historical dataset manifest is not on main; do not schedule training yet.")
+            raise RuntimeError(
+                f"Dataset manifest for {dataset_id!r} is not on main; "
+                "do not schedule training until its reviewed data dependency is available."
+            )
 
         run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
         env["HF_TOKEN"] = hf_token
