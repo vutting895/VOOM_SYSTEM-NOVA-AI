@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "backend/learning/**"
+      - "kaggle/nova-auto-learning/**"
       - "docs/LEARNING_ENGINE_V0.1.md"
+      - "docs/NOVA_HF_AUTO_LEARNING.md"
       - ".github/workflows/learning-engine-ci.yml"
 
 permissions:
