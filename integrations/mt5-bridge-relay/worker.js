@@ -134,7 +134,8 @@ export function validateReadRequest(url) {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) {
     return { ok: false, error: "invalid_history_range" };
   }
-  const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[timeframe.toUpperCase()];
+  const normalizedTimeframe = (timeframe || (url.pathname === "/api/history" ? "H1" : "M5")).toUpperCase();
+  const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[normalizedTimeframe];
   if ((endMs - startMs) > maxDays * 86400000) {
     return { ok: false, error: "history_window_too_large" };
   }
