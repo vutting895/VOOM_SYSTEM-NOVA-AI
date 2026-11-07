@@ -74,6 +74,18 @@ function setupFetch({ bars = makeBars(), dispatchStatus = 202 } = {}) {
       assert.equal(payload.source_metadata.provider, "exness_mt5_demo");
       return Response.json({ task_id: "task-123", status: "QUEUED" }, { status: dispatchStatus });
     }
+
+    if (url.hostname === "analysis.example" && url.pathname === "/internal/v1/analysis/tasks/task-123") {
+      assert.equal(init.method, "GET");
+      assert.equal(init.headers.Authorization, "Bearer " + INTERNAL_TOKEN);
+      assert.equal(url.searchParams.get("tenant_id"), USER_ID);
+      assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
+      return Response.json({
+        task_id: "task-123", status: "SUCCESS", ready: true, successful: true,
+        result: { symbol: "EURUSD", status: "COMPLETED" },
+        orders_enabled: false, execution_enabled: false, live_trading_enabled: false
+      });
+    }
     throw new Error("Unexpected fetch target: " + url.origin + url.pathname);
   };
   return {
@@ -94,7 +106,14 @@ function request(body) {
   });
 }
 
-const env = {
+
+function statusRequest(taskId = "task-123") {
+  return new Request("https://hub.example/v1/connections/" + CONNECTION_ID + "/analysis/" + taskId, {
+    method: "GET",
+    headers: { Authorization: "Bearer " + SESSION_TOKEN, Origin: ORIGIN }
+  });
+}
+\nconst env = {
   SUPABASE_URL: "https://supabase.example",
   SUPABASE_PUBLISHABLE_KEY: "synthetic-publishable-key",
   MT5_READONLY_PROXY_URL: "https://proxy.workers.dev",
@@ -160,6 +179,37 @@ test("analysis dispatch rejects malformed or out-of-order provider candles", asy
     assert.equal(response.status, 502);
     assert.equal(body.error, "mt5_bar_time_invalid");
     assert.equal(mock.calls.length, 3);
+  } finally {
+    mock.restore();
+  }
+});
+
+
+test("analysis task status and result are available only through the authenticated owner connection", async () => {
+  const mock = setupFetch();
+  try {
+    const response = await hub.fetch(statusRequest(), env);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.status, "SUCCESS");
+    assert.equal(body.successful, true);
+    assert.equal(body.result.symbol, "EURUSD");
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+    assert.equal(mock.calls.length, 3);
+  } finally {
+    mock.restore();
+  }
+});
+
+test("analysis task status rejects malformed task identifiers", async () => {
+  const mock = setupFetch();
+  try {
+    const response = await hub.fetch(statusRequest("../secrets"), env);
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.error, "invalid_task_id");
+    assert.equal(mock.calls.length, 2);
   } finally {
     mock.restore();
   }
