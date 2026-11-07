@@ -22,6 +22,7 @@ from celery_app import celery_app
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from tasks import scan_market_smc
+from analysis_persistence import AnalysisPersistenceError, create_job, update_job
 
 app = FastAPI(
     title="NOVA Internal Analysis Dispatcher",
@@ -218,6 +219,17 @@ def dispatch_smc(
         separators=(",", ":"),
     )
     try:
+        create_job(
+            task_id=task_id,
+            tenant_id=payload.tenant_id,
+            connection_id=payload.connection_id,
+            symbol=payload.symbol,
+            timeframe=payload.timeframe,
+            bar_count=len(payload.bars),
+        )
+    except AnalysisPersistenceError as exc:
+        raise HTTPException(status_code=503, detail="durable_analysis_store_unavailable") from exc
+    try:
         state_cache = get_redis_client()
         state_cache.setex(owner_key, 3600, owner_record)
         task = scan_market_smc.apply_async(
@@ -236,6 +248,11 @@ def dispatch_smc(
     except Exception as exc:
         try:
             get_redis_client().delete(owner_key)
+        except Exception:
+            pass
+        try:
+            update_job(task_id=task_id, tenant_id=payload.tenant_id, status="failed",
+                       error_code="analysis_queue_unavailable")
         except Exception:
             pass
         raise HTTPException(status_code=503, detail="analysis_queue_unavailable") from exc
