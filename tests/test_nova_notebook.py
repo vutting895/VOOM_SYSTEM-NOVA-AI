@@ -82,7 +82,7 @@ class NotebookStructureTests(unittest.TestCase):
 
 class DatasetGapDetectionTests(unittest.TestCase):
     @staticmethod
-    def detector():
+    def _gap_functions():
         notebook = load_notebook()
         cell = next(
             cell for cell in notebook["cells"]
@@ -90,13 +90,35 @@ class DatasetGapDetectionTests(unittest.TestCase):
             and "def detect_unexplained_gaps" in "".join(cell["source"])
         )
         tree = ast.parse("".join(cell["source"]))
-        function = next(
-            node for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "detect_unexplained_gaps"
-        )
+        names = {"is_bounded_market_closure", "detect_unexplained_gaps"}
+        return [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
+
+    @classmethod
+    def detector(cls):
         namespace = {"pd": pd}
-        exec(compile(ast.Module(body=[function], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+        exec(compile(ast.Module(body=cls._gap_functions(), type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
         return namespace["detect_unexplained_gaps"]
+
+    @classmethod
+    def bounded_closure(cls):
+        namespace = {"pd": pd}
+        exec(compile(ast.Module(body=cls._gap_functions(), type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+        return namespace["is_bounded_market_closure"]
+
+    @classmethod
+    def boundary_detector(cls):
+        notebook = load_notebook()
+        cell = next(
+            cell for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "def detect_boundary_gaps" in "".join(cell["source"])
+        )
+        tree = ast.parse("".join(cell["source"]))
+        names = {"is_bounded_market_closure", "detect_boundary_gaps"}
+        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
+        namespace = {"pd": pd}
+        exec(compile(ast.Module(body=functions, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+        return namespace["detect_boundary_gaps"]
 
     def test_accepts_normal_weekend_market_closure(self):
         detect = self.detector()
@@ -128,6 +150,38 @@ class DatasetGapDetectionTests(unittest.TestCase):
         ])
         gaps = detect(stamps, pd.Timedelta(hours=1))
         self.assertEqual(len(gaps), 1)
+
+    def test_rejects_97_hour_gap_even_when_it_crosses_weekend(self):
+        bounded = self.bounded_closure()
+        previous = pd.Timestamp("2025-11-07T21:00:00Z")
+        current = pd.Timestamp("2025-11-11T22:00:00Z")
+        self.assertEqual((current - previous).total_seconds() / 3600, 97)
+        self.assertFalse(bounded(previous, current, pd.Timedelta(hours=1)))
+
+    def test_rejects_multi_month_trailing_boundary_gap_crossing_weekends(self):
+        detect = self.boundary_detector()
+        last_bar = pd.Timestamp("2025-12-31T21:00:00Z")
+        requested_end = pd.Timestamp("2026-11-06T00:00:00Z")
+        issues = detect(
+            pd.Timestamp("2025-01-01T00:00:00Z"),
+            last_bar,
+            pd.Timestamp("2025-01-01T00:00:00Z"),
+            requested_end,
+            pd.Timedelta(hours=1),
+        )
+        self.assertEqual([item["boundary"] for item in issues], ["end"])
+        self.assertEqual(issues[0]["lag_hours"], 7419)
+
+    def test_accepts_bounded_weekend_gap_at_requested_end_boundary(self):
+        detect = self.boundary_detector()
+        issues = detect(
+            pd.Timestamp("2025-11-03T00:00:00Z"),
+            pd.Timestamp("2025-11-07T21:00:00Z"),
+            pd.Timestamp("2025-11-03T00:00:00Z"),
+            pd.Timestamp("2025-11-09T23:00:00Z"),
+            pd.Timedelta(hours=1),
+        )
+        self.assertEqual(issues, [])
 
 
 class OHLCVValidationTests(unittest.TestCase):
