@@ -1,3 +1,5 @@
-# Runtime dependencies pinned for repeatable worker builds.
+# Runtime dependencies pinned for repeatable worker and dispatcher builds.
 celery[redis]==5.7.0
 redis==8.2.0
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
