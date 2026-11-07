@@ -24,7 +24,7 @@ The returned dataset retains genuine MT5 `tick_volume`, spread and real_volume. 
 - unexplained weekday gaps (weekend market closures are expected);
 - CSV SHA-256, byte size, row count, source and provenance in `dataset_manifest.json`.
 
-If gaps or requested-range coverage need review, the dataset is saved with `REVIEW_REQUIRED` and `training_eligible=false`; the notebook stops before training. No dataset or model weights are committed to Git.
+The notebook computes the CSV bytes and SHA-256 in memory before persistence. If gaps or requested-range coverage need review, it refuses to write the Dataset and stops with a validation report. After writing, it recomputes SHA-256 from disk and accepts the Dataset only if the hashes match. No dataset or model weights are committed to Git.
 
 ## CPU training boundary
 
