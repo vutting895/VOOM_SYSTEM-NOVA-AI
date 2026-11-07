@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0",
+  "status": "artifact_audited_performance_gate_blocked",
+  "audited_utc": "2026-11-01",
+  "source": {
+    "workflow_run_id": 41184502320,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320",
+    "run_number": 6,
+    "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
+    "artifact_id": 13036729349,
+    "artifact_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4",
+    "report_sha256": "3d1642375fe92b5232caf192945266056b100fa90f305bcf97ec4ccf7a2a8acc",
+    "manifest_sha256": "7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550",
+    "artifact_files_verified": [
+      "models/wave3_news_calendar_20261030/model_manifest.json",
+      "reports/wave3_news_calendar_20261030_report.json",
+      "reports/wave3_auto_tuning_history.json",
+      "reports/wave3_final_oos_trades.csv"
+    ]
+  },
+  "repository_sync": {
+    "main_sha": "99d474038e19a6eab884c5c891b21770c50fefa5",
+    "benchmark_branch_merge_commit": "e8b79297bf5a88cb51c08006e38787fb4f41bea3",
+    "benchmark_branch_head_at_audit": "23c9e7d1507166227963ffeea15241320bef54a8",
+    "benchmark_branch_ahead_by": 46,
+    "benchmark_branch_behind_by": 0,
+    "pr66_state": "open_draft_unmerged"
+  },
+  "market_data": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "timezone": "UTC",
+    "bars": 101076,
+    "usable_labeled_rows": 100965,
+    "first_bar_utc": "2022-07-21T00:00:00Z",
+    "last_closed_bar_utc": "2026-10-29T16:45:00Z"
+  },
+  "calendar": {
+    "path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "terminal_file": "Common/Files/VOOM_USD_High_Impact_2022_2026.csv",
+    "terminal_raw_bytes": 388313,
+    "terminal_raw_line_endings": {
+      "crlf": 2167,
+      "bare_lf": 0,
+      "utf8_bom": false
+    },
+    "terminal_raw_sha256": "6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c",
+    "normalized_git_bytes": 386146,
+    "normalized_git_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "normalization": "replace CRLF with LF only",
+    "normalized_digest_matches_pinned_verifier": true,
+    "events": 2166,
+    "required_headers": 12,
+    "time_mode_counts": {
+      "datetime": 2166
+    },
+    "currency_counts": {
+      "USD": 2166
+    },
+    "impact_counts": {
+      "high": 2166
+    },
+    "country_counts": {
+      "US": 2166
+    },
+    "first_event_utc": "2022-07-21T12:30:00Z",
+    "last_event_utc": "2026-10-29T12:30:00Z",
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "validation": {
+      "missing_headers": 0,
+      "blank_required_rows": 0,
+      "extra_column_rows": 0,
+      "duplicate_event_value_pairs": 0,
+      "out_of_range_timestamps": 0,
+      "all_timestamps_explicit_utc": true,
+      "source": "MQL5 Economic Calendar",
+      "server_timezone": "Exness GMT+0"
+    },
+    "mt5_log": "MQL5/Logs/20261030.log",
+    "news_export_success_markers": [
+      {
+        "time_local": "15:17:27.791",
+        "high_events": 2166,
+        "queried_values": 15853,
+        "unknown_time_modes": 0
+      },
+      {
+        "time_local": "15:19:19.402",
+        "high_events": 2166,
+        "queried_values": 15853,
+        "unknown_time_modes": 0
+      }
+    ],
+    "provenance_resolution": "raw terminal CRLF bytes and canonical LF-normalized Git bytes contain the same CSV content; the prior mismatch was line-ending normalization and a truncated digest in the earlier PR note"
+  },
+  "final_oos": {
+    "start_utc": "2026-07-01T00:00:00Z",
+    "rows": 7942,
+    "accuracy_pct": 41.0602,
+    "majority_baseline_accuracy_pct": 45.9708,
+    "beats_baseline": false,
+    "balanced_accuracy_pct": 38.8382,
+    "macro_f1_pct": 38.0253,
+    "closed_trades": 0,
+    "minimum_closed_trades": 30,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "win_rate_pct": null,
+    "performance_gate": "blocked"
+  },
+  "walk_forward": [
+    {
+      "fold": "wf_2024_H1",
+      "accuracy_pct": 42.6987,
+      "baseline_pct": 47.4667,
+      "beats_baseline": false
+    },
+    {
+      "fold": "wf_2024_H2",
+      "accuracy_pct": 42.012,
+      "baseline_pct": 47.0338,
+      "beats_baseline": false
+    },
+    {
+      "fold": "wf_2025_H1",
+      "accuracy_pct": 38.652,
+      "baseline_pct": 44.6871,
+      "beats_baseline": false
+    },
+    {
+      "fold": "wf_2025_H2",
+      "accuracy_pct": 35.02,
+      "baseline_pct": 46.3677,
+      "beats_baseline": false
+    },
+    {
+      "fold": "wf_2026_H1",
+      "accuracy_pct": 36.616,
+      "baseline_pct": 46.5584,
+      "beats_baseline": false
+    }
+  ],
+  "class_balance": {
+    "train": {
+      "short": 23193,
+      "hold": 43363,
+      "long": 26459
+    },
+    "final_oos_actual": {
+      "short": 2198,
+      "hold": 3651,
+      "long": 2093
+    },
+    "final_oos_predicted": {
+      "short": 3286,
+      "hold": 3241,
+      "long": 1415
+    },
+    "long_recall_pct": 20.1147,
+    "observation": "model overpredicts short and underpredicts long relative to the OOS class distribution"
+  },
+  "probability_calibration": {
+    "status": "not_calibrated",
+    "brier_score": null,
+    "expected_calibration_error": null,
+    "reliability_curve": null,
+    "final_oos_used_for_calibration": false,
+    "direction_probability_is_trade_win_probability": false
+  },
+  "smc": {
+    "wave3_trigger_rows": 34,
+    "maximum_score_on_trigger_rows": 75,
+    "rows_smc_ge_85": 0,
+    "bos20_rows": 21,
+    "three_confirmed_higher_lows_plus_green_rows": 12,
+    "active_bullish_ob_within_5_rows": 1,
+    "inside_bullish_ob_zone_rows": 0,
+    "fvg_refill_rows": 7,
+    "xgb_buy_ge_75_agreement_rows": 0,
+    "lstm_buy_ge_80_diagnostic_rows": 120,
+    "lstm_surviving_prior_mandatory_gates_rows": 0,
+    "ensemble_buy_ge_85_agreement_rows": 0,
+    "scoring_contract": {
+      "bos20": 30,
+      "three_higher_lows_green": 20,
+      "qualifying_ob": 25,
+      "fvg_refill": 25,
+      "minimum_score": 85
+    },
+    "same_bar_candidate_trace": "not yet implemented; aggregate counts do not establish the causal component intersection"
+  },
+  "artifact_integrity": {
+    "model_round_trip_verification_passed": true,
+    "held_out_rows_compared": 256,
+    "max_probability_abs_tolerance": 0.000001,
+    "final_oos_used_for_tuning": false,
+    "purge_bars": 12,
+    "nested_inner_validation_folds": 2
+  },
+  "limitations": [
+    "Commission remains configured at zero because the available MT5 deal sample does not verify the account commission schedule.",
+    "Slippage remains an assumption; historical tick-level fills and live execution are not proven.",
+    "Candidate-level same-closed-bar SMC trace remains pending.",
+    "The signal_diagnostics note describes fail-closed behavior when a calendar is absent; this run's manifest and report confirm the validated calendar was supplied and applied."
+  ],
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false,
+    "production_eligible": false,
+    "frozen_rules_changed": false
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": "nova.wave3.calendar.raw-digest-revalidation.v1",
+  "status": "historical_terminal_export_bytes_verified_not_fresh_export",
+  "revalidated_at_utc": "2026-11-07T04:52:09.0631436Z",
+  "source": {
+    "terminal_common_files_path": "Common/Files/VOOM_USD_High_Impact_2022_2026.csv",
+    "terminal_file_last_modified_utc": "2026-10-30T08:19:19.4018763Z",
+    "raw_bytes": 388313,
+    "line_endings": "CRLF-only",
+    "raw_sha256": "6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c",
+    "normalization": "CRLF to LF only",
+    "normalized_bytes": 386146,
+    "normalized_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "normalized_hash_matches_canonical_git_file": true
+  },
+  "calendar": {
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "high_impact_usd_events": 2166,
+    "event_time_mode": "datetime",
+    "unknown_time_modes": 0,
+    "missing_or_blank_rows": 0,
+    "duplicate_event_value_pairs": 0,
+    "out_of_range_timestamps": 0
+  },
+  "log_evidence": {
+    "path": "MQL5/Logs/20261030.log",
+    "success_markers": 2,
+    "markers": [
+      {
+        "log_time_local": "15:17:27.791",
+        "high_events": 2166,
+        "queried_values": 15853,
+        "unknown_time_modes": 0
+      },
+      {
+        "log_time_local": "15:19:19.402",
+        "high_events": 2166,
+        "queried_values": 15853,
+        "unknown_time_modes": 0
+      }
+    ]
+  },
+  "qualification": "The original historical 2026-10-30 terminal export was revalidated on 2026-11-07. No fresh MT5 export was performed on the revalidation date."
+}

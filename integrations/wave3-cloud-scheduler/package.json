@@ -1,0 +1,8 @@
+{
+  "name": "nova-wave3-cloud-scheduler",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

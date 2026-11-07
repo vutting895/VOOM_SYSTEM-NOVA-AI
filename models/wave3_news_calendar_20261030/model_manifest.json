@@ -1,0 +1,176 @@
+{
+  "strategy": "VOOM v6.2.6.3 Wave3 + SMC XGB/60-bar LSTM BUY research",
+  "version": "6.2.6.3-research",
+  "model_artifacts": {
+    "xgb_model.json": {
+      "path": "models/wave3_news_calendar_20261030/xgb_model.json",
+      "sha256": "c8d31e85090e2190438ac5e3b9941217f12acef81ab74da02df42b182a8dad34",
+      "bytes": 919082
+    },
+    "deep_lstm.pt": {
+      "path": "models/wave3_news_calendar_20261030/deep_lstm.pt",
+      "sha256": "9c447d7da349d6736e9f9bbdcbd019253c6ef7e56436214aea485eb09a02e8c5",
+      "bytes": 112163
+    }
+  },
+  "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+  "symbol": "XAUUSDm",
+  "timeframe": "M15",
+  "timezone": "UTC",
+  "news_calendar": {
+    "provided": true,
+    "path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "event_rows": 2166,
+    "high_impact_event_rows": 2166,
+    "time_mode_counts": {
+      "datetime": 2166
+    },
+    "calendar_source": [
+      "MQL5 Economic Calendar"
+    ],
+    "calendar_timezone": [
+      "UTC (Exness trade server GMT+0)"
+    ],
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "market_bars_total": 101076,
+    "market_bars_news_safe": 95099,
+    "market_bars_blocked": 5977
+  },
+  "bar_count": 101076,
+  "usable_labeled_rows": 100965,
+  "data_first_bar": "2022-07-21T00:00:00+00:00",
+  "data_last_bar": "2026-10-29T16:45:00+00:00",
+  "model_training_last_timestamp": "2026-06-30T20:45:00+00:00",
+  "final_oos_start": "2026-07-01T00:00:00+00:00",
+  "label_horizon_bars": 12,
+  "label_threshold": "max(2 * recorded bar spread, 0.35 * ATR14 * sqrt(horizon))",
+  "feature_columns": [
+    "return_1", "return_2", "return_3", "return_6", "return_12", "return_24", "return_48",
+    "ema_dist_8", "ema_dist_12", "ema_dist_20", "ema_dist_21", "ema_dist_26", "ema_dist_50", "ema_dist_100",
+    "sma_dist_20", "sma_dist_50", "atr_price", "atr_pct", "rsi_14", "realized_vol_12", "realized_vol_24",
+    "realized_vol_48", "zscore_20", "body_pct", "range_atr", "upper_wick_pct", "lower_wick_pct",
+    "volume_z_48", "log_volume", "spread_price", "spread_pct", "spread_to_atr", "hour_sin", "hour_cos",
+    "weekday_sin", "weekday_cos", "structure_bias", "bos_up", "bos_down", "choch_up", "choch_down",
+    "buy_side_sweep", "sell_side_sweep", "bull_fvg", "bear_fvg", "bull_fvg_fill", "bear_fvg_fill",
+    "bull_ob_recent", "bear_ob_recent", "bull_ob_zone", "bear_ob_zone", "bull_ob_within5", "bear_ob_within5",
+    "choch_rule_up", "choch_rule_down", "dist_last_swing_high", "dist_last_swing_low", "fib_pullback_ratio",
+    "wave1_size", "wave1_high", "wave2_low", "wave1_low_short", "wave2_high_short", "wave3_long_entry_price",
+    "wave3_short_entry_price", "wave3_long_fib_score", "wave3_short_fib_score", "wave3_long_rule_breakout",
+    "wave3_short_rule_breakout", "wave3_long_zone", "wave3_short_zone", "wave3_long_breakout",
+    "wave3_short_breakout", "bos20_up", "bos20_down", "momentum_5_positive", "volume_ema20", "volume_gate",
+    "rsi_buy_gate", "discount_zone", "h1_trend_up", "deep_trend_gate", "near_fib_618", "atr_stop_gate",
+    "spread_gate", "smc_score_long", "smc_score_short", "smc_buy_gate", "smc_sell_gate"
+  ],
+  "label_mapping": {"0": "short", "1": "hold", "2": "long"},
+  "xgb_parameters": {
+    "n_estimators": 140, "max_depth": 4, "learning_rate": 0.04, "subsample": 0.85,
+    "colsample_bytree": 0.85, "min_child_weight": 8, "reg_lambda": 5.0,
+    "tree_method": "hist", "seed": 6263
+  },
+  "auto_tuning": {
+    "status": "completed",
+    "study_name": "final_model_pre_2026_07_01",
+    "search": "seeded_random_search",
+    "trials_requested": 4,
+    "trials_completed": 4,
+    "inner_validation_folds": 2,
+    "objective": "0.40*balanced_accuracy + 0.35*macro_F1 + 0.25*(1-normalized_log_loss), minus 0.15*fold_score_std",
+    "purge_bars": 12,
+    "selected_parameters": {
+      "n_estimators": 140, "max_depth": 4, "learning_rate": 0.04, "subsample": 0.85,
+      "colsample_bytree": 0.85, "min_child_weight": 8, "reg_lambda": 5.0
+    },
+    "selected_robust_score": 0.270682,
+    "selected_trial": 1,
+    "trials": [
+      {"trial": 1, "parameters": {"n_estimators": 140, "max_depth": 4, "learning_rate": 0.04, "subsample": 0.85, "colsample_bytree": 0.85, "min_child_weight": 8, "reg_lambda": 5.0}, "mean_composite_score": 0.272771, "score_std": 0.013926, "robust_score": 0.270682, "folds": [
+        {"inner_fold": 1, "validation_start": "2024-12-30T23:45:00+00:00", "validation_end_exclusive": "2025-07-07T02:45:00+00:00", "train_rows": 57661, "validation_rows": 12092, "balanced_accuracy": 0.38459, "macro_f1": 0.379602, "log_loss": 1.118356, "composite_score": 0.286697},
+        {"inner_fold": 2, "validation_start": "2025-10-14T00:30:00+00:00", "validation_end_exclusive": "2026-04-21T01:30:00+00:00", "train_rows": 76262, "validation_rows": 12092, "balanced_accuracy": 0.357641, "macro_f1": 0.330823, "log_loss": 1.119503, "composite_score": 0.258845}
+      ]},
+      {"trial": 2, "parameters": {"n_estimators": 100, "max_depth": 3, "learning_rate": 0.025, "subsample": 0.85, "colsample_bytree": 0.8, "min_child_weight": 12, "reg_lambda": 2.0}, "mean_composite_score": 0.269025, "score_std": 0.017853, "robust_score": 0.266347, "folds": [
+        {"inner_fold": 1, "validation_start": "2024-12-30T23:45:00+00:00", "validation_end_exclusive": "2025-07-07T02:45:00+00:00", "train_rows": 57661, "validation_rows": 12092, "balanced_accuracy": 0.385121, "macro_f1": 0.379516, "log_loss": 1.110871, "composite_score": 0.286879},
+        {"inner_fold": 2, "validation_start": "2025-10-14T00:30:00+00:00", "validation_end_exclusive": "2026-04-21T01:30:00+00:00", "train_rows": 76262, "validation_rows": 12092, "balanced_accuracy": 0.347721, "macro_f1": 0.320239, "log_loss": 1.117559, "composite_score": 0.251172}
+      ]},
+      {"trial": 3, "parameters": {"n_estimators": 160, "max_depth": 3, "learning_rate": 0.05, "subsample": 0.75, "colsample_bytree": 0.9, "min_child_weight": 12, "reg_lambda": 5.0}, "mean_composite_score": 0.271022, "score_std": 0.014811, "robust_score": 0.268801, "folds": [
+        {"inner_fold": 1, "validation_start": "2024-12-30T23:45:00+00:00", "validation_end_exclusive": "2025-07-07T02:45:00+00:00", "train_rows": 57661, "validation_rows": 12092, "balanced_accuracy": 0.383526, "macro_f1": 0.378351, "log_loss": 1.121702, "composite_score": 0.285833},
+        {"inner_fold": 2, "validation_start": "2025-10-14T00:30:00+00:00", "validation_end_exclusive": "2026-04-21T01:30:00+00:00", "train_rows": 76262, "validation_rows": 12092, "balanced_accuracy": 0.354797, "macro_f1": 0.32655, "log_loss": 1.12093, "composite_score": 0.256211}
+      ]},
+      {"trial": 4, "parameters": {"n_estimators": 120, "max_depth": 5, "learning_rate": 0.04, "subsample": 0.75, "colsample_bytree": 0.9, "min_child_weight": 12, "reg_lambda": 5.0}, "mean_composite_score": 0.272641, "score_std": 0.014, "robust_score": 0.270541, "folds": [
+        {"inner_fold": 1, "validation_start": "2024-12-30T23:45:00+00:00", "validation_end_exclusive": "2025-07-07T02:45:00+00:00", "train_rows": 57661, "validation_rows": 12092, "balanced_accuracy": 0.384716, "macro_f1": 0.379298, "log_loss": 1.120332, "composite_score": 0.286641},
+        {"inner_fold": 2, "validation_start": "2025-10-14T00:30:00+00:00", "validation_end_exclusive": "2026-04-21T01:30:00+00:00", "train_rows": 76262, "validation_rows": 12092, "balanced_accuracy": 0.356872, "macro_f1": 0.33112, "log_loss": 1.116966, "composite_score": 0.258641}
+      ]}
+    ],
+    "strategy_gates_tuned": false,
+    "final_oos_used_for_tuning": false
+  },
+  "deep_model": {
+    "type": "PyTorch LSTMClassifier",
+    "sequence_length_bars": 60,
+    "layers": [32, 32],
+    "epochs": 4,
+    "training_batch_size": 256,
+    "cpu_batch_size_fallbacks": [256, 128, 64],
+    "training_loss_by_epoch": [1.068531, 1.020352, 0.957818, 0.897545],
+    "ensemble_weight": 0.4
+  },
+  "artifact_round_trip_verification": {
+    "passed": true,
+    "held_out_rows_compared": 256,
+    "feature_schema_matches": true,
+    "max_probability_abs_tolerance": 1e-06
+  },
+  "v6_2_6_3_buy_contract": {
+    "wave1_minimum_price_size": 10.0,
+    "fib_accepted_pct": [45, 85],
+    "fib_preferred_pct": [55, 65],
+    "fib_score_rule": "95 in preferred zone, 80 in accepted zone, otherwise 0",
+    "entry_rule": "Wave1 high + 20% of Wave1 size; BUY fills only if next bar reaches the trigger",
+    "smc_score_weights": {
+      "BOS20": 30,
+      "three_higher_lows_and_green_candle": 20,
+      "large_order_block_within_5": 25,
+      "FVG_refill": 25
+    },
+    "minimum_smc_score": 85,
+    "xgb_buy_minimum": 0.75,
+    "lstm_buy_minimum": 0.8,
+    "ensemble": {"xgb_weight": 0.6, "lstm_weight": 0.4, "buy_minimum": 0.85},
+    "rsi_buy_range": [50, 70],
+    "momentum_bars": 5,
+    "volume_minimum_fraction_of_ema20": 0.8,
+    "fib_618_tolerance_assumption": 0.05,
+    "buy_requires_discount_zone_100_bars": true,
+    "requires_m15_and_completed_h1_uptrend": true,
+    "spread_max_price_units": 0.35,
+    "news_blackout_minutes_each_side": 30,
+    "stop_distance_price_units": 5.0,
+    "target_distance_price_units": 11.0,
+    "reward_risk": 2.2,
+    "fixed_lot": 0.01,
+    "max_open_positions": 1,
+    "max_daily_trades": 5,
+    "max_daily_loss_usd": 500.0,
+    "news_calendar_available": true,
+    "sell_rules_implemented": false,
+    "conflict_resolution": "Use fixed $5 SL and 2.2R target per explicit lock/example; SL = Wave2 Low - $5 conflicts with that example and is not used."
+  },
+  "backtest_assumptions": {
+    "starting_equity_usd": 10000.0,
+    "contract_size": 100.0,
+    "fixed_lot": 0.01,
+    "max_hold_bars": 12,
+    "slippage_price_per_side": 0.02,
+    "commission_per_lot_per_side_usd": 0.0,
+    "swap": "omitted; maximum holding period is 12 M15 bars",
+    "spread": "per-candle MT5 historical spread_price; XAU entry must be <= 0.35 price units",
+    "fills": "BUY trigger checked on next bar; conservative stop-first when SL and TP touch the same OHLC bar",
+    "news": "validated historical high-impact calendar applied; 95099/101076 market bars passed exact-time +/-30-minute and untimed-event full-day exclusions"
+  },
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "market_data_access": "read-only MT5 history export"
+  }
+}

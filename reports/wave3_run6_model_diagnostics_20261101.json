@@ -1,0 +1,313 @@
+{
+  "schema_version": "1.0",
+  "status": "research_diagnostics_only_performance_gate_blocked",
+  "generated_utc": "2026-11-01",
+  "source": {
+    "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
+    "training_workflow_run_id": 41184502320,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320",
+    "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
+    "artifact_id": 13036729349,
+    "artifact_archive_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4",
+    "report_path": "reports/wave3_news_calendar_20261030_report.json",
+    "report_sha256": "3d1642375fe92b5232caf192945266056b100fa90f305bcf97ec4ccf7a2a8acc",
+    "manifest_path": "models/wave3_news_calendar_20261030/model_manifest.json",
+    "manifest_sha256": "7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550",
+    "xgb_model_sha256": "c8d31e85090e2190438ac5e3b9941217f12acef81ab74da02df42b182a8dad34",
+    "lstm_model_sha256": "9c447d7da349d6736e9f9bbdcbd019253c6ef7e56436214aea485eb09a02e8c5",
+    "tuning_history_sha256": "0d96e4f0adf6f66d83b5a558ac11390ba94b1b51b44a8b8895d9b44e7c4efbf0",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "calendar_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37"
+  },
+  "methodology": {
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "bars": 101076,
+    "usable_labeled_rows": 100965,
+    "training_rows": 93015,
+    "training_last_label_timestamp_utc": "2026-06-30T20:45:00+00:00",
+    "final_oos_start_utc": "2026-07-01T00:00:00+00:00",
+    "final_oos_end_utc": "2026-10-29T13:45:00+00:00",
+    "final_oos_rows": 7942,
+    "label_horizon_bars": 12,
+    "lstm_sequence_length_bars": 60,
+    "nested_walk_forward": true,
+    "inner_validation_folds": 2,
+    "purge_bars": 12,
+    "final_oos_used_for_tuning": false,
+    "strategy_gates_tuned": false
+  },
+  "labels": {
+    "order": [
+      "short",
+      "hold",
+      "long"
+    ],
+    "train_counts": {
+      "short": 23193,
+      "hold": 43363,
+      "long": 26459
+    },
+    "train_pct": {
+      "short": 24.93,
+      "hold": 46.62,
+      "long": 28.45
+    },
+    "final_oos_actual_counts": {
+      "short": 2198,
+      "hold": 3651,
+      "long": 2093
+    },
+    "final_oos_actual_pct": {
+      "short": 27.68,
+      "hold": 45.97,
+      "long": 26.35
+    },
+    "final_oos_predicted_counts": {
+      "short": 3286,
+      "hold": 3241,
+      "long": 1415
+    },
+    "final_oos_predicted_pct": {
+      "short": 41.37,
+      "hold": 40.81,
+      "long": 17.82
+    },
+    "long_recall_pct": 20.1147,
+    "interpretation": "Train and OOS class proportions are broadly similar; prediction output is skewed. Short is over-predicted by 13.69 percentage points versus actual and Long is under-predicted by 8.53 points."
+  },
+  "final_oos": {
+    "accuracy_pct": 41.0602,
+    "majority_baseline_pct": 45.9708,
+    "accuracy_gap_pp": -4.9106,
+    "balanced_accuracy_pct": 38.8382,
+    "macro_f1_pct": 38.0253,
+    "confusion_matrix_actual_rows_predicted_columns": [
+      [
+        1028,
+        745,
+        425
+      ],
+      [
+        1270,
+        1812,
+        569
+      ],
+      [
+        988,
+        684,
+        421
+      ]
+    ],
+    "per_class": {
+      "short": {
+        "precision": 0.3128423615,
+        "recall": 0.4676979072,
+        "f1": 0.3749088257,
+        "support": 2198
+      },
+      "hold": {
+        "precision": 0.5590867016,
+        "recall": 0.4963023829,
+        "f1": 0.5258270459,
+        "support": 3651
+      },
+      "long": {
+        "precision": 0.2975265018,
+        "recall": 0.2011466794,
+        "f1": 0.240022805,
+        "support": 2093
+      }
+    },
+    "closed_trades": 0,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "news_safe_rows": 7421
+  },
+  "walk_forward": [
+    {
+      "fold": "2024-H1",
+      "accuracy_pct": 42.6987,
+      "majority_baseline_pct": 47.4667,
+      "gap_pp": -4.768,
+      "balanced_accuracy_pct": 41.4678,
+      "macro_f1_pct": 40.9901,
+      "closed_trades": 0
+    },
+    {
+      "fold": "2024-H2",
+      "accuracy_pct": 42.012,
+      "majority_baseline_pct": 47.0338,
+      "gap_pp": -5.0218,
+      "balanced_accuracy_pct": 40.4964,
+      "macro_f1_pct": 40.2219,
+      "closed_trades": 0
+    },
+    {
+      "fold": "2025-H1",
+      "accuracy_pct": 38.652,
+      "majority_baseline_pct": 44.6871,
+      "gap_pp": -6.0351,
+      "balanced_accuracy_pct": 37.6368,
+      "macro_f1_pct": 37.4443,
+      "closed_trades": 0
+    },
+    {
+      "fold": "2025-H2",
+      "accuracy_pct": 35.02,
+      "majority_baseline_pct": 46.3677,
+      "gap_pp": -11.3477,
+      "balanced_accuracy_pct": 36.6371,
+      "macro_f1_pct": 34.814,
+      "closed_trades": 0
+    },
+    {
+      "fold": "2026-H1",
+      "accuracy_pct": 36.616,
+      "majority_baseline_pct": 46.5584,
+      "gap_pp": -9.9424,
+      "balanced_accuracy_pct": 37.3644,
+      "macro_f1_pct": 35.592,
+      "closed_trades": 0
+    }
+  ],
+  "xgb": {
+    "model_features": 89,
+    "importance_type": "gain",
+    "total_gain": 989.4483,
+    "top_features": [
+      {
+        "name": "hour_sin",
+        "gain": 101.5095,
+        "share_pct": 10.26
+      },
+      {
+        "name": "volume_gate",
+        "gain": 63.9834,
+        "share_pct": 6.47
+      },
+      {
+        "name": "hour_cos",
+        "gain": 38.9542,
+        "share_pct": 3.94
+      },
+      {
+        "name": "log_volume",
+        "gain": 22.8648,
+        "share_pct": 2.31
+      },
+      {
+        "name": "realized_vol_24",
+        "gain": 22.282,
+        "share_pct": 2.25
+      },
+      {
+        "name": "atr_price",
+        "gain": 21.5007,
+        "share_pct": 2.17
+      },
+      {
+        "name": "weekday_sin",
+        "gain": 21.1818,
+        "share_pct": 2.14
+      },
+      {
+        "name": "bear_ob_within5",
+        "gain": 21.0033,
+        "share_pct": 2.12
+      },
+      {
+        "name": "wave3_long_zone",
+        "gain": 19.7662,
+        "share_pct": 2
+      },
+      {
+        "name": "spread_price",
+        "gain": 18.0203,
+        "share_pct": 1.82
+      },
+      {
+        "name": "realized_vol_48",
+        "gain": 17.3557,
+        "share_pct": 1.75
+      },
+      {
+        "name": "spread_pct",
+        "gain": 17.0269,
+        "share_pct": 1.72
+      },
+      {
+        "name": "volume_z_48",
+        "gain": 16.0683,
+        "share_pct": 1.62
+      },
+      {
+        "name": "atr_pct",
+        "gain": 15.8817,
+        "share_pct": 1.61
+      },
+      {
+        "name": "realized_vol_12",
+        "gain": 15.6736,
+        "share_pct": 1.58
+      }
+    ],
+    "grouped_gain_share_pct": {
+      "time_of_day_and_weekday": 17.635,
+      "volume_and_spread": 16.8889,
+      "structural_wave_smc_fib": 22.2802
+    },
+    "interpretation": "The largest individual gains are time-of-day, volume, volatility and spread features. Gain importance is descriptive, not causal; confirm with chronological inner-fold permutation/ablation only."
+  },
+  "lstm": {
+    "architecture": "PyTorch LSTMClassifier, two 32-unit layers, 60-bar sequence",
+    "epochs": 4,
+    "training_loss_by_epoch": [
+      1.068531,
+      1.020352,
+      0.957818,
+      0.897545
+    ],
+    "validation_loss_curve_available": false,
+    "feature_attribution_available": false,
+    "calibration_available": false
+  },
+  "calibration": {
+    "status": "not_reported",
+    "brier_score": null,
+    "expected_calibration_error": null,
+    "reliability_curve": null,
+    "note": "Direction-class probabilities are uncalibrated and are not trade-win probabilities."
+  },
+  "performance_gate": {
+    "passed": false,
+    "minimum_closed_oos_trades": 30,
+    "observed_closed_oos_trades": 0,
+    "positive_net_profit": false,
+    "profit_factor_above_1": false,
+    "accuracy_above_baseline": false,
+    "all_walk_forward_folds_above_baseline": false,
+    "production_eligible": false
+  },
+  "conclusions": [
+    "The training and OOS label proportions are similar enough that label-prior shift alone does not explain the model's poor performance.",
+    "The predicted distribution materially over-allocates Short and under-allocates Long; long recall is only 20.1147%.",
+    "All five chronological walk-forward folds underperform their own majority baseline; 2025-H2 has the largest accuracy gap at -11.3477 percentage points.",
+    "XGB gain is concentrated in time, volume, volatility and spread features; causal contribution is unproven.",
+    "LSTM training loss falls across four epochs, but the artifact contains no validation-loss curve, feature attribution or calibration metrics."
+  ],
+  "next_actions": [
+    "On chronological inner-validation folds only, measure XGB/LSTM calibration (Brier, ECE, reliability curves) and preregister any calibration method.",
+    "Run grouped permutation/ablation for time, volume/spread, volatility and structural groups on inner folds only.",
+    "Track class-wise recall/precision and predicted class distribution by fold/regime; do not alter labels or class weights based on final OOS.",
+    "Proceed to P2 first-hit/triple-barrier labels aligned to the actual fixed SL/TP and net costs before the next full training."
+  ],
+  "safety": {
+    "final_oos_used_for_tuning": false,
+    "strategy_gates_changed": false,
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false,
+    "merge_enabled": false
+  }
+}

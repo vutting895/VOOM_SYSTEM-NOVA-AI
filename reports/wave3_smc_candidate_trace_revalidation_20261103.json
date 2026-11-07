@@ -1,0 +1,229 @@
+{
+  "schema_version": "1.0",
+  "status": "diagnostic_only_no_training_p1_fvg_semantics_review_required",
+  "generated_utc": "2026-11-03T04:08:23.314983Z",
+  "source": {
+    "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
+    "main_sha": "4480d3bf6fa8f390b09334091f697d8359e79085",
+    "pr_number": 66,
+    "branch": "feature/wave3-hybrid-backtest-20261029",
+    "pr_head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+    "pr_merge_sha": "6b18b245431e0fb2611ef42fedba9eacaab96e92",
+    "workflow_run_id": 41576195675,
+    "workflow_run_number": 189,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41576195675",
+    "artifact_id": 13202539948,
+    "artifact_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41576195675/artifacts/13202539948",
+    "artifact_archive_sha256": "b6fc22006eaa57a64d351eccc325e42e35f3b2f4f39407afdbfb78ba24a39f1e",
+    "trace_json_path_in_artifact": "wave3_smc_candidate_trace_20261101.json",
+    "trace_json_sha256": "f56874d5be605d42fd884b798340442454586d685a601c050bbd717a68533c2d",
+    "data_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "data_bytes": 8483411,
+    "data_git_blob_sha1": "2cab52b000a823e71885b1714149295621c7ed71",
+    "calendar_path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "calendar_canonical_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "calendar_canonical_bytes": 386146,
+    "final_oos_start_utc": "2026-07-01T00:00:00Z",
+    "final_oos_labeled_rows": 7942
+  },
+  "data_integrity": {
+    "metadata_path": "datasets/exness-demo/metadata.json",
+    "metadata_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "current_git_blob_sha1_matches_metadata": true,
+    "verification_note": "Current Git blob SHA-1 2cab52b000a823e71885b1714149295621c7ed71 matches metadata.json git_blob_sha1; metadata, run #6 diagnostics, run #6 manifest and current exact-head SMC trace all agree on the dataset SHA-256. No new MT5 market-history export was performed in this CI run."
+  },
+  "calendar_provenance": {
+    "terminal_export_log": "MQL5/Logs/20261030.log",
+    "evidence_date": "2026-10-30",
+    "success_markers": 2,
+    "high_impact_usd_events": 2166,
+    "queried_values_per_export": 15853,
+    "unknown_time_modes": 0,
+    "raw_terminal_csv_bytes": 388313,
+    "raw_terminal_line_endings": "CRLF-only",
+    "raw_terminal_csv_sha256": "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c",
+    "canonical_git_lf_bytes": 386146,
+    "normalization": "CRLF to LF only",
+    "canonical_git_lf_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "event_time_modes": {
+      "datetime": 2166
+    },
+    "missing_or_blank_rows": 0,
+    "duplicate_event_value_pairs": 0,
+    "out_of_range_timestamps": 0,
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "evidence_note": "Historical direct-terminal export evidence only. No fresh MT5 terminal session or export was performed on 2026-11-03."
+  },
+  "methodology": {
+    "closed_bar_features_only": true,
+    "candidate_features_same_closed_signal_bar": true,
+    "future_labels_used_only_to_reproduce_existing_labeled_oos_row_mask": true,
+    "final_oos_used_for_tuning": false,
+    "model_training_started": false,
+    "scoring_weights_changed": false,
+    "lookbacks_changed": false,
+    "thresholds_changed": false,
+    "strategy_gates_changed": false,
+    "diagnostic_fields_excluded_from_model_features": true
+  },
+  "candidate_trace_summary": {
+    "candidate_rows": 34,
+    "bos20_up": 21,
+    "choch_rule_up": 12,
+    "bull_ob_within5": 1,
+    "bull_fvg_fill": 7,
+    "pairwise_same_bar_intersections": {
+      "bos20_up&choch_rule_up": 9,
+      "bos20_up&bull_ob_within5": 0,
+      "bos20_up&bull_fvg_fill": 3,
+      "choch_rule_up&bull_ob_within5": 0,
+      "choch_rule_up&bull_fvg_fill": 3,
+      "bull_ob_within5&bull_fvg_fill": 0
+    },
+    "all_four_components_same_bar": 0,
+    "maximum_smc_score": 75,
+    "smc_score_ge_85": 0,
+    "missing_component_patterns": {
+      "bos20_up,choch_rule_up,bull_ob_within5,bull_fvg_fill": 7,
+      "bos20_up,choch_rule_up,bull_ob_within5": 2,
+      "choch_rule_up,bull_ob_within5": 2,
+      "choch_rule_up,bull_ob_within5,bull_fvg_fill": 10,
+      "bull_ob_within5,bull_fvg_fill": 8,
+      "bos20_up,bull_ob_within5": 2,
+      "bos20_up,choch_rule_up,bull_fvg_fill": 1,
+      "bos20_up,bull_ob_within5,bull_fvg_fill": 1,
+      "bull_ob_within5": 1
+    }
+  },
+  "structural_event_semantics": {
+    "structural_bos_up_rows": 8,
+    "structural_choch_up_rows": 4,
+    "scored_choch_rule_up_rows": 12,
+    "structural_choch_and_scored_choch_rule_up_intersection": 0,
+    "structural_bos_and_bos20_up_intersection": 8,
+    "distinction": "bos20_up is the scored close-above-prior-20-bar-high breakout, not structural bos_up. choch_rule_up is the scored three-confirmed-higher-lows plus green signal candle rule, not structural choch_up.",
+    "trace_fields": "Each candidate row retains break-pivot origin index/price and confirmation index; choch_rule_up retains the three higher-low pivot origin and confirmation indices/timestamps."
+  },
+  "order_block": {
+    "candidate_rows_with_selected_ob": 11,
+    "selected_ob_valid_on_signal_bar": 11,
+    "selected_ob_within_5": 1,
+    "selected_ob_inside_zone": 0,
+    "selected_ob_distance_price_min": 4.544,
+    "selected_ob_distance_price_max": 107.76,
+    "selected_ob_origin_range_pct_min": 0.0030167289594986565,
+    "selected_ob_origin_range_pct_max": 0.0041178473700514626,
+    "candidate_count_at_confirmation_distribution": {
+      "1": 7,
+      "2": 4
+    },
+    "trace_fields": "Each row retains selected OB origin index/timestamp, confirmation index/timestamp, origin low/high/range, age, distance, validity, inside-zone status, invalidation status and last invalidated OB."
+  },
+  "fvg_mitigation_diagnostic": {
+    "fvg_positive_candidate_rows": 7,
+    "fvg_positive_rows_after_first_overlap": 7,
+    "fvg_positive_rows_after_prior_full_mitigation": 5,
+    "fvg_full_mitigation_first_reached_on_signal_bar": 2,
+    "fvg_positive_rows_with_retouch_after_prior_full_mitigation": 5,
+    "current_gate_behavior": "bull_fvg_fill remains true for any current-bar range overlap with the most recent bullish FVG while its age is 1-48 bars. The frozen implementation does not deactivate the gap after full mitigation.",
+    "interpretation": "All 7 FVG-positive candidates had first overlap before signal; 5 had full mitigation on an earlier bar and later re-touched; 2 first reached full mitigation on the signal bar. This is the existing implementation behavior, not an approved new definition.",
+    "decision": "Keep current benchmark behavior unchanged until first-touch/full-mitigation/re-touch eligibility is explicitly reviewed and preregistered for a separate challenger."
+  },
+  "benchmark_run6": {
+    "workflow_run_id": 41184502320,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41184502320",
+    "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
+    "artifact_id": 13036729349,
+    "artifact_archive_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4",
+    "report_path": "reports/wave3_run6_model_diagnostics_20261101.json",
+    "model_manifest_path": "models/wave3_news_calendar_20261030/model_manifest.json",
+    "model_manifest_artifact_sha256": "7470adc0f28f298e1e83225aa11707807e27c56ea8de667e29cb038b0fc78550",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "calendar_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "final_oos_rows": 7942,
+    "accuracy_pct": 41.0602,
+    "majority_baseline_accuracy_pct": 45.9708,
+    "balanced_accuracy_pct": 38.8382,
+    "macro_f1_pct": 38.0253,
+    "closed_trades": 0,
+    "minimum_closed_trades": 30,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "walk_forward_folds_below_baseline": 5,
+    "xgb_top_gain_features": [
+      [
+        "hour_sin",
+        10.26
+      ],
+      [
+        "volume_gate",
+        6.47
+      ],
+      [
+        "hour_cos",
+        3.94
+      ]
+    ],
+    "lstm_training_loss_by_epoch": [
+      1.068531,
+      1.020352,
+      0.957818,
+      0.897545
+    ],
+    "lstm_validation_loss_curve_available": false,
+    "probability_calibration_available": false,
+    "evidence_note": "Run #6 is from older training commit 5fda3b8... and is not training evidence for current PR #66 head b6fe426.... Model manifest remains bound to run #6 and must not be rewritten without a new training artifact."
+  },
+  "stale_artifacts_not_used": {
+    "model_manifest_path": "models/wave3_auto_tuned_20261030/model_manifest.json",
+    "stale_data_sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "reason": "This older manifest does not match the current canonical dataset SHA and is not used as the current run #6 manifest."
+  },
+  "decision": "Diagnostic only. The frozen v6.2.6.3 scoring contract remains unchanged. P1 FVG semantics review and P2 challenger cost methodology remain open; do not start another full benchmark training until both are ready. Do not merge, deploy, submit orders or enable Live Trading.",
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false,
+    "merge_enabled": false
+  },
+  "workflow_validation": {
+    "smc_ci": {
+      "run_id": 41576195675,
+      "run_number": 189,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+      "conclusion": "success"
+    },
+    "windows_runtime_ci": {
+      "run_id": 41576195729,
+      "run_number": 283,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+      "conclusion": "success"
+    },
+    "cloud_scheduler_contract": {
+      "run_id": 41576195744,
+      "run_number": 30,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+      "conclusion": "success"
+    },
+    "frontend_ci": {
+      "run_id": 41576195653,
+      "run_number": 1039,
+      "head_sha": "a5617fecf4895cacf68d537b2bfe750c3eef39d6",
+      "conclusion": "failure",
+      "failed_step": "Set up Node.js",
+      "reason": "actions/setup-node could not resolve frontend/package-lock.json"
+    },
+    "netlify_deploy_preview": {
+      "state": "building_at_capture",
+      "deploy_id": "6ae95de668ec56f11f02abf3",
+      "url": "https://app.netlify.com/projects/voomsystem/deploys/6ae95de668ec56f11f02abf3"
+    }
+  },
+  "repository_controls": {
+    "main_branch_protected": false,
+    "required_status_checks": [],
+    "branch_protection_note": "GitHub branch metadata reports protected=false and enforcement_level=off; no branch-protection write action is available in this connection."
+  }
+}

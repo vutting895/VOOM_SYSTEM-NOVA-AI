@@ -133,12 +133,17 @@ def analyze_smc(candles: list[dict[str, Any]], swing_left: int = 2,
             continue
         j = candidates[-1]
         displacement = abs(closes[i] - opens[i])
-        if atr > 0 and displacement < atr * displacement_atr_multiple:
+        # Use only true ranges available at the structure-event close. The
+        # terminal ATR (based on the last bars in the supplied series) would
+        # leak future volatility into historical OB qualification.
+        event_atr_window = tr[max(0, i - 13):i + 1]
+        event_atr = sum(event_atr_window) / len(event_atr_window)
+        if event_atr > 0 and displacement < event_atr * displacement_atr_multiple:
             continue
         order_blocks.append({"type": "bullish_order_block" if bullish else "bearish_order_block",
                              "index": j, "confirmed_at": i, "lower": lows[j], "upper": highs[j],
                              "structure_event": event["type"], "displacement": displacement,
-                             "atr_at_analysis": atr, "mitigated_after_confirmation": (
+                             "atr_at_analysis": event_atr, "mitigated_after_confirmation": (
                                  suffix_min[i + 1] <= lows[j] if bullish and i + 1 < n else
                                  suffix_max[i + 1] >= highs[j] if i + 1 < n else False)})
 

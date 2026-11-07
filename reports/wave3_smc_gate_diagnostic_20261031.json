@@ -1,0 +1,249 @@
+{
+  "status": "calendar_filtered_final_oos_diagnostic_performance_gate_blocked",
+  "generated_date_utc": "2026-10-31",
+  "provenance": {
+    "workflow_run_id": 41051313086,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41051313086",
+    "training_commit": "817b0d328d49e2cd80de139fe08183ada8c7cd29",
+    "artifact_id": 12974688556,
+    "artifact_sha256": "565d40daadc58f4e7216dd47a0373d9fa093b9c476fdde21645d10478ddc5267",
+    "report_generated_utc": "2026-10-30T12:05:34.369534+00:00",
+    "note": "The source branch now includes a manifest provenance correction at 70fa601; workflow run 41163353027 is pending to verify that new manifest."
+  },
+  "dataset": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "symbol": "XAUUSDm",
+    "timeframe": "M15",
+    "bar_count": 101076,
+    "usable_labeled_rows": 100965,
+    "oos_start_utc": "2026-07-01T00:00:00Z",
+    "oos_rows": 7942,
+    "trainer_reported_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "previous_metadata_sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "metadata_sha256_reconciled_to_trainer_result": true
+  },
+  "historical_news_calendar": {
+    "status": "verified_on_active_exness_demo_mt5_and_committed",
+    "csv_path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "terminal_file": "Common\\Files\\VOOM_USD_High_Impact_2022_2026.csv",
+    "sha256": "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c",
+    "bytes": 388313,
+    "event_rows": 2166,
+    "expected_columns": 12,
+    "time_mode_counts": {
+      "datetime": 2166
+    },
+    "export_success_markers": 2,
+    "queried_calendar_values_per_marker": 15853,
+    "unknown_time_modes_per_marker": 0,
+    "experts_log": "MQL5/Logs/20261030.log",
+    "success_log_times": [
+      "15:17:27",
+      "15:19:19"
+    ],
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "first_event_utc": "2022-07-21T12:30:00Z",
+    "last_event_utc": "2026-10-29T12:30:00Z",
+    "validation": {
+      "missing_headers": 0,
+      "blank_rows": 0,
+      "non_high_impact_usd_rows": 0,
+      "duplicate_event_value_pairs": 0,
+      "timestamp_parse_or_range_errors": 0
+    },
+    "final_oos_news_safe_rows": 7421,
+    "final_oos_news_blocked_rows": 521
+  },
+  "classification": {
+    "final_oos": {
+      "samples": 7942,
+      "accuracy_pct": 41.3246,
+      "balanced_accuracy_pct": 39.1057,
+      "macro_f1_pct": 37.6761,
+      "majority_baseline_accuracy_pct": 45.9708,
+      "beats_baseline": false,
+      "actual_distribution": {
+        "short": 2198,
+        "hold": 3651,
+        "long": 2093
+      },
+      "predicted_distribution": {
+        "short": 3567,
+        "hold": 3239,
+        "long": 1136
+      },
+      "long_recall_pct": 16.5313
+    },
+    "training_distribution": {
+      "short": 23193,
+      "hold": 43363,
+      "long": 26459
+    },
+    "walk_forward": [
+      {
+        "name": "wf_2024_H1",
+        "accuracy_pct": 42.7243,
+        "majority_baseline_pct": 47.4667,
+        "beats_baseline": false
+      },
+      {
+        "name": "wf_2024_H2",
+        "accuracy_pct": 42.0872,
+        "majority_baseline_pct": 47.0338,
+        "beats_baseline": false
+      },
+      {
+        "name": "wf_2025_H1",
+        "accuracy_pct": 38.6348,
+        "majority_baseline_pct": 44.6871,
+        "beats_baseline": false
+      },
+      {
+        "name": "wf_2025_H2",
+        "accuracy_pct": 33.8427,
+        "majority_baseline_pct": 46.3677,
+        "beats_baseline": false
+      },
+      {
+        "name": "wf_2026_H1",
+        "accuracy_pct": 36.1176,
+        "majority_baseline_pct": 46.5584,
+        "beats_baseline": false
+      }
+    ]
+  },
+  "feature_diagnostics": {
+    "feature_columns": 89,
+    "xgb_features_used": 73,
+    "xgb_gain_importance_top10": [
+      {
+        "feature": "hour_sin",
+        "gain": 101.5095
+      },
+      {
+        "feature": "volume_gate",
+        "gain": 63.9834
+      },
+      {
+        "feature": "hour_cos",
+        "gain": 38.9542
+      },
+      {
+        "feature": "log_volume",
+        "gain": 22.8648
+      },
+      {
+        "feature": "realized_vol_24",
+        "gain": 22.282
+      },
+      {
+        "feature": "atr_price",
+        "gain": 21.5007
+      },
+      {
+        "feature": "weekday_sin",
+        "gain": 21.1818
+      },
+      {
+        "feature": "bear_ob_within5",
+        "gain": 21.0033
+      },
+      {
+        "feature": "wave3_long_zone",
+        "gain": 19.7662
+      },
+      {
+        "feature": "spread_price",
+        "gain": 18.0203
+      }
+    ],
+    "unused_features": [
+      "bos_up",
+      "bos_down",
+      "choch_up",
+      "sell_side_sweep",
+      "bear_fvg",
+      "choch_rule_down",
+      "wave3_long_rule_breakout",
+      "wave3_short_rule_breakout",
+      "wave3_long_breakout",
+      "wave3_short_breakout",
+      "bos20_up",
+      "bos20_down",
+      "deep_trend_gate",
+      "atr_stop_gate",
+      "smc_buy_gate",
+      "smc_sell_gate"
+    ],
+    "importance_caveat": "XGBoost gain importance is a training-fit diagnostic, not causal evidence or proof of predictive edge."
+  },
+  "probability_calibration": {
+    "status": "not_calibrated",
+    "outputs": "raw direction-class probabilities",
+    "trade_win_probability": false,
+    "brier_score": null,
+    "expected_calibration_error": null,
+    "reliability_curve": null,
+    "final_oos_used_for_calibration": false,
+    "note": "The target is a 12-bar forward direction class, not the fixed-SL/TP first-hit trade outcome."
+  },
+  "smc_diagnostics": {
+    "wave3_entry_trigger_rows": 34,
+    "maximum_smc_score_all_oos_rows": 80,
+    "maximum_smc_score_on_wave3_entry_rows": 75,
+    "wave3_entry_rows_with_bos20": 21,
+    "wave3_entry_rows_with_three_higher_lows_and_green": 12,
+    "wave3_entry_rows_with_active_bullish_ob_within5": 1,
+    "wave3_entry_rows_inside_bullish_ob_zone": 0,
+    "wave3_entry_rows_with_fvg_refill": 7,
+    "rows_reaching_smc_85": 0,
+    "rows_surviving_xgb_buy_75_with_agreement": 0,
+    "rows_meeting_lstm_buy_80_diagnostic": 87,
+    "rows_surviving_prior_mandatory_gates_for_lstm": 0,
+    "rows_surviving_ensemble_buy_85_with_agreement": 0,
+    "scoring_contract": {
+      "BOS20": 30,
+      "three_higher_lows_and_green": 20,
+      "qualifying_ob": 25,
+      "fvg_refill": 25
+    },
+    "ob_requirements": {
+      "minimum_range_pct": 0.3,
+      "maximum_distance_price": 5,
+      "validity": "price-close invalidation; no age-only expiry"
+    },
+    "gate_contract_unchanged": true,
+    "causal_audit_remaining": [
+      "trace the qualifying OB candidate origin and candle interval for every Wave3 trigger",
+      "verify BOS/CHoCH, three-higher-lows+green, OB and FVG were all available on the same closed signal bar",
+      "record OB zone distance and close-through invalidation timing without extending lookback",
+      "distinguish actual structure CHoCH event fields from the separate three-higher-lows+green scoring rule"
+    ],
+    "scoring_semantics": {
+      "bos_component": "bos20_up = current close above the prior 20-bar high; structural bos_up is not the scored 30-point field.",
+      "higher_lows_component": "choch_rule_up = three latest confirmed swing lows strictly ascending plus a green current candle; this is not the structural choch_up event.",
+      "ob_component": "bull_ob_within5 requires a valid bullish OB no more than $5 away; the price need not be inside the OB zone. Zone membership is a separate diagnostic.",
+      "fvg_component": "bull_fvg_fill is current-bar range intersection with the active bullish FVG, limited to the existing 48-bar validity window.",
+      "threshold_logic": "SMC >=85 requires all four components (30+20+25+25); any one missing component caps the score at 75.",
+      "actual_structural_choch_scored": false,
+      "legacy_report_field_mapping": "wave3_entry_rows_with_choch counts choch_rule_up (three-higher-lows plus green), not choch_up."
+    },
+    "causal_interpretation": "The observed maximum score of 75 is consistent with at least one of the four mandatory components missing. OB-within-$5 is rare on Wave3 triggers (1/34), but the counts alone do not prove that OB is the sole cause; candidate-level simultaneous alignment is still required."
+  },
+  "backtest": {
+    "closed_oos_trades": 0,
+    "minimum_required_closed_oos_trades": 30,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "win_rate_pct": null,
+    "performance_gate": "blocked",
+    "production_eligible": false
+  },
+  "frozen_rules_changed": false,
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false
+  }
+}

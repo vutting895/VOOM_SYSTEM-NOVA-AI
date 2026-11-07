@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "status": "aggregate_diagnostic_only_candidate_causal_trace_pending",
+  "generated_utc": "2026-11-01",
+  "source": {
+    "workflow_run_id": 41184502320,
+    "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
+    "artifact_id": 13036729349,
+    "artifact_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4"
+  },
+  "final_oos": {
+    "start_utc": "2026-07-01T00:00:00Z",
+    "rows": 7942,
+    "wave3_trigger_rows": 34,
+    "maximum_smc_score_on_wave3_trigger_rows": 75,
+    "rows_smc_ge_85": 0
+  },
+  "component_counts_on_wave3_trigger_rows": {
+    "bos20_up": 21,
+    "choch_rule_up_three_confirmed_higher_lows_plus_green": 12,
+    "bull_ob_within5": 1,
+    "bull_ob_zone": 0,
+    "bull_fvg_fill": 7
+  },
+  "frozen_score": {
+    "bos20_up": 30,
+    "choch_rule_up": 20,
+    "bull_ob_within5": 25,
+    "bull_fvg_fill": 25,
+    "gate": 85,
+    "gate_changed": false
+  },
+  "field_semantics": {
+    "bos20_up": "current close above the prior 20-bar high; scored field, distinct from structural bos_up",
+    "choch_rule_up": "three latest confirmed swing lows strictly ascending plus a green current candle; scored field, distinct from structural choch_up",
+    "structural_events": "bos_up and choch_up are separate swing-structure events and are not the scored 30/20 point fields",
+    "bullish_ob": "on structural BOS-up, scan from the last confirmed swing-low index to the BOS bar; a qualifying candle is bearish with range >=0.3%; current close below its lower boundary invalidates it; within5 is distance to the zone <=$5",
+    "fvg": "the current implementation tracks the most recent bullish gap and marks a refill when the current bar range intersects it within 48 bars"
+  },
+  "code_review_findings": [
+    "The OB tuple stores both BOS confirmation index and origin candle index, but bull_ob_age_bars is calculated from the BOS confirmation index; candidate traces should report origin age separately without changing the existing validity rule.",
+    "The OB selection loop overwrites the candidate for each qualifying bearish candle in the swing-low-to-BOS interval, leaving the last qualifying candle; record all candidates and the selected one before considering any behavior change.",
+    "The FVG state stores only the most recent bullish gap; trace its origin, zone, age, first refill and mitigation at each signal bar.",
+    "The pivot price list records confirmed prices but not explicit confirmation timestamps in the diagnostic output; trace pivot origin and confirmation bars to prove no lookahead.",
+    "Current report counts components marginally, not their same-closed-bar intersection; do not claim the OB is the sole cause from the 1/34 marginal count."
+  ],
+  "causal_conclusion": "No candidate-level causal trace has been emitted yet. The maximum score of 75 proves at least one of the four required components was absent on each Wave3 trigger; marginal component counts do not identify the unique blocker.",
+  "next_required": [
+    "Emit one row per Wave3 trigger with signal timestamp/index and same-bar BOS20, structural BOS/CHoCH, choch_rule_up, OB origin/zone/range/distance/invalidation, and FVG origin/zone/age/refill/mitigation.",
+    "Record pivot index and confirmation index for the three higher lows.",
+    "Add no-lookahead tests for pivots, OB invalidation, and FVG creation/refill.",
+    "Do not change SMC weights, lookbacks, score threshold or gates."
+  ],
+  "safety": {
+    "frozen_rules_changed": false,
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false
+  }
+}

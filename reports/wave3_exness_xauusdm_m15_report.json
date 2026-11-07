@@ -1,0 +1,775 @@
+{
+  "status": "completed_research_not_production_approval",
+  "performance_gate": {
+    "status": "blocked",
+    "passed": false,
+    "minimum_oos_closed_trades": 30,
+    "observed_oos_closed_trades": 0,
+    "blockers": [
+      "historical high-impact news calendar was not provided; mandatory +/-30 minute news filter fails closed",
+      "final OOS has fewer than 30 closed trades; edge cannot be assessed reliably",
+      "classification accuracy does not beat the majority-class baseline",
+      "final OOS profit factor is unavailable or not above 1.0",
+      "final OOS net profit is not positive",
+      "no rows in final OOS reached the mandatory SMC score >=85 gate",
+      "no final OOS rows met the XGB BUY >=75% and BUY-agreement gate",
+      "no final OOS rows met the LSTM BUY >=80% and BUY-agreement gate",
+      "no final OOS rows met the ensemble BUY >=85% and BUY-agreement gate",
+      "wf_2024_H1 classification did not beat its majority-class baseline",
+      "wf_2024_H2 classification did not beat its majority-class baseline",
+      "wf_2025_H1 classification did not beat its majority-class baseline",
+      "wf_2025_H2 classification did not beat its majority-class baseline",
+      "wf_2026_H1 classification did not beat its majority-class baseline"
+    ],
+    "production_eligible": false,
+    "live_trading_enabled": false
+  },
+  "generated_utc": "2026-10-29T18:48:14.995228+00:00",
+  "data": {
+    "path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "bar_count": 101076,
+    "first_timestamp_utc": "2022-07-21T00:00:00+00:00",
+    "last_timestamp_utc": "2026-10-29T16:45:00+00:00",
+    "usable_labeled_rows": 100965,
+    "symbol": "XAUUSDm",
+    "timeframe": "M15"
+  },
+  "methodology": {
+    "chronological_walk_forward_folds": 5,
+    "purge": "12 bars before each test boundary",
+    "final_holdout": "2026-07-01 through latest labeled bar; not used for model fitting",
+    "models": [
+      "XGBoostClassifier",
+      "PyTorch two-layer LSTM on 60 M15 bars",
+      "XGB 60% + LSTM 40%"
+    ],
+    "signal_rule": "v6.2.6.3 BUY-only strict gates: Wave3/Fib, SMC >=85, XGB >=75%, LSTM >=80%, ensemble >=85%, RSI/volume/momentum/Fib61.8/discount/H1/ATR/spread, plus high-impact news blackout +/-30m",
+    "historical_news_calendar_provided": false
+  },
+  "walk_forward": [
+    {
+      "name": "wf_2024_H1",
+      "status": "completed",
+      "train_first_timestamp": "2022-07-22T01:45:00+00:00",
+      "train_last_label_timestamp": "2023-12-29T21:45:00+00:00",
+      "test_start": "2024-01-01",
+      "test_end_exclusive": "2024-07-01",
+      "train_rows": 34054,
+      "test_rows": 11724,
+      "class_distribution_train": {
+        "short": 8822,
+        "hold": 15992,
+        "long": 9240
+      },
+      "classification": {
+        "samples": 11724,
+        "accuracy_pct": 43.2446,
+        "balanced_accuracy_pct": 41.6253,
+        "macro_f1_pct": 40.7992,
+        "majority_class_baseline_accuracy_pct": 47.4667,
+        "always_hold_baseline_accuracy_pct": 47.4667,
+        "beats_majority_baseline": false,
+        "actual_class_distribution": {
+          "short": 2882,
+          "hold": 5565,
+          "long": 3277
+        },
+        "predicted_class_distribution": {
+          "short": 4530,
+          "hold": 4515,
+          "long": 2679
+        },
+        "labels_order": [
+          "short",
+          "hold",
+          "long"
+        ],
+        "confusion_matrix_rows_actual_cols_predicted": [
+          [
+            1358,
+            766,
+            758
+          ],
+          [
+            1694,
+            2831,
+            1040
+          ],
+          [
+            1478,
+            918,
+            881
+          ]
+        ],
+        "per_class": {
+          "short": {
+            "precision": 0.2997792494481236,
+            "recall": 0.4712005551700208,
+            "f1-score": 0.3664328116567728,
+            "support": 2882.0
+          },
+          "hold": {
+            "precision": 0.6270210409745294,
+            "recall": 0.5087151841868823,
+            "f1-score": 0.5617063492063492,
+            "support": 5565.0
+          },
+          "long": {
+            "precision": 0.3288540500186637,
+            "recall": 0.2688434543790052,
+            "f1-score": 0.29583613163196776,
+            "support": 3277.0
+          },
+          "accuracy": 0.43244626407369496,
+          "macro avg": {
+            "precision": 0.41855144681377227,
+            "recall": 0.41625306457863614,
+            "f1-score": 0.4079917641650299,
+            "support": 11724.0
+          },
+          "weighted avg": {
+            "precision": 0.46323700203376916,
+            "recall": 0.43244626407369496,
+            "f1-score": 0.43939015693330863,
+            "support": 11724.0
+          }
+        }
+      },
+      "backtest": {
+        "trade_count": 0,
+        "win_rate_pct": null,
+        "net_profit_usd": 0,
+        "return_pct": 0.0,
+        "profit_factor": null,
+        "max_drawdown_closed_equity_pct": 0.0,
+        "avg_trade_usd": null,
+        "avg_win_usd": null,
+        "avg_loss_usd": null,
+        "final_equity_usd": 10000.0
+      },
+      "trades": [],
+      "xgb_trees": 140,
+      "lstm_training_losses": [
+        1.078991,
+        1.04737,
+        1.011967,
+        0.961813
+      ]
+    },
+    {
+      "name": "wf_2024_H2",
+      "status": "completed",
+      "train_first_timestamp": "2022-07-22T01:45:00+00:00",
+      "train_last_label_timestamp": "2024-06-28T20:45:00+00:00",
+      "test_start": "2024-07-01",
+      "test_end_exclusive": "2025-01-01",
+      "train_rows": 45778,
+      "test_rows": 11968,
+      "class_distribution_train": {
+        "short": 11704,
+        "hold": 21557,
+        "long": 12517
+      },
+      "classification": {
+        "samples": 11968,
+        "accuracy_pct": 42.1457,
+        "balanced_accuracy_pct": 40.7692,
+        "macro_f1_pct": 40.1586,
+        "majority_class_baseline_accuracy_pct": 47.0338,
+        "always_hold_baseline_accuracy_pct": 47.0338,
+        "beats_majority_baseline": false,
+        "actual_class_distribution": {
+          "short": 2765,
+          "hold": 5629,
+          "long": 3574
+        },
+        "predicted_class_distribution": {
+          "short": 4266,
+          "hold": 4517,
+          "long": 3185
+        },
+        "labels_order": [
+          "short",
+          "hold",
+          "long"
+        ],
+        "confusion_matrix_rows_actual_cols_predicted": [
+          [
+            1167,
+            751,
+            847
+          ],
+          [
+            1612,
+            2778,
+            1239
+          ],
+          [
+            1487,
+            988,
+            1099
+          ]
+        ],
+        "per_class": {
+          "short": {
+            "precision": 0.27355836849507736,
+            "recall": 0.4220614828209765,
+            "f1-score": 0.3319584696344759,
+            "support": 2765.0
+          },
+          "hold": {
+            "precision": 0.6150099623644012,
+            "recall": 0.49351572215313555,
+            "f1-score": 0.547604967474867,
+            "support": 5629.0
+          },
+          "long": {
+            "precision": 0.34505494505494505,
+            "recall": 0.3074986010072748,
+            "f1-score": 0.32519603491640775,
+            "support": 3574.0
+          },
+          "accuracy": 0.4214572192513369,
+          "macro avg": {
+            "precision": 0.41120775863814113,
+            "recall": 0.4076919353271289,
+            "f1-score": 0.4015864906752502,
+            "support": 11968.0
+          },
+          "weighted avg": {
+            "precision": 0.4555068800688901,
+            "recall": 0.4214572192513369,
+            "f1-score": 0.43136565501726215,
+            "support": 11968.0
+          }
+        }
+      },
+      "backtest": {
+        "trade_count": 0,
+        "win_rate_pct": null,
+        "net_profit_usd": 0,
+        "return_pct": 0.0,
+        "profit_factor": null,
+        "max_drawdown_closed_equity_pct": 0.0,
+        "avg_trade_usd": null,
+        "avg_win_usd": null,
+        "avg_loss_usd": null,
+        "final_equity_usd": 10000.0
+      },
+      "trades": [],
+      "xgb_trees": 140,
+      "lstm_training_losses": [
+        1.076162,
+        1.035936,
+        0.993821,
+        0.93686
+      ]
+    },
+    {
+      "name": "wf_2025_H1",
+      "status": "completed",
+      "train_first_timestamp": "2022-07-22T01:45:00+00:00",
+      "train_last_label_timestamp": "2024-12-31T20:45:00+00:00",
+      "test_start": "2025-01-01",
+      "test_end_exclusive": "2025-07-01",
+      "train_rows": 57754,
+      "test_rows": 11632,
+      "class_distribution_train": {
+        "short": 14469,
+        "hold": 27192,
+        "long": 16093
+      },
+      "classification": {
+        "samples": 11632,
+        "accuracy_pct": 40.2682,
+        "balanced_accuracy_pct": 38.8526,
+        "macro_f1_pct": 38.6123,
+        "majority_class_baseline_accuracy_pct": 44.6871,
+        "always_hold_baseline_accuracy_pct": 44.6871,
+        "beats_majority_baseline": false,
+        "actual_class_distribution": {
+          "short": 2826,
+          "hold": 5198,
+          "long": 3608
+        },
+        "predicted_class_distribution": {
+          "short": 3501,
+          "hold": 4823,
+          "long": 3308
+        },
+        "labels_order": [
+          "short",
+          "hold",
+          "long"
+        ],
+        "confusion_matrix_rows_actual_cols_predicted": [
+          [
+            1034,
+            934,
+            858
+          ],
+          [
+            1398,
+            2500,
+            1300
+          ],
+          [
+            1069,
+            1389,
+            1150
+          ]
+        ],
+        "per_class": {
+          "short": {
+            "precision": 0.2953441873750357,
+            "recall": 0.36588818117480537,
+            "f1-score": 0.32685316895843214,
+            "support": 2826.0
+          },
+          "hold": {
+            "precision": 0.5183495749533485,
+            "recall": 0.4809542131589073,
+            "f1-score": 0.4989522003792037,
+            "support": 5198.0
+          },
+          "long": {
+            "precision": 0.3476420798065296,
+            "recall": 0.3187361419068736,
+            "f1-score": 0.3325621746674378,
+            "support": 3608.0
+          },
+          "accuracy": 0.40268225584594225,
+          "macro avg": {
+            "precision": 0.3871119473783046,
+            "recall": 0.38852617874686207,
+            "f1-score": 0.38612251466835784,
+            "support": 11632.0
+          },
+          "weighted avg": {
+            "precision": 0.4112204597722934,
+            "recall": 0.40268225584594225,
+            "f1-score": 0.4055299964965393,
+            "support": 11632.0
+          }
+        }
+      },
+      "backtest": {
+        "trade_count": 0,
+        "win_rate_pct": null,
+        "net_profit_usd": 0,
+        "return_pct": 0.0,
+        "profit_factor": null,
+        "max_drawdown_closed_equity_pct": 0.0,
+        "avg_trade_usd": null,
+        "avg_win_usd": null,
+        "avg_loss_usd": null,
+        "final_equity_usd": 10000.0
+      },
+      "trades": [],
+      "xgb_trees": 140,
+      "lstm_training_losses": [
+        1.075993,
+        1.039553,
+        1.00163,
+        0.944817
+      ]
+    },
+    {
+      "name": "wf_2025_H2",
+      "status": "completed",
+      "train_first_timestamp": "2022-07-22T01:45:00+00:00",
+      "train_last_label_timestamp": "2025-06-30T20:45:00+00:00",
+      "test_start": "2025-07-01",
+      "test_end_exclusive": "2026-01-01",
+      "train_rows": 69390,
+      "test_rows": 11976,
+      "class_distribution_train": {
+        "short": 17295,
+        "hold": 32390,
+        "long": 19705
+      },
+      "classification": {
+        "samples": 11976,
+        "accuracy_pct": 32.1059,
+        "balanced_accuracy_pct": 36.8658,
+        "macro_f1_pct": 31.5983,
+        "majority_class_baseline_accuracy_pct": 46.3677,
+        "always_hold_baseline_accuracy_pct": 46.3677,
+        "beats_majority_baseline": false,
+        "actual_class_distribution": {
+          "short": 2765,
+          "hold": 5553,
+          "long": 3658
+        },
+        "predicted_class_distribution": {
+          "short": 7130,
+          "hold": 1839,
+          "long": 3007
+        },
+        "labels_order": [
+          "short",
+          "hold",
+          "long"
+        ],
+        "confusion_matrix_rows_actual_cols_predicted": [
+          [
+            1773,
+            308,
+            684
+          ],
+          [
+            3122,
+            1090,
+            1341
+          ],
+          [
+            2235,
+            441,
+            982
+          ]
+        ],
+        "per_class": {
+          "short": {
+            "precision": 0.24866760168302945,
+            "recall": 0.6412296564195299,
+            "f1-score": 0.35836280949974736,
+            "support": 2765.0
+          },
+          "hold": {
+            "precision": 0.5927134312126155,
+            "recall": 0.1962902935350261,
+            "f1-score": 0.2949134199134199,
+            "support": 5553.0
+          },
+          "long": {
+            "precision": 0.32657133355503826,
+            "recall": 0.2684527063969382,
+            "f1-score": 0.2946736684171043,
+            "support": 3658.0
+          },
+          "accuracy": 0.32105878423513695,
+          "macro avg": {
+            "precision": 0.38931745548356106,
+            "recall": 0.3686575521171647,
+            "f1-score": 0.3159832992767572,
+            "support": 11976.0
+          },
+          "weighted avg": {
+            "precision": 0.43198910657327655,
+            "recall": 0.32105878423513695,
+            "f1-score": 0.3094892842448054,
+            "support": 11976.0
+          }
+        }
+      },
+      "backtest": {
+        "trade_count": 0,
+        "win_rate_pct": null,
+        "net_profit_usd": 0,
+        "return_pct": 0.0,
+        "profit_factor": null,
+        "max_drawdown_closed_equity_pct": 0.0,
+        "avg_trade_usd": null,
+        "avg_win_usd": null,
+        "avg_loss_usd": null,
+        "final_equity_usd": 10000.0
+      },
+      "trades": [],
+      "xgb_trees": 140,
+      "lstm_training_losses": [
+        1.07236,
+        1.04123,
+        1.002589,
+        0.948613
+      ]
+    },
+    {
+      "name": "wf_2026_H1",
+      "status": "completed",
+      "train_first_timestamp": "2022-07-22T01:45:00+00:00",
+      "train_last_label_timestamp": "2025-12-31T20:45:00+00:00",
+      "test_start": "2026-01-01",
+      "test_end_exclusive": "2026-07-01",
+      "train_rows": 81374,
+      "test_rows": 11637,
+      "class_distribution_train": {
+        "short": 20060,
+        "hold": 37945,
+        "long": 23369
+      },
+      "classification": {
+        "samples": 11637,
+        "accuracy_pct": 34.8372,
+        "balanced_accuracy_pct": 34.6666,
+        "macro_f1_pct": 34.1061,
+        "majority_class_baseline_accuracy_pct": 46.5584,
+        "always_hold_baseline_accuracy_pct": 46.5584,
+        "beats_majority_baseline": false,
+        "actual_class_distribution": {
+          "short": 3133,
+          "hold": 5418,
+          "long": 3086
+        },
+        "predicted_class_distribution": {
+          "short": 3808,
+          "hold": 3754,
+          "long": 4075
+        },
+        "labels_order": [
+          "short",
+          "hold",
+          "long"
+        ],
+        "confusion_matrix_rows_actual_cols_predicted": [
+          [
+            1010,
+            920,
+            1203
+          ],
+          [
+            1736,
+            1927,
+            1755
+          ],
+          [
+            1062,
+            907,
+            1117
+          ]
+        ],
+        "per_class": {
+          "short": {
+            "precision": 0.2652310924369748,
+            "recall": 0.3223747207149697,
+            "f1-score": 0.291024348076646,
+            "support": 3133.0
+          },
+          "hold": {
+            "precision": 0.513319126265317,
+            "recall": 0.35566629752676265,
+            "f1-score": 0.4201918883558657,
+            "support": 5418.0
+          },
+          "long": {
+            "precision": 0.27411042944785274,
+            "recall": 0.3619572261827609,
+            "f1-score": 0.31196760229018294,
+            "support": 3086.0
+          },
+          "accuracy": 0.3483715734295781,
+          "macro avg": {
+            "precision": 0.3508868827167148,
+            "recall": 0.3466660814748311,
+            "f1-score": 0.34106127957423155,
+            "support": 11637.0
+          },
+          "weighted avg": {
+            "precision": 0.38309158924006204,
+            "recall": 0.3483715734295781,
+            "f1-score": 0.35671658969697667,
+            "support": 11637.0
+          }
+        }
+      },
+      "backtest": {
+        "trade_count": 0,
+        "win_rate_pct": null,
+        "net_profit_usd": 0,
+        "return_pct": 0.0,
+        "profit_factor": null,
+        "max_drawdown_closed_equity_pct": 0.0,
+        "avg_trade_usd": null,
+        "avg_win_usd": null,
+        "avg_loss_usd": null,
+        "final_equity_usd": 10000.0
+      },
+      "trades": [],
+      "xgb_trees": 140,
+      "lstm_training_losses": [
+        1.073878,
+        1.040031,
+        0.995077,
+        0.943624
+      ]
+    }
+  ],
+  "final_out_of_sample": {
+    "name": "FINAL_OOS_2026_H2",
+    "status": "completed",
+    "test_start": "2026-07-01T00:00:00+00:00",
+    "test_end_inclusive": "2026-10-29T13:45:00+00:00",
+    "train_rows": 93015,
+    "test_rows": 7942,
+    "train_last_label_timestamp": "2026-06-30T20:45:00+00:00",
+    "classification": {
+      "samples": 7942,
+      "accuracy_pct": 40.481,
+      "balanced_accuracy_pct": 39.3026,
+      "macro_f1_pct": 38.7415,
+      "majority_class_baseline_accuracy_pct": 45.9708,
+      "always_hold_baseline_accuracy_pct": 45.9708,
+      "beats_majority_baseline": false,
+      "actual_class_distribution": {
+        "short": 2198,
+        "hold": 3651,
+        "long": 2093
+      },
+      "predicted_class_distribution": {
+        "short": 3312,
+        "hold": 2888,
+        "long": 1742
+      },
+      "labels_order": [
+        "short",
+        "hold",
+        "long"
+      ],
+      "confusion_matrix_rows_actual_cols_predicted": [
+        [
+          1018,
+          697,
+          483
+        ],
+        [
+          1315,
+          1637,
+          699
+        ],
+        [
+          979,
+          554,
+          560
+        ]
+      ],
+      "per_class": {
+        "short": {
+          "precision": 0.3073671497584541,
+          "recall": 0.46314831665150136,
+          "f1-score": 0.36950998185117967,
+          "support": 2198.0
+        },
+        "hold": {
+          "precision": 0.5668282548476454,
+          "recall": 0.4483703095042454,
+          "f1-score": 0.5006881786205842,
+          "support": 3651.0
+        },
+        "long": {
+          "precision": 0.3214695752009185,
+          "recall": 0.26755852842809363,
+          "f1-score": 0.2920469361147327,
+          "support": 2093.0
+        },
+        "accuracy": 0.4048098715688743,
+        "macro avg": {
+          "precision": 0.398554993269006,
+          "recall": 0.39302571819461346,
+          "f1-score": 0.38741503219549883,
+          "support": 7942.0
+        },
+        "weighted avg": {
+          "precision": 0.4303599564987859,
+          "recall": 0.4048098715688743,
+          "f1-score": 0.4093993600529818,
+          "support": 7942.0
+        }
+      }
+    },
+    "signal_diagnostics": {
+      "rows_tested": 7942,
+      "wave3_entry_breakout": 34,
+      "surviving_after_wave3_entry_breakout": 34,
+      "fib_score_ge_80": 996,
+      "surviving_after_fib_score_ge_80": 34,
+      "smc_score_ge_85": 0,
+      "surviving_after_smc_score_ge_85": 0,
+      "xgb_buy_ge_75_and_agrees": 0,
+      "surviving_after_xgb_buy_ge_75_and_agrees": 0,
+      "lstm_buy_ge_80_and_agrees": 0,
+      "surviving_after_lstm_buy_ge_80_and_agrees": 0,
+      "ensemble_buy_ge_85_and_agrees": 0,
+      "surviving_after_ensemble_buy_ge_85_and_agrees": 0,
+      "rsi_50_70": 3464,
+      "surviving_after_rsi_50_70": 0,
+      "momentum_5_positive": 3847,
+      "surviving_after_momentum_5_positive": 0,
+      "volume_above_80pct_ema20": 4773,
+      "surviving_after_volume_above_80pct_ema20": 0,
+      "near_fib_618_assumed_plusminus_5pct": 414,
+      "surviving_after_near_fib_618_assumed_plusminus_5pct": 0,
+      "discount_zone": 4046,
+      "surviving_after_discount_zone": 0,
+      "h1_trend_up": 3444,
+      "surviving_after_h1_trend_up": 0,
+      "close_ema21_ema50_and_higher_lows": 533,
+      "surviving_after_close_ema21_ema50_and_higher_lows": 0,
+      "sl_5_within_atr_1_5": 7942,
+      "surviving_after_sl_5_within_atr_1_5": 0,
+      "spread_at_or_below_0_35": 7942,
+      "surviving_after_spread_at_or_below_0_35": 0,
+      "news_calendar_available": false,
+      "news_safe_rows": 0,
+      "all_mandatory_gates_passed": 0,
+      "note": "SELL rules not enabled: only a BUY-side checklist was specified. Missing news calendar is fail-closed.",
+      "supplemental_raw_feature_scan": {
+        "bars_scanned": 7954,
+        "includes_last_12_unlabeled_raw_bars": true,
+        "maximum_smc_score": 80.0,
+        "maximum_smc_score_on_wave3_entry_rows": 75.0,
+        "wave3_entry_rows_with_bos20": 21,
+        "wave3_entry_rows_with_choch": 12,
+        "wave3_entry_rows_with_ob_within5": 0,
+        "wave3_entry_rows_with_fvg_fill": 7,
+        "interpretation": "Supplemental scan is over raw bars since 2026-07-01; primary model classification/OOS row count remains 7942."
+      }
+    },
+    "backtest": {
+      "trade_count": 0,
+      "win_rate_pct": null,
+      "net_profit_usd": 0,
+      "return_pct": 0.0,
+      "profit_factor": null,
+      "max_drawdown_closed_equity_pct": 0.0,
+      "avg_trade_usd": null,
+      "avg_win_usd": null,
+      "avg_loss_usd": null,
+      "final_equity_usd": 10000.0
+    },
+    "trades": [],
+    "class_distribution_train": {
+      "short": 23193,
+      "hold": 43363,
+      "long": 26459
+    },
+    "lstm_sequence_length_bars": 60,
+    "lstm_training_losses": [
+      1.076043,
+      1.044835,
+      1.008656,
+      0.964707
+    ]
+  },
+  "model_files": [
+    "models/wave3_xgb_deep/xgb_model.json",
+    "models/wave3_xgb_deep/deep_lstm.pt",
+    "models/wave3_xgb_deep/model_manifest.json"
+  ],
+  "limitations": [
+    "Historical research only; no claim of future profitability.",
+    "Commission is configured to zero because the available small MT5 deal sample does not verify commission per lot; confirm broker schedule before production use.",
+    "Swap omitted because trade duration is capped at 12 M15 bars.",
+    "Spread uses the recorded MT5 bar spread; slippage remains an assumption.",
+    "Maximum drawdown uses closed-trade equity, not tick-level intratrade drawdown.",
+    "The symbol available on this demo terminal is XAUUSDm; no symbol literally named XAUUSDM was found.",
+    "A historical event calendar is required for the +/-30 minute high-impact news exclusion; with no calendar the backtest fails closed and trade count remains zero.",
+    "The requested rules contain an SL conflict (Wave2 Low - $5 versus a locked $5 entry distance); research uses the explicit fixed $5 stop and $11 target example.",
+    "Only BUY rules were specified in the supplied checklist; SELL signal generation is deliberately disabled.",
+    "The 61.8% Fib tolerance is not specified in the user rule; research assumes +/-5 percentage points and records that assumption.",
+    "XGB/LSTM outputs are raw short/hold/long direction-class probabilities, not calibrated probabilities of a trade winning. Labels are based on a 12-bar forward move, not on which fixed SL/TP is hit first; confidence cutoffs are gates, not validated win probabilities."
+  ],
+  "safety": {
+    "orders_submitted": false,
+    "live_trading_enabled": false
+  }
+}

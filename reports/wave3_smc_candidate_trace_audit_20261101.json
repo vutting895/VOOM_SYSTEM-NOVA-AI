@@ -1,0 +1,262 @@
+{
+  "schema_version": "1.0",
+  "status": "p1_candidate_trace_complete_fvg_semantics_review_required",
+  "generated_utc": "2026-11-01",
+  "source": {
+    "repository": "vutting895/VOOM_SYSTEM-NOVA-AI",
+    "main_sha": "99d474038e19a6eab884c5c891b21770c50fefa5",
+    "pr_number": 66,
+    "pr_head_sha": "f690c8c3567059262d62672ed09215c2723618e8",
+    "workflow_run_id": 41271885730,
+    "workflow_url": "https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41271885730",
+    "artifact_id": 13070220119,
+    "artifact_name": "wave3-smc-candidate-trace-edb4518978f2de0687d1a09dd49f14de64e7ebd2",
+    "artifact_archive_sha256": "f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e",
+    "trace_json_sha256": "c3c26160e0133222f06ffe17f218a750b1ba51fe98949c6100f952efa4799b01",
+    "data_path": "datasets/exness-demo/XAUUSDm_M15_2022-2026.csv",
+    "data_sha256": "0e95a4fc942d44a8fb1e236a123f709601623de471406b3da0268491a5794266",
+    "data_bars": 101076,
+    "calendar_path": "datasets/exness-demo/news/VOOM_USD_High_Impact_2022_2026.csv",
+    "calendar_canonical_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37"
+  },
+  "methodology": {
+    "closed_bar_features_only": true,
+    "future_labels_used_only_to_reproduce_existing_labeled_oos_row_mask": true,
+    "final_oos_start_utc": "2026-07-01T00:00:00Z",
+    "final_oos_rows": 7942,
+    "model_training_started": false,
+    "final_oos_used_for_tuning": false,
+    "smc_weights_changed": false,
+    "lookbacks_changed": false,
+    "thresholds_changed": false,
+    "strategy_gates_changed": false,
+    "diagnostic_fields_excluded_from_model_features": true
+  },
+  "calendar_provenance": {
+    "terminal_export_log": "MQL5/Logs/20261030.log",
+    "news_export_success_markers": 2,
+    "high_impact_usd_events": 2166,
+    "queried_values_per_export": 15853,
+    "unknown_time_modes": 0,
+    "raw_terminal_bytes": 388313,
+    "raw_terminal_line_endings": "CRLF-only",
+    "raw_terminal_sha256": "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c",
+    "canonical_git_bytes": 386146,
+    "normalization": "CRLF to LF only",
+    "canonical_git_sha256": "317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37",
+    "event_time_modes": {
+      "datetime": 2166
+    },
+    "missing_headers": 0,
+    "blank_required_rows": 0,
+    "duplicate_event_value_pairs": 0,
+    "out_of_range_timestamps": 0,
+    "coverage_start_utc": "2022-07-21T00:00:00Z",
+    "coverage_end_exclusive_utc": "2026-10-30T00:00:00Z",
+    "evidence_note": "These are recorded direct-terminal observations from the 2026-10-30 export and run #6 artifact audit; no new MT5 terminal session was performed in this CI run."
+  },
+  "same_bar_smc": {
+    "candidate_rows": 34,
+    "component_counts": {
+      "bos20_up": 21,
+      "choch_rule_up": 12,
+      "bull_ob_within5": 1,
+      "bull_fvg_fill": 7
+    },
+    "pairwise_same_bar_intersections": {
+      "bos20_up&choch_rule_up": 9,
+      "bos20_up&bull_ob_within5": 0,
+      "bos20_up&bull_fvg_fill": 3,
+      "choch_rule_up&bull_ob_within5": 0,
+      "choch_rule_up&bull_fvg_fill": 3,
+      "bull_ob_within5&bull_fvg_fill": 0
+    },
+    "all_four_components_same_bar": 0,
+    "smc_score_ge_85": 0,
+    "maximum_smc_score": 75,
+    "missing_component_patterns": {
+      "bos20_up,choch_rule_up,bull_ob_within5,bull_fvg_fill": 7,
+      "bos20_up,choch_rule_up,bull_ob_within5": 2,
+      "choch_rule_up,bull_ob_within5": 2,
+      "choch_rule_up,bull_ob_within5,bull_fvg_fill": 10,
+      "bull_ob_within5,bull_fvg_fill": 8,
+      "bos20_up,bull_ob_within5": 2,
+      "bos20_up,choch_rule_up,bull_fvg_fill": 1,
+      "bos20_up,bull_ob_within5,bull_fvg_fill": 1,
+      "bull_ob_within5": 1
+    }
+  },
+  "order_block": {
+    "candidate_rows_with_selected_ob": 11,
+    "selected_ob_valid_on_signal_bar": 11,
+    "selected_ob_within_5": 1,
+    "selected_ob_inside_zone": 0,
+    "selected_ob_distance_price_min": 4.544,
+    "selected_ob_distance_price_max": 107.76,
+    "selected_ob_origin_range_pct_min": 0.0030167289594986565,
+    "selected_ob_origin_range_pct_max": 0.0041178473700514626,
+    "candidate_count_at_confirmation_distribution": {
+      "1": 7,
+      "2": 4
+    },
+    "only_within_5_candidate": {
+      "signal_index": 96715,
+      "signal_timestamp_utc": "2026-08-25T05:15:00+00:00",
+      "smc_score": 25,
+      "components": {
+        "bos20_up": false,
+        "choch_rule_up": false,
+        "bull_ob_within5": true,
+        "bull_fvg_fill": false
+      },
+      "structural_choch_up": true,
+      "selected_ob_origin_index": 96676,
+      "selected_ob_confirmation_index": 96686,
+      "selected_ob_age_from_origin_bars": 39,
+      "selected_ob_distance_price": 4.544,
+      "selected_ob_valid": true,
+      "selected_ob_inside_zone": false
+    },
+    "interpretation": "OB is a necessary blocker in this candidate set, but not the sole cause: the only within-$5 candidate has none of the other three scored components."
+  },
+  "structural_event_semantics": {
+    "structural_bos_up_rows": 8,
+    "structural_choch_up_rows": 4,
+    "scored_choch_rule_up_rows": 12,
+    "structural_choch_up_and_scored_choch_rule_up_intersection": 0,
+    "structural_bos_up_and_bos20_up_intersection": 8,
+    "distinction": "bos20_up is the scored prior-20-bar-high breakout, not structural bos_up. choch_rule_up is three confirmed higher lows plus a green signal candle, not structural choch_up."
+  },
+  "fvg_mitigation_diagnostic": {
+    "fvg_positive_candidate_rows": 7,
+    "fvg_positive_rows_after_first_overlap": 7,
+    "fvg_positive_rows_after_prior_full_mitigation": 5,
+    "fvg_full_mitigation_on_any_candidate_signal_bar": 9,
+    "all_fvg_positive_signal_bars_fully_mitigated_on_signal_bar": true,
+    "diagnostic_definition": "For a bullish FVG [prior high, third-bar low], full mitigation is recorded when a closed bar's low reaches or crosses the lower boundary. This is diagnostic metadata only, not a new scoring rule.",
+    "rows": [
+      {
+        "signal_timestamp_utc": "2026-07-08T00:30:00+00:00",
+        "signal_index": 93568,
+        "first_overlap_index": 93555,
+        "first_full_mitigation_index": 93555,
+        "bars_since_first_full_mitigation": 13,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": true
+      },
+      {
+        "signal_timestamp_utc": "2026-07-17T00:45:00+00:00",
+        "signal_index": 94213,
+        "first_overlap_index": 94212,
+        "first_full_mitigation_index": 94212,
+        "bars_since_first_full_mitigation": 1,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": true
+      },
+      {
+        "signal_timestamp_utc": "2026-08-12T12:45:00+00:00",
+        "signal_index": 95917,
+        "first_overlap_index": 95908,
+        "first_full_mitigation_index": 95908,
+        "bars_since_first_full_mitigation": 9,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": true
+      },
+      {
+        "signal_timestamp_utc": "2026-09-17T11:45:00+00:00",
+        "signal_index": 98295,
+        "first_overlap_index": 98294,
+        "first_full_mitigation_index": 98294,
+        "bars_since_first_full_mitigation": 1,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": true
+      },
+      {
+        "signal_timestamp_utc": "2026-09-30T12:30:00+00:00",
+        "signal_index": 99126,
+        "first_overlap_index": 99111,
+        "first_full_mitigation_index": 99111,
+        "bars_since_first_full_mitigation": 15,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": true
+      },
+      {
+        "signal_timestamp_utc": "2026-10-02T19:45:00+00:00",
+        "signal_index": 99339,
+        "first_overlap_index": 99338,
+        "first_full_mitigation_index": 99339,
+        "bars_since_first_full_mitigation": 0,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": false
+      },
+      {
+        "signal_timestamp_utc": "2026-10-09T18:30:00+00:00",
+        "signal_index": 99794,
+        "first_overlap_index": 99793,
+        "first_full_mitigation_index": 99794,
+        "bars_since_first_full_mitigation": 0,
+        "fully_mitigated_on_signal_bar": true,
+        "retest_after_prior_full_mitigation": false
+      }
+    ],
+    "current_gate_behavior": "bull_fvg_fill is true on any bar-range overlap with the most recent bullish FVG while its age is within 48 bars. The active gap is not deactivated after full mitigation, so later re-touches can continue to score.",
+    "interpretation": "Five of seven FVG-positive Wave3 candidates overlap a gap that had already been fully mitigated on an earlier bar; two first reach full mitigation on the candidate bar. This is a strategy-definition/implementation-semantic issue requiring review. No gate behavior was changed."
+  },
+  "benchmark_run6": {
+    "workflow_run_id": 41184502320,
+    "training_commit": "5fda3b8eb502d5694639a3afef354de0876ff2de",
+    "artifact_id": 13036729349,
+    "artifact_archive_sha256": "bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4",
+    "final_oos_rows": 7942,
+    "accuracy_pct": 41.0602,
+    "majority_baseline_accuracy_pct": 45.9708,
+    "balanced_accuracy_pct": 38.8382,
+    "macro_f1_pct": 38.0253,
+    "closed_trades": 0,
+    "minimum_closed_trades": 30,
+    "net_profit_usd": 0,
+    "profit_factor": null,
+    "walk_forward_folds_below_baseline": 5,
+    "class_distribution_train_pct": {
+      "short": 24.93,
+      "hold": 46.62,
+      "long": 28.45
+    },
+    "class_distribution_oos_actual_pct": {
+      "short": 27.68,
+      "hold": 45.97,
+      "long": 26.35
+    },
+    "class_distribution_oos_predicted_pct": {
+      "short": 41.37,
+      "hold": 40.81,
+      "long": 17.82
+    },
+    "long_recall_pct": 20.1147,
+    "probability_calibration": "not calibrated; no Brier/ECE/reliability curve",
+    "final_oos_used_for_tuning": false
+  },
+  "ci": {
+    "smc_research_run": 41271885730,
+    "windows_runtime_run": 41271885738,
+    "frontend_run": 41271885731,
+    "smc_research_conclusion": "success",
+    "windows_runtime_conclusion": "success",
+    "frontend_conclusion": "success",
+    "frontend_production_smoke": "skipped"
+  },
+  "safety": {
+    "benchmark_gates_changed": false,
+    "model_training_started": false,
+    "orders_submitted": false,
+    "live_trading_enabled": false,
+    "deployment_enabled": false,
+    "merge_enabled": false
+  },
+  "next_required": [
+    "Review whether a fully mitigated bullish FVG remains eligible for later 48-bar overlap scoring; preregister the interpretation before changing any signal logic.",
+    "Keep all four SMC components same-bar and preserve existing weights/thresholds until a separate approved strategy definition is recorded.",
+    "Proceed to P2 first-hit/triple-barrier net-outcome labels only after P1 semantic review and tests.",
+    "Use inner chronological folds only for calibration and model comparisons; never tune on the 2026-07-01 onward final OOS."
+  ]
+}
