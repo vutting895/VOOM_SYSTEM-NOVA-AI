@@ -17,7 +17,12 @@ def candles():
 
 
 def test_fvg_bounds_and_midpoint_are_consistent():
-    result=analyze_smc(candles(), include_full_history=True)
+    bars=candles()
+    bars[0]={"open":10.0,"high":10.5,"low":9.5,"close":10.0}
+    bars[1]={"open":10.0,"high":10.4,"low":9.6,"close":10.1}
+    bars[2]={"open":12.5,"high":13.0,"low":12.0,"close":12.7}
+    result=analyze_smc(bars, include_full_history=True)
+    assert result["fair_value_gaps"]
     for zone in result["fair_value_gaps"]:
         assert zone["lower"] < zone["upper"]
         assert zone["midpoint"] == (zone["lower"] + zone["upper"]) / 2
