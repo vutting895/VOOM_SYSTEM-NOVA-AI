@@ -62,13 +62,19 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
                 self.assertIn("authorization", args)
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
+
+    def test_history_endpoint_is_bounded_and_uses_mt5_range_api(self):
+        history = function_nodes()["history"]
+        self.assertTrue(has_call(history, "copy_rates_range"))
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+        self.assertIn('"account_environment": "EXNESS_DEMO"', SOURCE)
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
@@ -104,6 +110,9 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('method="GET"', RELAY_CLIENT)
         self.assertNotIn('"/api/orders"', RELAY_CLIENT)
         self.assertIn("127.0.0.1:8787", RELAY_CLIENT)
+        self.assertIn("/api/history", RELAY_CLIENT)
+        self.assertIn("start_utc", RELAY_CLIENT)
+        self.assertIn("end_utc", RELAY_CLIENT)
 
 
 if __name__ == "__main__":
