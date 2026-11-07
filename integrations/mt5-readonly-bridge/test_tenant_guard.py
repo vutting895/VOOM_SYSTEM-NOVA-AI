@@ -71,6 +71,7 @@ class TenantGuardContractTests(unittest.TestCase):
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
 
     def test_history_endpoint_is_bounded_and_uses_mt5_range_api(self):
+        self.assertIn('pattern = r"\\d{4}', RELAY_CLIENT)
         history = function_nodes()["history"]
         self.assertTrue(has_call(history, "copy_rates_range"))
         self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
