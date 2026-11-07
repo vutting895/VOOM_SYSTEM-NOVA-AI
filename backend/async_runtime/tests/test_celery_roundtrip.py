@@ -7,6 +7,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from bot_state import get_redis_client
 from tasks import scan_market_smc
 
 
@@ -87,6 +88,7 @@ class CeleryRedisRoundTripTests(unittest.TestCase):
         self.assertIn("elliott_wave", payload)
         self.assertFalse(payload["execution"]["orders_enabled"])
         self.assertFalse(payload["execution"]["live_trading_enabled"])
+        self.assertIsNotNone(get_redis_client().get("nova:worker:smc-worker:heartbeat"))
 
 
 if __name__ == "__main__":
