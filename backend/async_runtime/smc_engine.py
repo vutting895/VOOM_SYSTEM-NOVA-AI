@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import math
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from elliott_wave import detect_elliott_impulses
 
@@ -31,10 +31,12 @@ def validate_bars(raw_bars: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise ValueError(f"bar {index} timestamp must be ISO-8601") from exc
         if parsed.tzinfo is None:
             raise ValueError(f"bar {index} timestamp must include a timezone")
-        if previous_timestamp is not None and parsed <= previous_timestamp:
+        parsed_utc = parsed.astimezone(timezone.utc)
+        if previous_timestamp is not None and parsed_utc <= previous_timestamp:
             raise ValueError("bars must be strictly chronological without duplicate timestamps")
-        previous_timestamp = parsed
-        row = {"timestamp": timestamp}
+        previous_timestamp = parsed_utc
+        timestamp_utc = parsed_utc.isoformat().replace("+00:00", "Z")
+        row = {"timestamp": timestamp_utc}
         for field in ("open", "high", "low", "close"):
             try:
                 value = float(raw[field])
@@ -48,7 +50,10 @@ def validate_bars(raw_bars: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row["low"] > min(row["open"], row["close"], row["high"]):
             raise ValueError(f"bar {index} has inconsistent low")
         if raw.get("volume") is not None:
-            volume = float(raw["volume"])
+            try:
+                volume = float(raw["volume"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"bar {index} volume must be numeric") from exc
             if not math.isfinite(volume) or volume < 0:
                 raise ValueError(f"bar {index} volume must be finite and non-negative")
             row["volume"] = volume
@@ -59,8 +64,7 @@ def validate_bars(raw_bars: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def detect_fvg(bars: list[dict[str, Any]]) -> list[dict[str, Any]]:
     found = []
     for i in range(2, len(bars)):
-        older = bars[i - 2]
-        current = bars[i]
+        older, current = bars[i - 2], bars[i]
         if current["low"] > older["high"]:
             found.append({"index": i, "timestamp": current["timestamp"], "type": "BULLISH_FVG",
                           "zone_low": older["high"], "zone_high": current["low"], "status": "ACTIVE"})
