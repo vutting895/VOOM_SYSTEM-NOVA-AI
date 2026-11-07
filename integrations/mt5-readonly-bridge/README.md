@@ -57,6 +57,9 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 - `GET /api/account`
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/history?symbol=<exact-terminal-symbol>&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-31T00:00:00Z` (UTC half-open range; bounded per timeframe and at most 2,000 bars per response)
+
+Historical candles use MT5 `copy_rates_range` and return genuine `tick_volume`. The endpoint rejects naive timestamps, reversed ranges, oversized windows, and responses above the bar cap. The tenant-authenticated Cloudflare Relay forwards only HTTPS GET requests; it does not expose the local Windows port. The notebook downloads bounded chunks, validates timestamps/OHLCV/gaps, and writes a SHA-256 manifest before training.
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
