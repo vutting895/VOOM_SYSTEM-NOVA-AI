@@ -1,3 +1,4 @@
+import ast
 import json
 import unittest
 from pathlib import Path
@@ -34,6 +35,29 @@ class NotebookStructureTests(unittest.TestCase):
         for index, cell in enumerate(load_notebook()["cells"]):
             if cell["cell_type"] == "code":
                 compile("".join(cell["source"]), f"notebook-cell-{index}", "exec")
+
+    def test_history_request_uses_only_relay_allowlisted_query_parameters(self):
+        notebook = load_notebook()
+        cell = next(
+            cell for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "def fetch_history_chunk" in "".join(cell["source"])
+        )
+        tree = ast.parse("".join(cell["source"]))
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "fetch_history_chunk"
+        )
+        params_assignment = next(
+            node for node in function.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "params" for target in node.targets)
+        )
+        query_keys = {
+            key.value for key in params_assignment.value.keys
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+        }
+        self.assertEqual(query_keys, {"symbol", "timeframe", "start_utc", "end_utc"})
 
     def test_notebook_uses_https_bridge_and_sha256_manifest(self):
         source = "\\n".join("".join(c.get("source", [])) for c in load_notebook()["cells"] if c["cell_type"] == "code")
