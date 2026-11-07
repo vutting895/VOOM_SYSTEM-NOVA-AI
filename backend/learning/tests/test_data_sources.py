@@ -76,6 +76,8 @@ def test_exness_loader_checks_csv_and_metadata_provenance(tmp_path):
     dataset = load_exness_xauusdm_m15(tmp_path, allow_research_training=True)
     assert len(dataset.bars) == 12
     assert dataset.symbol == "XAUUSDm"
+    assert dataset.bars[0].volume == Decimal("100")
+    assert dataset.bars[0].extras["tick_volume"] == "100"
     assert dataset.eligibility == "candidate_only"
     assert dataset.benchmark_eligible is False
     assert dataset.live_feed is False
