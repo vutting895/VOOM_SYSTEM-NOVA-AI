@@ -21,16 +21,66 @@ def candles(close):
     })
 
 
+def pivot_candles(swings):
+    """Make unambiguous alternating pivots with a confirming bar at each edge."""
+    highs = []
+    lows = []
+    for kind, price in swings:
+        if kind == "low":
+            highs.append(float(price) + 2.0)
+            lows.append(float(price) - 0.5)
+        else:
+            highs.append(float(price) + 0.5)
+            lows.append(float(price) - 2.0)
+    highs = np.asarray([highs[0] - 1.0, *highs, highs[-1] - 1.0], dtype=float)
+    lows = np.asarray([lows[0] + 1.0, *lows, lows[-1] + 1.0], dtype=float)
+    close = (highs + lows) / 2.0
+    return pd.DataFrame({
+        "timestamp": pd.date_range("2024-01-01", periods=len(close), freq="15min", tz="UTC"),
+        "open": close, "high": highs, "low": lows, "close": close,
+    })
+
+
 class ElliottWaveEngineTests(unittest.TestCase):
     def test_valid_bullish_impulse_is_detected_after_confirmation(self):
-        # Alternating swings form low-high-higher-low-higher-high-higher-low-high.
-        values = [100, 104, 102, 110, 106, 116, 112, 121, 117, 125, 122, 128, 124]
-        frame = candles(values)
+        frame = pivot_candles([
+            ("low", 100), ("high", 104), ("low", 102),
+            ("high", 112), ("low", 108), ("high", 118),
+        ])
         features = build_elliott_wave_features(frame, left=1, right=1)
         self.assertEqual(len(features), len(frame))
-        self.assertTrue(set(features["elliott_wave_number"].unique()).issubset(set(range(6))))
+        self.assertTrue((features["elliott_wave_number"] == 5).any())
+        self.assertTrue((features["elliott_direction"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] <= features["elliott_impulse_valid"]).all())
+
+    def test_valid_bearish_impulse_is_detected(self):
+        frame = pivot_candles([
+            ("high", 130), ("low", 126), ("high", 128),
+            ("low", 118), ("high", 122), ("low", 112),
+        ])
+        features = build_elliott_wave_features(frame, left=1, right=1)
+        self.assertTrue((features["elliott_wave_number"] == 5).any())
+        self.assertTrue((features["elliott_direction"] == -1).any())
+        self.assertTrue((features["elliott_impulse_complete"] == 1).any())
+
+    def test_wave3_shortest_is_rejected(self):
+        frame = pivot_candles([
+            ("low", 100), ("high", 110), ("low", 105),
+            ("high", 113), ("low", 111), ("high", 124),
+        ])
+        features = build_elliott_wave_features(frame, left=1, right=1)
+        self.assertFalse((features["elliott_impulse_complete"] == 1).any())
+        self.assertFalse((features["elliott_wave_number"] == 5).any())
+
+    def test_wave4_overlap_is_rejected(self):
+        frame = pivot_candles([
+            ("low", 100), ("high", 110), ("low", 105),
+            ("high", 120), ("low", 109), ("high", 126),
+        ])
+        features = build_elliott_wave_features(frame, left=1, right=1)
+        self.assertFalse((features["elliott_wave_number"] == 4).any())
+        self.assertFalse((features["elliott_impulse_complete"] == 1).any())
 
     def test_future_change_does_not_rewrite_prior_features(self):
         frame = candles(np.linspace(100, 130, 80) + np.sin(np.arange(80) / 2))
@@ -50,4 +100,3 @@ class ElliottWaveEngineTests(unittest.TestCase):
         frame = candles([10, 11, 10, 12, 11])
         with self.assertRaises(ValueError):
             build_elliott_wave_features(frame, left=0, right=2)
-
