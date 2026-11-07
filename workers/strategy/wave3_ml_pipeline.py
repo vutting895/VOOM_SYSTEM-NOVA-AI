@@ -22,6 +22,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from xgboost import XGBClassifier
 
+try:
+    from .elliott_wave_engine import build_elliott_wave_features
+except ImportError:  # direct script/test import from this directory
+    from elliott_wave_engine import build_elliott_wave_features
+
 HORIZON_BARS = 12
 PIVOT_LEFT = 3
 PIVOT_RIGHT = 3
@@ -521,6 +526,9 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                             25 * f["bear_ob_within5"] + 25 * f["bear_fvg_fill"])
     f["smc_buy_gate"] = (f["smc_score_long"] >= 85).astype(float)
     f["smc_sell_gate"] = (f["smc_score_short"] >= 85).astype(float)
+    elliott = build_elliott_wave_features(frame, left=PIVOT_LEFT, right=PIVOT_RIGHT)
+    for name in elliott.columns:
+        f[name] = elliott[name]
     return f.replace([np.inf, -np.inf], np.nan)
 
 
