@@ -141,6 +141,38 @@ class DatasetGapDetectionTests(unittest.TestCase):
         exec(compile(ast.Module(body=functions, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
         return namespace["detect_boundary_gaps"]
 
+    def test_accepts_exness_xau_daily_rollover_in_both_seasonal_windows(self):
+        bounded = self.bounded_closure()
+        samples = [
+            ("2025-11-03T21:00:00Z", "2025-11-03T23:00:00Z"),
+            ("2025-03-10T20:00:00Z", "2025-03-10T22:00:00Z"),
+        ]
+        for previous, current in samples:
+            with self.subTest(previous=previous):
+                self.assertTrue(
+                    bounded(
+                        pd.Timestamp(previous), pd.Timestamp(current),
+                        pd.Timedelta(hours=1), 96, "XAUUSDm"
+                    )
+                )
+
+    def test_rejects_unrecognized_four_hour_weekday_gap(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2025-11-03T19:00:00Z", "2025-11-03T23:00:00Z"
+        ])
+        gaps = detect(stamps, pd.Timedelta(hours=1))
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0]["gap_minutes"], 240)
+
+    def test_does_not_apply_gold_rollover_to_other_symbols(self):
+        bounded = self.bounded_closure()
+        previous = pd.Timestamp("2025-11-03T21:00:00Z")
+        current = pd.Timestamp("2025-11-03T23:00:00Z")
+        self.assertFalse(
+            bounded(previous, current, pd.Timedelta(hours=1), 96, "BTCUSDT")
+        )
+
     def test_accepts_normal_weekend_market_closure(self):
         detect = self.detector()
         stamps = pd.to_datetime([
