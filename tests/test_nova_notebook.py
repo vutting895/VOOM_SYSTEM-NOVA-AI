@@ -59,6 +59,27 @@ class NotebookStructureTests(unittest.TestCase):
         }
         self.assertEqual(query_keys, {"symbol", "timeframe", "start_utc", "end_utc"})
 
+    def test_training_history_is_capped_before_the_sealed_final_oos(self):
+        notebook = load_notebook()
+        cell = next(
+            cell for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "def fetch_history_chunk" in "".join(cell["source"])
+        )
+        source = "".join(cell["source"])
+        self.assertIn(
+            "FINAL_OOS_START_UTC = datetime(2026, 7, 1, tzinfo=timezone.utc)",
+            source,
+        )
+        self.assertIn(
+            "END_UTC = min(REQUESTED_END_UTC, FINAL_OOS_START_UTC)",
+            source,
+        )
+        self.assertIn(
+            'if (df["timestamp"] >= pd.Timestamp(END_UTC)).any():',
+            source,
+        )
+
     def test_notebook_uses_https_bridge_and_sha256_manifest(self):
         source = "\\n".join("".join(c.get("source", [])) for c in load_notebook()["cells"] if c["cell_type"] == "code")
         self.assertIn("/api/history", source)
