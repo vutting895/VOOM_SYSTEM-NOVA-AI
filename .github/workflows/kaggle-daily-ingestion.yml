@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
       DATASET_SLUG_INPUT: ${{ inputs.dataset_slug }}
       DATASET_SLUG_DEFAULT: ${{ vars.KAGGLE_DATASET_SLUG }}
     steps:
@@ -32,6 +31,8 @@ jobs:
 
       - name: Resolve dataset and verify credentials
         id: config
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -60,6 +61,7 @@ jobs:
 
       - name: Download dataset
         env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
           DATASET_SLUG: ${{ steps.config.outputs.dataset_slug }}
           DOWNLOAD_DIR: ${{ runner.temp }}/kaggle-data
         shell: bash
