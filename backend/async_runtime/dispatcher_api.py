@@ -15,6 +15,10 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, Header, HTTPException
+from celery.result import AsyncResult
+
+from bot_state import get_redis_client
+from celery_app import celery_app
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from tasks import scan_market_smc
@@ -153,6 +157,44 @@ def health() -> dict[str, Any]:
     }
 
 
+
+@app.get("/internal/v1/analysis/tasks/{task_id}")
+def get_analysis_task(
+    task_id: str,
+    tenant_id: str,
+    connection_id: str,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Return a task state/result only to the tenant/connection that queued it."""
+    _authorize_internal(authorization)
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", task_id):
+        raise HTTPException(status_code=400, detail="invalid_task_id")
+    try:
+        import json
+        raw_owner = get_redis_client().get(f"nova:task-owner:{task_id}")
+        owner = json.loads(raw_owner) if raw_owner else None
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="task_status_unavailable") from exc
+    if not owner or not hmac.compare_digest(str(owner.get("tenant_id", "")), tenant_id) or not hmac.compare_digest(str(owner.get("connection_id", "")), connection_id):
+        raise HTTPException(status_code=404, detail="analysis_task_not_found")
+
+    result = AsyncResult(task_id, app=celery_app)
+    state = result.state
+    response: dict[str, Any] = {
+        "task_id": task_id,
+        "status": state,
+        "ready": result.ready(),
+        "successful": result.successful() if result.ready() else False,
+        "orders_enabled": False,
+        "execution_enabled": False,
+        "live_trading_enabled": False,
+    }
+    if result.successful():
+        response["result"] = result.result
+    elif result.failed():
+        response["error"] = "analysis_task_failed"
+    return response
+
 @app.post("/internal/v1/analysis/smc", status_code=202)
 def dispatch_smc(
     payload: DispatchRequest,
@@ -176,6 +218,13 @@ def dispatch_smc(
         tenant_id=payload.tenant_id,
         source_metadata=source_metadata,
     )
+    # Bind the task ID to its authorized owner and connection before returning.
+    import json
+    owner_record = json.dumps(
+        {"tenant_id": payload.tenant_id, "connection_id": payload.connection_id},
+        separators=(",", ":"),
+    )
+    get_redis_client().setex(f"nova:task-owner:{task.id}", 3600, owner_record)
     return {
         "task_id": task.id,
         "status": "QUEUED",
