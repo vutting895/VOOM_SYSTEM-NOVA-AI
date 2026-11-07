@@ -21,12 +21,23 @@ Use the existing components; do not duplicate them:
 
 The Sniper repository's PR #2 (draft, based on an older Sniper main) contains a separate loopback adapter and temporary Quick Tunnel approach. Do not transplant or activate that adapter: NOVA already has a tenant-scoped outbound WSS relay. PR #1 is an older market-data foundation and is not an authoritative replacement for NOVA's Hub.
 
+### Existing NOVA workstream dependencies (checked 2026-11-07)
+
+The integration must coordinate with these existing Draft PRs rather than creating parallel services:
+
+- **PR #243 — Exness H1 history / NOVA Gold Lab notebook** (`57fac9efa508278d9766fa7b8ff8a540def4d5e8`): candidate bounded authenticated `GET /api/history` path via the existing Windows read-only bridge and Cloudflare Relay, plus notebook ingestion/coverage checks. This is the intended market-data ingestion path once exact-head checks and authenticated terminal end-to-end evidence pass. It is not yet an accepted production feed.
+- **PR #246 — Redis/Celery SMC + Elliott async runtime** (`f56024ff21dfae75faa7a970ae58ed26b7f88108`): candidate internal worker for closed-bar analysis, tenant-scoped ephemeral state and result retrieval. Its task dispatcher is not a public API and does not replace NOVA's authenticated host adapter, durable authorization, PostgreSQL lineage, or outbox.
+- **PR #238 — Exness XAUUSDm H1 dataset** (`71cc20a14a1b4c42587aaa3285d4f6ee1d20848b`): remains blocked because the historical segment is incomplete. Do not train or claim model readiness from this dataset until a separately verified export restores coverage and its manifest/validator pass.
+- **PR #245 — Quant Engine foundation**: candidate dataset identity, split, experiment fingerprint and schema-validation contracts. Reuse only after exact-head verification and acceptance; do not reimplement competing experiment identity in Sniper.
+
+At the time of this check, PRs #243, #246, #238 and #247 are Draft/open, based on main `6e8d390ac45187fb70b6acb23f1e428a20ca7006`. Their existence does not imply runtime acceptance. Verify their current exact heads and checks again before depending on or stacking implementation work.
+
 ## 3. Source-code disposition
 
 The chat-generated prototype files are not production-ready and must not be copied as-is:
 
 - `ai/indicators.py`: indicator semantics and warm-up/zero-loss behavior need deterministic tests and alignment with NOVA feature definitions.
-- `ai/elliott_wave.py`: centered pivot windows can expose future bars; replace with the causal, closed-bar confirmation semantics used by NOVA's Elliott engine.
+- `ai/elliott_wave.py`: centered pivot windows can expose future bars; replace with the causal, closed-bar confirmation semantics used by NOVA's accepted Elliott engine.
 - `ai/demand_supply.py`: future-candle inspection introduces look-ahead; implement causal SMC/zone state only.
 - `ai/sniper.py`: the Wave 2/Wave 4 heuristic is not a validated entry rule; consume versioned strategy features and explicit gates instead.
 - `trading/alpaca.py`: do not connect this order-capable adapter to NOVA. Alpaca is not the selected Exness Demo source, and NOVA order/execution/live-trading capabilities remain disabled.
@@ -78,20 +89,24 @@ For this integration:
 
 ## 7. Acceptance gates before implementation can be called integrated
 
-1. Rebase the integration implementation onto the current NOVA main SHA and identify accepted strategy-engine dependencies; do not stack on stale branches by assumption.
-2. Add schema validation and deterministic serialization/hash tests for the signal contract.
-3. Add unit tests for OHLC validation, UTC ordering, closed-bar-only behavior, no-lookahead pivots, SMC causality, warm-up handling and decimal precision.
-4. Add API contract tests proving only the authenticated NOVA service can invoke the strategy adapter and tenant context cannot be caller-forged.
-5. Add stale-data, incomplete-coverage, duplicate-run/idempotency and fail-closed tests.
-6. Verify the integration consumes the canonical NOVA market-data service; do not create another MT5/Cloudflare tunnel.
-7. Run exact-head CI and review all changed files. A workflow conclusion without executed steps/logs is not a pass.
-8. Keep training blocked until the Exness XAUUSDm H1 historical gap is recovered from a verified source and the dataset manifest passes. Do not synthesize missing bars or tune the sealed Final OOS.
+1. Recheck current NOVA main SHA, dependency PR exact heads, required checks and review threads before each dependent change.
+2. Accept the authenticated read-only history contract and prove owner/tenant binding end-to-end; do not use notebook/worker inputs supplied by an untrusted caller as authorization.
+3. Accept the internal async runtime and its real Redis/Celery round-trip tests before dispatching Sniper analysis to it; preserve durable PostgreSQL lineage and idempotency as separate requirements.
+4. Add schema validation and deterministic serialization/hash tests for `nova.strategy-signal.v1`.
+5. Add unit tests for OHLC validation, UTC ordering, closed-bar-only behavior, no-lookahead pivots, SMC causality, warm-up handling and decimal precision.
+6. Add API contract tests proving only the authenticated NOVA service can invoke the strategy adapter and tenant context cannot be caller-forged.
+7. Add stale-data, incomplete-coverage, duplicate-run/idempotency and fail-closed tests.
+8. Verify the integration consumes the canonical NOVA market-data service; do not create another MT5/Cloudflare tunnel.
+9. Run exact-head CI and review all changed files. A workflow conclusion without executed steps/logs is not a pass.
+10. Keep training blocked until the Exness XAUUSDm H1 historical gap is recovered from a verified source and the dataset manifest passes. Do not synthesize missing bars or tune the sealed Final OOS.
 
 ## 8. Implementation sequence
 
 - **Slice A — Contract:** accept this boundary and signal schema.
-- **Slice B — Adapter:** add a NOVA-owned, broker-agnostic strategy adapter that calls the accepted causal feature pipeline.
-- **Slice C — Research UI:** expose signal history, evidence, data freshness and rejection reasons in the existing NOVA Strategy workspace.
-- **Slice D — Validation:** run reproducible walk-forward/backtest and compare against the frozen baseline; no model promotion without the existing acceptance gates.
+- **Slice B — Data adapter:** consume the accepted NOVA authenticated history service; do not add a second bridge.
+- **Slice C — Analysis adapter:** call accepted causal SMC/Elliott workers using closed bars and opaque authenticated run context; add Sniper-specific logic only as a versioned, broker-agnostic strategy package.
+- **Slice D — Signal persistence/API:** validate and persist immutable signal evidence with tenant scope, idempotency and provenance; keep model confidence absent until calibrated.
+- **Slice E — Research UI:** expose signal history, evidence, data freshness and rejection reasons in the existing NOVA Strategy workspace.
+- **Slice F — Validation:** run reproducible walk-forward/backtest and compare against the frozen baseline; no model promotion without the existing acceptance gates.
 
 This document establishes the integration boundary only. It does not claim the Sniper runtime is connected, data is flowing, a model is trained, or a signal is production-ready.
