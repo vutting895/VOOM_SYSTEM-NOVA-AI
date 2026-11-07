@@ -4,6 +4,11 @@ from datetime import datetime, timezone
 from math import isfinite
 from uuid import uuid4
 
+try:
+    from workers.alerts.telegram import notify_circuit_breaker
+except ImportError:  # Allow standalone execution of this prototype.
+    notify_circuit_breaker = None
+
 class RiskWorker:
     def __init__(self, max_alloc_pct: float = 20.0, max_daily_loss_pct: float = 3.0,
                  max_drawdown_pct: float = 7.0, max_leverage: float = 1.0,
@@ -30,6 +35,9 @@ class RiskWorker:
             if data_age_seconds < 0 or data_age_seconds > self.max_data_age_seconds: reasons.append("stale_market_data")
         if not market_open: reasons.append("market_closed")
         if not paper_mode: reasons.append("live_mode_not_authorized")
+        breaker_reasons = [r for r in reasons if r in {"daily_loss_limit", "drawdown_limit"}]
+        if breaker_reasons and notify_circuit_breaker:
+            notify_circuit_breaker(", ".join(breaker_reasons))
         return {"decision_id":str(uuid4()),"status":"allow_paper" if not reasons else "reject",
                 "passed":not reasons,"reason_codes":reasons,"evaluated_at":datetime.now(timezone.utc).isoformat(),
                 "policy_version":"nova-risk-1.0","live_execution_allowed":False,
