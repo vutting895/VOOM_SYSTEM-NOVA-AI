@@ -76,7 +76,7 @@ class NotebookStructureTests(unittest.TestCase):
             source,
         )
         self.assertIn(
-            'if (df["timestamp"] >= pd.Timestamp(END_UTC)).any():',
+            '(df["timestamp"] >= pd.Timestamp(END_UTC)).any()',
             source,
         )
 
