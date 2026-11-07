@@ -73,6 +73,23 @@ class ElliottWaveEngineTests(unittest.TestCase):
         self.assertTrue((features["elliott_direction"] == -1).any())
         self.assertTrue((features["elliott_impulse_complete"] == 1).any())
 
+    def test_wave4_can_remain_valid_when_wave3_is_not_longer_than_wave1(self):
+        # W1=11, W3=9, W5=7: W5 is shortest, so W3 is not shortest.
+        # The W4 state must remain visible before W5 is confirmed.
+        frame = pivot_candles([
+            ("low", 100), ("high", 110), ("low", 105),
+            ("high", 113), ("low", 111.25), ("high", 117.25),
+        ])
+        features = build_elliott_wave_features(frame, left=1, right=1)
+        self.assertTrue((features["elliott_wave_number"] == 4).any())
+        self.assertTrue((features["elliott_impulse_complete"] == 1).any())
+        completed = features.loc[features["elliott_impulse_complete"] == 1].iloc[-1]
+        self.assertLess(completed["elliott_wave3_length"], completed["elliott_wave1_length"])
+        self.assertGreater(
+            completed["elliott_wave3_length"],
+            min(completed["elliott_wave1_length"], completed["elliott_wave5_length"]),
+        )
+
     def test_wave3_shortest_is_rejected(self):
         frame = pivot_candles([
             ("low", 100), ("high", 110), ("low", 105),
