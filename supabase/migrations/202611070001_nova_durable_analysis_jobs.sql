@@ -1,5 +1,5 @@
 -- Durable owner-scoped SMC/Elliott analysis jobs and append-only audit events.
--- Runtime writes use the server-only Supabase service role; clients receive no table grants.
+-- Runtime writes use server-only service_role RPCs; authenticated clients receive owner-RLS SELECT only.
 
 CREATE TABLE IF NOT EXISTS public.nova_analysis_jobs (
   id uuid PRIMARY KEY,
