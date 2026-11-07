@@ -292,3 +292,8 @@ XGBoost gain remains led by `hour_sin` (10.26%), `volume_gate` (6.47%) and `hour
 PR #147 is separate. Its P2 CI [run #34](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41575390274) passed 13 synthetic tests, including the exit-UTC-day loss regression. P2 is not cost-complete: gap-through fills and swap/rollover remain unmodeled, independent Exness Demo commission evidence is missing, no real-data challenger labels/manifest have been accepted, and the 2026-07-01 benchmark holdout is already inspected. A new future holdout must be preregistered.
 
 **Do not start another full benchmark training run yet.** Complete the P1 FVG semantic review and P2 cost/provenance methodology first. Then perform challenger-only P3 baselines/calibration and ablations on inner chronological folds, P4 cost/regime robustness, and only then P5 on a genuinely new untouched future holdout. Keep 12-bar purge, inner-fold-only tuning/calibration, and every frozen v6.2.6.3 entry/risk/news gate unchanged.
+
+
+## Calendar raw-byte provenance revalidation — 2026-11-07
+
+The original terminal Common Files CSV and date-matched `MQL5/Logs/20261030.log` were re-read from the connected Windows device. The raw 388,313-byte CRLF-only file hashes to `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`; CRLF-to-LF normalization yields 386,146 bytes and `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, matching the canonical Git CSV exactly. This is a revalidation of the historical 2026-10-30 export, not a fresh MT5 export. The raw digest and verification timestamp are recorded in the calendar manifest and `reports/wave3_calendar_raw_digest_revalidation_20261107.json`.
