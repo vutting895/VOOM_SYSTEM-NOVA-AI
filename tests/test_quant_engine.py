@@ -156,6 +156,16 @@ class QuantSplitTests(unittest.TestCase):
         self.assertEqual(windows[0].train_end - windows[0].train_start, 30)
         self.assertEqual(windows[-1].train_end - windows[-1].train_start, 30)
 
+    def test_split_rejects_boolean_non_finite_and_non_numeric_fractions(self):
+        rows = list(range(100))
+        for value in (True, float("nan"), "0.6"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                chronological_split(rows, train_fraction=value, validation_fraction=0.2, purge_bars=0)
+
+    def test_walk_forward_requires_boolean_expanding_flag(self):
+        with self.assertRaisesRegex(ValueError, "expanding must be a boolean"):
+            walk_forward_windows(100, train_bars=30, test_bars=10, expanding="yes")
+
     def test_overlapping_test_folds_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "overlapping test folds"):
             walk_forward_windows(100, train_bars=30, test_bars=10, step_bars=5, purge_bars=0)
