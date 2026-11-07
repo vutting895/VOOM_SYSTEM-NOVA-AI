@@ -1,0 +1,35 @@
+name: Exness H1 Dataset Integrity
+
+on:
+  pull_request:
+    paths:
+      - "data/market/exness/XAUUSDm_H1_3Y.csv"
+      - "data/market/exness/XAUUSDm_H1_3Y.manifest.json"
+      - "tools/validate_exness_h1_dataset.py"
+      - "tests/test_exness_h1_dataset.py"
+      - ".github/workflows/exness-h1-dataset-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "data/market/exness/XAUUSDm_H1_3Y.csv"
+      - "data/market/exness/XAUUSDm_H1_3Y.manifest.json"
+      - "tools/validate_exness_h1_dataset.py"
+      - "tests/test_exness_h1_dataset.py"
+      - ".github/workflows/exness-h1-dataset-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-exness-h1-dataset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run deterministic dataset audit tests
+        run: python -m unittest discover -s tests -p "test_exness_h1_dataset.py" -v
+      - name: Require complete three-year coverage before training
+        run: python tools/validate_exness_h1_dataset.py --require-training-eligible --max-gap-hours 96
