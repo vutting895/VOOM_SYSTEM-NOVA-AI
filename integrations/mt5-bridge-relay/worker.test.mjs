@@ -123,6 +123,7 @@ test("query validation only allows bounded read parameters", () => {
   assert.equal(validateReadRequest(new URL("https://relay.test/api/account?connection_id=abc")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&count=9999")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&symbol=OTHER")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z&volume_semantics=MT5%20tick_volume")).ok, false);
 });
 
 test("token comparison rejects missing, unequal, and non-string values", () => {
