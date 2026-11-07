@@ -25,11 +25,7 @@ def scan_market_smc(self, symbol: str, timeframe: str, bars: list[dict[str, Any]
                     last_bar_closed: bool, tenant_id: str | None = None,
                     bot_id: str | None = None, lookback: int = 20,
                     pivot_left_bars: int = 2, pivot_right_bars: int = 2) -> dict[str, Any]:
-    """Analyze an authorized OHLC snapshot; never accept broker/provider credentials.
-
-    The authenticated host adapter must pass only fully closed candles. Celery
-    receives no user token, broker credential, account snapshot, or bridge token.
-    """
+    """Analyze an authorized OHLC snapshot; never accept broker/provider credentials."""
     symbol = str(symbol).strip().upper()
     timeframe = str(timeframe).strip().lower()
     if not _SYMBOL_RE.fullmatch(symbol):
@@ -68,3 +64,7 @@ def scan_market_smc(self, symbol: str, timeframe: str, bars: list[dict[str, Any]
     except (SoftTimeLimitExceeded, RedisError) as exc:
         logger.exception("Transient runtime failure task_id=%s", task_id)
         raise self.retry(exc=exc, countdown=5 * (self.request.retries + 1))
+
+
+# Export app explicitly so the requested CLI command "celery -A tasks worker" works.
+app = celery_app
