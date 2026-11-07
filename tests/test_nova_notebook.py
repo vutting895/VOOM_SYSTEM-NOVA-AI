@@ -34,7 +34,29 @@ class NotebookStructureTests(unittest.TestCase):
     def test_all_code_cells_parse(self):
         for index, cell in enumerate(load_notebook()["cells"]):
             if cell["cell_type"] == "code":
-                compile("".join(cell["source"]), f"notebook-cell-{index}", "exec")
+                source = "".join(cell["source"])
+                tree = ast.parse(source, filename=f"notebook-cell-{index}")
+                self.assertTrue(tree.body, f"code cell {index} is syntactically valid but contains no executable statements")
+                compile(source, f"notebook-cell-{index}", "exec")
+
+    def test_ingestion_helpers_are_top_level_ast_definitions(self):
+        notebook = load_notebook()
+        cell = next(
+            cell for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "def fetch_history_chunk" in "".join(cell["source"])
+        )
+        tree = ast.parse("".join(cell["source"]))
+        functions = {
+            node.name for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+        }
+        self.assertTrue({
+            "fetch_history_chunk",
+            "is_bounded_market_closure",
+            "detect_unexplained_gaps",
+            "detect_boundary_gaps",
+        }.issubset(functions))
 
     def test_history_request_uses_only_relay_allowlisted_query_parameters(self):
         notebook = load_notebook()
