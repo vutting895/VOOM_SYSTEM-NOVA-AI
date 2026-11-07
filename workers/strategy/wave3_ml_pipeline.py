@@ -569,6 +569,9 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
         "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
         "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
+        # Elliott pivot indices are audit traces, not predictive model inputs.
+        "elliott_pivot_1_index", "elliott_pivot_2_index", "elliott_pivot_3_index",
+        "elliott_pivot_4_index", "elliott_pivot_5_index", "elliott_pivot_6_index",
     ]
     model_features = features.drop(columns=[name for name in diagnostic_only if name in features.columns])
     valid_features = np.isfinite(model_features.to_numpy()).all(axis=1)
