@@ -112,5 +112,26 @@ class TaskContractTests(unittest.TestCase):
         self.assertNotEqual(first_key, second_key)
 
 
+    def test_tenant_scoped_research_scan_does_not_require_active_bot(self):
+        from tasks import scan_market_smc
+        rows = make_bars(range(100, 140))
+        metadata = {
+            "provider": "exness_mt5_demo",
+            "connection_id": "connection-a",
+            "fetched_at": "2026-11-07T01:00:00Z",
+            "source_as_of": "2026-11-07T00:59:00Z",
+        }
+        with patch("tasks.cache_analysis") as analysis_cache, patch("tasks.cache_latest_price") as price_cache:
+            result = scan_market_smc.run(
+                "EURUSD", "5m", rows, last_bar_closed=True,
+                tenant_id="tenant-a", source_metadata=metadata,
+            )
+        self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(result["market_data_source"], metadata)
+        analysis_cache.assert_called_once()
+        price_cache.assert_called_once()
+        self.assertEqual(price_cache.call_args.args[0:2], ("tenant-a", "EURUSD"))
+
+
 if __name__ == "__main__":
     unittest.main()
