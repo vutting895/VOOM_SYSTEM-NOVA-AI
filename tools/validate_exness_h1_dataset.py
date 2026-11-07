@@ -41,6 +41,7 @@ def audit_rows(
     gaps_over_one_hour = 0
     long_gaps: list[dict[str, Any]] = []
     previous: datetime | None = None
+    max_gap_observed = 0.0
     duplicate_count = 0
     ordering_errors = 0
     invalid_ohlc_rows = 0
@@ -65,6 +66,7 @@ def audit_rows(
                     duplicate_count += 1
                 errors.append(f"row_{row_number}:timestamps_not_strictly_increasing")
             else:
+                max_gap_observed = max(max_gap_observed, delta_hours)
                 if delta_hours > 1.0:
                     gaps_over_one_hour += 1
                 if delta_hours > max_gap_hours:
@@ -133,7 +135,7 @@ def audit_rows(
         "first_timestamp_utc": timestamps[0] if timestamps else None,
         "last_timestamp_utc": timestamps[-1] if timestamps else None,
         "gaps_over_1h": gaps_over_one_hour,
-        "max_gap_hours": max((item["hours"] for item in long_gaps), default=0.0),
+        "max_gap_hours": max_gap_observed,
         "long_gap_count": len(long_gaps),
         "long_gaps": long_gaps,
         "duplicate_timestamps": duplicate_count,
