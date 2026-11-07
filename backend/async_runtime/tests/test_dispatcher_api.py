@@ -47,10 +47,15 @@ class InternalDispatcherTests(unittest.TestCase):
     def test_dispatches_tenant_scoped_closed_bars_without_user_credentials(self):
         with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
              patch.object(dispatcher_api.scan_market_smc, "apply_async", side_effect=lambda *args, **kwargs: Mock(id=kwargs["task_id"])) as apply_async, \
-             patch.object(dispatcher_api, "get_redis_client") as redis_client:
+             patch.object(dispatcher_api, "get_redis_client") as redis_client, \
+             patch.object(dispatcher_api, "create_job") as create_job:
             response = dispatcher_api.dispatch_smc(valid_payload(), authorization="Bearer " + "a" * 48)
 
         self.assertEqual(response["task_id"], apply_async.call_args.kwargs["task_id"])
+        create_job.assert_called_once_with(
+            task_id=response["task_id"], tenant_id=TENANT_ID,
+            connection_id=CONNECTION_ID, symbol="EURUSD", timeframe="5m", bar_count=25,
+        )
         self.assertEqual(response["status"], "QUEUED")
         args, kwargs = apply_async.call_args.args, apply_async.call_args.kwargs
         self.assertEqual(args[0][0:2], ("EURUSD", "5m"))
