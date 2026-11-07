@@ -147,28 +147,40 @@ def build_elliott_wave_features(
                 columns["elliott_direction"][i] = 0
             continue
 
+        # A six-pivot alternating sequence is a completed impulse candidate.
+        # If it fails Elliott geometry, do not relabel its tail as a valid partial wave.
+        if len(pivots) >= 6:
+            latest_kinds = [x["kind"] for x in pivots[-6:]]
+            if latest_kinds in (
+                ["low", "high", "low", "high", "low", "high"],
+                ["high", "low", "high", "low", "high", "low"],
+            ):
+                continue
+
         # Partial impulse state, using only pivots confirmed by this bar.
         # The number is the latest completed leg; Wave 5 requires all six pivots.
         direction, wave_number, valid = 0, 0, False
-        length1 = retrace2 = retrace4 = np.nan
+        length1 = length3 = retrace2 = retrace4 = np.nan
         if len(pivots) >= 5:
             tail5 = pivots[-5:]
             kinds = [x["kind"] for x in tail5]
             if kinds == ["low", "high", "low", "high", "low"]:
                 direction = 1
                 a, b, c, d, e = [float(x["price"]) for x in tail5]
-                valid = a < c < b < d and b < e < d
                 length1 = b - a
+                length3 = d - c
+                valid = a < c < b < d and b < e < d and length3 > length1
                 retrace2 = (b - c) / length1 if length1 > 0 else np.nan
-                retrace4 = (d - e) / (d - c) if d > c else np.nan
+                retrace4 = (d - e) / length3 if length3 > 0 else np.nan
                 wave_number = 4
             elif kinds == ["high", "low", "high", "low", "high"]:
                 direction = -1
                 a, b, c, d, e = [float(x["price"]) for x in tail5]
-                valid = a > c > b > d and b > e > d
                 length1 = a - b
+                length3 = c - d
+                valid = a > c > b > d and b > e > d and length3 > length1
                 retrace2 = (c - b) / length1 if length1 > 0 else np.nan
-                retrace4 = (e - d) / (c - d) if c > d else np.nan
+                retrace4 = (e - d) / length3 if length3 > 0 else np.nan
                 wave_number = 4
         if not valid and len(pivots) >= 4:
             tail4 = pivots[-4:]
@@ -178,6 +190,7 @@ def build_elliott_wave_features(
                 a, b, c, d = [float(x["price"]) for x in tail4]
                 valid = a < c < b < d
                 length1 = b - a
+                length3 = d - c
                 retrace2 = (b - c) / length1 if length1 > 0 else np.nan
                 wave_number = 3
             elif kinds == ["high", "low", "high", "low"]:
@@ -185,6 +198,7 @@ def build_elliott_wave_features(
                 a, b, c, d = [float(x["price"]) for x in tail4]
                 valid = a > c > b > d
                 length1 = a - b
+                length3 = c - d
                 retrace2 = (c - b) / length1 if length1 > 0 else np.nan
                 wave_number = 3
         if not valid and len(pivots) >= 3:
@@ -218,6 +232,7 @@ def build_elliott_wave_features(
             columns["elliott_direction"][i] = direction
             columns["elliott_impulse_valid"][i] = 1
             columns["elliott_wave1_length"][i] = length1
+            columns["elliott_wave3_length"][i] = length3
             columns["elliott_wave2_retrace"][i] = retrace2
             columns["elliott_wave4_retrace"][i] = retrace4
             for j, point in enumerate(pivots[-min(wave_number + 1, 6):], start=1):
