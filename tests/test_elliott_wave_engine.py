@@ -29,6 +29,7 @@ class ElliottWaveEngineTests(unittest.TestCase):
         features = build_elliott_wave_features(frame, left=1, right=1)
         self.assertEqual(len(features), len(frame))
         self.assertTrue(set(features["elliott_wave_number"].unique()).issubset(set(range(6))))
+        self.assertTrue((features["elliott_impulse_complete"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] <= features["elliott_impulse_valid"]).all())
 
     def test_future_change_does_not_rewrite_prior_features(self):
