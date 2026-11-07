@@ -21,6 +21,7 @@ from backend.learning.data_sources import (
     load_exness_xauusdm_m15,
     _segments,
     _is_bounded_market_closure,
+    _classify_market_gap,
 )
 
 
@@ -98,10 +99,31 @@ def _write_exness_h1_fixture(
         writer.writeheader()
         writer.writerows(rows)
     raw = csv_path.read_bytes()
+    parsed = [
+        datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+        for stamp in timestamps
+    ]
+    classifications = [
+        _classify_market_gap(
+            previous, current, timedelta(hours=1), symbol="XAUUSDm"
+        )
+        for previous, current in zip(parsed[:-1], parsed[1:])
+    ]
     hours = [
-        (datetime.fromisoformat(current.replace("Z", "+00:00"))
-         - datetime.fromisoformat(previous.replace("Z", "+00:00"))).total_seconds() / 3600
-        for previous, current in zip(timestamps[:-1], timestamps[1:])
+        (current - previous).total_seconds() / 3600
+        for previous, current in zip(parsed[:-1], parsed[1:])
+    ]
+    unexplained_gaps = [
+        {
+            "from_utc": previous.isoformat().replace("+00:00", "Z"),
+            "to_utc": current.isoformat().replace("+00:00", "Z"),
+            "hours": gap_hours,
+            "classification": "unexplained",
+        }
+        for previous, current, gap_hours, classification in zip(
+            parsed[:-1], parsed[1:], hours, classifications
+        )
+        if classification == "unexplained"
     ]
     manifest = {
         "dataset": "Exness XAUUSD H1 historical OHLCV",
@@ -119,14 +141,20 @@ def _write_exness_h1_fixture(
         "sha256_csv": _digest(raw),
         "training_eligible": training_eligible,
         "completeness_status": "PASS" if training_eligible else "BLOCKED_MISSING_HISTORICAL_SEGMENT",
-        "max_allowed_gap_hours": 96,
+        "max_allowed_gap_hours_for_training": 96,
         "tick_volume_min": min(int(value) for value in volumes),
         "tick_volume_max": max(int(value) for value in volumes),
         "tick_volume_zero_rows": sum(int(value) == 0 for value in volumes),
         "gap_audit": {
-            "gap_count_over_1h": sum(gap > 1 for gap in hours),
+            "gap_count_over_1h": sum(
+                classification != "contiguous" for classification in classifications
+            ),
             "gap_count_over_96h": sum(gap > 96 for gap in hours),
             "largest_gap_hours": max(hours, default=0),
+            "recognized_daily_rollover_count": classifications.count("daily_rollover"),
+            "recognized_weekend_closure_count": classifications.count("weekend_closure"),
+            "unexplained_gap_count": classifications.count("unexplained"),
+            "unexplained_gaps": unexplained_gaps,
         },
     }
     (folder / "XAUUSDm_H1_3Y.manifest.json").write_text(
