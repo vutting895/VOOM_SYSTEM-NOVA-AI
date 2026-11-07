@@ -174,6 +174,8 @@ def build_elliott_wave_features(
 
         # Partial impulse state, using only pivots confirmed by this bar.
         # The number is the latest completed leg; Wave 5 requires all six pivots.
+        # Do not apply the Wave-3-not-shortest rule until Wave 5 is known: a
+        # shorter Wave 5 can make Wave 3 non-shortest even when W3 < W1.
         direction, wave_number, valid = 0, 0, False
         length1 = length3 = retrace2 = retrace4 = np.nan
         if len(pivots) >= 5:
@@ -184,7 +186,7 @@ def build_elliott_wave_features(
                 a, b, c, d, e = [float(x["price"]) for x in tail5]
                 length1 = b - a
                 length3 = d - c
-                valid = a < c < b < d and b < e < d and length3 > length1
+                valid = a < c < b < d and b < e < d and length3 > 0
                 retrace2 = (b - c) / length1 if length1 > 0 else np.nan
                 retrace4 = (d - e) / length3 if length3 > 0 else np.nan
                 wave_number = 4
@@ -193,7 +195,7 @@ def build_elliott_wave_features(
                 a, b, c, d, e = [float(x["price"]) for x in tail5]
                 length1 = a - b
                 length3 = c - d
-                valid = a > c > b > d and b > e > d and length3 > length1
+                valid = a > c > b > d and b > e > d and length3 > 0
                 retrace2 = (c - b) / length1 if length1 > 0 else np.nan
                 retrace4 = (e - d) / length3 if length3 > 0 else np.nan
                 wave_number = 4
