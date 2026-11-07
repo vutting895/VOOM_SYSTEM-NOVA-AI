@@ -110,6 +110,8 @@ class ExnessMT5ExporterTests(unittest.TestCase):
             self.assertEqual(manifest["symbol"], "XAUUSDm")
             self.assertEqual(manifest["timeframe"], "H1")
             self.assertEqual(manifest["timezone"], "UTC")
+            self.assertEqual(manifest["chart_mode"], "BID")
+            self.assertEqual(manifest["price_basis"], "MT5 broker chart OHLC (Bid chart mode)")
             self.assertFalse(manifest["training_eligible"])
             self.assertEqual(
                 json.loads(manifest_path.read_text(encoding="utf-8"))["completeness_status"],
