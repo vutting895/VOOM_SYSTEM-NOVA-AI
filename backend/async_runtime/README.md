@@ -89,7 +89,7 @@ After the Hub receives HTTP 202, it can poll the authenticated owner-scoped rout
 
 `GET /v1/connections/{connectionId}/analysis/{taskId}`
 
-The System Hub re-authenticates the Supabase user, resolves the connection under that user, and forwards only the derived tenant ID and connection ID to the private dispatcher. The dispatcher checks a one-hour Redis ownership index created at enqueue time before reading the Celery result backend.
+The System Hub re-authenticates the Supabase user, resolves the connection under that user, and forwards only the derived tenant ID and connection ID to the private dispatcher. The dispatcher first checks the one-hour Redis ownership index and Celery result backend. If Redis ownership has expired or Redis is unavailable, it queries PostgreSQL using the task ID, authenticated tenant ID and connection ID together.
 
 Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. Redis remains a one-hour ownership/status projection. Durable job state and the full analysis result are also written to PostgreSQL tables `nova_analysis_jobs` and `nova_analysis_audit_events`. The runtime requires `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_ROLE_KEY`; keep both only in dispatcher/worker secrets, never in the Hub or browser. The migration grants authenticated users read-only access under owner RLS and denies client writes. Audit events are append-only.
 
@@ -102,5 +102,5 @@ Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. T
 - One-shot tenant research scans do not change bot state.
 - Order submission, execution, and Live Trading remain disabled.
 - Durable persistence is required for new System Hub dispatches; if PostgreSQL persistence is unavailable, the dispatcher rejects enqueue with HTTP 503.
-- The current task-status endpoint still uses the one-hour Redis ownership index and Celery result backend. PostgreSQL history is durable storage but is not yet the fallback polling source.
+- PostgreSQL is the durable fallback for status/result polling after Redis ownership or Celery result expiry.
 - Do not treat a queued task as a trading signal or completed analysis.
