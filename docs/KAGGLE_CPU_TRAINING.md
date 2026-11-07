@@ -31,3 +31,7 @@ The notebook computes the CSV bytes and SHA-256 in memory before persistence. If
 CPU-only XGBoost and a small PyTorch LSTM are research baselines, not profitability claims or trading signals. The final holdout remains chronological and must not be tuned. Model promotion still requires untouched final OOS, walk-forward windows, cost-aware backtests, sufficient trade count, positive net results, PF above 1, baseline comparison and independent risk review.
 
 No broker order endpoint is used. No model is automatically promoted. Live trading remains disabled.
+
+## Bounded market-closure validation
+
+The notebook accepts weekend/holiday closures only when the interval is at most 96 hours. A larger gap is treated as a possible data outage even when it crosses one or more weekends, and the dataset is not persisted or used for training. This prevents a multi-month MT5 history outage from being misclassified as a normal weekend closure.
