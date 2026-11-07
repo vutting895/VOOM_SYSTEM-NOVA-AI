@@ -1,0 +1,112 @@
+name: Kaggle Daily Data Ingestion
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_slug:
+        description: "Kaggle dataset slug (owner/dataset-name)"
+        required: true
+        type: string
+  schedule:
+    # 08:00 Thailand time (UTC+7)
+    - cron: "0 1 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kaggle-ingestion-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      DATASET_SLUG_INPUT: ${{ inputs.dataset_slug }}
+      DATASET_SLUG_DEFAULT: ${{ vars.KAGGLE_DATASET_SLUG }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve dataset and verify credentials
+        id: config
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATASET_SLUG="${DATASET_SLUG_INPUT:-}"
+          if [[ -z "$DATASET_SLUG" ]]; then
+            DATASET_SLUG="${DATASET_SLUG_DEFAULT:-}"
+          fi
+          if [[ ! "$DATASET_SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Set workflow input dataset_slug or repository variable KAGGLE_DATASET_SLUG to owner/dataset-name."
+            exit 1
+          fi
+          if [[ -z "${KAGGLE_API_TOKEN:-}" ]]; then
+            echo "::error::Missing repository Actions secret KAGGLE_API_TOKEN. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "dataset_slug=$DATASET_SLUG" >> "$GITHUB_OUTPUT"
+          echo "Kaggle dataset configured: $DATASET_SLUG"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Kaggle CLI
+        run: python -m pip install --disable-pip-version-check kaggle
+
+      - name: Download dataset
+        env:
+          DATASET_SLUG: ${{ steps.config.outputs.dataset_slug }}
+          DOWNLOAD_DIR: ${{ runner.temp }}/kaggle-data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$DOWNLOAD_DIR"
+          kaggle datasets download -d "$DATASET_SLUG" --unzip -p "$DOWNLOAD_DIR"
+          if [[ -z "$(find "$DOWNLOAD_DIR" -type f -print -quit)" ]]; then
+            echo "::error::Kaggle returned no dataset files."
+            exit 1
+          fi
+
+      - name: Create integrity manifest
+        env:
+          DATASET_SLUG: ${{ steps.config.outputs.dataset_slug }}
+          DOWNLOAD_DIR: ${{ runner.temp }}/kaggle-data
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path(os.environ["DOWNLOAD_DIR"])
+          files = []
+          for path in sorted(p for p in root.rglob("*") if p.is_file()):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              files.append({
+                  "path": path.relative_to(root).as_posix(),
+                  "size_bytes": path.stat().st_size,
+                  "sha256": digest,
+              })
+          manifest = {
+              "provider": "kaggle",
+              "dataset_slug": os.environ["DATASET_SLUG"],
+              "git_sha": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "files": files,
+          }
+          (root / "manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+          )
+          print(f"Manifest created for {len(files)} files.")
+          PY
+
+      - name: Upload dataset artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kaggle-dataset-${{ github.run_id }}
+          path: ${{ runner.temp }}/kaggle-data/
+          if-no-files-found: error
+          retention-days: 7
