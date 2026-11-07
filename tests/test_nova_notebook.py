@@ -91,6 +91,12 @@ class OHLCVValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid OHLC bounds"):
             self.validate(invalid)
 
+    def test_rejects_fractional_tick_volume(self):
+        invalid = self.valid.copy()
+        invalid.loc[0, "tick_volume"] = 1.5
+        with self.assertRaisesRegex(ValueError, "tick_volume must be a non-negative integer"):
+            self.validate(invalid)
+
     def test_rejects_negative_volume(self):
         invalid = self.valid.copy()
         invalid.loc[0, "tick_volume"] = -1
