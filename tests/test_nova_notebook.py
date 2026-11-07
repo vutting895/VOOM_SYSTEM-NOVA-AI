@@ -80,6 +80,56 @@ class NotebookStructureTests(unittest.TestCase):
                 self.assertEqual(cell["outputs"], [])
 
 
+class DatasetGapDetectionTests(unittest.TestCase):
+    @staticmethod
+    def detector():
+        notebook = load_notebook()
+        cell = next(
+            cell for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and "def detect_unexplained_gaps" in "".join(cell["source"])
+        )
+        tree = ast.parse("".join(cell["source"]))
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "detect_unexplained_gaps"
+        )
+        namespace = {"pd": pd}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
+        return namespace["detect_unexplained_gaps"]
+
+    def test_accepts_normal_weekend_market_closure(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2025-11-07T21:00:00Z", "2025-11-09T23:00:00Z"
+        ])
+        self.assertEqual(detect(stamps, pd.Timedelta(hours=1)), [])
+
+    def test_accepts_bounded_holiday_closure_crossing_weekend(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2023-12-22T21:00:00Z", "2023-12-25T23:00:00Z"
+        ])
+        self.assertEqual(detect(stamps, pd.Timedelta(hours=1)), [])
+
+    def test_rejects_multi_month_outage_even_when_it_crosses_weekends(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2025-12-31T21:00:00Z", "2026-11-06T00:00:00Z"
+        ])
+        gaps = detect(stamps, pd.Timedelta(hours=1))
+        self.assertEqual(len(gaps), 1)
+        self.assertGreater(gaps[0]["gap_minutes"], 96 * 60)
+
+    def test_rejects_extended_weekday_outage(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2025-11-03T00:00:00Z", "2025-11-07T12:00:00Z"
+        ])
+        gaps = detect(stamps, pd.Timedelta(hours=1))
+        self.assertEqual(len(gaps), 1)
+
+
 class OHLCVValidationTests(unittest.TestCase):
     def setUp(self):
         self.validate = validator_namespace()["validate_ohlcv"]
