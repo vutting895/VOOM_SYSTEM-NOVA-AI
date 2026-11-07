@@ -180,6 +180,8 @@ def audit_dataset(
         "tick_volume_max_matches": manifest.get("tick_volume_max") == summary["tick_volume_max"],
         "tick_volume_zero_rows_match": manifest.get("tick_volume_zero_rows") == summary["tick_volume_zero_rows"],
         "tick_volume_missing_rows_match": manifest.get("tick_volume_missing_rows") == summary["tick_volume_missing_rows"],
+        "training_eligible_flag_is_true": manifest.get("training_eligible") is True,
+        "completeness_status_is_pass": manifest.get("completeness_status") == "PASS",
     }
     for name, passed in checks.items():
         if not passed:
@@ -189,13 +191,22 @@ def audit_dataset(
         "tick_volume_missing_or_non_numeric",
         "tick_volume_not_integer",
         "tick_volume_negative",
+        "manifest_mismatch:tick_volume_min_matches",
+        "manifest_mismatch:tick_volume_max_matches",
+        "manifest_mismatch:tick_volume_zero_rows_match",
+        "manifest_mismatch:tick_volume_missing_rows_match",
     )
     volume_errors = [
         error for error in errors
         if any(marker in error for marker in volume_error_prefixes)
     ]
     coverage_errors = [
-        error for error in errors if "historical_gap_exceeds" in error
+        error for error in errors
+        if "historical_gap_exceeds" in error
+        or error in {
+            "manifest_mismatch:training_eligible_flag_is_true",
+            "manifest_mismatch:completeness_status_is_pass",
+        }
     ]
 
     return {
