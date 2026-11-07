@@ -250,7 +250,7 @@ def load_exness_xauusdm_m15(
                 high=_decimal(row, "high"),
                 low=_decimal(row, "low"),
                 close=_decimal(row, "close"),
-                volume=_decimal(row, "volume"),
+                volume=_decimal(row, "tick_volume"),
                 extras={
                     key: row[key]
                     for key in ("tick_volume", "spread_points", "spread_price", "real_volume")
