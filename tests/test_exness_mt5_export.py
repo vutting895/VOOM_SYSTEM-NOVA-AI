@@ -32,18 +32,21 @@ class FakeMT5:
     TIMEFRAME_H1 = 16385
     ACCOUNT_TRADE_MODE_DEMO = 0
 
-    def __init__(self, rates=None, *, server="Exness-MT5Trial7", trade_mode=0, connected=True):
+    def __init__(self, rates=None, *, server="Exness-MT5Trial7", trade_mode=0,
+                 connected=True, chart_mode=0, company="Exness Technologies Ltd"):
         self.rates = rates or []
         self.server = server
         self.trade_mode = trade_mode
         self.connected = connected
+        self.chart_mode = chart_mode
+        self.company = company
         self.calls = []
 
     def terminal_info(self):
-        return SimpleNamespace(connected=self.connected, chart_mode=0, company="Exness Technologies Ltd")
+        return SimpleNamespace(connected=self.connected, chart_mode=self.chart_mode, company=self.company)
 
     def account_info(self):
-        return SimpleNamespace(server=self.server, trade_mode=self.trade_mode, company="Exness Technologies Ltd")
+        return SimpleNamespace(server=self.server, trade_mode=self.trade_mode, company=self.company)
 
     def symbol_info(self, symbol):
         return SimpleNamespace(name=symbol, description="Gold vs US Dollar")
@@ -125,6 +128,23 @@ class ExnessMT5ExporterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(RuntimeError, "not_connected"):
                 self.export_to(folder, FakeMT5(self.rates, connected=False))
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_refuses_non_bid_chart_mode_to_preserve_price_basis(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError, "chart_mode_must_be_bid"):
+                self.export_to(folder, FakeMT5(self.rates, chart_mode=1))
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_refuses_missing_or_non_exness_company_provenance(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError, "company_metadata_missing"):
+                self.export_to(folder, FakeMT5(self.rates, company=""))
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError, "company_does_not_identify_exness"):
+                self.export_to(folder, FakeMT5(self.rates, company="Other Broker"))
             self.assertEqual(list(Path(folder).iterdir()), [])
 
     def test_refuses_empty_history_instead_of_creating_empty_dataset(self):
