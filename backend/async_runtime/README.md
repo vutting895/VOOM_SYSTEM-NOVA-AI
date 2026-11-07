@@ -16,6 +16,8 @@ Create a high-entropy token and keep it out of source control:
 
 ```bash
 export NOVA_ANALYSIS_INTERNAL_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export SUPABASE_URL="https://<project-ref>.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="<server-only-service-role-key>"
 docker compose -f infra/async-runtime/docker-compose.yml up --build -d
 docker compose -f infra/async-runtime/docker-compose.yml ps
 docker compose -f infra/async-runtime/docker-compose.yml logs -f analysis-api smc-worker
@@ -89,7 +91,7 @@ After the Hub receives HTTP 202, it can poll the authenticated owner-scoped rout
 
 The System Hub re-authenticates the Supabase user, resolves the connection under that user, and forwards only the derived tenant ID and connection ID to the private dispatcher. The dispatcher checks a one-hour Redis ownership index created at enqueue time before reading the Celery result backend.
 
-Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. The Redis ownership index and Celery result both expire after one hour; this is a short-lived runtime facility, not durable PostgreSQL job history. PostgreSQL persistence and long-term audit retrieval remain a separate follow-up.
+Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. Redis remains a one-hour ownership/status projection. Durable job state and the full analysis result are also written to PostgreSQL tables `nova_analysis_jobs` and `nova_analysis_audit_events`. The runtime requires `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_ROLE_KEY`; keep both only in dispatcher/worker secrets, never in the Hub or browser. The migration grants authenticated users read-only access under owner RLS and denies client writes. Audit events are append-only.
 
 ## Safety boundaries
 
@@ -99,5 +101,6 @@ Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. T
 - Tenant cache keys are scoped by tenant; bot-bound scans require ACTIVE bot state.
 - One-shot tenant research scans do not change bot state.
 - Order submission, execution, and Live Trading remain disabled.
-- Task result retrieval and durable job persistence are not yet exposed by this increment.
+- Durable persistence is required for new System Hub dispatches; if PostgreSQL persistence is unavailable, the dispatcher rejects enqueue with HTTP 503.
+- The current task-status endpoint still uses the one-hour Redis ownership index and Celery result backend. PostgreSQL history is durable storage but is not yet the fallback polling source.
 - Do not treat a queued task as a trading signal or completed analysis.
