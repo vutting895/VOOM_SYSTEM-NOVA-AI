@@ -54,6 +54,15 @@ class ElliottWaveEngineTests(unittest.TestCase):
         self.assertTrue((features["elliott_impulse_complete"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] <= features["elliott_impulse_valid"]).all())
 
+    def test_wave1_to_wave4_are_visible_before_wave5_completes(self):
+        frame = pivot_candles([
+            ("low", 100), ("high", 104), ("low", 102),
+            ("high", 112), ("low", 108),
+        ])
+        features = build_elliott_wave_features(frame, left=1, right=1)
+        for wave in (1, 2, 3, 4):
+            self.assertTrue((features["elliott_wave_number"] == wave).any(), f"Wave {wave} missing")
+
     def test_valid_bearish_impulse_is_detected(self):
         frame = pivot_candles([
             ("high", 130), ("low", 126), ("high", 128),
@@ -67,7 +76,7 @@ class ElliottWaveEngineTests(unittest.TestCase):
     def test_wave3_shortest_is_rejected(self):
         frame = pivot_candles([
             ("low", 100), ("high", 110), ("low", 105),
-            ("high", 113), ("low", 111), ("high", 124),
+            ("high", 113), ("low", 112), ("high", 124),
         ])
         features = build_elliott_wave_features(frame, left=1, right=1)
         self.assertFalse((features["elliott_impulse_complete"] == 1).any())
