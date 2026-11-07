@@ -44,7 +44,7 @@ class Wave3CalendarHashTests(unittest.TestCase):
             path = Path(temp_dir) / "calendar.csv"
             path.write_bytes(b"calendar")
             with self.assertRaisesRegex(ValueError, "exactly 64 hexadecimal"):
-                verify_calendar_sha256(path, "6754d46f34e76fc171e64afec51297dbcd3caf4d4dd196bc1a993b526c")
+                verify_calendar_sha256(path, "not-a-valid-sha256")
 
 
 if __name__ == "__main__":
