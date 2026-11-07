@@ -55,43 +55,24 @@ def _request(method: str, table: str, payload: dict[str, Any], query: str = "") 
 
 def create_job(*, task_id: str, tenant_id: str, connection_id: str,
                symbol: str, timeframe: str, bar_count: int) -> None:
-    now = datetime.now(timezone.utc).isoformat()
-    _request("POST", "nova_analysis_jobs", {
-        "id": task_id,
-        "user_id": tenant_id,
-        "connection_id": connection_id,
-        "symbol": symbol,
-        "timeframe": timeframe,
-        "status": "queued",
-        "request_metadata": {"bar_count": bar_count, "source": "exness_mt5_demo"},
-    }, query="on_conflict=id")
-    record_event(task_id=task_id, tenant_id=tenant_id, event_type="queued",
-                 details={"symbol": symbol, "timeframe": timeframe, "bar_count": bar_count})
+    _request("POST", "rpc/nova_create_analysis_job", {
+        "p_id": task_id,
+        "p_user_id": tenant_id,
+        "p_connection_id": connection_id,
+        "p_symbol": symbol,
+        "p_timeframe": timeframe,
+        "p_bar_count": bar_count,
+    })
 
 
 def update_job(*, task_id: str, tenant_id: str, status: str,
                result: dict[str, Any] | None = None, error_code: str | None = None) -> None:
     if status not in {"started", "completed", "failed"}:
         raise ValueError("invalid_analysis_job_status")
-    now = datetime.now(timezone.utc).isoformat()
-    payload: dict[str, Any] = {"status": status, "updated_at": now}
-    if status == "started":
-        payload["started_at"] = now
-    elif status == "completed":
-        payload.update({"result": result, "finished_at": now, "error_code": None})
-    else:
-        payload.update({"result": None, "finished_at": now, "error_code": error_code or "analysis_failed"})
-    _request("PATCH", "nova_analysis_jobs", payload,
-             query=f"id=eq.{task_id}&user_id=eq.{tenant_id}")
-    record_event(task_id=task_id, tenant_id=tenant_id, event_type=status,
-                 details={"error_code": error_code} if status == "failed" else {})
-
-
-def record_event(*, task_id: str, tenant_id: str, event_type: str,
-                 details: dict[str, Any]) -> None:
-    _request("POST", "nova_analysis_audit_events", {
-        "job_id": task_id,
-        "user_id": tenant_id,
-        "event_type": event_type,
-        "details": details,
+    _request("POST", "rpc/nova_update_analysis_job", {
+        "p_job_id": task_id,
+        "p_user_id": tenant_id,
+        "p_status": status,
+        "p_result": result,
+        "p_error_code": error_code,
     })
