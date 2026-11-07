@@ -14,7 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import FastAPI, Header, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from tasks import scan_market_smc
 
@@ -76,11 +76,20 @@ class DispatchRequest(BaseModel):
     @classmethod
     def validate_source_metadata(cls, value: dict[str, str]) -> dict[str, str]:
         allowed = {"provider", "connection_id", "fetched_at", "source_as_of"}
-        if set(value) - allowed or value.get("provider") != "exness_mt5_demo":
-            raise ValueError("invalid source metadata")
-        if value.get("connection_id") is None:
-            raise ValueError("connection reference required")
+        required = {"provider", "connection_id", "fetched_at", "source_as_of"}
+        if set(value) - allowed or not required.issubset(value):
+            raise ValueError("invalid source metadata fields")
+        if value.get("provider") != "exness_mt5_demo":
+            raise ValueError("unsupported market data provider")
+        if any(not isinstance(item, str) or not item or len(item) > 128 for item in value.values()):
+            raise ValueError("source metadata values must be bounded non-empty strings")
         return value
+
+    @model_validator(mode="after")
+    def validate_connection_provenance(self) -> "DispatchRequest":
+        if self.source_metadata["connection_id"] != self.connection_id:
+            raise ValueError("source connection must match the authorized connection")
+        return self
 
 
 def _authorize_internal(authorization: str | None) -> None:
