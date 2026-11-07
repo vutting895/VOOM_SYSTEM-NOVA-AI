@@ -118,14 +118,14 @@ export function validateReadRequest(url) {
     return { ok: false, error: "invalid_timeframe" };
   }
   if (url.pathname === "/api/quotes") {
-    if (count !== null && (count === undefined || !/^\\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) {
+    if (count !== null && (count === undefined || !/^\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) {
       return { ok: false, error: "invalid_count" };
     }
     return { ok: true };
   }
   const start = singleParam(url, "start_utc");
   const end = singleParam(url, "end_utc");
-  const isoUtc = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
+  const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
   if (start === undefined || end === undefined || !isoUtc.test(start || "") || !isoUtc.test(end || "")) {
     return { ok: false, error: "invalid_history_range" };
   }
