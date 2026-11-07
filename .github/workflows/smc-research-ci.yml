@@ -14,6 +14,8 @@ on:
       - "infra/docker-compose.yml"
       - "workers/Dockerfile"
       - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
       - "integrations/remote-mcp-worker/src/index.js"
       - "integrations/remote-mcp-worker/tests/**"
       - "integrations/remote-mcp-worker/package.json"
@@ -23,6 +25,17 @@ on:
     paths:
       - "workers/feature/smc_wave/**"
       - "tests/test_smc_strategy.py"
+      - "tests/test_smc_pytest.py"
+      - "tests/test_telegram_alerts.py"
+      - "workers/alerts/**"
+      - "workers/risk/**"
+      - "workers/runtime.py"
+      - "workers/requirements.txt"
+      - "infra/docker-compose.yml"
+      - "workers/Dockerfile"
+      - "Dockerfile"
+      - "package.json"
+      - "package-lock.json"
       - "integrations/remote-mcp-worker/src/index.js"
       - "integrations/remote-mcp-worker/tests/**"
       - "integrations/remote-mcp-worker/package.json"
@@ -51,3 +64,7 @@ jobs:
         run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py -q
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
+      - name: Build research worker container
+        run: docker build -f workers/Dockerfile -t nova-research-worker:ci .
+      - name: Build frontend container
+        run: docker build -f Dockerfile -t nova-frontend:ci .
