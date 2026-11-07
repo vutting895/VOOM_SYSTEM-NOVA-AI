@@ -26,7 +26,7 @@
   "gaps_over_1h": 556,
   "csv_bytes": 793335,
   "sha256_csv": "16bfd7e10d73784827f3e45f72313f3934431a26e275ada6b592e0cfca158c45",
-  "note": "The file contains genuine MT5 Demo tick_volume and valid OHLC rows, but it is NOT a continuous three-year training dataset. A 7,419-hour gap exists between 2025-12-31T21:00:00Z and 2026-11-06T00:00:00Z. Do not train until the missing historical range is recovered from MT5 and the manifest/hash are regenerated. No bars or volume values may be synthesized.",
+  "note": "The file contains genuine MT5 Demo tick_volume and valid OHLC rows, but it is NOT a training-eligible three-year dataset. A 7,419-hour outage exists between 2025-12-31T21:00:00Z and 2026-11-06T00:00:00Z; 17 additional weekday gaps of 4-29 hours also remain unverified against the exact MT5 session/holiday schedule. Do not train until every unexplained gap is recovered or verified and the manifest/hash are regenerated. No bars or volume values may be synthesized.",
   "volume_basis": "MT5 tick_volume (tick count per H1 bar; not exchange-traded base volume)",
   "tick_volume_min": 254,
   "tick_volume_max": 124680,
@@ -51,7 +51,7 @@
     "zero_volume_rows": 0
   },
   "verified_at_utc": "2026-11-07T00:00:00Z",
-  "completeness_status": "BLOCKED_MISSING_HISTORICAL_SEGMENT",
+  "completeness_status": "BLOCKED_UNEXPLAINED_HISTORICAL_GAPS",
   "training_eligible": false,
   "max_allowed_gap_hours_for_training": 96,
   "gap_audit": {
@@ -72,6 +72,120 @@
         "rows": 20
       }
     ],
-    "decision": "BLOCK_TRAINING_UNTIL_MISSING_SEGMENT_IS_REINGESTED"
+    "decision": "BLOCK_TRAINING_UNTIL_ALL_18_UNEXPLAINED_GAPS_ARE_RECOVERED_OR_VERIFIED",
+    "recognized_daily_rollover_count": 426,
+    "recognized_weekend_closure_count": 112,
+    "unexplained_gap_count": 18,
+    "unexplained_gaps": [
+      {
+        "from_utc": "2023-11-23T18:00:00Z",
+        "to_utc": "2023-11-23T23:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-01-15T19:00:00Z",
+        "to_utc": "2024-01-15T23:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-02-19T19:00:00Z",
+        "to_utc": "2024-02-19T23:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-05-27T17:00:00Z",
+        "to_utc": "2024-05-27T22:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-06-19T17:00:00Z",
+        "to_utc": "2024-06-19T22:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-07-04T17:00:00Z",
+        "to_utc": "2024-07-04T22:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-09-02T17:00:00Z",
+        "to_utc": "2024-09-02T22:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-11-28T18:00:00Z",
+        "to_utc": "2024-11-28T23:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-12-24T18:00:00Z",
+        "to_utc": "2024-12-25T23:00:00Z",
+        "hours": 29,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2024-12-31T21:00:00Z",
+        "to_utc": "2025-01-01T23:00:00Z",
+        "hours": 26,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-01-20T19:00:00Z",
+        "to_utc": "2025-01-20T23:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-02-17T19:00:00Z",
+        "to_utc": "2025-02-17T23:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-05-26T18:00:00Z",
+        "to_utc": "2025-05-26T22:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-06-19T17:00:00Z",
+        "to_utc": "2025-06-19T22:00:00Z",
+        "hours": 5,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-09-01T18:00:00Z",
+        "to_utc": "2025-09-01T22:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-11-27T19:00:00Z",
+        "to_utc": "2025-11-27T23:00:00Z",
+        "hours": 4,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-12-24T18:00:00Z",
+        "to_utc": "2025-12-25T23:00:00Z",
+        "hours": 29,
+        "classification": "unexplained"
+      },
+      {
+        "from_utc": "2025-12-31T21:00:00Z",
+        "to_utc": "2026-11-06T00:00:00Z",
+        "hours": 7419,
+        "classification": "unexplained"
+      }
+    ],
+    "policy": "Allow consecutive H1 bars; Exness XAUUSDm two-hour Mon-Thu rollover windows 20:00-22:00 or 21:00-23:00 UTC; weekend closures up to 96 hours. All other gaps are unexplained until matched to exact MT5 symbol session/holiday metadata."
   }
 }
