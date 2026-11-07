@@ -597,6 +597,38 @@ async function dispatchSmcAnalysis(request, env, user, row, origin) {
   }, 202, origin, env);
 }
 
+
+async function readAnalysisTask(request, env, row, taskId, origin) {
+  const configured = analysisDispatchTarget(env);
+  if (!configured) return json({ error: "analysis_dispatch_not_configured" }, 503, origin, env);
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(taskId)) return json({ error: "invalid_task_id" }, 400, origin, env);
+  const target = new URL("/internal/v1/analysis/tasks/" + encodeURIComponent(taskId), configured.origin);
+  target.searchParams.set("tenant_id", row.user_id);
+  target.searchParams.set("connection_id", row.id);
+  let response;
+  try {
+    response = await fetch(target, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + env.NOVA_ANALYSIS_DISPATCH_TOKEN, Accept: "application/json" },
+      cache: "no-store", redirect: "error", signal: AbortSignal.timeout(9000)
+    });
+  } catch {
+    return json({ error: "analysis_status_unavailable" }, 503, origin, env);
+  }
+  const body = await response.json().catch(() => ({}));
+  if (response.status === 404) return json({ error: "analysis_task_not_found" }, 404, origin, env);
+  if (!response.ok || body.task_id !== taskId || typeof body.status !== "string") {
+    return json({ error: "analysis_status_unavailable" }, 503, origin, env);
+  }
+  return json({
+    connectionId: row.id, taskId, status: body.status,
+    ready: body.ready === true, successful: body.successful === true,
+    ...(body.result && typeof body.result === "object" ? { result: body.result } : {}),
+    ...(body.error ? { error: body.error } : {}),
+    ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
+  }, 200, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -650,6 +682,16 @@ export default {
         ordersEnabled: false,
         liveTradingEnabled: false
       }, 200, origin, env);
+    }
+
+
+    const taskMatch = /^\\/v1\\/connections\\/([^/]+)\\/analysis\\/([^/]+)$/.exec(url.pathname);
+    if (taskMatch && request.method === "GET") {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      const result = await getConnection(request, env, auth, taskMatch[1], origin);
+      if (result.response) return result.response;
+      return readAnalysisTask(request, env, result.row, taskMatch[2], origin);
     }
 
     const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes|analyze)$/.exec(url.pathname);
