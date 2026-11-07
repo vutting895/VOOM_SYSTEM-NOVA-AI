@@ -130,11 +130,16 @@ def validate_ohlcv(
             )
         if expected_interval_seconds is not None:
             expected_microseconds = expected_interval_seconds * 1_000_000
-            if delta_microseconds > expected_microseconds:
-                quotient, remainder = divmod(delta_microseconds, expected_microseconds)
-                if remainder == 0:
-                    gaps += quotient - 1
+            if delta_microseconds != expected_microseconds:
+                if delta_microseconds > expected_microseconds:
+                    quotient, remainder = divmod(delta_microseconds, expected_microseconds)
+                    if remainder == 0:
+                        gaps += quotient - 1
+                    else:
+                        irregular_intervals += 1
                 else:
+                    # A sub-interval delta is not a valid hourly candle boundary.
+                    # Treat it as irregular rather than silently accepting it.
                     irregular_intervals += 1
 
     warnings: list[str] = []
