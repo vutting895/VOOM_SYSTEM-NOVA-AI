@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any, Sequence
 
 
@@ -78,6 +79,9 @@ def chronological_split(
     """Split in timestamp order using an explicitly supplied boundary exclusion gap."""
     if len(rows) < 3:
         raise ValueError("at least three rows are required")
+    for name, value in (("train_fraction", train_fraction), ("validation_fraction", validation_fraction)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"{name} must be a finite number")
     if not (0 < train_fraction < 1 and 0 < validation_fraction < 1 and train_fraction + validation_fraction < 1):
         raise ValueError("train_fraction and validation_fraction must be positive and sum to less than one")
     if isinstance(purge_bars, bool) or not isinstance(purge_bars, int) or purge_bars < 0:
@@ -117,6 +121,8 @@ def walk_forward_windows(
     parameters or touch a reserved final OOS period.
     """
     step = test_bars if step_bars is None else step_bars
+    if not isinstance(expanding, bool):
+        raise ValueError("expanding must be a boolean")
     for name, value, minimum in (
         ("row_count", row_count, 1),
         ("train_bars", train_bars, 2),
