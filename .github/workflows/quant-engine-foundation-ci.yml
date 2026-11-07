@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "workers/quant_engine/**"
+      - "workers/strategy_signal/**"
+      - "tests/test_quant_strategy_signal_contract.py"
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
@@ -23,7 +25,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py
+        run: python -m compileall -q workers/quant_engine workers/strategy_signal tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_quant_strategy_signal_contract.py
       - name: Run Quant Engine contract tests
         env:
           PYTHONPATH: .
