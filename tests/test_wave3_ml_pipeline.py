@@ -480,6 +480,8 @@ class TestWave3Pipeline(unittest.TestCase):
             "bull_ob_last_invalidated_origin_index", "bull_ob_last_invalidated_at_index",
             "bull_fvg_fill_origin_index", "bull_fvg_active_origin_index", "bull_fvg_first_fill_index",
             "bull_fvg_first_full_mitigation_index", "bull_fvg_fully_mitigated_now", "bos20_prior_20_high",
+            "elliott_pivot_1_index", "elliott_pivot_2_index", "elliott_pivot_3_index",
+            "elliott_pivot_4_index", "elliott_pivot_5_index", "elliott_pivot_6_index",
         }
         self.assertTrue(diagnostic_columns.isdisjoint(set(X.columns)))
 
