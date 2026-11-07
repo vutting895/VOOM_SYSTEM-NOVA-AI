@@ -121,7 +121,8 @@ class TaskContractTests(unittest.TestCase):
             "fetched_at": "2026-11-07T01:00:00Z",
             "source_as_of": "2026-11-07T00:59:00Z",
         }
-        with patch("tasks.cache_analysis") as analysis_cache, patch("tasks.cache_latest_price") as price_cache:
+        with patch("tasks.cache_analysis") as analysis_cache, patch("tasks.cache_latest_price") as price_cache, \
+             patch("tasks.update_job") as update_job:
             result = scan_market_smc.run(
                 "EURUSD", "5m", rows, last_bar_closed=True,
                 tenant_id="tenant-a", source_metadata=metadata,
@@ -131,6 +132,7 @@ class TaskContractTests(unittest.TestCase):
         analysis_cache.assert_called_once()
         price_cache.assert_called_once()
         self.assertEqual(price_cache.call_args.args[0:2], ("tenant-a", "EURUSD"))
+        self.assertEqual([call.kwargs["status"] for call in update_job.call_args_list], ["started", "completed"])
 
 
 if __name__ == "__main__":
