@@ -63,6 +63,12 @@ class InternalDispatcherTests(unittest.TestCase):
         self.assertEqual(kwargs["source_metadata"]["connection_id"], CONNECTION_ID)
         self.assertNotIn("access_token", kwargs)
         self.assertFalse(response["live_trading_enabled"])
+        redis_client.return_value.setex.assert_called_once()
+        owner_key, owner_ttl, owner_value = redis_client.return_value.setex.call_args.args
+        self.assertEqual(owner_key, "nova:task-owner:task-123")
+        self.assertEqual(owner_ttl, 3600)
+        self.assertIn(TENANT_ID, owner_value)
+        self.assertIn(CONNECTION_ID, owner_value)
 
     def test_rejects_unclosed_candle_payload(self):
         raw = valid_payload().model_dump()
