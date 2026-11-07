@@ -1,30 +1,33 @@
-# Kaggle CPU training
+# NOVA Gold Lab — Exness Demo Bridge ingestion and CPU research
 
-This is the free-CPU training path for NOVA. Import `notebooks/nova_cpu_training.ipynb` into Kaggle, attach one OHLCV dataset with **Add Input**, keep the accelerator set to **None / CPU**, then run all cells.
+The authoritative dataset source is the Exness MT5 Demo terminal running on Windows. The existing tenant-isolated NOVA Read-only Bridge reads genuine MT5 bars; Colab/Kaggle connects to the approved Cloudflare Relay over HTTPS. The notebook does not call the Exness API directly and does not accept broker credentials.
 
-## Required input schema
+## One-time secret setup
 
-A single CSV with timestamp, open, high, low, close, volume columns. Accepted timestamp aliases: `datetime`, `date`, `time`; accepted volume alias: `tick_volume`. Prices and volume must be numeric, timestamps valid and unique, and OHLC bounds consistent. If multiple CSVs are attached, set `DATA_FILE` to the intended file path in the notebook.
+Add these values to Colab Secrets or Kaggle Secrets (never to notebook cells, Git, logs, or chat):
 
-## Training behavior
+- `NOVA_MT5_BRIDGE_URL`: `https://voom-mt5-bridge-relay.suwapat787.workers.dev`
+- `NOVA_MT5_BRIDGE_TOKEN`: the tenant-specific read-only Bridge bearer token
+- `NOVA_MT5_TENANT_ID`: the assigned opaque tenant ID
 
-- CPU only; no GPU is requested.
-- Chronological split: 70% train, 15% validation, 15% final test.
-- Features use past/current candles only; labels use the next 5-bar direction.
-- XGBoost is compared with a majority-class baseline.
-- A small PyTorch LSTM is enabled by default and uses a scaler fitted only on the training partition.
-- Outputs include XGBoost model, optional LSTM weights, metrics, feature importance, and a SHA-256 dataset manifest under `/kaggle/working/nova_training_output`.
+The Windows Bridge must already be running with the intended Exness Demo MT5 terminal. The Relay and Bridge both validate the tenant route and token. The notebook refuses non-HTTPS origins, non-Exness Demo responses, or any response that does not explicitly declare read-only execution flags.
 
-## Important limitations
+## Data ingestion
 
-- This is an initial generic directional baseline, not a profitability claim or trading signal.
-- No random/mock funding feature is used.
-- Elliott Wave 1–5 is not trained here: reliable, independently verified wave labels are required first.
-- SMC rules are not treated as model labels. They require separate causal and walk-forward validation.
-- A single chronological holdout is only a first gate; run additional walk-forward windows, cost-aware backtests, regime checks, and minimum-trade-count gates before considering promotion.
-- Training does not connect to a broker, submit orders, or enable live trading.
-- The notebook does not need a Kaggle API token to read a dataset attached through Kaggle's Add Input interface.
+The notebook discovers the exact broker symbol from the authenticated terminal, then downloads bounded UTC half-open history chunks through `GET /api/history`. Set `SYMBOL`, `TIMEFRAME`, `START_UTC`, and `END_UTC` in the notebook to the intended values. Supported timeframes are M1, M5, M15, M30, H1, H4, and D1. The Bridge caps each request at 2,000 bars and applies a timeframe-specific maximum range.
 
-## Reproducible run
+The returned dataset retains genuine MT5 `tick_volume`, spread and real_volume. Missing volume is never fabricated. The notebook validates:
+- exact symbol and timeframe returned by the Bridge;
+- requested UTC interval and date-boundary coverage;
+- row count agreement, monotonic timestamps and duplicate absence;
+- finite OHLCV values, OHLC bounds, non-negative genuine tick volume;
+- unexplained weekday gaps (weekend market closures are expected);
+- CSV SHA-256, byte size, row count, source and provenance in `dataset_manifest.json`.
 
-Record the Kaggle notebook version, attached dataset version, Git commit used for the notebook, and the generated `manifest.json`. Download the output bundle from Kaggle after the run. Do not commit trained weights directly to `main`; submit a reviewed candidate artifact/PR with metrics and provenance.
+If gaps or requested-range coverage need review, the dataset is saved with `REVIEW_REQUIRED` and `training_eligible=false`; the notebook stops before training. No dataset or model weights are committed to Git.
+
+## CPU training boundary
+
+CPU-only XGBoost and a small PyTorch LSTM are research baselines, not profitability claims or trading signals. The final holdout remains chronological and must not be tuned. Model promotion still requires untouched final OOS, walk-forward windows, cost-aware backtests, sufficient trade count, positive net results, PF above 1, baseline comparison and independent risk review.
+
+No broker order endpoint is used. No model is automatically promoted. Live trading remains disabled.
