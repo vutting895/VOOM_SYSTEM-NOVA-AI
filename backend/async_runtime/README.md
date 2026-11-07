@@ -8,7 +8,7 @@ This service runs SMC + Elliott Wave research away from the System Hub request p
 - `analysis-api`: private FastAPI ingress that validates a System Hub dispatch and enqueues a Celery task.
 - `smc-worker`: Celery worker that validates closed OHLC bars and runs SMC + Elliott analysis.
 
-PostgreSQL remains the durable source of truth. Redis is a runtime projection/cache only.
+PostgreSQL remains the durable source of truth. Redis is a runtime projection/cache only. The durable tables are owner-scoped to Supabase Auth and the job's broker connection; the creation RPC verifies the connection belongs to the tenant and is currently connected to Exness Demo.
 
 ## Local startup
 
@@ -91,7 +91,7 @@ After the Hub receives HTTP 202, it can poll the authenticated owner-scoped rout
 
 The System Hub re-authenticates the Supabase user, resolves the connection under that user, and forwards only the derived tenant ID and connection ID to the private dispatcher. The dispatcher first checks the one-hour Redis ownership index and Celery result backend. If Redis ownership has expired or Redis is unavailable, it queries PostgreSQL using the task ID, authenticated tenant ID and connection ID together.
 
-Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. Redis remains a one-hour ownership/status projection. Durable job state and the full analysis result are also written to PostgreSQL tables `nova_analysis_jobs` and `nova_analysis_audit_events`. The runtime requires `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_ROLE_KEY`; keep both only in dispatcher/worker secrets, never in the Hub or browser. The migration grants authenticated users read-only access under owner RLS and denies client writes. Audit events are append-only.
+Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. Redis remains a one-hour ownership/status projection. Durable job state and the full analysis result are also written to PostgreSQL tables `nova_analysis_jobs` and `nova_analysis_audit_events`. The runtime requires `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_ROLE_KEY`; keep both only in dispatcher/worker secrets, never in the Hub or browser. The migration grants authenticated users read-only access under owner RLS and denies client writes. Audit events are append-only. Apply all versioned migrations in order, including `202611070001_nova_durable_analysis_jobs.sql`, `202611080001_nova_analysis_fk_indexes.sql`, and `202611080002_nova_analysis_status_null_guard.sql`. A read-only production verification script is available at `supabase/verification/nova-analysis-persistence.sql`.
 
 ## Safety boundaries
 
@@ -104,3 +104,14 @@ Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. T
 - Durable persistence is required for new System Hub dispatches; if PostgreSQL persistence is unavailable, the dispatcher rejects enqueue with HTTP 503.
 - PostgreSQL is the durable fallback for status/result polling after Redis ownership or Celery result expiry.
 - Do not treat a queued task as a trading signal or completed analysis.
+
+
+## Supabase verification performed
+
+- Confirmed both durable tables exist with RLS enabled and zero test rows retained.
+- Executed a transaction-scoped lifecycle smoke test: queued -> started -> completed, including exactly three audit events; rolled the test data back.
+- Executed a cross-tenant connection ownership negative test; the RPC rejected the mismatched owner.
+- Simulated two authenticated user JWT subjects and verified each user sees only their own job and audit row; rolled all test rows back.
+- Verified both lifecycle RPCs are SECURITY INVOKER, executable by service_role only, and not executable by anon/authenticated.
+- Added indexes for all new analysis foreign keys. Remaining performance advisor finding is an older approval-request FK, outside this increment.
+- Security advisor currently reports a separate Auth warning: leaked-password protection is disabled. No analysis-table RLS warning was returned.
