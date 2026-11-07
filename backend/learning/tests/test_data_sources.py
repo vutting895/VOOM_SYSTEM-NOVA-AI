@@ -20,6 +20,7 @@ from backend.learning.data_sources import (
     load_exness_xauusdm_h1,
     load_exness_xauusdm_m15,
     _segments,
+    _is_bounded_market_closure,
 )
 
 
@@ -159,6 +160,45 @@ def test_exness_h1_loader_verifies_manifest_and_preserves_mt5_tick_volume(tmp_pa
     assert dataset.live_feed is False
 
 
+def test_exness_h1_loader_accepts_documented_daily_rollover_windows(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T21:00:00Z", "2025-11-03T23:00:00Z"],
+    )
+    dataset = load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+    assert dataset.unexplained_gap_after_indices == ()
+    assert len(_segments(dataset.bars, dataset.timeframe, symbol=dataset.symbol)) == 1
+
+
+def test_exness_h1_loader_accepts_summer_rollover_window(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-03-10T20:00:00Z", "2025-03-10T22:00:00Z"],
+    )
+    dataset = load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+    assert dataset.unexplained_gap_after_indices == ()
+
+
+def test_exness_h1_loader_rejects_unrecognized_weekday_gap(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T19:00:00Z", "2025-11-03T23:00:00Z"],
+    )
+    with pytest.raises(DatasetEligibilityError, match="unexplained historical gaps"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+
+
+def test_rollover_window_is_specific_to_exness_gold_symbol():
+    previous = datetime.fromisoformat("2025-11-03T21:00:00+00:00")
+    current = datetime.fromisoformat("2025-11-03T23:00:00+00:00")
+    assert _is_bounded_market_closure(
+        previous, current, timedelta(hours=1), symbol="XAUUSDm"
+    )
+    assert not _is_bounded_market_closure(
+        previous, current, timedelta(hours=1), symbol="BTCUSDT"
+    )
+
+
 def test_exness_h1_loader_keeps_bounded_weekend_closure_in_one_segment(tmp_path):
     _write_exness_h1_fixture(
         tmp_path,
@@ -168,7 +208,7 @@ def test_exness_h1_loader_keeps_bounded_weekend_closure_in_one_segment(tmp_path)
     assert dataset.gap_after_indices == (1,)
     assert dataset.unexplained_gap_after_indices == ()
     assert len(dataset.bars) == 2
-    assert len(_segments(dataset.bars, dataset.timeframe)) == 1
+    assert len(_segments(dataset.bars, dataset.timeframe, symbol=dataset.symbol)) == 1
 
 
 def test_exness_h1_loader_blocks_manifest_incomplete_7419_hour_gap(tmp_path):

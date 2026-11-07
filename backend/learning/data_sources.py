@@ -177,21 +177,42 @@ def _is_bounded_market_closure(
     current: datetime,
     expected_interval: timedelta,
     max_weekend_closure_hours: int = 96,
+    *,
+    symbol: str | None = None,
 ) -> bool:
-    """Treat ordinary short gaps and bounded weekend closures as continuous trading history."""
+    """Allow regular candles, documented XAU rollover, and bounded weekend closure.
+
+    Exness states its servers use UTC+0 and gold is normally closed during
+    rollover. For this imported XAUUSDm H1 history, observed 2-hour gaps at
+    20:00-22:00 or 21:00-23:00 UTC on Monday-Thursday match the seasonal
+    rollover windows. Other weekday gaps remain unexplained until separately
+    verified against the instrument's MT5 session schedule.
+    """
     gap = current - previous
-    if gap <= expected_interval * 3:
+    if gap == expected_interval:
         return True
+
+    if (
+        symbol == "XAUUSDm"
+        and gap == timedelta(hours=2)
+        and previous.date() == current.date()
+        and previous.weekday() in (0, 1, 2, 3)
+        and previous.minute == 0
+        and current.minute == 0
+        and (previous.hour, current.hour) in ((20, 22), (21, 23))
+    ):
+        return True
+
     return (
         gap <= timedelta(hours=max_weekend_closure_hours)
         and _crosses_weekend(previous, current)
     )
 
-
 def _unexplained_gap_indices(
     bars: Sequence[MarketBar],
     timeframe: str,
     *,
+    symbol: str | None = None,
     max_weekend_closure_hours: int = 96,
 ) -> tuple[int, ...]:
     interval = _timeframe_delta(timeframe)
@@ -203,18 +224,26 @@ def _unexplained_gap_indices(
             bars[index].timestamp,
             interval,
             max_weekend_closure_hours,
+            symbol=symbol,
         )
     )
 
 
-def _segments(bars: Sequence[MarketBar], timeframe: str) -> tuple[tuple[MarketBar, ...], ...]:
+def _segments(
+    bars: Sequence[MarketBar],
+    timeframe: str,
+    *,
+    symbol: str | None = None,
+) -> tuple[tuple[MarketBar, ...], ...]:
     if not bars:
         return ()
     interval = _timeframe_delta(timeframe)
     result: list[tuple[MarketBar, ...]] = []
     current: list[MarketBar] = [bars[0]]
     for bar in bars[1:]:
-        if not _is_bounded_market_closure(current[-1].timestamp, bar.timestamp, interval):
+        if not _is_bounded_market_closure(
+            current[-1].timestamp, bar.timestamp, interval, symbol=symbol
+        ):
             result.append(tuple(current))
             current = [bar]
         else:
@@ -223,9 +252,19 @@ def _segments(bars: Sequence[MarketBar], timeframe: str) -> tuple[tuple[MarketBa
     return tuple(result)
 
 
-def _partition(name: str, bars: Sequence[MarketBar], timeframe: str) -> DataPartition:
+def _partition(
+    name: str,
+    bars: Sequence[MarketBar],
+    timeframe: str,
+    *,
+    symbol: str | None = None,
+) -> DataPartition:
     frozen = tuple(bars)
-    return DataPartition(name=name, bars=frozen, segments=_segments(frozen, timeframe))
+    return DataPartition(
+        name=name,
+        bars=frozen,
+        segments=_segments(frozen, timeframe, symbol=symbol),
+    )
 
 
 def load_exness_xauusdm_m15(
@@ -318,7 +357,9 @@ def load_exness_xauusdm_m15(
     if bars[-1].timestamp != _parse_utc(manifest["last_closed_bar_utc"]):
         raise DataSourceError("Exness last timestamp does not match manifest")
     missing, gaps = _audit_timeline(bars, manifest["timeframe"])
-    unexplained = _unexplained_gap_indices(bars, manifest["timeframe"])
+    unexplained = _unexplained_gap_indices(
+        bars, manifest["timeframe"], symbol=str(manifest["symbol"])
+    )
     return MarketDataset(
         dataset_id=str(manifest["dataset_id"]),
         source=str(manifest["source"]),
@@ -412,7 +453,7 @@ def load_exness_xauusdm_h1(
         raise DataSourceError("Exness H1 CSV timestamp boundaries do not match its manifest")
 
     missing, gaps = _audit_timeline(bars, "H1")
-    unexplained = _unexplained_gap_indices(bars, "H1")
+    unexplained = _unexplained_gap_indices(bars, "H1", symbol="XAUUSDm")
     observed_gaps_over_one_hour = sum(
         1 for previous, current in zip(bars[:-1], bars[1:])
         if current.timestamp - previous.timestamp > timedelta(hours=1)
@@ -530,7 +571,9 @@ def load_binance_btcusdt_h1(
         bars.append(bar)
 
     missing, gaps = _audit_timeline(bars, manifest["timeframe"])
-    unexplained = _unexplained_gap_indices(bars, manifest["timeframe"])
+    unexplained = _unexplained_gap_indices(
+        bars, manifest["timeframe"], symbol=str(manifest["symbol"])
+    )
     if bars[0].timestamp != _parse_utc(entry["first_bar_utc"]):
         raise DataSourceError("Binance first timestamp differs from manifest")
     if bars[-1].timestamp != _parse_utc(entry["last_bar_utc"]):
@@ -610,9 +653,13 @@ def chronological_splits(
     validation_bars = bars[validation_start:validation_end]
     test_bars = bars[test_start:]
     return ChronologicalSplits(
-        train=_partition("train", train_bars, dataset.timeframe),
-        validation=_partition("validation", validation_bars, dataset.timeframe),
-        test=_partition("test_reserved", test_bars, dataset.timeframe),
+        train=_partition("train", train_bars, dataset.timeframe, symbol=dataset.symbol),
+        validation=_partition(
+            "validation", validation_bars, dataset.timeframe, symbol=dataset.symbol
+        ),
+        test=_partition(
+            "test_reserved", test_bars, dataset.timeframe, symbol=dataset.symbol
+        ),
         label_horizon_bars=label_horizon_bars,
         embargo_bars=embargo_bars,
         test_reserved=True,
