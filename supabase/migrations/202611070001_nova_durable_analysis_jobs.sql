@@ -76,3 +76,71 @@ COMMENT ON TABLE public.nova_analysis_jobs IS
 COMMENT ON TABLE public.nova_analysis_audit_events IS
   'Append-only audit trail for durable analysis job lifecycle transitions.';
 NOTIFY pgrst, 'reload schema';
+
+-- Transactional service-only lifecycle RPCs keep each state change and its audit
+-- event in the same PostgreSQL transaction.
+CREATE OR REPLACE FUNCTION public.nova_create_analysis_job(
+  p_id uuid, p_user_id uuid, p_connection_id uuid, p_symbol text,
+  p_timeframe text, p_bar_count integer
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $function$
+BEGIN
+  IF p_id IS NULL OR p_user_id IS NULL OR p_connection_id IS NULL
+     OR p_symbol IS NULL OR p_symbol !~ '^[A-Z0-9._/-]{2,32}$'
+     OR p_timeframe IS NULL OR p_timeframe NOT IN ('1m','5m','15m','30m','1h','4h','1d','1w')
+     OR p_bar_count IS NULL OR p_bar_count NOT BETWEEN 25 AND 500 THEN
+    RAISE EXCEPTION 'nova_analysis_job_invalid_request';
+  END IF;
+  INSERT INTO public.nova_analysis_jobs
+    (id,user_id,connection_id,symbol,timeframe,status,request_metadata)
+  VALUES (
+    p_id,p_user_id,p_connection_id,p_symbol,p_timeframe,'queued',
+    pg_catalog.jsonb_build_object('bar_count',p_bar_count,'source','exness_mt5_demo')
+  );
+  INSERT INTO public.nova_analysis_audit_events(job_id,user_id,event_type,details)
+  VALUES (p_id,p_user_id,'queued',
+    pg_catalog.jsonb_build_object('symbol',p_symbol,'timeframe',p_timeframe,'bar_count',p_bar_count));
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.nova_update_analysis_job(
+  p_job_id uuid, p_user_id uuid, p_status text,
+  p_result jsonb DEFAULT NULL, p_error_code text DEFAULT NULL
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $function$
+DECLARE v_rows integer; v_details jsonb := '{}'::jsonb;
+BEGIN
+  IF p_job_id IS NULL OR p_user_id IS NULL OR p_status NOT IN ('started','completed','failed') THEN
+    RAISE EXCEPTION 'nova_analysis_job_invalid_transition';
+  END IF;
+  IF p_status='completed' AND (p_result IS NULL OR pg_catalog.jsonb_typeof(p_result)<>'object' OR p_error_code IS NOT NULL) THEN
+    RAISE EXCEPTION 'nova_analysis_job_invalid_result';
+  ELSIF p_status='failed' AND (p_result IS NOT NULL OR p_error_code IS NULL OR p_error_code !~ '^[a-z0-9_]{1,80}$') THEN
+    RAISE EXCEPTION 'nova_analysis_job_invalid_failure';
+  ELSIF p_status='started' AND (p_result IS NOT NULL OR p_error_code IS NOT NULL) THEN
+    RAISE EXCEPTION 'nova_analysis_job_invalid_start';
+  END IF;
+
+  UPDATE public.nova_analysis_jobs
+  SET status=p_status,
+      started_at=CASE WHEN p_status='started' THEN COALESCE(started_at,pg_catalog.now()) ELSE started_at END,
+      finished_at=CASE WHEN p_status IN ('completed','failed') THEN pg_catalog.now() ELSE NULL END,
+      result=CASE WHEN p_status='completed' THEN p_result ELSE NULL END,
+      error_code=CASE WHEN p_status='failed' THEN p_error_code ELSE NULL END,
+      updated_at=pg_catalog.now()
+  WHERE id=p_job_id AND user_id=p_user_id AND status IN ('queued','started');
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  IF v_rows <> 1 THEN RAISE EXCEPTION 'nova_analysis_job_not_found_or_terminal'; END IF;
+
+  IF p_status='failed' THEN
+    v_details := pg_catalog.jsonb_build_object('error_code',p_error_code);
+  END IF;
+  INSERT INTO public.nova_analysis_audit_events(job_id,user_id,event_type,details)
+  VALUES (p_job_id,p_user_id,p_status,v_details);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.nova_create_analysis_job(uuid,uuid,uuid,text,text,integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.nova_update_analysis_job(uuid,uuid,text,jsonb,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.nova_create_analysis_job(uuid,uuid,uuid,text,text,integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.nova_update_analysis_job(uuid,uuid,text,jsonb,text) TO service_role;
