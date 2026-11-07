@@ -23,7 +23,7 @@ services:
       REDIS_RESULT_BACKEND_URL: redis://redis:6379/2
       TZ: UTC
     command: >-
-      celery -A tasks:celery_app worker --loglevel=info
+      celery -A tasks worker --loglevel=info --events
       --queues=smc_analysis --concurrency=2
     depends_on:
       redis:
