@@ -115,7 +115,12 @@ def build_price_features(dataset: MarketDataset) -> PriceFeatureSet:
     if not bars:
         raise ValueError("Dataset contains no bars")
 
-    starts = [0, *dataset.gap_after_indices, len(bars)]
+    # Only unexplained gaps reset rolling windows. Bounded weekend/market
+    # closures are continuous tradable history and must not discard warm-up bars.
+    split_indices = getattr(
+        dataset, "unexplained_gap_after_indices", dataset.gap_after_indices
+    )
+    starts = [0, *split_indices, len(bars)]
     frames: list[pd.DataFrame] = []
     for start, stop in zip(starts[:-1], starts[1:]):
         if stop <= start:
