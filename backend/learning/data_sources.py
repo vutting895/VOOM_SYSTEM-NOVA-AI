@@ -172,26 +172,22 @@ def _crosses_weekend(previous: datetime, current: datetime) -> bool:
     return False
 
 
-def _is_bounded_market_closure(
+def _classify_market_gap(
     previous: datetime,
     current: datetime,
     expected_interval: timedelta,
     max_weekend_closure_hours: int = 96,
     *,
     symbol: str | None = None,
-) -> bool:
-    """Allow regular candles, documented XAU rollover, and bounded weekend closure.
-
-    Exness states its servers use UTC+0 and gold is normally closed during
-    rollover. For this imported XAUUSDm H1 history, observed 2-hour gaps at
-    20:00-22:00 or 21:00-23:00 UTC on Monday-Thursday match the seasonal
-    rollover windows. Other weekday gaps remain unexplained until separately
-    verified against the instrument's MT5 session schedule.
-    """
+) -> str:
+    """Classify a bar interval without silently treating arbitrary gaps as closures."""
     gap = current - previous
     if gap == expected_interval:
-        return True
+        return "contiguous"
 
+    # Exness states its servers use UTC+0 and gold is usually closed during rollover.
+    # For the imported XAUUSDm H1 history, these two-hour windows correspond to
+    # seasonal daily closure periods at the recorded candle-open timestamps.
     if (
         symbol == "XAUUSDm"
         and gap == timedelta(hours=2)
@@ -201,12 +197,29 @@ def _is_bounded_market_closure(
         and current.minute == 0
         and (previous.hour, current.hour) in ((20, 22), (21, 23))
     ):
-        return True
+        return "daily_rollover"
 
-    return (
+    if (
         gap <= timedelta(hours=max_weekend_closure_hours)
         and _crosses_weekend(previous, current)
-    )
+    ):
+        return "weekend_closure"
+
+    return "unexplained"
+
+
+def _is_bounded_market_closure(
+    previous: datetime,
+    current: datetime,
+    expected_interval: timedelta,
+    max_weekend_closure_hours: int = 96,
+    *,
+    symbol: str | None = None,
+) -> bool:
+    return _classify_market_gap(
+        previous, current, expected_interval, max_weekend_closure_hours,
+        symbol=symbol,
+    ) != "unexplained"
 
 def _unexplained_gap_indices(
     bars: Sequence[MarketBar],
@@ -219,13 +232,13 @@ def _unexplained_gap_indices(
     return tuple(
         index
         for index in range(1, len(bars))
-        if not _is_bounded_market_closure(
+        if _classify_market_gap(
             bars[index - 1].timestamp,
             bars[index].timestamp,
             interval,
             max_weekend_closure_hours,
             symbol=symbol,
-        )
+        ) == "unexplained"
     )
 
 
@@ -241,9 +254,9 @@ def _segments(
     result: list[tuple[MarketBar, ...]] = []
     current: list[MarketBar] = [bars[0]]
     for bar in bars[1:]:
-        if not _is_bounded_market_closure(
+        if _classify_market_gap(
             current[-1].timestamp, bar.timestamp, interval, symbol=symbol
-        ):
+        ) == "unexplained":
             result.append(tuple(current))
             current = [bar]
         else:
@@ -454,14 +467,35 @@ def load_exness_xauusdm_h1(
 
     missing, gaps = _audit_timeline(bars, "H1")
     unexplained = _unexplained_gap_indices(bars, "H1", symbol="XAUUSDm")
+    interval = timedelta(hours=1)
+    classifications = [
+        _classify_market_gap(
+            previous.timestamp, current.timestamp, interval, symbol="XAUUSDm"
+        )
+        for previous, current in zip(bars[:-1], bars[1:])
+    ]
     observed_gaps_over_one_hour = sum(
-        1 for previous, current in zip(bars[:-1], bars[1:])
-        if current.timestamp - previous.timestamp > timedelta(hours=1)
+        classification != "contiguous" for classification in classifications
     )
     observed_gaps_over_96h = sum(
-        1 for previous, current in zip(bars[:-1], bars[1:])
-        if current.timestamp - previous.timestamp > timedelta(hours=96)
+        (current.timestamp - previous.timestamp) > timedelta(hours=96)
+        for previous, current in zip(bars[:-1], bars[1:])
     )
+    daily_rollover_count = classifications.count("daily_rollover")
+    weekend_closure_count = classifications.count("weekend_closure")
+    unexplained_gap_count = classifications.count("unexplained")
+    observed_unexplained = [
+        {
+            "from_utc": previous.timestamp.isoformat().replace("+00:00", "Z"),
+            "to_utc": current.timestamp.isoformat().replace("+00:00", "Z"),
+            "hours": (current.timestamp - previous.timestamp).total_seconds() / 3600.0,
+            "classification": "unexplained",
+        }
+        for previous, current, classification in zip(
+            bars[:-1], bars[1:], classifications
+        )
+        if classification == "unexplained"
+    ]
     max_gap_hours = max(
         (current.timestamp - previous.timestamp).total_seconds() / 3600.0
         for previous, current in zip(bars[:-1], bars[1:])
@@ -470,11 +504,15 @@ def load_exness_xauusdm_h1(
     if (
         int(gap_audit.get("gap_count_over_1h", -1)) != observed_gaps_over_one_hour
         or int(gap_audit.get("gap_count_over_96h", -1)) != observed_gaps_over_96h
+        or int(gap_audit.get("recognized_daily_rollover_count", -1)) != daily_rollover_count
+        or int(gap_audit.get("recognized_weekend_closure_count", -1)) != weekend_closure_count
+        or int(gap_audit.get("unexplained_gap_count", -1)) != unexplained_gap_count
+        or gap_audit.get("unexplained_gaps") != observed_unexplained
         or abs(float(gap_audit.get("largest_gap_hours", -1)) - max_gap_hours) > 1e-9
     ):
-        raise DataSourceError("Exness H1 observed gap statistics do not match the manifest")
+        raise DataSourceError("Exness H1 observed gap classification/statistics do not match the manifest")
 
-    if manifest.get("max_allowed_gap_hours") != 96:
+    if manifest.get("max_allowed_gap_hours_for_training") != 96:
         raise DataSourceError("Exness H1 maximum allowed historical gap must be 96 hours")
     if unexplained:
         raise DatasetEligibilityError(
