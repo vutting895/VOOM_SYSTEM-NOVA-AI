@@ -12,9 +12,16 @@
 
 ## Dependencies and release order
 
-This change is stacked on Draft Learning Engine PR #237 and imports its verified \`backend.learning.data_sources\` loader. The default Exness historical snapshot is supplied by separate Draft data PR #197. Branch-only code/data are not available from \`main\` until those dependencies are reviewed and merged. The Kaggle entrypoint fails closed if the trainer or expected dataset manifest is missing.
+This change is stacked on Draft Learning Engine PR #237 and imports its verified `backend.learning.data_sources` loader. The default Exness M15 historical snapshot is supplied by the separately reviewed dataset dependency PR #197. An additional Exness XAUUSDm H1 input is tracked in PR #238 at `data/market/exness/XAUUSDm_H1_3Y.csv`. Branch-only code/data are not available from `main` until their dependencies are reviewed and merged.
 
-Do not enable the scheduled Kaggle notebook until PR #237 and the reviewed historical dataset path are on \`main\`. The Exness research candidate must remain separate from the frozen Wave3 benchmark; do not replace that benchmark or weaken its gates.
+The Kaggle runner maps `NOVA_DATASET_ID` to an explicit repository-relative manifest for each supported dataset. It supports:
+- `exness_xauusdm_m15` — existing candidate-only M15 dataset from PR #197.
+- `exness_xauusdm_h1_3y` — Exness Demo H1 dataset from PR #238; its current 7,419-hour outage and 17 other unverified weekday gaps keep it blocked from training.
+- `binance_btcusdt_h1_5y` and `binance_btcusdt_h1_500` — historical research snapshots.
+
+The selected loader—not the Kaggle entrypoint—performs byte/hash/schema/manifest and gap eligibility checks before a training run. An existing manifest alone never means training is allowed. The Kaggle entrypoint fails closed if a dataset ID is unknown or the selected manifest is missing.
+
+Do not enable the scheduled Kaggle notebook until PR #237 and the chosen reviewed dataset path are on `main`. The Exness research candidate must remain separate from the frozen Wave3 benchmark; do not replace that benchmark or weaken its gates.
 
 ## Configure Kaggle
 
