@@ -224,6 +224,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
         "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "elliott_pivot_1_index", "elliott_pivot_2_index", "elliott_pivot_3_index",
+        "elliott_pivot_4_index", "elliott_pivot_5_index", "elliott_pivot_6_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper",
     )
     trace = {name: np.full(n, np.nan, dtype=float) for name in trace_names}
