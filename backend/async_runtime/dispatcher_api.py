@@ -12,7 +12,7 @@ import os
 import re
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from celery.result import AsyncResult
@@ -210,21 +210,35 @@ def dispatch_smc(
         "fetched_at": payload.source_metadata["fetched_at"],
         "source_as_of": payload.source_metadata["source_as_of"],
     }
-    task = scan_market_smc.delay(
-        payload.symbol,
-        payload.timeframe,
-        [bar.model_dump() for bar in payload.bars],
-        last_bar_closed=True,
-        tenant_id=payload.tenant_id,
-        source_metadata=source_metadata,
-    )
-    # Bind the task ID to its authorized owner and connection before returning.
     import json
+    task_id = str(uuid4())
+    owner_key = f"nova:task-owner:{task_id}"
     owner_record = json.dumps(
         {"tenant_id": payload.tenant_id, "connection_id": payload.connection_id},
         separators=(",", ":"),
     )
-    get_redis_client().setex(f"nova:task-owner:{task.id}", 3600, owner_record)
+    try:
+        state_cache = get_redis_client()
+        state_cache.setex(owner_key, 3600, owner_record)
+        task = scan_market_smc.apply_async(
+            args=(
+                payload.symbol,
+                payload.timeframe,
+                [bar.model_dump() for bar in payload.bars],
+            ),
+            kwargs={
+                "last_bar_closed": True,
+                "tenant_id": payload.tenant_id,
+                "source_metadata": source_metadata,
+            },
+            task_id=task_id,
+        )
+    except Exception as exc:
+        try:
+            get_redis_client().delete(owner_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=503, detail="analysis_queue_unavailable") from exc
     return {
         "task_id": task.id,
         "status": "QUEUED",
