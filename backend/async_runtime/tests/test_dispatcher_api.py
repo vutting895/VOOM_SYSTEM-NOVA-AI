@@ -108,5 +108,43 @@ class InternalDispatcherTests(unittest.TestCase):
             dispatcher_api.DispatchRequest.model_validate(raw)
 
 
+    def test_task_status_is_scoped_to_tenant_and_connection(self):
+        import json
+        fake_redis = Mock()
+        fake_redis.get.return_value = json.dumps({
+            "tenant_id": TENANT_ID, "connection_id": CONNECTION_ID
+        })
+        fake_result = Mock()
+        fake_result.state = "SUCCESS"
+        fake_result.ready.return_value = True
+        fake_result.successful.return_value = True
+        fake_result.failed.return_value = False
+        fake_result.result = {"symbol": "EURUSD", "status": "COMPLETED"}
+        with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
+             patch.object(dispatcher_api, "get_redis_client", return_value=fake_redis), \
+             patch.object(dispatcher_api, "AsyncResult", return_value=fake_result):
+            response = dispatcher_api.get_analysis_task(
+                "task-123", TENANT_ID, CONNECTION_ID, "Bearer " + "a" * 48
+            )
+        self.assertEqual(response["status"], "SUCCESS")
+        self.assertEqual(response["result"]["symbol"], "EURUSD")
+        self.assertFalse(response["live_trading_enabled"])
+
+    def test_task_status_hides_tasks_from_other_tenants(self):
+        import json
+        fake_redis = Mock()
+        fake_redis.get.return_value = json.dumps({
+            "tenant_id": TENANT_ID, "connection_id": CONNECTION_ID
+        })
+        with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
+             patch.object(dispatcher_api, "get_redis_client", return_value=fake_redis):
+            with self.assertRaises(HTTPException) as raised:
+                dispatcher_api.get_analysis_task(
+                    "task-123", "33333333-3333-4333-8333-333333333333",
+                    CONNECTION_ID, "Bearer " + "a" * 48
+                )
+        self.assertEqual(raised.exception.status_code, 404)
+
+
 if __name__ == "__main__":
     unittest.main()
