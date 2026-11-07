@@ -1,0 +1,27 @@
+name: Quant Engine Foundation CI
+
+on:
+  pull_request:
+    paths:
+      - "workers/quant_engine/**"
+      - "tests/test_quant*.py"
+      - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
+      - ".github/workflows/quant-engine-foundation-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  quant-foundation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Quant Engine and contract tests
+        run: python -m compileall -q workers/quant_engine tests
+      - name: Run Quant Engine contract tests
+        run: python -m unittest discover -s tests -p "test_quant*.py" -v
