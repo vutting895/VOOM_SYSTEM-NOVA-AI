@@ -1,25 +1,91 @@
 services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: voom-nova-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NOVA_WORKER_URL: http://research-worker:8000
+    ports:
+      - "${FRONTEND_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      research-worker:
+        condition: service_healthy
+
+  research-worker:
+    build:
+      context: ..
+      dockerfile: workers/Dockerfile
+    container_name: voom-nova-research-worker
+    restart: unless-stopped
+    environment:
+      NOVA_TELEGRAM_BOT_TOKEN: ${NOVA_TELEGRAM_BOT_TOKEN:-}
+      NOVA_TELEGRAM_CHAT_ID: ${NOVA_TELEGRAM_CHAT_ID:-}
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nova}:${POSTGRES_PASSWORD:-nova_local_only}@postgres:5432/${POSTGRES_DB:-nova}
+    expose:
+      - "8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   mcp-server:
     build:
-      context: ../mcp-server
+      context: ../integrations/nova-ai-mcp-full-clean
+      dockerfile: mcp-server/Dockerfile
     container_name: voom-system-nova-mcp
-    stdin_open: true
-    tty: true
-    restart: "no"
+    restart: unless-stopped
     environment:
       VOOM_PROJECT_NAME: voom_system
       VOOM_ARCHITECTURE: nova
-    # MCP stdio is intentionally not published as a network port.
-  frontend:
-    image: node:22-alpine
-    working_dir: /workspace
+      REDIS_URL: redis://redis:6379/1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nova}:${POSTGRES_PASSWORD:-nova_local_only}@postgres:5432/${POSTGRES_DB:-nova}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # MCP stdio is deliberately not published to the host.
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: voom-nova-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
-      - ../frontend:/workspace
-      - nova_frontend_node_modules:/workspace/node_modules
-    command: sh -lc "npm install && npm run dev -- --hostname 0.0.0.0"
-    ports:
-      - "127.0.0.1:3000:3000"
+      - nova_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: voom-nova-postgres
+    restart: unless-stopped
     environment:
-      NODE_ENV: development
+      POSTGRES_DB: ${POSTGRES_DB:-nova}
+      POSTGRES_USER: ${POSTGRES_USER:-nova}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nova_local_only}
+    volumes:
+      - nova_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nova} -d ${POSTGRES_DB:-nova}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  nova_frontend_node_modules:
+  nova_redis_data:
+  nova_postgres_data:
