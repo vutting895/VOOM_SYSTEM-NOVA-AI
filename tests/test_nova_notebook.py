@@ -93,6 +93,7 @@ class OHLCVValidationTests(unittest.TestCase):
 
     def test_rejects_fractional_tick_volume(self):
         invalid = self.valid.copy()
+        invalid["tick_volume"] = invalid["tick_volume"].astype("float64")
         invalid.loc[0, "tick_volume"] = 1.5
         with self.assertRaisesRegex(ValueError, "tick_volume must be a non-negative integer"):
             self.validate(invalid)
