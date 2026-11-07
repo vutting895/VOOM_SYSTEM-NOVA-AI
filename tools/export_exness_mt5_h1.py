@@ -240,7 +240,7 @@ def export_history(
         "timeframe": "H1",
         "timezone": "UTC",
         "timestamp_semantics": "MT5 H1 bar-open timestamp, UTC",
-        "price_basis": "MT5 broker chart OHLC (see chart_mode)",
+        "price_basis": "MT5 broker chart OHLC (Bid chart mode)",
         "retrieval_method": "MetaTrader5.copy_rates_range in bounded UTC chunks",
         "requested_from_utc": start_utc.isoformat().replace("+00:00", "Z"),
         "requested_to_utc": end_utc.isoformat().replace("+00:00", "Z"),
