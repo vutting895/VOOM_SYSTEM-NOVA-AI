@@ -68,6 +68,16 @@ class QuantQualityTests(unittest.TestCase):
         changed[1]["volume"] = 1001
         self.assertNotEqual(canonical_dataset_sha256(rows_a), canonical_dataset_sha256(changed))
 
+    def test_sub_interval_delta_is_reported_as_irregular(self):
+        rows = sample_rows(3)
+        rows[2]["timestamp"] = "2026-01-01T01:30:00Z"
+        report = validate_ohlcv(rows, expected_interval_seconds=3600)
+        self.assertEqual(report.observed_gap_count, 0)
+        self.assertEqual(report.observed_irregular_interval_count, 1)
+        self.assertTrue(any("do not align" in warning for warning in report.warnings))
+        with self.assertRaises(DatasetValidationError):
+            validate_ohlcv(rows, expected_interval_seconds=3600, reject_gaps=True)
+
     def test_non_integral_interval_is_not_floor_counted_as_missing_candles(self):
         rows = sample_rows(3)
         rows[2]["timestamp"] = "2026-01-01T03:30:00Z"
