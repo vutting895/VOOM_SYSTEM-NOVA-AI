@@ -141,43 +141,80 @@ def build_elliott_wave_features(
                 columns[f"elliott_pivot_{j}_index"][i] = point["index"]
             continue
 
-        # Partial impulse state: classify the latest confirmed alternating
-        # sequence only when its directional geometry is coherent so far.
-        if len(pivots) >= 3:
-            tail = pivots[-3:]
-            if [x["kind"] for x in tail] == ["low", "high", "low"]:
+        # Partial impulse state, using only pivots confirmed by this bar.
+        # The number is the latest completed leg; Wave 5 requires all six pivots.
+        direction, wave_number, valid = 0, 0, False
+        length1 = retrace2 = retrace4 = np.nan
+        if len(pivots) >= 5:
+            tail5 = pivots[-5:]
+            kinds = [x["kind"] for x in tail5]
+            if kinds == ["low", "high", "low", "high", "low"]:
                 direction = 1
-                valid = tail[0]["price"] < tail[2]["price"] < tail[1]["price"]
-                length = tail[1]["price"] - tail[0]["price"]
-                retrace = (tail[1]["price"] - tail[2]["price"]) / length if length > 0 else np.nan
-            elif [x["kind"] for x in tail] == ["high", "low", "high"]:
+                a, b, c, d, e = [float(x["price"]) for x in tail5]
+                valid = a < c < b < d and b < e < d
+                length1 = b - a
+                retrace2 = (b - c) / length1 if length1 > 0 else np.nan
+                retrace4 = (d - e) / (d - c) if d > c else np.nan
+                wave_number = 4
+            elif kinds == ["high", "low", "high", "low", "high"]:
                 direction = -1
-                valid = tail[0]["price"] > tail[2]["price"] > tail[1]["price"]
-                length = tail[0]["price"] - tail[1]["price"]
-                retrace = (tail[2]["price"] - tail[1]["price"]) / length if length > 0 else np.nan
-            else:
-                direction, valid, length, retrace = 0, False, np.nan, np.nan
-            if valid:
-                columns["elliott_wave_number"][i] = 2
-                columns["elliott_direction"][i] = direction
-                columns["elliott_impulse_valid"][i] = 1
-                columns["elliott_wave1_length"][i] = length
-                columns["elliott_wave2_retrace"][i] = retrace
-                for j, point in enumerate(tail, start=1):
-                    columns[f"elliott_pivot_{j}_index"][i] = point["index"]
-
-        # Invalidate a completed impulse when the current close breaks its
-        # origin (bullish/bearish invalidation) without rewriting earlier rows.
-        if i and columns["elliott_impulse_complete"][i - 1]:
-            direction = int(columns["elliott_direction"][i - 1])
-            origin = columns["elliott_pivot_1_index"][i - 1]
-            if np.isfinite(origin):
-                origin_point = next((p for p in reversed(pivots) if p["index"] == int(origin)), None)
-                if origin_point and ((direction > 0 and close[i] < origin_point["price"]) or
-                                     (direction < 0 and close[i] > origin_point["price"])):
-                    columns["elliott_impulse_valid"][i] = 0
-                    columns["elliott_impulse_complete"][i] = 0
-                    columns["elliott_wave_number"][i] = 0
-                    columns["elliott_direction"][i] = 0
+                a, b, c, d, e = [float(x["price"]) for x in tail5]
+                valid = a > c > b > d and b > e > d
+                length1 = a - b
+                retrace2 = (c - b) / length1 if length1 > 0 else np.nan
+                retrace4 = (e - d) / (c - d) if c > d else np.nan
+                wave_number = 4
+        if not valid and len(pivots) >= 4:
+            tail4 = pivots[-4:]
+            kinds = [x["kind"] for x in tail4]
+            if kinds == ["low", "high", "low", "high"]:
+                direction = 1
+                a, b, c, d = [float(x["price"]) for x in tail4]
+                valid = a < c < b < d
+                length1 = b - a
+                retrace2 = (b - c) / length1 if length1 > 0 else np.nan
+                wave_number = 3
+            elif kinds == ["high", "low", "high", "low"]:
+                direction = -1
+                a, b, c, d = [float(x["price"]) for x in tail4]
+                valid = a > c > b > d
+                length1 = a - b
+                retrace2 = (c - b) / length1 if length1 > 0 else np.nan
+                wave_number = 3
+        if not valid and len(pivots) >= 3:
+            tail3 = pivots[-3:]
+            kinds = [x["kind"] for x in tail3]
+            if kinds == ["low", "high", "low"]:
+                direction = 1
+                a, b, c = [float(x["price"]) for x in tail3]
+                valid = a < c < b
+                length1 = b - a
+                retrace2 = (b - c) / length1 if length1 > 0 else np.nan
+                wave_number = 2
+            elif kinds == ["high", "low", "high"]:
+                direction = -1
+                a, b, c = [float(x["price"]) for x in tail3]
+                valid = a > c > b
+                length1 = a - b
+                retrace2 = (c - b) / length1 if length1 > 0 else np.nan
+                wave_number = 2
+        if not valid and len(pivots) >= 2:
+            tail2 = pivots[-2:]
+            kinds = [x["kind"] for x in tail2]
+            if kinds == ["low", "high"] and tail2[1]["price"] > tail2[0]["price"]:
+                direction, wave_number, valid = 1, 1, True
+                length1 = tail2[1]["price"] - tail2[0]["price"]
+            elif kinds == ["high", "low"] and tail2[0]["price"] > tail2[1]["price"]:
+                direction, wave_number, valid = -1, 1, True
+                length1 = tail2[0]["price"] - tail2[1]["price"]
+        if valid:
+            columns["elliott_wave_number"][i] = wave_number
+            columns["elliott_direction"][i] = direction
+            columns["elliott_impulse_valid"][i] = 1
+            columns["elliott_wave1_length"][i] = length1
+            columns["elliott_wave2_retrace"][i] = retrace2
+            columns["elliott_wave4_retrace"][i] = retrace4
+            for j, point in enumerate(pivots[-min(wave_number + 1, 6):], start=1):
+                columns[f"elliott_pivot_{j}_index"][i] = point["index"]
 
     return pd.DataFrame(columns, index=frame.index)
