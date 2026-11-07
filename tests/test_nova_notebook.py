@@ -74,7 +74,8 @@ class OHLCVValidationTests(unittest.TestCase):
             "timestamp", "open", "high", "low", "close", "volume"
         ])
         self.assertEqual(result["volume"].tolist(), [120, 135, 98, 150])
-        self.assertTrue(str(result["timestamp"].dtype).startswith("datetime64[ns, UTC]"))
+        self.assertTrue(pd.api.types.is_datetime64_any_dtype(result["timestamp"]))
+        self.assertEqual(str(result["timestamp"].dt.tz), "UTC")
 
     def test_rejects_current_ohlc_only_dataset_without_fabricating_volume(self):
         with self.assertRaisesRegex(ValueError, "genuine MT5 tick_volume"):
