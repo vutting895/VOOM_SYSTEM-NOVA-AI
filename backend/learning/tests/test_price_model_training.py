@@ -42,7 +42,12 @@ class RecordingEstimator:
         return np.zeros(len(x), dtype=float)
 
 
-def make_dataset(*, benchmark_eligible: bool = False, live_feed: bool = False) -> MarketDataset:
+def make_dataset(
+    *,
+    benchmark_eligible: bool = False,
+    live_feed: bool = False,
+    unexplained_gap_after_indices: tuple[int, ...] = (),
+) -> MarketDataset:
     start = datetime(2024, 1, 1, tzinfo=timezone.utc)
     bars = tuple(
         MarketBar(
@@ -69,6 +74,7 @@ def make_dataset(*, benchmark_eligible: bool = False, live_feed: bool = False) -
         live_feed=live_feed,
         missing_interval_count=0,
         gap_after_indices=(),
+        unexplained_gap_after_indices=unexplained_gap_after_indices,
     )
 
 
@@ -82,6 +88,24 @@ def make_features(dataset: MarketDataset) -> PriceFeatureSet:
         index=index,
     )
     return PriceFeatureSet(frame=frame, feature_columns=("signal",))
+
+
+
+def test_trainer_blocks_unexplained_dataset_gap_before_feature_build(tmp_path, monkeypatch):
+    dataset = make_dataset(unexplained_gap_after_indices=(500,))
+    monkeypatch.setattr(trainer, "load_market_dataset", lambda *args, **kwargs: dataset)
+
+    def unexpected_feature_build(_dataset):
+        raise AssertionError("features must not be built while unexplained gaps exist")
+
+    monkeypatch.setattr(trainer, "build_price_features", unexpected_feature_build)
+    with pytest.raises(ValueError, match="unexplained historical gaps"):
+        trainer.train(
+            repo_root=tmp_path,
+            dataset_id=dataset.dataset_id,
+            output_root=tmp_path / "blocked-artifacts",
+        )
+    assert not (tmp_path / "blocked-artifacts").exists()
 
 
 def test_trainer_never_fits_or_predicts_on_reserved_final_test(tmp_path, monkeypatch):
