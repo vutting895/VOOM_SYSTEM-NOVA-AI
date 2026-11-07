@@ -4,12 +4,14 @@
 
 This isolated Python analysis runtime handles background SMC and Elliott-wave research. It does not replace the current React/Express frontend server or the tenant-authenticated System Integration Hub. It consumes an OHLC snapshot already obtained by an authorized, read-only upstream adapter.
 
-**Security boundary:** Do not put Supabase access tokens, broker credentials, bridge tokens, account payloads, or provider secrets into Celery arguments, Redis keys, task results, or logs. The upstream API must authenticate the user, verify tenant/connection ownership, fetch allowed read-only bars, and pass only the market-data snapshot to the task. This delivery does not add a public task-submission endpoint.
+**Security boundary:** Do not put Supabase access tokens, broker credentials, bridge tokens, account payloads, or provider secrets into Celery arguments, Redis keys, task results, or logs. The System Hub authenticates the user, derives the tenant, verifies ownership of the Exness MT5 Demo connection, fetches read-only bars and sends only a normalized closed-candle snapshot to the private internal dispatcher. The dispatcher is not a public user API and requires a separate high-entropy service token.
 
 ## Components
 
 - backend/async_runtime/celery_app.py: Celery app, Redis broker/result configuration, JSON-only serialization, task limits and worker heartbeat signal handling.
 - backend/async_runtime/tasks.py: tasks.scan_market_smc background task; exports app for the command celery -A tasks worker.
+- backend/async_runtime/dispatcher_api.py: private FastAPI ingress that validates Hub-issued owner/connection references and queues a tenant-scoped research task.
+- integrations/system-hub/worker.js: authenticated POST /v1/connections/{id}/analyze route; obtains MT5 candles, drops the forming candle and calls the private dispatcher with a separate service token.
 - backend/async_runtime/smc_engine.py: OHLC validation, UTC timestamp normalization, FVG, liquidity sweeps and unified analysis.
 - backend/async_runtime/elliott_wave.py: confirmed-pivot Elliott impulse candidates and Fibonacci ratios. It is heuristic and may have alternate counts.
 - backend/async_runtime/bot_state.py: tenant-scoped Redis runtime projection, atomic state transitions, worker heartbeat and tenant-scoped short-lived market cache.
@@ -83,7 +85,7 @@ if result.ready():
     payload = result.get(propagate=True)
 ~~~
 
-For an ad-hoc research scan not bound to a bot, omit both tenant_id and bot_id. They must either both be present or both be absent. The upstream API—not client-supplied task arguments—must establish tenant identity and bot ownership.
+For a tenant-scoped research scan not bound to a bot, provide tenant_id and omit bot_id; the task writes a tenant-isolated analysis and latest-price cache without changing bot state. Bot-bound scans provide both tenant_id and bot_id and require the bot to be ACTIVE. Local, non-tenant experiments may omit both. The upstream System Hub—not browser input—must establish tenant identity and connection ownership.
 
 ## Local run
 
@@ -92,7 +94,7 @@ From repository root:
 ~~~bash
 docker compose -f infra/async-runtime/docker-compose.yml up --build -d
 docker compose -f infra/async-runtime/docker-compose.yml ps
-docker compose -f infra/async-runtime/docker-compose.yml logs -f smc-worker
+docker compose -f infra/async-runtime/docker-compose.yml logs -f analysis-api smc-worker
 ~~~
 
 To run Celery directly from backend/async_runtime after installing requirements.txt and starting Redis on localhost:
@@ -120,7 +122,8 @@ The shared worker heartbeat key means at least one worker instance is live; it i
 
 - Run the Python unittest suite in a pinned Python environment.
 - Run Compose locally and verify Redis health, worker registration and a task submitted with genuine read-only OHLC bars.
-- Integrate an authenticated host-side data adapter; no credentials are passed to Celery.
+- Configure the private dispatcher behind an authenticated Cloudflare Tunnel/private ingress and set matching System Hub and dispatcher service tokens; no token is committed.
+- Run the System Hub authenticated owner-to-MT5-to-Celery round-trip against a real Demo connection and capture task completion evidence.
 - Add persistent PostgreSQL job/analysis records with tenant RLS and idempotency.
 - Add load, duplicate delivery, worker termination, Redis recovery and tenant-isolation tests.
 - Do not enable broker order endpoints or Live Trading as part of this runtime.
