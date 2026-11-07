@@ -52,14 +52,14 @@ class InternalDispatcherTests(unittest.TestCase):
 
         self.assertEqual(response["task_id"], apply_async.call_args.kwargs["task_id"])
         self.assertEqual(response["status"], "QUEUED")
-        args, kwargs = delay.call_args
-        self.assertEqual(args[0:2], ("EURUSD", "5m"))
-        self.assertEqual(len(args[2]), 25)
-        self.assertTrue(kwargs["last_bar_closed"])
-        self.assertEqual(kwargs["tenant_id"], TENANT_ID)
-        self.assertNotIn("bot_id", kwargs)
-        self.assertEqual(kwargs["source_metadata"]["connection_id"], CONNECTION_ID)
-        self.assertNotIn("access_token", kwargs)
+        args, kwargs = apply_async.call_args.args, apply_async.call_args.kwargs
+        self.assertEqual(args[0][0:2], ("EURUSD", "5m"))
+        self.assertEqual(len(args[0][2]), 25)
+        self.assertTrue(kwargs["kwargs"]["last_bar_closed"])
+        self.assertEqual(kwargs["kwargs"]["tenant_id"], TENANT_ID)
+        self.assertNotIn("bot_id", kwargs["kwargs"])
+        self.assertEqual(kwargs["kwargs"]["source_metadata"]["connection_id"], CONNECTION_ID)
+        self.assertNotIn("access_token", kwargs["kwargs"])
         self.assertFalse(response["live_trading_enabled"])
         redis_client.return_value.setex.assert_called_once()
         owner_key, owner_ttl, owner_value = redis_client.return_value.setex.call_args.args
