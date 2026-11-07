@@ -2,7 +2,7 @@ name: Wave3 Challenger Research CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, research/wave3-positive-edge-architecture-20261031]
     paths:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
@@ -19,6 +19,7 @@ on:
   push:
     branches:
       - "research/wave3-positive-edge-architecture-*"
+      - "fix/wave3-cost-manifest-consistency-*"
     paths:
       - "research/wave3_challenger/**"
       - "tests/test_wave3_challenger_first_hit_labels.py"
