@@ -53,6 +53,10 @@ class ElliottWaveEngineTests(unittest.TestCase):
         self.assertTrue((features["elliott_direction"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] == 1).any())
         self.assertTrue((features["elliott_impulse_complete"] <= features["elliott_impulse_valid"]).all())
+        completed_rows = np.flatnonzero(features["elliott_impulse_complete"].to_numpy() == 1)
+        # The sixth swing is the last swing in this fixture and needs one
+        # right-hand closed bar before Wave 5 may be published.
+        self.assertEqual(completed_rows[0], len(frame) - 1)
 
     def test_wave1_to_wave4_are_visible_before_wave5_completes(self):
         frame = pivot_candles([
