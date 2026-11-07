@@ -27,6 +27,11 @@ class TestWave3ChallengerManifest(unittest.TestCase):
         self.assertFalse(labels["label_generation_enabled"])
         self.assertEqual(labels["commission"]["status"], "unverified_for_connected_account_and_XAUUSDm")
         self.assertEqual(labels["swap_rollover"]["status"], "current_snapshot_verified_historical_schedule_unverified")
+        self.assertFalse(labels["commission"]["terminal_evidence"]["commission_sum_usd"] == 0 and labels["required_inputs"]["commission_schedule_verified"])
+        self.assertFalse(labels["required_inputs"]["commission_schedule_verified"])
+        self.assertFalse(labels["required_inputs"]["swap_schedule_verified"])
+        self.assertTrue(labels["required_inputs"]["commission_source_required"])
+        self.assertTrue(labels["required_inputs"]["swap_schedule_source_required"])
 
     def test_future_holdout_is_fixed_and_sealed(self):
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
