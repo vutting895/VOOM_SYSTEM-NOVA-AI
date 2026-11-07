@@ -5,6 +5,7 @@ on:
     paths:
       - "backend/async_runtime/**"
       - "infra/async-runtime/**"
+      - "integrations/system-hub/**"
       - ".github/workflows/nova-async-runtime-ci.yml"
   push:
     branches: [main]
