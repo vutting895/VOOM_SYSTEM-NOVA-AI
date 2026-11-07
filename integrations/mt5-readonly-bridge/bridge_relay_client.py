@@ -95,7 +95,7 @@ def normalize_read_path(value: object) -> str:
             raise ValueError("Timeframe is invalid.")
         start = params.get("start_utc", [""])[0]
         end = params.get("end_utc", [""])[0]
-        pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+        pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"
         if not re.fullmatch(pattern, start) or not re.fullmatch(pattern, end):
             raise ValueError("History range must use UTC ISO-8601 timestamps.")
         from datetime import datetime
