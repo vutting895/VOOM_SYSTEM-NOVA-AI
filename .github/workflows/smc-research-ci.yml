@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - "workers/feature/smc_wave/**"
+      - "workers/feature/elliott_wave/**"
+      - "workers/backtest/**"
       - "tests/test_smc_strategy.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
       - "tests/test_runtime_api.py"
+      - "tests/test_research_pipeline.py"
+      - "tests/fixtures/btcusdt_1h_binance_sample.json"
       - "workers/alerts/**"
       - "workers/risk/**"
       - "workers/runtime.py"
@@ -65,7 +69,7 @@ jobs:
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
       - name: Run pytest regression suite
-        run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py -q
+        run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py tests/test_research_pipeline.py -q
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
       - name: Validate Docker Compose configuration
