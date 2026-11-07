@@ -211,6 +211,30 @@ def get_analysis_task(
 
     result = AsyncResult(task_id, app=celery_app)
     state = result.state
+    if state == "PENDING":
+        try:
+            durable = get_job(task_id=task_id, tenant_id=tenant_id, connection_id=connection_id)
+        except AnalysisPersistenceError as exc:
+            raise HTTPException(status_code=503, detail="task_status_unavailable") from exc
+        if durable and durable["status"] != "queued":
+            durable_status = durable["status"]
+            status_map = {"queued": "PENDING", "started": "STARTED", "completed": "SUCCESS", "failed": "FAILURE"}
+            response: dict[str, Any] = {
+                "task_id": task_id,
+                "status": status_map[durable_status],
+                "ready": durable_status in {"completed", "failed"},
+                "successful": durable_status == "completed",
+                "persisted": True,
+                "orders_enabled": False,
+                "execution_enabled": False,
+                "live_trading_enabled": False,
+            }
+            if durable_status == "completed":
+                response["result"] = durable["result"]
+            elif durable_status == "failed":
+                response["error"] = durable.get("error_code") or "analysis_task_failed"
+            return response
+
     response: dict[str, Any] = {
         "task_id": task_id,
         "status": state,
