@@ -120,6 +120,12 @@ class DispatchRequest(BaseModel):
     def validate_connection_provenance(self) -> "DispatchRequest":
         if self.source_metadata["connection_id"] != self.connection_id:
             raise ValueError("source connection must match the authorized connection")
+        previous = None
+        for bar in self.bars:
+            current = datetime.fromisoformat(bar.timestamp.replace("Z", "+00:00"))
+            if previous is not None and current <= previous:
+                raise ValueError("bars must be strictly chronological")
+            previous = current
         return self
 
 
