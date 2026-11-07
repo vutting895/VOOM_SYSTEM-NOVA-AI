@@ -32,6 +32,48 @@ def _parse_utc(value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _crosses_weekend(previous: datetime, current: datetime) -> bool:
+    day = previous.date() + timedelta(days=1)
+    while day <= current.date():
+        if day.weekday() >= 5:
+            return True
+        day += timedelta(days=1)
+    return False
+
+
+def _gap_classification(
+    previous: datetime,
+    current: datetime,
+    *,
+    max_gap_hours: float = DEFAULT_MAX_GAP_HOURS,
+) -> str:
+    """Classify Exness XAUUSDm H1 gaps without accepting arbitrary weekday gaps."""
+    gap = current - previous
+    if gap == timedelta(hours=1):
+        return "contiguous"
+
+    # Exness servers use UTC+0. XAUUSD has a weekday rollover pause whose
+    # seasonal UTC windows are represented in these H1 bar-open timestamps.
+    daily_rollover = (
+        gap == timedelta(hours=2)
+        and previous.date() == current.date()
+        and previous.weekday() in (0, 1, 2, 3)
+        and previous.minute == 0
+        and current.minute == 0
+        and (previous.hour, current.hour) in ((20, 22), (21, 23))
+    )
+    if daily_rollover:
+        return "daily_rollover"
+
+    if (
+        gap <= timedelta(hours=max_gap_hours)
+        and _crosses_weekend(previous, current)
+    ):
+        return "weekend_closure"
+
+    return "unexplained"
+
+
 def audit_rows(
     rows: list[dict[str, str]], *, max_gap_hours: float = DEFAULT_MAX_GAP_HOURS
 ) -> tuple[dict[str, Any], list[str]]:
@@ -40,6 +82,9 @@ def audit_rows(
     volumes: list[int] = []
     gaps_over_one_hour = 0
     long_gaps: list[dict[str, Any]] = []
+    daily_rollover_gaps: list[dict[str, Any]] = []
+    weekend_closure_gaps: list[dict[str, Any]] = []
+    unexplained_gaps: list[dict[str, Any]] = []
     previous: datetime | None = None
     max_gap_observed = 0.0
     duplicate_count = 0
@@ -69,16 +114,30 @@ def audit_rows(
                 max_gap_observed = max(max_gap_observed, delta_hours)
                 if delta_hours > 1.0:
                     gaps_over_one_hour += 1
-                if delta_hours > max_gap_hours:
                     gap = {
                         "from_utc": previous.isoformat().replace("+00:00", "Z"),
                         "to_utc": stamp.isoformat().replace("+00:00", "Z"),
                         "hours": delta_hours,
                     }
-                    long_gaps.append(gap)
-                    errors.append(
-                        f"row_{row_number}:historical_gap_exceeds_{max_gap_hours:g}_hours:{delta_hours:g}"
+                    classification = _gap_classification(
+                        previous, stamp, max_gap_hours=max_gap_hours
                     )
+                    if classification == "daily_rollover":
+                        daily_rollover_gaps.append(gap)
+                    elif classification == "weekend_closure":
+                        weekend_closure_gaps.append(gap)
+                    else:
+                        unexplained_gaps.append(gap)
+                        errors.append(
+                            f"row_{row_number}:unexplained_historical_gap:{delta_hours:g}"
+                        )
+                    if delta_hours > max_gap_hours:
+                        long_gaps.append(gap)
+                        errors.append(
+                            f"row_{row_number}:historical_gap_exceeds_{max_gap_hours:g}_hours:{delta_hours:g}"
+                        )
+                elif delta_hours < 1.0:
+                    errors.append(f"row_{row_number}:timestamp_interval_below_one_hour")
         if previous is None or stamp > previous:
             previous = stamp
 
@@ -138,6 +197,12 @@ def audit_rows(
         "max_gap_hours": max_gap_observed,
         "long_gap_count": len(long_gaps),
         "long_gaps": long_gaps,
+        "daily_rollover_gap_count": len(daily_rollover_gaps),
+        "daily_rollover_gaps": daily_rollover_gaps,
+        "weekend_closure_gap_count": len(weekend_closure_gaps),
+        "weekend_closure_gaps": weekend_closure_gaps,
+        "unexplained_gap_count": len(unexplained_gaps),
+        "unexplained_gaps": unexplained_gaps,
         "duplicate_timestamps": duplicate_count,
         "timestamp_order_errors": ordering_errors,
         "invalid_ohlc_rows": invalid_ohlc_rows,
@@ -175,7 +240,16 @@ def audit_dataset(
         "sha256_matches": manifest.get("sha256_csv") == digest,
         "first_timestamp_matches": manifest.get("first_timestamp_utc") == summary["first_timestamp_utc"],
         "last_timestamp_matches": manifest.get("last_completed_bar_utc") == summary["last_timestamp_utc"],
-        "gap_count_matches": manifest.get("gaps_over_1h") == summary["gaps_over_1h"],
+        "gap_count_over_1h_matches": manifest.get("gap_audit", {}).get("gap_count_over_1h") == summary["gaps_over_1h"],
+        "gap_count_over_96h_matches": manifest.get("gap_audit", {}).get("gap_count_over_96h") == summary["long_gap_count"],
+        "daily_rollover_count_matches": manifest.get("gap_audit", {}).get("recognized_daily_rollover_count") == summary["daily_rollover_gap_count"],
+        "weekend_closure_count_matches": manifest.get("gap_audit", {}).get("recognized_weekend_closure_count") == summary["weekend_closure_gap_count"],
+        "unexplained_gap_count_matches": manifest.get("gap_audit", {}).get("unexplained_gap_count") == summary["unexplained_gap_count"],
+        "largest_gap_hours_matches": abs(
+            float(manifest.get("gap_audit", {}).get("largest_gap_hours", -1))
+            - summary["max_gap_hours"]
+        ) <= 1e-9,
+        "max_allowed_gap_hours_matches": manifest.get("max_allowed_gap_hours_for_training") == max_gap_hours,
         "tick_volume_min_matches": manifest.get("tick_volume_min") == summary["tick_volume_min"],
         "tick_volume_max_matches": manifest.get("tick_volume_max") == summary["tick_volume_max"],
         "tick_volume_zero_rows_match": manifest.get("tick_volume_zero_rows") == summary["tick_volume_zero_rows"],
@@ -202,10 +276,18 @@ def audit_dataset(
     ]
     coverage_errors = [
         error for error in errors
-        if "historical_gap_exceeds" in error
+        if "unexplained_historical_gap" in error
+        or "historical_gap_exceeds" in error
+        or "timestamp_interval_below_one_hour" in error
+        or error.startswith("manifest_mismatch:gap_")
+        or error.startswith("manifest_mismatch:daily_rollover")
+        or error.startswith("manifest_mismatch:weekend_closure")
+        or error.startswith("manifest_mismatch:unexplained_gap")
         or error in {
             "manifest_mismatch:training_eligible_flag_is_true",
             "manifest_mismatch:completeness_status_is_pass",
+            "manifest_mismatch:largest_gap_hours_matches",
+            "manifest_mismatch:max_allowed_gap_hours_matches",
         }
     ]
 
