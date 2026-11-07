@@ -279,6 +279,12 @@ function integrationRegistry(env) {
       verification: "per-connection"
     },
     {
+      id: "nova-analysis-dispatch",
+      mode: "internal-read-only",
+      configured: Boolean(analysisDispatchTarget(env)),
+      verification: "per-task"
+    },
+    {
       id: "nova-ai",
       endpoint: "https://voom-system-nova-ai.suwapat787.workers.dev",
       mode: "analysis-only",
@@ -609,6 +615,7 @@ export default {
         mode: "control-plane-read-only",
         authConfigured: Boolean(supabaseBase(env) && env.SUPABASE_PUBLISHABLE_KEY),
         mt5ProxyConfigured: Boolean(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL),
+        analysisDispatchConfigured: Boolean(analysisDispatchTarget(env)),
         ordersEnabled: false,
         executionEnabled: false,
         liveTradingEnabled: false
