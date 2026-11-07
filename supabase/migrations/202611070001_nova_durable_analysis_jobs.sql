@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS public.nova_analysis_jobs (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  connection_id uuid NOT NULL,
+  connection_id uuid NOT NULL REFERENCES public.broker_connections(id) ON DELETE CASCADE,
   symbol text NOT NULL CHECK (symbol ~ '^[A-Z0-9._/-]{2,32}$'),
   timeframe text NOT NULL CHECK (timeframe IN ('1m','5m','15m','30m','1h','4h','1d','1w')),
   status text NOT NULL DEFAULT 'queued'
@@ -50,6 +50,7 @@ REVOKE ALL ON TABLE public.nova_analysis_audit_events FROM PUBLIC, anon, authent
 GRANT SELECT ON TABLE public.nova_analysis_jobs TO authenticated;
 GRANT SELECT ON TABLE public.nova_analysis_audit_events TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON TABLE public.nova_analysis_jobs TO service_role;
+GRANT SELECT ON TABLE public.broker_connections TO service_role;
 GRANT SELECT, INSERT ON TABLE public.nova_analysis_audit_events TO service_role;
 
 DROP POLICY IF EXISTS nova_analysis_jobs_select_own ON public.nova_analysis_jobs;
@@ -60,7 +61,7 @@ CREATE POLICY nova_analysis_audit_select_own ON public.nova_analysis_audit_event
   FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
 
 CREATE OR REPLACE FUNCTION private.nova_analysis_audit_immutable()
-RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $function$
+RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog AS $function$
 BEGIN
   RAISE EXCEPTION 'nova_analysis_audit_is_append_only';
 END;
@@ -83,13 +84,23 @@ CREATE OR REPLACE FUNCTION public.nova_create_analysis_job(
   p_id uuid, p_user_id uuid, p_connection_id uuid, p_symbol text,
   p_timeframe text, p_bar_count integer
 )
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $function$
+RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $function$
+DECLARE v_connection_owner uuid; v_connection_status text; v_provider text; v_environment text;
 BEGIN
   IF p_id IS NULL OR p_user_id IS NULL OR p_connection_id IS NULL
      OR p_symbol IS NULL OR p_symbol !~ '^[A-Z0-9._/-]{2,32}$'
      OR p_timeframe IS NULL OR p_timeframe NOT IN ('1m','5m','15m','30m','1h','4h','1d','1w')
      OR p_bar_count IS NULL OR p_bar_count NOT BETWEEN 25 AND 500 THEN
     RAISE EXCEPTION 'nova_analysis_job_invalid_request';
+  END IF;
+  SELECT bc.user_id,bc.status,bc.provider,bc.environment
+    INTO v_connection_owner,v_connection_status,v_provider,v_environment
+    FROM public.broker_connections bc
+    WHERE bc.id=p_connection_id;
+  IF NOT FOUND OR v_connection_owner IS DISTINCT FROM p_user_id
+     OR v_connection_status <> 'connected' OR v_provider <> 'exness_mt5'
+     OR v_environment <> 'demo' THEN
+    RAISE EXCEPTION 'nova_analysis_connection_not_authorized';
   END IF;
   INSERT INTO public.nova_analysis_jobs
     (id,user_id,connection_id,symbol,timeframe,status,request_metadata)
@@ -107,7 +118,7 @@ CREATE OR REPLACE FUNCTION public.nova_update_analysis_job(
   p_job_id uuid, p_user_id uuid, p_status text,
   p_result jsonb DEFAULT NULL, p_error_code text DEFAULT NULL
 )
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $function$
+RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $function$
 DECLARE v_rows integer; v_details jsonb := '{}'::jsonb;
 BEGIN
   IF p_job_id IS NULL OR p_user_id IS NULL OR p_status NOT IN ('started','completed','failed') THEN
