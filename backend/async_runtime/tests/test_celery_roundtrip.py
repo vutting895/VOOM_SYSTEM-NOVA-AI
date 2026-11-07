@@ -7,8 +7,6 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from celery import Celery
-
 from tasks import scan_market_smc
 
 
@@ -40,7 +38,7 @@ class CeleryRedisRoundTripTests(unittest.TestCase):
         cls.worker = subprocess.Popen(
             [
                 sys.executable, "-m", "celery", "-A", "tasks", "worker",
-                "--loglevel=WARNING", "--pool=solo", "--concurrency=1",
+                "--loglevel=WARNING", "--pool=solo", "--concurrency=1", "--events",
                 "--without-gossip", "--without-mingle", "--hostname=nova-ci-worker@%h",
             ],
             cwd=RUNTIME_DIR,
