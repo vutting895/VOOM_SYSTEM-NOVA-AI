@@ -82,5 +82,12 @@ class InternalDispatcherTests(unittest.TestCase):
             dispatcher_api.DispatchRequest.model_validate(raw)
 
 
+    def test_rejects_source_connection_mismatch(self):
+        raw = valid_payload().model_dump()
+        raw["source_metadata"]["connection_id"] = "33333333-3333-4333-8333-333333333333"
+        with self.assertRaises(Exception):
+            dispatcher_api.DispatchRequest.model_validate(raw)
+
+
 if __name__ == "__main__":
     unittest.main()
