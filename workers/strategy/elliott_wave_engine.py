@@ -25,8 +25,10 @@ def _validate(frame: pd.DataFrame) -> None:
     o, h, l, c = values.T
     if np.any(h < l) or np.any(o < l) or np.any(o > h) or np.any(c < l) or np.any(c > h):
         raise ValueError("invalid OHLC bounds")
-    if "timestamp" in frame and not pd.to_datetime(frame["timestamp"], utc=True).is_monotonic_increasing:
-        raise ValueError("timestamps must be chronological")
+    if "timestamp" in frame:
+        timestamps = pd.to_datetime(frame["timestamp"], utc=True, errors="raise")
+        if not timestamps.is_monotonic_increasing or not timestamps.is_unique:
+            raise ValueError("timestamps must be strictly chronological and unique")
 
 
 def _confirmed_pivots(high: np.ndarray, low: np.ndarray, left: int, right: int):
@@ -34,9 +36,22 @@ def _confirmed_pivots(high: np.ndarray, low: np.ndarray, left: int, right: int):
     for pivot in range(left, len(high) - right):
         hi_window = high[pivot - left:pivot + right + 1]
         lo_window = low[pivot - left:pivot + right + 1]
-        if high[pivot] == hi_window.max() and np.count_nonzero(hi_window == high[pivot]) == 1:
+        is_high = (
+            high[pivot] == hi_window.max()
+            and np.count_nonzero(hi_window == high[pivot]) == 1
+        )
+        is_low = (
+            low[pivot] == lo_window.min()
+            and np.count_nonzero(lo_window == low[pivot]) == 1
+        )
+        # An outside bar can be both a local high and low. Its intrabar
+        # ordering is unknown on OHLC data, so reject the ambiguous pivot
+        # instead of manufacturing two consecutive Elliott swings.
+        if is_high == is_low:
+            continue
+        if is_high:
             yield pivot + right, pivot, "high", float(high[pivot])
-        if low[pivot] == lo_window.min() and np.count_nonzero(lo_window == low[pivot]) == 1:
+        else:
             yield pivot + right, pivot, "low", float(low[pivot])
 
 
