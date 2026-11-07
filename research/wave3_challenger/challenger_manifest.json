@@ -196,9 +196,9 @@
       "limitation": "The current swap rate changed from the prior export snapshot. No timestamped historical swap schedule or historical swap-free status has been verified; do not apply the current snapshot across the full dataset."
     },
     "required_inputs": {
-      "commission_schedule_verified": true,
+      "commission_schedule_verified": false,
       "commission_source_required": true,
-      "swap_schedule_verified": true,
+      "swap_schedule_verified": false,
       "swap_schedule_source_required": true,
       "signed_swap_cashflow_by_signal_id_required_for_each_closed_trade": true,
       "missing_swap_cashflow_behavior": "fail_closed",
