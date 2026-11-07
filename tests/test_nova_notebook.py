@@ -35,6 +35,15 @@ class NotebookStructureTests(unittest.TestCase):
             if cell["cell_type"] == "code":
                 compile("".join(cell["source"]), f"notebook-cell-{index}", "exec")
 
+    def test_notebook_uses_https_bridge_and_sha256_manifest(self):
+        source = "\\n".join("".join(c.get("source", [])) for c in load_notebook()["cells"] if c["cell_type"] == "code")
+        self.assertIn("/api/history", source)
+        self.assertIn("NOVA_MT5_BRIDGE_TOKEN", source)
+        self.assertIn("sha256", source)
+        self.assertIn("EXNESS_DEMO", source)
+        self.assertIn("ordersEnabled", source)
+        self.assertNotIn("order_send", source)
+
     def test_code_cells_have_no_stale_outputs(self):
         for cell in load_notebook()["cells"]:
             if cell["cell_type"] == "code":
