@@ -5,14 +5,12 @@ fast runtime projection and cache; it is not a trading authorization system.
 """
 
 from __future__ import annotations
-
 import json
 import os
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any
-
 import redis
 
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_-]{0,95}$")
@@ -59,22 +57,25 @@ def _state_key(tenant_id: str, bot_id: str) -> str:
     return f"nova:tenant:{tenant}:bot:{bot}:state"
 
 
-def set_bot_status(tenant_id: str, bot_id: str, status: str, mode: str = "AUTO", *, client: redis.Redis | None = None) -> dict[str, Any]:
-    """Atomically transition a bot's runtime state using a Redis Lua script."""
-    status = str(status).upper()
-    mode = str(mode).upper()
+def set_bot_status(tenant_id: str, bot_id: str, status: str, mode: str = "AUTO", *,
+                   client: redis.Redis | None = None) -> dict[str, Any]:
+    """Atomically transition a bot's runtime state using Redis Lua."""
+    status, mode = str(status).upper(), str(mode).upper()
     if status not in {"ACTIVE", "PAUSED", "STOPPING", "STOPPED", "ERROR"}:
         raise ValueError("Unsupported bot status")
     if mode not in {"AUTO", "MANUAL"}:
         raise ValueError("mode must be AUTO or MANUAL")
     now = datetime.now(timezone.utc).isoformat()
-    result = (client or get_redis_client()).eval(_TRANSITION_SCRIPT, 1, _state_key(tenant_id, bot_id), status, mode, now)
+    result = (client or get_redis_client()).eval(
+        _TRANSITION_SCRIPT, 1, _state_key(tenant_id, bot_id), status, mode, now
+    )
     if int(result[0]) != 1:
         raise ValueError(f"Invalid bot state transition: {result[1]} -> {status}")
     return get_bot_status(tenant_id, bot_id, client=client)
 
 
-def get_bot_status(tenant_id: str, bot_id: str, *, client: redis.Redis | None = None) -> dict[str, Any]:
+def get_bot_status(tenant_id: str, bot_id: str, *,
+                   client: redis.Redis | None = None) -> dict[str, Any]:
     raw = (client or get_redis_client()).hgetall(_state_key(tenant_id, bot_id))
     if not raw:
         return {"status": "STOPPED", "mode": "AUTO", "revision": 0, "updated_at": None}
@@ -82,31 +83,52 @@ def get_bot_status(tenant_id: str, bot_id: str, *, client: redis.Redis | None = 
             "revision": int(raw.get("revision", "0")), "updated_at": raw.get("updated_at")}
 
 
-def bot_is_active(tenant_id: str, bot_id: str, *, client: redis.Redis | None = None) -> bool:
+def bot_is_active(tenant_id: str, bot_id: str, *,
+                  client: redis.Redis | None = None) -> bool:
     return get_bot_status(tenant_id, bot_id, client=client)["status"] == "ACTIVE"
 
 
-def set_worker_heartbeat(worker_name: str, ttl_seconds: int = 45, *, client: redis.Redis | None = None) -> None:
-    worker = _validate_id(worker_name, "worker_name")
-    if ttl_seconds < 5 or ttl_seconds > 300:
-        raise ValueError("ttl_seconds must be between 5 and 300")
-    (client or get_redis_client()).setex(f"nova:worker:{worker}:heartbeat", ttl_seconds, datetime.now(timezone.utc).isoformat())
-
-
-def cache_latest_price(symbol: str, payload: dict[str, Any], ttl_seconds: int = 15, *, client: redis.Redis | None = None) -> None:
+def _tenant_market_key(tenant_id: str, symbol: str) -> str:
+    tenant = _validate_id(tenant_id, "tenant_id")
     normalized = symbol.strip().upper()
-    if not normalized or len(normalized) > 32 or ttl_seconds < 1 or ttl_seconds > 300:
-        raise ValueError("Invalid symbol or TTL")
-    (client or get_redis_client()).setex(f"nova:market:{normalized}:latest", ttl_seconds,
-        json.dumps(payload, separators=(",", ":"), allow_nan=False))
+    if not normalized or len(normalized) > 32:
+        raise ValueError("Invalid symbol")
+    return f"nova:tenant:{tenant}:market:{normalized}:latest"
 
 
-def get_latest_price(symbol: str, *, client: redis.Redis | None = None) -> dict[str, Any] | None:
-    raw = (client or get_redis_client()).get(f"nova:market:{symbol.strip().upper()}:latest")
+def set_worker_heartbeat(worker_name: str, ttl_seconds: int = 180, *,
+                         client: redis.Redis | None = None) -> None:
+    worker = _validate_id(worker_name, "worker_name")
+    if ttl_seconds < 30 or ttl_seconds > 600:
+        raise ValueError("ttl_seconds must be between 30 and 600")
+    (client or get_redis_client()).setex(
+        f"nova:worker:{worker}:heartbeat", ttl_seconds,
+        datetime.now(timezone.utc).isoformat(),
+    )
+
+
+def cache_latest_price(tenant_id: str, symbol: str, payload: dict[str, Any],
+                       ttl_seconds: int = 15, *, client: redis.Redis | None = None) -> None:
+    if ttl_seconds < 1 or ttl_seconds > 300:
+        raise ValueError("ttl_seconds must be between 1 and 300")
+    (client or get_redis_client()).setex(
+        _tenant_market_key(tenant_id, symbol), ttl_seconds,
+        json.dumps(payload, separators=(",", ":"), allow_nan=False),
+    )
+
+
+def get_latest_price(tenant_id: str, symbol: str, *,
+                     client: redis.Redis | None = None) -> dict[str, Any] | None:
+    raw = (client or get_redis_client()).get(_tenant_market_key(tenant_id, symbol))
     return json.loads(raw) if raw else None
 
 
-def cache_analysis(cache_key: str, payload: dict[str, Any], ttl_seconds: int = 300, *, client: redis.Redis | None = None) -> None:
+def cache_analysis(cache_key: str, payload: dict[str, Any], ttl_seconds: int = 300, *,
+                   client: redis.Redis | None = None) -> None:
     key = _validate_id(cache_key, "cache_key")
-    (client or get_redis_client()).setex(f"nova:analysis:{key}", ttl_seconds,
-        json.dumps(payload, separators=(",", ":"), allow_nan=False))
+    if ttl_seconds < 1 or ttl_seconds > 3600:
+        raise ValueError("ttl_seconds must be between 1 and 3600")
+    (client or get_redis_client()).setex(
+        f"nova:analysis:{key}", ttl_seconds,
+        json.dumps(payload, separators=(",", ":"), allow_nan=False),
+    )
