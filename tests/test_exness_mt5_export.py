@@ -49,7 +49,11 @@ class FakeMT5:
         return SimpleNamespace(server=self.server, trade_mode=self.trade_mode, company=self.company)
 
     def symbol_info(self, symbol):
-        return SimpleNamespace(name=symbol, description="Gold vs US Dollar")
+        return SimpleNamespace(
+            name=symbol,
+            description="Gold vs US Dollar",
+            chart_mode=self.chart_mode,
+        )
 
     def version(self):
         return (500, 6230, "25 Sep 2026")
