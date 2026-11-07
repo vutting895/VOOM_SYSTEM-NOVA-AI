@@ -45,14 +45,12 @@ class InternalDispatcherTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 401)
 
     def test_dispatches_tenant_scoped_closed_bars_without_user_credentials(self):
-        fake_task = Mock(id="task-123")
-        fake_task.delay.return_value = fake_task
         with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
-             patch.object(dispatcher_api.scan_market_smc, "delay", return_value=fake_task) as delay, \
+             patch.object(dispatcher_api.scan_market_smc, "apply_async", side_effect=lambda *args, **kwargs: Mock(id=kwargs["task_id"])) as apply_async, \
              patch.object(dispatcher_api, "get_redis_client") as redis_client:
             response = dispatcher_api.dispatch_smc(valid_payload(), authorization="Bearer " + "a" * 48)
 
-        self.assertEqual(response["task_id"], "task-123")
+        self.assertEqual(response["task_id"], apply_async.call_args.kwargs["task_id"])
         self.assertEqual(response["status"], "QUEUED")
         args, kwargs = delay.call_args
         self.assertEqual(args[0:2], ("EURUSD", "5m"))
@@ -65,7 +63,7 @@ class InternalDispatcherTests(unittest.TestCase):
         self.assertFalse(response["live_trading_enabled"])
         redis_client.return_value.setex.assert_called_once()
         owner_key, owner_ttl, owner_value = redis_client.return_value.setex.call_args.args
-        self.assertEqual(owner_key, "nova:task-owner:task-123")
+        self.assertEqual(owner_key, "nova:task-owner:" + response["task_id"])
         self.assertEqual(owner_ttl, 3600)
         self.assertIn(TENANT_ID, owner_value)
         self.assertIn(CONNECTION_ID, owner_value)
