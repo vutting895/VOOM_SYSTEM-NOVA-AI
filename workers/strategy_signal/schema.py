@@ -104,7 +104,7 @@ def validate_strategy_signal(payload: Any) -> dict[str, Any]:
     result["generated_at_utc"] = generated_at.isoformat().replace("+00:00", "Z")
 
     decision = payload["decision"]
-    if decision not in _DECISION:
+    if not isinstance(decision, str) or decision not in _DECISION:
         raise StrategySignalValidationError("decision is unsupported")
     result["decision"] = decision
 
@@ -125,7 +125,7 @@ def validate_strategy_signal(payload: Any) -> dict[str, Any]:
 
     freshness = payload["data_freshness"]
     coverage = payload["coverage_status"]
-    if freshness not in _FRESHNESS or coverage not in _COVERAGE:
+    if not isinstance(freshness, str) or freshness not in _FRESHNESS or not isinstance(coverage, str) or coverage not in _COVERAGE:
         raise StrategySignalValidationError("invalid data freshness or coverage status")
     result["data_freshness"] = freshness
     result["coverage_status"] = coverage
