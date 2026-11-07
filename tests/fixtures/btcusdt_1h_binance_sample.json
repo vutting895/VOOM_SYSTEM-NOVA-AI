@@ -2,8 +2,8 @@
   "source": "Binance Spot public market data",
   "symbol": "BTCUSDT",
   "interval": "1h",
-  "retrieved_at": "2026-11-07T16:02:38.241Z",
-  "candle_count": 120,
+  "retrieved_at": "2026-11-07T16:03:14.615Z",
+  "candle_count": 119,
   "candles": [
     {
       "timestamp": "2026-11-02T17:00:00.000Z",
@@ -956,14 +956,7 @@
       "low": 75600.82,
       "close": 75758.01,
       "volume": 227.52801
-    },
-    {
-      "timestamp": "2026-11-07T16:00:00.000Z",
-      "open": 75758.01,
-      "high": 75760.01,
-      "low": 75738.88,
-      "close": 75760.01,
-      "volume": 5.22489
     }
-  ]
+  ],
+  "excluded_in_progress_candle": true
 }
