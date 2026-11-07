@@ -48,7 +48,8 @@ class InternalDispatcherTests(unittest.TestCase):
         fake_task = Mock(id="task-123")
         fake_task.delay.return_value = fake_task
         with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
-             patch.object(dispatcher_api.scan_market_smc, "delay", return_value=fake_task) as delay:
+             patch.object(dispatcher_api.scan_market_smc, "delay", return_value=fake_task) as delay, \
+             patch.object(dispatcher_api, "get_redis_client") as redis_client:
             response = dispatcher_api.dispatch_smc(valid_payload(), authorization="Bearer " + "a" * 48)
 
         self.assertEqual(response["task_id"], "task-123")
