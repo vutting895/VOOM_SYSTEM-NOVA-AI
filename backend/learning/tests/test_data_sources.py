@@ -259,6 +259,34 @@ def test_exness_h1_loader_rechecks_data_even_if_manifest_claims_training_eligibl
         load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
 
 
+def test_exness_h1_loader_rejects_manifest_gap_classification_count_mismatch(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T21:00:00Z", "2025-11-03T23:00:00Z"],
+    )
+    manifest_path = tmp_path / "data/market/exness/XAUUSDm_H1_3Y.manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["gap_audit"]["recognized_daily_rollover_count"] = 0
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(DataSourceError, match="gap classification/statistics"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+
+
+def test_exness_h1_loader_requires_the_declared_96_hour_training_threshold(tmp_path):
+    _write_exness_h1_fixture(
+        tmp_path,
+        ["2025-11-03T00:00:00Z", "2025-11-03T01:00:00Z"],
+    )
+    manifest_path = tmp_path / "data/market/exness/XAUUSDm_H1_3Y.manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["max_allowed_gap_hours_for_training"] = 72
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(DataSourceError, match="maximum allowed historical gap"):
+        load_exness_xauusdm_h1(tmp_path, allow_research_training=True)
+
+
 def test_exness_h1_loader_rejects_fractional_tick_volume(tmp_path):
     _write_exness_h1_fixture(
         tmp_path,
