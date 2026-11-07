@@ -63,6 +63,12 @@ class StrategySignalTests(unittest.TestCase):
         item["coverage_status"] = "INCOMPLETE"
         self.assertEqual(validate_strategy_signal(item)["decision"], "REJECTED")
 
+    def test_rejects_non_string_enum_values(self):
+        item = sample()
+        item["decision"] = ["BUY_CANDIDATE"]
+        with self.assertRaises(StrategySignalValidationError):
+            validate_strategy_signal(item)
+
     def test_rejects_generation_before_closed_bar(self):
         item = sample()
         item["generated_at_utc"] = "2026-11-07T09:59:59Z"
