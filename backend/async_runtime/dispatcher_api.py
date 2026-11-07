@@ -22,7 +22,7 @@ from celery_app import celery_app
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from tasks import scan_market_smc
-from analysis_persistence import AnalysisPersistenceError, create_job, update_job
+from analysis_persistence import AnalysisPersistenceError, create_job, get_job, update_job
 
 app = FastAPI(
     title="NOVA Internal Analysis Dispatcher",
@@ -170,14 +170,44 @@ def get_analysis_task(
     _authorize_internal(authorization)
     if not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", task_id):
         raise HTTPException(status_code=400, detail="invalid_task_id")
+    owner = None
     try:
         import json
         raw_owner = get_redis_client().get(f"nova:task-owner:{task_id}")
         owner = json.loads(raw_owner) if raw_owner else None
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail="task_status_unavailable") from exc
-    if not owner or not hmac.compare_digest(str(owner.get("tenant_id", "")), tenant_id) or not hmac.compare_digest(str(owner.get("connection_id", "")), connection_id):
-        raise HTTPException(status_code=404, detail="analysis_task_not_found")
+    except Exception:
+        # Redis is a short-lived projection. PostgreSQL is the durable fallback.
+        owner = None
+
+    owner_matches = bool(
+        owner
+        and hmac.compare_digest(str(owner.get("tenant_id", "")), tenant_id)
+        and hmac.compare_digest(str(owner.get("connection_id", "")), connection_id)
+    )
+    if not owner_matches:
+        try:
+            durable = get_job(task_id=task_id, tenant_id=tenant_id, connection_id=connection_id)
+        except AnalysisPersistenceError as exc:
+            raise HTTPException(status_code=503, detail="task_status_unavailable") from exc
+        if not durable:
+            raise HTTPException(status_code=404, detail="analysis_task_not_found")
+        durable_status = durable["status"]
+        status_map = {"queued": "PENDING", "started": "STARTED", "completed": "SUCCESS", "failed": "FAILURE"}
+        response: dict[str, Any] = {
+            "task_id": task_id,
+            "status": status_map[durable_status],
+            "ready": durable_status in {"completed", "failed"},
+            "successful": durable_status == "completed",
+            "persisted": True,
+            "orders_enabled": False,
+            "execution_enabled": False,
+            "live_trading_enabled": False,
+        }
+        if durable_status == "completed":
+            response["result"] = durable["result"]
+        elif durable_status == "failed":
+            response["error"] = durable.get("error_code") or "analysis_task_failed"
+        return response
 
     result = AsyncResult(task_id, app=celery_app)
     state = result.state
