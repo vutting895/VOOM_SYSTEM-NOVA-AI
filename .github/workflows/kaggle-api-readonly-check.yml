@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   kaggle-auth-check:
-    name: Verify Kaggle API credentials without exposing them
+    name: Verify Kaggle API token without exposing it
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -25,10 +25,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check kaggle
 
-      - name: Verify credentials and make a read-only API request
+      - name: Verify token and make a read-only API request
         env:
-          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
-          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         shell: bash
         run: |
           set +x
@@ -39,10 +38,9 @@ jobs:
           import subprocess
           import sys
 
-          required = ("KAGGLE_USERNAME", "KAGGLE_KEY")
-          missing = [name for name in required if not os.environ.get(name)]
-          if missing:
-              print("Kaggle authentication check blocked: required GitHub Actions secret(s) are missing.")
+          token = os.environ.get("KAGGLE_API_TOKEN")
+          if not token:
+              print("Kaggle authentication check blocked: required GitHub Actions secret KAGGLE_API_TOKEN is missing.")
               sys.exit(2)
 
           try:
