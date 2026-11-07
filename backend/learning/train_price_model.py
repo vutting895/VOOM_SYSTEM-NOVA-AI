@@ -113,6 +113,8 @@ def train(*, repo_root: Path, dataset_id: str, output_root: Path,
     )
     if dataset.live_feed or dataset.benchmark_eligible:
         raise ValueError("Only historical research-candidate datasets are allowed")
+    if getattr(dataset, "unexplained_gap_after_indices", ()):
+        raise ValueError("Datasets with unexplained historical gaps are not eligible for training")
     splits = chronological_splits(
         dataset, label_horizon_bars=1, embargo_bars=1
     )
