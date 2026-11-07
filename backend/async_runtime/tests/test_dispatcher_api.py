@@ -140,6 +140,24 @@ class InternalDispatcherTests(unittest.TestCase):
         self.assertEqual(response["result"]["symbol"], "EURUSD")
         self.assertFalse(response["live_trading_enabled"])
 
+    def test_task_status_falls_back_to_postgres_after_redis_expiry(self):
+        durable = {
+            "id": "task-123", "user_id": TENANT_ID, "connection_id": CONNECTION_ID,
+            "status": "completed", "result": {"symbol": "EURUSD", "status": "COMPLETED"},
+        }
+        with patch.dict(os.environ, {"NOVA_ANALYSIS_INTERNAL_TOKEN": "a" * 48}), \
+             patch.object(dispatcher_api, "get_redis_client", return_value=Mock(get=Mock(return_value=None))), \
+             patch.object(dispatcher_api, "get_job", return_value=durable) as get_job:
+            response = dispatcher_api.get_analysis_task(
+                "task-123", TENANT_ID, CONNECTION_ID, "Bearer " + "a" * 48
+            )
+        get_job.assert_called_once_with(
+            task_id="task-123", tenant_id=TENANT_ID, connection_id=CONNECTION_ID
+        )
+        self.assertEqual(response["status"], "SUCCESS")
+        self.assertTrue(response["persisted"])
+        self.assertEqual(response["result"]["symbol"], "EURUSD")
+
     def test_task_status_hides_tasks_from_other_tenants(self):
         import json
         fake_redis = Mock()
