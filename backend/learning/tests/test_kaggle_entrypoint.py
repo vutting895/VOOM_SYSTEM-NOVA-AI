@@ -2,7 +2,7 @@
 from pathlib import Path
 
 SCRIPT = (
-    Path(__file__).resolve().parents[2]
+    Path(__file__).resolve().parents[3]
     / "kaggle"
     / "nova-auto-learning"
     / "main.py"
