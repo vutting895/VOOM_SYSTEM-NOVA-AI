@@ -80,6 +80,17 @@ python -m pip install -r requirements.txt
 celery -A tasks worker --loglevel=info --events --queues=smc_analysis --concurrency=2
 ```
 
+
+## Task status and result retrieval
+
+After the Hub receives HTTP 202, it can poll the authenticated owner-scoped route:
+
+`GET /v1/connections/{connectionId}/analysis/{taskId}`
+
+The System Hub re-authenticates the Supabase user, resolves the connection under that user, and forwards only the derived tenant ID and connection ID to the private dispatcher. The dispatcher checks a one-hour Redis ownership index created at enqueue time before reading the Celery result backend.
+
+Possible Celery states include `PENDING`, `STARTED`, `SUCCESS`, and `FAILURE`. The analysis payload is returned only after successful completion. Unknown or cross-tenant task IDs return not-found. The Redis ownership index and Celery result both expire after one hour; this is a short-lived runtime facility, not durable PostgreSQL job history. PostgreSQL persistence and long-term audit retrieval remain a separate follow-up.
+
 ## Safety boundaries
 
 - Exness MT5 Demo is read-only.
