@@ -22,6 +22,11 @@ from torch import nn
 from torch.utils.data import DataLoader
 from xgboost import XGBClassifier
 
+try:
+    from .elliott_wave_engine import build_elliott_wave_features
+except ImportError:  # direct script/test import from this directory
+    from elliott_wave_engine import build_elliott_wave_features
+
 HORIZON_BARS = 12
 PIVOT_LEFT = 3
 PIVOT_RIGHT = 3
@@ -219,6 +224,8 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
         "bull_fvg_fill_origin_index", "bull_fvg_fill_lower", "bull_fvg_fill_upper", "bull_fvg_fill_age_bars",
         "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
         "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
+        "elliott_pivot_1_index", "elliott_pivot_2_index", "elliott_pivot_3_index",
+        "elliott_pivot_4_index", "elliott_pivot_5_index", "elliott_pivot_6_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper",
     )
     trace = {name: np.full(n, np.nan, dtype=float) for name in trace_names}
@@ -521,6 +528,9 @@ def build_causal_features(frame: pd.DataFrame) -> pd.DataFrame:
                             25 * f["bear_ob_within5"] + 25 * f["bear_fvg_fill"])
     f["smc_buy_gate"] = (f["smc_score_long"] >= 85).astype(float)
     f["smc_sell_gate"] = (f["smc_score_short"] >= 85).astype(float)
+    elliott = build_elliott_wave_features(frame, left=PIVOT_LEFT, right=PIVOT_RIGHT)
+    for name in elliott.columns:
+        f[name] = elliott[name]
     return f.replace([np.inf, -np.inf], np.nan)
 
 
@@ -559,6 +569,9 @@ def make_labeled_frame(frame: pd.DataFrame, features: pd.DataFrame | None = None
         "bull_fvg_first_fill_index", "bull_fvg_first_full_mitigation_index",
         "bull_fvg_fully_mitigated_now", "bull_fvg_created_now", "bull_fvg_created_origin_index",
         "bull_fvg_created_lower", "bull_fvg_created_upper", "bos20_prior_20_high",
+        # Elliott pivot indices are audit traces, not predictive model inputs.
+        "elliott_pivot_1_index", "elliott_pivot_2_index", "elliott_pivot_3_index",
+        "elliott_pivot_4_index", "elliott_pivot_5_index", "elliott_pivot_6_index",
     ]
     model_features = features.drop(columns=[name for name in diagnostic_only if name in features.columns])
     valid_features = np.isfinite(model_features.to_numpy()).all(axis=1)
