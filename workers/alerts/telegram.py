@@ -39,3 +39,19 @@ def notify_event(event: str, detail: str, *, severity: str = "ERROR") -> bool:
         raise ValueError(f"unsupported alert event: {event}")
     safe_detail = str(detail).replace("\\n", " ")[:2500]
     return send_telegram_alert(f"[NOVA {severity.upper()}] {event}: {safe_detail}")
+
+
+def notify_broker_disconnected(detail: str) -> bool:
+    return notify_event("broker_disconnected", detail)
+
+
+def notify_high_slippage(actual_pct: float, limit_pct: float, symbol: str = "unknown") -> bool:
+    if actual_pct < 0 or limit_pct < 0:
+        raise ValueError("slippage percentages must be non-negative")
+    if actual_pct <= limit_pct:
+        return False
+    return notify_event("high_slippage", f"{symbol}: {actual_pct:.4f}% exceeds configured {limit_pct:.4f}%")
+
+
+def notify_circuit_breaker(reason: str) -> bool:
+    return notify_event("circuit_breaker", reason, severity="CRITICAL")
