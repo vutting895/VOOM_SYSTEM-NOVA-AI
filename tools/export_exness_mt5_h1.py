@@ -131,15 +131,15 @@ def _terminal_metadata(mt5: Any, expected_server: str, symbol: str) -> dict[str,
         or getattr(terminal, "company", "")
         or ""
     )
-    if company and "exness" not in company.casefold():
+    if not company:
+        raise RuntimeError("mt5_company_metadata_missing")
+    if "exness" not in company.casefold():
         raise RuntimeError("mt5_company_does_not_identify_exness")
 
     chart_mode_value = getattr(terminal, "chart_mode", None)
-    chart_mode = (
-        "BID" if chart_mode_value == 0
-        else "LAST" if chart_mode_value == 1
-        else f"UNKNOWN:{chart_mode_value}"
-    )
+    if chart_mode_value != 0:
+        raise RuntimeError("mt5_chart_mode_must_be_bid")
+    chart_mode = "BID"
     version = mt5.version()
     return {
         "server": actual_server,
