@@ -23,6 +23,8 @@ test("uses a server-owned model allowlist and returns provider text", async () =
   assert.ok(provider);
   const result = await provider.generateText({ task: "market_analysis", contents: "Analyze XAUUSDm" });
   assert.equal(captured.model, "gemini-3.8-flash");
+  assert.equal(captured.config.maxOutputTokens, 1_200);
+  assert.equal(captured.config.temperature, 0.2);
   assert.equal(result.model, "gemini-3.8-flash");
   assert.equal(result.text, "analysis result");
 });
