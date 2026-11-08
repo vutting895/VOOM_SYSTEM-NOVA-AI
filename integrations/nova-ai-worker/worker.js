@@ -101,7 +101,16 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_not_configured" };
   }
   let response;
-  const authUrl = new URL("/auth/v1/user", env.SUPABASE_URL);
+  let authUrl;
+  try {
+    const configuredUrl = new URL(env.SUPABASE_URL);
+    if (configuredUrl.protocol !== "https:" || configuredUrl.username || configuredUrl.password) {
+      return { ok: false, status: 503, error: "authentication_not_configured" };
+    }
+    authUrl = new URL("/auth/v1/user", configuredUrl);
+  } catch {
+    return { ok: false, status: 503, error: "authentication_not_configured" };
+  }
   const authInit = {
     method: "GET",
     headers: {
@@ -147,10 +156,11 @@ export async function authenticateRequest(request, env) {
   }
   try {
     const user = await response.json();
-    if (!user || typeof user.id !== "string" || !user.id) {
+    const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!user || typeof user.id !== "string" || !UUID_PATTERN.test(user.id) || user.is_anonymous === true) {
       return { ok: false, status: 401, error: "invalid_or_expired_session" };
     }
-    return { ok: true, userId: user.id };
+    return { ok: true, userId: user.id.toLowerCase() };
   } catch {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
