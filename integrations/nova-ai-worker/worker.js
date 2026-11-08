@@ -348,7 +348,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         ok: true, service: "voom-system-nova-ai", version: "1.1.0",
-        aiBinding: Boolean(env.AI), geminiConfigured: Boolean(env.GEMINI_API_KEY), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
+        aiBinding: Boolean(env.AI), geminiConfigured: typeof env.GEMINI_API_KEY === "string" && Boolean(env.GEMINI_API_KEY.trim()) && env.GEMINI_API_KEY !== "MY_GEMINI_API_KEY", authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
     }
