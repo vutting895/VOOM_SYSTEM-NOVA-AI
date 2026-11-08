@@ -1,21 +1,6 @@
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
-
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
-}
 
 const KNOWN_INSTRUMENT_SYMBOLS = [
   'XAU/USDm', 'EUR/USDm', 'GBP/USDm', 'USD/JPYm', 'USD/CHFm', 'AUD/USDm', 'USD/CADm', 'NZD/USDm',
