@@ -1345,7 +1345,7 @@ async function startServer() {
                 ? messages[messages.length - 1].text
                 : '')
           : '';
-    const lastMessage = rawMessage.trim();
+    const lastMessage = typeof rawMessage === 'string' ? rawMessage.trim() : '';
 
     if (!lastMessage || lastMessage.length > 4_000) {
       return res.status(400).json({ error: 'invalid_chat_message', code: 'CHAT_MESSAGE_INVALID' });
