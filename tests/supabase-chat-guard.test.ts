@@ -151,3 +151,26 @@ test("NOVA chat suppresses unverified numeric trading outputs and stays non-exec
   assert.doesNotMatch(route, /runInternalQuantExecutionEngine\(lastMessage/);
   assert.match(route, /liveTradingEnabled: false/);
 });
+
+const strategyStart = serverSource.indexOf("app.post('/api/gen-ai/generate'");
+const strategyEnd = serverSource.indexOf("// =========================================================================", strategyStart);
+const strategyRoute = serverSource.slice(strategyStart, strategyEnd);
+
+test("NOVA strategy generation calls Gemini and never fabricates numeric trading parameters", () => {
+  assert.ok(strategyStart !== -1 && strategyEnd > strategyStart);
+  assert.match(strategyRoute, /task: 'content_generation'/);
+  assert.match(strategyRoute, /marketDataVerified: false/);
+  assert.match(strategyRoute, /backtestAvailable: false/);
+  assert.match(strategyRoute, /takeProfitPct: null/);
+  assert.match(strategyRoute, /stopLossPct: null/);
+  assert.match(strategyRoute, /entryWorkers: \[\]/);
+  assert.match(strategyRoute, /backtestStatus: 'not_run'/);
+  assert.match(strategyRoute, /executionEnabled: false/);
+  assert.match(strategyRoute, /liveTradingEnabled: false/);
+  assert.doesNotMatch(strategyRoute, /runInternalQuantExecutionEngine/);
+});
+
+test("NOVA strategy generation fails closed without a Gemini Authorization Key", () => {
+  assert.match(strategyRoute, /GEMINI_NOT_CONFIGURED/);
+  assert.match(strategyRoute, /res\.status\(503\)/);
+});
