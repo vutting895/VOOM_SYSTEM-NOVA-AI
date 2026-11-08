@@ -2,20 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
-
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
-}
+import { createGeminiProvider } from './server/ai/geminiProvider.ts';
 
 const ALL_MAJOR_PAIRS: Record<string, { price: number; category: 'FOREX' | 'CRYPTO'; decimals: number }> = {
   // Major Forex & Metals (Exness)
@@ -1340,11 +1327,11 @@ async function startServer() {
     const quantResult = runInternalQuantExecutionEngine(lastMessage, symbol);
     let llmSummary = `วิเคราะห์คำสั่ง "${lastMessage || 'สแกนสภาวะตลาด'}" บนคู่เงิน ${quantResult.instrument} ด้วยสถาปัตยกรรม Hybrid Brain:\n• สมองส่วนหน้า (Cloud LLM Layer): สกัดพารามิเตอร์ ${quantResult.instrument} (${quantResult.side}) และสร้าง Generative UI Widgets (<RiskGauge /> & <ApprovalCard />)\n• สมองส่วนคำนวณ (Internal Quant Engine - TFT / FinRL / Quantum VQC): ตรวจพบสภาวะ ${quantResult.tftRegime} (Confidence ${(quantResult.tftConfidence * 100).toFixed(1)}%, VPIN ${quantResult.vpinToxicity}) แนะนำขนาดออเดอร์ ${quantResult.recommendedLots} Lots พร้อมกรอบ Triple-Barrier TP ${quantResult.takeProfitPrice} / SL ${quantResult.stopLossPrice}`;
 
-    const ai = getGeminiClient();
+    const ai = createGeminiProvider();
     if (ai && lastMessage) {
       try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
+        const response = await ai.generateText({
+          task: 'market_analysis',
           contents: `คุณคือสมองส่วนหน้า (Cloud LLM Interactive Layer) ของแพลตฟอร์มการเทรดเชิงปริมาณ VOOM System NOVA AI ที่ทำงานร่วมกับสมองส่วนคำนวณหลังบ้าน (Internal Quant Engine: TFT, FinRL, Quantum VQC/QAOA/QRL และ Exness REST API).
 ผู้ใช้พิมพ์ว่า: "${lastMessage}"
 ผลลัพธ์จากการคำนวณของ Internal Quant Engine หลังบ้าน:
