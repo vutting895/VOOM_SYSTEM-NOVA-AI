@@ -1,0 +1,86 @@
+version: 2.1
+
+# NOVA-only, pull-request CI. This configuration intentionally contains no
+# deployment jobs, credentials, contexts, project environment variables,
+# broker integrations, or production endpoints.
+#
+# Configure the CircleCI GitHub App trigger to run on PR opened / updated
+# events. The workflow-level condition is a second gate: push, schedule,
+# API, and other event types do not execute these jobs.
+
+jobs:
+  nova-frontend-contract:
+    docker:
+      - image: cimg/node:22.13.0
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+    steps:
+      - checkout
+      - run:
+          name: Install frontend dependencies without changing lockfiles
+          command: npm install --no-package-lock --include=dev
+      - run:
+          name: Run NOVA read-only and security contract tests
+          command: |
+            set -euo pipefail
+            node --test tests/nova-trading-readonly-guard.test.mjs
+            node --test tests/supabase-marketplace-security-migration.test.mjs
+            node --test tests/secret-vault-readiness.test.mjs
+            node --test tests/nova-approval-migration.test.mjs
+            node --check tests/staging-customer-isolation.mjs
+            node --test integrations/nova-ai-worker/*.test.mjs
+            node --test integrations/system-hub/tests/*.test.mjs
+            node --test integrations/remote-mcp-worker/tests/*.test.mjs
+            node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - run:
+          name: Build NOVA frontend
+          command: npm run build
+
+  nova-smc-python:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Install SMC test dependencies
+          command: python -m pip install --disable-pip-version-check pytest fastapi pydantic httpx
+      - run:
+          name: Compile and test SMC research module
+          command: |
+            set -euo pipefail
+            python -m py_compile workers/feature/smc_wave/smc_strategy.py
+            python -m unittest discover -s tests -p "test_smc_strategy.py" -v
+            python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py tests/test_research_pipeline.py -q
+
+  nova-smc-worker:
+    docker:
+      - image: cimg/node:22.13.0
+    steps:
+      - checkout
+      - run:
+          name: Test NOVA SMC Worker classification
+          command: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
+
+  nova-quant-contract:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Compile and test Quant Engine contracts
+          command: |
+            set -euo pipefail
+            python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py
+            PYTHONPATH=. python -m unittest discover -s tests -p "test_quant*.py" -v
+
+workflows:
+  nova-private-pull-request-ci:
+    when: pipeline.event.name == "pull_request"
+    jobs:
+      - nova-frontend-contract
+      - nova-smc-python
+      - nova-smc-worker
+      - nova-quant-contract
