@@ -90,10 +90,10 @@ export default function SystemSettingsView() {
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
 
   // 3. Backend Auto-Train Settings State
-  const [autoTrainEnabled, setAutoTrainEnabled] = useState<boolean>(true);
-  const [autoTrainIntervalSec, setAutoTrainIntervalSec] = useState<number>(18);
+  const [autoTrainEnabled] = useState<boolean>(false);
+  const [autoTrainIntervalSec] = useState<number>(0);
   const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
-    '🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้านสำเร็จ (Epoch #148 · ความแม่นยำ 94.8%)'
+    'BLOCKED: ยังไม่มีหลักฐานยืนยัน Dataset และ Training Run จริง จึงปิด Auto-Train ไว้ก่อน'
   );
   const [syncingBackend, setSyncingBackend] = useState<boolean>(false);
 
@@ -102,44 +102,14 @@ export default function SystemSettingsView() {
   const [defaultLotSize, setDefaultLotSize] = useState<string>('0.35');
 
   // 3.1 Kaggle MCP Server State
+  // Kaggle state is unknown until the backend verifies GitHub Actions/Kaggle connectivity.
   const [kaggleStatus, setKaggleStatus] = useState<any>({
     serverUrl: 'https://www.kaggle.com/mcp',
-    transport: 'streamable-http',
-    protocolVersion: '2025-03-26',
-    auth: {
-      type: 'OAuth 2.0 & Token (KGAT)',
-      configured: true,
-      tokenMasked: 'KGAT-••••••••••••••••••••••••••••••••',
-    },
-    computeQuota: {
-      gpu: {
-        type: 'NVIDIA Tesla T4 x2 (16GB VRAM)',
-        totalWeeklyHours: 30,
-        remainingHours: 26.5,
-        status: 'READY',
-      },
-      tpu: {
-        type: 'Google Cloud TPU v3-8 Pods',
-        totalWeeklyHours: 20,
-        remainingHours: 18.2,
-        status: 'READY',
-      },
-      internetAccess: true,
-    },
-    toolsCount: 10,
-    tools: [
-      { name: 'search_notebooks', desc: 'ค้นหา Quant & ML Notebooks บน Kaggle ตามคีย์เวิร์ด' },
-      { name: 'get_notebook_info', desc: 'ดึงซอร์สโค้ดและ Metadata ของ Notebook' },
-      { name: 'create_notebook_session', desc: 'เปิด Interactive Session บน Cloud GPU' },
-      { name: 'get_notebook_session_status', desc: 'เช็คสถานะการเทรน (QUEUED, RUNNING, COMPLETE)' },
-      { name: 'save_notebook', desc: 'บันทึกและรัน Notebook ทั้งไฟล์ (Commit & Run)' },
-      { name: 'list_notebook_files', desc: 'ดูรายการไฟล์ข้อมูลและ Model Weights ใน Notebook' },
-      { name: 'list_notebook_session_output', desc: 'ดูไฟล์ Output และ Logs การเทรน' },
-      { name: 'download_notebook_output', desc: 'ขอ URL ดาวน์โหลดไฟล์ผลลัพธ์' },
-      { name: 'download_notebook_output_zip', desc: 'ดาวน์โหลด Checkpoints ทั้งหมดเป็น ZIP' },
-      { name: 'cancel_notebook_session', desc: 'ยกเลิก Session เพื่อประหยัดโควตา GPU' },
-    ],
-    lastPingMs: 42,
+    transport: 'not_verified',
+    auth: { configured: false, status: 'NOT_VERIFIED' },
+    computeQuota: { status: 'NOT_VERIFIED' },
+    toolsCount: 0,
+    tools: [],
   });
   const [kaggleQuery, setKaggleQuery] = useState('Forex SMC');
   const [kaggleNotebooks, setKaggleNotebooks] = useState<any[]>([]);
@@ -517,19 +487,20 @@ export default function SystemSettingsView() {
 
             <button
               type="button"
-              onClick={() => setAutoTrainEnabled(!autoTrainEnabled)}
+              disabled
+              aria-disabled="true"
               className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
                 autoTrainEnabled
                   ? 'bg-emerald-500 text-slate-950'
                   : 'bg-slate-800 text-slate-300'
               }`}
             >
-              {autoTrainEnabled ? '🟢 เปิด Auto-Train หลังบ้าน (ON)' : 'ปิดชั่วคราว (OFF)'}
+              BLOCKED · รอ Dataset/Training Evidence
             </button>
           </div>
 
           {/* Current Backend Status Notification Bar */}
-          <div className="p-4 rounded-2xl bg-[#060A14] border border-emerald-500/35 flex flex-wrap items-center justify-between gap-3">
+          <div className="p-4 rounded-2xl bg-[#060A14] border border-amber-500/35 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 text-xs font-mono text-emerald-300">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <span>{autoTrainNotice}</span>
@@ -541,7 +512,7 @@ export default function SystemSettingsView() {
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingBackend ? 'animate-spin' : ''}`} />
-              สั่งดึงข้อมูลและเทรนซ้ำทันที
+              ปิดการสั่งเทรน · รอ Pipeline ที่ตรวจสอบได้
             </button>
           </div>
 
