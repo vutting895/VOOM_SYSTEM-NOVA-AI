@@ -44,16 +44,18 @@ test('order endpoint refuses writes and never fabricates a filled ticket', () =>
   assert.doesNotMatch(route, /FILLED_LIVE|EX-LIVE|ticketId|order_send/i);
 });
 
-test('approval resolution permits rejection only and cannot claim execution', () => {
-  const route = section(server, "app.post('/api/intent/interrupt/resolve'", '// Layer 4: FastMCP Streamable HTTP Metadata Endpoint');
-  assert.match(route, /action !== 'REJECT'/);
-  assert.match(route, /WRITE_DISABLED/);
-  assert.match(route, /BROKER_EXECUTION_DISABLED/);
-  assert.doesNotMatch(route, /APPROVED_EXECUTED|EDITED_AND_EXECUTED|executionTicket|order_send/i);
+test('thread and approval state stay blocked until owner-scoped persistence is verified', () => {
+  const threadRoute = section(server, "app.get('/api/intent/thread/:threadId'", "app.post('/api/intent/dispatch'");
+  const approvalRoute = section(server, "app.post('/api/intent/interrupt/resolve'", "app.get('/api/mcp/streamable'");
+  assert.match(threadRoute, /status\(503\)/);
+  assert.match(threadRoute, /OWNER_SCOPED_THREAD_STORE_NOT_VERIFIED/);
+  assert.match(approvalRoute, /status\(503\)/);
+  assert.match(approvalRoute, /OWNER_SCOPED_APPROVAL_STORE_NOT_VERIFIED/);
+  assert.doesNotMatch(threadRoute + approvalRoute, /getOrCreateThreadCheckpoint|langGraphCheckpoints|APPROVED_EXECUTED|executionTicket|order_send/i);
 });
 
 test('broker status does not assert account verification or accept configuration payloads', () => {
-  const routes = section(server, "app.get('/api/broker/status'", '// Fetch tradable currency/crypto pairs');
+  const routes = section(server, "app.get('/api/broker/status'", "app.get('/api/broker/instruments'");
   assert.match(routes, /status: 'not_configured'/);
   assert.match(routes, /connected: false/);
   assert.match(routes, /Object\.keys\(body\)\.length > 0/);
@@ -78,8 +80,9 @@ test('only the tenant-scoped Exness Demo read-only bridge is retained', () => {
 
 test('no broker account identifier or fake credential fingerprint is hardcoded in server metadata', () => {
   assert.doesNotMatch(server, /23908764|51092841|68019245|ed25519:[a-f0-9.]+/i);
-  assert.match(server, /accountId = 'not_configured'/);
-  assert.match(server, /provider: 'not_configured'/);
+  assert.match(server, /BROKER_INSTRUMENT_SOURCE_NOT_VERIFIED/);
+  assert.match(server, /brokerIdentityUnverified|broker_identity_unverified/);
+  assert.doesNotMatch(server, /BROKER_INSTRUMENT_CATALOG|accountId = ['\"]\\d+/);
 });
 
 
@@ -105,14 +108,12 @@ test('server blocks high-impact API mutations before parsing request bodies', ()
   assert.match(server, /trading_execution_disabled/);
 });
 
-test('intent dispatcher refuses all write intents before creating an approval checkpoint', () => {
+test('intent dispatcher rejects write intents before any owner state or persistence lookup', () => {
   const dispatch = section(server, "app.post('/api/intent/dispatch'", '// Approval resolution is research-only');
-  assert.match(dispatch, /accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT'/);
+  assert.match(dispatch, /accessClass !== 'READ_ONLY_NO_INTERRUPT'/);
   assert.match(dispatch, /WRITE_INTENTS_DISABLED/);
-  const writeBlockAt = dispatch.indexOf('WRITE_INTENTS_DISABLED');
-  const checkpointAt = dispatch.indexOf('getOrCreateThreadCheckpoint');
-  assert.ok(writeBlockAt >= 0 && checkpointAt > writeBlockAt, 'high-impact writes must be rejected before checkpoint creation');
-  assert.doesNotMatch(dispatch, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED|PAUSED_WAITING_HUMAN/);
+  assert.match(dispatch, /MARKET_OR_ACCOUNT_SOURCE_NOT_VERIFIED/);
+  assert.doesNotMatch(dispatch, /getOrCreateThreadCheckpoint|langGraphCheckpoints|place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED|PAUSED_WAITING_HUMAN/);
   assert.doesNotMatch(server, /place_trade_order|APPROVED_EXECUTED|EDITED_AND_EXECUTED/);
   assert.doesNotMatch(server, /brokerDirectSlTpEnabled:\s*true/);
   assert.doesNotMatch(server, /brokerSideSlTpGuard:\s*true/);
