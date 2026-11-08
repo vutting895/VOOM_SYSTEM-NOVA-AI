@@ -144,7 +144,9 @@ test("NOVA chat suppresses unverified numeric trading outputs and stays non-exec
   assert.match(route, /marketDataIsLive: false/);
   assert.match(route, /executionEnabled: false/);
   assert.match(route, /riskScore: null/);
-  assert.match(route, /entryPrice: null/);
+  assert.doesNotMatch(route, /entryPrice:/);
+  assert.doesNotMatch(route, /stopLossPrice:/);
+  assert.doesNotMatch(route, /takeProfitPrice:/);
   assert.doesNotMatch(route, /recommendedLots: quantResult/);
   assert.doesNotMatch(route, /runInternalQuantExecutionEngine\(lastMessage/);
   assert.match(route, /liveTradingEnabled: false/);
