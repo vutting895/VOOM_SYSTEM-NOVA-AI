@@ -6,6 +6,7 @@ import json
 import os
 import platform
 import subprocess
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -115,6 +116,24 @@ def train(*, repo_root: Path, dataset_id: str, output_root: Path,
         raise ValueError("Only historical research-candidate datasets are allowed")
     if getattr(dataset, "unexplained_gap_after_indices", ()):
         raise ValueError("Datasets with unexplained historical gaps are not eligible for training")
+
+    # Seal the final OOS by calendar time, not by a row-count split. No bar at
+    # or after this cutoff may enter feature construction, fitting or validation.
+    final_oos_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    pre_oos_bars = tuple(bar for bar in dataset.bars if bar.timestamp < final_oos_start)
+    if not pre_oos_bars:
+        raise ValueError("No pre-final-OOS bars are available for candidate training")
+    dataset = replace(
+        dataset,
+        bars=pre_oos_bars,
+        gap_after_indices=tuple(
+            index for index in dataset.gap_after_indices if index < len(pre_oos_bars)
+        ),
+        unexplained_gap_after_indices=tuple(
+            index for index in dataset.unexplained_gap_after_indices
+            if index < len(pre_oos_bars)
+        ),
+    )
     splits = chronological_splits(
         dataset, label_horizon_bars=1, embargo_bars=1
     )
@@ -193,7 +212,10 @@ def train(*, repo_root: Path, dataset_id: str, output_root: Path,
         "missing_interval_count": dataset.missing_interval_count,
         "train_rows": len(train_frame), "validation_rows": len(valid_frame),
         "reserved_test_rows_available": reserved_test_rows,
-        "final_oos_touched": False, "feature_schema_version": "nova.price-features.v1",
+        "final_oos_touched": False,
+        "final_oos_start_utc": final_oos_start.isoformat(),
+        "training_data_end_exclusive_utc": final_oos_start.isoformat(),
+        "feature_schema_version": "nova.price-features.v1",
         "feature_columns": columns, "best_iteration": rounds,
         "code_commit_sha": sha, "python_version": platform.python_version(),
         "lightgbm_version": lgb.__version__,
