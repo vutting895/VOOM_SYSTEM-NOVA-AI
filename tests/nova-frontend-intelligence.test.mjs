@@ -7,84 +7,52 @@ const read = (relativePath) => readFileSync(new URL(relativePath, root), 'utf8')
 
 const server = read('server.ts');
 const dashboard = read('src/components/dashboard/TradingDashboardView.tsx');
-const intelligence = read('src/components/intelligence/TradingIntelligenceView.tsx');
+const settings = read('src/components/SystemSettingsView.tsx');
 const backtest = read('src/components/backtest/BacktestSimulatorView.tsx');
-const infrastructure = read('src/components/infrastructure/TradingInfrastructureView.tsx');
-const learning = read('src/components/learning/LearningUniverseView.tsx');
-const safetyBadge = read('src/components/common/ReadonlySafetyBadge.tsx');
-const chart = read('src/components/dashboard/CandlestickChart.tsx');
 
-test('server implements all 5 core platform endpoints with read-only safeguards', () => {
-  assert.ok(server.includes("app.get('/api/market/overview'"));
-  assert.ok(server.includes("app.get('/api/market/candlesticks'"));
-  assert.ok(server.includes("app.get('/api/intelligence/models'"));
-  assert.ok(server.includes("app.post('/api/backtest/run'"));
-  assert.ok(server.includes("app.get('/api/infrastructure/health'"));
-  assert.ok(server.includes("app.get('/api/learning/universe'"));
-
-  // Check read-only invariant in infrastructure endpoint
-  assert.match(server, /systemMode:\s*'FAIL_CLOSED_READONLY'/);
-  assert.match(server, /orderExecutionBlocked:\s*true/);
-  assert.match(server, /realMoneyWritesDisabled:\s*true/);
+test('market endpoints clearly classify generated values as synthetic demo data', () => {
+  const overview = server.slice(server.indexOf("app.get('/api/market/overview'"), server.indexOf('// Candlestick Data Endpoint'));
+  const candles = server.slice(server.indexOf("app.get('/api/market/candlesticks'"), server.indexOf('// Model metrics are unavailable'));
+  assert.match(overview, /SYNTHETIC DEMO DATA · NOT EXNESS MARKET DATA/);
+  assert.match(overview, /dataMode: 'SIMULATED_FEED'/);
+  assert.match(overview, /Synthetic demo values — not an authenticated market feed/);
+  assert.match(candles, /dataMode: 'SIMULATED_FEED'/);
+  assert.match(dashboard, /SYNTHETIC DEMO DATA ONLY/);
+  assert.match(dashboard, /NOT LIVE MARKET DATA/);
+  assert.doesNotMatch(dashboard, /EXNESS DEMO FEED · READ-ONLY/);
 });
 
-test('Trading Dashboard view displays XAUUSDm, BTCUSD, Candlestick chart, Signals, and AI Analysis', () => {
-  assert.ok(dashboard.includes('XAU/USDm'));
-  assert.ok(dashboard.includes('BTC/USDm'));
-  assert.ok(dashboard.includes('CandlestickChart'));
-  assert.ok(dashboard.includes('AI Market Analysis'));
-  assert.ok(dashboard.includes('AI Trading Signals'));
-  assert.ok(dashboard.includes('ReadonlySafetyBadge'));
-  assert.doesNotMatch(dashboard, /order_send|execute_live|place_trade_order/);
+test('unverified model performance, backtest, infrastructure, and dataset endpoints fail closed', () => {
+  const modelRoute = server.slice(server.indexOf("app.get('/api/intelligence/models'"), server.indexOf('// 3. Backtest Simulation'));
+  const backtestRoute = server.slice(server.indexOf("app.post('/api/backtest/run'"), server.indexOf('// 4. Trading Infrastructure'));
+  const infraRoute = server.slice(server.indexOf("app.get('/api/infrastructure/health'"), server.indexOf('// 5. Learning Universe'));
+  const learningRoute = server.slice(server.indexOf("app.get('/api/learning/universe'"), server.indexOf('// Hybrid Architecture Endpoint'));
+
+  for (const route of [modelRoute, backtestRoute, infraRoute, learningRoute]) {
+    assert.match(route, /status\(503\)/);
+    assert.match(route, /Cache-Control/);
+  }
+  assert.match(modelRoute, /MODEL_ARTIFACTS_NOT_VERIFIED/);
+  assert.match(backtestRoute, /BACKTEST_ENGINE_NOT_CONFIGURED/);
+  assert.match(infraRoute, /RUNTIME_HEALTH_EVIDENCE_UNAVAILABLE/);
+  assert.match(infraRoute, /liveTradingEnabled: false/);
+  assert.match(infraRoute, /ordersEnabled: false/);
+  assert.match(infraRoute, /executionEnabled: false/);
+  assert.match(learningRoute, /VERIFIED_DATASET_NOT_AVAILABLE/);
 });
 
-test('Trading Intelligence view covers all 6 AI models required by specification', () => {
-  assert.ok(intelligence.includes('Elliott Wave 3'));
-  assert.ok(intelligence.includes('XGBoost'));
-  assert.ok(intelligence.includes('LSTM / PyTorch'));
-  assert.ok(intelligence.includes('Smart Money Concepts'));
-  assert.ok(intelligence.includes('Auto-Learning'));
-  assert.ok(intelligence.includes('Neural Network Analysis'));
-  assert.ok(intelligence.includes('ReadonlySafetyBadge'));
-  assert.match(intelligence, /Ensemble Confidence/);
+test('auto-training never increments fake epochs or fabricates samples and accuracy', () => {
+  const training = server.slice(server.indexOf('// AUTO-TRAIN STATUS'), server.indexOf("app.get('/api/mt5-bridge/status'"));
+  assert.match(training, /status\(503\)/);
+  assert.match(training, /AUTO_TRAINING_NOT_CONFIGURED/);
+  assert.match(training, /validationAccuracyPct: null/);
+  assert.doesNotMatch(training, /setInterval|autoTrainEpoch\s*\+\+|autoTrainSamples\s*\+=|Math\.random/);
+  assert.doesNotMatch(settings, /handleTriggerBackendTrain|setAutoTrainIntervalSec|Exness Direct Feed/);
+  assert.match(settings, /BLOCKED · รอ Dataset\/Training Evidence/);
 });
 
-test('Backtest Simulator view provides historical testing, equity curve, and out-of-sample results', () => {
-  assert.ok(backtest.includes('runSimulation'));
-  assert.ok(backtest.includes('Equity Curve'));
-  assert.ok(backtest.includes('Out-of-Sample Validation'));
-  assert.ok(backtest.includes('In-Sample Training Split'));
-  assert.ok(backtest.includes('Profit Factor'));
-  assert.ok(backtest.includes('Win Rate'));
-  assert.ok(backtest.includes('Max Drawdown'));
-  assert.ok(backtest.includes('ReadonlySafetyBadge'));
-  assert.match(backtest, /SIMULATED HISTORICAL BACKTEST/);
-});
-
-test('Trading Infrastructure view enforces MT5 connection, Exness Demo, and Risk Engine rules', () => {
-  assert.ok(infrastructure.includes('MT5 Connection Status'));
-  assert.ok(infrastructure.includes('Exness Demo Target'));
-  assert.ok(infrastructure.includes('Broker Connector'));
-  assert.ok(infrastructure.includes('Rule-Based Risk Engine'));
-  assert.ok(infrastructure.includes('Data Pipeline'));
-  assert.ok(infrastructure.includes('Model Training Status'));
-  assert.ok(infrastructure.includes('ReadonlySafetyBadge'));
-  assert.match(infrastructure, /HARD BLOCKED \(Fail-Closed\)/);
-  assert.match(infrastructure, /ไม่รับและไม่แสดง Password\/Secrets/);
-});
-
-test('Learning Universe view features dataset management, model performance by regime, and update status', () => {
-  assert.ok(learning.includes('Dataset Management & Feature Store'));
-  assert.ok(learning.includes('Model Performance by Market Regime'));
-  assert.ok(learning.includes('Continuous Training History'));
-  assert.ok(learning.includes('Daily Data Update Status'));
-  assert.ok(learning.includes('handleManualTrigger'));
-  assert.ok(learning.includes('ReadonlySafetyBadge'));
-});
-
-test('Safety badge clearly presents READ-ONLY and LIVE TRADING OFF across all viewports', () => {
-  assert.match(safetyBadge, /READ-ONLY MODE/);
-  assert.match(safetyBadge, /LIVE TRADING: OFF/);
-  assert.match(safetyBadge, /TARGET: EXNESS MT5 DEMO \(READ-ONLY\)/);
-  assert.match(safetyBadge, /ไม่มีการจัดเก็บ Broker Password\/Secret/);
+test('backtest UI states the real-data evidence gate before displaying performance', () => {
+  assert.match(backtest, /Backtest ถูกปิดไว้ชั่วคราว/);
+  assert.match(backtest, /spread, commission และ slippage/);
+  assert.match(backtest, /VERIFIED BACKTEST UNAVAILABLE/);
 });
