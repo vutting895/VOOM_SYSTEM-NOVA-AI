@@ -1,0 +1,44 @@
+name: NOVA Frontend Auth Contract CI
+
+concurrency:
+  group: nova-frontend-auth-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "src/auth/**"
+      - "src/lib/**"
+      - "src/App.tsx"
+      - "src/main.tsx"
+      - "src/vite-env.d.ts"
+      - "vite.config.ts"
+      - ".env.example"
+      - "tests/frontend-auth-contract.test.mjs"
+      - ".github/workflows/nova-frontend-auth-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/auth/**"
+      - "src/lib/**"
+      - "src/App.tsx"
+      - "src/main.tsx"
+      - "src/vite-env.d.ts"
+      - "vite.config.ts"
+      - ".env.example"
+      - "tests/frontend-auth-contract.test.mjs"
+      - ".github/workflows/nova-frontend-auth-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  auth-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test Supabase Auth and fixed Worker bearer boundaries
+        run: node --test tests/frontend-auth-contract.test.mjs
