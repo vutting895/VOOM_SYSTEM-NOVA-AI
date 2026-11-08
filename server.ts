@@ -233,7 +233,7 @@ async function startServer() {
     });
   });
 
-  // Fetch tradable currency/crypto pairs directly from the logged-in Broker session (supports MT5 or Direct API for Forex)
+  // Broker instrument metadata is unavailable without an authenticated owner-scoped session.
   app.get('/api/broker/instruments', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).json({
@@ -248,7 +248,7 @@ async function startServer() {
       executionEnabled: false,
     });
   });
-  // Quantum inference is blocked until a real model/runtime and reproducible outputs are verified.
+  // Quantum inference is unavailable until a real model/runtime and reproducible outputs are verified.
   app.post('/api/quantum/simulate', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).json({
@@ -614,104 +614,8 @@ async function startServer() {
   // Layer 4: Read-only FastMCP metadata (no broker execution tools)
   // Layer 5: Research-only risk calculations; no broker-side execution authority
   // =========================================================================
-  interface CredentialStatusPayload {
-    provider: string;
-    tokenFingerprint: string;
-    issuedAt: string;
-    expiresAt: string;
-    isValid: boolean;
-    revalidatedOnResume: boolean;
-    revalidatedAt?: string;
-  }
-
-  interface LangGraphInterruptCheckpoint {
-    interruptId: string;
-    threadId: string;
-    intentType: string;
-    mcpTool: string;
-    symbol: string;
-    side: 'BUY' | 'SELL';
-    lots: number;
-    entryPrice: number;
-    stopLoss: number;
-    takeProfit: number;
-    riskPerTradePct: number;
-    confidencePct: number;
-    vpinScore: number;
-    var95Pct: number;
-    regime: string;
-    brokerSideSlTpGuard: boolean;
-    credentialStatus: CredentialStatusPayload;
-    status: 'REJECTED';
-    createdAt: string;
-  }
-
-  interface LangGraphThreadState {
-    threadId: string;
-    updatedAt: string;
-    riskRules: {
-      riskPerTradePct: number;
-      maxRiskPerTradePct: number;
-      maxDrawdownPct: number;
-      maxLotSize: number;
-      maxMarginUsagePct: number;
-      brokerDirectSlTpEnabled: boolean;
-    };
-    gridStatus: {
-      enabled: boolean;
-      direction: 'BOTH' | 'BUY' | 'SELL';
-      symbol: string;
-    };
-    pendingInterrupts: Record<string, LangGraphInterruptCheckpoint>;
-    tradeLogs: Array<{
-      logId: string;
-      threadId: string;
-      ticket: string;
-      symbol: string;
-      side: 'BUY' | 'SELL';
-      lots: number;
-      entryPrice: number;
-      stopLoss: number;
-      takeProfit: number;
-      tokenRevalidated: boolean;
-      brokerSideSlTpActive: boolean;
-      executedAt: string;
-    }>;
-  }
-
-  const langGraphCheckpoints = new Map<string, LangGraphThreadState>();
-  // Pitfall 1 Fix: Semantic Cache Store to eliminate LLM + Guardrail Latency Tax on frequent intents
-  const semanticIntentCache = new Map<string, { cachedAt: number; hitCount: number; intentType: string }>();
-
-  function getOrCreateThreadCheckpoint(threadId: string): LangGraphThreadState {
-    const cleanId = (threadId || 'thread-default-nova').trim();
-    const existing = langGraphCheckpoints.get(cleanId);
-    if (existing) return existing;
-    const created: LangGraphThreadState = {
-      threadId: cleanId,
-      updatedAt: new Date().toISOString(),
-      riskRules: {
-        riskPerTradePct: 1.5,
-        maxRiskPerTradePct: 2.0,
-        maxDrawdownPct: 5.0,
-        maxLotSize: 2.0,
-        maxMarginUsagePct: 35.0,
-        brokerDirectSlTpEnabled: false,
-      },
-      gridStatus: {
-        enabled: false,
-        direction: 'BOTH',
-        symbol: 'XAU/USDm',
-      },
-      pendingInterrupts: {},
-      tradeLogs: [],
-    };
-    langGraphCheckpoints.set(cleanId, created);
-    return created;
-  }
-
-  // Layer 3: NeMo Guardrails (Colang Security & Prompt Injection Filter)
-  function evaluateNeMoGuardrails(rawPrompt: string): { passed: boolean; violationRule?: string; reason?: string } {
+  // Local deterministic text checks only; no external NeMo Guardrails runtime is connected.
+  function evaluateLocalSafetyRules(rawPrompt: string): { passed: boolean; violationRule?: string; reason?: string } {
     const lower = (rawPrompt || '').toLowerCase();
     if (
       lower.includes('ignore previous') ||
@@ -723,7 +627,7 @@ async function startServer() {
       return {
         passed: false,
         violationRule: 'colang://security/prompt_injection_shield',
-        reason: 'ตรวจพบความพยายามโจมตีแบบ Prompt Injection หรือคำสั่งเจาะระบบ (ถูกบล็อกโดย NVIDIA NeMo Guardrails)',
+        reason: 'ตรวจพบความพยายามโจมตีแบบ Prompt Injection หรือคำสั่งเจาะระบบ (ถูกบล็อกโดย local safety rule)',
       };
     }
     if (
@@ -742,55 +646,28 @@ async function startServer() {
     return { passed: true };
   }
 
-  // Pitfall 3 Fix: FastMCP Validation Error Interceptor & Polite Clarification Fallback Middleware
+  // Safe clarification only. NOVA does not guide users into placing orders.
   function checkAmbiguousOrInvalidParameters(rawPrompt: string): {
     needsClarification: boolean;
     validationIssue?: string;
     politeQuestion?: string;
     suggestedPrompts?: Array<{ label: string; cmd: string }>;
   } {
-    const q = (rawPrompt || '').trim();
-    const qLower = q.toLowerCase();
-
-    // Case A: Negative or zero lot size (FastMCP Schema Validation Failure)
-    if (/-\d+(\.\d+)?\s*(lot|lots|ล็อต)/i.test(qLower) || /\b0(\.0+)?\s*(lot|lots|ล็อต)/i.test(qLower)) {
+    const q = (rawPrompt || '').trim().toLowerCase();
+    const asksForTrading = /\b(buy|sell|short|trade|order|lot|lots)\b|ซื้อ|ขาย|เทรด|ออเดอร์|ล็อต/.test(q);
+    if (asksForTrading) {
       return {
         needsClarification: true,
-        validationIssue: 'FastMCP Schema ValidationError: lots must be a positive float (> 0.01)',
-        politeQuestion:
-          'ขออภัยครับ ระบบตรวจพบว่าขนาด Lot ที่ระบุไม่ถูกต้อง (ต้องมากกว่า 0.01 Lot) ไม่ทราบว่าคุณต้องการเปิดออเดอร์ด้วยขนาดเท่าไหร่ดีครับ?',
+        validationIssue: 'TRADING_ACTIONS_DISABLED',
+        politeQuestion: 'NOVA อยู่ในโหมด Read-only และยังไม่รองรับการสร้างคำสั่งซื้อขาย ขณะนี้เลือกดูได้เฉพาะ Architecture Checklist หรือ Component Catalog แบบ static',
         suggestedPrompts: [
-          { label: '✅ เปิด BUY XAU/USDm 0.10 Lot', cmd: 'เปิด BUY XAU/USDm 0.10 Lot' },
-          { label: '✅ เปิด BUY XAU/USDm 0.35 Lot (แนะนำ)', cmd: 'เปิด BUY XAU/USDm 0.35 Lot' },
-          { label: '✅ เปิด BUY XAU/USDm 0.50 Lot', cmd: 'เปิด BUY XAU/USDm 0.50 Lot' },
+          { label: 'ดู Architecture Checklist', cmd: 'แสดง Architecture Checklist' },
+          { label: 'ดู Component Catalog', cmd: 'เปิด Component Catalog' },
         ],
       };
     }
-
-    // Case B: Vague / incomplete trading request where AI cannot safely guess side or pair
-    if (
-      qLower === 'เทรดหน่อย' ||
-      qLower === 'ซื้อขายหน่อย' ||
-      qLower === 'ออกไม้ให้ที' ||
-      qLower.includes('ตั้งออเดอร์อะไรก็ได้') ||
-      qLower.includes('ตีความผิด')
-    ) {
-      return {
-        needsClarification: true,
-        validationIssue: 'FastMCP Schema Incomplete: missing required fields [symbol, side, lots]',
-        politeQuestion:
-          'เพื่อให้ส่งคำสั่งได้แม่นยำและปลอดภัย รบกวนช่วยระบุคู่เงิน ทิศทาง (BUY/SELL) และขนาด Lot ที่ต้องการ หรือเลือกจากตัวเลือกด้านล่างได้เลยครับ:',
-        suggestedPrompts: [
-          { label: '📈 เปิด BUY ทองคำ (XAU/USDm) 0.35 Lot', cmd: 'เปิด BUY XAU/USDm 0.35 Lot' },
-          { label: '📉 เปิด SELL ทองคำ (XAU/USDm) 0.35 Lot', cmd: 'เปิด SELL XAU/USDm 0.35 Lot' },
-          { label: '🪙 เปิด BUY Bitcoin (BTC/USDT) 0.20 Lot', cmd: 'เปิด BUY BTC/USDT 0.20 Lot' },
-        ],
-      };
-    }
-
     return { needsClarification: false };
   }
-
   // Strategy 1: Intent-to-Parameter Structured Output Extractor (Zod-equivalent Schema)
   function extractStructuredIntentSchema(rawPrompt: string, explicitSymbol?: string) {
     const q = (rawPrompt || '').trim();
@@ -822,7 +699,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_architecture_and_checklist',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots },
+        params: { symbol },
       };
     }
 
@@ -839,7 +716,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_component_catalog',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots },
+        params: { symbol },
       };
     }
 
@@ -859,7 +736,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_portfolio_status',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots },
+        params: { symbol },
       };
     }
 
@@ -870,7 +747,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_dynamic_grid_calendar',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots },
+        params: { symbol },
       };
     }
 
@@ -887,7 +764,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/calculate_risk',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots },
+        params: { symbol },
       };
     }
 
@@ -922,45 +799,7 @@ async function startServer() {
     };
   }
 
-  // Strategy 2: Independent Rule-Based Risk Engine (Hard Rules Check before Broker/Interrupt)
-  function validateHardRiskRules(
-    intent: ReturnType<typeof extractStructuredIntentSchema>,
-    threadState: LangGraphThreadState
-  ): { passed: boolean; violations: string[]; metrics: { marginUsagePct: number; estRiskPct: number; currentDrawdownPct: number } } {
-    const violations: string[] = [];
-    const lots = intent.params.lots || 0.35;
-    const reqRiskPct = intent.params.riskPerTradePct ?? threadState.riskRules.riskPerTradePct;
-    const marginUsagePct = Number((lots * 8.4).toFixed(2));
-    const currentDrawdownPct = 0.42;
-
-    if (lots > threadState.riskRules.maxLotSize) {
-      violations.push(
-        `ขนาด Lot ที่สั่ง (${lots} Lots) เกินเพดานสูงสุดของ Rule-Based Risk Engine (Max ${threadState.riskRules.maxLotSize.toFixed(2)} Lots)`
-      );
-    }
-    if (reqRiskPct > threadState.riskRules.maxRiskPerTradePct) {
-      violations.push(
-        `ค่า Risk Per Trade (${reqRiskPct}%) เกินเพดานความเสี่ยงสูงสุดต่อไม้ (Max ${threadState.riskRules.maxRiskPerTradePct}%)`
-      );
-    }
-    if (marginUsagePct > threadState.riskRules.maxMarginUsagePct) {
-      violations.push(
-        `Margin Usage (${marginUsagePct}%) เกินขีดจำกัดความปลอดภัยของพอร์ต (Max ${threadState.riskRules.maxMarginUsagePct}%)`
-      );
-    }
-
-    return {
-      passed: violations.length === 0,
-      violations,
-      metrics: {
-        marginUsagePct,
-        estRiskPct: reqRiskPct,
-        currentDrawdownPct,
-      },
-    };
-  }
-
-  // GET Thread State & Pending Interrupts (Phase 1 & 2: threads, checkpoints, trade_logs, user_configs)
+  // No risk metrics are produced without verified broker/account data.
   app.get('/api/intent/thread/:threadId', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).json({
@@ -974,7 +813,7 @@ async function startServer() {
     const { prompt, symbol, threadId } = req.body || {};
     const safeThreadId = typeof threadId === 'string' && threadId.trim() ? threadId.trim() : 'thread-nova-session-01';
     const rawPrompt = String(prompt || '').trim();
-    const guardrail = evaluateNeMoGuardrails(rawPrompt);
+    const guardrail = evaluateLocalSafetyRules(rawPrompt);
     if (!guardrail.passed) {
       return res.status(400).json({ ok: false, error: 'RESEARCH_REQUEST_BLOCKED', guardrail, mode: 'read-only' });
     }
@@ -1036,29 +875,24 @@ async function startServer() {
       detail: 'Approval state cannot be read or changed until authenticated owner-scoped persistence is verified.',
     });
   });
-  // Layer 4: FastMCP Streamable HTTP Metadata Endpoint (Phase 1 & Phase 2 Tools)
+  // Static capability metadata only. No Streamable HTTP MCP runtime is connected.
   app.get('/api/mcp/streamable', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
-      protocol: 'FastMCP-Streamable-HTTP/1.0',
-      transport: 'streamable-http',
-      horizontalScaling: true,
-      semanticCacheActive: true,
+      status: 'METADATA_ONLY_NOT_CONNECTED',
+      protocol: null,
+      transport: null,
+      horizontalScaling: null,
+      semanticCacheActive: false,
       brokerDirectSlTpWorker: false,
-      databaseTables: ['threads', 'checkpoints', 'trade_logs', 'user_configs'],
       tools: [
-        { name: 'get_portfolio_status', interrupt: false, description: 'Read-only account summary when an owner-scoped Demo adapter is verified' },
-        { name: 'calculate_risk', interrupt: false, description: 'Research-only risk calculation; no execution authority' },
-        { name: 'get_dynamic_grid_calendar', interrupt: false, description: 'Read-only strategy research calendar' },
+        { name: 'get_portfolio_status', availability: 'BLOCKED', reason: 'OWNER_SCOPED_BROKER_SESSION_NOT_VERIFIED' },
+        { name: 'calculate_risk', availability: 'BLOCKED', reason: 'VERIFIED_MARKET_DATA_NOT_AVAILABLE' },
+        { name: 'get_dynamic_grid_calendar', availability: 'BLOCKED', reason: 'OWNER_SCOPED_TRADE_LEDGER_NOT_VERIFIED' },
       ],
-      brokerExecution: {
-        liveTradingEnabled: false,
-        ordersEnabled: false,
-        executionEnabled: false,
-        mode: 'read-only',
-      },
+      brokerExecution: { liveTradingEnabled: false, ordersEnabled: false, executionEnabled: false, mode: 'read-only' },
     });
   });
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
