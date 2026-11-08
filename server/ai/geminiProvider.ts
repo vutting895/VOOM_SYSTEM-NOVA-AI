@@ -80,7 +80,11 @@ export function createGeminiProvider(options: {
             temperature: input.task === "content_generation" ? 0.35 : 0.2,
           },
         });
-        return { text: typeof response.text === "string" ? response.text : "", model };
+        const text = typeof response.text === "string" ? response.text.trim() : "";
+        if (!text || text.length > 12_000) {
+          throw new GeminiProviderError();
+        }
+        return { text, model };
       } catch {
         // Do not propagate raw provider errors; they may contain request or credential metadata.
         throw new GeminiProviderError();
