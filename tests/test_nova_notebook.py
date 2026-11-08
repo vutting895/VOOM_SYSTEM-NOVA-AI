@@ -25,6 +25,14 @@ def validator_namespace():
 
 
 class NotebookStructureTests(unittest.TestCase):
+    def test_training_is_opt_in_by_default(self):
+        source = "\\n".join(
+            "".join(cell.get("source", []))
+            for cell in load_notebook()["cells"]
+            if cell["cell_type"] == "code"
+        )
+        self.assertIn("RUN_LSTM = False", source)
+
     def test_valid_nbformat_json(self):
         notebook = load_notebook()
         self.assertEqual(notebook["nbformat"], 4)
@@ -178,6 +186,15 @@ class DatasetGapDetectionTests(unittest.TestCase):
                     )
                 )
 
+    def test_rejects_sub_timeframe_internal_gap(self):
+        detect = self.detector()
+        stamps = pd.to_datetime([
+            "2025-11-03T19:00:00Z", "2025-11-03T19:30:00Z"
+        ])
+        gaps = detect(stamps, pd.Timedelta(hours=1))
+        self.assertEqual(len(gaps), 1)
+        self.assertEqual(gaps[0]["gap_minutes"], 30)
+
     def test_rejects_unrecognized_four_hour_weekday_gap(self):
         detect = self.detector()
         stamps = pd.to_datetime([
@@ -288,6 +305,11 @@ class OHLCVValidationTests(unittest.TestCase):
         duplicated = pd.concat([self.valid, self.valid.iloc[[0]]], ignore_index=True)
         with self.assertRaisesRegex(ValueError, "Duplicate timestamps"):
             self.validate(duplicated)
+
+    def test_rejects_unsorted_timestamps_instead_of_silently_sorting(self):
+        unsorted = self.valid.iloc[[1, 0, 2, 3]].reset_index(drop=True)
+        with self.assertRaisesRegex(ValueError, "strictly increasing"):
+            self.validate(unsorted)
 
     def test_rejects_invalid_ohlc_bounds(self):
         invalid = self.valid.copy()
