@@ -1,0 +1,32 @@
+{
+  "name": "VOOM Linux Development",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/bun:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "forwardPorts": [3000, 5173],
+  "portsAttributes": {
+    "3000": {
+      "label": "Application server",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite development server",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python"
+      ]
+    }
+  },
+  "postCreateCommand": "bun install --frozen-lockfile",
+  "remoteUser": "vscode"
+}
