@@ -21,12 +21,19 @@ NOVA and VOOM Studio Affiliate use separate provider adapters, backend runtimes,
 - SDK request timeout is configured to 20 seconds.
 - Raw SDK exceptions are replaced with a stable provider error.
 - NOVA `/api/chat` and Affiliate `/api/ai/chat` use the adapter.
-- Affiliate chat no longer accepts a caller-selected model or caller-controlled system persona. Conversation history is bounded to the latest 20 messages, with 8,000 characters per message.
-- Unit tests cover missing/placeholder keys, fixed model mapping, unsupported tasks, input limits, and provider-error redaction.
+- Affiliate chat ignores caller-selected model/system persona, validates conversation role/size/turn order, limits history to 20 messages and the serialized input to 24,000 characters, and labels responses as draft-only.
+- NOVA `POST /api/chat` now verifies a Supabase bearer session against the configured Supabase Auth `/auth/v1/user` endpoint before JSON body parsing. It derives the owner identity only from the verified Auth response. Required non-secret configuration: `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (or `SUPABASE_ANON_KEY`). No service-role key is used.
+- NOVA chat has a process-local limiter of 10 requests per verified user per 60 seconds, with at most 2 concurrent requests per user.
+- Affiliate chat remains behind the existing Supabase Auth and configured-owner gate, and has a process-local limiter of 10 requests per owner per 60 seconds, with at most 2 concurrent requests per owner.
+- NOVA chat treats caller text as untrusted data separate from the system instruction. It labels legacy hard-coded quantitative values as `UNVERIFIED_STATIC_PLACEHOLDER`, `marketDataVerified=false`, and `marketDataIsLive=false`; risk/approval widgets explicitly report non-executable research-only status.
+- Unit tests cover adapter fail-closed behavior, fixed model mapping, input bounds, provider-error redaction, NOVA Supabase bearer verification/redirect handling, owner-scoped in-process rate limits, and route-level security invariants.
 
-## Not yet implemented or verified
-- This is a text/chat slice only. Other Affiliate routes still use the existing SDK directly for structured content, Search Grounding, image, video, audio, music, and live voice. Those routes require separate schemas and tests before migration.
-- No secondary provider, automatic fallback, usage ledger, tenant rate/concurrency limiter, or monthly budget circuit breaker is enabled.
+## Limits and remaining risks
+- Both rate limiters are in-memory and process-local. They do not enforce a global quota across multiple server instances or restarts and are not a durable monthly spend/budget circuit breaker. Before production, add a shared atomic limiter/usage budget at an authenticated server-side boundary, with an owner-scoped key and cost controls.
+- NOVA legacy quantitative calculations still contain hard-coded placeholder values. They are now labelled unverified and are not evidence of live Exness Demo data, valid signals, model inference, or actual trading performance. Do not use these numbers to trade.
+- The Supabase chat guard fails closed when `SUPABASE_URL` or a publishable/anon key is absent. Deployment configuration and owner-scoped negative staging tests are not yet evidenced.
+- The Affiliate chat route has only in-process limits. Its other direct SDK routes remain unmigrated: structured content, Search Grounding, image, video, audio, music, and live voice. Each requires its own input/output schema, route-specific cost ceiling, tests, and review before migration.
+- No secondary provider, automatic fallback, durable usage ledger, global rate/concurrency limiter, or monthly budget circuit breaker is enabled.
 - No live Gemini request has been made. No key type, key validity, quota, or billing status has been verified.
 - No secrets were created, rotated, or changed.
 - No production deployment or route enablement is authorized by this PR.
@@ -34,8 +41,8 @@ NOVA and VOOM Studio Affiliate use separate provider adapters, backend runtimes,
 ## Safety constraints
 ### NOVA
 - Keep `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
-- LLM output is explanatory only and cannot issue broker commands, approve trades, or override deterministic risk controls.
-- Do not label demo or fallback prices as live.
+- LLM output is explanatory research text only and cannot issue broker commands, approve trades, or override deterministic risk controls.
+- The current chat route has no verified market feed in its analysis context; do not label its quantitative placeholders as live/verified or treat the response as a validated trading signal.
 
 ### VOOM Studio Affiliate
 - Preserve Supabase Auth and the configured-owner gate before AI routes.
@@ -43,11 +50,11 @@ NOVA and VOOM Studio Affiliate use separate provider adapters, backend runtimes,
 - Social OAuth, publishing, and auto-publishing remain disabled.
 
 ## Acceptance gates
-1. Exact-head CI passes in each repository.
-2. Security review confirms auth/owner gates are preserved.
+1. Exact-head CI passes in each repository, including the new focused tests.
+2. Security review confirms the auth/owner gates, input handling, and process-local limiter limitations are understood and global abuse controls are added before production.
 3. The owner verifies each Gemini key is an Authorization Key without disclosing its value.
 4. A minimal, non-sensitive live API smoke test succeeds separately in each backend.
-5. Staging tests confirm unauthorized/foreign-owner requests are denied.
+5. Staging tests confirm unauthenticated and foreign-owner requests are denied.
 6. Remaining task-specific routes are migrated only in separate, reviewed changes.
 7. No merge or deployment until the exact PR head, base, mergeability, required checks, and review requirements are verified.
 
