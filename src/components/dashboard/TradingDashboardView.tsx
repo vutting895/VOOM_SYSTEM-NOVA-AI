@@ -65,7 +65,7 @@ export default function TradingDashboardView() {
     return (
       <div className="space-y-6">
         <ReadonlySafetyBadge />
-        <LoadingSpinner label="กำลังเชื่อมต่อดึงข้อมูลตลาด XAUUSDm & BTCUSD (Exness Demo Read-Only)..." />
+        <LoadingSpinner label="กำลังโหลด Synthetic Demo Data · ยังไม่มี Market Feed ที่ยืนยันแล้ว..." />
       </div>
     );
   }
@@ -87,13 +87,13 @@ export default function TradingDashboardView() {
       {/* 1. Safety Status Banner */}
       <ReadonlySafetyBadge />
 
-      {/* 2. Market Overview Cards (Top Ticker Row) */}
+      <div className="p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 text-xs text-amber-200">\n        SYNTHETIC DEMO DATA ONLY · ราคาและแท่งเทียนด้านล่างสร้างขึ้นเพื่อทดสอบ UI ไม่ใช่ราคา Exness/ตลาดสด และสัญญาณไม่ใช่คำแนะนำซื้อขายจริง\n      </div>\n\n      {/* 2. Market Overview Cards (Top Ticker Row) */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300">
-              Market Overview (ภาพรวมตลาด Exness Demo)
+              Market Overview (Synthetic Demo · Not Exness)
             </h2>
           </div>
           <button
@@ -181,7 +181,7 @@ export default function TradingDashboardView() {
             change24h={selectedAsset.change24h}
             timeframe={timeframe}
             onTimeframeChange={setTimeframe}
-            dataModeLabel="EXNESS DEMO FEED · READ-ONLY"
+            dataModeLabel="SYNTHETIC DEMO · NOT LIVE MARKET DATA"
           />
 
           {/* Quick Metrics Under Chart */}
