@@ -41,6 +41,16 @@ test("health is public but explicitly reports execution disabled", async () => {
   assert.equal(body.liveTradingEnabled, false);
 });
 
+test("health reports only Gemini secret presence and never returns its value", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/health"), {
+    GEMINI_API_KEY: "test-only-secret-value",
+  });
+  const body = await response.json();
+  const serialized = JSON.stringify(body);
+  assert.equal(body.geminiConfigured, true);
+  assert.doesNotMatch(serialized, /test-only-secret-value/);
+});
+
 test("direct generation without bearer token is rejected", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
