@@ -44,11 +44,12 @@ class RecordingEstimator:
 
 def make_dataset(
     *,
+    start_utc: datetime | None = None,
     benchmark_eligible: bool = False,
     live_feed: bool = False,
     unexplained_gap_after_indices: tuple[int, ...] = (),
 ) -> MarketDataset:
-    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    start = start_utc or datetime(2024, 1, 1, tzinfo=timezone.utc)
     bars = tuple(
         MarketBar(
             timestamp=start + timedelta(hours=index),
@@ -106,6 +107,41 @@ def test_trainer_blocks_unexplained_dataset_gap_before_feature_build(tmp_path, m
             output_root=tmp_path / "blocked-artifacts",
         )
     assert not (tmp_path / "blocked-artifacts").exists()
+
+
+def test_trainer_seals_calendar_final_oos_before_feature_build_and_fit(tmp_path, monkeypatch):
+    dataset = make_dataset(start_utc=datetime(2026, 6, 1, tzinfo=timezone.utc))
+    built_dataset_bars = []
+    RecordingEstimator.fit_indices = []
+    RecordingEstimator.predict_indices = []
+    monkeypatch.setattr(trainer, "load_market_dataset", lambda *args, **kwargs: dataset)
+
+    def build_features(pre_oos_dataset):
+        built_dataset_bars.extend(bar.timestamp for bar in pre_oos_dataset.bars)
+        return make_features(pre_oos_dataset)
+
+    monkeypatch.setattr(trainer, "build_price_features", build_features)
+    monkeypatch.setattr(trainer, "_model", lambda rounds, seed: RecordingEstimator())
+    monkeypatch.setattr(trainer, "_git_sha", lambda _root: "unit-test-commit")
+
+    result = trainer.train(
+        repo_root=tmp_path,
+        dataset_id=dataset.dataset_id,
+        output_root=tmp_path / "sealed-oos-artifacts",
+        min_validation_samples=30,
+        upload_to_hf=False,
+    )
+
+    cutoff = pd.Timestamp("2026-07-01T00:00:00Z")
+    assert built_dataset_bars
+    assert all(pd.Timestamp(value) < cutoff for value in built_dataset_bars)
+    assert all(value < cutoff for value in RecordingEstimator.fit_indices)
+    assert all(value < cutoff for value in RecordingEstimator.predict_indices)
+    run_dir = tmp_path / "sealed-oos-artifacts" / result["run_id"]
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["final_oos_touched"] is False
+    assert manifest["final_oos_start_utc"] == "2026-07-01T00:00:00+00:00"
+    assert manifest["training_data_end_exclusive_utc"] == "2026-07-01T00:00:00+00:00"
 
 
 def test_trainer_never_fits_or_predicts_on_reserved_final_test(tmp_path, monkeypatch):
