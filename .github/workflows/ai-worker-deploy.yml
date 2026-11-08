@@ -61,7 +61,7 @@ jobs:
           trap 'rm -f "$body"' EXIT
 
           code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$base/health")"
-          if [ "$code" != "200" ] || ! grep -q '"executionEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body"; then
+          if [ "$code" != "200" ] || ! grep -q '"executionEnabled":false' "$body" || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"geminiConfigured":true' "$body"; then
             echo "AI Worker health/safety smoke test failed (HTTP $code)."
             exit 1
           fi
