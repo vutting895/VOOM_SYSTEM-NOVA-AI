@@ -42,7 +42,7 @@ export interface TradingSignal {
   riskRewardRatio: string;
   confluenceFactors: string[];
   generatedAt: string;
-  dataClassification: 'HISTORICAL_SIGNAL' | 'DEMO_READONLY_SIGNAL';
+  dataClassification: 'HISTORICAL_SIGNAL' | 'DEMO_READONLY_SIGNAL' | 'SYNTHETIC_DEMO_SCENARIO';
 }
 
 export interface AIMarketAnalysis {
