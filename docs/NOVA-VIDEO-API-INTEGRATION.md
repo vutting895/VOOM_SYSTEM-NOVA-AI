@@ -1,118 +1,150 @@
-# NOVA AI Video API — External Frontend Integration
+# NOVA AI Video API — Frontend Integration
 
-## Scope
+## Runtime boundary
 
-NOVA Video is an API service for an independently hosted frontend. This repository does not need to build, host, or deploy the consumer's web UI for the API to be called. The existing `/video` page is a legacy/demo client and is not a dependency of the API contract.
+NOVA Video is an API-only control plane for the independently hosted consumer frontend. The API target is a dedicated Cloudflare Worker under `integrations/nova-video-api/`. The Netlify frontend is not the API origin. The Worker URL remains unpublished until reviewed deployment and authenticated staging acceptance are complete.
 
-## Current capability boundary
-
-Implemented API routes:
-- `GET/POST /api/video/projects` — list and create tenant-owned project metadata.
-- `GET/POST /api/video/jobs` — list and record tenant-owned job requests.
-
-Not implemented:
-- media upload or private object storage;
-- job detail/cancel endpoints or webhook callbacks;
-- actual video generation, analysis, editing, transcoding or export;
-- worker dispatch, model inference or GPU execution.
-
-Every accepted job is currently recorded in a blocked state:
-- `video_generation` → `blocked_no_free_gpu`
-- `video_analysis` and `video_edit_export` → `blocked_worker_unavailable`
-
-The API returns `executionEnabled: false` and zero estimated cost. A successful HTTP response means the request was recorded, not that a video was processed.
-
-## API origin and deployment
-
-The routes currently live in the Next.js application under `frontend/app/api/video`. The intended public origin is `https://voomsystem.netlify.app`, but production use must wait until Netlify confirms a deploy containing the reviewed API commit. Do not treat the current website deployment as proof that this API revision is live.
-
-Configure the external frontend's exact HTTPS origin(s) in Netlify environment variable:
-
-```text
-NOVA_VIDEO_ALLOWED_ORIGINS=https://your-frontend.example,https://app.your-domain.example
-```
-
-Use exact origins only: scheme + hostname + optional port; no path or wildcard. The API does not enable cookie credentials. Cross-origin requests use the Authorization bearer header. Unlisted origins receive no CORS permission and preflight is rejected.
-
-## Authentication
-
-The frontend must sign the user in through the same Supabase Auth project used by NOVA and send its short-lived access token:
+All non-preflight requests require a short-lived Supabase Auth access token from the same project:
 
 ```http
 Authorization: Bearer <supabase_access_token>
 Content-Type: application/json
 ```
 
-Never expose a Supabase service-role key in browser code. The API validates the token with Supabase Auth and performs database requests under the authenticated user's JWT, relying on RLS. Do not send refresh tokens to the API.
+Never expose a service-role key or refresh token in browser code. The Worker verifies the token with Supabase Auth and uses the same caller bearer token with the publishable key for PostgREST. RLS is the authoritative row boundary.
 
-## Example integration
+## Endpoints
+
+- `GET /api/video/skills` — 22-skill catalog; every skill is non-executable.
+- `POST /api/video/plan` — deterministic NOVA Director 24 FPS shot plan.
+- `POST /api/video/production-plan` — per-scene Engine task contracts, human approval, assembly, QC and delivery stages.
+- `GET/POST /api/video/projects` — owner-scoped project metadata.
+- `GET/POST /api/video/jobs` — owner-scoped blocked jobs.
+- `POST /api/video/preparations` — immutable preparation snapshot generated from the saved owner-scoped job.
+- `GET /api/video/preparations?job_id=<uuid>` — read the preparation and any approval decision.
+- `POST /api/video/preparation-decisions` — one-time approval or rejection bound to the snapshot hash.
+
+## NOVA Video Director Studio UI
+
+The consumer application route `/video` opens the **NOVA Video Director Studio**. The primary navigation also exposes a Video Studio shortcut.
+
+The current UI is a local-only Draft workspace. It invokes the same repository-owned Director and Production Planner modules used by the API/Engine source, and can export a JSON storyboard package. It does not call the API, use an authenticated Supabase session, write to a database, invoke an LLM/video model, or create media. The Save-to-API and Generate Video buttons are disabled until the frontend authentication and trusted write/deployment gates are completed.
+
+Engine generation currently accepts only `9:16` and `16:9`. The UI does not offer square output. The Director-only planning endpoint may still produce a square creative outline, but the Engine Production Plan and video-generation Job API reject `1:1` rather than creating an unsupported model task.
+
+## Project and Job workflow
+
+Create a project:
 
 ```js
-const API_BASE = "https://voomsystem.netlify.app";
-const accessToken = session.access_token;
-
+const API_BASE = "<verified Worker origin>";
 const headers = {
-  Authorization: `Bearer ${accessToken}`,
+  Authorization: `Bearer ${session.access_token}`,
   "Content-Type": "application/json",
 };
 
 const projectResponse = await fetch(`${API_BASE}/api/video/projects`, {
-  headers,
-  cache: "no-store",
-});
-if (!projectResponse.ok) throw new Error("Could not load projects");
-const { projects } = await projectResponse.json();
-
-const createResponse = await fetch(`${API_BASE}/api/video/projects`, {
   method: "POST",
   headers,
-  body: JSON.stringify({ title: "Campaign video", description: "" }),
+  body: JSON.stringify({ title: "NOVA Product Film" }),
 });
-if (!createResponse.ok) throw new Error("Could not create project");
-const { project } = await createResponse.json();
+if (!projectResponse.ok) throw new Error("Project creation failed");
+const { project } = await projectResponse.json();
+```
 
+Create a job with a creative brief. The Worker regenerates the plan and never trusts a client-supplied Director plan:
+
+```js
 const jobResponse = await fetch(`${API_BASE}/api/video/jobs`, {
   method: "POST",
   headers,
   body: JSON.stringify({
     project_id: project.id,
     task_type: "video_generation",
-    prompt: "A short cinematic product introduction",
+    prompt: "Create a short product film",
     idempotency_key: crypto.randomUUID().replaceAll("-", ""),
-  }),
+    brief: {
+      title: "NOVA Product Film",
+      concept: "A premium ceramic cup on a quiet morning table",
+      durationSeconds: 15,
+      aspectRatio: "9:16",
+      goal: "product_ad",
+      language: "th",
+      verifiedFacts: ["Ceramic body"],
+      mustAvoid: ["Unverified performance claims"]
+    }
+  })
 });
-const jobPayload = await jobResponse.json();
-if (!jobResponse.ok) throw new Error(jobPayload.error || "Could not record job");
-// 202 means accepted for recording only. jobPayload.executionEnabled is false.
+if (!jobResponse.ok) throw new Error("Job creation failed");
+const { job } = await jobResponse.json();
 ```
 
-## HTTP behavior
+A successful POST records a job request, not a video. `video_generation` remains `blocked_no_free_gpu`; analysis and editing/export remain `blocked_worker_unavailable`.
 
-- `401`: missing/invalid/expired Supabase access token.
-- `400`: invalid JSON or unsupported fields/values.
-- `403`: CORS preflight Origin is not allowlisted.
-- `409`: same idempotency key reused with a different project/task/prompt.
-- `413`: request body exceeds the endpoint size limit.
-- `415`: request content type is not application/json.
-- `503`: auth provider or Supabase data store unavailable/not configured.
-- `202`: new job request recorded but blocked and not executed.
-- `200`: list response or identical idempotent replay.
+## Immutable preparation and human decision
 
-## Required deployment configuration
+Create the preparation from the stored job:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NOVA_VIDEO_ALLOWED_ORIGINS`
+```js
+const preparationResponse = await fetch(`${API_BASE}/api/video/preparations`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({ job_id: job.id })
+});
+if (!preparationResponse.ok) throw new Error("Preparation failed");
+const { preparation } = await preparationResponse.json();
+```
 
-The Supabase migration `202610310001_nova_video_workspace` is not yet applied to the hosted project. The API will return 503 for project/job operations until the migration is applied to an approved isolated staging environment and then an explicitly approved production release. Do not apply it to production as part of this API-only branch.
+Read it and any decision:
 
-## Release gates
+```js
+const reviewResponse = await fetch(
+  `${API_BASE}/api/video/preparations?job_id=${encodeURIComponent(job.id)}`,
+  { headers, cache: "no-store" }
+);
+if (!reviewResponse.ok) throw new Error("Preparation lookup failed");
+const review = await reviewResponse.json();
+```
 
-1. Frontend CI and disposable PostgreSQL migration CI must execute and pass with inspectable logs.
-2. Independent security review must verify token handling, CORS allowlist, owner RLS and composite project-owner foreign key.
-3. Test two distinct Supabase Auth users against staging; each must be unable to read or reference the other's projects/jobs.
-4. Verify CORS preflight and actual requests from the exact external frontend origin.
-5. Deploy the API commit and verify the deployed commit SHA before publishing the base URL.
-6. Keep all media processing disabled until a truly zero-cost worker, private storage and model-license review are proven.
+Record the authenticated user's explicit decision:
 
-See `docs/openapi/nova-video-api.yaml` for the machine-readable contract.
+```js
+const decisionResponse = await fetch(`${API_BASE}/api/video/preparation-decisions`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    preparation_id: preparation.id,
+    decision: "approved",
+    decision_note: "Creative plan reviewed"
+  })
+});
+if (!decisionResponse.ok) throw new Error("Approval could not be recorded");
+const decision = await decisionResponse.json();
+```
+
+There is one immutable preparation per job and one append-only decision per preparation. If the brief changes, create a new job and a new preparation. A conflicting second decision returns `409`.\n\nThe Worker derives these records from the saved job and binds decisions to the snapshot hash. However, the current RLS design still grants the authenticated user direct `INSERT` on the preparation and decision tables. RLS prevents cross-tenant inserts and rows cannot be updated/deleted by the authenticated role, but it cannot prove that a row was created through the Worker rather than direct PostgREST. This is a known trust-boundary blocker for any future execution path. Before generation can be unlocked, direct client inserts must be removed and replaced with a reviewed server-only write identity or a cryptographically verified signature. No such secret or privileged write path is configured now.
+
+**An approval does not enable rendering.** The job remains `blocked_no_free_gpu`, `executionEnabled=false` and `estimatedCost=0`. The response also keeps explicit blockers for verified zero-cost GPU capacity and disabled worker dispatch. The future execution service must independently validate the snapshot and all compute/license/security gates.
+
+## Creative brief fields
+
+Required: `title`, `concept`.
+
+Optional: `audience`, `platform`, `language`, `style`, `callToAction`, `durationSeconds` (3–60), `aspectRatio` (`9:16`, `16:9`; the Director-only plan endpoint can accept `1:1`, but Engine video generation does not), `goal` (`product_ad`, `explainer`, `story`, `brand_film`), `verifiedFacts`, `mustAvoid`.
+
+NOVA Director returns a deterministic shot plan with narrative beats, framing, camera movement, lighting, transitions, subject continuity, verified-fact guard and 24 FPS frame allocation. This is NOVA-owned planning logic, not a trained foundation video model or an LLM inference result.
+
+## Production database and rollout gate
+
+Migration candidate: `supabase/migrations/20261105143000_nova_video_preparation_approval.sql`. It defines owner-scoped `nova_video_projects`, `nova_video_jobs`, `nova_video_preparations`, and `nova_video_approval_decisions` with RLS and append-only preparation/decision data.
+
+The connected Production project currently has no Video workspace tables. Its latest recorded migration is `20261031070311`, while the repository still contains older pending migration files; the Supabase `main` branch reports `MIGRATIONS_FAILED`. There is no verified staging environment. The migration candidate is not applied. Before any schema change, reconcile migration history, repair the failed branch, produce and verify a backup/restore, and complete independent SQL/RLS review. Then test Tenant A and Tenant B using separate authenticated sessions in isolated staging.
+
+Before publishing the Worker:
+1. Pass exact-head Worker contract tests and module syntax checks.
+2. Pass independent security review.
+3. Prove cross-tenant denial for projects, jobs, preparations and decisions.
+4. Verify the exact HTTPS frontend CORS origin.
+5. Confirm the deployed Worker SHA and authenticated staging acceptance.
+
+No production migration, Worker deployment, paid API/GPU, trial-credit fallback, model download, media upload, worker dispatch or billing change is authorized by this source-level work.

@@ -77,6 +77,8 @@ jobs:
           node-version: "22"
       - name: Install root Vite dependencies
         run: npm install --no-package-lock --include=dev
+      - name: Test NOVA Video Director Studio local draft contract
+        run: node --test tests/nova-video-workspace-ui.test.mjs
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
 

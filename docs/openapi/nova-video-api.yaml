@@ -1,17 +1,114 @@
 openapi: 3.1.0
 info:
   title: NOVA AI Video API
-  version: 0.1.0
+  version: 0.2.0
   description: >
-    Tenant-scoped, bearer-authenticated API for video project metadata and job requests.
-    This release records requests only. It does not upload media, invoke models, dispatch
-    workers, generate videos, analyze clips, edit, or export media.
-servers:
-  - url: https://voomsystem.netlify.app
-    description: Intended Netlify API origin; verify the deployed commit before production use.
+    Authenticated, tenant-scoped NOVA Video control plane. It creates project/job metadata,
+    deterministic Director plans, immutable production preparations and append-only approval
+    decisions. No API in this specification executes a model or renders media.
+servers: []
 security:
   - SupabaseBearer: []
 paths:
+  /api/video/skills:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    get:
+      summary: Read the NOVA Video skill catalog
+      description: Authenticated catalog; all listed skills remain non-executable.
+      responses:
+        '200':
+          description: Skill registry and free-only policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schemaVersion, registryVersion, skillCount, skillGroups, policy]
+                properties:
+                  schemaVersion: { type: string }
+                  registryVersion: { type: string }
+                  skillCount: { type: integer, const: 22 }
+                  skillGroups: { type: array, items: { type: object } }
+                  policy:
+                    type: object
+                    required: [costMode, executionEnabled, paidApiAllowed, paidGpuAllowed]
+                    properties:
+                      costMode: { const: free_only }
+                      executionEnabled: { const: false }
+                      paidApiAllowed: { const: false }
+                      paidGpuAllowed: { const: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { description: Supabase Auth unavailable or not configured }
+
+  /api/video/plan:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    post:
+      summary: Create a deterministic NOVA Director plan
+      description: >
+        CPU-only planning. Does not call an LLM, video model, GPU, database, worker or media
+        storage. Returns a 24 FPS frame-accurate Director plan, not a generated video.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreativeBrief' }
+      responses:
+        '200':
+          description: Deterministic Director plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [directorPlan, executionEnabled, estimatedCost, requiresHumanApproval]
+                properties:
+                  directorPlan: { $ref: '#/components/schemas/DirectorPlan' }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  requiresHumanApproval: { const: true }
+                  explanation: { type: string }
+        '400': { description: Invalid creative brief }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/video/production-plan:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    post:
+      summary: Project a Director plan into Engine task contracts
+      description: >
+        CPU-only projection into per-scene task contracts and approval, assembly, QC and
+        delivery stages. Generation stays blocked until a verified zero-cost runtime exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductionCreativeBrief' }
+      responses:
+        '200':
+          description: Non-executable Engine production plan
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [productionPlan, executionEnabled, estimatedCost, requiresHumanApproval]
+                properties:
+                  productionPlan: { $ref: '#/components/schemas/ProductionPlan' }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  requiresHumanApproval: { const: true }
+                  explanation: { type: string }
+        '400': { description: Invalid creative brief, unsupported generation aspect ratio, or Director timeline }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/video/projects:
     options:
       security: []
@@ -22,7 +119,7 @@ paths:
       summary: List the authenticated user's projects
       responses:
         '200':
-          description: Owner-scoped projects
+          description: Owner-scoped project metadata
           content:
             application/json:
               schema:
@@ -33,7 +130,7 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Project' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '503': { description: Auth provider or project store unavailable }
+        '503': { description: Project store unavailable }
     post:
       summary: Create a project
       requestBody:
@@ -60,6 +157,7 @@ paths:
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { description: Project store unavailable }
+
   /api/video/jobs:
     options:
       security: []
@@ -67,7 +165,7 @@ paths:
         '204': { description: CORS preflight accepted for an allowlisted Origin }
         '403': { description: Origin is not allowlisted }
     get:
-      summary: List the authenticated user's most recent jobs
+      summary: List the authenticated user's jobs
       parameters:
         - in: query
           name: project_id
@@ -75,7 +173,7 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Owner-scoped job metadata
+          description: Owner-scoped job metadata; no execution is enabled
           content:
             application/json:
               schema:
@@ -106,6 +204,10 @@ paths:
                   enum: [video_generation, video_analysis, video_edit_export]
                 prompt: { type: string, maxLength: 4000 }
                 idempotency_key: { type: string, pattern: '^[A-Za-z0-9_-]{12,100}$' }
+                brief:
+                  allOf:
+                    - $ref: '#/components/schemas/CreativeBrief'
+                  description: Optional; NOVA Director regenerates the plan server-side and stores it in the job request.
       responses:
         '202':
           description: Request recorded but blocked; no worker is dispatched
@@ -113,17 +215,132 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [job, executionEnabled]
+                required: [job, executionEnabled, estimatedCost]
                 properties:
                   job: { $ref: '#/components/schemas/Job' }
                   executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
                   explanation: { type: string }
-        '200':
-          description: Idempotent replay of an identical request
+        '200': { description: Idempotent replay of an identical request }
         '400': { description: Invalid request }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { description: Idempotency key reused with a different payload }
         '503': { description: Job store unavailable }
+
+  /api/video/preparations:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    get:
+      summary: Read a saved immutable preparation and its decision
+      parameters:
+        - in: query
+          name: job_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Owner-scoped preparation; no preparation returns null
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [preparation, decision, executionEnabled]
+                properties:
+                  preparation: { oneOf: [{ $ref: '#/components/schemas/Preparation' }, { type: 'null' }] }
+                  decision: { oneOf: [{ $ref: '#/components/schemas/ApprovalDecision' }, { type: 'null' }] }
+                  humanApprovalStatus: { type: string, enum: [pending, approved, rejected] }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  jobStatus: { type: string, enum: [blocked_no_free_gpu] }
+                  executionBlockers: { type: array, items: { type: string } }
+        '400': { description: Missing or invalid job_id }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { description: Preparation or approval store unavailable }
+    post:
+      summary: Create an immutable preparation snapshot for an owned job
+      description: >
+        Reads the stored server-generated Director plan from the caller-owned job, validates it,
+        creates Engine task contracts and stores a SHA-256 snapshot. A job can have one preparation.
+        Snapshot creation does not dispatch a worker or change the blocked job status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [job_id]
+              properties:
+                job_id: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Preparation created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [preparation, executionEnabled, estimatedCost, approvalRequired]
+                properties:
+                  preparation: { $ref: '#/components/schemas/Preparation' }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  approvalRequired: { const: true }
+        '200': { description: Idempotent replay of the same immutable snapshot }
+        '400': { description: Invalid job_id }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Job not found for this owner }
+        '409': { description: Job cannot be prepared or the immutable snapshot conflicts }
+        '503': { description: Job or preparation store unavailable }
+
+  /api/video/preparation-decisions:
+    options:
+      security: []
+      responses:
+        '204': { description: CORS preflight accepted for an allowlisted Origin }
+        '403': { description: Origin is not allowlisted }
+    post:
+      summary: Record a one-time approval or rejection
+      description: >
+        Appends an owner-bound decision linked to the exact preparation snapshot hash.
+        An approval does not unlock execution; the job remains blocked_no_free_gpu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [preparation_id, decision]
+              properties:
+                preparation_id: { type: string, format: uuid }
+                decision: { type: string, enum: [approved, rejected] }
+                decision_note: { type: [string, "null"], maxLength: 300 }
+      responses:
+        '201':
+          description: Decision recorded; generation remains blocked
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [decision, humanApprovalStatus, executionEnabled, estimatedCost, jobStatus]
+                properties:
+                  decision: { $ref: '#/components/schemas/ApprovalDecision' }
+                  humanApprovalStatus: { type: string, enum: [approved, rejected] }
+                  idempotentReplay: { type: boolean }
+                  jobStatus: { const: blocked_no_free_gpu }
+                  executionEnabled: { const: false }
+                  estimatedCost: { const: 0 }
+                  executionBlockers: { type: array, items: { type: string } }
+        '200': { description: Idempotent replay of the same decision }
+        '400': { description: Invalid decision or note }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Preparation not found for this owner }
+        '409': { description: Preparation hash invalid or a different decision already exists }
+        '503': { description: Approval store unavailable }
+
 components:
   securitySchemes:
     SupabaseBearer:
@@ -132,8 +349,51 @@ components:
       bearerFormat: Supabase access token
   responses:
     Unauthorized:
-      description: Missing, invalid, or expired access token
+      description: Missing, invalid, or expired Supabase access token
   schemas:
+    CreativeBrief:
+      type: object
+      additionalProperties: false
+      required: [title, concept]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        concept: { type: string, minLength: 1, maxLength: 1200 }
+        audience: { type: string, maxLength: 240 }
+        platform: { type: string, maxLength: 120 }
+        language: { type: string, maxLength: 32 }
+        style: { type: string, maxLength: 240 }
+        callToAction: { type: string, maxLength: 240 }
+        durationSeconds: { type: number, minimum: 3, maximum: 60, default: 15 }
+        aspectRatio: { type: string, enum: ["9:16", "16:9", "1:1"] }
+        goal: { type: string, enum: [product_ad, explainer, story, brand_film] }
+        verifiedFacts: { type: array, maxItems: 12, items: { type: string, maxLength: 240 } }
+        mustAvoid: { type: array, maxItems: 20, items: { type: string, maxLength: 160 } }
+    ProductionCreativeBrief:
+      allOf:
+        - $ref: '#/components/schemas/CreativeBrief'
+        - type: object
+          properties:
+            aspectRatio:
+              type: string
+              enum: ["9:16", "16:9"]
+    DirectorPlan:
+      type: object
+      required: [schemaVersion, frameRate, totalFrames, scenes]
+      properties:
+        schemaVersion: { const: nova.director-plan.v1 }
+        frameRate: { const: 24 }
+        totalFrames: { type: integer, minimum: 72 }
+        scenes: { type: array, minItems: 1, maxItems: 12, items: { type: object } }
+    ProductionPlan:
+      type: object
+      required: [schemaVersion, generationTasks, stages, executionEnabled, estimatedCost, status]
+      properties:
+        schemaVersion: { const: nova.video-production-plan.v1 }
+        generationTasks: { type: array, items: { type: object } }
+        stages: { type: array, items: { type: object } }
+        executionEnabled: { const: false }
+        estimatedCost: { const: 0 }
+        status: { const: blocked_no_free_gpu }
     Project:
       type: object
       required: [id, title, description, status, created_at, updated_at]
@@ -146,13 +406,36 @@ components:
         updated_at: { type: string, format: date-time }
     Job:
       type: object
-      required: [id, project_id, task_type, status, prompt, execution_mode, estimated_cost, created_at]
+      required: [id, project_id, task_type, status, prompt, request, execution_mode, estimated_cost, created_at]
       properties:
         id: { type: string, format: uuid }
         project_id: { type: string, format: uuid }
         task_type: { type: string, enum: [video_generation, video_analysis, video_edit_export] }
         status: { type: string, enum: [blocked_no_free_gpu, blocked_worker_unavailable] }
         prompt: { type: string }
+        request: { type: object, description: Optional server-generated NOVA Director plan under director_plan }
         execution_mode: { const: free_only }
         estimated_cost: { const: 0 }
+        created_at: { type: string, format: date-time }
+    Preparation:
+      type: object
+      required: [id, job_id, user_id, snapshot, snapshot_hash, planner_version, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        snapshot: { type: object }
+        snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        planner_version: { type: string }
+        created_at: { type: string, format: date-time }
+    ApprovalDecision:
+      type: object
+      required: [id, preparation_id, user_id, snapshot_hash, decision, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        preparation_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        snapshot_hash: { type: string, pattern: '^[a-f0-9]{64}$' }
+        decision: { type: string, enum: [approved, rejected] }
+        decision_note: { type: string, maxLength: 300, nullable: true }
         created_at: { type: string, format: date-time }

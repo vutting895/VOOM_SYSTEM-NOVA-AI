@@ -1,0 +1,39 @@
+name: NOVA Video API CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/nova-video-api/**"
+      - "integrations/nova-video-engine/**"
+      - "docs/NOVA-VIDEO-API-INTEGRATION.md"
+      - "docs/openapi/nova-video-api.yaml"
+      - "docs/NOVA-VIDEO-SUPABASE-MIGRATION-RECONCILIATION.md"
+      - "supabase/migrations/**"
+      - ".github/workflows/nova-video-api-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run NOVA Video API tests
+        run: node --test integrations/nova-video-api/worker.test.mjs
+      - name: Validate OpenAPI YAML syntax
+        run: |
+          ruby -e 'require "yaml"; spec = YAML.safe_load_file("docs/openapi/nova-video-api.yaml", aliases: false); abort "invalid OpenAPI contract" unless spec["openapi"] == "3.1.0" && spec["paths"].is_a?(Hash)'
+      - name: Syntax-check Worker modules
+        run: |
+          node --check integrations/nova-video-api/worker.js
+          node --check integrations/nova-video-api/skill-registry.js
+          node --check integrations/nova-video-engine/script-intelligence.mjs
+          node --check integrations/nova-video-engine/director-intelligence.mjs
+          node --check integrations/nova-video-engine/generative-video.mjs
+          node --check integrations/nova-video-api/video-production-planner.js
