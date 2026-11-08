@@ -1476,29 +1476,18 @@ async function startServer() {
         threadId: state.threadId,
         layerTriggered: 'LAYER_4_FASTMCP_READ_NO_INTERRUPT',
         declarativeUiType: uiMap[structuredIntent.intentType] || 'balance-summary-card',
-        structuredIntent,
-        riskCheck,
-        semanticCache: { hit: isCacheHit, latencyMs },
-        quantTelemetry: {
-          symbol: quant.instrument,
-          price: quant.entryPrice,
-          regime: quant.tftRegime,
-          confidencePct: Number((quant.tftConfidence * 100).toFixed(1)),
-          vpinScore: quant.vpinToxicity,
-          var95Pct: quant.riskGauge.var99Pct,
-          sl: quant.stopLossPrice,
-          tp: quant.takeProfitPrice,
-        },
+        structuredIntent: { ...structuredIntent, evidenceStatus: 'NOT_VERIFIED', dataClassification: 'SYNTHETIC_DEMO_SCENARIO', params: { ...structuredIntent.params, price: null } },
+        riskCheck: null,
+        semanticCache: { hit: isCacheHit, latencyMs: null, status: 'NOT_MEASURED' },
+        quantTelemetry: null,
+        dataEvidence: { status: 'NOT_VERIFIED', classification: 'SYNTHETIC_DEMO_SCENARIO', brokerSessionVerified: false, trainedModelVerified: false },
         reply:
           structuredIntent.intentType === 'READ_ARCHITECTURE_CHECKLIST'
-            ? 'แสดงแผนการดำเนินงานทั้งหมด (Phase 1 – Phase 4 Actionable Checklist) และระบบป้องกันจุดอ่อน 3 ข้อ (Semantic Cache, Token Re-validation, Polite Fallback) ที่ติดตั้งเรียบร้อยแล้วครับ:'
+            ? 'แสดงรายการ Architecture Checklist เพื่อการตรวจสอบ ยังไม่ถือว่า deployment หรือ production runtime ผ่านการยืนยัน'
             : structuredIntent.intentType === 'READ_COMPONENT_CATALOG'
-            ? 'เปิดคลังคอมโพเนนต์เชิงกำเนิด (Phase 3 Component Catalog: ApprovalCard, RiskChart, TradeSummaryCard, BotStatusWidget) พร้อมแสดงตัวอย่างข้อมูลจริง:'
-            : structuredIntent.intentType === 'READ_ACCOUNT_BALANCE'
-            ? `ดึงข้อมูลพอร์ตผ่าน FastMCP get_portfolio_status (${isCacheHit ? `⚡ Semantic Cache HIT · ${latencyMs}ms` : `${latencyMs}ms`} · ไม่ติด Interrupt):`
-            : structuredIntent.intentType === 'READ_DYNAMIC_GRID_CALENDAR'
-            ? `ดึงตารางกำไร Dynamic Grid ผ่าน FastMCP (${latencyMs}ms · Read-Only):`
-            : `คำนวณความเสี่ยงและสแกนตลาด ${quant.instrument} ผ่าน FastMCP calculate_risk (${quant.tftRegime} · ${latencyMs}ms):`,
+            ? 'แสดงตัวอย่าง UI fixture เท่านั้น ไม่ใช่ข้อมูลตลาดหรือบัญชีจริง'
+            : 'การวิเคราะห์ตลาดยังถูกปิดไว้จนกว่าจะเชื่อมต่อ authenticated market feed และตรวจสอบ model/data evidence ได้',
+
       });
       return;
     }
