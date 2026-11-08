@@ -36,6 +36,17 @@ jobs:
             node --test integrations/system-hub/tests/*.test.mjs
             node --test integrations/remote-mcp-worker/tests/*.test.mjs
             node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+            python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+            python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+      - run:
+          name: Install Wrangler for configuration validation without changing lockfiles
+          command: npm install --no-save --package-lock=false wrangler@4.156.0
+      - run:
+          name: Validate NOVA tenant relay and System Hub Worker configurations
+          command: |
+            set -euo pipefail
+            npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+            npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
       - run:
           name: Build NOVA frontend
           command: npm run build
