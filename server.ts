@@ -49,7 +49,7 @@ function detectInstrumentFromText(rawPrompt: string): string {
   return 'XAU/USDm';
 }
 
-function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: string) {
+function runSyntheticResearchScenario(rawPrompt: string, explicitSymbol?: string) {
   const text = (rawPrompt || '').toUpperCase();
   const instrument =
     explicitSymbol && ALL_MAJOR_PAIRS[explicitSymbol]
@@ -63,13 +63,13 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
   const entryPrice = meta.price;
   const dec = meta.decimals;
 
-  // Inner Brain: TFT + FinRL + Quantum VQC/QRL Calculation
+  // Synthetic formula example only; not a trained model or live market calculation.
   const tftConfidence = instrument === 'XAU/USDm' ? 0.78 : meta.category === 'FOREX' ? 0.75 : 0.74;
   const vpinToxicity = instrument === 'XAU/USDm' ? 0.71 : 0.66;
   const atrPct = meta.category === 'FOREX' && instrument !== 'XAU/USDm' ? 0.55 : instrument === 'XAU/USDm' ? 1.12 : 1.85;
   const drawdownPct = 0.42;
 
-  // Fractional Kelly & FinRL/QRL Lot Sizing
+  // Illustrative sizing formula only. Never treat as a trade instruction.
   const rewardRisk = 2.6;
   const kellyRaw = Math.max(0, (tftConfidence * rewardRisk - (1 - tftConfidence)) / rewardRisk);
   const fractionalKelly = Number((kellyRaw * 0.35).toFixed(4));
@@ -91,6 +91,9 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
 
   return {
     instrument,
+    dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
+    evidenceStatus: 'NOT_VERIFIED',
+    dataWarning: 'Prices, confidence values, and risk figures are illustrative constants/formulas. No authenticated broker feed or trained model was used.',
     side,
     entryPrice,
     stopLossPrice,
@@ -99,7 +102,7 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
     tpPct,
     recommendedLots,
     fractionalKelly,
-    tftRegime: tftConfidence >= 0.7 ? 'TFT + VQC Bullish Expansion' : 'Mean-Reverting / Consolidation',
+    tftRegime: 'SYNTHETIC_DEMO_SCENARIO_NOT_MODEL_OUTPUT',
     tftConfidence,
     vpinToxicity,
     atrPct,
@@ -110,7 +113,9 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
       var99Pct: Number((atrPct * 1.65).toFixed(2)),
       vpinToxicity,
       kalmanDisplacementSigma: 2.18,
-      finrlPolicyPermit: true,
+      finrlPolicyPermit: false,
+      executionEnabled: false,
+      ordersEnabled: false,
       fracDiffStationarityD: 0.42,
     },
     approvalCard: {
@@ -125,7 +130,7 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
       takeProfitPrice,
       rewardRiskRatio: `1 : ${rewardRisk}`,
       tripleBarrierVerticalBars: 12,
-      enginePipeline: 'Outer: Cloud Gemini LLM → Inner: TFT + FinRL + Quantum VQC/QRL',
+      enginePipeline: 'Synthetic demo formula only — no verified LLM/model artifact or broker feed',
       status: 'RESEARCH_DRAFT_ONLY',
     },
   };
@@ -902,15 +907,15 @@ async function startServer() {
         ? String(messages[messages.length - 1].content || '')
         : '';
 
-    const quantResult = runInternalQuantExecutionEngine(lastMessage, symbol);
-    let llmSummary = `วิเคราะห์คำสั่ง "${lastMessage || 'สแกนสภาวะตลาด'}" บนคู่เงิน ${quantResult.instrument} ด้วยสถาปัตยกรรม Hybrid Brain:\n• สมองส่วนหน้า (Cloud LLM Layer): สกัดพารามิเตอร์ ${quantResult.instrument} (${quantResult.side}) และสร้าง Generative UI Widgets (<RiskGauge /> & <ApprovalCard />)\n• สมองส่วนคำนวณ (Internal Quant Engine - TFT / FinRL / Quantum VQC): ตรวจพบสภาวะ ${quantResult.tftRegime} (Confidence ${(quantResult.tftConfidence * 100).toFixed(1)}%, VPIN ${quantResult.vpinToxicity}) แนะนำขนาดออเดอร์ ${quantResult.recommendedLots} Lots พร้อมกรอบ Triple-Barrier TP ${quantResult.takeProfitPrice} / SL ${quantResult.stopLossPrice}`;
+    const quantResult = runSyntheticResearchScenario(lastMessage, symbol);
+    let llmSummary = 'Synthetic Research Scenario สำหรับทดสอบหน้าจอเท่านั้น ไม่ใช่การวิเคราะห์ตลาดสดหรือผลจากโมเดลที่ผ่านการฝึกและตรวจสอบแล้ว ห้ามใช้ราคา ความเชื่อมั่น ขนาดล็อต หรือระดับ TP/SL ในตัวอย่างนี้เพื่อตัดสินใจซื้อขาย';
 
     const ai = getGeminiClient();
     if (ai && lastMessage) {
       try {
         const response = await ai.models.generateContent({
           model: 'gemini-3.8-flash',
-          contents: `คุณคือสมองส่วนหน้า (Cloud LLM Interactive Layer) ของแพลตฟอร์มการเทรดเชิงปริมาณ VOOM System NOVA AI ที่ทำงานร่วมกับสมองส่วนคำนวณหลังบ้าน (Internal Quant Engine: TFT, FinRL, Quantum VQC/QAOA/QRL และ Exness REST API).
+          contents: `คุณเป็นผู้ช่วยวิจัยของ NOVA แต่ต้องแจ้งให้ชัดว่าตอนนี้ไม่มีข้อมูลตลาดสด ไม่มี authenticated broker session และไม่มี trained model artifact ที่ยืนยันแล้ว ตัวเลขทั้งหมดด้านล่างเป็น synthetic constants/formulas สำหรับทดสอบ UI เท่านั้น ห้ามเรียกผลดังกล่าวว่าผลจากโมเดลที่ผ่านการฝึก ห้ามให้คำแนะนำ BUY/SELL/lot/TP/SL และห้ามแนะนำให้ซื้อขาย. 
 ผู้ใช้พิมพ์ว่า: "${lastMessage}"
 ผลลัพธ์จากการคำนวณของ Internal Quant Engine หลังบ้าน:
 - คู่เทรด: ${quantResult.instrument} (${quantResult.side})
@@ -932,6 +937,7 @@ async function startServer() {
     res.json({
       message: llmSummary,
       reply: llmSummary,
+      dataEvidence: { status: 'NOT_VERIFIED', classification: 'SYNTHETIC_DEMO_SCENARIO', brokerSessionVerified: false, trainedModelVerified: false },
       approvalCard: {
         id: quantResult.approvalCard.approvalId,
         symbol: quantResult.instrument,
@@ -942,6 +948,7 @@ async function startServer() {
         takeProfit: quantResult.takeProfitPrice,
       },
       quantTelemetry: {
+        status: 'SYNTHETIC_DEMO_ONLY',
         regimeConfidencePct: Number((quantResult.tftConfidence * 100).toFixed(1)),
         vpinToxicity: quantResult.vpinToxicity,
         var95Pct: quantResult.riskGauge.var99Pct,
@@ -949,7 +956,7 @@ async function startServer() {
       },
       hybridArchitecture: {
         outerBrain: 'Cloud LLM (Gemini 3.8 Flash · Intent Extraction & Generative UI Orchestrator)',
-        innerBrain: 'Internal Quant Engine (TFT Temporal Fusion + FinRL / Quantum QRL Execution Layer)',
+        innerBrain: 'Synthetic demo formulas only — no trained model runtime verified',
       },
       generativeWidgets: {
         riskGauge: quantResult.riskGauge,
@@ -975,7 +982,7 @@ async function startServer() {
 
   app.post('/api/gen-ai/generate', async (req, res) => {
     const { prompt, market, timeframe, risk } = req.body || {};
-    const quantResult = runInternalQuantExecutionEngine(`${prompt || ''} ${market || ''}`);
+    const quantResult = runSyntheticResearchScenario(`${prompt || ''} ${market || ''}`);
 
     res.json({
       strategy: {
@@ -984,18 +991,16 @@ async function startServer() {
         timeframe: timeframe || '1h',
         riskProfile: risk || 'medium',
         status: 'draft',
-        source: 'Hybrid Cloud LLM + Internal Quant Engine (TFT / FinRL / Quantum)',
+        source: 'Synthetic demo template only; no verified model runtime',
         entryWorkers: [
           'CloudLLMIntentExtractor',
-          'TFTTemporalFusionScanner',
-          'FinRLQuantumPolicySizer',
-          'ExnessCandleFeedWorker',
+          'SyntheticDemoScenarioBuilder',
         ],
         exit: { takeProfitPct: quantResult.tpPct, stopLossPct: quantResult.slPct },
         rationale: `สมองส่วนหน้า (Cloud LLM) สกัดโจทย์ "${prompt || 'กลยุทธ์ Hybrid'}" และส่งต่อให้สมองส่วนคำนวณหลังบ้าน (TFT + FinRL + Quantum VQC/QRL) สแกนกราฟ ${market || quantResult.instrument} คำนวณขนาดออเดอร์ ${quantResult.recommendedLots} Lots พร้อมกรอบ Triple-Barrier`,
-        warning: 'Research draft only. This application is read-only and has no broker order submission path.',
+        warning: quantResult.dataWarning + ' Research template only; no broker session, live data, or trained-model evidence is verified.',
       },
-      llm: { provider: 'gemini-3.8-flash-hybrid', available: true },
+      llm: { provider: 'gemini', configurationStatus: process.env.GEMINI_API_KEY ? 'CONFIGURED_NOT_PROBED' : 'NOT_CONFIGURED', available: Boolean(process.env.GEMINI_API_KEY) },
     });
   });
 
@@ -1420,6 +1425,20 @@ async function startServer() {
       });
     }
 
+    if (structuredIntent.intentType === 'READ_ACCOUNT_BALANCE' || structuredIntent.intentType === 'READ_DYNAMIC_GRID_CALENDAR') {
+      return res.status(503).json({
+        ok: false,
+        error: 'ACCOUNT_DATA_SOURCE_NOT_VERIFIED',
+        status: 'BLOCKED',
+        intentType: structuredIntent.intentType,
+        mode: 'read-only',
+        liveTradingEnabled: false,
+        ordersEnabled: false,
+        executionEnabled: false,
+        detail: 'No authenticated owner-scoped broker account or trade-ledger source is connected. NOVA will not return fabricated balance, equity, profit, or calendar values.',
+      });
+    }
+
     // Writes are rejected above before any checkpoint or state mutation.
     const state = getOrCreateThreadCheckpoint(safeThreadId);
 
@@ -1459,7 +1478,7 @@ async function startServer() {
         READ_ARCHITECTURE_CHECKLIST: 'architecture-checklist-card',
         READ_COMPONENT_CATALOG: 'component-catalog-card',
       };
-      const quant = runInternalQuantExecutionEngine(rawPrompt, structuredIntent.params.symbol);
+      const quant = runSyntheticResearchScenario(rawPrompt, structuredIntent.params.symbol);
       res.json({
         ok: true,
         threadId: state.threadId,
