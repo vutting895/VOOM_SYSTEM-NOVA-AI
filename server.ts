@@ -49,89 +49,6 @@ function detectInstrumentFromText(rawPrompt: string): string {
   return 'XAU/USDm';
 }
 
-function runSyntheticResearchScenario(rawPrompt: string, explicitSymbol?: string) {
-  const text = (rawPrompt || '').toUpperCase();
-  const instrument =
-    explicitSymbol && ALL_MAJOR_PAIRS[explicitSymbol]
-      ? explicitSymbol
-      : detectInstrumentFromText(rawPrompt);
-
-  const isShort = text.includes('SHORT') || text.includes('SELL') || text.includes('ขาย');
-  const side: 'BUY' | 'SELL' = isShort ? 'SELL' : 'BUY';
-
-  const meta = ALL_MAJOR_PAIRS[instrument] || ALL_MAJOR_PAIRS['XAU/USDm'];
-  const entryPrice = meta.price;
-  const dec = meta.decimals;
-
-  // Synthetic formula example only; not a trained model or live market calculation.
-  const tftConfidence = instrument === 'XAU/USDm' ? 0.78 : meta.category === 'FOREX' ? 0.75 : 0.74;
-  const vpinToxicity = instrument === 'XAU/USDm' ? 0.71 : 0.66;
-  const atrPct = meta.category === 'FOREX' && instrument !== 'XAU/USDm' ? 0.55 : instrument === 'XAU/USDm' ? 1.12 : 1.85;
-  const drawdownPct = 0.42;
-
-  // Illustrative sizing formula only. Never treat as a trade instruction.
-  const rewardRisk = 2.6;
-  const kellyRaw = Math.max(0, (tftConfidence * rewardRisk - (1 - tftConfidence)) / rewardRisk);
-  const fractionalKelly = Number((kellyRaw * 0.35).toFixed(4));
-  const recommendedLots =
-    meta.category === 'FOREX'
-      ? Number((0.15 + fractionalKelly * 1.2).toFixed(2))
-      : Number((0.1 + fractionalKelly * 0.8).toFixed(2));
-
-  const slPct = meta.category === 'FOREX' && instrument !== 'XAU/USDm' ? 0.55 : 0.9;
-  const tpPct = Number((slPct * rewardRisk).toFixed(2));
-  const stopLossPrice = Number(
-    (side === 'BUY' ? entryPrice * (1 - slPct / 100) : entryPrice * (1 + slPct / 100)).toFixed(dec)
-  );
-  const takeProfitPrice = Number(
-    (side === 'BUY' ? entryPrice * (1 + tpPct / 100) : entryPrice * (1 - tpPct / 100)).toFixed(dec)
-  );
-
-  const riskScore = Math.round(28 + atrPct * 14 + (1 - tftConfidence) * 40);
-
-  return {
-    instrument,
-    dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
-    evidenceStatus: 'NOT_VERIFIED',
-    dataWarning: 'Prices, confidence values, and risk figures are illustrative constants/formulas. No authenticated broker feed or trained model was used.',
-    side,
-    entryPrice,
-    stopLossPrice,
-    takeProfitPrice,
-    slPct,
-    tpPct,
-    recommendedLots,
-    fractionalKelly,
-    tftRegime: 'SYNTHETIC_DEMO_SCENARIO_NOT_MODEL_OUTPUT',
-    tftConfidence,
-    vpinToxicity,
-    atrPct,
-    drawdownPct,
-    riskGauge: {
-      status: 'NOT_VERIFIED',
-      riskScore: null,
-      riskLevel: 'NOT_VERIFIED',
-      var99Pct: null,
-      vpinToxicity: null,
-      kalmanDisplacementSigma: null,
-      finrlPolicyPermit: false,
-      executionEnabled: false,
-      ordersEnabled: false,
-      fracDiffStationarityD: null,
-    },
-    approvalCard: {
-      approvalId: `APV-${Date.now().toString().slice(-6)}`,
-      instrument,
-      broker: 'Research-only · no broker session connected',
-      orderType: 'NON_EXECUTABLE_RESEARCH_SCENARIO',
-      status: 'RESEARCH_DRAFT_ONLY',
-      evidenceStatus: 'NOT_VERIFIED',
-      executionEnabled: false,
-      ordersEnabled: false,
-      dataWarning: 'No market, model, or broker evidence has been verified.',
-    },
-  };
-}
 
 async function startServer() {
   const app = express();
@@ -610,12 +527,13 @@ async function startServer() {
     res.json({
       ok: true,
       timestamp: new Date().toISOString(),
+      dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
       safetyNotice: 'SYNTHETIC DEMO DATA · NOT EXNESS MARKET DATA · LIVE TRADING OFF',
       dataMode: 'SIMULATED_FEED',
       assets: [
         {
           symbol: 'XAU/USDm',
-          displayName: 'Gold Spot / US Dollar (Exness Demo)',
+          displayName: 'Gold Spot / US Dollar (Synthetic Demo)',
           category: 'Metals',
           price: 2748.6,
           change24h: 1.42,
@@ -630,7 +548,7 @@ async function startServer() {
         },
         {
           symbol: 'BTC/USDm',
-          displayName: 'Bitcoin CFD (Exness Zero Spread Demo)',
+          displayName: 'Bitcoin CFD (Synthetic Demo)',
           category: 'Crypto',
           price: 62931.55,
           change24h: 0.75,
@@ -640,8 +558,8 @@ async function startServer() {
           spreadLabel: '$12.0',
           atr14: 1240.0,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
         {
           symbol: 'EUR/USDm',
@@ -655,8 +573,8 @@ async function startServer() {
           spreadLabel: '0.6 pips',
           atr14: 0.0054,
           decimals: 4,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
         {
           symbol: 'GBP/USDm',
@@ -670,8 +588,8 @@ async function startServer() {
           spreadLabel: '0.8 pips',
           atr14: 0.0078,
           decimals: 4,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
         {
           symbol: 'USD/JPYm',
@@ -685,8 +603,8 @@ async function startServer() {
           spreadLabel: '0.7 pips',
           atr14: 0.95,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
         {
           symbol: 'ETH/USDm',
@@ -700,8 +618,8 @@ async function startServer() {
           spreadLabel: '$1.8',
           atr14: 84.5,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
       ],
       signals: [
@@ -723,7 +641,7 @@ async function startServer() {
             'VPIN Order Flow ชี้การสะสมแรงซื้อ 68%',
           ],
           generatedAt: new Date(Date.now() - 4 * 60000).toISOString(),
-          dataClassification: 'DEMO_READONLY_SIGNAL',
+          dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
         },
         {
           id: 'sig-btc-02',
@@ -742,7 +660,7 @@ async function startServer() {
             'XGBoost Trend Classifier มีคะแนนโมเมนตัม 0.84',
           ],
           generatedAt: new Date(Date.now() - 12 * 60000).toISOString(),
-          dataClassification: 'DEMO_READONLY_SIGNAL',
+          dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
         },
         {
           id: 'sig-eur-03',
@@ -760,7 +678,7 @@ async function startServer() {
             'รอทดสอบแนวรับสำคัญ 1.0820 ก่อนพิจารณาโครงสร้างใหม่',
           ],
           generatedAt: new Date(Date.now() - 25 * 60000).toISOString(),
-          dataClassification: 'DEMO_READONLY_SIGNAL',
+          dataClassification: 'SYNTHETIC_DEMO_SCENARIO',
         },
       ],
       analysis: {
@@ -892,110 +810,54 @@ async function startServer() {
     });
   });
 
-  // Hybrid Architecture Endpoint:
-  // 1. Outer Brain (Cloud LLM - Gemini): Extracts intent & synthesizes Generative UI explanation
-  // 2. Inner Brain (Internal Quant Engine - TFT / FinRL / Quantum): Computes regime, VPIN, and lot sizing
+  // Research-only chat. No market or model inference is exposed until evidence is verified.
   app.post('/api/chat', async (req, res) => {
-    const { messages, message, symbol } = req.body || {};
-    const lastMessage =
-      typeof message === 'string' && message.trim()
-        ? message.trim()
-        : Array.isArray(messages) && messages.length > 0
+    const { messages, message } = req.body || {};
+    const lastMessage = typeof message === 'string' && message.trim()
+      ? message.trim()
+      : Array.isArray(messages) && messages.length > 0
         ? String(messages[messages.length - 1].content || '')
         : '';
-
-    const quantResult = runSyntheticResearchScenario(lastMessage, symbol);
-    let llmSummary = 'Synthetic Research Scenario สำหรับทดสอบหน้าจอเท่านั้น ไม่ใช่การวิเคราะห์ตลาดสดหรือผลจากโมเดลที่ผ่านการฝึกและตรวจสอบแล้ว ห้ามใช้ราคา ความเชื่อมั่น ขนาดล็อต หรือระดับ TP/SL ในตัวอย่างนี้เพื่อตัดสินใจซื้อขาย';
-
-    const ai = getGeminiClient();
-    if (ai && lastMessage) {
-      try {
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: `คุณเป็นผู้ช่วยวิจัยของ NOVA แต่ต้องแจ้งให้ชัดว่าตอนนี้ไม่มีข้อมูลตลาดสด ไม่มี authenticated broker session และไม่มี trained model artifact ที่ยืนยันแล้ว ตัวเลขทั้งหมดด้านล่างเป็น synthetic constants/formulas สำหรับทดสอบ UI เท่านั้น ห้ามเรียกผลดังกล่าวว่าผลจากโมเดลที่ผ่านการฝึก ห้ามให้คำแนะนำ BUY/SELL/lot/TP/SL และห้ามแนะนำให้ซื้อขาย. 
-ผู้ใช้พิมพ์ว่า: "${lastMessage}"
-ผลลัพธ์จากการคำนวณของ Internal Quant Engine หลังบ้าน:
-- คู่เทรด: ${quantResult.instrument} (${quantResult.side})
-- สภาวะตลาดจาก TFT/VQC: ${quantResult.tftRegime} (ความเชื่อมั่น ${(quantResult.tftConfidence * 100).toFixed(1)}%)
-- ค่า VPIN Orderflow Toxicity: ${quantResult.vpinToxicity}
-- ขนาดออเดอร์จาก FinRL/QRL Fractional Kelly: ${quantResult.recommendedLots} Lots
-- Entry: ${quantResult.entryPrice}, Triple-Barrier TP: ${quantResult.takeProfitPrice}, SL: ${quantResult.stopLossPrice}
-
-สรุปคำตอบเป็นภาษาไทยให้กระชับ ชัดเจน 3-4 บรรทัด โดยอธิบายการทำงานร่วมกันของ Cloud LLM (Interactive Layer) และ Internal Quant Engine (TFT/FinRL/Quantum Execution Layer) ที่แสดงผลในวิดเจ็ต <RiskGauge /> และ <ApprovalCard /> ด้านล่าง`,
-        });
-        if (response.text) {
-          llmSummary = response.text;
-        }
-      } catch {
-        // Fallback to deterministic hybrid summary if API key is not configured
-      }
-    }
-
-    res.json({
-      message: llmSummary,
-      reply: llmSummary,
-      dataEvidence: { status: 'NOT_VERIFIED', classification: 'SYNTHETIC_DEMO_SCENARIO', brokerSessionVerified: false, trainedModelVerified: false },
-      approvalCard: {
-        id: quantResult.approvalCard.approvalId,
-        symbol: quantResult.instrument,
-        orderType: 'NON_EXECUTABLE_RESEARCH_SCENARIO',
-        status: 'RESEARCH_DRAFT_ONLY',
-        executionEnabled: false,
-        ordersEnabled: false,
-      },
-      quantTelemetry: null,
-      hybridArchitecture: {
-        outerBrain: 'Cloud LLM (Gemini 3.8 Flash · Intent Extraction & Generative UI Orchestrator)',
-        innerBrain: 'Synthetic demo formulas only — no trained model runtime verified',
-      },
-      generativeWidgets: {
-        riskGauge: quantResult.riskGauge,
-        approvalCard: quantResult.approvalCard,
-      },
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      error: 'MARKET_MODEL_EVIDENCE_NOT_VERIFIED',
+      status: 'BLOCKED',
+      detail: 'NOVA Chat analysis is paused because no authenticated market feed, owner-scoped broker session, or signed trained-model artifact is verified.',
+      dataEvidence: { status: 'NOT_VERIFIED', brokerSessionVerified: false, trainedModelVerified: false },
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      requestAcceptedForResearch: Boolean(lastMessage),
     });
   });
-
-  app.post('/api/agent/approvals/decision', (req, res) => {
-    const { approvalId, decision, instrument, recommendedLots } = req.body || {};
-    res.json({
-      approvalId: approvalId || `APV-${Date.now().toString().slice(-6)}`,
-      decision: decision === 'approved' ? 'APPROVED_SIMULATION_QUEUED' : 'REJECTED_BY_USER',
-      instrument: instrument || 'XAU/USDm',
-      recommendedLots: recommendedLots || 0.25,
-      decidedAt: new Date().toISOString(),
-      detail:
-        decision === 'approved'
-          ? 'อนุมัติคำสั่งเข้าสู่คิวจำลองของ Internal Quant Engine (Read-Only Simulation Guard Active)'
-          : 'ปฏิเสธคำสั่งและยกเลิกใบคำขออนุมัติเรียบร้อยแล้ว',
+  // Approval decisions are disabled until a separately reviewed, non-executable review workflow exists.
+  app.post('/api/agent/approvals/decision', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(403).json({
+      ok: false,
+      error: 'APPROVAL_MUTATIONS_DISABLED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
     });
   });
-
-  app.post('/api/gen-ai/generate', async (req, res) => {
-    const { prompt, market, timeframe, risk } = req.body || {};
-    const quantResult = runSyntheticResearchScenario(`${prompt || ''} ${market || ''}`);
-
-    res.json({
-      dataEvidence: { status: 'NOT_VERIFIED', classification: 'SYNTHETIC_DEMO_SCENARIO', brokerSessionVerified: false, trainedModelVerified: false },
-      strategy: {
-        name: `NOVA Synthetic Research Template (${market || quantResult.instrument})`,
-        market: market || quantResult.instrument,
-        timeframe: timeframe || '1h',
-        riskProfile: risk || 'medium',
-        status: 'draft',
-        source: 'Synthetic demo template only; no verified model runtime',
-        evidenceStatus: 'NOT_VERIFIED',
-        entryWorkers: [
-          'CloudLLMIntentExtractor',
-          'SyntheticDemoScenarioBuilder',
-        ],
-        exit: { takeProfitPct: null, stopLossPct: null },
-        rationale: 'Synthetic demo placeholder only. Strategy generation and market/model evidence have not been verified.',
-        warning: quantResult.dataWarning + ' Research template only; no broker session, live data, or trained-model evidence is verified.',
-      },
-      llm: { provider: 'gemini', configurationStatus: process.env.GEMINI_API_KEY ? 'CONFIGURED_NOT_PROBED' : 'NOT_CONFIGURED', available: Boolean(process.env.GEMINI_API_KEY) },
+  app.post('/api/gen-ai/generate', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      error: 'GEN_AI_RESEARCH_RUNTIME_NOT_VERIFIED',
+      status: 'BLOCKED',
+      detail: 'Strategy generation is paused until the model runtime is probed and its model identity, version, request provenance, and research-only output constraints are verified.',
+      dataEvidence: { status: 'NOT_VERIFIED', trainedModelVerified: false, brokerSessionVerified: false },
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
     });
   });
-
   // =========================================================================
   // 5-LAYER ZERO-MENU INTENT-DRIVEN ARCHITECTURE ENGINE + PITFALL MITIGATIONS
   // Layer 1: Declarative A2UI / CopilotKit JSON Protocol (Least Privilege UI)
@@ -1369,140 +1231,56 @@ async function startServer() {
   // POST Main 5-Layer Zero-Menu Intent Dispatcher
   app.post('/api/intent/dispatch', (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
-    const safeThreadId = threadId || 'thread-nova-session-01';
+    const safeThreadId = typeof threadId === 'string' && threadId.trim() ? threadId.trim() : 'thread-nova-session-01';
     const rawPrompt = String(prompt || '').trim();
-
-    // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
     const guardrail = evaluateNeMoGuardrails(rawPrompt);
     if (!guardrail.passed) {
-      res.json({
-        ok: false,
-        threadId: safeThreadId,
-        layerTriggered: 'LAYER_3_NEMO_GUARDRAILS',
-        declarativeUiType: 'nemo-guardrail-blocked-card',
-        guardrail,
-        reply: `🛡️ [NeMo Guardrails · Colang Filter]: สกัดกั้นคำสั่งเนื่องจากผิดกฎความปลอดภัย (${guardrail.violationRule})`,
-      });
-      return;
+      return res.status(400).json({ ok: false, error: 'RESEARCH_REQUEST_BLOCKED', guardrail, mode: 'read-only' });
     }
-
-    // 2. Check Pitfall 3 Fix: FastMCP Validation Error & Polite Clarification Fallback Middleware
     const clarification = checkAmbiguousOrInvalidParameters(rawPrompt);
     if (clarification.needsClarification) {
-      res.json({
-        ok: true,
-        threadId: safeThreadId,
-        layerTriggered: 'MIDDLEWARE_POLITE_CLARIFICATION_FALLBACK',
-        declarativeUiType: 'clarification-fallback-card',
-        clarification,
-        reply: clarification.politeQuestion,
-      });
-      return;
+      return res.status(400).json({ ok: false, error: 'RESEARCH_REQUEST_NEEDS_CLARIFICATION', clarification, mode: 'read-only' });
     }
-
-    // 3. Check Strategy 1: Intent-to-Parameter Extraction (Zod Structured Output)
     const structuredIntent = extractStructuredIntentSchema(rawPrompt, symbol);
-
-    // Refuse every high-impact write before risk calculation, checkpoint creation, or approval UI.
-    if (structuredIntent.accessClass === 'WRITE_HIGH_IMPACT_INTERRUPT' || structuredIntent.requiresInterrupt) {
-      return res.status(403).json({
-        ok: false,
-        error: 'WRITE_INTENTS_DISABLED',
-        intentType: structuredIntent.intentType,
-        mode: 'read-only',
-        liveTradingEnabled: false,
-        ordersEnabled: false,
-        executionEnabled: false,
-        detail: 'This application accepts market research intents only; broker and risk-setting mutations are disabled.',
-      });
+    if (structuredIntent.accessClass !== 'READ_ONLY_NO_INTERRUPT' || structuredIntent.requiresInterrupt) {
+      return res.status(403).json({ ok: false, error: 'WRITE_INTENTS_DISABLED', mode: 'read-only', liveTradingEnabled: false, ordersEnabled: false, executionEnabled: false });
     }
-
-    if (structuredIntent.intentType === 'READ_ACCOUNT_BALANCE' || structuredIntent.intentType === 'READ_DYNAMIC_GRID_CALENDAR') {
+    if (structuredIntent.intentType !== 'READ_ARCHITECTURE_CHECKLIST' && structuredIntent.intentType !== 'READ_COMPONENT_CATALOG') {
       return res.status(503).json({
         ok: false,
-        error: 'ACCOUNT_DATA_SOURCE_NOT_VERIFIED',
+        error: 'MARKET_OR_ACCOUNT_SOURCE_NOT_VERIFIED',
         status: 'BLOCKED',
-        intentType: structuredIntent.intentType,
         mode: 'read-only',
         liveTradingEnabled: false,
         ordersEnabled: false,
         executionEnabled: false,
-        detail: 'No authenticated owner-scoped broker account or trade-ledger source is connected. NOVA will not return fabricated balance, equity, profit, or calendar values.',
+        detail: 'No verified market feed, broker account, trade ledger, or model runtime is available for this request.',
       });
     }
-
-    // Writes are rejected above before any checkpoint or state mutation.
-    const state = getOrCreateThreadCheckpoint(safeThreadId);
-
-    // Pitfall 1 Fix: Semantic Caching Telemetry (< 2ms Cache Hit for frequent intents)
-    const cacheKey = `${structuredIntent.intentType}:${structuredIntent.params.symbol}`;
-    const existingCache = semanticIntentCache.get(cacheKey);
-    const isCacheHit = Boolean(existingCache);
-    semanticIntentCache.set(cacheKey, {
-      cachedAt: Date.now(),
-      hitCount: (existingCache?.hitCount || 0) + 1,
-      intentType: structuredIntent.intentType,
-    });
-    const latencyMs = isCacheHit ? 1.4 : 18.2;
-
-    // 4. Check Strategy 2: Rule-Based Risk Engine (Only for Write/Execute intents)
-    const riskCheck = validateHardRiskRules(structuredIntent, state);
-    if (structuredIntent.requiresInterrupt && !riskCheck.passed) {
-      res.json({
-        ok: false,
-        threadId: state.threadId,
-        layerTriggered: 'LAYER_2_RULE_BASED_RISK_ENGINE',
-        declarativeUiType: 'risk-guard-rejected-card',
-        structuredIntent,
-        riskCheck,
-        semanticCache: { hit: isCacheHit, latencyMs },
-        reply: `🛑 [Rule-Based Risk Engine]: ปฏิเสธคำสั่งอัตโนมัติก่อนส่งเข้าตลาด เนื่องจากเกินกรอบความเสี่ยง Hard Rules!`,
-      });
-      return;
-    }
-
-    // 5. If Read-Only Intent -> Execute FastMCP Tool immediately WITHOUT interrupt()
-    if (!structuredIntent.requiresInterrupt) {
-      const uiMap: Record<string, string> = {
-        READ_ACCOUNT_BALANCE: 'balance-summary-card',
-        READ_DYNAMIC_GRID_CALENDAR: 'dynamic-grid-calendar',
-        READ_MARKET_ANALYSIS: 'market-analysis-card',
-        READ_ARCHITECTURE_CHECKLIST: 'architecture-checklist-card',
-        READ_COMPONENT_CATALOG: 'component-catalog-card',
-      };
-      const quant = runSyntheticResearchScenario(rawPrompt, structuredIntent.params.symbol);
-      res.json({
-        ok: true,
-        threadId: state.threadId,
-        layerTriggered: 'LAYER_4_FASTMCP_READ_NO_INTERRUPT',
-        declarativeUiType: uiMap[structuredIntent.intentType] || 'balance-summary-card',
-        structuredIntent: { ...structuredIntent, evidenceStatus: 'NOT_VERIFIED', dataClassification: 'SYNTHETIC_DEMO_SCENARIO', params: { ...structuredIntent.params, price: null } },
-        riskCheck: null,
-        semanticCache: { hit: isCacheHit, latencyMs: null, status: 'NOT_MEASURED' },
-        quantTelemetry: null,
-        dataEvidence: { status: 'NOT_VERIFIED', classification: 'SYNTHETIC_DEMO_SCENARIO', brokerSessionVerified: false, trainedModelVerified: false },
-        reply:
-          structuredIntent.intentType === 'READ_ARCHITECTURE_CHECKLIST'
-            ? 'แสดงรายการ Architecture Checklist เพื่อการตรวจสอบ ยังไม่ถือว่า deployment หรือ production runtime ผ่านการยืนยัน'
-            : structuredIntent.intentType === 'READ_COMPONENT_CATALOG'
-            ? 'แสดงตัวอย่าง UI fixture เท่านั้น ไม่ใช่ข้อมูลตลาดหรือบัญชีจริง'
-            : 'การวิเคราะห์ตลาดยังถูกปิดไว้จนกว่าจะเชื่อมต่อ authenticated market feed และตรวจสอบ model/data evidence ได้',
-
-      });
-      return;
-    }
-
-    // Defensive fallback: no write-intent may create an approval checkpoint.
-    return res.status(403).json({
-      ok: false,
-      error: 'WRITE_INTENTS_DISABLED',
-      mode: 'read-only',
-      liveTradingEnabled: false,
-      ordersEnabled: false,
-      executionEnabled: false,
+    return res.json({
+      ok: true,
+      threadId: safeThreadId,
+      layerTriggered: 'STATIC_RESEARCH_FIXTURE_ONLY',
+      declarativeUiType: structuredIntent.intentType === 'READ_ARCHITECTURE_CHECKLIST' ? 'architecture-checklist-card' : 'component-catalog-card',
+      structuredIntent: {
+        schemaVersion: structuredIntent.schemaVersion,
+        intentType: structuredIntent.intentType,
+        accessClass: 'READ_ONLY_NO_INTERRUPT',
+        mcpTool: 'static-fixture-only',
+        requiresInterrupt: false,
+        dataClassification: 'STATIC_UI_FIXTURE',
+        evidenceStatus: 'NOT_APPLICABLE',
+        params: { symbol: null, price: null },
+      },
+      dataEvidence: { status: 'NOT_APPLICABLE', classification: 'STATIC_UI_FIXTURE' },
+      quantTelemetry: null,
+      riskCheck: null,
+      semanticCache: null,
+      reply: structuredIntent.intentType === 'READ_ARCHITECTURE_CHECKLIST'
+        ? 'แสดง Architecture Checklist แบบ static เพื่อการวางแผนเท่านั้น ไม่ใช่หลักฐาน runtime/deployment'
+        : 'แสดง Component Catalog แบบ static UI fixture เท่านั้น ไม่ใช่ข้อมูลตลาด บัญชี หรือผลโมเดล',
     });
   });
-
   // Approval resolution is research-only. Broker execution is a separately gated capability.
   app.post('/api/intent/interrupt/resolve', (req, res) => {
     const { threadId, interruptId, action } = req.body || {};
