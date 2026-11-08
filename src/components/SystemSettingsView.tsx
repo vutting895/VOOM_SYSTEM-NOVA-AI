@@ -347,7 +347,7 @@ export default function SystemSettingsView() {
                     type="button"
                     onClick={() => {
                       setDefaultBotMode(m.id);
-                      notifySaved(`เปลี่ยนโหมดการเทรดหลักเป็น "${m.title}" เรียบร้อยแล้ว`);
+                      notifySaved(`เลือก ${m.title} เฉพาะหน้าจอชั่วคราว · ยังไม่ได้บันทึกลงระบบ`);
                     }}
                     className={`p-3 rounded-xl border text-left transition-all ${
                       defaultBotMode === m.id
@@ -373,7 +373,7 @@ export default function SystemSettingsView() {
                     type="button"
                     onClick={() => {
                       setDefaultGridDirection(dir);
-                      notifySaved(`ตั้งค่าทิศทาง Dynamic Grid เริ่มต้นเป็น ${dir} เรียบร้อยแล้ว`);
+                      notifySaved(`เลือกทิศทาง ${dir} เฉพาะหน้าจอชั่วคราว · ยังไม่ได้บันทึกลงระบบ`);
                     }}
                     className={`py-2.5 rounded-xl font-bold border transition-all ${
                       defaultGridDirection === dir
@@ -454,14 +454,11 @@ export default function SystemSettingsView() {
 
             <button
               type="button"
-              onClick={() =>
-                notifySaved(
-                  `บันทึกเพดานความเสี่ยง (Lot มาตรฐาน ${defaultLotSize} · Max Daily DD ${maxDailyDrawdownPct}%) เรียบร้อยแล้ว`
-                )
-              }
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
+              disabled
+              aria-disabled="true"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-400 bg-slate-800 border border-slate-700 cursor-not-allowed"
             >
-              บันทึกการตั้งค่าความเสี่ยง
+              บันทึกไม่ได้ · ยังไม่มี Backend Persistence
             </button>
           </div>
 
@@ -472,7 +469,7 @@ export default function SystemSettingsView() {
             <div className="divide-y divide-slate-800/80">
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-400">โปรโตคอลเชื่อมต่อ Exness</span>
-                <span className="font-mono text-cyan-300">Ed25519 Signed REST v1 (No MT5)</span>
+                <span className="font-mono text-cyan-300">Not verified · no authenticated broker data path</span>
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-400">สถานะ MT5 Bridge</span>
@@ -480,11 +477,11 @@ export default function SystemSettingsView() {
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-400">การป้องกันสิทธิ์ถอนเงินผ่าน API</span>
-                <span className="font-mono text-emerald-400">บล็อกคำสั่งถอนเงิน 100%</span>
+                <span className="font-mono text-emerald-400">No broker-write API enabled · runtime not independently audited</span>
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-400">ระบบเทรนโมเดล AI</span>
-                <span className="font-mono text-emerald-400">รันเบื้องหลังที่ Backend อัตโนมัติ</span>
+                <span className="font-mono text-emerald-400">BLOCKED · รอ Dataset และ Training Evidence</span>
               </div>
             </div>
           </div>
