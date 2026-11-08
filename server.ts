@@ -839,7 +839,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_component_catalog',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots, price: meta.price },
+        params: { symbol, side, lots: requestedLots },
       };
     }
 
@@ -859,7 +859,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_portfolio_status',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots, price: meta.price },
+        params: { symbol, side, lots: requestedLots },
       };
     }
 
@@ -870,7 +870,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_dynamic_grid_calendar',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots, price: meta.price },
+        params: { symbol, side, lots: requestedLots },
       };
     }
 
@@ -887,7 +887,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/calculate_risk',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots, price: meta.price },
+        params: { symbol, side, lots: requestedLots },
       };
     }
 
@@ -918,8 +918,7 @@ async function startServer() {
         side,
         lots: requestedLots,
         riskPerTradePct: requestedRiskPct ?? 1.5,
-        price: meta.price,
-      },
+              },
     };
   }
 
