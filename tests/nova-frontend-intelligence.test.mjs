@@ -30,7 +30,7 @@ test('unverified model performance, backtest, infrastructure, and dataset endpoi
   const modelRoute = server.slice(server.indexOf("app.get('/api/intelligence/models'"), server.indexOf('// Backtest remains unavailable'));
   const backtestRoute = server.slice(server.indexOf('// Backtest remains unavailable'), server.indexOf('// 4. Trading Infrastructure'));
   const infraRoute = server.slice(server.indexOf("app.get('/api/infrastructure/health'"), server.indexOf('// 5. Learning Universe'));
-  const learningRoute = server.slice(server.indexOf("app.get('/api/learning/universe'"), server.indexOf('// Hybrid Architecture Endpoint'));
+  const learningRoute = server.slice(server.indexOf("app.get('/api/learning/universe'"), server.indexOf('// Research-only chat.'));
 
   for (const route of [modelRoute, backtestRoute, infraRoute, learningRoute]) {
     assert.match(route, /status\(503\)/);
@@ -91,4 +91,28 @@ test('settings never claim unpersisted configuration has been saved', () => {
   assert.match(settings, /บันทึกไม่ได้ · ยังไม่มี Backend Persistence/);
   assert.doesNotMatch(settings, /เรียบร้อยแล้ว/);
   assert.doesNotMatch(settings, /handleTriggerBackendTrain|Exness Direct Feed|· เทรนซ้ำ/);
+});
+
+test('unverified broker catalogue, quantum runtime, and thread-state APIs fail closed', () => {
+  const broker = server.slice(server.indexOf("app.get('/api/broker/instruments'"), server.indexOf('// Quantum inference is unavailable'));
+  const quantum = server.slice(server.indexOf("app.post('/api/quantum/simulate'"), server.indexOf("app.get('/api/quantum/source'"));
+  const source = server.slice(server.indexOf("app.get('/api/quantum/source'"), server.indexOf('// NOVA AI 5 CORE PLATFORM API ENDPOINTS'));
+  const thread = server.slice(server.indexOf("app.get('/api/intent/thread/:threadId'"), server.indexOf("app.post('/api/intent/dispatch'"));
+  const approval = server.slice(server.indexOf("app.post('/api/intent/interrupt/resolve'"), server.indexOf("app.get('/api/mcp/streamable'"));
+  assert.match(broker, /status\(503\)/);
+  assert.match(broker, /BROKER_INSTRUMENT_SOURCE_NOT_VERIFIED/);
+  assert.match(quantum, /status\(503\)/);
+  assert.match(quantum, /QUANTUM_MODEL_RUNTIME_NOT_VERIFIED/);
+  assert.match(source, /status\(403\)/);
+  assert.match(thread, /OWNER_SCOPED_THREAD_STORE_NOT_VERIFIED/);
+  assert.match(approval, /OWNER_SCOPED_APPROVAL_STORE_NOT_VERIFIED/);
+  assert.doesNotMatch(server, /ALL_MAJOR_PAIRS|meta\.price|LangGraphThreadState|validateHardRiskRules|runSyntheticResearchScenario/);
+});
+
+test('local clarification never recommends a BUY/SELL order or lot size', () => {
+  const clarification = server.slice(server.indexOf('function checkAmbiguousOrInvalidParameters'), server.indexOf('// Strategy 1:'));
+  assert.match(clarification, /TRADING_ACTIONS_DISABLED/);
+  assert.match(clarification, /Architecture Checklist/);
+  assert.match(clarification, /Component Catalog/);
+  assert.doesNotMatch(clarification, /เปิด BUY|เปิด SELL|\d+\.\d+ Lot|FastMCP Schema Validation/);
 });
