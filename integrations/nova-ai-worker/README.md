@@ -10,10 +10,16 @@ This folder is the source of truth for the deployed `voom-system-nova-ai` Cloudf
 - Generated strategies are research drafts only; `executionEnabled` and `liveTradingEnabled` remain false.
 
 ## Runtime configuration
-The deployment workflow passes the existing GitHub Actions values `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the Worker as `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. These are public Supabase project settings, not service-role credentials. Never configure a service-role key here.
+The deployment workflow passes the existing GitHub Actions values `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the Worker as `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. These are public Supabase project settings, not service-role credentials. Never configure a service-role key here. Gemini text generation reads `GEMINI_API_KEY` from a Cloudflare Worker secret binding; it must be a Google AI Studio Authorization Key restricted to the Gemini API. Do not place it in GitHub, source files, browser variables, or logs.
+
+## Gemini provider
+- Chat and strategy generation use the server-side Gemini Developer API (`gemini-3.8-flash`) through the `x-goog-api-key` header.
+- The key is read only from the Cloudflare secret binding `GEMINI_API_KEY`; `/health` exposes only a boolean readiness flag, never the value.
+- The Worker makes one bounded request with a 20-second timeout and does not automatically fall back to a second LLM provider. Strategy generation may return an explicitly labelled deterministic rule-based draft if Gemini is not configured or unavailable; chat fails closed with HTTP 503.
+- Before enabling production use, verify in Google AI Studio that the bound key is an Authorization Key (not Standard), restricted to the Gemini API, then run a non-sensitive live smoke test. The existence of a Cloudflare secret binding alone does not prove its key type or validity.
 
 ## Local test
-Run `npm test` from this directory with Node.js 22+. Tests mock the Supabase Auth response; they do not use production credentials or place orders.
+Run `npm test` from this directory with Node.js 22+. Tests mock both Supabase Auth and Gemini API responses; they do not use production credentials or place orders.
 
 ## Deploy
 The dedicated GitHub Actions workflow deploys this Worker only when this folder changes on main. Cloudflare AI binding is declared in `wrangler.toml`. The frontend API route forwards the authenticated user's access token to this Worker; it must never forward an unauthenticated request.
