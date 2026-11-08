@@ -608,7 +608,7 @@ export default function NovaChatOSView({
         senderName: `${activeAgent.name} (${activeAgent.role})`,
         senderRole: `${data?.layerTriggered || '5-Layer Zero-Menu Engine'}`,
         timestamp: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
-        text: data?.reply || 'ประมวลผลคำสั่งผ่านสถาปัตยกรรม 5 ชั้นเรียบร้อยครับ:',
+        text: data?.reply || data?.detail || data?.error || 'คำขอนี้ยังไม่สามารถยืนยันผลลัพธ์ได้',
         widget: (data?.declarativeUiType as ChatWidgetType) || 'balance-summary-card',
         structuredIntent: data?.structuredIntent,
         semanticCache: data?.semanticCache,
