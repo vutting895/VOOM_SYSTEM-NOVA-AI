@@ -51,6 +51,14 @@ test("health reports only Gemini secret presence and never returns its value", a
   assert.doesNotMatch(serialized, /test-only-secret-value/);
 });
 
+test("health does not treat a placeholder as a configured Gemini key", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/health"), {
+    GEMINI_API_KEY: "MY_GEMINI_API_KEY",
+  });
+  const body = await response.json();
+  assert.equal(body.geminiConfigured, false);
+});
+
 test("direct generation without bearer token is rejected", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
