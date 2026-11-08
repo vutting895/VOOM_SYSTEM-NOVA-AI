@@ -17,30 +17,13 @@ function getGeminiClient(): GoogleGenAI | null {
   });
 }
 
-const ALL_MAJOR_PAIRS: Record<string, { price: number; category: 'FOREX' | 'CRYPTO'; decimals: number }> = {
-  // Major Forex & Metals (Exness)
-  'XAU/USDm': { price: 2749.4, category: 'FOREX', decimals: 2 },
-  'EUR/USDm': { price: 1.0864, category: 'FOREX', decimals: 4 },
-  'GBP/USDm': { price: 1.2982, category: 'FOREX', decimals: 4 },
-  'USD/JPYm': { price: 152.45, category: 'FOREX', decimals: 2 },
-  'USD/CHFm': { price: 0.8648, category: 'FOREX', decimals: 4 },
-  'AUD/USDm': { price: 0.6594, category: 'FOREX', decimals: 4 },
-  'USD/CADm': { price: 1.3892, category: 'FOREX', decimals: 4 },
-  'NZD/USDm': { price: 0.5986, category: 'FOREX', decimals: 4 },
-  // Major Crypto (Binance / Bybit)
-  'BTC/USDT': { price: 62931.55, category: 'CRYPTO', decimals: 2 },
-  'ETH/USDT': { price: 3098.51, category: 'CRYPTO', decimals: 2 },
-  'SOL/USDT': { price: 173.29, category: 'CRYPTO', decimals: 2 },
-  'BNB/USDT': { price: 594.8, category: 'CRYPTO', decimals: 2 },
-  'XRP/USDT': { price: 0.5482, category: 'CRYPTO', decimals: 4 },
-  'ADA/USDT': { price: 0.3685, category: 'CRYPTO', decimals: 4 },
-  'DOGE/USDT': { price: 0.1642, category: 'CRYPTO', decimals: 4 },
-  'TON/USDT': { price: 6.43, category: 'CRYPTO', decimals: 2 },
-};
-
+const KNOWN_INSTRUMENT_SYMBOLS = [
+  'XAU/USDm', 'EUR/USDm', 'GBP/USDm', 'USD/JPYm', 'USD/CHFm', 'AUD/USDm', 'USD/CADm', 'NZD/USDm',
+  'BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'BNB/USDT', 'XRP/USDT', 'ADA/USDT', 'DOGE/USDT', 'TON/USDT',
+] as const;
 function detectInstrumentFromText(rawPrompt: string): string {
   const text = (rawPrompt || '').toUpperCase();
-  for (const sym of Object.keys(ALL_MAJOR_PAIRS)) {
+  for (const sym of KNOWN_INSTRUMENT_SYMBOLS) {
     const base = sym.split('/')[0];
     if (text.includes(sym.toUpperCase()) || text.includes(base)) {
       return sym;
@@ -141,7 +124,7 @@ async function startServer() {
       status: mt5BridgeEnabled ? 'active' : 'disabled',
       detail: mt5BridgeEnabled
         ? 'MT5 Bridge Relay Active'
-        : 'ปิดการทำงาน MT5 Bridge ไว้ชั่วคราว (Disabled) · ระบบเชื่อมต่อตรงผ่าน Exness Ed25519 REST API & Exchange API เท่านั้น',
+        : 'ปิด MT5 Bridge · ยังไม่มี authenticated Demo data path ที่ตรวจสอบแล้ว',
       updatedAt: new Date().toISOString(),
     });
   });
@@ -251,273 +234,38 @@ async function startServer() {
   });
 
   // Fetch tradable currency/crypto pairs directly from the logged-in Broker session (supports MT5 or Direct API for Forex)
-  app.get('/api/broker/instruments', (req, res) => {
-    const broker = String(req.query.broker || 'exness').toLowerCase();
-    // This endpoint returns a static instrument catalogue, not an authenticated broker session.
-    const connectionMode: string = 'demo-read-only';
-    const mt5Server: string = 'not_configured';
-    const accountId = 'not_configured';
-
-    const isForexBroker = broker === 'exness' || broker === 'icmarkets' || broker === 'xm';
-    // A client-supplied connectionMode never enables the MT5 bridge.
-    const BROKER_INSTRUMENT_CATALOG: Record<
-      string,
-      {
-        brokerName: string;
-        serverLabel: string;
-        accountId: string;
-        protocol: string;
-        instruments: Array<{
-          symbol: string;
-          displayName: string;
-          group: 'Metals & Commodities' | 'Forex Majors' | 'Crypto Majors';
-          price: number;
-          decimals: number;
-          spreadLabel: string;
-          change24h: number;
-        }>;
-      }
-    > = {
-      exness: {
-        brokerName: 'Exness MT5 Demo (read-only catalogue)',
-        serverLabel: 'Demo terminal not configured or verified',
-        accountId,
-        protocol: 'MT5 Demo read-only; authenticated data path not yet verified',
-        instruments: [
-          { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
-          { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
-          { symbol: 'EUR/USDm', displayName: 'ยูโร / ดอลลาร์สหรัฐ', group: 'Forex Majors', price: 1.0842, decimals: 4, spreadLabel: '0.6 pips', change24h: 0.38 },
-          { symbol: 'GBP/USDm', displayName: 'ปอนด์อังกฤษ / ดอลลาร์สหรัฐ', group: 'Forex Majors', price: 1.2982, decimals: 4, spreadLabel: '0.8 pips', change24h: 0.51 },
-          { symbol: 'USD/JPYm', displayName: 'ดอลลาร์สหรัฐ / เยนญี่ปุ่น', group: 'Forex Majors', price: 152.45, decimals: 2, spreadLabel: '0.7 pips', change24h: -0.32 },
-          { symbol: 'GBP/JPYm', displayName: 'ปอนด์อังกฤษ / เยนญี่ปุ่น', group: 'Forex Majors', price: 198.45, decimals: 2, spreadLabel: '1.4 pips', change24h: -0.24 },
-          { symbol: 'AUD/USDm', displayName: 'ดอลลาร์ออสเตรเลีย / ดอลลาร์สหรัฐ', group: 'Forex Majors', price: 0.6594, decimals: 4, spreadLabel: '0.8 pips', change24h: 0.29 },
-          { symbol: 'USD/CADm', displayName: 'ดอลลาร์สหรัฐ / ดอลลาร์แคนาดา', group: 'Forex Majors', price: 1.3892, decimals: 4, spreadLabel: '0.9 pips', change24h: 0.18 },
-          { symbol: 'USD/CHFm', displayName: 'ดอลลาร์สหรัฐ / ฟรังก์สวิส', group: 'Forex Majors', price: 0.8648, decimals: 4, spreadLabel: '0.8 pips', change24h: -0.14 },
-          { symbol: 'NZD/USDm', displayName: 'ดอลลาร์นิวซีแลนด์ / ดอลลาร์สหรัฐ', group: 'Forex Majors', price: 0.5986, decimals: 4, spreadLabel: '1.0 pips', change24h: 0.22 },
-          { symbol: 'BTC/USDm', displayName: 'Bitcoin CFD (Exness Zero Spread)', group: 'Crypto Majors', price: 62931.55, decimals: 2, spreadLabel: '$12.0', change24h: 0.75 },
-          { symbol: 'ETH/USDm', displayName: 'Ethereum CFD (Exness Zero Spread)', group: 'Crypto Majors', price: 3098.51, decimals: 2, spreadLabel: '$1.8', change24h: 5.5 },
-        ],
-      },
-      icmarkets: {
-        brokerName: connectionMode === 'mt5' ? 'IC Markets MetaTrader 5' : 'IC Markets cTrader / FIX API',
-        serverLabel:
-          connectionMode === 'mt5'
-            ? `${mt5Server} (MT5 Raw Spread Bridge)`
-            : 'ICMarkets-Direct FIX / REST Gateway',
-        accountId,
-        protocol:
-          connectionMode === 'mt5'
-            ? 'MetaTrader 5 (MT5 Terminal / Python Worker)'
-            : 'IC Markets Direct REST / FIX API',
-        instruments: [
-          { symbol: 'XAU/USD', displayName: 'Gold Raw Spread (IC Markets)', group: 'Metals & Commodities', price: 2748.55, decimals: 2, spreadLabel: '0.5 pips', change24h: 1.42 },
-          { symbol: 'EUR/USD', displayName: 'Euro / US Dollar (Raw Spread)', group: 'Forex Majors', price: 1.0842, decimals: 4, spreadLabel: '0.1 pips', change24h: 0.38 },
-          { symbol: 'GBP/USD', displayName: 'British Pound / US Dollar (Raw)', group: 'Forex Majors', price: 1.2982, decimals: 4, spreadLabel: '0.2 pips', change24h: 0.51 },
-          { symbol: 'USD/JPY', displayName: 'US Dollar / Japanese Yen (Raw)', group: 'Forex Majors', price: 152.45, decimals: 2, spreadLabel: '0.1 pips', change24h: -0.32 },
-          { symbol: 'GBP/JPY', displayName: 'Pound / Yen (Raw Spread)', group: 'Forex Majors', price: 198.45, decimals: 2, spreadLabel: '0.4 pips', change24h: -0.24 },
-          { symbol: 'AUD/USD', displayName: 'Australian Dollar / USD (Raw)', group: 'Forex Majors', price: 0.6594, decimals: 4, spreadLabel: '0.2 pips', change24h: 0.29 },
-          { symbol: 'USD/CAD', displayName: 'US Dollar / Canadian Dollar', group: 'Forex Majors', price: 1.3892, decimals: 4, spreadLabel: '0.2 pips', change24h: 0.18 },
-          { symbol: 'BTC/USD', displayName: 'Bitcoin CFD (IC Markets)', group: 'Crypto Majors', price: 62930.0, decimals: 2, spreadLabel: '$8.5', change24h: 0.75 },
-        ],
-      },
-      binance: {
-        brokerName: 'Binance Futures & Spot',
-        serverLabel: 'Binance USDⓈ-M Perpetual Mainnet',
-        accountId,
-        protocol: 'Binance HMAC-SHA256 REST v3',
-        instruments: [
-          { symbol: 'BTC/USDT', displayName: 'Bitcoin Perpetual (BTCUSDT)', group: 'Crypto Majors', price: 62931.55, decimals: 2, spreadLabel: '0.01%', change24h: 0.75 },
-          { symbol: 'ETH/USDT', displayName: 'Ethereum Perpetual (ETHUSDT)', group: 'Crypto Majors', price: 3098.51, decimals: 2, spreadLabel: '0.01%', change24h: 5.5 },
-          { symbol: 'SOL/USDT', displayName: 'Solana Perpetual (SOLUSDT)', group: 'Crypto Majors', price: 173.29, decimals: 2, spreadLabel: '0.02%', change24h: 2.35 },
-          { symbol: 'TON/USDT', displayName: 'Toncoin Perpetual (TONUSDT)', group: 'Crypto Majors', price: 6.43, decimals: 2, spreadLabel: '0.03%', change24h: -3.48 },
-          { symbol: 'BNB/USDT', displayName: 'BNB Perpetual (BNBUSDT)', group: 'Crypto Majors', price: 594.8, decimals: 2, spreadLabel: '0.01%', change24h: 1.18 },
-          { symbol: 'XRP/USDT', displayName: 'Ripple Perpetual (XRPUSDT)', group: 'Crypto Majors', price: 0.5482, decimals: 4, spreadLabel: '0.02%', change24h: 0.92 },
-          { symbol: 'DOGE/USDT', displayName: 'Dogecoin Perpetual (DOGEUSDT)', group: 'Crypto Majors', price: 0.1642, decimals: 4, spreadLabel: '0.02%', change24h: 4.15 },
-          { symbol: 'ADA/USDT', displayName: 'Cardano Perpetual (ADAUSDT)', group: 'Crypto Majors', price: 0.3685, decimals: 4, spreadLabel: '0.02%', change24h: -0.65 },
-        ],
-      },
-      bybit: {
-        brokerName: 'Bybit Unified Trading',
-        serverLabel: 'Bybit V5 Linear & Gold USDT',
-        accountId,
-        protocol: 'Bybit Unified REST V5',
-        instruments: [
-          { symbol: 'BTCUSDT.P', displayName: 'Bitcoin Linear Perp (Bybit)', group: 'Crypto Majors', price: 62935.0, decimals: 2, spreadLabel: '0.01%', change24h: 0.76 },
-          { symbol: 'ETHUSDT.P', displayName: 'Ethereum Linear Perp (Bybit)', group: 'Crypto Majors', price: 3099.1, decimals: 2, spreadLabel: '0.01%', change24h: 5.52 },
-          { symbol: 'SOLUSDT.P', displayName: 'Solana Linear Perp (Bybit)', group: 'Crypto Majors', price: 173.35, decimals: 2, spreadLabel: '0.02%', change24h: 2.38 },
-          { symbol: 'TONUSDT.P', displayName: 'Toncoin Linear Perp (Bybit)', group: 'Crypto Majors', price: 6.43, decimals: 2, spreadLabel: '0.03%', change24h: -3.48 },
-          { symbol: 'PAXG/USDT', displayName: 'Gold Tokenized (PAXG/USDT)', group: 'Metals & Commodities', price: 2751.2, decimals: 2, spreadLabel: '0.03%', change24h: 1.44 },
-          { symbol: 'EUR/USDT', displayName: 'Euro Spot / Perp (Bybit)', group: 'Forex Majors', price: 1.0845, decimals: 4, spreadLabel: '0.02%', change24h: 0.39 },
-        ],
-      },
-    };
-
-    const selectedCatalog = BROKER_INSTRUMENT_CATALOG[broker] || BROKER_INSTRUMENT_CATALOG.exness;
-
-    res.json({
-      ok: true,
-      brokerId: broker,
-      isForexBroker,
-      connectionMode: isForexBroker ? 'demo-read-only' : 'catalog-only',
-      mt5Server: undefined,
-      dataStatus: 'static-sample-unverified',
-      brokerName: selectedCatalog.brokerName,
-      serverLabel: selectedCatalog.serverLabel,
-      accountId: selectedCatalog.accountId,
-      protocol: selectedCatalog.protocol,
-      syncedAt: new Date().toISOString(),
-      totalInstruments: selectedCatalog.instruments.length,
-      instruments: selectedCatalog.instruments,
+  app.get('/api/broker/instruments', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      status: 'NOT_VERIFIED',
+      error: 'BROKER_INSTRUMENT_SOURCE_NOT_VERIFIED',
+      detail: 'Instrument metadata, prices, spreads, and account-specific symbols require an authenticated owner-scoped read-only broker session.',
+      brokerConnected: false,
+      accountConnected: false,
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
     });
   });
-
-  // Quantum Machine Learning Engine (backend/quant_engine.py) Live Simulation API
-  app.post('/api/quantum/simulate', (req, res) => {
-    const {
-      instrument = 'XAU/USDm',
-      backendDevice = 'pennylane:default.qubit',
-      nQubits = 4,
-      nLayers = 3,
-      qaoaLayersP = 3,
-      riskAversion = 0.55,
-      signalConfidence = 0.76,
-      atrPct = 1.12,
-      drawdownPct = 0.45,
-    } = req.body || {};
-
-    const baseSeed = instrument.split('').reduce((acc: number, ch: string) => acc + ch.charCodeAt(0), 0);
-    const angles = Array.from({ length: Number(nQubits) || 4 }, (_, i) => {
-      const raw = Math.sin(baseSeed * 0.17 + i * 1.13 + Number(signalConfidence) * 2.4) * Math.PI * 0.85;
-      return Number(raw.toFixed(4));
-    });
-
-    const pauliZ = angles.map((angle, q) => {
-      let theta = angle;
-      for (let l = 1; l <= (Number(nLayers) || 3); l++) {
-        const neighbor = angles[(q + l) % angles.length];
-        theta += 0.38 * Math.cos(neighbor * l) - 0.24 * Math.sin(theta + l * 0.5);
-      }
-      return Number(Math.cos(theta).toFixed(4));
-    });
-
-    const logit = 1.45 * (pauliZ[0] || 0) - 0.55 * (pauliZ[1] || 0) + 0.85 * (pauliZ[2] || 0) + 0.9 * (pauliZ[3] || 0);
-    const probUp = Number((1 / (1 + Math.exp(-logit))).toFixed(4));
-    const purity = pauliZ.reduce((s, v) => s + v * v, 0) / Math.max(pauliZ.length, 1);
-    const entropy = Number(Math.max(0.08, 1 - purity * 0.62).toFixed(4));
-
-    const regime =
-      probUp >= 0.60
-        ? 'Quantum Bullish Expansion'
-        : probUp <= 0.40
-        ? 'Quantum Mean-Reversion / Defensive'
-        : 'Quantum Superposition / Consolidation';
-
-    const assets = ['XAU/USDm', 'EUR/USDm', 'BTC/USDT', 'SOL/USDT'];
-    const mu = [0.16, 0.08, 0.23, 0.27];
-    const cov = [
-      [0.018, 0.004, 0.006, 0.007],
-      [0.004, 0.009, 0.002, 0.003],
-      [0.006, 0.002, 0.045, 0.032],
-      [0.007, 0.003, 0.032, 0.068],
-    ];
-    const lam = Number(riskAversion) || 0.55;
-    const pDepth = Number(qaoaLayersP) || 3;
-
-    let bestEnergy = Infinity;
-    let bestBits = '1011';
-    const scores = [0, 0, 0, 0];
-
-    for (let mask = 1; mask < 16; mask++) {
-      const x = [mask & 1, (mask >> 1) & 1, (mask >> 2) & 1, (mask >> 3) & 1];
-      let ret = 0;
-      let risk = 0;
-      for (let i = 0; i < 4; i++) {
-        ret -= mu[i] * x[i];
-        for (let j = 0; j < 4; j++) {
-          risk += lam * cov[i][j] * x[i] * x[j];
-        }
-      }
-      const energy = ret + risk + 0.012 * Math.abs(x.reduce((a, b) => a + b, 0) - 2.5);
-      if (energy < bestEnergy) {
-        bestEnergy = energy;
-        bestBits = x.join('');
-      }
-      const weight = Math.exp(-2.2 * Math.sqrt(pDepth) * (energy + 0.35));
-      for (let i = 0; i < 4; i++) scores[i] += weight * x[i];
-    }
-
-    const totalScore = scores.reduce((a, b) => a + b, 0) || 1;
-    const weights = scores.map((s) => s / totalScore);
-    const allocations: Record<string, number> = {};
-    assets.forEach((a, idx) => {
-      allocations[a] = Number((weights[idx] * 100).toFixed(2));
-    });
-
-    const portReturn = Number((weights.reduce((s, w, i) => s + w * mu[i], 0) * 100).toFixed(2));
-    let portVar = 0;
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 4; j++) portVar += weights[i] * weights[j] * cov[i][j];
-    }
-    const portVol = Number((Math.sqrt(Math.max(portVar, 0.0001)) * 100).toFixed(2));
-    const quantumSharpe = Number(((portReturn - 1.5) / Math.max(portVol, 1)).toFixed(2));
-
-    const conf = Number(signalConfidence) || 0.76;
-    const atr = Number(atrPct) || 1.12;
-    const dd = Number(drawdownPct) || 0.45;
-    const riskGatePassed = conf >= 0.58 && dd < 3.0 && atr < 4.5;
-    const rawAction = ((pauliZ[0] || 0.4) + 1) / 2;
-    const lotFraction = riskGatePassed
-      ? Number(
-          Math.min(
-            0.25,
-            Math.max(0.01, rawAction * conf * Math.max(0.25, 1 - atr / 6) * Math.max(0.1, 1 - dd / 3.5) * 0.24)
-          ).toFixed(4)
-        )
-      : 0;
-    const slMultiplier = Number((1.55 + 0.75 * (1 - ((pauliZ[1] || 0) + 1) / 2)).toFixed(2));
-
-    res.json({
-      vqc: {
-        backend: backendDevice,
-        nQubits: Number(nQubits) || 4,
-        nLayers: Number(nLayers) || 3,
-        encodingAnglesRad: angles,
-        pauliZExpectations: pauliZ,
-        entanglementEntropy: entropy,
-        regimeClassification: regime,
-        directionalProbabilityUp: probUp,
-      },
-      qubo: {
-        solver: `QAOA-VQE Hybrid QUBO (p=${pDepth})`,
-        qaoaLayersP: pDepth,
-        groundStateEnergy: Number(bestEnergy.toFixed(5)),
-        optimalBitstring: bestBits,
-        allocations,
-        expectedPortfolioReturnPct: portReturn,
-        portfolioVolatilityPct: portVol,
-        quantumSharpeRatio: quantumSharpe,
-      },
-      qrl: {
-        instrument,
-        recommendedLotFraction: lotFraction,
-        riskGatePassed,
-        qnnExpectationVector: pauliZ.slice(0, 4),
-        stopLossAtrMultiplier: slMultiplier,
-        executionMode: 'READ_ONLY_SIMULATION_LOCKED',
-      },
+  // Quantum inference is blocked until a real model/runtime and reproducible outputs are verified.
+  app.post('/api/quantum/simulate', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      status: 'BLOCKED',
+      error: 'QUANTUM_MODEL_RUNTIME_NOT_VERIFIED',
+      detail: 'The current quantum calculations are deterministic UI/demo mathematics, not a verified VQC/QAOA/QRL model runtime.',
+      dataEvidence: { status: 'NOT_VERIFIED', modelArtifactVerified: false, runtimeVerified: false },
+      executionEnabled: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false,
     });
   });
-
   app.get('/api/quantum/source', (_req, res) => {
-    try {
-      const filePath = path.resolve(process.cwd(), 'backend/quant_engine.py');
-      const code = fs.readFileSync(filePath, 'utf-8');
-      res.json({ path: 'backend/quant_engine.py', code });
-    } catch {
-      res.status(404).json({ error: 'quant_engine.py not found' });
-    }
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(403).json({ ok: false, error: 'SOURCE_ACCESS_NOT_AUTHORIZED' });
   });
-
   // =========================================================================
   // NOVA AI 5 CORE PLATFORM API ENDPOINTS (READ-ONLY · DEMO ARCHITECTURE)
   // =========================================================================
@@ -1048,8 +796,9 @@ async function startServer() {
     const q = (rawPrompt || '').trim();
     const qLower = q.toLowerCase();
     const symbol =
-      explicitSymbol && ALL_MAJOR_PAIRS[explicitSymbol] ? explicitSymbol : detectInstrumentFromText(q);
-    const meta = ALL_MAJOR_PAIRS[symbol] || ALL_MAJOR_PAIRS['XAU/USDm'];
+      explicitSymbol && KNOWN_INSTRUMENT_SYMBOLS.includes(explicitSymbol as (typeof KNOWN_INSTRUMENT_SYMBOLS)[number])
+        ? explicitSymbol
+        : detectInstrumentFromText(q);
 
     const lotMatch = qLower.match(/(\d+(\.\d+)?)\s*(lot|lots|ล็อต)/i);
     const requestedLots = lotMatch ? Number(lotMatch[1]) : 0.35;
@@ -1073,7 +822,7 @@ async function startServer() {
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
         mcpTool: 'mcp://fastmcp.streamable/get_architecture_and_checklist',
         requiresInterrupt: false,
-        params: { symbol, side, lots: requestedLots, price: meta.price },
+        params: { symbol, side, lots: requestedLots },
       };
     }
 
@@ -1154,7 +903,6 @@ async function startServer() {
           side,
           lots: requestedLots,
           riskPerTradePct: requestedRiskPct ?? 2.0,
-          price: meta.price,
         },
       };
     }
@@ -1214,21 +962,15 @@ async function startServer() {
   }
 
   // GET Thread State & Pending Interrupts (Phase 1 & 2: threads, checkpoints, trade_logs, user_configs)
-  app.get('/api/intent/thread/:threadId', (req, res) => {
-    const state = getOrCreateThreadCheckpoint(req.params.threadId);
-    res.json({
-      ok: true,
-      threadId: state.threadId,
-      updatedAt: state.updatedAt,
-      riskRules: state.riskRules,
-      gridStatus: state.gridStatus,
-      pendingInterrupts: Object.values(state.pendingInterrupts),
-      tradeLogs: state.tradeLogs,
-      databaseTables: ['threads', 'checkpoints', 'trade_logs', 'user_configs'],
+  app.get('/api/intent/thread/:threadId', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      status: 'BLOCKED',
+      error: 'OWNER_SCOPED_THREAD_STORE_NOT_VERIFIED',
+      detail: 'Thread/checkpoint data is not exposed until authenticated owner identity and tenant-scoped persistence are verified.',
     });
   });
-
-  // POST Main 5-Layer Zero-Menu Intent Dispatcher
   app.post('/api/intent/dispatch', (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
     const safeThreadId = typeof threadId === 'string' && threadId.trim() ? threadId.trim() : 'thread-nova-session-01';
@@ -1282,50 +1024,19 @@ async function startServer() {
     });
   });
   // Approval resolution is research-only. Broker execution is a separately gated capability.
-  app.post('/api/intent/interrupt/resolve', (req, res) => {
-    const { threadId, interruptId, action } = req.body || {};
-    const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
-    const item = state.pendingInterrupts[interruptId];
-
-    if (action !== 'REJECT') {
-      return res.status(403).json({
-        ok: false,
-        status: 'WRITE_DISABLED',
-        error: 'BROKER_EXECUTION_DISABLED',
-        liveTradingEnabled: false,
-        ordersEnabled: false,
-        executionEnabled: false,
-        detail: 'Approval cannot authorize or simulate a broker order in read-only mode.',
-      });
-    }
-
-    if (!item) {
-      return res.status(404).json({
-        ok: false,
-        status: 'NOT_FOUND',
-        error: 'INTERRUPT_NOT_FOUND',
-      });
-    }
-
-    item.status = 'REJECTED';
-    item.credentialStatus = {
-      provider: 'not_configured',
-      tokenFingerprint: '',
-      issuedAt: item.createdAt,
-      expiresAt: item.createdAt,
-      isValid: false,
-      revalidatedOnResume: false,
-    };
-    state.updatedAt = new Date().toISOString();
-
-    return res.json({
-      ok: true,
-      threadId: state.threadId,
-      interruptCheckpoint: item,
-      detail: 'Intent rejected. No credentials were revalidated and no broker action was attempted.',
+  app.post('/api/intent/interrupt/resolve', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      status: 'BLOCKED',
+      error: 'OWNER_SCOPED_APPROVAL_STORE_NOT_VERIFIED',
+      mode: 'read-only',
+      liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
+      detail: 'Approval state cannot be read or changed until authenticated owner-scoped persistence is verified.',
     });
   });
-
   // Layer 4: FastMCP Streamable HTTP Metadata Endpoint (Phase 1 & Phase 2 Tools)
   app.get('/api/mcp/streamable', (_req, res) => {
     res.json({
