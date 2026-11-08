@@ -2,22 +2,8 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
 import { createGeminiProvider } from './server/ai/geminiProvider.ts';
 import { createSupabaseChatGuard } from './server/ai/supabaseChatGuard.ts';
-
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
-}
 
 const ALL_MAJOR_PAIRS: Record<string, { price: number; category: 'FOREX' | 'CRYPTO'; decimals: number }> = {
   // Major Forex & Metals (Exness)
@@ -179,8 +165,10 @@ async function startServer() {
     return next();
   });
 
-  // Verify the Supabase bearer session and throttle by verified user before parsing the body.
-  app.use('/api/chat', createSupabaseChatGuard());
+  // Authenticate and apply one shared per-user AI budget before parsing any AI request body.
+  // All Gemini text endpoints must use this same guard; do not mount unguarded AI routes.
+  const aiRequestGuard = createSupabaseChatGuard();
+  app.use(['/api/chat', '/api/gen-ai/generate'], aiRequestGuard);
 
   app.use(express.json());
 
