@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { createGeminiProvider } from './server/ai/geminiProvider.ts';
+import { createGeminiProvider } from './server/ai/geminiProvider';
 
 const ALL_MAJOR_PAIRS: Record<string, { price: number; category: 'FOREX' | 'CRYPTO'; decimals: number }> = {
   // Major Forex & Metals (Exness)
