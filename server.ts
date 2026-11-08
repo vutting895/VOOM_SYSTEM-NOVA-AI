@@ -178,6 +178,32 @@ async function startServer() {
     return next();
   });
 
+  // Market and model payloads below are static research fixtures, not authenticated broker data.
+  // Fail closed until an owner-scoped provider adapter supplies timestamped, provenance-bound data.
+  app.use((req, res, next) => {
+    const unverifiedReadEndpoints = new Set([
+      '/api/market/overview',
+      '/api/market/candlesticks',
+      '/api/intelligence/models',
+    ]);
+
+    if (req.method === 'GET' && unverifiedReadEndpoints.has(req.path)) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(503).json({
+        ok: false,
+        error: 'market_data_source_unverified',
+        dataStatus: 'STATIC_SAMPLE_UNVERIFIED',
+        source: null,
+        sourceTimestamp: null,
+        ingestedAt: null,
+        trainingEligible: false,
+        detail: 'This endpoint is unavailable until authenticated, owner-scoped market data and model evidence are verified.',
+      });
+    }
+
+    return next();
+  });
+
   app.use(express.json());
 
   // Hard fail-closed defaults. No runtime API may enable broker writes.
