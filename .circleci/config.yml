@@ -5,8 +5,9 @@ version: 2.1
 # broker integrations, or production endpoints.
 #
 # Configure the CircleCI GitHub App trigger to run on PR opened / updated
-# events. The workflow-level condition is a second gate: push, schedule,
-# API, and other event types do not execute these jobs.
+# events. The workflow-level condition is a second gate: only pull_request events
+# and deliberate manual API runs execute these jobs. Push and schedule events
+# do not execute these jobs.
 
 jobs:
   nova-frontend-contract:
@@ -78,7 +79,7 @@ jobs:
 
 workflows:
   nova-private-pull-request-ci:
-    when: pipeline.event.name == "pull_request"
+    when: pipeline.event.name == "pull_request" or pipeline.event.name == "api"
     jobs:
       - nova-frontend-contract
       - nova-smc-python
