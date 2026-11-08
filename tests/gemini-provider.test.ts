@@ -47,6 +47,22 @@ test("rejects unsupported tasks and oversized inputs before provider invocation"
   assert.equal(calls, 0);
 });
 
+test("rejects empty and oversized provider responses", async () => {
+  for (const text of ["   ", "x".repeat(12_001)]) {
+    const provider = createGeminiProvider({
+      apiKey: "test-only-not-a-real-key",
+      clientFactory: () => ({
+        models: { generateContent: async () => ({ text }) },
+      }),
+    });
+    assert.ok(provider);
+    await assert.rejects(
+      provider.generateText({ task: "chat", contents: "hello" }),
+      GeminiProviderError,
+    );
+  }
+});
+
 test("redacts raw provider exceptions behind a stable error", async () => {
   const provider = createGeminiProvider({
     apiKey: "test-only-not-a-real-key",
