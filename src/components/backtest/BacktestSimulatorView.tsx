@@ -76,7 +76,7 @@ export default function BacktestSimulatorView() {
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              ทดสอบกลยุทธ์ย้อนหลังบนข้อมูลจริงของ Exness Demo พร้อมการตรวจสอบ Out-of-Sample เพื่อป้องกัน Overfitting
+              Backtest ถูกปิดไว้ชั่วคราวจนกว่าจะเชื่อม Dataset Exness Demo ที่ตรวจสอบ OHLC, UTC, provenance, spread, commission และ slippage ได้ครบ
             </p>
           </div>
 
@@ -185,7 +185,7 @@ export default function BacktestSimulatorView() {
           <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
             <span className="text-emerald-400 flex items-center gap-1.5 font-semibold">
               <ShieldCheck className="w-4 h-4" />
-              SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH
+              VERIFIED BACKTEST UNAVAILABLE · NO PERFORMANCE METRICS ARE CURRENTLY VALIDATED
             </span>
             <span className="text-slate-500 text-[11px]">{result.dataNotice}</span>
           </div>
