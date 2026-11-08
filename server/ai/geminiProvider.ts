@@ -8,6 +8,13 @@ const MODEL_BY_TASK: Record<GeminiTask, string> = {
   content_generation: "gemini-3.8-flash",
 };
 
+// Bound generation cost independently of caller input; callers cannot raise these limits.
+const MAX_OUTPUT_TOKENS_BY_TASK: Record<GeminiTask, number> = {
+  chat: 900,
+  market_analysis: 1_200,
+  content_generation: 1_000,
+};
+
 type GenerateInput = {
   task: GeminiTask;
   contents: string;
@@ -19,7 +26,7 @@ type GeminiClientLike = {
     generateContent(input: {
       model: string;
       contents: string;
-      config?: { systemInstruction: string };
+      config?: { systemInstruction?: string; maxOutputTokens?: number; temperature?: number };
     }): Promise<{ text?: string }>;
   };
 };
@@ -36,8 +43,9 @@ export function createGeminiProvider(options: {
   apiKey?: string;
   clientFactory?: (apiKey: string) => GeminiClientLike;
 } = {}) {
-  const apiKey = options.apiKey ?? process.env.GEMINI_API_KEY;
-  if (!apiKey?.trim() || apiKey === "MY_GEMINI_API_KEY") return null;
+  const configuredKey = options.apiKey ?? process.env.GEMINI_API_KEY;
+  const apiKey = configuredKey?.trim();
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY") return null;
 
   const client: GeminiClientLike = options.clientFactory
     ? options.clientFactory(apiKey)
@@ -66,9 +74,11 @@ export function createGeminiProvider(options: {
         const response = await client.models.generateContent({
           model,
           contents: input.contents,
-          ...(input.systemInstruction
-            ? { config: { systemInstruction: input.systemInstruction } }
-            : {}),
+          config: {
+            ...(input.systemInstruction ? { systemInstruction: input.systemInstruction } : {}),
+            maxOutputTokens: MAX_OUTPUT_TOKENS_BY_TASK[input.task],
+            temperature: input.task === "content_generation" ? 0.35 : 0.2,
+          },
         });
         return { text: typeof response.text === "string" ? response.text : "", model };
       } catch {
