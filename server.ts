@@ -607,12 +607,7 @@ async function startServer() {
     });
   });
   // =========================================================================
-  // 5-LAYER ZERO-MENU INTENT-DRIVEN ARCHITECTURE ENGINE + PITFALL MITIGATIONS
-  // Layer 1: Declarative A2UI / CopilotKit JSON Protocol (Least Privilege UI)
-  // Layer 2: LangGraph Stateful Checkpoint Saver (threads, checkpoints, trade_logs, user_configs)
-  // Layer 3: NeMo Guardrails (Colang Policy Filter against Prompt Injection)
-  // Layer 4: Read-only FastMCP metadata (no broker execution tools)
-  // Layer 5: Research-only risk calculations; no broker-side execution authority
+  // Read-only intent classification. No LangGraph, NeMo, or FastMCP runtime is connected.
   // =========================================================================
   // Local deterministic text checks only; no external NeMo Guardrails runtime is connected.
   function evaluateLocalSafetyRules(rawPrompt: string): { passed: boolean; violationRule?: string; reason?: string } {
@@ -640,7 +635,7 @@ async function startServer() {
       return {
         passed: false,
         violationRule: 'colang://trading_safety/mandatory_stoploss_and_margin',
-        reason: 'คำสั่งละเมิดกฎความปลอดภัยขั้นสูงสุด (ห้ามเทรดแบบ All-In หรือไร้ Stop Loss) ถูกสกัดกั้นโดย NeMo Guardrails',
+        reason: 'คำสั่งละเมิดกฎความปลอดภัยขั้นสูงสุด (ห้ามเทรดแบบ All-In หรือไร้ Stop Loss) ถูกบล็อกโดย local safety rule',
       };
     }
     return { passed: true };
@@ -677,15 +672,6 @@ async function startServer() {
         ? explicitSymbol
         : detectInstrumentFromText(q);
 
-    const lotMatch = qLower.match(/(\d+(\.\d+)?)\s*(lot|lots|ล็อต)/i);
-    const requestedLots = lotMatch ? Number(lotMatch[1]) : 0.35;
-
-    const pctMatch = qLower.match(/(\d+(\.\d+)?)\s*%/);
-    const requestedRiskPct = pctMatch ? Number(pctMatch[1]) : undefined;
-
-    const isSell = qLower.includes('sell') || qLower.includes('short') || qLower.includes('ขาย');
-    const side: 'BUY' | 'SELL' = isSell ? 'SELL' : 'BUY';
-
     if (
       qLower.includes('โครงสร้าง') ||
       qLower.includes('architecture') ||
@@ -697,7 +683,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'READ_ARCHITECTURE_CHECKLIST' as const,
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/get_architecture_and_checklist',
+        mcpTool: 'static-fixture-only',
         requiresInterrupt: false,
         params: { symbol },
       };
@@ -714,7 +700,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'READ_COMPONENT_CATALOG' as const,
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/get_component_catalog',
+        mcpTool: 'static-fixture-only',
         requiresInterrupt: false,
         params: { symbol },
       };
@@ -734,7 +720,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'READ_ACCOUNT_BALANCE' as const,
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/get_portfolio_status',
+        mcpTool: 'disabled:not-verified',
         requiresInterrupt: false,
         params: { symbol },
       };
@@ -745,7 +731,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'READ_DYNAMIC_GRID_CALENDAR' as const,
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/get_dynamic_grid_calendar',
+        mcpTool: 'disabled:not-verified',
         requiresInterrupt: false,
         params: { symbol },
       };
@@ -762,7 +748,7 @@ async function startServer() {
         schemaVersion: 'zod-intent-v2.5',
         intentType: 'READ_MARKET_ANALYSIS' as const,
         accessClass: 'READ_ONLY_NO_INTERRUPT' as const,
-        mcpTool: 'mcp://fastmcp.streamable/calculate_risk',
+        mcpTool: 'disabled:not-verified',
         requiresInterrupt: false,
         params: { symbol },
       };
@@ -775,12 +761,7 @@ async function startServer() {
         accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
         mcpTool: 'disabled:write-intent',
         requiresInterrupt: true,
-        params: {
-          symbol,
-          side,
-          lots: requestedLots,
-          riskPerTradePct: requestedRiskPct ?? 2.0,
-        },
+        params: { symbol },
       };
     }
 
@@ -790,12 +771,7 @@ async function startServer() {
       accessClass: 'WRITE_HIGH_IMPACT_INTERRUPT' as const,
       mcpTool: 'disabled:write-intent',
       requiresInterrupt: true,
-      params: {
-        symbol,
-        side,
-        lots: requestedLots,
-        riskPerTradePct: requestedRiskPct ?? 1.5,
-              },
+      params: { symbol },
     };
   }
 
