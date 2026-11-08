@@ -10,6 +10,7 @@ const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
+const quickit = read('src/components/QuickitMarketFleetView.tsx');
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
 function section(source, startMarker, endMarker) {
@@ -127,4 +128,61 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
+});
+
+
+test('customer Trading Dashboard labels sample data honestly and remains Demo read-only / non-executable', () => {
+  assert.doesNotMatch(quickit, /23908764|51092841|BN-88412|BY-51902|Exness-MT5Real14|EXN-ED25519/i);
+  assert.doesNotMatch(quickit, /<span[^>]*>\s*Broker Session Connected\s*<\/span>|MT5 Python Bridge Connected|Direct Ed25519 REST v1 Verified/i);
+  assert.doesNotMatch(quickit, /\/api\/mt5-bridge\/toggle/);
+  assert.match(quickit, /STATIC SAMPLE DATA — NOT LIVE MARKET DATA/);
+  assert.match(quickit, /NOVA RESEARCH PREVIEW · LIVE TRADING OFF/);
+  assert.match(quickit, /data\.connected === true/);
+  assert.match(quickit, /data\.accountConnected === true/);
+  assert.match(quickit, /data\.environment === 'demo'/);
+  assert.match(quickit, /data\.ordersEnabled === false/);
+  assert.match(quickit, /data\.executionEnabled === false/);
+  assert.match(quickit, /data\.liveTradingEnabled === false/);
+  assert.match(quickit, /data\.dataStatus !== 'static-sample-unverified'/);
+
+  const initialFleet = section(quickit, 'const INITIAL_FLEET_BOTS:', '\n];');
+  assert.doesNotMatch(initialFleet, /running: true|autoTradeEnabled: true|selectedInPackage: true/);
+  assert.doesNotMatch(initialFleet, /todayPnlBaht: (?!0\b)-?\d+|winRatePct: (?!0\b)\d|profitFactor: (?!0\b)\d|totalTrades: (?!0\b)\d/);
+  assert.match(initialFleet, /No verified position/);
+  assert.match(initialFleet, /RESEARCH PREVIEW ONLY/);
+
+  const startHandler = section(quickit, 'function handleStartAllFleet()', 'function handleEmergencyStopAll()');
+  assert.match(startHandler, /LIVE TRADING OFF/);
+  const singleStartHandler = section(quickit, 'function handleToggleBotRun', 'function handleStartAllFleet()');
+  assert.match(singleStartHandler, /if \(shouldRun\)/);
+  assert.match(singleStartHandler, /LIVE TRADING OFF/);
+});
+
+test('portfolio analytics and auto-train never fabricate account history or training rounds', () => {
+  assert.match(quickit, /PORTFOLIO EQUITY DATA NOT AVAILABLE/);
+  assert.match(quickit, /Auto-Train: NOT CONFIGURED/);
+  assert.doesNotMatch(quickit, /ANALYTICS_SERIES|AI Fleet Equity Curve|51\.69K|Math\.random|setAutoTrainTick|เทรนหลังบ้านรอบที่/);
+  assert.doesNotMatch(quickit, /todayPnlBaht: bot\.todayPnlBaht \+ delta/);
+});
+
+test('subscription tiers and dashboard ticker remain explicit preview-only without fake activation', () => {
+  assert.match(quickit, /SUBSCRIPTION CHECKOUT NOT CONFIGURED/);
+  assert.match(quickit, /STATIC SAMPLE TICKER DATA — NOT LIVE MARKET DATA/);
+  assert.match(quickit, /Preview tier:/);
+  assert.doesNotMatch(quickit, /สมัครและเปิดใช้งาน|🎉 สมัคร|setCurrentPlanId|Active: \{currentPlan\.badgeText\}/);
+  assert.match(quickit, /ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก/);
+  assert.match(quickit, /ระบบ Checkout, การชำระเงิน และการยืนยันสิทธิ์สมาชิกยังไม่ได้เชื่อมต่อ/);
+});
+
+test('Fleet performance metrics stay unavailable until verified account history and closed trades exist', () => {
+  assert.match(quickit, /P&amp;L วันนี้:.*NOT AVAILABLE/);
+  assert.match(quickit, /Win Rate:.*NOT VALIDATED/);
+  assert.match(quickit, /RESEARCH DRAFT ONLY/);
+  assert.match(quickit, /P&amp;L NOT AVAILABLE/);
+  assert.match(quickit, /Win Rate \(NOT VALIDATED\)/);
+  assert.match(quickit, /Profit Factor \(NOT VALIDATED\)/);
+  assert.match(quickit, /Trades \(NOT VERIFIED\)/);
+  assert.match(quickit, /TP1 \(NOT VALIDATED\)/);
+  assert.match(quickit, /TP2 \(NOT VALIDATED\)/);
+  assert.doesNotMatch(quickit, /totalFleetPnlToday|avgWinRate|pnlUp \?|bot\.todayPnlBaht\}|bot\.winRatePct\.toFixed|bot\.profitFactor\.toFixed|bot\.totalTrades\}|bot\.tp1HitPct%|bot\.tp2HitPct%/);
 });

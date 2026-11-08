@@ -225,9 +225,9 @@ const FALLBACK_BROKER_CATALOGS: Record<
 > = {
   exness: {
     brokerName: 'Exness Trader API / MT5',
-    serverLabel: 'Exness-Real14 (Ed25519 Direct API)',
-    accountId: '23908764',
-    protocol: 'Exness REST v1 / MT5 Bridge',
+    serverLabel: 'Exness MT5 Demo — not connected',
+    accountId: 'not_configured',
+    protocol: 'Static sample catalogue only; no authenticated broker session',
     instruments: [
       { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
       { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
@@ -246,7 +246,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   icmarkets: {
     brokerName: 'IC Markets Raw Spread (MT5 / API)',
     serverLabel: 'ICMarketsSC-MT5-4 (Raw Spread)',
-    accountId: '51092841',
+    accountId: 'not_configured',
     protocol: 'MetaTrader 5 / cTrader FIX API',
     instruments: [
       { symbol: 'XAU/USD', displayName: 'Gold Raw Spread (IC Markets)', group: 'Metals & Commodities', price: 2748.55, decimals: 2, spreadLabel: '0.5 pips', change24h: 1.42 },
@@ -262,7 +262,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   binance: {
     brokerName: 'Binance Futures & Spot',
     serverLabel: 'Binance USDⓈ-M Perpetual Mainnet',
-    accountId: 'BN-88412',
+    accountId: 'not_configured',
     protocol: 'Binance HMAC-SHA256 REST v3',
     instruments: [
       { symbol: 'BTC/USDT', displayName: 'Bitcoin Perpetual (BTCUSDT)', group: 'Crypto Majors', price: 62931.55, decimals: 2, spreadLabel: '0.01%', change24h: 0.75 },
@@ -278,7 +278,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   bybit: {
     brokerName: 'Bybit Unified Trading',
     serverLabel: 'Bybit V5 Linear & Gold USDT',
-    accountId: 'BY-51902',
+    accountId: 'not_configured',
     protocol: 'Bybit Unified REST V5',
     instruments: [
       { symbol: 'BTCUSDT.P', displayName: 'Bitcoin Linear Perp (Bybit)', group: 'Crypto Majors', price: 62935.0, decimals: 2, spreadLabel: '0.01%', change24h: 0.76 },
@@ -464,29 +464,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-BTC',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'BTC/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
     requiredPlan: 'pro',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: 343,
-    winRatePct: 51.0,
-    profitFactor: 1.92,
-    totalTrades: 84,
-    tp1HitPct: 68,
-    tp2HitPct: 42,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
     positionIsLong: false,
-    entryPrice: '66,842.20',
-    stopLossPrice: '66,510.00',
-    tp1Price: '67,340.50',
-    tp2Price: '68,120.00',
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
     featTags: [
       'การกระจาย: 12%',
@@ -496,9 +496,9 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาดล้าง: คว้าสภาพคล่องต่ำ',
     ],
     logs: [
-      'คำสั่งทำงาน - คำสั่ง Start',
-      '[09:12] ระบบเริ่มต้นทำงานแล้ว',
-      '[09:14] กำลังรอโครงสร้าง 4H',
+      'Research-only preset; no broker session connected',
+      'No broker session verified; no orders sent',
+      'Strategy signal not validated on out-of-sample data',
     ],
     accentColor: 'amber',
   },
@@ -508,29 +508,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'โมเมนตัม AI-ETH',
     strategyBadge: 'ติดตามเทรนด์',
     pair: 'ETH/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.2',
     requiredPlan: 'pro',
-    selectedInPackage: true,
-    running: true,
-    autoTradeEnabled: true,
+    selectedInPackage: false,
+    running: false,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: -52,
-    winRatePct: 46.5,
-    profitFactor: 1.76,
-    totalTrades: 112,
-    tp1HitPct: 62,
-    tp2HitPct: 38,
-    positionStateLabel: 'ซื้อ +0.4R',
-    positionIsLong: true,
-    entryPrice: '2,641.80',
-    stopLossPrice: '2,618.40',
-    tp1Price: '2,678.20',
-    tp2Price: '2,721.00',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
+    positionIsLong: false,
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '15m BOS + Momentum PA + OB',
     featTags: [
       'การกระจาย: 8%',
@@ -540,10 +540,10 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาด: ไม่มีการกวาด',
     ],
     liveScanningBanner:
-      'AI กำลังสแกนคลื่น 4 ชั่วโมง + โซน SMC... ETH/USDm 15 นาที • ซื้อ +0.4R • คะแนน 5/6',
+      'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
     logs: [
-      '[08:44] TP1 อัตราความแม่นยำในการสแกน 62%',
-      '[14:27] PnL -16.4 • Confluence 5/6',
+      'No live scanning or verified TP statistics',
+      'No live PnL; sample strategy only',
     ],
     accentColor: 'indigo',
   },
@@ -553,29 +553,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'คลื่นสภาพคล่อง SMC AI-XAU/USDm',
     strategyBadge: 'เก็งกำไรสภาพคล่อง',
     pair: 'XAU/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.8 / 3.5',
     requiredPlan: 'pro',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: 895,
-    winRatePct: 54.8,
-    profitFactor: 2.18,
-    totalTrades: 64,
-    tp1HitPct: 74,
-    tp2HitPct: 49,
-    positionStateLabel: 'ซื้อ +1.2R',
-    positionIsLong: true,
-    entryPrice: '2,742.50',
-    stopLossPrice: '2,734.00',
-    tp1Price: '2,756.00',
-    tp2Price: '2,768.50',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
+    positionIsLong: false,
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 6,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: 'London Sweep + 1H Order Block + FVG Displacement',
     featTags: [
       'การกระจาย: 14%',
@@ -585,10 +585,10 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
       'กวาดล้าง: กวาด Low เซสชันเอเชีย',
     ],
     liveScanningBanner:
-      'AI ยืนยันโครงสร้างทองคำ XAU/USDm 15 นาที • ถือสถานะซื้อ +1.2R • คะแนน 6/6',
+      'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
     logs: [
-      '[10:05] ตรวจพบ Liquidity Sweep โซน 2,738.00',
-      '[10:15] เปิดสถานะซื้ออัตโนมัติ SL 2,734.00 / TP1 2,756.00',
+      'Sample setup only; no live market feed',
+      'No position exists; broker execution is disabled',
     ],
     accentColor: 'emerald',
   },
@@ -598,29 +598,29 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-EUR/USDm',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'EUR/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo · not connected',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
     requiredPlan: 'elite',
-    selectedInPackage: true,
+    selectedInPackage: false,
     running: false,
     autoTradeEnabled: false,
     riskPct: 0.8,
-    todayPnlBaht: 134,
-    winRatePct: 49.2,
-    profitFactor: 1.85,
-    totalTrades: 76,
-    tp1HitPct: 65,
-    tp2HitPct: 40,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: 0,
+    winRatePct: 0,
+    profitFactor: 0,
+    totalTrades: 0,
+    tp1HitPct: 0,
+    tp2HitPct: 0,
+    positionStateLabel: 'No verified position',
     positionIsLong: false,
-    entryPrice: '1.0842',
-    stopLossPrice: '1.0818',
-    tp1Price: '1.0878',
-    tp2Price: '1.0915',
+    entryPrice: '—',
+    stopLossPrice: '—',
+    tp1Price: '—',
+    tp2Price: '—',
     confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
+    setupGrade: 'NOT VALIDATED',
     featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
     featTags: [
       'การกระจาย: 9%',
@@ -637,54 +637,6 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
   },
 ];
 
-const ANALYTICS_SERIES: Record<'5D' | '7D' | '1M' | '1Y' | 'All', { points: number[]; labels: string[] }> = {
-  '5D': {
-    points: [
-      48900, 49200, 48850, 49400, 49100, 49850, 50200, 49900, 50600, 50450,
-      51100, 50800, 51400, 51950, 51500, 52100, 51750, 52300, 51850, 51695.58,
-    ],
-    labels: [
-      'Jan 1, 2024',
-      'Jan 5, 2024',
-      'Jan 10, 2024',
-      'Jan 15, 2024',
-      'Jan 20, 2024',
-      'Jan 25, 2024',
-      'Jan 30, 2024',
-      'Feb 5, 2024',
-      'Feb 10, 2024',
-      'Feb 15, 2024',
-    ],
-  },
-  '7D': {
-    points: [
-      48600, 49100, 49500, 49200, 49900, 50300, 50100, 50800, 51200, 50950,
-      51550, 51900, 51600, 52200, 51695.58,
-    ],
-    labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
-  },
-  '1M': {
-    points: [
-      47500, 48100, 47900, 48800, 49400, 49100, 50050, 50700, 50400, 51300,
-      51850, 51695.58,
-    ],
-    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-  },
-  '1Y': {
-    points: [
-      36200, 38400, 40100, 39500, 42300, 44800, 43900, 46700, 48900, 50200,
-      51100, 51695.58,
-    ],
-    labels: ['Jan', 'Mar', 'May', 'Jul', 'Sep', 'Nov'],
-  },
-  All: {
-    points: [
-      28000, 32500, 35800, 39200, 41600, 44900, 47300, 49800, 51695.58,
-    ],
-    labels: ['2022', '2023', '2024', '2025', '2026'],
-  },
-};
-
 export default function QuickitMarketFleetView({
   initialTab = 'dashboard',
 }: {
@@ -695,10 +647,9 @@ export default function QuickitMarketFleetView({
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState<'all' | 'crypto' | 'forex'>('crypto');
-  const [analyticsRange, setAnalyticsRange] = useState<'5D' | '7D' | '1M' | '1Y' | 'All'>('5D');
 
-  // Package Subscription State ("ให้ผู้ใช้กดเลือกได้เมื่อสมัครแพ็คเกต")
-  const [currentPlanId, setCurrentPlanId] = useState<SubscriptionPlanId>('elite');
+  // Subscription is preview-only until checkout and entitlement verification exist.
+  const currentPlanId: SubscriptionPlanId = 'free';
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [toastBanner, setToastBanner] = useState<string | null>(null);
 
@@ -707,14 +658,16 @@ export default function QuickitMarketFleetView({
   // ("ทำให้เลือกได้ระหว่างใช้mt5 หรือ api ในโบรกเกอร์forex")
   // =========================================================================
   const [loggedInBroker, setLoggedInBroker] = useState<'exness' | 'icmarkets' | 'binance' | 'bybit'>('exness');
-  const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('api');
-  const [mt5Server, setMt5Server] = useState<string>('Exness-MT5Real14');
-  const [brokerAccountId, setBrokerAccountId] = useState<string>('23908764');
+  const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('mt5');
+  const [mt5Server, setMt5Server] = useState<string>('Exness-MT5Trial8');
+  const [brokerAccountId, setBrokerAccountId] = useState<string>('not_configured');
+  const [brokerSessionVerified, setBrokerSessionVerified] = useState(false);
+  const [brokerCatalogMessage, setBrokerCatalogMessage] = useState('STATIC SAMPLE CATALOGUE ONLY — ไม่มี Broker Session ที่ยืนยันแล้ว');
   const [brokerServerName, setBrokerServerName] = useState<string>(
     FALLBACK_BROKER_CATALOGS.exness.serverLabel
   );
   const [brokerProtocolLabel, setBrokerProtocolLabel] = useState<string>(
-    'Exness REST API v1 (Ed25519 Signed · No MT5)'
+    'Static sample catalogue only; no authenticated broker session'
   );
   const [brokerInstruments, setBrokerInstruments] = useState<BrokerInstrumentItem[]>(
     FALLBACK_BROKER_CATALOGS.exness.instruments
@@ -737,9 +690,6 @@ export default function QuickitMarketFleetView({
   const [fleetBots, setFleetBots] = useState<FleetBotConfig[]>(INITIAL_FLEET_BOTS);
   const [marketFilter, setMarketFilter] = useState<'all' | 'running' | 'crypto' | 'forex'>('all');
 
-  // Backend Auto-Train compact status
-  const [autoTrainTick, setAutoTrainTick] = useState(0);
-
   const isForexBrokerSelected =
     loggedInBroker === 'exness' || loggedInBroker === 'icmarkets';
 
@@ -750,91 +700,73 @@ export default function QuickitMarketFleetView({
   // Fetch tradable pairs from the logged-in broker account via Backend API (passing connectionMode=mt5 or api)
   async function syncBrokerInstruments(
     targetBroker: 'exness' | 'icmarkets' | 'binance' | 'bybit',
-    customAccountId?: string,
     customConnMode?: 'mt5' | 'api',
     customMt5Server?: string
   ) {
     setLoadingBrokerPairs(true);
+    setBrokerSessionVerified(false);
+    setBrokerCatalogMessage('กำลังโหลดรายการ Instrument ตัวอย่างเท่านั้น ยังไม่มี Broker Session ที่ยืนยันแล้ว');
+
     const mode = customConnMode || forexConnectionMode;
     const serverParam = customMt5Server || mt5Server;
-    const accId =
-      customAccountId ||
-      (targetBroker === 'exness'
-        ? '23908764'
-        : targetBroker === 'icmarkets'
-        ? '51092841'
-        : targetBroker === 'binance'
-        ? 'BN-88412'
-        : 'BY-51902');
+
     try {
       const res = await fetch(
-        `/api/broker/instruments?broker=${targetBroker}&accountId=${encodeURIComponent(
-          accId
-        )}&connectionMode=${mode}&mt5Server=${encodeURIComponent(serverParam)}`,
+        `/api/broker/instruments?broker=${targetBroker}&connectionMode=${mode}&mt5Server=${encodeURIComponent(serverParam)}`,
         { cache: 'no-store' }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.instruments) && data.instruments.length > 0) {
           setBrokerInstruments(data.instruments);
-          setBrokerServerName(
-            data.serverLabel || FALLBACK_BROKER_CATALOGS[targetBroker].serverLabel
+          setBrokerServerName(data.serverLabel || 'Not configured');
+          setBrokerProtocolLabel(data.protocol || 'Static sample catalogue only');
+          const verifiedDemoReadOnly =
+            data.connected === true &&
+            data.accountConnected === true &&
+            data.environment === 'demo' &&
+            data.ordersEnabled === false &&
+            data.executionEnabled === false &&
+            data.liveTradingEnabled === false &&
+            data.dataStatus !== 'static-sample-unverified';
+          setBrokerSessionVerified(verifiedDemoReadOnly);
+          setBrokerAccountId(
+            verifiedDemoReadOnly && typeof data.accountId === 'string'
+              ? data.accountId
+              : 'not_configured'
           );
-          setBrokerProtocolLabel(
-            data.protocol || FALLBACK_BROKER_CATALOGS[targetBroker].protocol
-          );
-          setBrokerAccountId(data.accountId || accId);
           setSelectedBrokerPair(data.instruments[0]);
+          setBrokerCatalogMessage(
+            verifiedDemoReadOnly
+              ? 'ยืนยันเฉพาะ Exness Demo Read-only แล้ว; ไม่อนุญาตคำสั่งซื้อขาย'
+              : 'STATIC SAMPLE CATALOGUE ONLY — ไม่มีการยืนยันบัญชีหรือ Broker Session; ราคา, Spread และ % เปลี่ยนแปลงเป็นข้อมูลตัวอย่าง ไม่ใช่ราคาตลาดจริง'
+          );
           setLoadingBrokerPairs(false);
           return;
         }
       }
     } catch {
-      // Fallback to local broker catalog if offline
+      // Fall through to a clearly labelled local sample catalogue.
     }
+
     const fallback = FALLBACK_BROKER_CATALOGS[targetBroker];
     setBrokerInstruments(fallback.instruments);
-    setBrokerServerName(
-      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
-        ? `${serverParam} (MT5 Terminal / EA Bridge)`
-        : fallback.serverLabel
+    setBrokerServerName(fallback.serverLabel);
+    setBrokerProtocolLabel(fallback.protocol);
+    setBrokerAccountId('not_configured');
+    setBrokerSessionVerified(false);
+    setBrokerCatalogMessage(
+      'API ไม่พร้อมใช้งาน — กำลังแสดง Static Sample Catalogue เท่านั้น; ไม่ได้เชื่อมต่อ Broker และห้ามใช้ราคา/Spread นี้ตัดสินใจเทรด'
     );
-    setBrokerProtocolLabel(
-      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
-        ? 'MetaTrader 5 (MT5 Python Worker Bridge)'
-        : fallback.protocol
-    );
-    setBrokerAccountId(accId);
     setSelectedBrokerPair(fallback.instruments[0]);
     setLoadingBrokerPairs(false);
   }
 
   useEffect(() => {
-    syncBrokerInstruments(loggedInBroker, undefined, forexConnectionMode, mt5Server);
+    syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
   }, [loggedInBroker, forexConnectionMode, mt5Server]);
 
-  // Simulate 2-second memory tick for running bots & backend auto-train status
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAutoTrainTick((t) => t + 1);
-      setFleetBots((prev) =>
-        prev.map((bot) => {
-          if (!bot.running) return bot;
-          const delta = Math.round((Math.random() - 0.44) * 18);
-          return {
-            ...bot,
-            todayPnlBaht: bot.todayPnlBaht + delta,
-          };
-        })
-      );
-    }, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
-  const currentPlan = useMemo(
-    () => SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[2],
-    [currentPlanId]
-  );
+  const currentPlan = SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[0];
 
   const selectedStrategyObj = useMemo(
     () =>
@@ -862,11 +794,8 @@ export default function QuickitMarketFleetView({
 
   // Handler when user finishes Step 1 (Select Pair from Broker) + Step 2 (Select Strategy)
   function handleDeployPairWithStrategy(startImmediately: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification(
-        'กรุณาสมัครแพ็คเกจ Pro หรือ ระดับ 3 เอลีต ก่อนนำคู่เงินและกลยุทธ์เข้ากองทัพ AI'
-      );
+    if (startImmediately) {
+      showNotification('LIVE TRADING OFF — บันทึกได้เฉพาะ Research Draft; ไม่สามารถเริ่มเทรดได้');
       return;
     }
 
@@ -877,7 +806,7 @@ export default function QuickitMarketFleetView({
         ? `MT5 (${mt5Server})`
         : 'Direct API'
       : 'REST API';
-    const brokerLabel = `${loggedInBroker.toUpperCase()} #${brokerAccountId} · ${connBadge}`;
+    const brokerLabel = `${loggedInBroker.toUpperCase()} · Static sample catalogue · not connected`;
     const newBotName = `${selectedStrategyObj.shortTitle} AI-${selectedBrokerPair.symbol}`;
 
     setFleetBots((prev) => {
@@ -900,31 +829,29 @@ export default function QuickitMarketFleetView({
         rrLabel: selectedStrategyObj.rrLabel,
         requiredPlan: 'pro',
         selectedInPackage: true,
-        running: startImmediately,
-        autoTradeEnabled: true,
+        running: false,
+        autoTradeEnabled: false,
         riskPct: selectedBuilderRisk,
         todayPnlBaht: existingIdx >= 0 ? prev[existingIdx].todayPnlBaht : 0,
-        winRatePct: selectedStrategyObj.winRatePct,
-        profitFactor: selectedStrategyObj.profitFactor,
-        totalTrades: existingIdx >= 0 ? prev[existingIdx].totalTrades : 42,
-        tp1HitPct: selectedStrategyObj.tp1HitPct,
-        tp2HitPct: selectedStrategyObj.tp2HitPct,
-        positionStateLabel: startImmediately ? 'ซื้อ +0.2R' : 'แฟลต +0.0R',
-        positionIsLong: startImmediately,
-        entryPrice: levels.entry,
-        stopLossPrice: levels.sl,
-        tp1Price: levels.tp1,
-        tp2Price: levels.tp2,
+        winRatePct: 0,
+        profitFactor: 0,
+        totalTrades: 0,
+        tp1HitPct: 0,
+        tp2HitPct: 0,
+        positionStateLabel: 'No verified position',
+        positionIsLong: false,
+        entryPrice: '—',
+        stopLossPrice: '—',
+        tp1Price: '—',
+        tp2Price: '—',
         confluenceScore: selectedStrategyObj.confluenceScore,
-        setupGrade: selectedStrategyObj.setupGrade,
+        setupGrade: 'NOT VALIDATED',
         featHeadline: selectedStrategyObj.featHeadline,
         featTags: selectedStrategyObj.featTags,
-        liveScanningBanner: startImmediately
-          ? `AI กำลังสแกน ${selectedBrokerPair.symbol} (${brokerLabel}) • กลยุทธ์ ${selectedStrategyObj.shortTitle} • ${selectedBuilderTimeframe}`
-          : undefined,
+        liveScanningBanner: 'RESEARCH PREVIEW ONLY — no live broker connection or scanning',
         logs: [
-          `[${nowStr}] ดึงคู่เงิน ${selectedBrokerPair.symbol} ผ่านโหมด ${connBadge} (Spread ${selectedBrokerPair.spreadLabel})`,
-          `[${nowStr}] ผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" (${selectedStrategyObj.featHeadline}) สำเร็จ`,
+          `[${nowStr}] Saved local research draft for ${selectedBrokerPair.symbol}; no broker session connected`,
+          `[${nowStr}] Strategy ${selectedStrategyObj.shortTitle} is unvalidated; no orders submitted`,
         ],
         accentColor: selectedStrategyObj.accentColor,
       };
@@ -937,9 +864,7 @@ export default function QuickitMarketFleetView({
       return [configuredBot, ...prev];
     });
 
-    showNotification(
-      `✓ เลือกคู่เงิน "${selectedBrokerPair.symbol}" (${connBadge}) และผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" เข้ากองทัพ AI เรียบร้อยแล้ว`
-    );
+    showNotification('บันทึก Research Draft ในหน้าเว็บแล้ว — ไม่มีการเชื่อมต่อ Broker หรือส่งคำสั่งเทรด');
   }
 
   // Allow changing Pair or Strategy directly inside any Bot Card in the Fleet
@@ -1036,21 +961,10 @@ export default function QuickitMarketFleetView({
     [fleetBots]
   );
 
-  const totalFleetPnlToday = useMemo(
-    () => fleetBots.reduce((acc, b) => acc + b.todayPnlBaht, 0),
-    [fleetBots]
-  );
-
-  const avgWinRate = useMemo(() => {
-    if (fleetBots.length === 0) return 0;
-    const sum = fleetBots.reduce((acc, b) => acc + b.winRatePct, 0);
-    return (sum / fleetBots.length).toFixed(1);
-  }, [fleetBots]);
-
   function handleSelectBotInPackage(botId: string) {
     if (currentPlanId === 'free') {
       setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจ Pro หรือ ระดับ 3 เอลีต เพื่อกดเลือกใช้งานบอท AI');
+      showNotification('SUBSCRIPTION CHECKOUT NOT CONFIGURED — แพ็กเกจยังเป็นตัวอย่าง จึงยังเปิดสิทธิ์ใช้งานบอทไม่ได้');
       return;
     }
 
@@ -1089,9 +1003,8 @@ export default function QuickitMarketFleetView({
   }
 
   function handleToggleBotRun(botId: string, shouldRun: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจก่อนสั่งเริ่มทำงานบอท AI');
+    if (shouldRun) {
+      showNotification('LIVE TRADING OFF — Bot Start ถูกปิด; ใช้ได้เฉพาะ Research Draft');
       return;
     }
 
@@ -1121,62 +1034,19 @@ export default function QuickitMarketFleetView({
   }
 
   function handleStartAllFleet() {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจ Pro หรือ เอลีต เพื่อสั่งเริ่มกองทัพ AI ทั้งหมด');
-      return;
-    }
-    setFleetBots((prev) =>
-      prev.map((bot, idx) => {
-        const canRun = idx < currentPlan.maxBots;
-        return canRun ? { ...bot, selectedInPackage: true, running: true } : bot;
-      })
-    );
-    showNotification('▷ เริ่มการทำงานกองทัพ AI Auto Trading Fleet ทั้งหมดในแพ็คเกจแล้ว');
+    showNotification('LIVE TRADING OFF — Start All ถูกปิด; ยังไม่มี Broker Session และ Execution Runtime ที่อนุญาต');
   }
 
   function handleEmergencyStopAll() {
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false })));
-    showNotification('🔇 หยุดฉุกเฉินบอท AI ทุกตัวเรียบร้อยแล้ว (Emergency Stop Executed)');
+    setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false, autoTradeEnabled: false })));
+    showNotification('ล้างสถานะ Bot จำลองในหน้าเว็บแล้ว — ไม่มีคำสั่งใดถูกส่งไปยัง Broker');
   }
 
   function handleRiskSyncAll() {
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, riskPct: 1.0 })));
-    showNotification('🎚️ RISK SYNC: ปรับความเสี่ยงทุกบอทในกองทัพเป็น 1.0% (ซึ่งอนุรักษนิยม) สำเร็จ');
+    showNotification('ปรับค่า Risk ใน Research Draft ภายในหน้าเว็บเท่านั้น — ไม่มีการ Sync ไปยัง Broker');
   }
-
-  // Compute Portfolio Analytics SVG coordinates (Image 1 middle-right chart)
-  const analyticsChart = useMemo(() => {
-    const data = ANALYTICS_SERIES[analyticsRange];
-    const pts = data.points;
-    const min = 47000;
-    const max = 53500;
-    const width = 760;
-    const height = 220;
-    const padLeft = 18;
-    const padRight = 58;
-    const padTop = 18;
-    const padBottom = 28;
-
-    const coords = pts.map((val, i) => {
-      const x = padLeft + (i / (pts.length - 1)) * (width - padLeft - padRight);
-      const clamped = Math.max(min, Math.min(max, val));
-      const y =
-        height -
-        padBottom -
-        ((clamped - min) / (max - min)) * (height - padTop - padBottom);
-      return { x, y, val };
-    });
-
-    const linePath = coords
-      .map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`)
-      .join(' ');
-    const areaPath = `${linePath} L ${coords[coords.length - 1].x.toFixed(1)} ${
-      height - padBottom
-    } L ${coords[0].x.toFixed(1)} ${height - padBottom} Z`;
-
-    return { coords, linePath, areaPath, labels: data.labels, width, height };
-  }, [analyticsRange]);
 
   return (
     <div className="min-h-screen bg-[#090912] text-slate-100 relative overflow-x-hidden selection:bg-purple-500/30 selection:text-white">
@@ -1189,6 +1059,11 @@ export default function QuickitMarketFleetView({
       {/* Main Window Shell (Image 1 Rounded Dark Glass Container) */}
       <div className="relative z-10 max-w-[1440px] mx-auto my-3 sm:my-5 px-3 sm:px-5">
         <div className="rounded-[30px] bg-[#141522]/95 border border-white/[0.08] shadow-[0_25px_90px_rgba(0,0,0,0.75)] backdrop-blur-2xl p-4 sm:p-6">
+          <div role="status" className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+            <strong>NOVA RESEARCH PREVIEW · LIVE TRADING OFF</strong>
+            <p>Broker Session is not connected. Market quotes, spreads, strategy statistics, portfolio values and bot history shown on this screen are sample UI data only — not live prices, a verified account, actual PnL, backtest results or open positions.</p>
+            <p className="mt-1">Orders, Auto Trade, Bot Start and Execution remain disabled. Exness is preset to Demo; credentials and account IDs are not collected here.</p>
+          </div>
           {/* Top Navigation Bar (Matches Image 1 Header) */}
           <header className="flex flex-wrap items-center justify-between gap-4 pb-5">
             {/* Left: Quickit Logo + Capsule Navigation */}
@@ -1291,7 +1166,7 @@ export default function QuickitMarketFleetView({
                 type="button"
                 onClick={() =>
                   showNotification(
-                    `เชื่อมต่อ ${loggedInBroker.toUpperCase()} #${brokerAccountId} • ดึงข้อมูลคู่เงินสด ${brokerInstruments.length} คู่ • เทรนหลังบ้านรอบที่ #${142 + autoTrainTick}`
+                    `Broker data status: ${brokerSessionVerified ? 'verified read-only' : 'not verified'} • Auto-Train: NOT CONFIGURED`
                   )
                 }
                 aria-label="Notifications"
@@ -1636,7 +1511,7 @@ export default function QuickitMarketFleetView({
                         PRO
                       </span>
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-black/30 text-emerald-300 border border-emerald-400/30">
-                        Active: {currentPlan.badgeText}
+                        Preview tier: {currentPlan.badgeText}
                       </span>
                     </div>
 
@@ -1657,7 +1532,7 @@ export default function QuickitMarketFleetView({
                       onClick={() => setShowPlanModal(true)}
                       className="w-full py-2.5 px-4 rounded-full bg-white text-[#141522] hover:bg-slate-100 text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.99]"
                     >
-                      <span>Upgrade to Pro Plan</span>
+                      <span>ดูแพ็กเกจตัวอย่าง</span>
                       <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                     </button>
 
@@ -1671,112 +1546,22 @@ export default function QuickitMarketFleetView({
                   </div>
                 </div>
 
-                {/* Right Card: Portfolio Analytics */}
-                <div className="lg:col-span-9 rounded-[24px] bg-[#1B1C2B] border border-white/[0.06] p-5 flex flex-col justify-between">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                    <div>
-                      <h2 className="text-base font-bold text-white">Portfolio Analytics</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        January 1, 2024 - February 28, 2024 · AI Fleet Equity Curve
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#242638] border border-white/[0.07] text-xs font-medium text-slate-200"
-                      >
-                        <span>Profit / Loss over time</span>
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                      </button>
-
-                      <div className="flex items-center gap-1 p-1 rounded-full bg-[#12131F] border border-white/[0.06]">
-                        {(['5D', '7D', '1M', '1Y', 'All'] as const).map((tf) => (
-                          <button
-                            key={tf}
-                            type="button"
-                            onClick={() => setAnalyticsRange(tf)}
-                            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                              analyticsRange === tf
-                                ? 'bg-white text-[#12131F] font-bold'
-                                : 'text-slate-400 hover:text-white'
-                            }`}
-                          >
-                            {tf}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                {/* Portfolio analytics is intentionally unavailable until account history is verified. */}
+                <div className="lg:col-span-9 rounded-[24px] bg-[#1B1C2B] border border-white/[0.06] p-5 flex flex-col justify-center min-h-[280px]">
+                  <div>
+                    <h2 className="text-base font-bold text-white">Portfolio Analytics</h2>
+                    <p className="text-xs text-slate-400 mt-1">ข้อมูลผลพอร์ตจะปรากฏเมื่อมี Account History ที่ยืนยันจาก Exness MT5 Demo เท่านั้น</p>
                   </div>
-
-                  <div className="relative mt-2">
-                    <svg
-                      viewBox={`0 0 ${analyticsChart.width} ${analyticsChart.height}`}
-                      className="w-full h-56 overflow-visible"
-                    >
-                      <defs>
-                        <linearGradient id="quickitAnalyticsGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#818CF8" stopOpacity="0.28" />
-                          <stop offset="100%" stopColor="#818CF8" stopOpacity="0.0" />
-                        </linearGradient>
-                      </defs>
-
-                      {[
-                        { y: 28, label: '53.00K' },
-                        { y: 78, label: '51.50K' },
-                        { y: 128, label: '50.00K' },
-                        { y: 178, label: '48.50K' },
-                      ].map((row) => (
-                        <g key={row.label}>
-                          <line
-                            x1="18"
-                            x2={analyticsChart.width - 58}
-                            y1={row.y}
-                            y2={row.y}
-                            stroke="rgba(255,255,255,0.07)"
-                            strokeDasharray="4 4"
-                            strokeWidth="1"
-                          />
-                          <text
-                            x={analyticsChart.width - 48}
-                            y={row.y + 4}
-                            className="fill-slate-400 text-[10px] font-mono"
-                          >
-                            {row.label}
-                          </text>
-                        </g>
-                      ))}
-
-                      <path d={analyticsChart.areaPath} fill="url(#quickitAnalyticsGrad)" />
-                      <path
-                        d={analyticsChart.linePath}
-                        fill="none"
-                        stroke="#FFFFFF"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-
-                      <g transform={`translate(${analyticsChart.width - 54}, 54)`}>
-                        <rect x="0" y="0" width="48" height="20" rx="10" fill="#FFFFFF" />
-                        <text
-                          x="24"
-                          y="13"
-                          textAnchor="middle"
-                          className="fill-[#141522] text-[10px] font-bold font-mono"
-                        >
-                          51.69K
-                        </text>
-                      </g>
-                    </svg>
-
-                    <div className="flex items-center justify-between px-4 pt-1 text-[10px] text-slate-500 font-mono">
-                      {analyticsChart.labels.map((lbl) => (
-                        <span key={lbl}>{lbl}</span>
-                      ))}
-                    </div>
+                  <div role="status" className="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-5 text-sm leading-6 text-amber-100">
+                    <strong>PORTFOLIO EQUITY DATA NOT AVAILABLE</strong>
+                    <p className="mt-1">ยังไม่มี Account History / Equity Curve ที่ผ่านการยืนยัน ระบบจึงไม่แสดงกราฟกำไรขาดทุนตัวอย่างหรือสถิติพอร์ตจำลอง</p>
                   </div>
                 </div>
+              </div>
+
+              <div role="status" className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+                <strong>STATIC SAMPLE TICKER DATA — NOT LIVE MARKET DATA</strong>
+                <p>ราคาและเปอร์เซ็นต์เปลี่ยนแปลงต่อไปนี้เป็นข้อมูลตัวอย่างเท่านั้น ยังไม่มี Market Feed ที่ยืนยันแล้ว</p>
               </div>
 
               {/* BOTTOM ROW: 4 Coin Ticker Cards + "See all coins" Card */}
@@ -1921,7 +1706,7 @@ export default function QuickitMarketFleetView({
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-xs font-bold text-amber-300 transition-colors"
                   >
                     <Crown className="w-3.5 h-3.5" />
-                    <span>สลับ/สมัครแพ็คเกจ ({currentPlan.badgeText})</span>
+                    <span>ดูแพ็กเกจตัวอย่าง ({currentPlan.badgeText})</span>
                   </button>
                 </div>
               </div>
@@ -1942,11 +1727,11 @@ export default function QuickitMarketFleetView({
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                          Broker Session Connected
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                          {brokerSessionVerified ? 'EXNESS DEMO SESSION VERIFIED · READ-ONLY' : 'BROKER SESSION NOT CONNECTED'}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/90 border border-emerald-500/40 text-[11px] font-mono text-emerald-300">
-                          🟢 Login: {loggedInBroker.toUpperCase()} #{brokerAccountId}
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/40 text-[11px] font-mono text-amber-200">
+                          {brokerSessionVerified ? `DEMO · ${brokerAccountId}` : `⚠️ ${loggedInBroker.toUpperCase()} · CATALOG ONLY · NOT CONNECTED`}
                         </span>
                         <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/30 text-[11px] font-mono text-amber-300">
                           {isForexBrokerSelected
@@ -1967,13 +1752,13 @@ export default function QuickitMarketFleetView({
 
                   {/* Switch Logged-In Broker Account & Sync Symbols Button */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-400 mr-1">บัญชี Broker ที่ Login:</span>
+                    <span className="text-xs text-slate-400 mr-1">เลือก Static Catalog:</span>
                     {(
                       [
-                        { id: 'exness', label: 'Exness Forex (#23908764)' },
-                        { id: 'icmarkets', label: 'IC Markets Forex (#51092841)' },
-                        { id: 'binance', label: 'Binance Crypto (#BN-88412)' },
-                        { id: 'bybit', label: 'Bybit Crypto (#BY-51902)' },
+                        { id: 'exness', label: 'Exness MT5 Demo' },
+                        { id: 'icmarkets', label: 'IC Markets · Sample Catalog' },
+                        { id: 'binance', label: 'Binance · Sample Catalog' },
+                        { id: 'bybit', label: 'Bybit · Sample Catalog' },
                       ] as const
                     ).map((brk) => (
                       <button
@@ -1982,9 +1767,9 @@ export default function QuickitMarketFleetView({
                         onClick={() => {
                           setLoggedInBroker(brk.id);
                           if (brk.id === 'icmarkets') setMt5Server('ICMarketsSC-MT5-4');
-                          if (brk.id === 'exness') setMt5Server('Exness-MT5Real14');
+                          if (brk.id === 'exness') setMt5Server('Exness-MT5Trial8');
                           showNotification(
-                            `สลับบัญชีที่ Login เป็น ${brk.label} และดึงรายชื่อคู่เงินทั้งหมดเรียบร้อยแล้ว`
+                            `เลือก ${brk.label} สำหรับดู Catalog เท่านั้น — ยังไม่ได้ Login หรือเชื่อมต่อ Broker`
                           );
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
@@ -2000,17 +1785,8 @@ export default function QuickitMarketFleetView({
                     <button
                       type="button"
                       onClick={() => {
-                        syncBrokerInstruments(
-                          loggedInBroker,
-                          brokerAccountId,
-                          forexConnectionMode,
-                          mt5Server
-                        );
-                        showNotification(
-                          `🔄 ซิงค์รายชื่อคู่เงินล่าสุดจาก ${loggedInBroker.toUpperCase()} (${
-                            forexConnectionMode === 'mt5' ? `MT5: ${mt5Server}` : 'Direct API'
-                          }) สำเร็จ (${brokerInstruments.length} คู่เงิน)`
-                        );
+                        syncBrokerInstruments(loggedInBroker, forexConnectionMode, mt5Server);
+                        showNotification('โหลด Static Sample Catalogue แล้ว — ไม่มีการยืนยัน Broker Session หรือราคาเรียลไทม์');
                       }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1C202B] hover:bg-[#252A38] border border-white/10 text-xs font-semibold text-cyan-300 transition-colors cursor-pointer"
                     >
@@ -2031,7 +1807,7 @@ export default function QuickitMarketFleetView({
                           ตัวเลือกการเชื่อมต่อโบรกเกอร์ Forex ({loggedInBroker.toUpperCase()})
                         </div>
                         <p className="text-xs text-slate-300 mt-0.5">
-                          เลือกว่าจะดึงคู่เงินและส่งคำสั่งเทรดผ่าน <strong>โปรแกรม MT5 (MetaTrader 5)</strong> หรือผ่าน <strong>Direct API ของโบรกเกอร์โดยตรง</strong>
+                          ส่วนนี้ใช้เลือกดู Static Catalog เท่านั้น ยังไม่มีการเชื่อมต่อบัญชี, ดึงราคาจริง หรือส่งคำสั่งซื้อขาย
                         </p>
                       </div>
 
@@ -2041,14 +1817,7 @@ export default function QuickitMarketFleetView({
                           type="button"
                           onClick={() => {
                             setForexConnectionMode('mt5');
-                            fetch('/api/mt5-bridge/toggle', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ enabled: true }),
-                            }).catch(() => {});
-                            showNotification(
-                              `🖥️ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ MT5 (${mt5Server})" สำเร็จ — ดึงคู่เงินจาก MT5 Market Watch`
-                            );
+                            showNotification('เลือก MT5 Demo สำหรับแสดง Catalog เท่านั้น — Bridge ยังไม่เชื่อมต่อและการเทรดยังปิดอยู่');
                           }}
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                             forexConnectionMode === 'mt5'
@@ -2065,23 +1834,14 @@ export default function QuickitMarketFleetView({
                             )}
                           </div>
                           <div className="text-[10px] opacity-85 mt-0.5">
-                            ดึงคู่เงินจาก MT5 Market Watch & ส่งคำสั่งผ่าน EA/Bridge
+                            MT5 Demo catalogue only — no authenticated bridge session
                           </div>
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setForexConnectionMode('api');
-                            fetch('/api/mt5-bridge/toggle', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ enabled: false }),
-                            }).catch(() => {});
-                            showNotification(
-                              `⚡ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ Direct API (REST / Ed25519)" สำเร็จ — ไม่ต้องเปิดโปรแกรม MT5`
-                            );
-                          }}
+                          disabled
+                          aria-disabled="true"
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                             forexConnectionMode === 'api'
                               ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-lg'
@@ -2090,14 +1850,14 @@ export default function QuickitMarketFleetView({
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-xs font-extrabold">
-                              ⚡ ใช้ Direct API (REST / Ed25519)
+                              ⚡ Direct API — Not Available
                             </span>
                             {forexConnectionMode === 'api' && (
                               <Check className="w-4 h-4 text-cyan-400 shrink-0" />
                             )}
                           </div>
                           <div className="text-[10px] opacity-85 mt-0.5">
-                            ยิงออเดอร์ตรงผ่าน API โบรกเกอร์ ไม่ต้องเปิดโปรแกรม MT5
+                            ปิดไว้จนกว่าจะมี Provider API ที่ยืนยันตัวตนและ Demo Read-only ได้จริง
                           </div>
                         </button>
                       </div>
@@ -2111,13 +1871,7 @@ export default function QuickitMarketFleetView({
                             ⚙️ ตั้งค่า MT5 Terminal:
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400">MT5 Login:</span>
-                            <input
-                              type="text"
-                              value={brokerAccountId}
-                              onChange={(e) => setBrokerAccountId(e.target.value)}
-                              className="w-28 px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-white font-mono text-xs"
-                            />
+                            <span className="text-amber-200">MT5 Login: NOT CONFIGURED</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-slate-400">MT5 Server:</span>
@@ -2126,14 +1880,13 @@ export default function QuickitMarketFleetView({
                               onChange={(e) => setMt5Server(e.target.value)}
                               className="px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-amber-300 font-mono text-xs"
                             >
-                              <option value="Exness-MT5Real14">Exness-MT5Real14 (Real)</option>
-                              <option value="Exness-MT5Trial8">Exness-MT5Trial8 (Demo)</option>
+                              <option value="Exness-MT5Trial8">Exness-MT5Trial8 (Demo only)</option>
                               <option value="ICMarketsSC-MT5-4">ICMarketsSC-MT5-4 (Raw)</option>
                               <option value="XMGlobal-MT5 2">XMGlobal-MT5 2</option>
                             </select>
                           </div>
-                          <span className="text-[11px] font-mono text-emerald-400">
-                            ● MT5 Python Bridge Connected (Latency 18ms)
+                          <span className="text-[11px] font-mono text-amber-300">
+                            ● MT5 Bridge NOT CONNECTED — no authenticated session or latency measurement
                           </span>
                         </div>
                       ) : (
@@ -2142,25 +1895,22 @@ export default function QuickitMarketFleetView({
                             ⚙️ ตั้งค่า Direct API:
                           </span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-slate-400">Account ID:</span>
-                            <input
-                              type="text"
-                              value={brokerAccountId}
-                              onChange={(e) => setBrokerAccountId(e.target.value)}
-                              className="w-28 px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-white font-mono text-xs"
-                            />
+                            <span className="text-amber-200">Account ID: NOT CONFIGURED</span>
                           </div>
-                          <span className="px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/10 font-mono text-[11px] text-slate-300">
-                            Key: EXN-ED25519-9F8A••••••1B0C
-                          </span>
-                          <span className="text-[11px] font-mono text-emerald-400">
-                            ● Direct Ed25519 REST v1 Verified (No MT5 Required · 21ms)
+                          <span className="text-[11px] font-mono text-amber-300">
+                            Direct API is not configured or verified; no key is stored or displayed.
                           </span>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
+
+                <div role="status" className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-100">
+                  <strong>STATIC SAMPLE DATA — NOT LIVE MARKET DATA</strong>
+                  <p>{brokerCatalogMessage}</p>
+                  <p className="mt-1">สถิติ Win Rate / Profit Factor / Spread ในหน้าตัวอย่างยังไม่ใช่ผล Backtest หรือข้อมูลตลาดที่ผ่านการยืนยัน</p>
+                </div>
 
                 {/* STEP 1: Select Trading Pair from Logged-In Broker */}
                 <div className="space-y-3">
@@ -2170,10 +1920,10 @@ export default function QuickitMarketFleetView({
                         1
                       </span>
                       <h3 className="text-sm font-extrabold text-white">
-                        เลือกคู่เงินที่มีในโบรกเกอร์ {loggedInBroker.toUpperCase()} (#{brokerAccountId})
+                        Instrument Sample Catalogue — {loggedInBroker.toUpperCase()}
                       </h3>
-                      <span className="text-xs text-slate-400">
-                        (พบ {filteredBrokerInstruments.length} คู่เงินที่พร้อมเทรด)
+                      <span className="text-xs text-amber-300">
+                        ({filteredBrokerInstruments.length} sample symbols · not verified for trading)
                       </span>
                     </div>
 
@@ -2372,7 +2122,8 @@ export default function QuickitMarketFleetView({
 
                       <button
                         type="button"
-                        onClick={() => handleDeployPairWithStrategy(true)}
+                        disabled
+                        aria-disabled="true"
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#052016] text-xs font-extrabold shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
@@ -2401,7 +2152,7 @@ export default function QuickitMarketFleetView({
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        กองทัพ AI เทรดอัตโนมัติ • {fleetBots.length} บอท • 3 Pillars Engine
+                        กองทัพ AI • Research Draft • ยังไม่มี Runtime หรือ Broker Session ที่ยืนยัน
                       </p>
                     </div>
                   </div>
@@ -2410,21 +2161,13 @@ export default function QuickitMarketFleetView({
                 {/* KPI Pills Row */}
                 <div className="flex flex-wrap items-center gap-2.5 text-xs">
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-300">
-                    กำไรขาดทุนรวมวันนี้:{' '}
-                    <span
-                      className={`font-mono font-bold ${
-                        totalFleetPnlToday >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
-                    >
-                      ฿{totalFleetPnlToday.toLocaleString('en-US')}
-                    </span>
+                    P&amp;L วันนี้: <span className="font-mono font-bold text-amber-300">NOT AVAILABLE</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-300">
-                    อัตราการชนะเฉลี่ย:{' '}
-                    <span className="font-mono font-bold text-white">{avgWinRate}%</span>
+                    Win Rate: <span className="font-mono font-bold text-amber-300">NOT VALIDATED</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-400">
-                    โหมด: การจำลองในหน่วยความจำ • จังหวะการทำงาน 2 วินาที
+                    สถานะ: RESEARCH DRAFT ONLY • ไม่มี Runtime/ข้อมูล Broker ที่ยืนยัน
                   </div>
                 </div>
 
@@ -2432,7 +2175,8 @@ export default function QuickitMarketFleetView({
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={handleStartAllFleet}
+                    disabled
+                    aria-disabled="true"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#062219] font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
                   >
                     <Play className="w-3.5 h-3.5 fill-current" />
@@ -2521,8 +2265,6 @@ export default function QuickitMarketFleetView({
                     (currentPlanId === 'pro' &&
                       bot.requiredPlan === 'elite' &&
                       !bot.selectedInPackage);
-                  const pnlUp = bot.todayPnlBaht >= 0;
-
                   return (
                     <div
                       key={bot.id}
@@ -2695,7 +2437,7 @@ export default function QuickitMarketFleetView({
                                 {isLockedByPlan ? (
                                   <>
                                     <Lock className="w-3 h-3" />
-                                    <span>สมัครแพ็คเกจเพื่อเลือกบอทนี้</span>
+                                    <span>สิทธิ์แพ็กเกจยังไม่พร้อม — Checkout ยังไม่เชื่อมต่อ</span>
                                   </>
                                 ) : bot.selectedInPackage ? (
                                   <>
@@ -2710,60 +2452,47 @@ export default function QuickitMarketFleetView({
                           </div>
                         </div>
 
-                        {/* Right: Today's PnL in Baht + Mini Bar */}
                         <div className="text-right">
-                          <div
-                            className={`text-lg font-extrabold font-mono ${
-                              pnlUp ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {pnlUp ? `+ ฿${bot.todayPnlBaht}` : `฿${bot.todayPnlBaht}`}
-                          </div>
-                          <div className="text-[11px] text-slate-400">วันนี้</div>
-                          <div
-                            className={`mt-2 w-24 h-5 rounded-md border-t-2 ${
-                              pnlUp
-                                ? 'bg-amber-500/10 border-amber-500/70'
-                                : 'bg-indigo-500/10 border-indigo-400/70'
-                            }`}
-                          />
+                          <div className="text-lg font-extrabold font-mono text-amber-300">—</div>
+                          <div className="text-[11px] text-slate-400">P&amp;L NOT AVAILABLE</div>
+                          <div className="text-[10px] text-slate-500">ไม่มี Account History ที่ยืนยัน</div>
                         </div>
                       </div>
 
                       {/* 6-Box KPI Grid (2 rows x 3 columns matching Image 2) */}
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">อัตราการชนะ</div>
+                          <div className="text-[11px] text-slate-400">Win Rate (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.winRatePct.toFixed(1)}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">พีเอฟ</div>
+                          <div className="text-[11px] text-slate-400">Profit Factor (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.profitFactor.toFixed(2)}
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">การค้า</div>
+                          <div className="text-[11px] text-slate-400">Trades (NOT VERIFIED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.totalTrades}
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">TP1 ฮิต</div>
+                          <div className="text-[11px] text-slate-400">TP1 (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp1HitPct}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">TP2 ฮิต</div>
+                          <div className="text-[11px] text-slate-400">TP2 (NOT VALIDATED)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp2HitPct}%
+                            —
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
-                          <div className="text-[11px] text-slate-400">เสี่ยง</div>
+                          <div className="text-[11px] text-slate-400">Risk (Draft Config)</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
                             {bot.riskPct.toFixed(1)}%
                           </div>
@@ -2885,7 +2614,8 @@ export default function QuickitMarketFleetView({
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
-                            onClick={() => handleToggleBotRun(bot.id, true)}
+                            disabled
+                            aria-disabled="true"
                             className="py-3 rounded-full bg-[#10B981] hover:bg-[#059669] text-[#052016] font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/15 transition-all cursor-pointer"
                           >
                             <Play className="w-4 h-4 fill-current" />
@@ -2907,15 +2637,8 @@ export default function QuickitMarketFleetView({
                             <span className="text-slate-400">การซื้อขายอัตโนมัติ</span>
                             <button
                               type="button"
-                              onClick={() =>
-                                setFleetBots((prev) =>
-                                  prev.map((b) =>
-                                    b.id === bot.id
-                                      ? { ...b, autoTradeEnabled: !b.autoTradeEnabled }
-                                      : b
-                                  )
-                                )
-                              }
+                              disabled
+                              aria-disabled="true"
                               className={`w-11 h-6 rounded-full p-0.5 transition-colors flex items-center ${
                                 bot.autoTradeEnabled
                                   ? 'bg-emerald-500 justify-end'
@@ -3014,13 +2737,13 @@ export default function QuickitMarketFleetView({
               <div>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-xs font-bold text-purple-300">
                   <Crown className="w-3.5 h-3.5 text-amber-400" />
-                  Subscription Packages • เลือกแพ็คเกจเพื่อปลดล็อกกองทัพ AI
+                  Subscription Preview • ตัวอย่างแผนบริการเท่านั้น
                 </span>
                 <h2 className="mt-2 text-2xl font-extrabold text-white">
-                  เลือกแพ็คเกจสำหรับใช้งาน AI Auto Trading Fleet ในตลาด
+                  ดูตัวอย่างระดับแพ็กเกจของ NOVA
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  เมื่อสมัครแพ็คเกจแล้ว คุณสามารถเลือกคู่เงินจาก Broker ที่ Login แล้วเลือกกลยุทธ์ AI เพื่อสั่งเทรดอัตโนมัติได้ทันที
+                  ระบบ Checkout, การชำระเงิน และการยืนยันสิทธิ์สมาชิกยังไม่ได้เชื่อมต่อ การเลือกแผนด้านล่างจะไม่สมัครสมาชิกหรือเปิดใช้งานการเทรด
                 </p>
               </div>
               <button
@@ -3080,11 +2803,9 @@ export default function QuickitMarketFleetView({
                     <button
                       type="button"
                       onClick={() => {
-                        setCurrentPlanId(plan.id);
                         setShowPlanModal(false);
-                        setActiveTab('market');
                         showNotification(
-                          `🎉 สมัครและเปิดใช้งาน "${plan.name}" สำเร็จ! เลือกคู่เงินจาก Broker และกลยุทธ์ในหน้า Market ได้เลย`
+                          `SUBSCRIPTION CHECKOUT NOT CONFIGURED — "${plan.name}" เป็นเพียงแผนตัวอย่าง; ไม่มีการสมัคร ชำระเงิน หรือเปิดสิทธิ์สมาชิก`
                         );
                       }}
                       className={`mt-6 w-full py-2.5 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
@@ -3093,7 +2814,7 @@ export default function QuickitMarketFleetView({
                           : 'bg-white text-[#141522] hover:bg-slate-200'
                       }`}
                     >
-                      {isCurrent ? 'ใช้งานแพ็คเกจนี้ต่อในหน้า Market →' : `สมัคร ${plan.name} →`}
+                      {isCurrent ? 'แพ็กเกจตัวอย่างปัจจุบัน (ยังไม่สมัครสมาชิก)' : `ดูตัวอย่าง ${plan.name}`}
                     </button>
                   </div>
                 );
