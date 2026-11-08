@@ -608,8 +608,8 @@ async function startServer() {
     res.json({
       ok: true,
       timestamp: new Date().toISOString(),
-      safetyNotice: 'READ-ONLY DEMO FEED · LIVE TRADING OFF · EXNESS DEMO TARGET',
-      dataMode: 'DEMO_READONLY',
+      safetyNotice: 'SYNTHETIC DEMO DATA · NOT EXNESS MARKET DATA · LIVE TRADING OFF',
+      dataMode: 'SIMULATED_FEED',
       assets: [
         {
           symbol: 'XAU/USDm',
@@ -623,8 +623,8 @@ async function startServer() {
           spreadLabel: '1.2 pips',
           atr14: 16.4,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Synthetic demo values — not an authenticated market feed',
+          dataMode: 'SIMULATED_FEED',
         },
         {
           symbol: 'BTC/USDm',
@@ -830,441 +830,63 @@ async function startServer() {
       ok: true,
       symbol,
       timeframe,
-      dataMode: 'DEMO_READONLY_FEED',
+      dataMode: 'SIMULATED_FEED',
       bars,
     });
   });
 
-  // 2. Trading Intelligence & AI Models
+  // Model metrics are unavailable until signed model artifacts and evaluation reports exist.
   app.get('/api/intelligence/models', (_req, res) => {
-    res.json({
-      ok: true,
-      engineArchitecture: 'NOVA Multi-Agent Quantitative Intelligence Ensemble',
-      ensembleConfidencePct: 87.5,
-      marketRegimeDetected: 'BULLISH_EXPANSION_WITH_SMC_CONFLUENCE',
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      error: 'MODEL_ARTIFACTS_NOT_VERIFIED',
+      status: 'BLOCKED',
+      detail: 'No signed model artifacts, reproducible training runs, or out-of-sample evaluation reports are currently verified.',
       safetyPolicy: 'READ_ONLY_INTELLIGENCE_LAYER_NON_EXECUTABLE',
-      models: [
-        {
-          id: 'elliott-wave-3',
-          name: 'Elliott Wave 3 Impulse Engine',
-          tag: 'Harmonic & Fractal Waves',
-          status: 'ACTIVE',
-          accuracyPct: 84.6,
-          latencyMs: 3.2,
-          primaryMetricLabel: 'Fibonacci Target 1.618',
-          primaryMetricValue: '2,768.40',
-          highlights: [
-            'ตรวจพบ Subwave 3 ในระดับ Intermediate Degree',
-            'อัตราส่วน Fibonacci Extension: 161.8% ที่ 2,768.40',
-            'ระดับ Invalidation Level (จุดยกเลิกโครงสร้าง): 2,738.00',
-            'โมเมนตัม RSI 64.2 ไม่มีสัญญาณ Bearish Divergence',
-          ],
-          details: {
-            waveCycle: 'Cycle V -> Primary Wave 1 -> Intermediate Wave 3',
-            extensionRatio: 1.618,
-            invalidationPrice: 2738.0,
-            rsiMomentum: 64.2,
-          },
-          accentColor: 'amber',
-        },
-        {
-          id: 'xgboost-classifier',
-          name: 'XGBoost Trend & Volatility Classifier',
-          tag: 'Gradient Boosted Trees',
-          status: 'TRAINED',
-          accuracyPct: 79.2,
-          latencyMs: 1.8,
-          primaryMetricLabel: 'Validation Accuracy',
-          primaryMetricValue: '79.2%',
-          highlights: [
-            'โมเดลเทรนด้วย 300 Decision Trees (Max Depth 6)',
-            'Feature สำคัญอันดับ 1: Volume Delta (28.4%)',
-            'Feature สำคัญอันดับ 2: 4H Order Block Distance (22.1%)',
-            'AUC-ROC Score: 0.865 บนชุดข้อมูลทดสอบ Out-of-Sample',
-          ],
-          details: {
-            trees: 300,
-            maxDepth: 6,
-            aucRoc: 0.865,
-            topFeatures: ['Volume Delta', '4H OB Distance', '5m FVG Width', 'Realized Volatility'],
-          },
-          accentColor: 'emerald',
-        },
-        {
-          id: 'lstm-pytorch',
-          name: 'LSTM / PyTorch Deep Horizon Predictor',
-          tag: 'Deep Neural Sequences',
-          status: 'CONVERGED',
-          accuracyPct: 76.8,
-          latencyMs: 8.5,
-          primaryMetricLabel: 'Validation MSE Loss',
-          primaryMetricValue: '0.0142',
-          highlights: [
-            'สถาปัตยกรรม Bidirectional LSTM 2 ชั้น พร้อม Self-Attention',
-            'พยากรณ์กรอบราคา 4 ชั่วโมงข้างหน้า: มีแนวโน้มเชิงบวก +0.68%',
-            'ขนาด Latent Space: 128 มิติ ผ่านการ Fine-tune บน PyTorch 2.3',
-            'Dropout 0.2 ป้องกัน Overfitting ในช่วงตลาด Sideway',
-          ],
-          details: {
-            framework: 'PyTorch 2.3.0',
-            architecture: 'Bi-LSTM + Self-Attention (128 units)',
-            predictedHorizonDrift: '+0.68%',
-            mseLoss: 0.0142,
-          },
-          accentColor: 'purple',
-        },
-        {
-          id: 'smc-liquidity',
-          name: 'Smart Money Concepts (SMC) & FVG Engine',
-          tag: 'Institutional Order Flow',
-          status: 'ACTIVE',
-          accuracyPct: 88.0,
-          latencyMs: 2.1,
-          primaryMetricLabel: 'Order Block Mitigation',
-          primaryMetricValue: '72% Mitigated',
-          highlights: [
-            'ตรวจพบการกวาดสภาพคล่อง (Asian Low Liquidity Sweep) ที่ 2,739.10',
-            'กรอบ Order Block ฝั่งซื้อ (Bullish OB) แข็งแกร่งที่ 2,742.00 - 2,745.50',
-            'Fair Value Gap (FVG 15m) เติมเต็มครบแล้ว พร้อม Break of Structure',
-            'ระดับความน่าจะเป็นของการดีดตัว (Confluence Score): 5/5 ดาว',
-          ],
-          details: {
-            orderBlockRange: '2,742.00 - 2,745.50',
-            fvgRange: '2,746.20 - 2,747.80',
-            liquiditySwept: 'Asian Low (2,739.10)',
-            marketStructure: 'Bullish BOS Confirmed',
-          },
-          accentColor: 'cyan',
-        },
-        {
-          id: 'auto-learning-loop',
-          name: 'Auto-Learning & Regime Adaptation',
-          tag: 'Continual Online Learning',
-          status: 'CONTINUOUS_ADAPTATION',
-          accuracyPct: 82.5,
-          latencyMs: 12.0,
-          primaryMetricLabel: 'Concept Drift Score',
-          primaryMetricValue: '0.12 (Low Drift)',
-          highlights: [
-            'ใช้อัลกอริทึม Elastic Weight Consolidation (EWC) ป้องกันลืมข้อมูลเดิม',
-            'ตรวจสอบ Market Regime อัตโนมัติทุกๆ 18 วินาที',
-            'ปรับค่าน้ำหนัก Ensemble Models แบบไดนามิกตามสภาพความผันผวน',
-            'ซิงค์ผลการประเมินเข้าสู่ Feature Store อย่างต่อเนื่อง',
-          ],
-          details: {
-            algorithm: 'Elastic Weight Consolidation (EWC)',
-            driftScore: 0.12,
-            syncCycleSec: 18,
-            regimeStability: 'Stable High-Confidence Regime',
-          },
-          accentColor: 'indigo',
-        },
-        {
-          id: 'neural-network-ensemble',
-          name: 'Neural Network Meta-Analyst',
-          tag: 'Attention Weight Aggregator',
-          status: 'READY',
-          accuracyPct: 86.4,
-          latencyMs: 4.1,
-          primaryMetricLabel: 'Model Agreement',
-          primaryMetricValue: '5 of 6 (83%)',
-          highlights: [
-            'รวบรวมสัญญาณจากโมเดลทั้ง 5 ตัวด้วย Multi-Head Attention',
-            'คะแนนความเชื่อมั่นรวม (Ensemble Confidence): 87.5%',
-            'คำนวณ Multiplier ปรับลดความเสี่ยงอัตโนมัติ: 0.85x',
-            'Fail-Closed Hard Invariant: สัญญาณทั้งหมดเป็นคำแนะนำเชิงวิจัยเท่านั้น',
-          ],
-          details: {
-            confidenceScore: 0.875,
-            modelsAgreed: 5,
-            totalModels: 6,
-            safetyMode: 'NON_EXECUTABLE_ADVISORY',
-          },
-          accentColor: 'blue',
-        },
-      ],
     });
   });
 
-  // 3. Backtest Simulation Engine (Simulated Historical Strategy Tester)
-  app.post('/api/backtest/run', (req, res) => {
-    const {
-      strategyId = 'smc-mean-rejection',
-      symbol = 'XAU/USDm',
-      timeframe = '15m',
-      historicalPeriod = '1Y',
-      initialBalance = 10000,
-      riskPerTradePct = 1.0,
-    } = req.body || {};
-
-    const strategyNames: Record<string, string> = {
-      'smc-mean-rejection': 'SMC Mean Rejection & 4H Order Block Strategy',
-      'momentum-bos-ob': 'Momentum BOS + Liquidity Sweep Strategy',
-      'elliott-wave-impulse': 'Elliott Wave 3 Trend Extension Strategy',
-      'xgboost-volatility': 'XGBoost Multi-Factor Volatility Breakout',
-    };
-
-    const isHighYield = strategyId === 'smc-mean-rejection' || strategyId === 'momentum-bos-ob';
-    const totalTrades = isHighYield ? 138 : 112;
-    const winRatePct = isHighYield ? 63.8 : 58.4;
-    const profitFactor = isHighYield ? 2.18 : 1.84;
-    const netProfitPct = isHighYield ? 48.6 : 32.4;
-    const maxDrawdownPct = isHighYield ? 4.4 : 5.8;
-    const sharpeRatio = isHighYield ? 2.34 : 1.92;
-
-    const netProfit = Math.round(initialBalance * (netProfitPct / 100));
-    const finalBalance = initialBalance + netProfit;
-    const winningTrades = Math.round((totalTrades * winRatePct) / 100);
-    const losingTrades = totalTrades - winningTrades;
-
-    // Generate realistic simulated equity curve points
-    const equityCurve = [];
-    const pointsCount = 32;
-    let runningEquity = initialBalance;
-    let peakEquity = initialBalance;
-
-    for (let i = 0; i < pointsCount; i++) {
-      const progress = i / (pointsCount - 1);
-      const simulatedGain = (netProfit * progress) + Math.sin(i * 1.3) * (initialBalance * 0.015);
-      runningEquity = Math.round(initialBalance + simulatedGain);
-      if (runningEquity > peakEquity) peakEquity = runningEquity;
-      const dd = Math.max(0, Number((((peakEquity - runningEquity) / peakEquity) * 100).toFixed(2)));
-      const benchmark = Math.round(initialBalance * (1 + 0.12 * progress));
-
-      equityCurve.push({
-        date: `2026-M${Math.floor(i / 3) + 1}-D${(i % 28) + 1}`,
-        equity: runningEquity,
-        drawdownPct: dd,
-        benchmarkEquity: benchmark,
-      });
-    }
-
-    res.json({
-      ok: true,
-      strategyId,
-      strategyName: strategyNames[strategyId] || 'NOVA Adaptive Quant Strategy',
-      symbol,
-      timeframe,
-      initialBalance,
-      finalBalance,
-      netProfit,
-      netProfitPct,
-      profitFactor,
-      winRatePct,
-      maxDrawdownPct,
-      sharpeRatio,
-      totalTrades,
-      winningTrades,
-      losingTrades,
-      avgTradeDuration: '3 ชั่วโมง 45 นาที',
-      inSampleResults: {
-        datasetPct: 70,
-        winRatePct: Number((winRatePct + 1.8).toFixed(1)),
-        profitFactor: Number((profitFactor + 0.12).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct - 0.4).toFixed(1)),
-        trades: Math.round(totalTrades * 0.7),
-      },
-      outOfSampleResults: {
-        datasetPct: 30,
-        winRatePct: Number((winRatePct - 1.6).toFixed(1)),
-        profitFactor: Number((profitFactor - 0.14).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct + 0.5).toFixed(1)),
-        trades: Math.round(totalTrades * 0.3),
-        generalizationScorePct: 94.2,
-      },
-      equityCurve,
-      recentTrades: [
-        {
-          id: 'bt-tr-01',
-          timestamp: '2026-11-06 14:30',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2742.5,
-          exitPrice: 2758.0,
-          pnl: +465.0,
-          returnPct: +4.65,
-          holdTime: '4h 15m',
-          reason: 'Take Profit 2 (161.8% Fib Extension)',
-        },
-        {
-          id: 'bt-tr-02',
-          timestamp: '2026-11-05 09:15',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2736.0,
-          exitPrice: 2748.2,
-          pnl: +366.0,
-          returnPct: +3.66,
-          holdTime: '2h 50m',
-          reason: 'Take Profit 1 (SMC Liquidity Grab)',
-        },
-        {
-          id: 'bt-tr-03',
-          timestamp: '2026-11-04 18:40',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2741.0,
-          exitPrice: 2734.5,
-          pnl: -195.0,
-          returnPct: -1.95,
-          holdTime: '1h 10m',
-          reason: 'Stop Loss Hit (Risk Rule Enforced)',
-        },
-      ],
-      dataNotice: 'SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH',
+  // Backtest remains unavailable until real, provenance-verified OHLC and cost inputs are connected.
+  app.post('/api/backtest/run', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      error: 'BACKTEST_ENGINE_NOT_CONFIGURED',
+      status: 'BLOCKED',
+      detail: 'Backtest is disabled until verified Exness Demo OHLC, timezone/provenance, spread, commission, slippage, and OOS split artifacts are available.',
+      executionEnabled: false,
+      liveTradingEnabled: false,
     });
   });
 
-  // 4. Trading Infrastructure & Health
+  // Runtime health must come from authenticated service probes, not static success values.
   app.get('/api/infrastructure/health', (_req, res) => {
-    res.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      status: 'NOT_VERIFIED',
+      error: 'RUNTIME_HEALTH_EVIDENCE_UNAVAILABLE',
+      detail: 'No authenticated MT5 Demo session, broker read path, or live infrastructure probes are currently verified.',
       systemMode: 'FAIL_CLOSED_READONLY',
       liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
       mt5BridgeEnabled: false,
-      mt5Connection: {
-        status: 'STANDBY_DEMO_READY',
-        target: 'Exness MT5 Demo Terminal',
-        server: 'Exness-MT5Trial12 (Read-Only Catalogue)',
-        latencyMs: 14.2,
-        accountClass: 'Exness Demo (Read-Only)',
-        credentialsSecured: true,
-        orderExecutionBlocked: true,
-      },
-      brokerConnector: {
-        selectedBroker: 'Exness (MT5 Demo & REST Feed)',
-        protocol: 'Ed25519 Signed / Secure Gateway (Read-Only)',
-        supportedBrokers: ['Exness MT5 Demo', 'IC Markets REST', 'Binance Spot Read-Only', 'Bybit V5 Linear'],
-        directApiAvailable: true,
-      },
-      riskEngine: {
-        status: 'HARD_RULES_ENFORCED',
-        maxDrawdownCapPct: 5.0,
-        maxLotSizeLimit: 2.0,
-        maxMarginUsageLimitPct: 35.0,
-        maxRiskPerTradeLimitPct: 2.0,
-        failClosedGuardActive: true,
-        realMoneyWritesDisabled: true,
-      },
-      dataPipeline: {
-        status: 'OPTIMAL',
-        tickIngestionRatePerSec: 145,
-        redisBufferHitRatePct: 98.7,
-        featureStoreLatencyMs: 24.5,
-        schemaValidationPassPct: 100.0,
-      },
-      modelTrainingStatus: {
-        status: autoTrainState,
-        epoch: autoTrainEpoch,
-        activePair: activeTrainedPair,
-        samplesIngested: autoTrainSamples,
-        lastValidationAccPct: lastValidationAcc,
-        lastTrainedAt,
-      },
     });
   });
 
-  // 5. Learning Universe & Dataset Management
+  // Dataset and training history are not reported until provenance and run artifacts are verified.
   app.get('/api/learning/universe', (_req, res) => {
-    res.json({
-      ok: true,
-      featureStore: {
-        provider: 'Feast Feature Store on Apache Parquet',
-        monitoredSymbols: [
-          'XAU/USDm',
-          'BTC/USDm',
-          'EUR/USDm',
-          'GBP/USDm',
-          'USD/JPYm',
-          'ETH/USDm',
-          'SOL/USDm',
-          'AUD/USDm',
-          'USD/CADm',
-          'GBP/JPYm',
-          'XAG/USDm',
-          'TON/USDm',
-          'BNB/USDm',
-          'NZD/USDm',
-          'USD/CHFm',
-          'DOGE/USDm',
-        ],
-        totalSamplesStored: 1485000,
-        featureCategories: [
-          'Microstructure (VPIN, Order Book Imbalance, Tick Intensity)',
-          'SMC Signals (OB Distance, FVG Gap Width, BOS Flags)',
-          'Wave & Momentum (Fibonacci Extensions, Wavelet Energy, ATR)',
-          'Deep Latent Embeddings (Bi-LSTM 128-d, Attention Weights)',
-        ],
-        lastDataUpdateAt: new Date(Date.now() - 35 * 60000).toISOString(),
-        dailyUpdateStatus: 'SUCCESS_SYNCED',
-        nextScheduledUpdateAt: new Date(Date.now() + 4.5 * 3600000).toISOString(),
-      },
-      modelPerformanceByRegime: [
-        {
-          regimeName: 'Trending Bullish / Expansion',
-          description: 'ช่วงตลาดมีทิศทางชัดเจน ขับเคลื่อนด้วยคลื่นขยายตัว',
-          accuracyPct: 83.2,
-          f1Score: 0.84,
-          sampleCount: 524000,
-        },
-        {
-          regimeName: 'Range-bound / Asian Sideway',
-          description: 'ตลาดเคลื่อนไหวในกรอบแคบ รอการกวาดสภาพคล่อง',
-          accuracyPct: 78.5,
-          f1Score: 0.79,
-          sampleCount: 612000,
-        },
-        {
-          regimeName: 'High Volatility / News Event',
-          description: 'ช่วงประกาศตัวเลขเศรษฐกิจ ข่าว Fed/CPI ปรับลดความเสี่ยง',
-          accuracyPct: 74.6,
-          f1Score: 0.73,
-          sampleCount: 349000,
-        },
-      ],
-      trainingHistory: [
-        {
-          id: 'th-01',
-          timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-          pair: activeTrainedPair,
-          epoch: autoTrainEpoch,
-          trainingLoss: 0.0124,
-          validationAccuracyPct: lastValidationAcc,
-          durationSec: 14,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-02',
-          timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-          pair: 'BTC/USDm',
-          epoch: autoTrainEpoch - 1,
-          trainingLoss: 0.0148,
-          validationAccuracyPct: 81.5,
-          durationSec: 16,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-03',
-          timestamp: new Date(Date.now() - 75 * 60000).toISOString(),
-          pair: 'EUR/USDm',
-          epoch: autoTrainEpoch - 2,
-          trainingLoss: 0.0152,
-          validationAccuracyPct: 79.8,
-          durationSec: 12,
-          status: 'COMPLETED',
-        },
-      ],
-      autoUpdateJob: {
-        cadence: 'Daily at 00:00 UTC + Continuous Micro-updates every 18s',
-        automated: true,
-        healthPct: 100.0,
-        logs: [
-          'Feature Pipeline: 16 คู่หลักซิงค์ข้อมูลลง Parquet สำเร็จ',
-          'Schema Invariant: ผ่านการตรวจสอบ 0 corrupt frames',
-          'Auto-Train Daemon: ทำงานปกติ เชื่อมต่อ Real-Time WebSocket',
-        ],
-      },
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      status: 'BLOCKED',
+      error: 'VERIFIED_DATASET_NOT_AVAILABLE',
+      detail: 'The Exness XAUUSDm H1 dataset still requires gap recovery, UTC/provenance validation, and reproducible training/evaluation artifacts.',
+      samplesAvailable: null,
+      dailyUpdateEnabled: false,
+      autoTrainingEnabled: false,
     });
   });
 
