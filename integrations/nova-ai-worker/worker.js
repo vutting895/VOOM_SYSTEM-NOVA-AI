@@ -348,7 +348,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         ok: true, service: "voom-system-nova-ai", version: "1.1.0",
-        aiBinding: Boolean(env.AI), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
+        aiBinding: Boolean(env.AI), geminiConfigured: Boolean(env.GEMINI_API_KEY), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
         executionEnabled: false, liveTradingEnabled: false,
       }, 200, origin);
     }
@@ -390,7 +390,7 @@ export default {
       try {
         return json(await generateChat(env, messages), 200, origin);
       } catch (error) {
-        return fail(error.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
+        return fail(error?.code === "GEMINI_NOT_CONFIGURED" ? "gemini_not_configured" : "ai_provider_unavailable", 503, origin);
       }
     }
     const result = backtest(body);
