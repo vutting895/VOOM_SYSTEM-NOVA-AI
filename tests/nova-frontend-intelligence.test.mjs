@@ -20,6 +20,10 @@ test('market endpoints clearly classify generated values as synthetic demo data'
   assert.match(dashboard, /SYNTHETIC DEMO DATA ONLY/);
   assert.match(dashboard, /NOT LIVE MARKET DATA/);
   assert.doesNotMatch(dashboard, /EXNESS DEMO FEED · READ-ONLY/);
+  assert.doesNotMatch(overview, /Exness MT5 Demo Terminal|dataMode: 'DEMO_READONLY'/);
+  assert.match(overview, /dataClassification: 'SYNTHETIC_DEMO_SCENARIO'/);
+  assert.equal((overview.match(/dataClassification: 'SYNTHETIC_DEMO_SCENARIO'/g) || []).length, 4);
+  assert.doesNotMatch(overview, /dataClassification: 'DEMO_READONLY_SIGNAL'/);
 });
 
 test('unverified model performance, backtest, infrastructure, and dataset endpoints fail closed', () => {
@@ -55,4 +59,36 @@ test('backtest UI states the real-data evidence gate before displaying performan
   assert.match(backtest, /Backtest ถูกปิดไว้ชั่วคราว/);
   assert.match(backtest, /spread, commission และ slippage/);
   assert.match(backtest, /VERIFIED BACKTEST UNAVAILABLE/);
+});
+
+
+test('chat, Gen-AI, and approvals never emit synthetic trade metrics or approval success', () => {
+  const chatRoute = server.slice(server.indexOf("app.post('/api/chat'"), server.indexOf("app.post('/api/agent/approvals/decision'"));
+  const approvalRoute = server.slice(server.indexOf("app.post('/api/agent/approvals/decision'"), server.indexOf("app.post('/api/gen-ai/generate'"));
+  const genAiRoute = server.slice(server.indexOf("app.post('/api/gen-ai/generate'"), server.indexOf('// 5-LAYER ZERO-MENU'));
+  assert.match(chatRoute, /status\(503\)/);
+  assert.match(chatRoute, /MARKET_MODEL_EVIDENCE_NOT_VERIFIED/);
+  assert.doesNotMatch(chatRoute, /tftConfidence|recommendedLots|stopLossPrice|takeProfitPrice|runSyntheticResearchScenario/);
+  assert.match(approvalRoute, /status\(403\)/);
+  assert.match(approvalRoute, /APPROVAL_MUTATIONS_DISABLED/);
+  assert.doesNotMatch(approvalRoute, /APPROVED_SIMULATION_QUEUED|REJECTED_BY_USER/);
+  assert.match(genAiRoute, /status\(503\)/);
+  assert.match(genAiRoute, /GEN_AI_RESEARCH_RUNTIME_NOT_VERIFIED/);
+  assert.doesNotMatch(genAiRoute, /recommendedLots|takeProfitPct|stopLossPct|runSyntheticResearchScenario/);
+});
+
+test('intent dispatcher blocks market/account reads and only serves static fixtures', () => {
+  const route = server.slice(server.indexOf("app.post('/api/intent/dispatch'"), server.indexOf('// Approval resolution is research-only'));
+  assert.match(route, /MARKET_OR_ACCOUNT_SOURCE_NOT_VERIFIED/);
+  assert.match(route, /status: 'BLOCKED'/);
+  assert.match(route, /STATIC_RESEARCH_FIXTURE_ONLY/);
+  assert.match(route, /quantTelemetry: null/);
+  assert.doesNotMatch(route, /runSyntheticResearchScenario|validateHardRiskRules|latencyMs: 1\.4|price: quant/);
+});
+
+test('settings never claim unpersisted configuration has been saved', () => {
+  assert.match(settings, /ยังไม่ได้บันทึกลงระบบ/);
+  assert.match(settings, /บันทึกไม่ได้ · ยังไม่มี Backend Persistence/);
+  assert.doesNotMatch(settings, /เรียบร้อยแล้ว/);
+  assert.doesNotMatch(settings, /handleTriggerBackendTrain|Exness Direct Feed|· เทรนซ้ำ/);
 });
