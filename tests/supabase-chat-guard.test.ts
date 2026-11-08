@@ -116,13 +116,17 @@ test("per-user limiter bounds request frequency and concurrent Gemini calls", ()
 
 const serverSource = await readFile(new URL("../server.ts", import.meta.url), "utf8");
 
-test("NOVA chat verifies Supabase identity before parsing JSON and before route execution", () => {
-  const guardIndex = serverSource.indexOf("app.use('/api/chat', createSupabaseChatGuard());");
-  const parserIndex = serverSource.indexOf("app.use(express.json());", guardIndex);
-  const routeIndex = serverSource.indexOf("app.post('/api/chat'", parserIndex);
+test("all NOVA Gemini text routes share one Supabase auth and user-rate guard before JSON parsing", () => {
+  const guardIndex = serverSource.indexOf("const aiRequestGuard = createSupabaseChatGuard();");
+  const mountIndex = serverSource.indexOf("app.use(['/api/chat', '/api/gen-ai/generate'], aiRequestGuard);");
+  const parserIndex = serverSource.indexOf("app.use(express.json());", mountIndex);
+  const chatRouteIndex = serverSource.indexOf("app.post('/api/chat'", parserIndex);
+  const strategyRouteIndex = serverSource.indexOf("app.post('/api/gen-ai/generate'", parserIndex);
   assert.notEqual(guardIndex, -1);
-  assert.ok(parserIndex > guardIndex);
-  assert.ok(routeIndex > parserIndex);
+  assert.ok(mountIndex > guardIndex);
+  assert.ok(parserIndex > mountIndex);
+  assert.ok(chatRouteIndex > parserIndex);
+  assert.ok(strategyRouteIndex > parserIndex);
 });
 
 test("NOVA chat separates untrusted user data from system instructions", () => {
