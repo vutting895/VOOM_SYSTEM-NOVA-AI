@@ -142,3 +142,15 @@ test('unverified automatic training and synthetic training telemetry are disable
   assert.match(server, /modelPerformanceByRegime: \[\]/);
   assert.match(server, /trainingHistory: \[\]/);
 });
+
+test('market and model endpoints fail closed while their payloads are static or unverified', () => {
+  const guard = section(server, '// Market and model payloads below are static research fixtures', 'app.use(express.json())');
+  assert.match(guard, /\/api\/market\/overview/);
+  assert.match(guard, /\/api\/market\/candlesticks/);
+  assert.match(guard, /\/api\/intelligence\/models/);
+  assert.match(guard, /status\(503\)/);
+  assert.match(guard, /market_data_source_unverified/);
+  assert.match(guard, /STATIC_SAMPLE_UNVERIFIED/);
+  assert.match(guard, /trainingEligible: false/);
+  assert.doesNotMatch(guard, /feedSource:\s*'Exness MT5 Demo Terminal'/);
+});
