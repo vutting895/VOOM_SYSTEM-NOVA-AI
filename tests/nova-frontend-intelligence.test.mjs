@@ -23,8 +23,8 @@ test('market endpoints clearly classify generated values as synthetic demo data'
 });
 
 test('unverified model performance, backtest, infrastructure, and dataset endpoints fail closed', () => {
-  const modelRoute = server.slice(server.indexOf("app.get('/api/intelligence/models'"), server.indexOf('// 3. Backtest Simulation'));
-  const backtestRoute = server.slice(server.indexOf("app.post('/api/backtest/run'"), server.indexOf('// 4. Trading Infrastructure'));
+  const modelRoute = server.slice(server.indexOf("app.get('/api/intelligence/models'"), server.indexOf('// Backtest remains unavailable'));
+  const backtestRoute = server.slice(server.indexOf('// Backtest remains unavailable'), server.indexOf('// 4. Trading Infrastructure'));
   const infraRoute = server.slice(server.indexOf("app.get('/api/infrastructure/health'"), server.indexOf('// 5. Learning Universe'));
   const learningRoute = server.slice(server.indexOf("app.get('/api/learning/universe'"), server.indexOf('// Hybrid Architecture Endpoint'));
 
