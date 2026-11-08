@@ -2,13 +2,22 @@ import React, { useEffect, useState } from 'react';
 import {
   Activity,
   Bot,
+  Check,
   CheckCircle2,
+  Cloud,
+  Copy,
   Cpu,
+  ExternalLink,
+  Globe,
   KeyRound,
   RefreshCw,
+  Search,
+  Server,
   Settings,
   ShieldCheck,
   Sliders,
+  Sparkles,
+  Terminal,
   Zap,
 } from 'lucide-react';
 const BROKER_PROVIDERS = [
@@ -92,6 +101,53 @@ export default function SystemSettingsView() {
   const [maxDailyDrawdownPct, setMaxDailyDrawdownPct] = useState<string>('3.0');
   const [defaultLotSize, setDefaultLotSize] = useState<string>('0.35');
 
+  // 3.1 Kaggle MCP Server State
+  const [kaggleStatus, setKaggleStatus] = useState<any>({
+    serverUrl: 'https://www.kaggle.com/mcp',
+    transport: 'streamable-http',
+    protocolVersion: '2025-03-26',
+    auth: {
+      type: 'OAuth 2.0 & Token (KGAT)',
+      configured: true,
+      tokenMasked: 'KGAT-••••••••••••••••••••••••••••••••',
+    },
+    computeQuota: {
+      gpu: {
+        type: 'NVIDIA Tesla T4 x2 (16GB VRAM)',
+        totalWeeklyHours: 30,
+        remainingHours: 26.5,
+        status: 'READY',
+      },
+      tpu: {
+        type: 'Google Cloud TPU v3-8 Pods',
+        totalWeeklyHours: 20,
+        remainingHours: 18.2,
+        status: 'READY',
+      },
+      internetAccess: true,
+    },
+    toolsCount: 10,
+    tools: [
+      { name: 'search_notebooks', desc: 'ค้นหา Quant & ML Notebooks บน Kaggle ตามคีย์เวิร์ด' },
+      { name: 'get_notebook_info', desc: 'ดึงซอร์สโค้ดและ Metadata ของ Notebook' },
+      { name: 'create_notebook_session', desc: 'เปิด Interactive Session บน Cloud GPU' },
+      { name: 'get_notebook_session_status', desc: 'เช็คสถานะการเทรน (QUEUED, RUNNING, COMPLETE)' },
+      { name: 'save_notebook', desc: 'บันทึกและรัน Notebook ทั้งไฟล์ (Commit & Run)' },
+      { name: 'list_notebook_files', desc: 'ดูรายการไฟล์ข้อมูลและ Model Weights ใน Notebook' },
+      { name: 'list_notebook_session_output', desc: 'ดูไฟล์ Output และ Logs การเทรน' },
+      { name: 'download_notebook_output', desc: 'ขอ URL ดาวน์โหลดไฟล์ผลลัพธ์' },
+      { name: 'download_notebook_output_zip', desc: 'ดาวน์โหลด Checkpoints ทั้งหมดเป็น ZIP' },
+      { name: 'cancel_notebook_session', desc: 'ยกเลิก Session เพื่อประหยัดโควตา GPU' },
+    ],
+    lastPingMs: 42,
+  });
+  const [kaggleQuery, setKaggleQuery] = useState('Forex SMC');
+  const [kaggleNotebooks, setKaggleNotebooks] = useState<any[]>([]);
+  const [kaggleSearching, setKaggleSearching] = useState(false);
+  const [kaggleTriggering, setKaggleTriggering] = useState<string | null>(null);
+  const [activeConfigTab, setActiveConfigTab] = useState<'gemini' | 'claude' | 'vscode' | 'windsurf'>('gemini');
+  const [configCopied, setConfigCopied] = useState(false);
+
   useEffect(() => {
     fetch('/api/auto-train/status', { cache: 'no-store' })
       .then((r) => r.json())
@@ -99,7 +155,54 @@ export default function SystemSettingsView() {
         if (data?.statusNotification) setAutoTrainNotice(data.statusNotification);
       })
       .catch(() => {});
+
+    fetch('/api/mcp/kaggle/status', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.ok) setKaggleStatus(data);
+      })
+      .catch(() => {});
+
+    handleSearchKaggleNotebooks('Forex SMC');
   }, []);
+
+  function handleSearchKaggleNotebooks(q: string) {
+    setKaggleSearching(true);
+    fetch('/api/mcp/kaggle/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.notebooks) setKaggleNotebooks(data.notebooks);
+      })
+      .catch(() => {})
+      .finally(() => setKaggleSearching(false));
+  }
+
+  function handleTriggerKaggleSession(slug: string, machine: string = 'NVIDIA T4 x2 Dual GPU') {
+    setKaggleTriggering(slug);
+    fetch('/api/mcp/kaggle/session/trigger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, machine_shape: machine }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.message) {
+          notifySaved(`🚀 Kaggle MCP: ${data.message}`);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setKaggleTriggering(null));
+  }
+
+  function copyConfigText(text: string) {
+    navigator.clipboard?.writeText(text);
+    setConfigCopied(true);
+    setTimeout(() => setConfigCopied(false), 2000);
+  }
 
   function notifySaved(msg: string) {
     setSaveBanner(msg);

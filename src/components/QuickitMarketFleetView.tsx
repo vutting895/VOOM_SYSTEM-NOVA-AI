@@ -29,6 +29,22 @@ import NovaChatOSView from './NovaChatOSView';
 import SystemSettingsView from './SystemSettingsView';
 import LiveTradingTerminalView from './LiveTradingTerminalView';
 import NovaProWorkspaceView from './NovaProWorkspaceView';
+import TradingDashboardView from './dashboard/TradingDashboardView';
+import TradingIntelligenceView from './intelligence/TradingIntelligenceView';
+import BacktestSimulatorView from './backtest/BacktestSimulatorView';
+import TradingInfrastructureView from './infrastructure/TradingInfrastructureView';
+import LearningUniverseView from './learning/LearningUniverseView';
+
+export type TabId =
+  | 'dashboard'
+  | 'intelligence'
+  | 'backtest'
+  | 'infrastructure'
+  | 'learning'
+  | 'market'
+  | 'trading'
+  | 'portfolio'
+  | 'settings';
 
 export type SubscriptionPlanId = 'free' | 'pro' | 'elite';
 
@@ -688,11 +704,9 @@ const ANALYTICS_SERIES: Record<'5D' | '7D' | '1M' | '1Y' | 'All', { points: numb
 export default function QuickitMarketFleetView({
   initialTab = 'dashboard',
 }: {
-  initialTab?: 'dashboard' | 'market' | 'trading' | 'portfolio' | 'settings';
+  initialTab?: TabId;
 }) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'market' | 'trading' | 'portfolio' | 'settings'>(
-    initialTab
-  );
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [assetCategoryFilter, setAssetCategoryFilter] = useState<'all' | 'crypto' | 'forex'>('crypto');
   const [analyticsRange, setAnalyticsRange] = useState<'5D' | '7D' | '1M' | '1Y' | 'All'>('5D');
@@ -1213,10 +1227,13 @@ export default function QuickitMarketFleetView({
               >
                 {(
                   [
-                    { id: 'dashboard', label: 'Dashboard' },
-                    { id: 'market', label: 'Market', badge: `AI Fleet (${runningBotsCount}/${fleetBots.length})` },
-                    { id: 'trading', label: 'Trading' },
-                    { id: 'portfolio', label: 'Portfolio' },
+                    { id: 'dashboard', label: '1. Dashboard' },
+                    { id: 'intelligence', label: '2. Intelligence' },
+                    { id: 'backtest', label: '3. Backtest' },
+                    { id: 'infrastructure', label: '4. Infrastructure' },
+                    { id: 'learning', label: '5. Learning Universe' },
+                    { id: 'market', label: 'Fleet Market', badge: `Fleet (${runningBotsCount}/${fleetBots.length})` },
+                    { id: 'trading', label: 'Research Chat' },
                     { id: 'settings', label: 'Settings' },
                   ] as const
                 ).map((tab) => {
@@ -1331,10 +1348,20 @@ export default function QuickitMarketFleetView({
           )}
 
           {/* =====================================================================
-              TAB 1: DASHBOARD (Matches Image 1 — Quickit Luxury Dark Dashboard)
+              TAB 1: TRADING DASHBOARD (Market Overview, XAUUSDm/BTCUSD, Candlestick Chart, Signals, AI Analysis)
              ===================================================================== */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              <TradingDashboardView />
+
+              <div className="pt-6 border-t border-white/[0.08]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-white tracking-wide font-mono uppercase">
+                    Portfolio & Multi-Asset Monitor (Quickit Luxury Overview)
+                  </h3>
+                  <span className="text-xs text-slate-400 font-mono">Portfolio Assets</span>
+                </div>
+              </div>
               {/* TOP ROW: Top Trading Assets (Left 8 cols) + Portfolio Overview Donut (Right 4 cols) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Left Card: Top Trading Assets */}
@@ -1843,8 +1870,27 @@ export default function QuickitMarketFleetView({
           )}
 
           {/* =====================================================================
-              TAB 2: MARKET (Matches Image 2 — AI Auto Trading Fleet SMC WAVE v6.2
-              + Step 1: Fetch & Select Pair from Logged-in Broker -> Step 2: Select Strategy)
+              TAB 2: TRADING INTELLIGENCE (Elliott Wave 3, XGBoost, LSTM, SMC, Auto-Learning, Neural Net)
+             ===================================================================== */}
+          {activeTab === 'intelligence' && <TradingIntelligenceView />}
+
+          {/* =====================================================================
+              TAB 3: BACKTEST (Historical Data, Strategy Testing, Equity Curve, Drawdown, Out-of-Sample)
+             ===================================================================== */}
+          {activeTab === 'backtest' && <BacktestSimulatorView />}
+
+          {/* =====================================================================
+              TAB 4: TRADING INFRASTRUCTURE (MT5 Status, Exness Demo, Connector, Risk Engine, Pipeline)
+             ===================================================================== */}
+          {activeTab === 'infrastructure' && <TradingInfrastructureView />}
+
+          {/* =====================================================================
+              TAB 5: LEARNING UNIVERSE (Dataset Management, Model Performance, Training History, Daily Update)
+             ===================================================================== */}
+          {activeTab === 'learning' && <LearningUniverseView />}
+
+          {/* =====================================================================
+              TAB: FLEET MARKET (Matches Image 2 — AI Auto Trading Fleet SMC WAVE v6.2)
              ===================================================================== */}
           {activeTab === 'market' && (
             <div className="rounded-[24px] bg-[#0B0C0E] border border-white/[0.08] p-4 sm:p-6 space-y-5 text-slate-100">

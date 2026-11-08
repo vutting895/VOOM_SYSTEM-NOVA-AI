@@ -7,7 +7,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<QuickitMarketFleetView initialTab="dashboard" />} />
+      <Route path="/dashboard" element={<QuickitMarketFleetView initialTab="dashboard" />} />
       <Route path="/overview" element={<QuickitMarketFleetView initialTab="dashboard" />} />
+      <Route path="/intelligence" element={<QuickitMarketFleetView initialTab="intelligence" />} />
+      <Route path="/backtest" element={<QuickitMarketFleetView initialTab="backtest" />} />
+      <Route path="/infrastructure" element={<QuickitMarketFleetView initialTab="infrastructure" />} />
+      <Route path="/learning" element={<QuickitMarketFleetView initialTab="learning" />} />
       <Route path="/markets" element={<QuickitMarketFleetView initialTab="market" />} />
       <Route path="/marketplace" element={<QuickitMarketFleetView initialTab="market" />} />
       <Route path="/strategies" element={<QuickitMarketFleetView initialTab="market" />} />
