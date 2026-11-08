@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { novaApi } from '../../api/apiClient';
 import { MarketOverviewResponse, CandlestickBar, MarketAssetQuote, TradingSignal } from '../../api/types';
 import CandlestickChart from './CandlestickChart';
+import MarketSentimentWidget from './MarketSentimentWidget';
 import ReadonlySafetyBadge from '../common/ReadonlySafetyBadge';
 import { LoadingSpinner, ErrorView } from '../common/StateViews';
+import BrokerConnectionModal from '../auth/BrokerConnectionModal';
 import {
   TrendingUp,
   TrendingDown,
@@ -16,12 +18,14 @@ import {
   Sliders,
   CheckCircle2,
   AlertTriangle,
+  Lock,
 } from 'lucide-react';
 
 export default function TradingDashboardView() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [overviewData, setOverviewData] = useState<MarketOverviewResponse | null>(null);
+  const [showConnectModal, setShowConnectModal] = useState<boolean>(false);
 
   const [selectedSymbol, setSelectedSymbol] = useState<string>('XAU/USDm');
   const [timeframe, setTimeframe] = useState<string>('15m');
@@ -96,14 +100,24 @@ export default function TradingDashboardView() {
               Market Overview (ภาพรวมตลาด Exness Demo)
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={fetchData}
-            className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            รีเฟรชราคา
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowConnectModal(true)}
+              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors font-bold font-mono"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              LOGIN BROKER
+            </button>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              รีเฟรชราคา
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -263,6 +277,11 @@ export default function TradingDashboardView() {
             </div>
           </div>
 
+          <MarketSentimentWidget
+            sentimentScore={overviewData.analysis.sentimentScore}
+            volatilityScore={overviewData.analysis.volatilityScore}
+          />
+
           <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <span>
@@ -336,6 +355,8 @@ export default function TradingDashboardView() {
           })}
         </div>
       </div>
+      {/* Broker Connection Modal */}
+      <BrokerConnectionModal isOpen={showConnectModal} onClose={() => setShowConnectModal(false)} />
     </div>
   );
 }

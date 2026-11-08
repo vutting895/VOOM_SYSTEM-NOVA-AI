@@ -23,6 +23,19 @@
   }
 }
 
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 35s linear infinite;
+}
+
 /* Custom subtle scrollbars for high-density data tables and chat */
 ::-webkit-scrollbar {
   width: 6px;

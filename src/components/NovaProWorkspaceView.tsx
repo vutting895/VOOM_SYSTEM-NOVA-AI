@@ -22,6 +22,8 @@ import {
   Zap,
 } from 'lucide-react';
 import NovaChatOSView from './NovaChatOSView';
+import { marketService } from '../services/marketService';
+import { MarketAssetQuote } from '../api/types';
 
 interface CalendarDayItem {
   day: number;
@@ -104,7 +106,7 @@ export default function NovaProWorkspaceView() {
   const navigate = useNavigate();
   const [activeSubView, setActiveSubView] = useState<
     'nova-chat-os' | 'voom-portfolio' | 'dynamic-grid-calendar' | 'ai-workflow-command'
-  >('nova-chat-os');
+  >('voom-portfolio');
 
   // Exness Connect Modal (Image 4 style)
   const [showExnessModal, setShowExnessModal] = useState(false);
@@ -134,6 +136,23 @@ export default function NovaProWorkspaceView() {
   const [autoBotLastAction, setAutoBotLastAction] = useState<string>(
     'Auto-Bot ทำงานอยู่: สแกน XAU/USDm H1 (VQC P=74.2%, VPIN=0.71) · เปิด/ปิดออเดอร์อัตโนมัติโดยไม่ต้องกดมือ'
   );
+
+  // Live API Market Data Integration
+  const [liveAssets, setLiveAssets] = useState<MarketAssetQuote[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    marketService.getMarketOverview().then((res) => {
+      if (isMounted && res && res.assets) {
+        setLiveAssets(res.assets);
+      }
+    }).catch(() => {
+      // Fallback silently if offline
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (executionMode !== 'full-auto' || !gridRunning) return;
