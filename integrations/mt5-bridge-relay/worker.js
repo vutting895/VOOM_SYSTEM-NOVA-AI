@@ -128,8 +128,8 @@ export function validateReadRequest(url) {
   if (
     !Number.isFinite(startMs) ||
     !Number.isFinite(endMs) ||
-    new Date(startMs).toISOString() !== start ||
-    new Date(endMs).toISOString() !== end ||
+    new Date(startMs).toISOString().replace(".000Z", "Z") !== start ||
+    new Date(endMs).toISOString().replace(".000Z", "Z") !== end ||
     startMs >= endMs
   ) return { ok: false, error: "invalid_history_range" };
   const normalizedTimeframe = (timeframe || "H1").toUpperCase();
