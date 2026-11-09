@@ -103,7 +103,7 @@ def normalize_read_path(value: object) -> str:
         end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
         max_days = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 180, "D1": 730}[timeframe]
         if start_dt >= end_dt or (end_dt - start_dt).total_seconds() > max_days * 86400:
-            raise ValueError("History range is invalid or too large."
+            raise ValueError("History range is invalid or too large.")
 
     return parsed.path + (("?" + urlencode({key: items[0] for key, items in params.items()})) if params else "")
 
