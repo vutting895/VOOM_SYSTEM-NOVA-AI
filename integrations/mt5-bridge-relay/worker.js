@@ -4,7 +4,7 @@ const BASE = {
   "Referrer-Policy": "no-referrer"
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
-const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes", "/api/history"]);
 const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
@@ -89,7 +89,9 @@ export function validateReadRequest(url) {
 
   const allowedKeys = url.pathname === "/api/symbols"
     ? new Set(["q", "limit"])
-    : new Set(["symbol", "timeframe", "count"]);
+    : url.pathname === "/api/quotes"
+      ? new Set(["symbol", "timeframe", "count"])
+      : new Set(["symbol", "timeframe", "start_utc", "end_utc"]);
   if (keys.some((key) => !allowedKeys.has(key))) {
     return { ok: false, error: "query_parameter_not_allowed" };
   }
@@ -115,9 +117,18 @@ export function validateReadRequest(url) {
   if (timeframe === undefined || (timeframe !== null && !TIMEFRAMES.has(timeframe.toUpperCase()))) {
     return { ok: false, error: "invalid_timeframe" };
   }
-  if (count !== null && (count === undefined || !/^\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) {
-    return { ok: false, error: "invalid_count" };
+  if (url.pathname === "/api/quotes") {
+    if (count !== null && (count === undefined || !/^\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) return { ok: false, error: "invalid_count" };
+    return { ok: true };
   }
+  const start = singleParam(url, "start_utc"), end = singleParam(url, "end_utc");
+  const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  if (start === undefined || end === undefined || !isoUtc.test(start || "") || !isoUtc.test(end || "")) return { ok: false, error: "invalid_history_range" };
+  const startMs = Date.parse(start), endMs = Date.parse(end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) return { ok: false, error: "invalid_history_range" };
+  const normalizedTimeframe = (timeframe || "H1").toUpperCase();
+  const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[normalizedTimeframe];
+  if ((endMs - startMs) > maxDays * 86400000) return { ok: false, error: "history_window_too_large" };
   return { ok: true };
 }
 
