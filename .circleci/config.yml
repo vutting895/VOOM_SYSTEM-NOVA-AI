@@ -1,0 +1,29 @@
+version: 2.1
+
+jobs:
+  mt5-relay-tests:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - checkout
+      - run:
+          name: Validate tenant-isolated MT5 relay Worker
+          command: node --test integrations/mt5-bridge-relay/worker.test.mjs
+
+  mt5-bridge-python-checks:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Compile MT5 Bridge and outbound relay client
+          command: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+      - run:
+          name: Run tenant guard contract tests
+          command: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+
+workflows:
+  mt5-readonly-validation:
+    jobs:
+      - mt5-relay-tests
+      - mt5-bridge-python-checks
