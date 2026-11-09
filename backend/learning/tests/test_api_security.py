@@ -1,7 +1,12 @@
 """Fail-closed authentication tests for Learning Engine API routes."""
 from fastapi import HTTPException
 
-from backend.learning.api import require_learning_approver, require_learning_user, router
+from backend.learning.api import (
+    require_learning_approver,
+    require_learning_evaluator,
+    require_learning_user,
+    router,
+)
 
 
 def test_learning_api_authentication_dependency_fails_closed():
@@ -34,3 +39,20 @@ def test_all_data_routes_require_authenticated_learning_user():
         assert path in routes
         dependency_calls = {dependency.call for dependency in routes[path].dependant.dependencies}
         assert require_learning_user in dependency_calls, f"{path} is missing owner/tenant authentication"
+
+
+def test_candidate_registration_requires_trusted_evaluator():
+    try:
+        require_learning_evaluator()
+    except HTTPException as exc:
+        assert exc.status_code == 503
+        assert "trusted evaluator authentication" in exc.detail
+    else:
+        raise AssertionError("Candidate registration must remain disabled without trusted evaluator identity")
+
+
+def test_candidate_registration_route_uses_evaluator_dependency():
+    route = next(route for route in router.routes if route.path == "/learning/models/candidates")
+    dependency_calls = {dependency.call for dependency in route.dependant.dependencies}
+    assert require_learning_evaluator in dependency_calls
+    assert require_learning_user not in dependency_calls
