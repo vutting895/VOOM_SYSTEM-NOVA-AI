@@ -78,6 +78,12 @@ class InspectorUnitTests(unittest.TestCase):
         self.assertFalse(complete)
         self.assertEqual(len(items), 2)
 
+    @patch.object(MODULE, "request_json")
+    def test_circleci_rejects_malformed_pagination_response(self, request):
+        request.return_value = ["not", "an", "object"]
+        with self.assertRaises(MODULE.InspectorError):
+            fetch_circleci_items("https://circleci.test/pipeline", {})
+
     def test_diff_scan_blocks_incomplete_file_coverage(self):
         self.assertEqual(classify_diff_scan(0, False, 0), "BLOCKED")
 
