@@ -62,7 +62,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
@@ -72,6 +72,8 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+        self.assertIn("copy_rates_range", SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
 
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
