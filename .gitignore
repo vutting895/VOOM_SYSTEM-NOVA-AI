@@ -17,6 +17,14 @@ frontend/out/
 *.log
 *.sqlite3
 data/
+# NOVA model outputs and training caches - keep binary weights out of Git
+artifacts/
+models/
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.onnx
 # OS/editor
 .DS_Store
 Thumbs.db
