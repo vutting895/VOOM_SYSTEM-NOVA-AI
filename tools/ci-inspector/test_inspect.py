@@ -133,6 +133,33 @@ class InspectorUnitTests(unittest.TestCase):
     def test_commit_status_pending_is_blocked(self):
         self.assertEqual(classify_commit_statuses([{"state": "pending"}], []), "BLOCKED")
 
+    def test_provider_configuration_error_is_blocked_not_test_failure(self):
+        status = {
+            "state": "error",
+            "description": "No configuration was found in your project.",
+            "context": "CircleCI Pipeline",
+        }
+        self.assertEqual(classify_commit_statuses([status], []), "BLOCKED")
+
+    def test_unrelated_commit_status_error_still_fails(self):
+        status = {"state": "error", "description": "Internal provider error"}
+        self.assertEqual(classify_commit_statuses([status], []), "FAIL")
+
+    def test_failed_check_without_runner_is_blocked(self):
+        checks = [{"name": "Python unit tests and syntax validation",
+                   "status": "completed", "conclusion": "failure"}]
+        self.assertEqual(
+            classify_github_check_runs(
+                checks, True, {"Python unit tests and syntax validation"}
+            ),
+            "BLOCKED",
+        )
+
+    def test_failed_check_with_runner_evidence_still_fails(self):
+        checks = [{"name": "Python unit tests and syntax validation",
+                   "status": "completed", "conclusion": "failure"}]
+        self.assertEqual(classify_github_check_runs(checks, True), "FAIL")
+
     @patch.object(MODULE, "request_json")
     def test_github_check_runs_follow_pagination(self, request):
         request.side_effect = [
