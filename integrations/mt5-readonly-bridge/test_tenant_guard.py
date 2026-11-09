@@ -80,10 +80,12 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_data_read_requires_connected_exness_demo_terminal(self):
         terminal_guard = SOURCE[SOURCE.index("def get_terminal_and_account"):SOURCE.index("def timeframe_value")]
-        self.assertIn('getattr(terminal, "connected", False)', terminal_guard)
-        self.assertIn("ACCOUNT_TRADE_MODE_DEMO", terminal_guard)
-        self.assertIn('"exness" not in f"{server_name} {company_name}".lower()', terminal_guard)
-        self.assertIn("Only an Exness Demo MT5 terminal is permitted.", terminal_guard)
+        self.assertIn("validate_exness_demo_terminal(", terminal_guard)
+        self.assertIn('getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None)', terminal_guard)
+        contract = Path(__file__).with_name("terminal_contract.py").read_text(encoding="utf-8")
+        self.assertIn('getattr(terminal, "connected", False)', contract)
+        self.assertIn("demo_trade_mode is None", contract)
+        self.assertIn('"exness" not in f"{server_name} {company_name}".lower()', contract)
 
     def test_history_endpoint_uses_pure_market_data_integrity_validator(self):
         self.assertIn("from history_contract import serialize_history_rates", SOURCE)
