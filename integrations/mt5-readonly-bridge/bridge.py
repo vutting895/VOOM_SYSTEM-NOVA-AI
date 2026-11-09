@@ -30,6 +30,18 @@ MAX_HISTORY_BARS = 2000
 MAX_HISTORY_DAYS = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 180, "D1": 730}
 LOCK = threading.RLock()
 
+
+def read_only_metadata() -> dict[str, Any]:
+    """Capabilities exposed by this bridge; terminal permissions never enable API execution."""
+    return {
+        "mode": "read-only",
+        "order_submission_enabled": False,
+        "ordersEnabled": False,
+        "executionEnabled": False,
+        "liveTradingEnabled": False,
+    }
+
+
 app = FastAPI(
     title=APP_NAME,
     version="1.0.0",
@@ -53,12 +65,12 @@ async def enforce_read_only(request: Request, call_next):
     if re.search(r"/(orders?|trades?|execute|withdraw|transfer)(/|$)", request.url.path, re.I):
         return JSONResponse(
             status_code=403,
-            content={"error": "forbidden", "mode": "read-only", "order_submission_enabled": False},
+            content={"error": "forbidden", **read_only_metadata()},
         )
     if request.method not in {"GET", "OPTIONS"}:
         return JSONResponse(
             status_code=405,
-            content={"error": "method_not_allowed", "mode": "read-only"},
+            content={"error": "method_not_allowed", **read_only_metadata()},
         )
     return await call_next(request)
 
@@ -134,8 +146,7 @@ def health(authorization: str | None = Header(default=None), tenant_id: str | No
             "status": "ok",
             "terminal_connected": bool(terminal.connected),
             "account_session_available": account is not None,
-            "mode": "read-only",
-            "order_submission_enabled": False,
+            **read_only_metadata(),
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -154,9 +165,8 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "margin": float(account.margin),
             "free_margin": float(account.margin_free),
             "margin_level": float(account.margin_level) if account.margin_level else None,
-            "terminal_trade_allowed": bool(terminal.trade_allowed),
-            "order_submission_enabled": False,
-            "mode": "read-only",
+            "terminal_trade_allowed_by_terminal": bool(terminal.trade_allowed),
+            **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -189,6 +199,7 @@ def symbols(
             ],
             "count": min(len(found), limit),
             "truncated": len(found) > limit,
+            **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -238,8 +249,7 @@ def quotes(
             },
             "bars": bars,
             "count": len(bars),
-            "mode": "read-only",
-            "order_submission_enabled": False,
+            **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -294,7 +304,6 @@ def history(
             "start_utc": start.isoformat().replace("+00:00", "Z"),
             "end_utc": end.isoformat().replace("+00:00", "Z"),
             "bars": bars, "count": len(bars), "account_environment": "EXNESS_DEMO",
-            "mode": "read-only", "order_submission_enabled": False,
-            "ordersEnabled": False, "liveTradingEnabled": False,
+            **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
