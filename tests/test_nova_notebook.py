@@ -13,14 +13,21 @@ def load_notebook():
 
 
 def validator_namespace():
+    """Load only the pure OHLCV validator; never execute Bridge/secret setup in CI."""
     notebook = load_notebook()
     cell = next(
         cell for cell in notebook["cells"]
         if cell["cell_type"] == "code"
         and "def validate_ohlcv" in "".join(cell["source"])
     )
+    tree = ast.parse("".join(cell["source"]), filename=str(NOTEBOOK))
+    validator = next(
+        node for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "validate_ohlcv"
+    )
     namespace = {"pd": pd}
-    exec(compile("".join(cell["source"]), str(NOTEBOOK), "exec"), namespace)
+    module = ast.Module(body=[validator], type_ignores=[])
+    exec(compile(module, str(NOTEBOOK), "exec"), namespace)
     return namespace
 
 
