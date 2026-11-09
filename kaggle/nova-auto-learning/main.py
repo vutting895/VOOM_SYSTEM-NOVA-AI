@@ -60,8 +60,6 @@ def run(command: list[str], *, cwd: Path | None = None, env=None) -> None:
 
 def main() -> None:
     github_token = secret("GITHUB_READ_TOKEN")
-    hf_token = secret("HF_TOKEN")
-    model_repo = secret("HF_MODEL_REPO_ID")
     dataset_id = secret("NOVA_DATASET_ID")
     approved = (secret("NOVA_TRAINING_APPROVED") or "").lower()
     approved_dataset_sha = secret("NOVA_APPROVED_DATASET_SHA256")
@@ -100,8 +98,6 @@ def main() -> None:
             )
 
         run([sys.executable, "-m", "pip", "install", "-r", str(requirements)])
-        env["HF_TOKEN"] = hf_token
-        env["HF_MODEL_REPO_ID"] = model_repo
         env["NOVA_GIT_SHA"] = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
         ).strip()
