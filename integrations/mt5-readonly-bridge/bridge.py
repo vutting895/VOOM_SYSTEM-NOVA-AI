@@ -146,6 +146,7 @@ def health(authorization: str | None = Header(default=None), tenant_id: str | No
             "status": "ok",
             "terminal_connected": bool(terminal.connected),
             "account_session_available": account is not None,
+            "account_environment": "EXNESS_DEMO",
             **read_only_metadata(),
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -159,6 +160,7 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         return {
             "connected": bool(terminal.connected),
             "server": str(getattr(account, "server", "")),
+            "account_environment": "EXNESS_DEMO",
             "currency": str(getattr(account, "currency", "")),
             "balance": float(account.balance),
             "equity": float(account.equity),
@@ -199,6 +201,7 @@ def symbols(
             ],
             "count": min(len(found), limit),
             "truncated": len(found) > limit,
+            "account_environment": "EXNESS_DEMO",
             **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
@@ -241,6 +244,7 @@ def quotes(
             "symbol": symbol,
             "timeframe": timeframe.upper(),
             "digits": int(info.digits),
+            "account_environment": "EXNESS_DEMO",
             "tick": None if tick is None else {
                 "bid": float(tick.bid),
                 "ask": float(tick.ask),
