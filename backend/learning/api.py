@@ -40,6 +40,14 @@ def require_learning_user() -> str:
     )
 
 
+def require_learning_evaluator() -> str:
+    """Fail closed until a trusted internal evaluator identity is configured."""
+    raise HTTPException(
+        status_code=503,
+        detail="Candidate registration is disabled until trusted evaluator authentication is configured",
+    )
+
+
 def require_learning_approver() -> str:
     """Fail closed until the host injects its authenticated approver/RBAC check."""
     raise HTTPException(
@@ -101,7 +109,7 @@ def performance_summary(strategy_id: str | None = None, environment: str | None 
 @router.post("/models/candidates", status_code=201)
 def register_candidate(
     body: CandidateIn,
-    _actor: str = Depends(require_learning_user),
+    _evaluator: str = Depends(require_learning_evaluator),
     db: Session = Depends(get_learning_session),
 ):
     try:
