@@ -133,7 +133,7 @@ def status_item(name: str, status: str, detail: str, url: str | None = None) -> 
 
 def fetch_github_actions_runner_evidence(
     base_url: str, sha: str, headers: dict[str, str], max_runs: int = 10
- ) -> tuple[set[str], list[dict[str, Any]]]:
+) -> tuple[set[str], list[dict[str, Any]]]:
     """Identify failed Actions jobs that never acquired a runner (runner_id=0, no steps)."""
     unavailable: set[str] = set()
     evidence: list[dict[str, Any]] = []
