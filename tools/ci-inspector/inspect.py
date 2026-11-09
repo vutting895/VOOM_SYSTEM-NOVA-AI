@@ -318,7 +318,34 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
         return {"items": [status_item("CircleCI", "BLOCKED", str(exc))], "data": {"pipelines": [], "jobs": []}}
 
 
-def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -> dict[str, Any]:
+NETLIFY_SAFE_FIELDS = (
+    "id", "state", "context", "commit_ref", "branch", "deploy_url",
+    "deploy_ssl_url", "admin_url", "created_at", "commit_url", "review_id",
+)
+
+
+def sanitize_netlify_deploy(deploy: dict[str, Any]) -> dict[str, Any]:
+    """Whitelist deploy metadata; Netlify responses may contain private deploy tokens."""
+    safe = {key: deploy.get(key) for key in NETLIFY_SAFE_FIELDS if deploy.get(key) is not None}
+    safe["error_message"] = redact_sensitive_text(str(deploy.get("error_message") or ""))[:500]
+    return safe
+
+
+def classify_netlify_deploy(deploy: dict[str, Any], expected_sha: str,
+                            expected_branch: str) -> str:
+    if deploy.get("commit_ref") != expected_sha:
+        return "BLOCKED"
+    if deploy.get("context") != "deploy-preview" or deploy.get("branch") != expected_branch:
+        return "BLOCKED"
+    state = deploy.get("state")
+    if state == "ready":
+        return "PASS"
+    if state == "error":
+        return "FAIL"
+    return "BLOCKED"
+
+
+def inspect_netlify(site_id: str | None, expected_sha: str, expected_branch: str, token: str | None) -> dict[str, Any]:
     if not site_id or not token:
         missing = "NETLIFY_SITE_ID" if not site_id else "NETLIFY_AUTH_TOKEN"
         return {"items": [status_item("Netlify Preview", "BLOCKED", f"{missing} is not set; no Netlify API request was made.")],
@@ -346,15 +373,12 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
             return {"items": [status_item("Netlify exact SHA", missing_status,
                 f"No deploy found for expected commit {expected_sha[:12]}; "
                 f"pagination_complete={deploys_complete}",
-                f"https://app.netlify.com/sites/{site_id}/deploys")], "data": {"deploys": deploys[:10]}}
+                f"https://app.netlify.com/sites/{site_id}/deploys")], "data": {"deploys": [sanitize_netlify_deploy(item) for item in deploys[:10]]}}
         deploy = exact[0]
         state = deploy.get("state")
-        status = "PASS" if state == "ready" else ("FAIL" if state == "error" else "BLOCKED")
-        safe_fields = ("id", "state", "context", "commit_ref", "branch", "deploy_url",
-                       "deploy_ssl_url", "admin_url", "created_at", "commit_url", "review_id")
-        safe_deploy = {key: deploy.get(key) for key in safe_fields if deploy.get(key) is not None}
-        error_message = redact_sensitive_text(str(deploy.get("error_message") or ""))[:500]
-        safe_deploy["error_message"] = error_message
+        status = classify_netlify_deploy(deploy, expected_sha, expected_branch)
+        safe_deploy = sanitize_netlify_deploy(deploy)
+        error_message = safe_deploy["error_message"]
         return {"items": [status_item("Netlify exact SHA", status,
             f"Deploy state={state}; context={deploy.get('context')}; commit={expected_sha[:12]}; {error_message}".strip(),
             deploy.get("deploy_ssl_url") or deploy.get("admin_url"))],
@@ -374,7 +398,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         return {"generated_at": now, "repository": args.repo, "pr": args.pr,
                 "overall": "BLOCKED", "sections": [{"name": "GitHub", "items": [status_item("GitHub", "BLOCKED", str(exc))], "data": {}}]}
     circle = inspect_circleci(args.repo, refs["head_ref"], refs["head_sha"], circle_token)
-    netlify = inspect_netlify(args.netlify_site_id or os.getenv("NETLIFY_SITE_ID"), refs["head_sha"], netlify_token)
+    netlify = inspect_netlify(args.netlify_site_id or os.getenv("NETLIFY_SITE_ID"), refs["head_sha"], refs["head_ref"], netlify_token)
     sections = [
         {"name": "GitHub", **github},
         {"name": "CircleCI", **circle},
