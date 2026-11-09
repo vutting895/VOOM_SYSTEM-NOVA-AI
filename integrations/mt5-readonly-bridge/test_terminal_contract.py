@@ -13,7 +13,7 @@ DEMO = 0
 
 class TerminalContractTests(unittest.TestCase):
     def test_accepts_connected_exness_demo(self):
-        terminal = SimpleNamespace(connected=True, company="Exness Technologies Ltd")
+        terminal = SimpleNamespace(connected=True, company="MetaQuotes")
         account = SimpleNamespace(trade_mode=DEMO, server="Exness-MT5Trial")
         self.assertTrue(validate_exness_demo_terminal(terminal, account, DEMO))
 
@@ -38,6 +38,12 @@ class TerminalContractTests(unittest.TestCase):
     def test_rejects_demo_account_on_non_exness_server(self):
         terminal = SimpleNamespace(connected=True, company="MetaQuotes")
         account = SimpleNamespace(trade_mode=DEMO, server="Broker-Demo")
+        with self.assertRaises(AccountNotExnessDemo):
+            validate_exness_demo_terminal(terminal, account, DEMO)
+
+    def test_terminal_company_cannot_override_non_exness_account_server(self):
+        terminal = SimpleNamespace(connected=True, company="Exness Technologies Ltd")
+        account = SimpleNamespace(trade_mode=DEMO, server="OtherBroker-Demo")
         with self.assertRaises(AccountNotExnessDemo):
             validate_exness_demo_terminal(terminal, account, DEMO)
 
