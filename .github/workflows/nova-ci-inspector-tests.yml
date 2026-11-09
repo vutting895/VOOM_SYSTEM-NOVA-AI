@@ -30,5 +30,16 @@ jobs:
           python-version: "3.12"
       - name: Compile inspector
         run: python -m py_compile tools/ci-inspector/inspect.py tools/ci-inspector/test_inspect.py
-      - name: Run unit tests
-        run: python -m unittest discover -s tools/ci-inspector -p 'test_*.py' -v
+      - name: Run unit tests with retained output
+        shell: bash
+        run: |
+          set -o pipefail
+          python -X faulthandler -m unittest discover -s tools/ci-inspector -p 'test_*.py' -v 2>&1 | tee inspector-test-output.txt
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-inspector-test-output
+          path: inspector-test-output.txt
+          if-no-files-found: warn
+          retention-days: 7
