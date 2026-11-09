@@ -260,7 +260,7 @@ def main() -> int:
     parser.add_argument("--repo", default="vutting895/VOOM_SYSTEM-NOVA-AI")
     parser.add_argument("--pr", type=int, required=True)
     parser.add_argument("--netlify-site-id", default=None)
-    parser.add_argument("--output", type=Path, default=Path("reports/ci-inspector-latest.json"))
+    parser.add_argument("--output", type=Path, default=Path.home() / ".cache/nova-ci-inspector/report.json")
     parser.add_argument("--serve", action="store_true", help="serve the static dashboard after writing the report")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
