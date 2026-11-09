@@ -143,3 +143,48 @@ test("a wrong bearer token cannot attach to a tenant session", () => {
   const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
 });
+
+
+test("history route is proxied only to the authenticated tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, method: req.method, headers: req.headers };
+    return Response.json({ symbol: "XAUUSDm", timeframe: "H1", bars: [], mode: "read-only" });
+  });
+  const query = "symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z";
+  const response = await worker.fetch(request("/api/history?" + query, {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.method, "GET");
+  assert.equal(observed.url.origin, "https://bridge-session.internal");
+  assert.equal(observed.url.pathname, "/api/history");
+  assert.equal(observed.url.search, "?" + query);
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  assert.equal(observed.headers.get("Authorization"), null);
+});
+
+test("history route rejects oversized ranges and non-GET methods before proxying", async () => {
+  let proxied = false;
+  const env = makeEnv(async () => {
+    proxied = true;
+    return Response.json({ ok: true });
+  });
+  const oversized = request(
+    "/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-03-03T00:00:00Z",
+    { token: TOKEN, tenant: TENANT_ID }
+  );
+  const rejectedRange = await worker.fetch(oversized, env);
+  assert.equal(rejectedRange.status, 400);
+  assert.equal((await rejectedRange.json()).error, "history_window_too_large");
+
+  const rejectedMethod = await worker.fetch(request(
+    "/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z",
+    { method: "POST", token: TOKEN, tenant: TENANT_ID }
+  ), env);
+  assert.equal(rejectedMethod.status, 405);
+  assert.equal(proxied, false);
+});
