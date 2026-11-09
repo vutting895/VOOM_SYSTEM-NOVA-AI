@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import MetaTrader5 as mt5
+from history_contract import serialize_history_rates
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -283,15 +284,11 @@ def history(
         if rates is None:
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
-        if len(rates) > MAX_HISTORY_BARS:
-            raise HTTPException(status_code=413, detail="Too many bars; reduce the requested window")
-        bars = [{
-            "time": datetime.fromtimestamp(int(rate["time"]), timezone.utc).isoformat().replace("+00:00", "Z"),
-            "open": float(rate["open"]), "high": float(rate["high"]),
-            "low": float(rate["low"]), "close": float(rate["close"]),
-            "tick_volume": int(rate["tick_volume"]), "spread": int(rate["spread"]),
-            "real_volume": int(rate["real_volume"]),
-        } for rate in rates]
+        try:
+            bars = serialize_history_rates(rates, start, end, MAX_HISTORY_BARS)
+        except (ValueError, TypeError, KeyError, OverflowError):
+            # Do not expose malformed broker payloads as trusted historical market data.
+            raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
         return {
             "symbol": symbol, "timeframe": tf, "digits": int(info.digits),
             "start_utc": start.isoformat().replace("+00:00", "Z"),
