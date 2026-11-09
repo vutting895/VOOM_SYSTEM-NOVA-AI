@@ -46,3 +46,16 @@ def test_dataset_manifest_paths_are_repository_relative():
     for relative_path in namespace["DATASET_MANIFESTS"].values():
         assert not Path(relative_path).is_absolute()
         assert ".." not in Path(relative_path).parts
+
+
+def test_kaggle_training_requires_h1_and_sha_bound_human_approval():
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert 'secret("NOVA_TRAINING_APPROVED")' in source
+    assert 'secret("NOVA_APPROVED_DATASET_SHA256")' in source
+    assert 'secret("NOVA_APPROVED_CODE_SHA")' in source
+    assert 'dataset_id != "exness_xauusdm_h1_3y"' in source
+    assert '"--training-approved"' in source
+    assert '"--approved-dataset-sha256"' in source
+    assert '"--approved-code-sha"' in source
+    assert 'or "exness_xauusdm_m15"' not in source
+    assert '"--upload-to-hf"' not in source
