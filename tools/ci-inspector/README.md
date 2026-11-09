@@ -35,7 +35,7 @@ Then open http://127.0.0.1:8765. The dashboard binds to loopback only. Press Ctr
 - `BLOCKED`: evidence or credentials are unavailable, the PR is draft, checks are pending/canceled, or an API cannot be queried.
 - `STALE`: provider history was completely searched but no pipeline/deploy matches the exact PR head SHA.
 
-GitHub Check Runs are paginated (up to 10 pages); incomplete pagination blocks a PASS. Empty GitHub Commit Status contexts do not fail by themselves when GitHub Check Runs exist; CircleCI is independently inspected through its own API. The PR merge-readiness check is informational and does not replace required reviews or branch protection.
+GitHub Check Runs are paginated (up to 10 pages); incomplete pagination blocks a PASS. Netlify deployments must match the exact commit SHA, source branch, and `deploy-preview` context; production deploys are never counted as preview evidence. Empty GitHub Commit Status contexts do not fail by themselves when GitHub Check Runs exist; CircleCI is independently inspected through its own API. The PR merge-readiness check is informational and does not replace required reviews or branch protection.
 
 A global PASS means every collected check passed; missing provider credentials prevent PASS. GitHub's PR comparison, check-runs, and diff scan are separate evidence items. The secret scan is heuristic and scans available diff hunks only; it is not a substitute for GitHub secret scanning or a human security review.
 
@@ -47,7 +47,7 @@ A global PASS means every collected check passed; missing provider credentials p
 - Does not deploy, change environment variables, create secrets, or change billing.
 - Does not access broker APIs or execute trading operations.
 - Dashboard is local-only; do not expose it to a public network.
-- API error messages are truncated and common credential-shaped strings are redacted before inclusion in reports; still review generated reports before sharing.
+- API error messages are truncated and common credential-shaped strings are redacted before inclusion in reports. Netlify deploy records are field-whitelisted to exclude private deploy tokens and user identifiers; still review generated reports before sharing.
 - CircleCI job URLs are restricted to HTTPS before the dashboard renders them.
 
 ## Tests
