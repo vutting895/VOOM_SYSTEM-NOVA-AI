@@ -16,6 +16,8 @@ classify_commit_statuses = MODULE.classify_commit_statuses
 fetch_github_check_runs = MODULE.fetch_github_check_runs
 count_secret_matches = MODULE.count_secret_matches
 redact_sensitive_text = MODULE.redact_sensitive_text
+classify_netlify_deploy = MODULE.classify_netlify_deploy
+sanitize_netlify_deploy = MODULE.sanitize_netlify_deploy
 
 
 class InspectorUnitTests(unittest.TestCase):
@@ -148,6 +150,33 @@ class InspectorUnitTests(unittest.TestCase):
         runs, complete = fetch_github_check_runs("https://api.github.test/repos/a/b", "sha", {}, max_pages=2)
         self.assertFalse(complete)
         self.assertEqual(len(runs), 200)
+
+
+    def test_netlify_preview_requires_exact_sha_and_branch(self):
+        deploy = {"commit_ref": "abc123", "branch": "feature", "context": "deploy-preview", "state": "ready"}
+        self.assertEqual(classify_netlify_deploy(deploy, "abc123", "feature"), "PASS")
+        self.assertEqual(classify_netlify_deploy(deploy, "other", "feature"), "BLOCKED")
+        self.assertEqual(classify_netlify_deploy(deploy, "abc123", "other"), "BLOCKED")
+
+    def test_netlify_production_deploy_is_not_a_preview_pass(self):
+        deploy = {"commit_ref": "abc123", "branch": "main", "context": "production", "state": "ready"}
+        self.assertEqual(classify_netlify_deploy(deploy, "abc123", "main"), "BLOCKED")
+
+    def test_netlify_error_state_fails_exact_preview(self):
+        deploy = {"commit_ref": "abc123", "branch": "feature", "context": "deploy-preview", "state": "error"}
+        self.assertEqual(classify_netlify_deploy(deploy, "abc123", "feature"), "FAIL")
+
+    def test_netlify_report_whitelist_excludes_private_deploy_token(self):
+        deploy = {
+            "id": "deploy-1", "state": "ready", "context": "deploy-preview",
+            "commit_ref": "abc123", "branch": "feature",
+            "skew_protection_token": "private-token-value",
+            "user_id": "private-user-id",
+        }
+        safe = sanitize_netlify_deploy(deploy)
+        self.assertNotIn("skew_protection_token", safe)
+        self.assertNotIn("user_id", safe)
+        self.assertEqual(safe["commit_ref"], "abc123")
 
 
 if __name__ == "__main__":
