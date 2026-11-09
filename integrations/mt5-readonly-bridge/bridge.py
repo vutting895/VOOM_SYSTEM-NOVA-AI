@@ -9,6 +9,7 @@ from typing import Any
 
 import MetaTrader5 as mt5
 from history_contract import serialize_history_rates
+from terminal_contract import AccountNotExnessDemo, TerminalUnavailable, validate_exness_demo_terminal
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -100,23 +101,16 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         initialize_mt5()
         terminal = mt5.terminal_info()
         account = mt5.account_info()
-        if terminal is None:
-            raise HTTPException(status_code=503, detail="MT5 terminal status unavailable")
-        if not bool(getattr(terminal, "connected", False)):
-            raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
-        if account is None:
-            raise HTTPException(status_code=503, detail="No MT5 account session detected")
-
-        # Restrict this tenant-bound terminal to Exness Demo only.
-        trade_mode = getattr(account, "trade_mode", None)
-        demo_mode = getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None)
-        server_name = str(getattr(account, "server", "") or "")
-        company_name = str(getattr(terminal, "company", "") or "")
-        if trade_mode != demo_mode or "exness" not in f"{server_name} {company_name}".lower():
-            raise HTTPException(
-                status_code=403,
-                detail="Only an Exness Demo MT5 terminal is permitted.",
+        try:
+            validate_exness_demo_terminal(
+                terminal,
+                account,
+                getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None),
             )
+        except TerminalUnavailable as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from None
+        except AccountNotExnessDemo as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from None
         return terminal, account
 
 
