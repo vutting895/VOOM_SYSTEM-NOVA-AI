@@ -153,7 +153,24 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     return {"items": items, "data": pr_data}, {"head_sha": head_sha, "head_ref": head_ref}
 
 
-def classify_circleci_status(workflows: list[dict[str, Any]], jobs: list[dict[str, Any]]) -> str:
+def fetch_circleci_items(url: str, headers: dict[str, str], max_pages: int = 10) -> tuple[list[dict[str, Any]], bool]:
+    """Fetch a bounded CircleCI v2 paginated collection without silently truncating it."""
+    items: list[dict[str, Any]] = []
+    page_token: str | None = None
+    for _ in range(max_pages):
+        page_url = url
+        if page_token:
+            separator = "&" if "?" in page_url else "?"
+            page_url += separator + urllib.parse.urlencode({"page-token": page_token})
+        payload = request_json(page_url, headers)
+        items.extend(payload.get("items", []))
+        page_token = payload.get("next_page_token")
+        if not page_token:
+            return items, True
+    return items, False
+
+
+def classify_circleci_status(workflows: list[dict[str, Any]], jobs: list[dict[str, Any]], evidence_complete: bool = True) -> str:
     workflow_statuses = [w.get("status") for w in workflows]
     failures = [j for j in jobs if j.get("status") in ("failed", "error", "unauthorized")]
     failures.extend(s for s in workflow_statuses if s in ("failed", "error"))
@@ -161,7 +178,7 @@ def classify_circleci_status(workflows: list[dict[str, Any]], jobs: list[dict[st
     non_success_workflows = [s for s in workflow_statuses if s != "success"]
     if failures:
         return "FAIL"
-    if not workflows or not jobs or non_success_jobs or non_success_workflows:
+    if not evidence_complete or not workflows or not jobs or non_success_jobs or non_success_workflows:
         return "BLOCKED"
     return "PASS"
 
@@ -182,18 +199,26 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
     slug = urllib.parse.quote(f"gh/{owner}/{name}", safe="/")
     headers = {"Circle-Token": token}
     try:
-        payload = request_json(f"{API_CIRCLECI}/project/{slug}/pipeline?branch={urllib.parse.quote(branch)}", headers)
-        pipelines = payload.get("items", [])
+        pipeline_url = f"{API_CIRCLECI}/project/{slug}/pipeline?branch={urllib.parse.quote(branch)}"
+        pipelines, pipelines_complete = fetch_circleci_items(pipeline_url, headers)
         matching = next((p for p in pipelines if p.get("vcs", {}).get("revision") == expected_sha), None)
         if not matching:
             latest_sha = pipelines[0].get("vcs", {}).get("revision") if pipelines else None
-            return {"items": [status_item("CircleCI exact SHA", "STALE" if latest_sha else "BLOCKED",
-                f"No pipeline found for expected {expected_sha[:12]}; latest branch revision={str(latest_sha)[:12]}")],
+            no_match_status = "STALE" if pipelines_complete and latest_sha else "BLOCKED"
+            return {"items": [status_item("CircleCI exact SHA", no_match_status,
+                f"No pipeline found for expected {expected_sha[:12]}; "
+                f"latest branch revision={str(latest_sha)[:12]}; pagination_complete={pipelines_complete}")],
                 "data": {"pipelines": pipelines[:10], "jobs": []}}
-        workflows = request_json(f"{API_CIRCLECI}/pipeline/{matching['id']}/workflow", headers).get("items", [])
+        workflows, workflows_complete = fetch_circleci_items(
+            f"{API_CIRCLECI}/pipeline/{matching['id']}/workflow", headers
+        )
         jobs = []
+        jobs_complete = True
         for workflow in workflows:
-            workflow_jobs = request_json(f"{API_CIRCLECI}/workflow/{workflow['id']}/job", headers).get("items", [])
+            workflow_jobs, workflow_jobs_complete = fetch_circleci_items(
+                f"{API_CIRCLECI}/workflow/{workflow['id']}/job", headers
+            )
+            jobs_complete = jobs_complete and workflow_jobs_complete
             for job in workflow_jobs:
                 jobs.append({"name": job.get("name"), "status": job.get("status"),
                              "job_number": job.get("job_number"), "url": job.get("web_url"),
@@ -203,11 +228,12 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
         failures.extend(s for s in workflow_statuses if s in ("failed", "error"))
         non_success_jobs = [j for j in jobs if j.get("status") != "success"]
         non_success_workflows = [s for s in workflow_statuses if s != "success"]
-        status = classify_circleci_status(workflows, jobs)
+        status = classify_circleci_status(workflows, jobs, pipelines_complete and workflows_complete and jobs_complete)
         return {"items": [status_item("CircleCI exact SHA", status,
             f"Pipeline {matching.get('number')} revision={expected_sha[:12]}; "
             f"workflows={len(workflows)}, jobs={len(jobs)}, failed={len(failures)}, "
-            f"non_success_jobs={len(non_success_jobs)}, non_success_workflows={len(non_success_workflows)}",
+            f"non_success_jobs={len(non_success_jobs)}, non_success_workflows={len(non_success_workflows)}, "
+            f"pagination_complete={pipelines_complete and workflows_complete and jobs_complete}",
             f"https://app.circleci.com/pipelines/gh/{owner}/{name}/{matching.get('number')}")],
             "data": {"pipelines": [matching], "jobs": jobs}}
     except (InspectorError, KeyError, ValueError) as exc:
@@ -220,12 +246,28 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
         return {"items": [status_item("Netlify Preview", "BLOCKED", f"{missing} is not set; no Netlify API request was made.")],
                 "data": {"deploys": []}}
     try:
-        deploys = request_json(f"{API_NETLIFY}/sites/{urllib.parse.quote(site_id, safe='')}/deploys?per_page=30",
-                               {"Authorization": f"Bearer {token}"})
-        exact = [d for d in deploys if d.get("commit_ref") == expected_sha]
+        headers = {"Authorization": f"Bearer {token}"}
+        deploys: list[dict[str, Any]] = []
+        exact: list[dict[str, Any]] = []
+        deploys_complete = False
+        for page in range(1, 11):
+            page_url = (f"{API_NETLIFY}/sites/{urllib.parse.quote(site_id, safe='')}/deploys"
+                        f"?per_page=100&page={page}")
+            batch = request_json(page_url, headers)
+            if not isinstance(batch, list):
+                break
+            deploys.extend(batch)
+            exact = [d for d in batch if d.get("commit_ref") == expected_sha]
+            if exact:
+                break
+            if len(batch) < 100:
+                deploys_complete = True
+                break
         if not exact:
-            return {"items": [status_item("Netlify exact SHA", "STALE",
-                f"No deploy found for expected commit {expected_sha[:12]}",
+            missing_status = "STALE" if deploys_complete else "BLOCKED"
+            return {"items": [status_item("Netlify exact SHA", missing_status,
+                f"No deploy found for expected commit {expected_sha[:12]}; "
+                f"pagination_complete={deploys_complete}",
                 f"https://app.netlify.com/sites/{site_id}/deploys")], "data": {"deploys": deploys[:10]}}
         deploy = exact[0]
         state = deploy.get("state")
