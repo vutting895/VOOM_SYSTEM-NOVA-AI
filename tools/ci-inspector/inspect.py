@@ -68,16 +68,16 @@ def count_secret_matches(value: str) -> int:
 def classify_github_check_runs(
     check_runs: list[dict[str, Any]],
     complete: bool = True,
-    runner_unavailable_names: set[str] | None = None,
+    runner_unavailable_ids: set[str] | None = None,
 ) -> str:
-    runner_unavailable_names = runner_unavailable_names or set()
+    runner_unavailable_ids = runner_unavailable_ids or set()
     failures = [
         run for run in check_runs
         if run.get("status") == "completed"
         and run.get("conclusion") not in ("success", "neutral", "skipped")
-        and run.get("name") not in runner_unavailable_names
+        and str(run.get("id")) not in runner_unavailable_ids
     ]
-    unavailable = [run for run in check_runs if run.get("name") in runner_unavailable_names]
+    unavailable = [run for run in check_runs if str(run.get("id")) in runner_unavailable_ids]
     pending = [run for run in check_runs if run.get("status") != "completed"]
     if failures:
         return "FAIL"
@@ -133,7 +133,7 @@ def status_item(name: str, status: str, detail: str, url: str | None = None) -> 
 
 def fetch_github_actions_runner_evidence(
     base_url: str, sha: str, headers: dict[str, str], max_runs: int = 10
-) -> tuple[set[str], list[dict[str, Any]]]:
+ ) -> tuple[set[str], list[dict[str, Any]]]:
     """Identify failed Actions jobs that never acquired a runner (runner_id=0, no steps)."""
     unavailable: set[str] = set()
     evidence: list[dict[str, Any]] = []
@@ -159,9 +159,11 @@ def fetch_github_actions_runner_evidence(
                     and not job.get("steps")
                 )
                 if no_runner and job.get("name"):
-                    unavailable.add(str(job["name"]))
+                    job_id = job.get("id")
+                    if job_id is not None:
+                        unavailable.add(str(job_id))
                     evidence.append({
-                        "name": job.get("name"), "run_id": run_id,
+                        "name": job.get("name"), "run_id": run_id, "check_run_id": job_id,
                         "runner_id": job.get("runner_id"), "runner_name": job.get("runner_name"),
                         "steps": len(job.get("steps") or []), "conclusion": job.get("conclusion"),
                         "url": job.get("html_url"),
@@ -248,9 +250,9 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     ))
 
     check_runs, check_runs_complete = fetch_github_check_runs(base, head_sha, headers)
-    unavailable_runner_names, runner_evidence = fetch_github_actions_runner_evidence(base, head_sha, headers)
+    unavailable_runner_ids, runner_evidence = fetch_github_actions_runner_evidence(base, head_sha, headers)
     check_status = classify_github_check_runs(
-        check_runs, check_runs_complete, unavailable_runner_names
+        check_runs, check_runs_complete, unavailable_runner_ids
     )
     bad = [c for c in check_runs if c.get("status") == "completed" and c.get("conclusion") not in ("success", "neutral", "skipped")]
     pending = [c for c in check_runs if c.get("status") != "completed"]
