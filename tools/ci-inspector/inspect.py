@@ -113,6 +113,17 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
         f"https://github.com/{repo}/commit/{head_sha}/checks",
     ))
 
+    commit_status = request_json(f"{base}/commits/{head_sha}/status", headers)
+    statuses = commit_status.get("statuses", [])
+    status_failures = [s for s in statuses if s.get("state") in ("failure", "error")]
+    status_pending = [s for s in statuses if s.get("state") == "pending"]
+    items.append(status_item(
+        "GitHub Commit Statuses",
+        "FAIL" if status_failures else ("BLOCKED" if not statuses or status_pending else "PASS"),
+        f"{len(statuses)} status contexts; {len(status_failures)} failed; {len(status_pending)} pending on {head_sha[:12]}",
+        f"https://github.com/{repo}/commit/{head_sha}",
+    ))
+
     pr_data = {
         "number": pr_number, "url": pr.get("html_url"), "title": pr.get("title"),
         "state": pr.get("state"), "draft": pr.get("draft"), "merged": pr.get("merged"),
@@ -124,6 +135,9 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
         "checks": [{"name": c.get("name"), "status": c.get("status"),
                     "conclusion": c.get("conclusion"), "url": c.get("details_url")}
                    for c in check_runs],
+        "commit_statuses": [{"context": s.get("context"), "state": s.get("state"),
+                             "url": s.get("target_url")}
+                            for s in statuses],
     }
     return {"items": items, "data": pr_data}, {"head_sha": head_sha, "head_ref": head_ref}
 
