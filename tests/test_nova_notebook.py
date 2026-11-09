@@ -31,7 +31,11 @@ class NotebookStructureTests(unittest.TestCase):
             for cell in load_notebook()["cells"]
             if cell["cell_type"] == "code"
         )
+        self.assertIn("RUN_TRAINING = False", source)
         self.assertIn("RUN_LSTM = False", source)
+        self.assertIn("if RUN_TRAINING:", source)
+        self.assertIn("if RUN_TRAINING and RUN_LSTM:", source)
+        self.assertIn("No model fitting or model artifact creation occurred.", source)
 
     def test_valid_nbformat_json(self):
         notebook = load_notebook()
