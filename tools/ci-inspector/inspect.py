@@ -86,6 +86,29 @@ def classify_github_check_runs(
     return "PASS"
 
 
+def summarize_github_check_runs(
+    check_runs: list[dict[str, Any]],
+    runner_unavailable_ids: set[str] | None = None,
+) -> dict[str, int]:
+    runner_unavailable_ids = runner_unavailable_ids or set()
+    failed = [
+        run for run in check_runs
+        if run.get("status") == "completed"
+        and run.get("conclusion") not in ("success", "neutral", "skipped")
+        and str(run.get("id")) not in runner_unavailable_ids
+    ]
+    pending = [run for run in check_runs if run.get("status") != "completed"]
+    unassigned = [
+        run for run in check_runs if str(run.get("id")) in runner_unavailable_ids
+    ]
+    return {
+        "total": len(check_runs),
+        "failed": len(failed),
+        "pending": len(pending),
+        "runner_unassigned": len(unassigned),
+    }
+
+
 def classify_commit_statuses(statuses: list[dict[str, Any]], check_runs: list[dict[str, Any]]) -> str:
     # A provider that has not been configured is missing evidence, not a failed test.
     configuration_errors = [
@@ -254,21 +277,13 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     check_status = classify_github_check_runs(
         check_runs, check_runs_complete, unavailable_runner_ids
     )
-    bad = [
-        c for c in check_runs
-        if c.get("status") == "completed"
-        and c.get("conclusion") not in ("success", "neutral", "skipped")
-        and str(c.get("id")) not in unavailable_runner_ids
-    ]
-    pending = [c for c in check_runs if c.get("status") != "completed"]
-    runner_unassigned = [
-        c for c in check_runs if str(c.get("id")) in unavailable_runner_ids
-    ]
+    check_summary = summarize_github_check_runs(check_runs, unavailable_runner_ids)
     items.append(status_item(
         "GitHub Check Runs",
         check_status,
-        f"{len(check_runs)} checks; {len(bad)} failed; {len(pending)} pending; "
-        f"{len(runner_unassigned)} runner unassigned; "
+        f"{check_summary['total']} checks; {check_summary['failed']} failed; "
+        f"{check_summary['pending']} pending; "
+        f"{check_summary['runner_unassigned']} runner unassigned; "
         f"pagination_complete={check_runs_complete} on {head_sha[:12]}",
         f"https://github.com/{repo}/commit/{head_sha}/checks",
     ))
