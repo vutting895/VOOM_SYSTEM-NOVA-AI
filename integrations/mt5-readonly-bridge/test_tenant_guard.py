@@ -91,6 +91,19 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("MT5 returned invalid historical data", SOURCE)
         self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
 
+    def test_all_read_endpoints_expose_explicit_disabled_execution_capabilities(self):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
+            with self.subTest(endpoint=name):
+                calls = [
+                    node for node in ast.walk(function_nodes()[name])
+                    if isinstance(node, ast.Call) and called_name(node.func) == "read_only_metadata"
+                ]
+                self.assertTrue(calls)
+        metadata = SOURCE[SOURCE.index("def read_only_metadata"):SOURCE.index("app = FastAPI")]
+        for flag in ("order_submission_enabled", "ordersEnabled", "executionEnabled", "liveTradingEnabled"):
+            self.assertIn(f'"{flag}": False', metadata)
+
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
