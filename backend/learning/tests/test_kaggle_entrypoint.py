@@ -59,3 +59,5 @@ def test_kaggle_training_requires_h1_and_sha_bound_human_approval():
     assert '"--approved-code-sha"' in source
     assert 'or "exness_xauusdm_m15"' not in source
     assert '"--upload-to-hf"' not in source
+    assert 'secret("HF_TOKEN")' not in source
+    assert 'secret("HF_MODEL_REPO_ID")' not in source
