@@ -296,7 +296,7 @@ def history(
             raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
         try:
             bars = serialize_history_rates(rates, start, end, MAX_HISTORY_BARS)
-        except (ValueError, TypeError, KeyError, OverflowError):
+        except (ValueError, TypeError, KeyError, OverflowError, OSError):
             # Do not expose malformed broker payloads as trusted historical market data.
             raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
         return {
