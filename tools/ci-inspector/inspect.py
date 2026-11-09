@@ -80,25 +80,38 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
 
     changed = []
     page = 1
+    files_complete = False
     while page <= 10:
         batch = request_json(f"{base}/pulls/{pr_number}/files?per_page=100&page={page}", headers)
-        if not isinstance(batch, list) or not batch:
+        if not isinstance(batch, list):
+            break
+        if not batch:
+            files_complete = True
             break
         changed.extend(batch)
         if len(batch) < 100:
+            files_complete = True
             break
         page += 1
     patches = []
+    files_without_patch = 0
     for file in changed:
-        patch = file.get("patch", "")
+        patch = file.get("patch")
         if patch:
             patches.append(patch)
+        else:
+            files_without_patch += 1
     scan_text = "\n".join(patches)
     secret_hits = sum(1 for pattern in SENSITIVE_PATTERNS if pattern.search(scan_text))
+    scan_status = "FAIL" if secret_hits else (
+        "BLOCKED" if not files_complete or files_without_patch else "PASS"
+    )
     items.append(status_item(
         "Diff secret scan",
-        "FAIL" if secret_hits else "PASS",
-        f"{secret_hits} potential credential-pattern match(es) in available diff hunks; review manually",
+        scan_status,
+        f"{secret_hits} potential credential-pattern match(es); "
+        f"{files_without_patch} file(s) without text patch; pagination_complete={files_complete}. "
+        "Only available diff hunks are scanned; this is not a full secret scanner.",
         pr.get("html_url"),
     ))
 
@@ -166,12 +179,18 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
                 jobs.append({"name": job.get("name"), "status": job.get("status"),
                              "job_number": job.get("job_number"), "url": job.get("web_url"),
                              "workflow": workflow.get("name")})
-        failures = [j for j in jobs if j["status"] in ("failed", "error", "unauthorized")]
-        running = [j for j in jobs if j["status"] not in ("success", "failed", "error", "unauthorized", "canceled", "not_run")]
-        cancelled = [j for j in jobs if j["status"] == "canceled"]
-        status = "FAIL" if failures else ("BLOCKED" if not jobs or running or cancelled else "PASS")
+        workflow_statuses = [w.get("status") for w in workflows]
+        failures = [j for j in jobs if j.get("status") in ("failed", "error", "unauthorized")]
+        failures.extend(s for s in workflow_statuses if s in ("failed", "error"))
+        non_success_jobs = [j for j in jobs if j.get("status") != "success"]
+        non_success_workflows = [s for s in workflow_statuses if s != "success"]
+        status = "FAIL" if failures else (
+            "BLOCKED" if not workflows or not jobs or non_success_jobs or non_success_workflows else "PASS"
+        )
         return {"items": [status_item("CircleCI exact SHA", status,
-            f"Pipeline {matching.get('number')} revision={expected_sha[:12]}; jobs={len(jobs)}, failed={len(failures)}, pending={len(running)}, canceled={len(cancelled)}",
+            f"Pipeline {matching.get('number')} revision={expected_sha[:12]}; "
+            f"workflows={len(workflows)}, jobs={len(jobs)}, failed={len(failures)}, "
+            f"non_success_jobs={len(non_success_jobs)}, non_success_workflows={len(non_success_workflows)}",
             f"https://app.circleci.com/pipelines/gh/{owner}/{name}/{matching.get('number')}")],
             "data": {"pipelines": [matching], "jobs": jobs}}
     except (InspectorError, KeyError, ValueError) as exc:
@@ -235,6 +254,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
 def write_report(report: dict[str, Any], output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    try:
+        output.chmod(0o600)
+    except OSError:
+        # Keep the report usable on filesystems that do not support POSIX modes.
+        pass
 
 
 def serve(report_path: Path, port: int) -> None:
