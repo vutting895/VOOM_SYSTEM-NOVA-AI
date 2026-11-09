@@ -85,7 +85,7 @@ class TenantGuardContractTests(unittest.TestCase):
         contract = Path(__file__).with_name("terminal_contract.py").read_text(encoding="utf-8")
         self.assertIn('getattr(terminal, "connected", False)', contract)
         self.assertIn("demo_trade_mode is None", contract)
-        self.assertIn('"exness" not in f"{server_name} {company_name}".lower()', contract)
+        self.assertIn('"exness" not in server_name.lower()', contract)
 
     def test_history_endpoint_uses_pure_market_data_integrity_validator(self):
         self.assertIn("from history_contract import serialize_history_rates", SOURCE)
@@ -104,7 +104,6 @@ class TenantGuardContractTests(unittest.TestCase):
         metadata = SOURCE[SOURCE.index("def read_only_metadata"):SOURCE.index("app = FastAPI")]
         for flag in ("order_submission_enabled", "ordersEnabled", "executionEnabled", "liveTradingEnabled"):
             self.assertIn(f'"{flag}": False', metadata)
-
 
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
