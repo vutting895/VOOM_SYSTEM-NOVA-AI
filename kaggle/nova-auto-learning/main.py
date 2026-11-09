@@ -62,7 +62,16 @@ def main() -> None:
     github_token = secret("GITHUB_READ_TOKEN")
     hf_token = secret("HF_TOKEN")
     model_repo = secret("HF_MODEL_REPO_ID")
-    dataset_id = secret("NOVA_DATASET_ID", required=False) or "exness_xauusdm_m15"
+    dataset_id = secret("NOVA_DATASET_ID")
+    approved = (secret("NOVA_TRAINING_APPROVED") or "").lower()
+    approved_dataset_sha = secret("NOVA_APPROVED_DATASET_SHA256")
+    approved_code_sha = secret("NOVA_APPROVED_CODE_SHA")
+    if dataset_id != "exness_xauusdm_h1_3y":
+        raise RuntimeError("Only the reviewed Exness XAUUSDm H1 3Y dataset is allowed")
+    if approved != "true":
+        raise RuntimeError("Training is disabled: NOVA_TRAINING_APPROVED must be explicitly set to true")
+    if len(approved_dataset_sha) != 64 or len(approved_code_sha) != 40:
+        raise RuntimeError("Approval must bind a full dataset SHA-256 and source commit SHA")
 
     temp_root = Path(tempfile.mkdtemp(prefix="nova-training-"))
     checkout = temp_root / "repo"
@@ -96,10 +105,15 @@ def main() -> None:
         env["NOVA_GIT_SHA"] = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=checkout, text=True
         ).strip()
+        if approved_code_sha.lower() != env["NOVA_GIT_SHA"].lower():
+            raise RuntimeError("Approved source SHA does not match the checked-out repository")
         run([
             sys.executable, "-m", "backend.learning.train_price_model",
             "--repo-root", str(checkout), "--dataset-id", dataset_id,
-            "--output-root", "artifacts/learning-candidates", "--upload-to-hf",
+            "--output-root", "artifacts/learning-candidates",
+            "--training-approved",
+            "--approved-dataset-sha256", approved_dataset_sha,
+            "--approved-code-sha", approved_code_sha,
         ], cwd=checkout, env=env)
     finally:
         shutil.rmtree(temp_root, ignore_errors=True)
