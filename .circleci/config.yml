@@ -1,29 +1,170 @@
 version: 2.1
 
-jobs:
-  mt5-relay-tests:
-    docker:
-      - image: cimg/node:22.11
-    steps:
-      - checkout
-      - run:
-          name: Validate tenant-isolated MT5 relay Worker
-          command: node --test integrations/mt5-bridge-relay/worker.test.mjs
+# NOVA-only, pull-request CI. This configuration intentionally contains no
+# deployment jobs, credentials, contexts, project environment variables,
+# broker integrations, or production endpoints.
+#
+# Configure the CircleCI GitHub App trigger to run on PR opened / updated
+# events. The workflow-level condition is a second gate: only pull_request events
+# and deliberate manual API runs execute these jobs. Push and schedule events
+# do not execute these jobs.
 
-  mt5-bridge-python-checks:
+jobs:
+  nova-frontend-contract:
     docker:
-      - image: cimg/python:3.12
+      - image: cimg/node:22.13.0
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
     steps:
       - checkout
       - run:
-          name: Compile MT5 Bridge and outbound relay client
-          command: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
       - run:
-          name: Run tenant guard contract tests
-          command: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+          name: Install frontend dependencies without changing lockfiles
+          command: npm install --no-package-lock --include=dev
+      - run:
+          name: Run NOVA read-only and security contract tests
+          command: |
+            set -euo pipefail
+            node --test tests/nova-trading-readonly-guard.test.mjs
+            node --test tests/supabase-marketplace-security-migration.test.mjs
+            node --test tests/secret-vault-readiness.test.mjs
+            node --test tests/nova-approval-migration.test.mjs
+            node --check tests/staging-customer-isolation.mjs
+            node --test integrations/nova-ai-worker/*.test.mjs
+            node --test integrations/system-hub/tests/*.test.mjs
+            node --test integrations/remote-mcp-worker/tests/*.test.mjs
+            node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - run:
+          name: Install Wrangler for configuration validation without changing lockfiles
+          command: npm install --no-save --package-lock=false wrangler@4.156.0
+      - run:
+          name: Validate NOVA tenant relay and System Hub Worker configurations
+          command: |
+            set -euo pipefail
+            npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+            npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - run:
+          name: Build NOVA frontend
+          command: npm run build
+
+  nova-smc-python:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
+          name: Install SMC test dependencies
+          command: python -m pip install --disable-pip-version-check -r workers/requirements.txt
+      - run:
+          name: Compile and test SMC research module
+          command: |
+            set -euo pipefail
+            python -m py_compile workers/feature/smc_wave/smc_strategy.py
+            python -m unittest discover -s tests -p "test_smc_strategy.py" -v
+            python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py tests/test_research_pipeline.py -q
+
+  nova-mt5-bridge-python:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
+          name: Compile and test MT5 read-only bridge
+          command: |
+            set -euo pipefail
+            python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+            python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py" -v
+
+  nova-smc-worker:
+    docker:
+      - image: cimg/node:22.13.0
+    steps:
+      - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
+          name: Test NOVA SMC Worker classification
+          command: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
+
+  nova-quant-contract:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
+          name: Compile and test Quant Engine contracts
+          command: |
+            set -euo pipefail
+            python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py
+            PYTHONPATH=. python -m unittest discover -s tests -p "test_quant*.py" -v
+
+  nova-notebook-validation-python:
+    docker:
+      - image: cimg/python:3.11.9
+    steps:
+      - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
+          name: Install notebook validation dependency
+          command: python -m pip install --disable-pip-version-check "pandas>=2.2,<3"
+      - run:
+          name: Validate Notebook JSON, AST, Bridge safety and data-gap tests when present
+          command: |
+            set -euo pipefail
+            if [ -f tests/test_nova_notebook.py ]; then
+              python -m unittest discover -s tests -p "test_nova_notebook.py" -v
+            else
+              echo "SKIP: notebook validation module is not part of this commit."
+            fi
 
 workflows:
-  mt5-readonly-validation:
+  nova-private-pull-request-ci:
+    when: pipeline.event.name == "api" or (pipeline.event.name == "pull_request" and (pipeline.event.action == "opened" or pipeline.event.action == "synchronize" or pipeline.event.action == "reopened"))
     jobs:
-      - mt5-relay-tests
-      - mt5-bridge-python-checks
+      - nova-frontend-contract
+      - nova-smc-python
+      - nova-smc-worker
+      - nova-mt5-bridge-python
+      - nova-quant-contract
+      - nova-notebook-validation-python
