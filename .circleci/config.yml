@@ -21,6 +21,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
           name: Install frontend dependencies without changing lockfiles
           command: npm install --no-package-lock --include=dev
       - run:
@@ -55,8 +62,15 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
           name: Install SMC test dependencies
-          command: python -m pip install --disable-pip-version-check pytest fastapi pydantic httpx
+          command: python -m pip install --disable-pip-version-check -r workers/requirements.txt
       - run:
           name: Compile and test SMC research module
           command: |
@@ -71,6 +85,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
           name: Compile and test MT5 read-only bridge
           command: |
             set -euo pipefail
@@ -83,6 +104,13 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
+      - run:
           name: Test NOVA SMC Worker classification
           command: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
 
@@ -91,6 +119,13 @@ jobs:
       - image: cimg/python:3.11.9
     steps:
       - checkout
+      - run:
+          name: Verify exact CircleCI checkout SHA
+          command: |
+            set -euo pipefail
+            actual_sha="$(git rev-parse HEAD)"
+            test "$actual_sha" = "$CIRCLE_SHA1"
+            echo "Verified checkout SHA: $actual_sha"
       - run:
           name: Compile and test Quant Engine contracts
           command: |
