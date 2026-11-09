@@ -12,7 +12,7 @@ A zero-dependency, read-only Python CLI and local web dashboard for inspecting o
   - `NETLIFY_AUTH_TOKEN`: read access to the selected Netlify site
   - `NETLIFY_SITE_ID`: Netlify site UUID (may instead be passed as `--netlify-site-id`)
 
-The tool never asks for credentials interactively, never prints credential values, and does not store credentials in the report. Do not commit tokens or put them in command-line arguments.
+The tool never asks for credentials interactively, never prints credential values, and does not store credentials in the report. Do not commit tokens or put them in command-line arguments. For NOVA, CircleCI configuration is tracked separately in PR #265; until that configuration is available on the pipeline's checked-out branch and the CircleCI GitHub App/project setup is completed, CircleCI evidence must remain BLOCKED. Do not copy or merge that configuration into this PR.
 
 ## Run on Linux
 
@@ -35,7 +35,7 @@ Then open http://127.0.0.1:8765. The dashboard binds to loopback only. Press Ctr
 - `BLOCKED`: evidence or credentials are unavailable, the PR is draft, checks are pending/canceled, or an API cannot be queried.
 - `STALE`: provider history was completely searched but no pipeline/deploy matches the exact PR head SHA.
 
-GitHub Check Runs are paginated (up to 10 pages); incomplete pagination blocks a PASS. Netlify deployments must match the exact commit SHA, source branch, and `deploy-preview` context; production deploys are never counted as preview evidence. Empty GitHub Commit Status contexts do not fail by themselves when GitHub Check Runs exist; CircleCI is independently inspected through its own API. The PR merge-readiness check is informational and does not replace required reviews or branch protection.
+GitHub Check Runs are paginated (up to 10 pages); incomplete pagination blocks a PASS. The inspector also reads GitHub Actions job metadata when permitted: a failed job with no runner ID/name and no steps is classified as BLOCKED (runner was not assigned), not as a failed test. A real job failure after runner assignment remains FAIL. Netlify deployments must match the exact commit SHA, source branch, and `deploy-preview` context; production deploys are never counted as preview evidence. Empty GitHub Commit Status contexts do not fail by themselves when GitHub Check Runs exist; CircleCI is independently inspected through its own API. The PR merge-readiness check is informational and does not replace required reviews or branch protection.
 
 A global PASS means every collected check passed; missing provider credentials prevent PASS. GitHub's PR comparison, check-runs, and diff scan are separate evidence items. The secret scan is heuristic and scans available diff hunks only; it is not a substitute for GitHub secret scanning or a human security review.
 
