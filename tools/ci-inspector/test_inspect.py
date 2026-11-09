@@ -7,6 +7,8 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 SENSITIVE_PATTERNS = MODULE.SENSITIVE_PATTERNS
 status_item = MODULE.status_item
+classify_circleci_status = MODULE.classify_circleci_status
+classify_diff_scan = MODULE.classify_diff_scan
 
 
 class InspectorUnitTests(unittest.TestCase):
@@ -23,6 +25,44 @@ class InspectorUnitTests(unittest.TestCase):
         item = status_item("CircleCI", "BLOCKED", "token missing")
         self.assertEqual(item["status"], "BLOCKED")
         self.assertIsNone(item["url"])
+
+    def test_circleci_success_requires_all_workflows_and_jobs_to_succeed(self):
+        workflows = [{"status": "success"}]
+        jobs = [{"status": "success"}, {"status": "success"}]
+        self.assertEqual(classify_circleci_status(workflows, jobs), "PASS")
+
+    def test_circleci_cancelled_workflow_is_blocked(self):
+        self.assertEqual(
+            classify_circleci_status([{"status": "canceled"}], [{"status": "success"}]),
+            "BLOCKED",
+        )
+
+    def test_circleci_not_run_job_is_not_a_pass(self):
+        self.assertEqual(
+            classify_circleci_status([{"status": "success"}], [{"status": "not_run"}]),
+            "BLOCKED",
+        )
+
+    def test_circleci_failure_takes_precedence(self):
+        self.assertEqual(
+            classify_circleci_status([{"status": "failed"}], [{"status": "canceled"}]),
+            "FAIL",
+        )
+
+    def test_missing_circleci_evidence_is_blocked(self):
+        self.assertEqual(classify_circleci_status([], []), "BLOCKED")
+
+    def test_diff_scan_blocks_incomplete_file_coverage(self):
+        self.assertEqual(classify_diff_scan(0, False, 0), "BLOCKED")
+
+    def test_diff_scan_blocks_files_without_text_patches(self):
+        self.assertEqual(classify_diff_scan(0, True, 1), "BLOCKED")
+
+    def test_diff_scan_fails_on_detected_secret(self):
+        self.assertEqual(classify_diff_scan(1, True, 0), "FAIL")
+
+    def test_diff_scan_passes_only_complete_clean_text_diff(self):
+        self.assertEqual(classify_diff_scan(0, True, 0), "PASS")
 
 
 if __name__ == "__main__":
