@@ -166,7 +166,7 @@ def fetch_github_actions_runner_evidence(
                         "steps": len(job.get("steps") or []), "conclusion": job.get("conclusion"),
                         "url": job.get("html_url"),
                     })
-    except (InspectorError, KeyError, TypeError, AttributeError):
+    except (InspectorError, KeyError, TypeError, ValueError, AttributeError):
         # Optional diagnostic endpoint; absence of permission must not fabricate a failure.
         return set(), []
     return unavailable, evidence
