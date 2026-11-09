@@ -56,7 +56,7 @@ def redact_sensitive_text(value: str) -> str:
     redacted = value
     for pattern in SENSITIVE_PATTERNS:
         redacted = pattern.sub("[REDACTED]", redacted)
-    redacted = re.sub(r"(?i)bearer\\s+[A-Za-z0-9._~+/-]+=*", "Bearer [REDACTED]", redacted)
+    redacted = re.sub(r"(?i)bearer\s+[A-Za-z0-9._~+/-]+=*", "Bearer [REDACTED]", redacted)
     return redacted
 
 
