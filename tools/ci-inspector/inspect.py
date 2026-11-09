@@ -51,6 +51,63 @@ def request_json(url: str, headers: dict[str, str] | None = None) -> Any:
         raise InspectorError(f"Network error: {exc}") from None
 
 
+def redact_sensitive_text(value: str) -> str:
+    """Remove common credential-shaped strings before writing diagnostics to disk."""
+    redacted = value
+    for pattern in SENSITIVE_PATTERNS:
+        redacted = pattern.sub("[REDACTED]", redacted)
+    redacted = re.sub(r"(?i)bearer\\s+[A-Za-z0-9._~+/-]+=*", "Bearer [REDACTED]", redacted)
+    return redacted
+
+
+def count_secret_matches(value: str) -> int:
+    """Count individual matches, not merely how many pattern classes matched."""
+    return sum(len(list(pattern.finditer(value))) for pattern in SENSITIVE_PATTERNS)
+
+
+def classify_github_check_runs(check_runs: list[dict[str, Any]], complete: bool = True) -> str:
+    failures = [run for run in check_runs
+                if run.get("status") == "completed"
+                and run.get("conclusion") not in ("success", "neutral", "skipped")]
+    pending = [run for run in check_runs if run.get("status") != "completed"]
+    if failures:
+        return "FAIL"
+    if not complete or not check_runs or pending:
+        return "BLOCKED"
+    return "PASS"
+
+
+def classify_commit_statuses(statuses: list[dict[str, Any]], check_runs: list[dict[str, Any]]) -> str:
+    failures = [item for item in statuses if item.get("state") in ("failure", "error")]
+    pending = [item for item in statuses if item.get("state") == "pending"]
+    if failures:
+        return "FAIL"
+    if pending:
+        return "BLOCKED"
+    # GitHub Actions reports Check Runs, while CircleCI may publish a Commit Status.
+    # An empty Commit Status list is not itself a failure when Check Runs exist;
+    # CircleCI is independently inspected through its API below.
+    if not statuses and not check_runs:
+        return "BLOCKED"
+    return "PASS"
+
+
+def fetch_github_check_runs(base_url: str, sha: str, headers: dict[str, str],
+                            max_pages: int = 10) -> tuple[list[dict[str, Any]], bool]:
+    runs: list[dict[str, Any]] = []
+    for page in range(1, max_pages + 1):
+        payload = request_json(
+            f"{base_url}/commits/{sha}/check-runs?per_page=100&page={page}", headers
+        )
+        batch = payload.get("check_runs") if isinstance(payload, dict) else None
+        if not isinstance(batch, list):
+            raise InspectorError("Unexpected GitHub check-runs response shape")
+        runs.extend(batch)
+        if len(batch) < 100:
+            return runs, True
+    return runs, False
+
+
 def status_item(name: str, status: str, detail: str, url: str | None = None) -> dict[str, Any]:
     return {"name": name, "status": status, "detail": detail, "url": url}
 
@@ -102,7 +159,7 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
         else:
             files_without_patch += 1
     scan_text = "\n".join(patches)
-    secret_hits = sum(1 for pattern in SENSITIVE_PATTERNS if pattern.search(scan_text))
+    secret_hits = count_secret_matches(scan_text)
     scan_status = classify_diff_scan(secret_hits, files_complete, files_without_patch)
     items.append(status_item(
         "Diff secret scan",
@@ -113,14 +170,15 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
         pr.get("html_url"),
     ))
 
-    checks = request_json(f"{base}/commits/{head_sha}/check-runs?per_page=100", headers)
-    check_runs = checks.get("check_runs", [])
+    check_runs, check_runs_complete = fetch_github_check_runs(base, head_sha, headers)
+    check_status = classify_github_check_runs(check_runs, check_runs_complete)
     bad = [c for c in check_runs if c.get("status") == "completed" and c.get("conclusion") not in ("success", "neutral", "skipped")]
     pending = [c for c in check_runs if c.get("status") != "completed"]
     items.append(status_item(
         "GitHub Check Runs",
-        "FAIL" if bad else ("BLOCKED" if not check_runs or pending else "PASS"),
-        f"{len(check_runs)} checks; {len(bad)} failed; {len(pending)} pending on {head_sha[:12]}",
+        check_status,
+        f"{len(check_runs)} checks; {len(bad)} failed; {len(pending)} pending; "
+        f"pagination_complete={check_runs_complete} on {head_sha[:12]}",
         f"https://github.com/{repo}/commit/{head_sha}/checks",
     ))
 
@@ -130,8 +188,9 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     status_pending = [s for s in statuses if s.get("state") == "pending"]
     items.append(status_item(
         "GitHub Commit Statuses",
-        "FAIL" if status_failures else ("BLOCKED" if not statuses or status_pending else "PASS"),
-        f"{len(statuses)} status contexts; {len(status_failures)} failed; {len(status_pending)} pending on {head_sha[:12]}",
+        classify_commit_statuses(statuses, check_runs),
+        f"{len(statuses)} status contexts; {len(status_failures)} failed; "
+        f"{len(status_pending)} pending; check_runs={len(check_runs)} on {head_sha[:12]}",
         f"https://github.com/{repo}/commit/{head_sha}",
     ))
 
@@ -277,7 +336,7 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
         safe_fields = ("id", "state", "context", "commit_ref", "branch", "deploy_url",
                        "deploy_ssl_url", "admin_url", "created_at", "commit_url", "review_id")
         safe_deploy = {key: deploy.get(key) for key in safe_fields if deploy.get(key) is not None}
-        error_message = str(deploy.get("error_message") or "")[:500]
+        error_message = redact_sensitive_text(str(deploy.get("error_message") or ""))[:500]
         safe_deploy["error_message"] = error_message
         return {"items": [status_item("Netlify exact SHA", status,
             f"Deploy state={state}; context={deploy.get('context')}; commit={expected_sha[:12]}; {error_message}".strip(),
