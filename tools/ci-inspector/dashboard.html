@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NOVA CI & Deployment Inspector</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#121a2d;--line:#26334d;--muted:#9aa9c2;--text:#eef3ff;--green:#35c98a;--red:#ff6878;--amber:#f3bd58;--blue:#78a9ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,#172747 0,transparent 35%),var(--bg);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif}
+main{max-width:1180px;margin:auto;padding:32px 22px 60px}.top{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.eyebrow{color:var(--blue);font-size:11px;letter-spacing:.18em;font-weight:800}.title{font-size:clamp(25px,4vw,38px);font-weight:750;letter-spacing:-.04em;margin:6px 0}.sub{color:var(--muted)}
+button{background:#23385e;color:var(--text);border:1px solid #3c5887;border-radius:9px;padding:10px 15px;font-weight:700;cursor:pointer}button:hover{background:#2b4775}
+.hero{display:grid;grid-template-columns:1.2fr 2fr;gap:14px;margin:26px 0}.panel,.card{background:linear-gradient(145deg,#151f35,#10182a);border:1px solid var(--line);border-radius:15px;padding:19px;box-shadow:0 14px 35px #0002}
+.kicker{font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}.overall{font-size:30px;font-weight:800;margin:8px 0}.meta{color:var(--muted);overflow-wrap:anywhere}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:12px;border-radius:10px;background:#0c1425;border:1px solid #202d45}.stat b{display:block;font-size:20px}.stat span{font-size:11px;color:var(--muted)}
+.sections{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card h2{font-size:16px;margin:0 0 13px}.item{border-top:1px solid var(--line);padding:12px 0}.item:first-of-type{border-top:0}.itemhead{display:flex;justify-content:space-between;gap:10px;align-items:center;font-weight:700}.detail{color:var(--muted);font-size:12px;margin-top:5px;overflow-wrap:anywhere}.pill{font-size:10px;font-weight:800;letter-spacing:.08em;padding:4px 7px;border-radius:5px;background:#253149;color:#c5d2e8}.PASS{color:var(--green);background:#123b31}.FAIL{color:var(--red);background:#451f2a}.BLOCKED,.STALE{color:var(--amber);background:#44351c}
+h3{font-size:12px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin:28px 0 10px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;min-width:550px;background:#10182a}td,th{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);font-size:12px}th{color:var(--muted);font-weight:600}td a{color:var(--blue);text-decoration:none}.foot{margin-top:22px;color:var(--muted);font-size:11px}
+.empty{padding:28px;text-align:center;color:var(--muted)}@media(max-width:800px){.hero,.sections{grid-template-columns:1fr}.stats{grid-template-columns:repeat(3,1fr)}}
+</style></head>
+<body><main>
+<div class="top"><div><div class="eyebrow">VOOM SYSTEM / NOVA</div><div class="title">CI & Deployment Inspector</div><div class="sub">Read-only release evidence · exact commit validation</div></div><button id="refresh">↻ Refresh report</button></div>
+<div id="app"><div class="empty">Loading inspection report…</div></div>
+<div class="foot">This dashboard reads a local JSON report only. It cannot merge pull requests, deploy services, change secrets, or execute broker trades.</div>
+</main>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pill=s=>'<span class="pill '+esc(s)+'">'+esc(s)+'</span>';
+async function load(){const root=document.getElementById('app');try{const r=await fetch('/api/report',{cache:'no-store'});if(!r.ok)throw new Error('Report unavailable. Run inspect.py first.');const d=await r.json();const all=d.sections.flatMap(s=>s.items);const counts=['PASS','FAIL','BLOCKED','STALE'].map(k=>[k,all.filter(x=>x.status===k).length]);root.innerHTML=
+'<div class="hero"><section class="panel"><div class="kicker">Overall assessment</div><div class="overall">'+pill(d.overall)+'</div><div class="meta">'+esc(d.repository)+' · PR #'+esc(d.pr)+'</div><div class="meta">Generated '+esc(d.generated_at)+'</div><div class="meta">Expected SHA: '+esc(d.expected_head_sha||'Unavailable')+'</div></section><section class="panel"><div class="kicker">Evidence summary</div><div class="stats">'+counts.map(([k,n])=>'<div class="stat"><b>'+n+'</b><span>'+k+'</span></div>').join('')+'</div><div class="meta" style="margin-top:14px">Read-only mode · Merge performed: No · Deployment performed: No</div></section></div>'+
+'<div class="sections">'+d.sections.map(s=>'<section class="card"><h2>'+esc(s.name)+'</h2>'+s.items.map(i=>'<div class="item"><div class="itemhead"><span>'+esc(i.name)+'</span>'+pill(i.status)+'</div><div class="detail">'+esc(i.detail)+'</div>'+(i.url?'<div class="detail"><a href="'+esc(i.url)+'" target="_blank" rel="noopener noreferrer">Open evidence ↗</a></div>':'')+'</div>').join('')+'</section>').join('')+'</div>'+
+'<h3>Changed files</h3><div class="tablewrap"><table><thead><tr><th>Path</th><th>Status</th><th>Added</th><th>Deleted</th></tr></thead><tbody>'+((d.sections.find(s=>s.name==='GitHub')?.data?.changed_files||[]).map(f=>'<tr><td>'+esc(f.path)+'</td><td>'+esc(f.status)+'</td><td>'+esc(f.additions)+'</td><td>'+esc(f.deletions)+'</td></tr>').join('')||'<tr><td colspan="4">No file data</td></tr>')+'</tbody></table></div>'+
+'<h3>CircleCI jobs</h3><div class="tablewrap"><table><thead><tr><th>Workflow</th><th>Job</th><th>Status</th><th>Run</th></tr></thead><tbody>'+((d.sections.find(s=>s.name==='CircleCI')?.data?.jobs||[]).map(j=>'<tr><td>'+esc(j.workflow)+'</td><td>'+esc(j.name)+'</td><td>'+esc(j.status)+'</td><td>'+(j.url?'<a href="'+esc(j.url)+'" target="_blank" rel="noopener noreferrer">Open ↗</a>':'—')+'</td></tr>').join('')||'<tr><td colspan="4">No CircleCI job evidence. Check token and pipeline configuration.</td></tr>')+'</tbody></table></div>'+
+'<h3>Netlify deploys</h3><div class="tablewrap"><table><thead><tr><th>Deploy</th><th>State</th><th>Context</th><th>Commit</th></tr></thead><tbody>'+((d.sections.find(s=>s.name==='Netlify')?.data?.deploys||[]).map(x=>'<tr><td>'+(x.deploy_ssl_url?'<a href="'+esc(x.deploy_ssl_url)+'" target="_blank" rel="noopener noreferrer">Preview ↗</a>':esc(x.id))+'</td><td>'+esc(x.state)+'</td><td>'+esc(x.context)+'</td><td>'+esc((x.commit_ref||'').slice(0,12))+'</td></tr>').join('')||'<tr><td colspan="4">No exact-SHA Netlify deployment evidence.</td></tr>')+'</tbody></table></div>';
+}catch(e){root.innerHTML='<div class="panel empty">'+esc(e.message)+'</div>'}}
+document.getElementById('refresh').addEventListener('click',load);load();
+</script></body></html>
