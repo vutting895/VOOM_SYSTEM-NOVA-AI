@@ -11,6 +11,11 @@ status_item = MODULE.status_item
 classify_circleci_status = MODULE.classify_circleci_status
 classify_diff_scan = MODULE.classify_diff_scan
 fetch_circleci_items = MODULE.fetch_circleci_items
+classify_github_check_runs = MODULE.classify_github_check_runs
+classify_commit_statuses = MODULE.classify_commit_statuses
+fetch_github_check_runs = MODULE.fetch_github_check_runs
+count_secret_matches = MODULE.count_secret_matches
+redact_sensitive_text = MODULE.redact_sensitive_text
 
 
 class InspectorUnitTests(unittest.TestCase):
@@ -95,6 +100,54 @@ class InspectorUnitTests(unittest.TestCase):
 
     def test_diff_scan_passes_only_complete_clean_text_diff(self):
         self.assertEqual(classify_diff_scan(0, True, 0), "PASS")
+
+
+    def test_secret_scan_counts_each_match(self):
+        sample = "ghp_" + "A" * 30 + " and " + "ghp_" + "B" * 30
+        self.assertEqual(count_secret_matches(sample), 2)
+
+    def test_bearer_token_is_redacted(self):
+        value = "Authorization failed: Bearer abc.def-123"
+        self.assertNotIn("abc.def-123", redact_sensitive_text(value))
+        self.assertIn("Bearer [REDACTED]", redact_sensitive_text(value))
+
+    def test_github_check_runs_pass_only_when_complete_and_terminal(self):
+        self.assertEqual(classify_github_check_runs([{"status": "completed", "conclusion": "success"}]), "PASS")
+        self.assertEqual(classify_github_check_runs([{"status": "completed", "conclusion": "success"}], False), "BLOCKED")
+
+    def test_github_check_runs_block_pending_and_empty_evidence(self):
+        self.assertEqual(classify_github_check_runs([{"status": "in_progress"}]), "BLOCKED")
+        self.assertEqual(classify_github_check_runs([]), "BLOCKED")
+
+    def test_github_check_runs_fail_on_unsuccessful_conclusion(self):
+        self.assertEqual(classify_github_check_runs([{"status": "completed", "conclusion": "failure"}]), "FAIL")
+
+    def test_commit_statuses_can_be_empty_when_check_runs_exist(self):
+        self.assertEqual(classify_commit_statuses([], [{"status": "completed", "conclusion": "success"}]), "PASS")
+
+    def test_commit_status_failure_takes_precedence(self):
+        self.assertEqual(classify_commit_statuses([{"state": "failure"}], []), "FAIL")
+
+    def test_commit_status_pending_is_blocked(self):
+        self.assertEqual(classify_commit_statuses([{"state": "pending"}], []), "BLOCKED")
+
+    @patch.object(MODULE, "request_json")
+    def test_github_check_runs_follow_pagination(self, request):
+        request.side_effect = [
+            {"check_runs": [{"id": 1}] * 100},
+            {"check_runs": [{"id": 101}]},
+        ]
+        runs, complete = fetch_github_check_runs("https://api.github.test/repos/a/b", "sha", {})
+        self.assertTrue(complete)
+        self.assertEqual(len(runs), 101)
+        self.assertIn("page=2", request.call_args_list[1].args[0])
+
+    @patch.object(MODULE, "request_json")
+    def test_github_check_runs_cap_is_not_reported_complete(self, request):
+        request.return_value = {"check_runs": [{"id": 1}] * 100}
+        runs, complete = fetch_github_check_runs("https://api.github.test/repos/a/b", "sha", {}, max_pages=2)
+        self.assertFalse(complete)
+        self.assertEqual(len(runs), 200)
 
 
 if __name__ == "__main__":
