@@ -126,6 +126,8 @@ class NotebookStructureTests(unittest.TestCase):
         self.assertIn("EXNESS_DEMO", source)
         self.assertIn("MT5 tick_volume", source)
         self.assertIn("ordersEnabled", source)
+        self.assertIn('payload.get("executionEnabled") is not False', source)
+        self.assertIn('payload.get("liveTradingEnabled") is not False', source)
         self.assertNotIn("order_send", source)
 
     def test_code_cells_have_no_stale_outputs(self):
