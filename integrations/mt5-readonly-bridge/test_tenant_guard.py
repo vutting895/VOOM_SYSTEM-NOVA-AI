@@ -85,6 +85,12 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"exness" not in f"{server_name} {company_name}".lower()', terminal_guard)
         self.assertIn("Only an Exness Demo MT5 terminal is permitted.", terminal_guard)
 
+    def test_history_endpoint_uses_pure_market_data_integrity_validator(self):
+        self.assertIn("from history_contract import serialize_history_rates", SOURCE)
+        self.assertIn("serialize_history_rates(rates, start, end, MAX_HISTORY_BARS)", SOURCE)
+        self.assertIn("MT5 returned invalid historical data", SOURCE)
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
