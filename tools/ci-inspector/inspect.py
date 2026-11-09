@@ -254,12 +254,21 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     check_status = classify_github_check_runs(
         check_runs, check_runs_complete, unavailable_runner_ids
     )
-    bad = [c for c in check_runs if c.get("status") == "completed" and c.get("conclusion") not in ("success", "neutral", "skipped")]
+    bad = [
+        c for c in check_runs
+        if c.get("status") == "completed"
+        and c.get("conclusion") not in ("success", "neutral", "skipped")
+        and str(c.get("id")) not in unavailable_runner_ids
+    ]
     pending = [c for c in check_runs if c.get("status") != "completed"]
+    runner_unassigned = [
+        c for c in check_runs if str(c.get("id")) in unavailable_runner_ids
+    ]
     items.append(status_item(
         "GitHub Check Runs",
         check_status,
         f"{len(check_runs)} checks; {len(bad)} failed; {len(pending)} pending; "
+        f"{len(runner_unassigned)} runner unassigned; "
         f"pagination_complete={check_runs_complete} on {head_sha[:12]}",
         f"https://github.com/{repo}/commit/{head_sha}/checks",
     ))
