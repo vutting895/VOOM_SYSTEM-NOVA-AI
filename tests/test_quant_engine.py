@@ -164,7 +164,7 @@ class QuantSplitTests(unittest.TestCase):
 
     def test_walk_forward_requires_boolean_expanding_flag(self):
         with self.assertRaisesRegex(ValueError, "expanding must be a boolean"):
-            walk_forward_windows(100, train_bars=30, test_bars=10, expanding="yes")
+            walk_forward_windows(100, train_bars=30, test_bars=10, purge_bars=0, expanding="yes")
 
     def test_overlapping_test_folds_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "overlapping test folds"):
