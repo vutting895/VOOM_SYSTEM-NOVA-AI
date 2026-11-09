@@ -120,6 +120,8 @@ test("query validation only allows bounded read parameters", () => {
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z")), { ok: true });
   assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-15T00:00:00Z&end_utc=2026-01-01T00:00:00Z")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-02-01T00:00:00Z")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-02-30T00:00:00Z&end_utc=2026-03-01T00:00:00Z")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=W1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/account?connection_id=abc")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&count=9999")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&symbol=OTHER")).ok, false);
