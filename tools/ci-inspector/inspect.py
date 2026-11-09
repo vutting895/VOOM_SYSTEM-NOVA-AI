@@ -163,7 +163,9 @@ def fetch_circleci_items(url: str, headers: dict[str, str], max_pages: int = 10)
             separator = "&" if "?" in page_url else "?"
             page_url += separator + urllib.parse.urlencode({"page-token": page_token})
         payload = request_json(page_url, headers)
-        items.extend(payload.get("items", []))
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise InspectorError("Unexpected CircleCI pagination response shape")
+        items.extend(payload["items"])
         page_token = payload.get("next_page_token")
         if not page_token:
             return items, True
@@ -236,7 +238,7 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
             f"pagination_complete={pipelines_complete and workflows_complete and jobs_complete}",
             f"https://app.circleci.com/pipelines/gh/{owner}/{name}/{matching.get('number')}")],
             "data": {"pipelines": [matching], "jobs": jobs}}
-    except (InspectorError, KeyError, ValueError) as exc:
+    except (InspectorError, KeyError, ValueError, TypeError, AttributeError) as exc:
         return {"items": [status_item("CircleCI", "BLOCKED", str(exc))], "data": {"pipelines": [], "jobs": []}}
 
 
@@ -255,7 +257,7 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
                         f"?per_page=100&page={page}")
             batch = request_json(page_url, headers)
             if not isinstance(batch, list):
-                break
+                raise InspectorError("Unexpected Netlify deploy-list response shape")
             deploys.extend(batch)
             exact = [d for d in batch if d.get("commit_ref") == expected_sha]
             if exact:
@@ -281,7 +283,7 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
             f"Deploy state={state}; context={deploy.get('context')}; commit={expected_sha[:12]}; {error_message}".strip(),
             deploy.get("deploy_ssl_url") or deploy.get("admin_url"))],
             "data": {"deploys": [safe_deploy]}}
-    except InspectorError as exc:
+    except (InspectorError, ValueError, TypeError, AttributeError) as exc:
         return {"items": [status_item("Netlify", "BLOCKED", str(exc))], "data": {"deploys": []}}
 
 
