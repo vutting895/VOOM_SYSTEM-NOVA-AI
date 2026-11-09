@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import QuickitMarketFleetView from './components/QuickitMarketFleetView';
 import QuantumEngineView from './components/QuantumEngineView';
+import LearningWorksheetView from './components/learning/LearningWorksheetView';
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/backtest" element={<QuickitMarketFleetView initialTab="backtest" />} />
       <Route path="/infrastructure" element={<QuickitMarketFleetView initialTab="infrastructure" />} />
       <Route path="/learning" element={<QuickitMarketFleetView initialTab="learning" />} />
+      <Route path="/learning/worksheet" element={<LearningWorksheetView />} />
       <Route path="/markets" element={<QuickitMarketFleetView initialTab="market" />} />
       <Route path="/marketplace" element={<QuickitMarketFleetView initialTab="market" />} />
       <Route path="/strategies" element={<QuickitMarketFleetView initialTab="market" />} />
