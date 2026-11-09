@@ -65,28 +65,47 @@ def count_secret_matches(value: str) -> int:
     return sum(len(list(pattern.finditer(value))) for pattern in SENSITIVE_PATTERNS)
 
 
-def classify_github_check_runs(check_runs: list[dict[str, Any]], complete: bool = True) -> str:
-    failures = [run for run in check_runs
-                if run.get("status") == "completed"
-                and run.get("conclusion") not in ("success", "neutral", "skipped")]
+def classify_github_check_runs(
+    check_runs: list[dict[str, Any]],
+    complete: bool = True,
+    runner_unavailable_names: set[str] | None = None,
+) -> str:
+    runner_unavailable_names = runner_unavailable_names or set()
+    failures = [
+        run for run in check_runs
+        if run.get("status") == "completed"
+        and run.get("conclusion") not in ("success", "neutral", "skipped")
+        and run.get("name") not in runner_unavailable_names
+    ]
+    unavailable = [run for run in check_runs if run.get("name") in runner_unavailable_names]
     pending = [run for run in check_runs if run.get("status") != "completed"]
     if failures:
         return "FAIL"
-    if not complete or not check_runs or pending:
+    if not complete or not check_runs or pending or unavailable:
         return "BLOCKED"
     return "PASS"
 
 
 def classify_commit_statuses(statuses: list[dict[str, Any]], check_runs: list[dict[str, Any]]) -> str:
-    failures = [item for item in statuses if item.get("state") in ("failure", "error")]
+    # A provider that has not been configured is missing evidence, not a failed test.
+    configuration_errors = [
+        item for item in statuses
+        if item.get("state") == "error"
+        and re.search(r"no configuration was found|configuration.*not found|project.*not configured",
+                      str(item.get("description") or ""), re.IGNORECASE)
+    ]
+    failures = [
+        item for item in statuses
+        if item.get("state") == "failure"
+        or (item.get("state") == "error" and item not in configuration_errors)
+    ]
     pending = [item for item in statuses if item.get("state") == "pending"]
     if failures:
         return "FAIL"
-    if pending:
+    if pending or configuration_errors:
         return "BLOCKED"
     # GitHub Actions reports Check Runs, while CircleCI may publish a Commit Status.
-    # An empty Commit Status list is not itself a failure when Check Runs exist;
-    # CircleCI is independently inspected through its API below.
+    # An empty Commit Status list is not itself a failure when Check Runs exist.
     if not statuses and not check_runs:
         return "BLOCKED"
     return "PASS"
@@ -110,6 +129,47 @@ def fetch_github_check_runs(base_url: str, sha: str, headers: dict[str, str],
 
 def status_item(name: str, status: str, detail: str, url: str | None = None) -> dict[str, Any]:
     return {"name": name, "status": status, "detail": detail, "url": url}
+
+
+def fetch_github_actions_runner_evidence(
+    base_url: str, sha: str, headers: dict[str, str], max_runs: int = 10
+) -> tuple[set[str], list[dict[str, Any]]]:
+    """Identify failed Actions jobs that never acquired a runner (runner_id=0, no steps)."""
+    unavailable: set[str] = set()
+    evidence: list[dict[str, Any]] = []
+    try:
+        payload = request_json(
+            f"{base_url}/actions/runs?head_sha={urllib.parse.quote(sha)}&per_page=100&page=1",
+            headers,
+        )
+        runs = payload.get("workflow_runs", []) if isinstance(payload, dict) else []
+        for run in runs[:max_runs]:
+            run_id = run.get("id")
+            if not run_id:
+                continue
+            jobs_payload = request_json(
+                f"{base_url}/actions/runs/{run_id}/jobs?per_page=100&page=1", headers
+            )
+            jobs = jobs_payload.get("jobs", []) if isinstance(jobs_payload, dict) else []
+            for job in jobs:
+                no_runner = (
+                    job.get("conclusion") == "failure"
+                    and job.get("runner_id") in (None, 0)
+                    and not job.get("runner_name")
+                    and not job.get("steps")
+                )
+                if no_runner and job.get("name"):
+                    unavailable.add(str(job["name"]))
+                    evidence.append({
+                        "name": job.get("name"), "run_id": run_id,
+                        "runner_id": job.get("runner_id"), "runner_name": job.get("runner_name"),
+                        "steps": len(job.get("steps") or []), "conclusion": job.get("conclusion"),
+                        "url": job.get("html_url"),
+                    })
+    except (InspectorError, KeyError, TypeError, AttributeError):
+        # Optional diagnostic endpoint; absence of permission must not fabricate a failure.
+        return set(), []
+    return unavailable, evidence
 
 
 def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -188,7 +248,10 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     ))
 
     check_runs, check_runs_complete = fetch_github_check_runs(base, head_sha, headers)
-    check_status = classify_github_check_runs(check_runs, check_runs_complete)
+    unavailable_runner_names, runner_evidence = fetch_github_actions_runner_evidence(base, head_sha, headers)
+    check_status = classify_github_check_runs(
+        check_runs, check_runs_complete, unavailable_runner_names
+    )
     bad = [c for c in check_runs if c.get("status") == "completed" and c.get("conclusion") not in ("success", "neutral", "skipped")]
     pending = [c for c in check_runs if c.get("status") != "completed"]
     items.append(status_item(
@@ -223,8 +286,9 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
                     "conclusion": c.get("conclusion"), "url": c.get("details_url")}
                    for c in check_runs],
         "commit_statuses": [{"context": s.get("context"), "state": s.get("state"),
-                             "url": s.get("target_url")}
+                             "description": s.get("description"), "url": s.get("target_url")}
                             for s in statuses],
+        "runner_diagnostics": runner_evidence,
     }
     return {"items": items, "data": pr_data}, {"head_sha": head_sha, "head_ref": head_ref}
 
