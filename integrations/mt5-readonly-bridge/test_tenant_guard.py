@@ -74,6 +74,8 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
         self.assertIn("copy_rates_range", SOURCE)
+        self.assertIn(r'utc_pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"', SOURCE)
+        self.assertIn("strict UTC ISO-8601 Z format", SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
 
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
