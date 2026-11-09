@@ -43,6 +43,9 @@ def request_json(url: str, headers: dict[str, str] | None = None) -> Any:
             return json.loads(raw.decode("utf-8")) if raw else {}
     except urllib.error.HTTPError as exc:
         body = exc.read(500).decode("utf-8", "replace")
+        for key, value in (headers or {}).items():
+            if key.lower() in ("authorization", "circle-token") and value:
+                body = body.replace(value, "[REDACTED]")
         raise InspectorError(f"HTTP {exc.code}: {body[:300]}") from None
     except (urllib.error.URLError, TimeoutError) as exc:
         raise InspectorError(f"Network error: {exc}") from None
@@ -177,10 +180,15 @@ def inspect_netlify(site_id: str | None, expected_sha: str, token: str | None) -
         deploy = exact[0]
         state = deploy.get("state")
         status = "PASS" if state == "ready" else ("FAIL" if state == "error" else "BLOCKED")
+        safe_fields = ("id", "state", "context", "commit_ref", "branch", "deploy_url",
+                       "deploy_ssl_url", "admin_url", "created_at", "commit_url", "review_id")
+        safe_deploy = {key: deploy.get(key) for key in safe_fields if deploy.get(key) is not None}
+        error_message = str(deploy.get("error_message") or "")[:500]
+        safe_deploy["error_message"] = error_message
         return {"items": [status_item("Netlify exact SHA", status,
-            f"Deploy state={state}; context={deploy.get('context')}; commit={expected_sha[:12]}; {deploy.get('error_message') or ''}".strip(),
+            f"Deploy state={state}; context={deploy.get('context')}; commit={expected_sha[:12]}; {error_message}".strip(),
             deploy.get("deploy_ssl_url") or deploy.get("admin_url"))],
-            "data": {"deploys": [deploy]}}
+            "data": {"deploys": [safe_deploy]}}
     except InspectorError as exc:
         return {"items": [status_item("Netlify", "BLOCKED", str(exc))], "data": {"deploys": []}}
 
