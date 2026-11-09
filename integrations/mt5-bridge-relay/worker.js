@@ -125,7 +125,13 @@ export function validateReadRequest(url) {
   const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
   if (start === undefined || end === undefined || !isoUtc.test(start || "") || !isoUtc.test(end || "")) return { ok: false, error: "invalid_history_range" };
   const startMs = Date.parse(start), endMs = Date.parse(end);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) return { ok: false, error: "invalid_history_range" };
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(endMs) ||
+    new Date(startMs).toISOString() !== start ||
+    new Date(endMs).toISOString() !== end ||
+    startMs >= endMs
+  ) return { ok: false, error: "invalid_history_range" };
   const normalizedTimeframe = (timeframe || "H1").toUpperCase();
   const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[normalizedTimeframe];
   if ((endMs - startMs) > maxDays * 86400000) return { ok: false, error: "history_window_too_large" };
