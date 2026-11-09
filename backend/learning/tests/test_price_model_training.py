@@ -130,6 +130,9 @@ def test_trainer_seals_calendar_final_oos_before_feature_build_and_fit(tmp_path,
         output_root=tmp_path / "sealed-oos-artifacts",
         min_validation_samples=30,
         upload_to_hf=False,
+        training_approved=True,
+        approved_dataset_sha256=dataset.sha256,
+        approved_code_sha="unit-test-commit",
     )
 
     cutoff = pd.Timestamp("2026-07-01T00:00:00Z")
@@ -163,6 +166,9 @@ def test_trainer_never_fits_or_predicts_on_reserved_final_test(tmp_path, monkeyp
         output_root=tmp_path / "candidate-artifacts",
         min_validation_samples=100,
         upload_to_hf=False,
+        training_approved=True,
+        approved_dataset_sha256=dataset.sha256,
+        approved_code_sha="unit-test-commit",
     )
 
     assert reserved_test
@@ -205,3 +211,50 @@ def test_trainer_rejects_benchmark_or_live_feed_before_feature_build(
         )
 
     assert not (tmp_path / "rejected-artifacts").exists()
+
+
+def test_trainer_requires_explicit_human_approval_before_feature_build(tmp_path, monkeypatch):
+    dataset = make_dataset()
+    monkeypatch.setattr(trainer, "load_market_dataset", lambda *args, **kwargs: dataset)
+    monkeypatch.setattr(trainer, "_git_sha", lambda _root: "unit-test-commit")
+
+    def unexpected_feature_build(_dataset):
+        raise AssertionError("features must not be built without human approval")
+
+    monkeypatch.setattr(trainer, "build_price_features", unexpected_feature_build)
+    with pytest.raises(PermissionError, match="explicit human approval"):
+        trainer.train(
+            repo_root=tmp_path,
+            dataset_id=dataset.dataset_id,
+            output_root=tmp_path / "unapproved",
+            approved_dataset_sha256=dataset.sha256,
+            approved_code_sha="unit-test-commit",
+        )
+    assert not (tmp_path / "unapproved").exists()
+
+
+def test_trainer_rejects_stale_dataset_or_code_approval(tmp_path, monkeypatch):
+    dataset = make_dataset()
+    monkeypatch.setattr(trainer, "load_market_dataset", lambda *args, **kwargs: dataset)
+    monkeypatch.setattr(trainer, "_git_sha", lambda _root: "unit-test-commit")
+
+    with pytest.raises(PermissionError, match="dataset SHA-256"):
+        trainer.train(
+            repo_root=tmp_path,
+            dataset_id=dataset.dataset_id,
+            output_root=tmp_path / "stale-dataset",
+            training_approved=True,
+            approved_dataset_sha256="0" * 64,
+            approved_code_sha="unit-test-commit",
+        )
+    with pytest.raises(PermissionError, match="source SHA"):
+        trainer.train(
+            repo_root=tmp_path,
+            dataset_id=dataset.dataset_id,
+            output_root=tmp_path / "stale-code",
+            training_approved=True,
+            approved_dataset_sha256=dataset.sha256,
+            approved_code_sha="0" * 40,
+        )
+    assert not (tmp_path / "stale-dataset").exists()
+    assert not (tmp_path / "stale-code").exists()
