@@ -89,6 +89,8 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         account = mt5.account_info()
         if terminal is None:
             raise HTTPException(status_code=503, detail="MT5 terminal status unavailable")
+        if not bool(getattr(terminal, "connected", False)):
+            raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
         if account is None:
             raise HTTPException(status_code=503, detail="No MT5 account session detected")
 
