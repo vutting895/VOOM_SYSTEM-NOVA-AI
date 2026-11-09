@@ -161,6 +161,40 @@ class InspectorUnitTests(unittest.TestCase):
         self.assertEqual(classify_github_check_runs(checks, True), "FAIL")
 
     @patch.object(MODULE, "request_json")
+    def test_actions_runner_diagnostics_detect_unassigned_runner(self, request):
+        request.side_effect = [
+            {"workflow_runs": [{"id": 7}]},
+            {"jobs": [{
+                "name": "Python unit tests and syntax validation",
+                "runner_id": 0, "runner_name": "", "steps": [],
+                "conclusion": "failure", "html_url": "https://github.com/example/job",
+            }]},
+        ]
+        names, evidence = MODULE.fetch_github_actions_runner_evidence(
+            "https://api.github.test/repos/a/b", "sha", {}
+        )
+        self.assertEqual(names, {"Python unit tests and syntax validation"})
+        self.assertEqual(evidence[0]["runner_id"], 0)
+        self.assertEqual(evidence[0]["steps"], 0)
+
+    @patch.object(MODULE, "request_json")
+    def test_actions_runner_diagnostics_ignore_started_runner(self, request):
+        request.side_effect = [
+            {"workflow_runs": [{"id": 7}]},
+            {"jobs": [{
+                "name": "Python unit tests and syntax validation",
+                "runner_id": 42, "runner_name": "GitHub Actions 100",
+                "steps": [{"name": "Checkout", "conclusion": "success"}],
+                "conclusion": "failure",
+            }]},
+        ]
+        names, evidence = MODULE.fetch_github_actions_runner_evidence(
+            "https://api.github.test/repos/a/b", "sha", {}
+        )
+        self.assertEqual(names, set())
+        self.assertEqual(evidence, [])
+
+    @patch.object(MODULE, "request_json")
     def test_github_check_runs_follow_pagination(self, request):
         request.side_effect = [
             {"check_runs": [{"id": 1}] * 100},
