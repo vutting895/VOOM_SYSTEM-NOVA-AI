@@ -163,6 +163,17 @@ class InspectorUnitTests(unittest.TestCase):
                    "status": "completed", "conclusion": "failure"}]
         self.assertEqual(classify_github_check_runs(checks, True, {"7"}), "FAIL")
 
+    def test_check_run_summary_separates_unassigned_runner_from_test_failure(self):
+        checks = [
+            {"id": 7, "status": "completed", "conclusion": "failure"},
+            {"id": 8, "status": "completed", "conclusion": "failure"},
+            {"id": 9, "status": "in_progress", "conclusion": None},
+        ]
+        self.assertEqual(
+            MODULE.summarize_github_check_runs(checks, {"7"}),
+            {"total": 3, "failed": 1, "pending": 1, "runner_unassigned": 1},
+        )
+
     @patch.object(MODULE, "request_json")
     def test_actions_runner_diagnostics_detect_unassigned_runner(self, request):
         request.side_effect = [
