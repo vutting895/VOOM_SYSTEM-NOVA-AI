@@ -26,7 +26,7 @@ API_NETLIFY = "https://api.netlify.com/api/v1"
 ROOT = Path(__file__).resolve().parent
 SENSITIVE_PATTERNS = [
     re.compile(r"gh[pousr]_[A-Za-z0-9_]{20,}"),
-    re.compile(r"(?i)(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\\s*[:=]\\s*['\"][^'\"]{8,}"),
+    re.compile(r"(?i)(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*['\"][^'\"]{8,}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
 ]
 
