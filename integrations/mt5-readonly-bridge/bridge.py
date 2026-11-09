@@ -255,7 +255,7 @@ def history(
     tf = timeframe.upper()
     if tf not in MAX_HISTORY_DAYS:
         raise HTTPException(status_code=400, detail="Unsupported timeframe")
-    utc_pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+    utc_pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"
     if not re.fullmatch(utc_pattern, start_utc) or not re.fullmatch(utc_pattern, end_utc):
         raise HTTPException(status_code=400, detail="Timestamps must use strict UTC ISO-8601 Z format")
     try:
