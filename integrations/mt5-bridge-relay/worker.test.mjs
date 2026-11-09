@@ -188,3 +188,20 @@ test("history route rejects oversized ranges and non-GET methods before proxying
   assert.equal(rejectedMethod.status, 405);
   assert.equal(proxied, false);
 });
+
+
+test("history route denies a foreign tenant before reaching any bridge session", async () => {
+  let proxied = false;
+  const env = makeEnv(async () => {
+    proxied = true;
+    return Response.json({ bars: [] });
+  });
+  const query = "symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z";
+  const response = await worker.fetch(request("/api/history?" + query, {
+    token: TOKEN,
+    tenant: "tenant_foreign_123"
+  }), env);
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "tenant_route_not_provisioned");
+  assert.equal(proxied, false);
+});
