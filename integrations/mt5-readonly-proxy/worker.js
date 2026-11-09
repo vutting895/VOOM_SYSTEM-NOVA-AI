@@ -22,6 +22,55 @@ const json = (value, status = 200, origin = "") => new Response(JSON.stringify(v
 const allowed = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes", "/api/history"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function validateProxyQuery(url) {
+  const allowedByPath = {
+    "/health": new Set(["connection_id"]),
+    "/api/account": new Set(["connection_id"]),
+    "/api/symbols": new Set(["connection_id", "q", "limit"]),
+    "/api/quotes": new Set(["connection_id", "symbol", "timeframe", "count"]),
+    "/api/history": new Set(["connection_id", "symbol", "timeframe", "start_utc", "end_utc"])
+  };
+  const allowedKeys = allowedByPath[url.pathname];
+  if (!allowedKeys) return { ok: false, error: "not_found" };
+  for (const [key, value] of url.searchParams) {
+    if (!allowedKeys.has(key)) return { ok: false, error: "query_parameter_not_allowed" };
+    if (value.length > 120) return { ok: false, error: "query_parameter_too_long" };
+  }
+  for (const key of allowedKeys) {
+    if (url.searchParams.getAll(key).length > 1) {
+      return { ok: false, error: "duplicate_query_parameter" };
+    }
+  }
+  if (url.pathname === "/health" && !url.searchParams.has("connection_id")) {
+    return url.searchParams.size === 0
+      ? { ok: true }
+      : { ok: false, error: "query_parameter_not_allowed" };
+  }
+  if (!url.searchParams.has("connection_id")) {
+    return { ok: false, error: "valid_connection_id_required" };
+  }
+  if (url.pathname === "/api/history") {
+    const start = url.searchParams.get("start_utc") || "";
+    const end = url.searchParams.get("end_utc") || "";
+    const timeframe = (url.searchParams.get("timeframe") || "H1").toUpperCase();
+    const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+    const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[timeframe];
+    if (!isoUtc.test(start) || !isoUtc.test(end) || !maxDays) {
+      return { ok: false, error: "invalid_history_range" };
+    }
+    const startMs = Date.parse(start), endMs = Date.parse(end);
+    if (
+      !Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs ||
+      new Date(startMs).toISOString().replace(".000Z", "Z") !== start ||
+      new Date(endMs).toISOString().replace(".000Z", "Z") !== end
+    ) return { ok: false, error: "invalid_history_range" };
+    if (endMs - startMs > maxDays * 86400000) {
+      return { ok: false, error: "history_window_too_large" };
+    }
+  }
+  return { ok: true };
+}
+
 function bearer(request) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   return match ? match[1] : "";
@@ -223,6 +272,8 @@ export default {
       return new Response(null, { status: 204, headers: { ...BASE, ...cors(origin) } });
     }
     if (request.method === "GET" && url.pathname === "/health" && !url.searchParams.has("connection_id")) {
+      const query = validateProxyQuery(url);
+      if (!query.ok) return json({ error: query.error, mode: "read-only", ordersEnabled: false }, 400, origin);
       return json({
         ok: true,
         service: "voom-mt5-readonly-proxy",
@@ -238,6 +289,9 @@ export default {
     if (request.method !== "GET") {
       return json({ error: "method_not_allowed", mode: "read-only", ordersEnabled: false }, 405, origin);
     }
+
+    const query = validateProxyQuery(url);
+    if (!query.ok) return json({ error: query.error, mode: "read-only", ordersEnabled: false }, 400, origin);
 
     const user = await authenticate(request, env);
     if (!user.ok) return json({
