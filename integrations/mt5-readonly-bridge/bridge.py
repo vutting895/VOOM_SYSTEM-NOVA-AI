@@ -255,11 +255,14 @@ def history(
     tf = timeframe.upper()
     if tf not in MAX_HISTORY_DAYS:
         raise HTTPException(status_code=400, detail="Unsupported timeframe")
+    utc_pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+    if not re.fullmatch(utc_pattern, start_utc) or not re.fullmatch(utc_pattern, end_utc):
+        raise HTTPException(status_code=400, detail="Timestamps must use strict UTC ISO-8601 Z format")
     try:
         start = datetime.fromisoformat(start_utc.replace("Z", "+00:00"))
         end = datetime.fromisoformat(end_utc.replace("Z", "+00:00"))
     except ValueError:
-        raise HTTPException(status_code=400, detail="Timestamps must be ISO-8601")
+        raise HTTPException(status_code=400, detail="Timestamps must be valid UTC ISO-8601 values")
     if start.tzinfo is None or end.tzinfo is None:
         raise HTTPException(status_code=400, detail="Timestamps must include a UTC offset")
     start, end = start.astimezone(timezone.utc), end.astimezone(timezone.utc)
