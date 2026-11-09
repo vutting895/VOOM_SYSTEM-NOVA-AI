@@ -318,3 +318,14 @@ test("public health rejects ignored query parameters", async () => {
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error, "query_parameter_not_allowed");
 });
+
+
+test("proxy requires an explicit supported history timeframe", async () => {
+  const response = await worker.fetch(new Request(
+    "https://proxy.test/api/history?connection_id=" + CONNECTION_ID
+      + "&symbol=XAUUSDm"
+      + "&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z"
+  ), envWithRoutes());
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "invalid_history_range");
+});
