@@ -123,6 +123,23 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     head_ref = pr.get("head", {}).get("ref", "")
     items: list[dict[str, Any]] = []
 
+    if pr.get("state") != "open" or pr.get("merged"):
+        merge_status = "BLOCKED"
+    elif pr.get("draft"):
+        merge_status = "BLOCKED"
+    elif pr.get("mergeable") is False:
+        merge_status = "FAIL"
+    elif pr.get("mergeable") is True:
+        merge_status = "PASS"
+    else:
+        merge_status = "BLOCKED"
+    items.append(status_item(
+        "PR merge readiness",
+        merge_status,
+        f"state={pr.get('state')}; draft={pr.get('draft')}; mergeable={pr.get('mergeable')}",
+        pr.get("html_url"),
+    ))
+
     compare = request_json(f"{base}/compare/{urllib.parse.quote(base_ref, safe='')}...{head_sha}", headers)
     compare_base = compare.get("base_commit", {}).get("sha")
     ahead = compare.get("ahead_by")
