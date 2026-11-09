@@ -1,6 +1,12 @@
+import importlib.util
 import unittest
+from pathlib import Path
 
-from inspect import SENSITIVE_PATTERNS, status_item
+SPEC = importlib.util.spec_from_file_location("nova_ci_inspector", Path(__file__).with_name("inspect.py"))
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+SENSITIVE_PATTERNS = MODULE.SENSITIVE_PATTERNS
+status_item = MODULE.status_item
 
 
 class InspectorUnitTests(unittest.TestCase):
