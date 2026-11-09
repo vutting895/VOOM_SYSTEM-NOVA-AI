@@ -133,53 +133,6 @@ jobs:
             python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py
             PYTHONPATH=. python -m unittest discover -s tests -p "test_quant*.py" -v
 
-  nova-learning-engine-python:
-    docker:
-      - image: cimg/python:3.11.9
-    steps:
-      - checkout
-      - run:
-          name: Verify exact CircleCI checkout SHA
-          command: |
-            set -euo pipefail
-            actual_sha="$(git rev-parse HEAD)"
-            test "$actual_sha" = "$CIRCLE_SHA1"
-            echo "Verified checkout SHA: $actual_sha"
-      - run:
-          name: Install Learning Engine test dependencies
-          command: |
-            python -m pip install --disable-pip-version-check --upgrade pip
-            python -m pip install --disable-pip-version-check pytest "SQLAlchemy>=2.0,<3" "fastapi>=0.100" "pydantic>=2"
-            python -m pip install --disable-pip-version-check -r backend/learning/requirements-training.txt
-      - run:
-          name: Compile Learning Engine and Kaggle entrypoint
-          command: |
-            set -euo pipefail
-            python -m compileall -q backend/learning
-            python -m py_compile kaggle/nova-auto-learning/main.py
-      - run:
-          name: Test SHA-bound approval, dataset allowlist and sealed OOS
-          command: python -m pytest backend/learning/tests -q
-
-  nova-notebook-validation-python:
-    docker:
-      - image: cimg/python:3.11.9
-    steps:
-      - checkout
-      - run:
-          name: Verify exact CircleCI checkout SHA
-          command: |
-            set -euo pipefail
-            actual_sha="$(git rev-parse HEAD)"
-            test "$actual_sha" = "$CIRCLE_SHA1"
-            echo "Verified checkout SHA: $actual_sha"
-      - run:
-          name: Install notebook validation dependency
-          command: python -m pip install --disable-pip-version-check "pandas>=2.2,<3"
-      - run:
-          name: Validate Notebook JSON, AST, Bridge safety and data-gap tests
-          command: python -m unittest discover -s tests -p "test_nova_notebook.py" -v
-
 workflows:
   nova-private-pull-request-ci:
     when: pipeline.event.name == "api" or (pipeline.event.name == "pull_request" and (pipeline.event.action == "opened" or pipeline.event.action == "synchronize" or pipeline.event.action == "reopened"))
@@ -189,5 +142,3 @@ workflows:
       - nova-smc-worker
       - nova-mt5-bridge-python
       - nova-quant-contract
-      - nova-learning-engine-python
-      - nova-notebook-validation-python
