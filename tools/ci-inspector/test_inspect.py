@@ -1,5 +1,6 @@
 import importlib.util
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 SPEC = importlib.util.spec_from_file_location("nova_ci_inspector", Path(__file__).with_name("inspect.py"))
@@ -9,6 +10,7 @@ SENSITIVE_PATTERNS = MODULE.SENSITIVE_PATTERNS
 status_item = MODULE.status_item
 classify_circleci_status = MODULE.classify_circleci_status
 classify_diff_scan = MODULE.classify_diff_scan
+fetch_circleci_items = MODULE.fetch_circleci_items
 
 
 class InspectorUnitTests(unittest.TestCase):
@@ -51,6 +53,30 @@ class InspectorUnitTests(unittest.TestCase):
 
     def test_missing_circleci_evidence_is_blocked(self):
         self.assertEqual(classify_circleci_status([], []), "BLOCKED")
+
+    def test_circleci_incomplete_pagination_is_blocked(self):
+        self.assertEqual(
+            classify_circleci_status([{"status": "success"}], [{"status": "success"}], False),
+            "BLOCKED",
+        )
+
+    @patch.object(MODULE, "request_json")
+    def test_circleci_pagination_follows_next_page_token(self, request):
+        request.side_effect = [
+            {"items": [{"id": "first"}], "next_page_token": "next-page"},
+            {"items": [{"id": "second"}], "next_page_token": None},
+        ]
+        items, complete = fetch_circleci_items("https://circleci.test/pipeline", {"Circle-Token": "test"})
+        self.assertTrue(complete)
+        self.assertEqual([item["id"] for item in items], ["first", "second"])
+        self.assertIn("page-token=next-page", request.call_args_list[1].args[0])
+
+    @patch.object(MODULE, "request_json")
+    def test_circleci_pagination_cap_is_not_reported_complete(self, request):
+        request.return_value = {"items": [{"id": "page"}], "next_page_token": "more"}
+        items, complete = fetch_circleci_items("https://circleci.test/pipeline", {}, max_pages=2)
+        self.assertFalse(complete)
+        self.assertEqual(len(items), 2)
 
     def test_diff_scan_blocks_incomplete_file_coverage(self):
         self.assertEqual(classify_diff_scan(0, False, 0), "BLOCKED")
