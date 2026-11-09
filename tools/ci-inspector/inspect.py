@@ -270,7 +270,7 @@ def main() -> int:
                       "report": str(args.output)}, indent=2))
     if args.serve:
         serve(args.output, args.port)
-    return 1 if report["overall"] == "FAIL" else 0
+    return {"PASS": 0, "FAIL": 1, "BLOCKED": 2, "STALE": 3}.get(report["overall"], 2)
 
 
 if __name__ == "__main__":
