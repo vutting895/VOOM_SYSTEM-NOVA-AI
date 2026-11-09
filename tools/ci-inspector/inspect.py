@@ -103,9 +103,7 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
             files_without_patch += 1
     scan_text = "\n".join(patches)
     secret_hits = sum(1 for pattern in SENSITIVE_PATTERNS if pattern.search(scan_text))
-    scan_status = "FAIL" if secret_hits else (
-        "BLOCKED" if not files_complete or files_without_patch else "PASS"
-    )
+    scan_status = classify_diff_scan(secret_hits, files_complete, files_without_patch)
     items.append(status_item(
         "Diff secret scan",
         scan_status,
@@ -155,6 +153,27 @@ def inspect_github(repo: str, pr_number: int, token: str | None) -> tuple[dict[s
     return {"items": items, "data": pr_data}, {"head_sha": head_sha, "head_ref": head_ref}
 
 
+def classify_circleci_status(workflows: list[dict[str, Any]], jobs: list[dict[str, Any]]) -> str:
+    workflow_statuses = [w.get("status") for w in workflows]
+    failures = [j for j in jobs if j.get("status") in ("failed", "error", "unauthorized")]
+    failures.extend(s for s in workflow_statuses if s in ("failed", "error"))
+    non_success_jobs = [j for j in jobs if j.get("status") != "success"]
+    non_success_workflows = [s for s in workflow_statuses if s != "success"]
+    if failures:
+        return "FAIL"
+    if not workflows or not jobs or non_success_jobs or non_success_workflows:
+        return "BLOCKED"
+    return "PASS"
+
+
+def classify_diff_scan(secret_hits: int, files_complete: bool, files_without_patch: int) -> str:
+    if secret_hits:
+        return "FAIL"
+    if not files_complete or files_without_patch:
+        return "BLOCKED"
+    return "PASS"
+
+
 def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | None) -> dict[str, Any]:
     if not token:
         return {"items": [status_item("CircleCI", "BLOCKED", "CIRCLECI_TOKEN is not set; no CircleCI API request was made.")],
@@ -184,9 +203,7 @@ def inspect_circleci(repo: str, branch: str, expected_sha: str, token: str | Non
         failures.extend(s for s in workflow_statuses if s in ("failed", "error"))
         non_success_jobs = [j for j in jobs if j.get("status") != "success"]
         non_success_workflows = [s for s in workflow_statuses if s != "success"]
-        status = "FAIL" if failures else (
-            "BLOCKED" if not workflows or not jobs or non_success_jobs or non_success_workflows else "PASS"
-        )
+        status = classify_circleci_status(workflows, jobs)
         return {"items": [status_item("CircleCI exact SHA", status,
             f"Pipeline {matching.get('number')} revision={expected_sha[:12]}; "
             f"workflows={len(workflows)}, jobs={len(jobs)}, failed={len(failures)}, "
