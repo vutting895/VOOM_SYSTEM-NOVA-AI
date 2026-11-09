@@ -32,6 +32,14 @@ def get_learning_session():
         db.close()
 
 
+def require_learning_user() -> str:
+    """Fail closed until the host injects authenticated owner/tenant RBAC."""
+    raise HTTPException(
+        status_code=503,
+        detail="Learning API is disabled until authenticated owner/tenant RBAC is configured",
+    )
+
+
 def require_learning_approver() -> str:
     """Fail closed until the host injects its authenticated approver/RBAC check."""
     raise HTTPException(
@@ -69,7 +77,11 @@ class CandidateIn(BaseModel):
 
 
 @router.post("/experiences", status_code=201)
-def record_experience(body: ExperienceIn, db: Session = Depends(get_learning_session)):
+def record_experience(
+    body: ExperienceIn,
+    _actor: str = Depends(require_learning_user),
+    db: Session = Depends(get_learning_session),
+):
     try:
         result = LearningService(db).record_experience(body.model_dump())
         db.commit()
@@ -81,12 +93,17 @@ def record_experience(body: ExperienceIn, db: Session = Depends(get_learning_ses
 
 @router.get("/performance")
 def performance_summary(strategy_id: str | None = None, environment: str | None = None,
+                         _actor: str = Depends(require_learning_user),
                          db: Session = Depends(get_learning_session)):
     return LearningService(db).performance_summary(strategy_id=strategy_id, environment=environment)
 
 
 @router.post("/models/candidates", status_code=201)
-def register_candidate(body: CandidateIn, db: Session = Depends(get_learning_session)):
+def register_candidate(
+    body: CandidateIn,
+    _actor: str = Depends(require_learning_user),
+    db: Session = Depends(get_learning_session),
+):
     try:
         result = LearningService(db).register_candidate(**body.model_dump())
         db.commit()
