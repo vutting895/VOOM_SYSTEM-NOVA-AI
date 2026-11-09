@@ -52,7 +52,7 @@ function validateProxyQuery(url) {
   if (url.pathname === "/api/history") {
     const start = url.searchParams.get("start_utc") || "";
     const end = url.searchParams.get("end_utc") || "";
-    const timeframe = (url.searchParams.get("timeframe") || "H1").toUpperCase();
+    const timeframe = (url.searchParams.get("timeframe") || "").toUpperCase();
     const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
     const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[timeframe];
     if (!isoUtc.test(start) || !isoUtc.test(end) || !maxDays) {
