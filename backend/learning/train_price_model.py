@@ -108,7 +108,10 @@ def _upload(output: Path, repo_id: str, run_id: str, eligible: bool) -> None:
 def train(*, repo_root: Path, dataset_id: str, output_root: Path,
           min_validation_samples: int = 100, min_mae_improvement_pct: float = 0.1,
           seed: int = 42, upload_to_hf: bool = False,
-          model_repo_id: str | None = None) -> dict[str, Any]:
+          model_repo_id: str | None = None,
+          training_approved: bool = False,
+          approved_dataset_sha256: str | None = None,
+          approved_code_sha: str | None = None) -> dict[str, Any]:
     dataset = load_market_dataset(
         repo_root, dataset_id, allow_research_training=True
     )
@@ -116,6 +119,16 @@ def train(*, repo_root: Path, dataset_id: str, output_root: Path,
         raise ValueError("Only historical research-candidate datasets are allowed")
     if getattr(dataset, "unexplained_gap_after_indices", ()):
         raise ValueError("Datasets with unexplained historical gaps are not eligible for training")
+
+    # Human approval is bound to both immutable inputs; a stale approval cannot
+    # authorize a different dataset snapshot or source revision.
+    code_sha = _git_sha(repo_root)
+    if not training_approved:
+        raise PermissionError("Training is disabled: explicit human approval is required")
+    if not approved_dataset_sha256 or approved_dataset_sha256.lower() != dataset.sha256.lower():
+        raise PermissionError("Training approval dataset SHA-256 does not match the loaded dataset")
+    if not code_sha or not approved_code_sha or approved_code_sha.lower() != code_sha.lower():
+        raise PermissionError("Training approval code SHA does not match the checked-out source")
 
     # Seal the final OOS by calendar time, not by a row-count split. No bar at
     # or after this cutoff may enter feature construction, fitting or validation.
@@ -188,7 +201,7 @@ def train(*, repo_root: Path, dataset_id: str, output_root: Path,
         and folds_beating >= 2
     )
 
-    sha = _git_sha(repo_root)
+    sha = code_sha
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + (sha or "local")[:8]
     output = output_root / run_id
     output.mkdir(parents=True, exist_ok=False)
@@ -258,6 +271,10 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--upload-to-hf", action="store_true")
     parser.add_argument("--model-repo-id")
+    parser.add_argument("--training-approved", action="store_true",
+                        help="Explicit human approval for the exact dataset and code SHAs")
+    parser.add_argument("--approved-dataset-sha256")
+    parser.add_argument("--approved-code-sha")
     args = parser.parse_args()
     try:
         result = train(
@@ -266,6 +283,9 @@ def main() -> int:
             min_validation_samples=args.min_validation_samples,
             min_mae_improvement_pct=args.min_mae_improvement_pct, seed=args.seed,
             upload_to_hf=args.upload_to_hf, model_repo_id=args.model_repo_id,
+            training_approved=args.training_approved,
+            approved_dataset_sha256=args.approved_dataset_sha256,
+            approved_code_sha=args.approved_code_sha,
         )
     except Exception as exc:
         parser.exit(2, f"NOVA training failed: {type(exc).__name__}: {exc}\n")
