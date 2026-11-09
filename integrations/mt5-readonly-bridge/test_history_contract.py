@@ -32,6 +32,10 @@ class HistoryContractTests(unittest.TestCase):
         self.assertEqual(bars[0]["time"], "2026-01-01T00:00:00Z")
         self.assertEqual(bars[1]["tick_volume"], 10)
 
+    def test_accepts_generator_input(self):
+        rates = (item for item in [rate(START), rate(datetime(2026, 1, 1, 1, tzinfo=timezone.utc))])
+        self.assertEqual(len(serialize_history_rates(rates, START, END, 2000)), 2)
+
     def test_uses_half_open_end_boundary(self):
         with self.assertRaises(ValueError):
             serialize_history_rates([rate(END)], START, END, 2000)
@@ -49,6 +53,17 @@ class HistoryContractTests(unittest.TestCase):
         later = datetime(2026, 1, 1, 1, tzinfo=timezone.utc)
         with self.assertRaises(ValueError):
             serialize_history_rates([rate(later), rate(START)], START, END, 2000)
+
+    def test_rejects_fractional_timestamp_instead_of_truncating(self):
+        invalid = rate(START)
+        invalid["time"] += 0.5
+        with self.assertRaises(ValueError):
+            serialize_history_rates([invalid], START, END, 2000)
+
+    def test_rejects_fractional_volume_instead_of_truncating(self):
+        invalid = rate(START, tick_volume=10.5)
+        with self.assertRaises(ValueError):
+            serialize_history_rates([invalid], START, END, 2000)
 
     def test_rejects_inconsistent_ohlc(self):
         with self.assertRaises(ValueError):
@@ -69,6 +84,11 @@ class HistoryContractTests(unittest.TestCase):
     def test_rejects_naive_datetime_bounds(self):
         with self.assertRaises(ValueError):
             serialize_history_rates([], datetime(2026, 1, 1), END, 2000)
+
+    def test_rejects_nonpositive_or_noninteger_bar_limit(self):
+        for limit in (0, -1, 1.5, True):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                serialize_history_rates([], START, END, limit)
 
     def test_empty_history_is_a_valid_empty_result(self):
         self.assertEqual(serialize_history_rates([], START, END, 2000), [])
