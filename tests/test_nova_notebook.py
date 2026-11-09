@@ -268,6 +268,20 @@ class DatasetGapDetectionTests(unittest.TestCase):
         self.assertEqual([item["boundary"] for item in issues], ["end"])
         self.assertEqual(issues[0]["lag_hours"], 7419)
 
+
+
+    def test_rejects_sub_timeframe_boundary_gap(self):
+        detect = self.boundary_detector()
+        issues = detect(
+            pd.Timestamp("2025-11-03T00:30:00Z"),
+            pd.Timestamp("2025-11-03T23:00:00Z"),
+            pd.Timestamp("2025-11-03T00:00:00Z"),
+            pd.Timestamp("2025-11-03T23:00:00Z"),
+            pd.Timedelta(hours=1),
+        )
+        self.assertEqual([item["boundary"] for item in issues], ["start"])
+        self.assertEqual(issues[0]["lag_hours"], 0.5)
+
     def test_accepts_bounded_weekend_gap_at_requested_end_boundary(self):
         detect = self.boundary_detector()
         issues = detect(
