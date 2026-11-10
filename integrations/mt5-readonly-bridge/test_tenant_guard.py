@@ -74,6 +74,23 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
 
+    def test_symbols_endpoint_exposes_contract_tick_and_volume_metadata(self):
+        functions = function_nodes()
+        symbols_endpoint = functions["symbols"]
+        self.assertTrue(has_call(symbols_endpoint, "symbol_spec"))
+        for field in (
+            "contract_size", "tick_size", "tick_value_profit", "tick_value_loss",
+            "profit_currency", "margin_currency", "volume_min", "volume_max",
+            "volume_step", "risk_metadata_complete",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f'"{field}"', SOURCE)
+
+    def test_missing_or_non_finite_instrument_metadata_fails_completeness(self):
+        self.assertIn("math.isfinite(result)", SOURCE)
+        self.assertIn('spec["risk_metadata_complete"]', SOURCE)
+        self.assertIn('spec[field] is not None and spec[field] > 0', SOURCE)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
