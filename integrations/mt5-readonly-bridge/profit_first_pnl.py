@@ -183,12 +183,11 @@ def build_net_pnl_snapshot(
     fees = Decimal("0")
     seen_tickets: set[int] = set()
     for index, deal in enumerate(deals):
-        try:
-            position_id = int(deal["position_id"])
-            ticket = int(deal["ticket"])
-        except (KeyError, TypeError, ValueError):
-            raise PnlReconciliationError(f"deals[{index}] requires position_id and ticket") from None
-        if isinstance(deal.get("ticket"), bool) or isinstance(deal.get("position_id"), bool) or ticket <= 0 or ticket in seen_tickets:
+        if "position_id" not in deal or "ticket" not in deal:
+            raise PnlReconciliationError(f"deals[{index}] requires position_id and ticket")
+        position_id = _integer(deal["position_id"], f"deals[{index}].position_id", minimum=0)
+        ticket = _integer(deal["ticket"], f"deals[{index}].ticket", minimum=1)
+        if ticket in seen_tickets:
             raise PnlReconciliationError("deal tickets must be unique positive integers")
         seen_tickets.add(ticket)
         deal_time = _utc(deal.get("time"), f"deals[{index}].time")
