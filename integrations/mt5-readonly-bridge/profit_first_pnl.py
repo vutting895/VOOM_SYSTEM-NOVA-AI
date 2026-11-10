@@ -67,7 +67,10 @@ def _verify_history_coverage(
         for index, position in enumerate(positions):
             if not isinstance(position, Mapping):
                 raise PnlReconciliationError(f"positions[{index}] must be a mapping")
-            opened_times.append(_utc(position.get("time"), f"positions[{index}].time"))
+            opened_at = _utc(position.get("time"), f"positions[{index}].time")
+            if opened_at > snapshot_time:
+                raise PnlReconciliationError("position open time is later than the positions snapshot")
+            opened_times.append(opened_at)
         earliest_required = min(opened_times)
     else:
         earliest_required = snapshot_time
