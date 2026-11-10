@@ -106,6 +106,22 @@ class NetPnlTests(unittest.TestCase):
         data["deals"][0]["swap"] = "-3"
         self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
 
+    def test_close_by_entry_swap_is_included(self):
+        data = chunk()
+        data["deals"][0]["entry"] = 3  # DEAL_ENTRY_OUT_BY
+        data["deals"][0]["swap"] = "-3"
+        self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
+
+    def test_missing_or_invalid_deal_entry_fails_closed(self):
+        for entry in (None, -1, True, 1.5):
+            data = chunk()
+            if entry is None:
+                del data["deals"][0]["entry"]
+            else:
+                data["deals"][0]["entry"] = entry
+            with self.subTest(entry=entry), self.assertRaises(PnlReconciliationError):
+                build(deal_history_chunks=[data])
+
     def test_usd_account_uses_identity_rate(self):
         self.assertEqual(
             build(positions_snapshot=snapshot(currency="USD"), currency_to_usd_rate="1")["net_pnl_usd"],
