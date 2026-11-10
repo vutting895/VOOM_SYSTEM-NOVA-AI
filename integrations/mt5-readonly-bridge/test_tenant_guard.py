@@ -125,6 +125,12 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"unsupported-cent" if str(getattr(account, "currency", "")).upper().endswith("C")', SOURCE)
         self.assertIn('"unsupported-cent" if account_currency.endswith("C")', SOURCE)
 
+    def test_profit_calculation_path_is_whitelisted_and_validated_by_outbound_relay(self):
+        self.assertIn('"/api/profit-calculation"', RELAY_CLIENT)
+        self.assertIn('{"symbol", "side", "volume", "open_price", "stop_price"}', RELAY_CLIENT)
+        self.assertIn("Decimal(raw)", RELAY_CLIENT)
+        self.assertIn("Stop price must represent a loss for the selected side.", RELAY_CLIENT)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
