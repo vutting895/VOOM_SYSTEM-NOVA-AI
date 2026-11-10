@@ -108,7 +108,7 @@ export function validateReadRequest(url) {
     const numbers = {};
     for (const key of ["volume", "open_price", "stop_price"]) {
       const raw = singleParam(url, key);
-      if (raw === undefined || raw === null || raw.length > 32 || !/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+      if (raw === undefined || raw === null || raw.length > 32 || !/^\d+(?:\.\d+)?$/.test(raw)) {
         return { ok: false, error: "invalid_" + key };
       }
       const value = Number(raw);
