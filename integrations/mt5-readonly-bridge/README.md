@@ -4,7 +4,7 @@ This Windows process reads data from the MT5 terminal session already logged in 
 
 ## Safety boundary
 
-- Read-only GET endpoints only: health, account summary, symbol discovery and quotes/candles.
+- Read-only GET endpoints only: health, account summary, symbol discovery, open-position snapshot, deal history and quotes/candles.
 - No order, trade, position-modification, transfer or withdrawal implementation exists.
 - Requests to order/trade/execute/withdraw/transfer paths are denied, and non-GET/OPTIONS methods are rejected.
 - Every protected endpoint requires both `Authorization: Bearer <tenant-specific token>` and `X-VOOM-TENANT-ID: <assigned tenant id>`.
@@ -55,6 +55,7 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 
 - `GET /health`
 - `GET /api/account`
+- `GET /api/positions` (complete current open-position snapshot, account-currency floating PnL and swap; read-only)
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 - `GET /api/history/deals?from_time=2026-11-10T00:00:00Z&to_time=2026-11-11T00:00:00Z&limit=1000` (bounded to 7 days; read-only; returns raw account-currency profit, commission, swap and fee fields for reconciliation)
