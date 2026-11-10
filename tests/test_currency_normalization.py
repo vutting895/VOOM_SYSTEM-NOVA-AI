@@ -15,7 +15,7 @@ from workers.risk.currency_normalization import (
     evaluate_usd_risk_limits,
     exness_standard_cent_rule,
     estimate_stop_loss_usd,
-    evaluate_mt5_demo_trade_risk,
+    evaluate_mt5_trade_risk,
 )
 
 NOW = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
@@ -303,7 +303,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
         ])
-        result = evaluate_mt5_demo_trade_risk(
+        result = evaluate_mt5_trade_risk(
             current_equity_usd="1000", daily_loss_usd="0",
             volume_lots="0.2", entry_price="2000", stop_loss_price="1999.50",
             tick_size="0.01", tick_value_loss_native_per_lot="1",
@@ -319,7 +319,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
         ])
-        result = evaluate_mt5_demo_trade_risk(
+        result = evaluate_mt5_trade_risk(
             current_equity_usd="1000", daily_loss_usd="100",
             volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
             tick_size="0.01", tick_value_loss_native_per_lot="1",
