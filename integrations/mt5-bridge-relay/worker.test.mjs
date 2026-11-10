@@ -122,6 +122,22 @@ test("query validation only allows bounded read parameters", () => {
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&symbol=OTHER")).ok, false);
 });
 
+
+test("profit calculation route allows only validated hypothetical stop-loss inputs", () => {
+  assert.deepEqual(
+    validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=buy&volume=0.1&open_price=2000&stop_price=1990")),
+    { ok: true }
+  );
+  assert.deepEqual(
+    validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=sell&volume=0.1&open_price=2000&stop_price=2010")),
+    { ok: true }
+  );
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=buy&volume=0.1&open_price=2000&stop_price=2010")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=buy&volume=-1&open_price=2000&stop_price=1990")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=buy&volume=0.1&open_price=2000&stop_price=1990&extra=1")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/profit-calculation?symbol=XAUUSDm&side=buy&volume=0.1&volume=0.2&open_price=2000&stop_price=1990")).ok, false);
+});
+
 test("token comparison rejects missing, unequal, and non-string values", () => {
   assert.equal(constantTimeEqual(TOKEN, TOKEN), true);
   assert.equal(constantTimeEqual(TOKEN, TOKEN + "x"), false);
