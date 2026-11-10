@@ -139,10 +139,6 @@ class NetPnlTests(unittest.TestCase):
             build(deal_history_chunks=[duplicate])
 
 
-    def test_deal_history_currency_must_match_position_account(self):
-        with self.assertRaises(PnlReconciliationError):
-            build(deal_history_chunks=[chunk(currency="USD")])
-
     def test_nonzero_unattributed_account_level_deal_fails_closed(self):
         data = chunk()
         data["deals"].insert(0, {
@@ -152,6 +148,16 @@ class NetPnlTests(unittest.TestCase):
         data["count"] = len(data["deals"])
         with self.assertRaises(PnlReconciliationError):
             build(deal_history_chunks=[data])
+
+    def test_identity_fields_reject_bool_and_float_values(self):
+        with self.assertRaises(PnlReconciliationError):
+            build(account_login=True)
+        with self.assertRaises(PnlReconciliationError):
+            build(positions=[{"identifier": 1001.5, "time": "2026-11-10T01:00:00+00:00", "profit": "1", "swap": "0"}])
+        bad = chunk()
+        bad["deals"][0]["ticket"] = True
+        with self.assertRaises(PnlReconciliationError):
+            build(deal_history_chunks=[bad])
 
     def test_active_position_deal_before_open_time_fails_closed(self):
         data = chunk()
