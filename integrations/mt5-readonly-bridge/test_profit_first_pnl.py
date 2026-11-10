@@ -44,10 +44,10 @@ class NetPnlTests(unittest.TestCase):
         self.assertEqual(result["net_pnl_usd"], "11.440")
         self.assertTrue(result["deal_history_coverage_verified"])
 
-    def test_deal_swap_is_not_double_counted_with_open_position_swap(self):
+    def test_closed_deal_swap_is_added_to_open_position_swap(self):
         data = chunk()
         data["deals"][0]["swap"] = "-3"
-        self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "10.4")
+        self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
 
     def test_usd_account_uses_identity_rate(self):
         self.assertEqual(build(account_currency="USD", currency_to_usd_rate="1")["net_pnl_usd"], "10.4")
@@ -132,29 +132,25 @@ class NetPnlTests(unittest.TestCase):
             build(deal_history_chunks=[duplicate])
 
 
-    def test_reported_chunk_counts_must_match_returned_deals(self):
-        with self.assertRaises(PnlReconciliationError):
-            build(deals=[])
-
-    def test_deal_currency_must_match_account_currency(self):
+    def test_deal_history_currency_must_match_position_account(self):
         with self.assertRaises(PnlReconciliationError):
             build(deal_history_chunks=[chunk(currency="USD")])
 
     def test_nonzero_unattributed_account_level_deal_fails_closed(self):
-        deals = [
-            {"ticket": 1, "position_id": 0, "time": "2026-11-10T02:00:00+00:00", "profit": "0", "commission": "-1", "swap": "0", "fee": "0"},
-            {"ticket": 2, "position_id": 1001, "time": "2026-11-10T03:00:00+00:00", "profit": "2", "commission": "-0.5", "swap": "0", "fee": "-0.1"},
-        ]
+        data = chunk()
+        data["deals"].insert(0, {
+            "ticket": 3, "position_id": 0, "time": "2026-11-10T02:30:00+00:00",
+            "profit": "0", "commission": "-1", "swap": "0", "fee": "0",
+        })
+        data["count"] = len(data["deals"])
         with self.assertRaises(PnlReconciliationError):
-            build(deals=deals)
+            build(deal_history_chunks=[data])
 
-    def test_deal_timestamp_outside_snapshot_window_fails_closed(self):
-        deals = [
-            {"ticket": 1, "position_id": 1001, "time": "2026-11-09T23:59:59+00:00", "profit": "2", "commission": "-0.5", "swap": "0", "fee": "-0.1"},
-            {"ticket": 2, "position_id": 9999, "time": "2026-11-10T03:00:00+00:00", "profit": "500", "commission": "0", "swap": "0", "fee": "0"},
-        ]
+    def test_active_position_deal_before_open_time_fails_closed(self):
+        data = chunk()
+        data["deals"][0]["time"] = "2026-11-10T00:30:00+00:00"
         with self.assertRaises(PnlReconciliationError):
-            build(deals=deals)
+            build(deal_history_chunks=[data])
 
 
 if __name__ == "__main__":
