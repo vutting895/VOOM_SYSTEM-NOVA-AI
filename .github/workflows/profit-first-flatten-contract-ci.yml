@@ -5,6 +5,8 @@ on:
     paths:
       - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
       - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/profit_first_pnl.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_pnl.py"
       - ".github/workflows/profit-first-flatten-contract-ci.yml"
   push:
     branches: [main]
@@ -31,9 +33,12 @@ jobs:
         run: |
           python -m py_compile integrations/mt5-readonly-bridge/profit_first_flatten_contract.py
           python -m py_compile integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py
+          python -m py_compile integrations/mt5-readonly-bridge/profit_first_pnl.py
+          python -m py_compile integrations/mt5-readonly-bridge/test_profit_first_pnl.py
       - name: Run contract tests
         run: |
           python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_flatten_contract.py" -v
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_pnl.py" -v
       - name: Assert contract cannot submit broker orders
         shell: bash
         run: |
