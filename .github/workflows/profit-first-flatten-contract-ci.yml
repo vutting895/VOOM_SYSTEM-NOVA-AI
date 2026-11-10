@@ -1,0 +1,44 @@
+name: Profit-First Flatten Contract CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - ".github/workflows/profit-first-flatten-contract-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - ".github/workflows/profit-first-flatten-contract-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  decision-contract:
+    name: Test non-executing Demo-only decision contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile contract and tests
+        run: |
+          python -m py_compile integrations/mt5-readonly-bridge/profit_first_flatten_contract.py
+          python -m py_compile integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py
+      - name: Run contract tests
+        run: |
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_flatten_contract.py" -v
+      - name: Assert contract cannot submit broker orders
+        shell: bash
+        run: |
+          if grep -Eq 'MetaTrader5|mt5\.order_send|order_send\(' integrations/mt5-readonly-bridge/profit_first_flatten_contract.py; then
+            echo "Broker execution code must not exist in the decision-only contract."
+            exit 1
+          fi
+          echo "Decision contract contains no broker execution adapter."
