@@ -111,6 +111,8 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertFalse(has_call(calculation, "order_send"))
         self.assertIn('app.get("/api/profit-calculation")', SOURCE)
         self.assertIn("volume_step", SOURCE)
+        self.assertIn('optional_decimal_string(info, "trade_tick_size")', SOURCE)
+        self.assertIn("Prices do not match broker tick size", SOURCE)
         self.assertIn("native_profit >= 0", SOURCE)
         self.assertIn('"calculation_method": "mt5.order_calc_profit"', SOURCE)
 
