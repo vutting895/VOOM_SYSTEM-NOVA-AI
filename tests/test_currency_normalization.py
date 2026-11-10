@@ -15,6 +15,7 @@ from workers.risk.currency_normalization import (
     evaluate_usd_risk_limits,
     exness_standard_cent_rule,
     estimate_stop_loss_usd,
+    evaluate_mt5_demo_trade_risk,
 )
 
 NOW = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
@@ -297,6 +298,37 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 account_denomination="standard", normalizer=normalizer,
                 fx=stale_fx, as_of=NOW,
             )
+
+    def test_mt5_usd_risk_adapter_rejects_trade_above_one_percent(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+        ])
+        result = evaluate_mt5_demo_trade_risk(
+            current_equity_usd="1000", daily_loss_usd="0",
+            volume_lots="0.2", entry_price="2000", stop_loss_price="1999.50",
+            tick_size="0.01", tick_value_loss_native_per_lot="1",
+            estimated_other_costs_native="0", broker="Exness",
+            native_currency="USD", account_denomination="standard",
+            normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertEqual(result.stop_loss.usd_loss, Decimal("10.0"))
+        self.assertTrue(result.risk_passed)
+        self.assertTrue(result.decision.allowed)
+
+    def test_mt5_usd_risk_adapter_blocks_trade_when_daily_loss_limit_reached(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+        ])
+        result = evaluate_mt5_demo_trade_risk(
+            current_equity_usd="1000", daily_loss_usd="100",
+            volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
+            tick_size="0.01", tick_value_loss_native_per_lot="1",
+            estimated_other_costs_native="0", broker="Exness",
+            native_currency="USD", account_denomination="standard",
+            normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertFalse(result.risk_passed)
+        self.assertEqual(result.decision.reason_codes, ("daily_loss_limit",))
 
 
 if __name__ == "__main__":
