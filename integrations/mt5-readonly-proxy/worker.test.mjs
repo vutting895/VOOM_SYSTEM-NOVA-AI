@@ -165,6 +165,52 @@ test("connected user is routed only to the stable workers.dev relay", async () =
 });
 
 
+
+test("authenticated proxy forwards bounded profit calculation inputs to tenant relay", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-test-id",
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "connected",
+        bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({ calculation_method: "mt5.order_calc_profit", mode: "read-only" });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/profit-calculation?connection_id=" + CONNECTION_ID +
+      "&symbol=XAUUSDc&side=buy&volume=0.1&open_price=2000&stop_price=1990",
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 200);
+    assert.equal(new URL(relayRequest.url).pathname, "/api/profit-calculation");
+    assert.equal(new URL(relayRequest.url).searchParams.get("symbol"), "XAUUSDc");
+    assert.equal(new URL(relayRequest.url).searchParams.get("side"), "buy");
+    assert.equal(new URL(relayRequest.url).searchParams.get("volume"), "0.1");
+    assert.equal(new URL(relayRequest.url).searchParams.get("open_price"), "2000");
+    assert.equal(new URL(relayRequest.url).searchParams.get("stop_price"), "1990");
+    assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
