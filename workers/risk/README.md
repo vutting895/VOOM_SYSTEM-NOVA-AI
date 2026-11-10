@@ -26,3 +26,12 @@ No execution endpoint is implemented here. The MT5 bridge remains read-only, and
 The verified Exness Standard Cent mapping currently enabled by `exness_standard_cent_rule` is `USC -> USD × 0.01`, and the requested instrument must also carry Exness's documented `c` suffix. Exness states that a 5 USD deposit is displayed as 500 USC and that Standard Cent instruments use cent lots. See the [Exness Standard Cent account specification](https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account).
 
 Other cent currencies are deliberately not enabled until their exact unit conversion is verified. “Micro” must not be treated as a currency multiplier: if an account reports USD, its account balance remains USD; smaller micro contract sizes must be obtained from instrument contract/tick metadata and valued separately.
+
+
+### MT5 tick-based stop-loss estimate
+
+`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate.
+
+For Exness USC Cent, the account-native tick loss is normalized with the verified USC -> USD 0.01 mapping. For USD Micro accounts, the USD balance is not scaled; the terminal's actual smaller tick value/contract metadata drives the loss estimate.
+
+This remains a pure calculation layer. The legacy `manager_prototype.py` is not replaced or wired to broker execution by this change; full risk-manager integration still requires review of daily-loss snapshot semantics, drawdown, aggregate open risk, and other owner-approved gates.
