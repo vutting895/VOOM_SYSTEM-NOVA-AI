@@ -334,7 +334,7 @@ def deal_history(
                     "price": float(getattr(deal, "price", 0.0)),
                     "profit": _required_deal_money(deal, "profit"),
                     "commission": _required_deal_money(deal, "commission"),
-                    "swap": float(getattr(deal, "swap", 0.0)),
+                    "swap": _required_deal_money(deal, "swap"),
                     "fee": _required_deal_money(deal, "fee"),
                 }
                 for deal in selected
