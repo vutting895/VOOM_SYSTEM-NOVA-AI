@@ -148,6 +148,7 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "currency": str(getattr(account, "currency", "")),
             "account_denomination": (
                 "standard-cent" if str(getattr(account, "currency", "")).upper() == "USC"
+                else "unsupported-cent" if str(getattr(account, "currency", "")).upper().endswith("C")
                 else "currency-native"
             ),
             "balance": float(account.balance),
@@ -228,7 +229,9 @@ def profit_calculation(
             "loss_native_decimal": format(abs(native_profit), "f"),
             "account_currency": account_currency,
             "account_denomination": (
-                "standard-cent" if account_currency == "USC" else "currency-native"
+                "standard-cent" if account_currency == "USC"
+                else "unsupported-cent" if account_currency.endswith("C")
+                else "currency-native"
             ),
             "calculation_method": "mt5.order_calc_profit",
             "mode": "read-only",
