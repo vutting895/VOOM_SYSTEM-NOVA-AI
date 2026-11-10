@@ -30,7 +30,7 @@ Other cent currencies are deliberately not enabled until their exact unit conver
 
 ### MT5 tick-based stop-loss estimate
 
-`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate. `evaluate_mt5_demo_trade_risk` composes the stop-loss estimator with the 1% per-trade and 10% daily-loss USD gate in one pure function.
+`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate. `evaluate_mt5_trade_risk` composes the stop-loss estimator with the 1% per-trade and 10% daily-loss USD gate in one pure function.
 
 For Exness USC Cent, the account-native tick loss is normalized with the verified USC -> USD 0.01 mapping. For USD Micro accounts, the USD balance is not scaled; the terminal's actual smaller tick value/contract metadata drives the loss estimate.
 
