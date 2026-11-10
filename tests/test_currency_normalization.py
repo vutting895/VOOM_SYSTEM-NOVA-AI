@@ -74,7 +74,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             DenominationRule("Exness", "EUR", "currency-native", "EUR", Decimal("1"), "mt5-account-currency-eur-v1")
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.081", quote_id="eurusd-1")])
-        result = normalizer.to_usd("100", broker="Exness", native_currency="EUR", account_denomination="standard", fx=fx, as_of=NOW)
+        result = normalizer.to_usd("100", broker="Exness", native_currency="EUR", account_denomination="currency-native", fx=fx, as_of=NOW)
         self.assertEqual(result.amount, Decimal("108.00"))
         self.assertEqual(result.quote_ids, ("eurusd-1",))
 
@@ -280,7 +280,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             volume_lots="1", entry_price="2000", stop_loss_price="1999.499",
             tick_size="0.01", tick_value_loss_native_per_lot="1",
             estimated_other_costs_native="0", broker="Exness", native_currency="USD",
-            account_denomination="standard", normalizer=normalizer,
+            account_denomination="currency-native", normalizer=normalizer,
             fx=FXRateBook([]), as_of=NOW,
         )
         self.assertEqual(estimate.ticks, Decimal("51"))
@@ -295,7 +295,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
                 tick_size="0.01", tick_value_loss_native_per_lot="1",
                 estimated_other_costs_native="1", broker="Exness", native_currency="EUR",
-                account_denomination="standard", normalizer=normalizer,
+                account_denomination="currency-native", normalizer=normalizer,
                 fx=stale_fx, as_of=NOW,
             )
 
@@ -346,7 +346,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.10")])
         converted = normalizer.to_usd_loss(
             "100", broker="Exness", native_currency="EUR",
-            account_denomination="standard", fx=fx, as_of=NOW,
+            account_denomination="currency-native", fx=fx, as_of=NOW,
         )
         self.assertEqual(converted.amount, Decimal("110.00"))
         self.assertEqual(converted.target_currency, "USD")
@@ -386,7 +386,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             evaluate_mt5_trade_risk(
                 current_equity_usd="1000", daily_loss_usd="0",
                 mt5_profit_native="5", estimated_other_costs_native="0",
-                broker="Exness", native_currency="USD", account_denomination="standard",
+                broker="Exness", native_currency="USD", account_denomination="currency-native",
                 normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
             )
 
