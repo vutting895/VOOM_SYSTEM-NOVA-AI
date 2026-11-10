@@ -343,6 +343,18 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertEqual(liability.amount, Decimal("-108.3600"))
         self.assertEqual(liability.path, ("EUR", "GBP", "USD"))
 
+    def test_positive_daily_loss_uses_liability_side_fx_conversion(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+        ])
+        fx = FXRateBook([quote("EUR", "USD", "1.08", "1.10")])
+        converted = normalizer.to_usd_loss(
+            "100", broker="Exness", native_currency="EUR",
+            account_denomination="standard", fx=fx, as_of=NOW,
+        )
+        self.assertEqual(converted.amount, Decimal("110.00"))
+        self.assertEqual(converted.target_currency, "USD")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
