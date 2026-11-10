@@ -90,17 +90,69 @@ def require_token(authorization: str | None, tenant_id: str | None) -> None:
 
 
 def initialize_mt5() -> None:
+    """Initialize the terminal only when needed; never issue a trading command."""
     initialized = mt5.initialize(path=TERMINAL_PATH) if TERMINAL_PATH else mt5.initialize()
     if not initialized:
         error = mt5.last_error()
-        raise HTTPException(status_code=503, detail=f"MT5 initialize failed: {error[0]}")
+        code = error[0] if error else "unknown"
+        raise HTTPException(status_code=503, detail=f"MT5 initialize failed: {code}")
+
+
+def ensure_connection() -> tuple[Any, Any]:
+    """Reuse a healthy session and reinitialize a disconnected terminal once."""
+    terminal = mt5.terminal_info()
+    account = mt5.account_info()
+    if terminal is None or not bool(getattr(terminal, "connected", False)) or account is None:
+        initialize_mt5()
+        terminal = mt5.terminal_info()
+        account = mt5.account_info()
+    if terminal is None or not bool(getattr(terminal, "connected", False)):
+        raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
+    if account is None:
+        error = mt5.last_error()
+        code = error[0] if error else "unknown"
+        raise HTTPException(status_code=503, detail=f"MT5 account unavailable: {code}")
+    return terminal, account
+
+
+def get_open_positions(limit: int = 100) -> tuple[list[dict[str, Any]], int]:
+    """Read a bounded snapshot of open positions; this function cannot modify them."""
+    found = mt5.positions_get()
+    if found is None:
+        error = mt5.last_error()
+        code = error[0] if error else "unknown"
+        raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {code}")
+    position_types = {
+        getattr(mt5, "POSITION_TYPE_BUY", 0): "BUY",
+        getattr(mt5, "POSITION_TYPE_SELL", 1): "SELL",
+    }
+    positions: list[dict[str, Any]] = []
+    for item in found[:limit]:
+        raw_time = getattr(item, "time", None)
+        positions.append({
+            "ticket": int(getattr(item, "ticket", 0)),
+            "symbol": str(getattr(item, "symbol", "")),
+            "type": position_types.get(getattr(item, "type", None), "UNKNOWN"),
+            "volume": float(getattr(item, "volume", 0.0)),
+            "price_open": float(getattr(item, "price_open", 0.0)),
+            "price_current": float(getattr(item, "price_current", 0.0)),
+            "stop_loss": float(getattr(item, "sl", 0.0)),
+            "take_profit": float(getattr(item, "tp", 0.0)),
+            "profit": float(getattr(item, "profit", 0.0)),
+            "swap": float(getattr(item, "swap", 0.0)),
+            "time_utc": (
+                datetime.fromtimestamp(int(raw_time), timezone.utc).isoformat()
+                if raw_time is not None else None
+            ),
+            "magic": int(getattr(item, "magic", 0)),
+            "comment": str(getattr(item, "comment", ""))[:128],
+        })
+    return positions, len(found)
 
 
 def get_terminal_and_account() -> tuple[Any, Any]:
     with LOCK:
-        initialize_mt5()
-        terminal = mt5.terminal_info()
-        account = mt5.account_info()
+        terminal, account = ensure_connection()
         try:
             validate_exness_demo_terminal(
                 terminal,
@@ -151,6 +203,7 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
     require_token(authorization, tenant_id)
     with LOCK:
         terminal, account = get_terminal_and_account()
+        positions, positions_total = get_open_positions(limit=100)
         return {
             "connected": bool(terminal.connected),
             "server": str(getattr(account, "server", "")),
@@ -162,6 +215,9 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "free_margin": float(account.margin_free),
             "margin_level": float(account.margin_level) if account.margin_level else None,
             "terminal_trade_allowed_by_terminal": bool(terminal.trade_allowed),
+            "open_positions": positions,
+            "open_positions_count": positions_total,
+            "open_positions_truncated": positions_total > len(positions),
             **read_only_metadata(),
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
