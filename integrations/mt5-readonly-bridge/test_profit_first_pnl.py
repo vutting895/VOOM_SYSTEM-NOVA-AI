@@ -100,6 +100,10 @@ class NetPnlTests(unittest.TestCase):
         with self.assertRaises(PnlReconciliationError):
             build(deal_history_chunks=[bad])
 
+    def test_deal_history_currency_must_match_position_account(self):
+        with self.assertRaises(PnlReconciliationError):
+            build(deal_history_chunks=[chunk(currency="USD")])
+
     def test_deal_outside_declared_chunk_rejected(self):
         bad = chunk()
         bad["deals"][0]["time"] = "2026-11-09T23:59:59+00:00"
