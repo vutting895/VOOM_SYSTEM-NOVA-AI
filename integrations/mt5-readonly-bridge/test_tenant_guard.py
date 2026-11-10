@@ -82,6 +82,9 @@ class TenantGuardContractTests(unittest.TestCase):
             "contract_size", "tick_size", "tick_value_profit", "tick_value_loss",
             "profit_currency", "margin_currency", "volume_min", "volume_max",
             "volume_step", "risk_metadata_complete",
+            "contract_size_decimal", "tick_size_decimal", "tick_value_loss_decimal",
+            "volume_min_decimal", "volume_max_decimal", "volume_step_decimal",
+            "equity_decimal", "balance_decimal",
         ):
             with self.subTest(field=field):
                 self.assertIn(f'"{field}"', SOURCE)
@@ -90,6 +93,12 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("math.isfinite(result)", SOURCE)
         self.assertIn('spec["risk_metadata_complete"]', SOURCE)
         self.assertIn('spec[field] is not None and spec[field] > 0', SOURCE)
+
+    def test_decimal_string_fields_reject_non_finite_values(self):
+        self.assertIn("Decimal(str(value))", SOURCE)
+        self.assertIn("result.is_finite()", SOURCE)
+        self.assertIn('optional_decimal_string(account, "equity")', SOURCE)
+        self.assertIn('optional_decimal_string(account, "balance")', SOURCE)
 
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
