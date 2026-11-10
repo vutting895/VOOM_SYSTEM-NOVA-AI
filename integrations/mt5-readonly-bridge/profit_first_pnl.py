@@ -223,6 +223,7 @@ def build_net_pnl_snapshot(
             "realized_deal_profit": format(realized, "f"),
             "deal_commission": format(commissions, "f"),
             "deal_fee": format(fees, "f"),
+            "closed_deal_swap": format(closed_deal_swaps, "f"),
             "closed_deal_swap": format(deal_swaps, "f"),
         },
     }
