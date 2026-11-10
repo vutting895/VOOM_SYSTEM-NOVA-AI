@@ -233,7 +233,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             volume_lots="0.1", entry_price="2000.00", stop_loss_price="1999.50",
             tick_size="0.01", tick_value_loss_native_per_lot="1",
             estimated_other_costs_native="1", broker="Exness", native_currency="USD",
-            account_denomination="standard", normalizer=normalizer,
+            account_denomination="currency-native", normalizer=normalizer,
             fx=FXRateBook([]), as_of=NOW,
         )
         self.assertEqual(estimate.ticks, Decimal("50"))
