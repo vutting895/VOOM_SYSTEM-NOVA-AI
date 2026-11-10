@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import math
 import os
 import re
 import threading
@@ -58,6 +59,32 @@ async def enforce_read_only(request: Request, call_next):
             content={"error": "method_not_allowed", "mode": "read-only"},
         )
     return await call_next(request)
+
+
+def _required_deal_integer(deal: Any, field: str) -> int:
+    raw = getattr(deal, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata unavailable")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid") from None
+    if value <= 0:
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid")
+    return value
+
+
+def _required_deal_money(deal: Any, field: str) -> float:
+    raw = getattr(deal, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata unavailable")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid") from None
+    if not math.isfinite(value):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid")
+    return value
 
 
 def require_token(authorization: str | None, tenant_id: str | None) -> None:
@@ -223,19 +250,19 @@ def deal_history(
         return {
             "deals": [
                 {
-                    "ticket": int(getattr(deal, "ticket", 0)),
+                    "ticket": _required_deal_integer(deal, "ticket"),
                     "order": int(getattr(deal, "order", 0)),
-                    "position_id": int(getattr(deal, "position_id", 0)),
+                    "position_id": _required_deal_integer(deal, "position_id"),
                     "time": datetime.fromtimestamp(int(deal.time), timezone.utc).isoformat(),
                     "type": int(getattr(deal, "type", -1)),
                     "entry": int(getattr(deal, "entry", -1)),
                     "symbol": str(getattr(deal, "symbol", "")),
                     "volume": float(getattr(deal, "volume", 0.0)),
                     "price": float(getattr(deal, "price", 0.0)),
-                    "profit": float(getattr(deal, "profit", 0.0)),
-                    "commission": float(getattr(deal, "commission", 0.0)),
+                    "profit": _required_deal_money(deal, "profit"),
+                    "commission": _required_deal_money(deal, "commission"),
                     "swap": float(getattr(deal, "swap", 0.0)),
-                    "fee": float(getattr(deal, "fee", 0.0)),
+                    "fee": _required_deal_money(deal, "fee"),
                 }
                 for deal in selected
             ],
