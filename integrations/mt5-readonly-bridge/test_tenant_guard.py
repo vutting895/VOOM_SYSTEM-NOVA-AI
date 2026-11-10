@@ -74,6 +74,15 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
 
+    def test_deal_history_requires_fee_and_pnl_metadata(self):
+        endpoint = SOURCE[SOURCE.index('def deal_history'):SOURCE.index('@app.get("/api/quotes")')]
+        self.assertIn('_required_deal_integer(deal, "position_id")', endpoint)
+        self.assertIn('_required_deal_money(deal, "profit")', endpoint)
+        self.assertIn('_required_deal_money(deal, "commission")', endpoint)
+        self.assertIn('_required_deal_money(deal, "fee")', endpoint)
+        self.assertNotIn('getattr(deal, "fee", 0.0)', endpoint)
+        self.assertIn('"truncated": len(deals) > limit', endpoint)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
