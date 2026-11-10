@@ -223,7 +223,12 @@ def build_net_pnl_snapshot(
         realized += _decimal(deal["profit"], f"deals[{index}].profit")
         commissions += _decimal(deal["commission"], f"deals[{index}].commission")
         fees += _decimal(deal["fee"], f"deals[{index}].fee")
-        deal_swaps += _decimal(deal["swap"], f"deals[{index}].swap")
+        # MT5 DEAL_ENTRY_IN (0) is not added here: its swap is already
+        # reflected in the current open-position snapshot. Only closing,
+        # reversal, and close-by entries carry realized swap into this total.
+        entry = _integer(deal.get("entry"), f"deals[{index}].entry", minimum=0)
+        if entry in {1, 2, 3}:  # DEAL_ENTRY_OUT, INOUT, OUT_BY
+            deal_swaps += _decimal(deal["swap"], f"deals[{index}].swap")
 
     net_account_currency = floating + realized + commissions + fees + deal_swaps
     net_usd = net_account_currency * rate
@@ -242,7 +247,6 @@ def build_net_pnl_snapshot(
             "realized_deal_profit": format(realized, "f"),
             "deal_commission": format(commissions, "f"),
             "deal_fee": format(fees, "f"),
-            "closed_deal_swap": format(closed_deal_swaps, "f"),
             "closed_deal_swap": format(deal_swaps, "f"),
         },
     }
