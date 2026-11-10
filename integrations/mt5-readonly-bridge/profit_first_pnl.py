@@ -95,9 +95,12 @@ def build_net_pnl_snapshot(
         seen_tickets.add(ticket)
         if position_id not in active_ids:
             continue
-        realized += _decimal(deal.get("profit", 0), f"deals[{index}].profit")
-        commissions += _decimal(deal.get("commission", 0), f"deals[{index}].commission")
-        fees += _decimal(deal.get("fee", 0), f"deals[{index}].fee")
+        for field in ("profit", "commission", "fee"):
+            if field not in deal:
+                raise PnlReconciliationError(f"deals[{index}].{field} is required")
+        realized += _decimal(deal["profit"], f"deals[{index}].profit")
+        commissions += _decimal(deal["commission"], f"deals[{index}].commission")
+        fees += _decimal(deal["fee"], f"deals[{index}].fee")
 
     net_account_currency = floating + realized + commissions + fees
     net_usd = net_account_currency * rate
