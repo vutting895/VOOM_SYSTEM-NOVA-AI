@@ -74,7 +74,9 @@ class NetPnlTests(unittest.TestCase):
         with self.assertRaises(PnlReconciliationError):
             build(positions=[{"identifier": 1001, "profit": "NaN", "swap": "0"}])
         with self.assertRaises(PnlReconciliationError):
-            build(deals=[{"ticket": 1, "position_id": 1001, "profit": "1", "commission": "inf"}])
+            build(deals=[{"ticket": 1, "position_id": 1001, "profit": "1", "commission": "inf", "fee": "0"}])
+        with self.assertRaises(PnlReconciliationError):
+            build(deals=[{"ticket": 1, "position_id": 1001, "profit": "1", "commission": "0"}])
 
 
 if __name__ == "__main__":
