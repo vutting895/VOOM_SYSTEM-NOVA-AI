@@ -69,7 +69,7 @@ class ProfitFirstFlattenContractTests(unittest.TestCase):
             }],
             pending_orders=[{"ticket": 13}, {"ticket": 14}],
         ))
-        self.assertFalse(result["close_positions"])
+        self.assertTrue(result["close_positions"])
         self.assertTrue(result["cancel_pending_orders"])
 
     def test_no_positions_means_no_profit_trigger(self):
