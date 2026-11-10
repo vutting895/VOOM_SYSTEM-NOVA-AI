@@ -173,8 +173,16 @@ def build_net_pnl_snapshot(
         if ticket <= 0 or ticket in seen_tickets:
             raise PnlReconciliationError("deal tickets must be unique positive integers")
         seen_tickets.add(ticket)
+        deal_time = _utc(deal.get("time"), f"deals[{index}].time")
+        if position_id == 0:
+            amounts = [_decimal(deal.get(field), f"deals[{index}].{field}") for field in ("profit", "commission", "swap", "fee")]
+            if any(amount != 0 for amount in amounts):
+                raise PnlReconciliationError("non-zero account-level deal cannot be attributed to an active position")
+            continue
         if position_id not in active_ids:
             continue
+        if deal_time < earliest_required or deal_time > _utc(snapshot_as_of, "snapshot_as_of"):
+            raise PnlReconciliationError("deal timestamp falls outside the verified active-position history window")
         for field in ("profit", "commission", "fee"):
             if field not in deal:
                 raise PnlReconciliationError(f"deals[{index}].{field} is required")
