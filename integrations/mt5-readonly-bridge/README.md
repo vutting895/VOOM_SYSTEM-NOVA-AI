@@ -57,6 +57,7 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 - `GET /api/account`
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/history/deals?from_time=2026-11-10T00:00:00Z&to_time=2026-11-11T00:00:00Z&limit=1000` (bounded to 7 days; read-only; returns raw account-currency profit, commission, swap and fee fields for reconciliation)
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
