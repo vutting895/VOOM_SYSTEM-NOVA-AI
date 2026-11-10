@@ -129,7 +129,21 @@ def get_open_positions(limit: int = 100) -> tuple[list[dict[str, Any]], int]:
     positions: list[dict[str, Any]] = []
     for item in found[:limit]:
         raw_time = getattr(item, "time", None)
+        raw_identifier = getattr(item, "identifier", None)
+        try:
+            position_identifier = int(raw_identifier)
+        except (TypeError, ValueError, OverflowError):
+            raise HTTPException(
+                status_code=502,
+                detail="MT5 position identifier unavailable; refusing incomplete position snapshot",
+            ) from None
+        if position_identifier <= 0:
+            raise HTTPException(
+                status_code=502,
+                detail="MT5 position identifier invalid; refusing incomplete position snapshot",
+            )
         positions.append({
+            "identifier": position_identifier,
             "ticket": int(getattr(item, "ticket", 0)),
             "symbol": str(getattr(item, "symbol", "")),
             "type": position_types.get(getattr(item, "type", None), "UNKNOWN"),
