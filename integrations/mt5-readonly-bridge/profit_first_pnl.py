@@ -149,6 +149,11 @@ def build_net_pnl_snapshot(
     if rate <= 0:
         raise PnlReconciliationError("currency_to_usd_rate must be greater than zero")
 
+    snapshot_time = _utc(snapshot_as_of, "snapshot_as_of")
+    earliest_required = min(
+        (_utc(position.get("time"), f"positions[{index}].time") for index, position in enumerate(positions)),
+        default=snapshot_time,
+    )
     active_ids: set[int] = set()
     floating = Decimal("0")
     for index, position in enumerate(positions):
@@ -168,7 +173,6 @@ def build_net_pnl_snapshot(
     realized = Decimal("0")
     commissions = Decimal("0")
     fees = Decimal("0")
-    deal_swaps = Decimal("0")
     seen_tickets: set[int] = set()
     for index, deal in enumerate(deals):
         try:
@@ -176,7 +180,7 @@ def build_net_pnl_snapshot(
             ticket = int(deal["ticket"])
         except (KeyError, TypeError, ValueError):
             raise PnlReconciliationError(f"deals[{index}] requires position_id and ticket") from None
-        if isinstance(deal.get("ticket"), bool) or ticket <= 0 or ticket in seen_tickets:
+        if isinstance(deal.get("ticket"), bool) or isinstance(deal.get("position_id"), bool) or ticket <= 0 or ticket in seen_tickets:
             raise PnlReconciliationError("deal tickets must be unique positive integers")
         seen_tickets.add(ticket)
         deal_time = _utc(deal.get("time"), f"deals[{index}].time")
@@ -195,9 +199,8 @@ def build_net_pnl_snapshot(
         realized += _decimal(deal["profit"], f"deals[{index}].profit")
         commissions += _decimal(deal["commission"], f"deals[{index}].commission")
         fees += _decimal(deal["fee"], f"deals[{index}].fee")
-        deal_swaps += _decimal(deal["swap"], f"deals[{index}].swap")
 
-    net_account_currency = floating + realized + commissions + fees + deal_swaps
+    net_account_currency = floating + realized + commissions + fees
     net_usd = net_account_currency * rate
     return {
         "account_environment": "EXNESS_DEMO",
@@ -214,6 +217,5 @@ def build_net_pnl_snapshot(
             "realized_deal_profit": format(realized, "f"),
             "deal_commission": format(commissions, "f"),
             "deal_fee": format(fees, "f"),
-            "closed_deal_swap": format(deal_swaps, "f"),
         },
     }
