@@ -97,7 +97,7 @@ def normalize_read_path(value: object) -> str:
         parsed_values = {}
         for name in ("volume", "open_price", "stop_price"):
             raw = params.get(name, [""])[0]
-            if not re.fullmatch(r"\\d+(?:\\.\\d+)?", raw):
+            if not re.fullmatch(r"\d+(?:\.\d+)?", raw):
                 raise ValueError(f"{name} is invalid.")
             try:
                 number = Decimal(raw)
