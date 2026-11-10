@@ -114,6 +114,13 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("native_profit >= 0", SOURCE)
         self.assertIn('"calculation_method": "mt5.order_calc_profit"', SOURCE)
 
+    def test_usc_account_requires_cent_suffixed_symbol_for_profit_calculation(self):
+        functions = function_nodes()
+        calculation = functions["profit_calculation"]
+        self.assertIn('account_currency == "USC"', SOURCE)
+        self.assertIn('symbol.strip().upper().endswith("C")', SOURCE)
+        self.assertIn("Exness USC Cent accounts require a cent-suffixed symbol", SOURCE)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
