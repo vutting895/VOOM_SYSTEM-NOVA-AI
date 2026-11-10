@@ -9,7 +9,7 @@ Status: scaffold; not connected to EA or broker.
 `currency_normalization.py` provides a deterministic, network-free core:
 - Broker-native account units are mapped through explicit `DenominationRule` records.
 - Account values and instrument profit values are normalized to USD using timestamped FX bid/ask quotes.
-- Positive assets convert conservatively at bid; liabilities convert at ask (inverse pairs use the corresponding inverse side).
+- Positive assets convert conservatively at bid; liabilities and daily-loss amounts use ask-side pricing (inverse pairs use the corresponding inverse side). All available fresh paths are evaluated and the most conservative result is selected.
 - Multi-hop paths are supported and quote IDs/sources are retained in the result.
 - THB is a separate reporting-only conversion from USD. A missing THB quote must suppress THB reporting, never change the USD risk decision.
 - Money uses `Decimal`; binary floats, unknown denomination rules, missing rates, stale rates, and invalid timestamps fail closed.
@@ -36,4 +36,4 @@ For Exness USC Cent, the account-native tick loss is normalized with the verifie
 
 This remains a pure calculation layer. The legacy `manager_prototype.py` is not replaced or wired to broker execution by this change; full risk-manager integration still requires review of daily-loss snapshot semantics, drawdown, aggregate open risk, and other owner-approved gates.
 
-The adapter returns `risk_passed` as a calculation outcome only; it is not order authorization. It does not replace the existing risk worker or satisfy aggregate open-risk, drawdown, concurrency, market freshness, tenant authentication, Demo-account verification or kill-switch gates. Daily loss must be supplied from the persisted broker-day opening-equity snapshot, with realized and unrealized P&L reconciled by the trusted account adapter.
+`to_usd_loss` converts positive realized/unrealized loss amounts using liability-side FX pricing. The adapter returns `risk_passed` as a calculation outcome only; it is not order authorization. It does not replace the existing risk worker or satisfy aggregate open-risk, drawdown, concurrency, market freshness, tenant authentication, Demo-account verification or kill-switch gates. Daily loss must be supplied from the persisted broker-day opening-equity snapshot, with realized and unrealized P&L reconciled by the trusted account adapter.
