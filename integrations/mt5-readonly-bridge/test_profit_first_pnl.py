@@ -256,6 +256,17 @@ class NetPnlTests(unittest.TestCase):
         with self.assertRaises(PnlReconciliationError):
             build(deal_history_chunks=[data])
 
+    def test_future_dated_position_is_rejected(self):
+        with self.assertRaises(PnlReconciliationError):
+            build(positions_snapshot=snapshot(positions=[
+                {
+                    "identifier": 1001,
+                    "time": "2026-11-11T00:00:01+00:00",
+                    "profit": "1",
+                    "swap": "0",
+                }
+            ]))
+
     def test_identity_fields_reject_bool_and_float_values(self):
         with self.assertRaises(PnlReconciliationError):
             build(positions_snapshot=snapshot(account_login=True))
