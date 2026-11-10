@@ -191,7 +191,7 @@ function validateProfitCalculationQuery(url) {
   const numbers = {};
   for (const key of ["volume", "open_price", "stop_price"]) {
     const raw = url.searchParams.get(key);
-    if (raw.length > 32 || !/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+    if (raw.length > 32 || !/^\d+(?:\.\d+)?$/.test(raw)) {
       return { ok: false, error: "invalid_" + key };
     }
     numbers[key] = Number(raw);
