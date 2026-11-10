@@ -58,13 +58,22 @@ For this policy, risk per trade means the estimated maximum monetary loss if the
 
 The 10% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance and instrument contract specifications; it must never infer volume directly from the 10% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract calculation is unavailable, reject the order.
 
-Because 10% per trade is an aggressive risk ceiling, aggregate open risk must be independently capped. **The aggregate open-risk limit, daily loss limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
+### Owner-selected daily loss ceiling
+
+**Maximum daily loss: 10% of current account Equity (dynamic/current-Equity basis).**
+
+Daily loss must be measured as the net decline from the captured start-of-day Equity, including realized and unrealized P&L attributable to the current broker trading day. At every risk check, compare that loss amount against 10% of the latest verified current Equity. The threshold therefore changes as current Equity changes; it is not 10% of the beginning-of-day Equity.
+
+The trading-day boundary and start-of-day Equity snapshot must use a single explicitly configured broker-server timezone/day boundary, be persisted and auditable, and must not be reset by restarting NOVA, reconnecting, changing tenants, or changing strategy. If the snapshot, timezone, current Equity, or P&L inputs are missing, stale, inconsistent, or cannot be reconciled, reject new risk-increasing actions and fail closed. Once the daily limit is reached, block new entries and all risk-increasing modifications for the remainder of that broker trading day. Risk-reducing actions may remain available through the separately scoped emergency policy.
+
+Because 10% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
 - Per-trade risk not exceeding 10% of current Equity, calculated to initial Stop Loss including estimated costs.
+- Daily loss not exceeding 10% of latest current Equity, measured from the persisted start-of-broker-day Equity snapshot.
 - Aggregate open risk and exposure by symbol/direction, subject to a separately approved cap.
 - Maximum concurrent positions and pending orders, subject to approved limits.
-- Daily loss and peak-to-trough drawdown, subject to approved limits.
+- Maximum drawdown, subject to an approved limit.
 - Spread, slippage, quote freshness, and market/session conditions.
 - Stop-loss presence and validity; reject unbounded-risk entries.
 - Margin sufficiency and broker volume/price constraints.
@@ -101,11 +110,11 @@ Never log passwords, bearer tokens, bridge secrets, or full credential-bearing p
 ## 8. Required verification before activation
 
 Activation is blocked until all of the following are demonstrated:
-1. Owner approval of aggregate open-risk, daily loss, drawdown, concurrency, and order-rate limits.
+1. Owner approval of aggregate open-risk, maximum drawdown, concurrency, and order-rate limits.
 2. Unit and integration tests for every allowed action and forbidden action.
 3. Positive Exness Demo account-mode verification and negative Live-account rejection.
 4. Owner-vs-foreign-tenant isolation tests for every read and write path.
-5. Risk boundary tests at, below, and above the 10% per-trade ceiling; missing/stale-data fail-closed tests; and kill-switch tests.
+5. Risk boundary tests at, below, and above the 10% per-trade and daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
 6. Duplicate request/idempotency and retry/reconciliation tests.
 7. Broker error, timeout, partial fill, and disconnect recovery tests.
 8. Security review of Backend Policy, MCP tool registry, execution adapter, and Bridge.
