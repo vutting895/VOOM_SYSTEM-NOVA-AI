@@ -330,6 +330,19 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertFalse(result.risk_passed)
         self.assertEqual(result.decision.reason_codes, ("daily_loss_limit",))
 
+    def test_fx_conversion_selects_most_conservative_available_path(self):
+        fx = FXRateBook([
+            quote("EUR", "GBP", "0.85", "0.86", quote_id="eurgbp"),
+            quote("GBP", "USD", "1.25", "1.26", quote_id="gbpusd"),
+            quote("EUR", "USD", "1.05", "1.06", quote_id="eurusd"),
+        ])
+        asset = fx.convert("100", "EUR", "USD", as_of=NOW)
+        liability = fx.convert("-100", "EUR", "USD", as_of=NOW)
+        self.assertEqual(asset.amount, Decimal("105.00"))
+        self.assertEqual(asset.path, ("EUR", "USD"))
+        self.assertEqual(liability.amount, Decimal("-108.3600"))
+        self.assertEqual(liability.path, ("EUR", "GBP", "USD"))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
