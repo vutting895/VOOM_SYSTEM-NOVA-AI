@@ -46,7 +46,8 @@ def _verify_history_coverage(
     snapshot_as_of: str,
     positions: Sequence[Mapping[str, Any]],
     deal_history_chunks: Sequence[Mapping[str, Any]],
-) -> None:
+    account_currency: str,
+) -> int:
     if isinstance(account_login, bool) or not isinstance(account_login, int) or account_login <= 0:
         raise PnlReconciliationError("authenticated account login is required")
     if not isinstance(account_server, str) or not account_server.strip():
