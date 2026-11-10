@@ -1,0 +1,45 @@
+name: NOVA CI Inspector Tests
+
+on:
+  pull_request:
+    paths:
+      - "tools/ci-inspector/**"
+      - ".github/workflows/nova-ci-inspector-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-ci-inspector-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    name: Python unit tests and syntax validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact PR commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile inspector
+        run: python -m py_compile tools/ci-inspector/inspect.py tools/ci-inspector/test_inspect.py
+      - name: Run unit tests with retained output
+        shell: bash
+        run: |
+          set -o pipefail
+          python -X faulthandler -m unittest discover -s tools/ci-inspector -p 'test_*.py' -v 2>&1 | tee inspector-test-output.txt
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-inspector-test-output
+          path: inspector-test-output.txt
+          if-no-files-found: warn
+          retention-days: 7
