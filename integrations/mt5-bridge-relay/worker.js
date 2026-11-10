@@ -4,7 +4,7 @@ const BASE = {
   "Referrer-Policy": "no-referrer"
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
-const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes", "/api/profit-calculation"]);
 const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
@@ -89,9 +89,40 @@ export function validateReadRequest(url) {
 
   const allowedKeys = url.pathname === "/api/symbols"
     ? new Set(["q", "limit"])
-    : new Set(["symbol", "timeframe", "count"]);
+    : url.pathname === "/api/quotes"
+      ? new Set(["symbol", "timeframe", "count"])
+      : new Set(["symbol", "side", "volume", "open_price", "stop_price"]);
   if (keys.some((key) => !allowedKeys.has(key))) {
     return { ok: false, error: "query_parameter_not_allowed" };
+  }
+
+  if (url.pathname === "/api/profit-calculation") {
+    const symbol = singleParam(url, "symbol");
+    const side = singleParam(url, "side");
+    if (symbol === undefined || symbol === null || !/^[A-Za-z0-9._-]{1,40}$/.test(symbol)) {
+      return { ok: false, error: "invalid_symbol" };
+    }
+    if (side === undefined || !["buy", "sell"].includes((side || "").toLowerCase())) {
+      return { ok: false, error: "invalid_side" };
+    }
+    const numbers = {};
+    for (const key of ["volume", "open_price", "stop_price"]) {
+      const raw = singleParam(url, key);
+      if (raw === undefined || raw === null || raw.length > 32 || !/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+        return { ok: false, error: "invalid_" + key };
+      }
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value <= 0) {
+        return { ok: false, error: "invalid_" + key };
+      }
+      numbers[key] = value;
+    }
+    const normalizedSide = side.toLowerCase();
+    if ((normalizedSide === "buy" && numbers.stop_price >= numbers.open_price) ||
+        (normalizedSide === "sell" && numbers.stop_price <= numbers.open_price)) {
+      return { ok: false, error: "stop_price_must_represent_loss" };
+    }
+    return { ok: true };
   }
 
   if (url.pathname === "/api/symbols") {
