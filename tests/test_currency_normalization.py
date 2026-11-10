@@ -402,6 +402,29 @@ class CurrencyNormalizationTests(unittest.TestCase):
             with self.subTest(cent_code=cent_code), self.assertRaises(UnsupportedDenomination):
                 broker_native_currency_rule("Exness", cent_code)
 
+    def test_usc_account_equity_and_daily_loss_normalize_before_usd_policy_gate(self):
+        normalizer = CurrencyNormalizer([
+            exness_standard_cent_rule("USC", symbol_name="XAUUSDc")
+        ])
+        fx = FXRateBook([])
+        equity = normalizer.to_usd(
+            "50000", broker="Exness", native_currency="USC",
+            account_denomination="standard-cent", fx=fx, as_of=NOW,
+        )
+        daily_loss = normalizer.to_usd_loss(
+            "5000", broker="Exness", native_currency="USC",
+            account_denomination="standard-cent", fx=fx, as_of=NOW,
+        )
+        self.assertEqual(equity.amount, Decimal("500.00"))
+        self.assertEqual(daily_loss.amount, Decimal("50.00"))
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd=equity.amount,
+            estimated_trade_loss_usd="5",
+            daily_loss_usd=daily_loss.amount,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason_codes, ("daily_loss_limit",))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
