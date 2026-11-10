@@ -165,6 +165,36 @@ test("connected user is routed only to the stable workers.dev relay", async () =
 });
 
 
+test("open positions route is forwarded through owner-scoped Exness Demo connection", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-test-id" });
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5", environment: "demo",
+      status: "connected", bridge_route_id: TENANT_ID
+    }]);
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({ positions: [], count: 0, mode: "read-only", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/positions?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 200);
+    assert.equal(new URL(relayRequest.url).pathname, "/api/positions");
+    assert.equal(new URL(relayRequest.url).search, "");
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
