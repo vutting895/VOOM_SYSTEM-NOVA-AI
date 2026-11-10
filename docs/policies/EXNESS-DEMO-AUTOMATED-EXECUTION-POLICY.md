@@ -52,47 +52,49 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 ### Owner-selected per-trade ceiling
 
-**Maximum risk per trade: 1% of current account Equity.**
+**Maximum risk per trade: 1% of current account Equity, calculated in USD.**
 
-For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, and slippage, divided by current Equity. It does **not** mean 10% of notional position value, margin used, or order volume.
+For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 1% of notional position value, margin used, or order volume.
 
-The 1% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance and instrument contract specifications; it must never infer volume directly from the 10% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract calculation is unavailable, reject the order.
+The 1% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the 1% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
 
-### Account denomination and automatic monetary normalization
+### Canonical currency and reporting policy
 
-NOVA must automatically detect and normalize monetary values for standard, micro, cent, and other supported account denominations. Account labels such as `micro` or `cent` are not sufficient evidence of the monetary scale.
+**USD is the canonical internal currency for all risk calculations and cross-account comparisons. THB is an additional reporting currency only.** The broker-native account currency and denomination remain authoritative for broker-facing values and order parameters.
 
-The normalization service must:
-- Read authoritative account currency and denomination metadata from the authenticated MT5 account/terminal, and instrument contract specifications (contract size, tick size, tick value, profit currency, margin currency, and volume constraints) from broker metadata.
-- Maintain a canonical internal monetary representation using decimal-safe arithmetic, with explicit currency and unit metadata. Do not use binary floating-point for money or silently assume that one displayed cent-account unit equals a fixed fraction of a standard-account unit.
-- Convert account-currency values to the canonical risk-calculation currency using broker-provided conversion information or a validated, timestamped FX conversion source. Reject risk-increasing actions when the required rate is missing, stale, inconsistent, or unavailable.
-- Normalize balance, equity, free margin, used margin, realized/unrealized P&L, commission, swap, spread cost, tick value, stop-loss loss, and aggregate exposure consistently before applying risk limits.
-- Keep account-currency values as the source of truth for broker requests; convert only for internal comparisons/reporting and convert back using validated metadata where required. Never send normalized reporting units as broker order-volume or price fields.
-- Display both the broker-native amount/currency and the normalized amount/currency, plus the detected account denomination and conversion rate/source/time, so operators can audit the calculation.
+The currency service must:
+- Read account currency and authoritative account/terminal denomination metadata from the authenticated MT5 session. Read contract size, tick size, tick value, profit currency, margin currency, and volume constraints from broker symbol metadata.
+- Convert broker-native account-currency values into USD for risk decisions using a validated, timestamped FX conversion source. Convert USD reporting values into THB for display using a separately identified, timestamped USD/THB rate.
+- Keep risk calculations in USD consistently: Equity, balance, free/used margin, realized and unrealized P&L, commission, swap, spread/slippage estimates, stop-loss loss, daily loss, and aggregate exposure. If a trading instrument's profit or margin currency differs from the account currency, resolve the full conversion path with validated rates.
+- Display broker-native amount and currency, USD-normalized amount, and THB indicative amount together where applicable. Show denomination classification, FX pair/rate, source, timestamp, and conversion status so the operator can audit each figure.
+- Treat THB as reporting-only: THB display conversion must never change order size, risk authorization, daily-loss decisions, or broker-native order parameters.
+- Use decimal-safe arithmetic and explicit currency/unit metadata. Do not use binary floating-point for money or silently assume that one displayed cent-account unit equals a fixed fraction of a standard-account unit.
 - Never infer cent/micro scale from account name, UI preference, or a user-entered multiplier. If denomination cannot be verified, fail closed.
-- Recompute normalization from fresh metadata before each risk-increasing action and persist the metadata/version/rate used in the decision audit.
+- Preserve broker-native values for all broker requests. Never send USD/THB normalized reporting units as broker price, volume, contract, or order fields.
+- Recompute normalization from fresh account/symbol metadata and FX rates before each risk-increasing action. Persist the metadata, rate, source, timestamp, and conversion algorithm/version used in the decision audit.
+- Reject risk-increasing actions when any required FX rate or denomination input is missing, stale, inconsistent, outside configured tolerance, or unavailable. A THB-only reporting-rate failure may suppress THB display but must not corrupt or silently alter USD risk calculations.
 
-Automated account normalization is a risk-critical component, not a cosmetic display conversion. It must be independently tested for standard, micro, and cent account fixtures, multiple account currencies, instruments with differing profit/margin currencies, currency conversion, rounding boundaries, stale/missing rates, and broker metadata changes. A mismatch or ambiguous unit must reject new risk-increasing actions.
+Automated account normalization is a risk-critical component, not a cosmetic display conversion. It must be independently tested for standard, micro, and cent account fixtures; multiple account currencies; instruments with differing profit/margin currencies; multi-hop FX conversion; USD and THB reporting; rounding boundaries; stale/missing rates; and broker metadata changes. A mismatch or ambiguous unit must reject new risk-increasing actions.
 
 ### Owner-selected daily loss ceiling
 
-**Maximum daily loss: 10% of current account Equity (dynamic/current-Equity basis).**
+**Maximum daily loss: 10% of current account Equity (dynamic/current-Equity basis), with all risk values normalized to USD.**
 
-Daily loss must be measured as the net decline from the captured start-of-day Equity, including realized and unrealized P&L attributable to the current broker trading day. At every risk check, compare that loss amount against 10% of the latest verified current Equity. The threshold therefore changes as current Equity changes; it is not 10% of the beginning-of-day Equity.
+Daily loss must be measured as the net decline from the captured start-of-day Equity, including realized and unrealized P&L attributable to the current broker trading day. At every risk check, compare that USD-denominated loss amount against 10% of the latest verified current Equity converted to USD. The threshold therefore changes as current Equity changes; it is not 10% of the beginning-of-day Equity. Use a consistent FX valuation convention for the start-of-day snapshot and current valuation, and retain both broker-native and USD values for audit.
 
-The trading-day boundary and start-of-day Equity snapshot must use a single explicitly configured broker-server timezone/day boundary, be persisted and auditable, and must not be reset by restarting NOVA, reconnecting, changing tenants, or changing strategy. If the snapshot, timezone, current Equity, or P&L inputs are missing, stale, inconsistent, or cannot be reconciled, reject new risk-increasing actions and fail closed. Once the daily limit is reached, block new entries and all risk-increasing modifications for the remainder of that broker trading day. Risk-reducing actions may remain available through the separately scoped emergency policy.
+The trading-day boundary and start-of-day Equity snapshot must use a single explicitly configured broker-server timezone/day boundary, be persisted and auditable, and must not be reset by restarting NOVA, reconnecting, changing tenants, or changing strategy. If the snapshot, timezone, current Equity, P&L inputs, denomination, or required FX inputs are missing, stale, inconsistent, or cannot be reconciled, reject new risk-increasing actions and fail closed. Once the daily limit is reached, block new entries and all risk-increasing modifications for the remainder of that broker trading day. Risk-reducing actions may remain available through the separately scoped emergency policy.
 
-Because 1% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
+Because 1% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not interpret the per-trade ceiling as permission to stack unlimited simultaneous 1% risks.
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
-- Per-trade risk not exceeding 1% of current Equity, calculated to initial Stop Loss including estimated costs.
-- Daily loss not exceeding 10% of latest current Equity, measured from the persisted start-of-broker-day Equity snapshot.
+- Per-trade risk not exceeding 1% of current Equity in USD, calculated to initial Stop Loss including estimated costs.
+- Daily loss not exceeding 10% of latest current Equity in USD, measured from the persisted start-of-broker-day Equity snapshot.
 - Aggregate open risk and exposure by symbol/direction, subject to a separately approved cap.
 - Maximum concurrent positions and pending orders, subject to approved limits.
 - Maximum drawdown, subject to an approved limit.
 - Spread, slippage, quote freshness, and market/session conditions.
 - Stop-loss presence and validity; reject unbounded-risk entries.
-- Margin sufficiency and broker volume/price constraints.
+- Margin sufficiency and broker volume/price constraints in broker-native units.
 - Duplicate/idempotency protection and order-rate limits.
 - Strategy/model eligibility, data freshness, and kill-switch state.
 
@@ -118,6 +120,7 @@ For every decision and attempted mutation, record:
 - Policy and risk configuration versions.
 - Model/strategy and signal identifiers.
 - Requested action, normalized parameters, risk decision, and reason codes.
+- Native account currency/denomination, USD conversion rate/source/time, optional THB reporting rate/source/time, and normalization version.
 - Idempotency key and broker request/result identifiers.
 - Broker-confirmed state, timestamps, latency, and error codes.
 
@@ -131,11 +134,12 @@ Activation is blocked until all of the following are demonstrated:
 3. Positive Exness Demo account-mode verification and negative Live-account rejection.
 4. Owner-vs-foreign-tenant isolation tests for every read and write path.
 5. Risk boundary tests at, below, and above the 1% per-trade and 10% daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
-6. Duplicate request/idempotency and retry/reconciliation tests.
-7. Broker error, timeout, partial fill, and disconnect recovery tests.
-8. Security review of Backend Policy, MCP tool registry, execution adapter, and Bridge.
-9. End-to-end runtime proof on the dedicated Exness Demo account.
-10. Exact-head CI and deployment verification for the reviewed commit.
+6. Standard, micro, cent, multi-currency, instrument profit-currency, USD normalization, THB reporting, and FX-staleness/rounding tests.
+7. Duplicate request/idempotency and retry/reconciliation tests.
+8. Broker error, timeout, partial fill, and disconnect recovery tests.
+9. Security review of Backend Policy, MCP tool registry, execution adapter, normalization service, and Bridge.
+10. End-to-end runtime proof on the dedicated Exness Demo account.
+11. Exact-head CI and deployment verification for the reviewed commit.
 
 Until these gates pass, the existing MT5 Bridge and MCP endpoints remain read-only and all execution flags remain false.
 
