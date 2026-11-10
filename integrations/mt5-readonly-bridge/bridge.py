@@ -87,6 +87,33 @@ def _required_deal_money(deal: Any, field: str) -> float:
     return value
 
 
+
+def _required_position_integer(position: Any, field: str) -> int:
+    raw = getattr(position, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata unavailable")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid") from None
+    if value <= 0:
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid")
+    return value
+
+
+def _required_position_number(position: Any, field: str) -> float:
+    raw = getattr(position, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata unavailable")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid") from None
+    if not math.isfinite(value):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid")
+    return value
+
+
 def require_token(authorization: str | None, tenant_id: str | None) -> None:
     # Report an unavailable service first, then authenticate before disclosing tenant-boundary results.
     if not TENANT_ID or not BRIDGE_TOKEN:
@@ -211,6 +238,50 @@ def symbols(
             ],
             "count": min(len(found), limit),
             "truncated": len(found) > limit,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+
+@app.get("/api/positions")
+def open_positions(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return the complete current open-position snapshot; read-only only."""
+    require_token(authorization, tenant_id)
+    with LOCK:
+        get_terminal_and_account()
+        positions = mt5.positions_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        account = mt5.account_info()
+        selected = []
+        for position in positions:
+            selected.append({
+                "ticket": _required_position_integer(position, "ticket"),
+                "identifier": _required_position_integer(position, "identifier"),
+                "time": datetime.fromtimestamp(int(position.time), timezone.utc).isoformat(),
+                "type": _required_position_integer(position, "type"),
+                "magic": int(getattr(position, "magic", 0)),
+                "symbol": str(getattr(position, "symbol", "")),
+                "volume": _required_position_number(position, "volume"),
+                "price_open": _required_position_number(position, "price_open"),
+                "price_current": _required_position_number(position, "price_current"),
+                "sl": _required_position_number(position, "sl"),
+                "tp": _required_position_number(position, "tp"),
+                "profit": _required_position_number(position, "profit"),
+                "swap": _required_position_number(position, "swap"),
+                "comment": str(getattr(position, "comment", "")),
+            })
+        return {
+            "positions": selected,
+            "count": len(selected),
+            "truncated": False,
+            "currency": str(getattr(account, "currency", "")),
+            "mode": "read-only",
+            "order_submission_enabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 
