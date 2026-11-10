@@ -114,8 +114,9 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("get_open_positions(limit=100)", SOURCE)
         self.assertIn('"open_positions_truncated"', SOURCE)
         self.assertNotIn("mt5.order_send", SOURCE)
-        self.assertNotRegex(SOURCE, r"\\border_send\\s*\\(")
-        self.assertNotRegex(SOURCE, r"@app\\.(?:post|put|patch|delete)\\(")
+        self.assertNotIn("order_send(", SOURCE)
+        for method in ("@app.post(", "@app.put(", "@app.patch(", "@app.delete("):
+            self.assertNotIn(method, SOURCE)
 
     def test_no_order_submission_endpoint_is_registered(self):
         registered_paths = []
