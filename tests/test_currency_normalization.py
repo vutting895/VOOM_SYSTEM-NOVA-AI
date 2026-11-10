@@ -13,6 +13,7 @@ from workers.risk.currency_normalization import (
     StaleExchangeRate,
     UnsupportedDenomination,
     evaluate_usd_risk_limits,
+    exness_standard_cent_rule,
 )
 
 NOW = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
@@ -204,6 +205,16 @@ class CurrencyNormalizationTests(unittest.TestCase):
         )
         self.assertEqual(decision.max_trade_loss_usd, Decimal("20.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("200.00"))
+
+    def test_exness_usc_cent_rule_requires_c_symbol_and_returns_cent_factor(self):
+        rule = exness_standard_cent_rule("USC", symbol_name="XAUUSDc")
+        self.assertEqual(rule.currency, "USD")
+        self.assertEqual(rule.currency_units_per_native_unit, Decimal("0.01"))
+        self.assertEqual(rule.denomination, "standard-cent")
+        with self.assertRaises(UnsupportedDenomination):
+            exness_standard_cent_rule("USC", symbol_name="XAUUSD")
+        with self.assertRaises(UnsupportedDenomination):
+            exness_standard_cent_rule("EUC", symbol_name="EURUSDc")
 
 
 if __name__ == "__main__":
