@@ -6,6 +6,7 @@ from decimal import Decimal
 from workers.risk.currency_normalization import (
     CurrencyNormalizationError,
     CurrencyNormalizer,
+    broker_native_currency_rule,
     DenominationRule,
     FXQuote,
     FXRateBook,
@@ -389,6 +390,18 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 broker="Exness", native_currency="USD", account_denomination="currency-native",
                 normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
             )
+
+    def test_broker_native_currency_auto_maps_standard_account_units(self):
+        usd = broker_native_currency_rule("Exness", "USD")
+        eur = broker_native_currency_rule("Exness", "eur")
+        self.assertEqual(usd.denomination, "currency-native")
+        self.assertEqual(usd.currency, "USD")
+        self.assertEqual(usd.currency_units_per_native_unit, Decimal("1"))
+        self.assertEqual(eur.currency, "EUR")
+        with self.assertRaises(UnsupportedDenomination):
+            broker_native_currency_rule("Exness", "USC")
+        with self.assertRaises(UnsupportedDenomination):
+            broker_native_currency_rule("Exness", "EUC")
 
 
 if __name__ == "__main__":
