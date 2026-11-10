@@ -28,9 +28,13 @@ The verified Exness Standard Cent mapping currently enabled by `exness_standard_
 Other cent currencies are deliberately not enabled until their exact unit conversion is verified. “Micro” must not be treated as a currency multiplier: if an account reports USD, its account balance remains USD; smaller micro contract sizes must be obtained from instrument contract/tick metadata and valued separately.
 
 
-### MT5 tick-based stop-loss estimate
+### MT5 account-currency loss calculation (primary path)
 
-`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate. `evaluate_mt5_trade_risk` composes the stop-loss estimator with the 1% per-trade and 10% daily-loss USD gate in one pure function.
+Use the MT5 terminal's `order_calc_profit` for the proposed side, symbol, volume, entry and stop prices. MetaQuotes documents that this returns the estimated profit/loss in the current account currency, with no order sent. NOVA then normalizes the negative result into USD using the account currency/denomination rule and conservative liability-side FX. Add explicit commission/slippage/swap costs in the same native account currency. If the calculation is unavailable, stale, non-loss, or denomination metadata is unknown, fail closed. See the [MetaTrader 5 Python order_calc_profit reference](https://www.mql5.com/en/docs/python_metatrader5/mt5ordercalcprofit_py).
+
+### MT5 tick-based stop-loss estimate (fallback only)
+
+`estimate_stop_loss_usd` is a fallback calculation from terminal-supplied tick size, loss tick value, volume and entry/stop prices. Some symbol calculation modes may expose tick values in a currency other than the account deposit currency; use this helper only when the tick-value currency has been verified. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate. `evaluate_mt5_trade_risk` composes the MT5 `order_calc_profit` result with the 1% per-trade and 10% daily-loss USD gate in one pure function.
 
 For Exness USC Cent, the account-native tick loss is normalized with the verified USC -> USD 0.01 mapping. For USD Micro accounts, the USD balance is not scaled; the terminal's actual smaller tick value/contract metadata drives the loss estimate.
 
