@@ -62,7 +62,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "open_positions", "quotes"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
@@ -73,6 +73,16 @@ class TenantGuardContractTests(unittest.TestCase):
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
+
+    def test_open_positions_endpoint_is_complete_read_only_and_tenant_guarded(self):
+        endpoint = SOURCE[SOURCE.index('def open_positions'):SOURCE.index('@app.get("/api/history/deals")')]
+        self.assertIn('positions = mt5.positions_get()', endpoint)
+        self.assertIn('_required_position_integer(position, "identifier")', endpoint)
+        self.assertIn('_required_position_number(position, "profit")', endpoint)
+        self.assertIn('_required_position_number(position, "swap")', endpoint)
+        self.assertIn('"truncated": False', endpoint)
+        self.assertIn('"order_submission_enabled": False', endpoint)
+        self.assertNotIn('positions[:', endpoint)
 
     def test_deal_history_requires_fee_and_pnl_metadata(self):
         endpoint = SOURCE[SOURCE.index('def deal_history'):SOURCE.index('@app.get("/api/quotes")')]
