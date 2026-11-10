@@ -16,7 +16,7 @@ Status: scaffold; not connected to EA or broker.
 
 ### Important production boundary
 
-This module does not fetch FX rates and does not guess account denomination. A trusted adapter must supply fresh broker/FX metadata and broker-verified denomination rules. Do not register a Cent/Micro multiplier based on account display name. In particular, an account denominated in USD does not automatically have a smaller balance unit merely because it is marketed as a “micro” account; contract size and tick-value metadata are separate instrument properties.
+This module does not fetch FX rates and does not guess account denomination. A trusted adapter must supply fresh broker/FX metadata and broker-verified denomination rules. Do not register a Cent/Micro multiplier based on account display name. In particular, an account denominated in USD does not automatically have a smaller balance unit merely because it is marketed as a “micro” account; contract size and tick-value metadata are separate instrument properties. Do not infer a “micro account” from Exness's `-m` symbol suffix: Exness documents `-m` as the Standard account symbol group, not a currency denomination.
 
 No execution endpoint is implemented here. The MT5 bridge remains read-only, and this module is not authorization to place orders.
 
