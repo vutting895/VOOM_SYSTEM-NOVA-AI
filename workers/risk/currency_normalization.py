@@ -228,6 +228,22 @@ class CurrencyNormalizer:
             converted.oldest_quote_at,
         )
 
+    def to_usd_loss(self, amount: Decimal | int | str, *, broker: str,
+                    native_currency: str, account_denomination: str,
+                    fx: FXRateBook, as_of: datetime) -> ConversionResult:
+        """Convert a positive loss amount using liability-side FX pricing."""
+        value = money(amount)
+        if value < 0:
+            raise CurrencyNormalizationError("loss amount must be non-negative")
+        converted = self.to_usd(
+            -value, broker=broker, native_currency=native_currency,
+            account_denomination=account_denomination, fx=fx, as_of=as_of,
+        )
+        return ConversionResult(
+            abs(converted.amount), converted.source_currency, converted.target_currency,
+            converted.path, converted.quote_ids, converted.sources, converted.oldest_quote_at,
+        )
+
     def to_reporting_thb(self, usd_amount: Decimal | int | str, *,
                          reporting_fx: FXRateBook, as_of: datetime) -> ConversionResult:
         """Reporting-only conversion; failure must not affect the USD risk decision."""
