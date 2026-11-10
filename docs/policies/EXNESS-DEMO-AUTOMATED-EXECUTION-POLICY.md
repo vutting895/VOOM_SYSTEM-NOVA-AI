@@ -52,11 +52,27 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 ### Owner-selected per-trade ceiling
 
-**Maximum risk per trade: 10% of current account Equity.**
+**Maximum risk per trade: 1% of current account Equity.**
 
 For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, and slippage, divided by current Equity. It does **not** mean 10% of notional position value, margin used, or order volume.
 
-The 10% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance and instrument contract specifications; it must never infer volume directly from the 10% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract calculation is unavailable, reject the order.
+The 1% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance and instrument contract specifications; it must never infer volume directly from the 10% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract calculation is unavailable, reject the order.
+
+### Account denomination and automatic monetary normalization
+
+NOVA must automatically detect and normalize monetary values for standard, micro, cent, and other supported account denominations. Account labels such as `micro` or `cent` are not sufficient evidence of the monetary scale.
+
+The normalization service must:
+- Read authoritative account currency and denomination metadata from the authenticated MT5 account/terminal, and instrument contract specifications (contract size, tick size, tick value, profit currency, margin currency, and volume constraints) from broker metadata.
+- Maintain a canonical internal monetary representation using decimal-safe arithmetic, with explicit currency and unit metadata. Do not use binary floating-point for money or silently assume that one displayed cent-account unit equals a fixed fraction of a standard-account unit.
+- Convert account-currency values to the canonical risk-calculation currency using broker-provided conversion information or a validated, timestamped FX conversion source. Reject risk-increasing actions when the required rate is missing, stale, inconsistent, or unavailable.
+- Normalize balance, equity, free margin, used margin, realized/unrealized P&L, commission, swap, spread cost, tick value, stop-loss loss, and aggregate exposure consistently before applying risk limits.
+- Keep account-currency values as the source of truth for broker requests; convert only for internal comparisons/reporting and convert back using validated metadata where required. Never send normalized reporting units as broker order-volume or price fields.
+- Display both the broker-native amount/currency and the normalized amount/currency, plus the detected account denomination and conversion rate/source/time, so operators can audit the calculation.
+- Never infer cent/micro scale from account name, UI preference, or a user-entered multiplier. If denomination cannot be verified, fail closed.
+- Recompute normalization from fresh metadata before each risk-increasing action and persist the metadata/version/rate used in the decision audit.
+
+Automated account normalization is a risk-critical component, not a cosmetic display conversion. It must be independently tested for standard, micro, and cent account fixtures, multiple account currencies, instruments with differing profit/margin currencies, currency conversion, rounding boundaries, stale/missing rates, and broker metadata changes. A mismatch or ambiguous unit must reject new risk-increasing actions.
 
 ### Owner-selected daily loss ceiling
 
@@ -66,10 +82,10 @@ Daily loss must be measured as the net decline from the captured start-of-day Eq
 
 The trading-day boundary and start-of-day Equity snapshot must use a single explicitly configured broker-server timezone/day boundary, be persisted and auditable, and must not be reset by restarting NOVA, reconnecting, changing tenants, or changing strategy. If the snapshot, timezone, current Equity, or P&L inputs are missing, stale, inconsistent, or cannot be reconciled, reject new risk-increasing actions and fail closed. Once the daily limit is reached, block new entries and all risk-increasing modifications for the remainder of that broker trading day. Risk-reducing actions may remain available through the separately scoped emergency policy.
 
-Because 10% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
+Because 1% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
-- Per-trade risk not exceeding 10% of current Equity, calculated to initial Stop Loss including estimated costs.
+- Per-trade risk not exceeding 1% of current Equity, calculated to initial Stop Loss including estimated costs.
 - Daily loss not exceeding 10% of latest current Equity, measured from the persisted start-of-broker-day Equity snapshot.
 - Aggregate open risk and exposure by symbol/direction, subject to a separately approved cap.
 - Maximum concurrent positions and pending orders, subject to approved limits.
@@ -114,7 +130,7 @@ Activation is blocked until all of the following are demonstrated:
 2. Unit and integration tests for every allowed action and forbidden action.
 3. Positive Exness Demo account-mode verification and negative Live-account rejection.
 4. Owner-vs-foreign-tenant isolation tests for every read and write path.
-5. Risk boundary tests at, below, and above the 10% per-trade and daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
+5. Risk boundary tests at, below, and above the 1% per-trade and 10% daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
 6. Duplicate request/idempotency and retry/reconciliation tests.
 7. Broker error, timeout, partial fill, and disconnect recovery tests.
 8. Security review of Backend Policy, MCP tool registry, execution adapter, and Bridge.
