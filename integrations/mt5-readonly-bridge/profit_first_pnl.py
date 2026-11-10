@@ -168,6 +168,7 @@ def build_net_pnl_snapshot(
     realized = Decimal("0")
     commissions = Decimal("0")
     fees = Decimal("0")
+    deal_swaps = Decimal("0")
     seen_tickets: set[int] = set()
     for index, deal in enumerate(deals):
         try:
@@ -186,14 +187,17 @@ def build_net_pnl_snapshot(
             continue
         if position_id not in active_ids:
             continue
-        for field in ("profit", "commission", "fee"):
+        if deal_time < earliest_required or deal_time > _utc(snapshot_as_of, "snapshot_as_of"):
+            raise PnlReconciliationError("deal timestamp falls outside the verified active-position history window")
+        for field in ("profit", "commission", "swap", "fee"):
             if field not in deal:
                 raise PnlReconciliationError(f"deals[{index}].{field} is required")
         realized += _decimal(deal["profit"], f"deals[{index}].profit")
         commissions += _decimal(deal["commission"], f"deals[{index}].commission")
         fees += _decimal(deal["fee"], f"deals[{index}].fee")
+        deal_swaps += _decimal(deal["swap"], f"deals[{index}].swap")
 
-    net_account_currency = floating + realized + commissions + fees
+    net_account_currency = floating + realized + commissions + fees + deal_swaps
     net_usd = net_account_currency * rate
     return {
         "account_environment": "EXNESS_DEMO",
@@ -210,5 +214,6 @@ def build_net_pnl_snapshot(
             "realized_deal_profit": format(realized, "f"),
             "deal_commission": format(commissions, "f"),
             "deal_fee": format(fees, "f"),
+            "closed_deal_swap": format(deal_swaps, "f"),
         },
     }
