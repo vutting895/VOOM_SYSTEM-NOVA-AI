@@ -25,7 +25,7 @@ No execution endpoint is implemented here. The MT5 bridge remains read-only, and
 
 The verified Exness Standard Cent mapping currently enabled by `exness_standard_cent_rule` is `USC -> USD × 0.01`, and the requested instrument must also carry Exness's documented `c` suffix. Exness states that a 5 USD deposit is displayed as 500 USC and that Standard Cent instruments use cent lots. See the [Exness Standard Cent account specification](https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account).
 
-Other cent currencies are deliberately not enabled until their exact unit conversion is verified. “Micro” must not be treated as a currency multiplier: if an account reports USD, its account balance remains USD; smaller micro contract sizes must be obtained from instrument contract/tick metadata and valued separately.
+Other cent currencies are deliberately not enabled until their exact unit conversion is verified. Exness lists USC, EUC, GBC, CHC, AUC, CAC, IDC, VNC, JPC and THC as Standard Cent account currencies; this implementation enables only USC and rejects the others. See [Exness account currencies](https://get.exness.help/hc/en-us/articles/360011677700-Trading-account-currencies). Exness also documents `-c` for Standard Cent and `-m` for Standard symbols in its [account type suffix reference](https://get.exness.help/hc/en-us/articles/360014560220-Account-type-suffixes). “Micro” must not be treated as a currency multiplier: if an account reports USD, its account balance remains USD; smaller micro contract sizes must be obtained from instrument contract/tick metadata and valued separately.
 
 
 ### MT5 account-currency loss calculation (primary path)
