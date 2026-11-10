@@ -216,6 +216,8 @@ def profit_calculation(
         account_currency = str(getattr(account, "currency", "") or "").upper()
         if not account_currency:
             raise HTTPException(status_code=503, detail="MT5 account currency unavailable")
+        if account_currency == "USC" and not symbol.strip().upper().endswith("C"):
+            raise HTTPException(status_code=403, detail="Exness USC Cent accounts require a cent-suffixed symbol")
         return {
             "symbol": symbol,
             "side": normalized_side,
