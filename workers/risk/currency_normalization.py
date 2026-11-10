@@ -283,12 +283,12 @@ def estimate_stop_loss_usd(
     fx: FXRateBook,
     as_of: datetime,
 ) -> StopLossEstimate:
-    """Estimate loss using MT5 tick-loss value in account deposit currency.
+    """Fallback estimate; use only when the broker confirms tick-value currency.
 
     Tick count rounds up so a non-integral stop distance cannot understate risk.
-    The caller must supply commission/slippage/swap estimate explicitly in
-    native account currency. Loss is converted as a liability (conservative FX
-    side), then returned as a positive USD risk amount.
+    Some MT5 symbol calculation modes may expose tick values in a currency
+    other than the account deposit currency. Prefer order_calc_profit for the
+    primary risk path. The caller must supply all other costs explicitly.
     """
     volume = money(volume_lots)
     entry = money(entry_price)
@@ -386,14 +386,14 @@ def exness_standard_cent_rule(native_currency: str, *, symbol_name: str) -> Deno
     """Return the documented Exness USC-cent mapping after a symbol cross-check.
 
     Exness documents Standard Cent balances in cent currency (for example,
-    5 USD is displayed as 500 USC) and uses the -c symbol suffix. This helper
+    5 USD is displayed as 500 USC) and uses a symbol suffix of `c`. This helper
     intentionally supports USC only; other cent currencies need separately
     verified conversion rules before they can be enabled.
     """
     if native_currency.strip().upper() != "USC":
         raise UnsupportedDenomination("only Exness USC has an enabled verified cent mapping")
     if not symbol_name.strip().upper().endswith("C"):
-        raise UnsupportedDenomination("Exness USC account requires a verified -c cent symbol")
+        raise UnsupportedDenomination("Exness USC account requires a verified cent symbol suffix `c`")
     return DenominationRule(
         broker="Exness",
         native_currency="USC",
@@ -405,9 +405,62 @@ def exness_standard_cent_rule(native_currency: str, *, symbol_name: str) -> Deno
 
 
 @dataclass(frozen=True)
+class BrokerCalculatedLoss:
+    """Loss calculated by the MT5 terminal in the account deposit currency."""
+    native_loss: Decimal
+    native_currency: str
+    usd_loss: Decimal
+    fx_path: tuple[str, ...]
+    quote_ids: tuple[str, ...]
+    fx_sources: tuple[str, ...]
+
+
+def normalize_mt5_calculated_loss_usd(
+    *,
+    mt5_profit_native: Decimal | int | str,
+    estimated_other_costs_native: Decimal | int | str,
+    broker: str,
+    native_currency: str,
+    account_denomination: str,
+    normalizer: CurrencyNormalizer,
+    fx: FXRateBook,
+    as_of: datetime,
+) -> BrokerCalculatedLoss:
+    """Normalize a negative MT5 order_calc_profit result plus explicit costs.
+
+    MT5 order_calc_profit returns profit/loss in the current account currency.
+    A stop-loss scenario must produce a negative value; non-loss scenarios fail
+    closed. Commission/slippage/swap costs must be supplied explicitly.
+    """
+    profit = money(mt5_profit_native)
+    other_costs = money(estimated_other_costs_native)
+    if profit >= 0:
+        raise CurrencyNormalizationError("MT5 stop-loss calculation must return a negative loss")
+    if other_costs < 0:
+        raise CurrencyNormalizationError("estimated other costs must be non-negative")
+    native_loss = abs(profit) + other_costs
+    converted = normalizer.to_usd_loss(
+        native_loss,
+        broker=broker,
+        native_currency=native_currency,
+        account_denomination=account_denomination,
+        fx=fx,
+        as_of=as_of,
+    )
+    return BrokerCalculatedLoss(
+        native_loss=native_loss,
+        native_currency=native_currency.upper(),
+        usd_loss=converted.amount,
+        fx_path=converted.path,
+        quote_ids=converted.quote_ids,
+        fx_sources=converted.sources,
+    )
+
+
+@dataclass(frozen=True)
 class MT5TradeRiskResult:
     """Risk calculation result only; not a broker order authorization."""
-    stop_loss: StopLossEstimate
+    loss: BrokerCalculatedLoss
     decision: USDRiskDecision
 
     @property
@@ -419,11 +472,7 @@ def evaluate_mt5_trade_risk(
     *,
     current_equity_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
-    volume_lots: Decimal | int | str,
-    entry_price: Decimal | int | str,
-    stop_loss_price: Decimal | int | str,
-    tick_size: Decimal | int | str,
-    tick_value_loss_native_per_lot: Decimal | int | str,
+    mt5_profit_native: Decimal | int | str,
     estimated_other_costs_native: Decimal | int | str,
     broker: str,
     native_currency: str,
@@ -432,18 +481,14 @@ def evaluate_mt5_trade_risk(
     fx: FXRateBook,
     as_of: datetime,
 ) -> MT5TradeRiskResult:
-    """Connect MT5-derived stop risk to the USD 1% / 10% risk-limit evaluator.
+    """Apply USD risk limits to the broker-calculated MT5 stop-loss result.
 
-    This returns a calculation result only. It must not be interpreted as
-    approval to submit an order; aggregate risk, drawdown, concurrency, market
-    freshness, tenant, Demo-account and kill-switch gates remain independent.
+    This is a pure calculation only. It does not verify Demo account mode,
+    tenant ownership, quote freshness, aggregate open risk, drawdown, order
+    concurrency or kill-switch state, and it cannot authorize an order.
     """
-    stop_loss = estimate_stop_loss_usd(
-        volume_lots=volume_lots,
-        entry_price=entry_price,
-        stop_loss_price=stop_loss_price,
-        tick_size=tick_size,
-        tick_value_loss_native_per_lot=tick_value_loss_native_per_lot,
+    loss = normalize_mt5_calculated_loss_usd(
+        mt5_profit_native=mt5_profit_native,
         estimated_other_costs_native=estimated_other_costs_native,
         broker=broker,
         native_currency=native_currency,
@@ -454,7 +499,7 @@ def evaluate_mt5_trade_risk(
     )
     decision = evaluate_usd_risk_limits(
         current_equity_usd=current_equity_usd,
-        estimated_trade_loss_usd=stop_loss.usd_loss,
+        estimated_trade_loss_usd=loss.usd_loss,
         daily_loss_usd=daily_loss_usd,
     )
-    return MT5TradeRiskResult(stop_loss=stop_loss, decision=decision)
+    return MT5TradeRiskResult(loss=loss, decision=decision)
