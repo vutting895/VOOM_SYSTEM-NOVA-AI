@@ -47,6 +47,7 @@ def _verify_history_coverage(
     snapshot_as_of: str,
     positions: Sequence[Mapping[str, Any]],
     deal_history_chunks: Sequence[Mapping[str, Any]],
+    account_currency: str,
 ) -> list[Mapping[str, Any]]:
     if isinstance(account_login, bool) or not isinstance(account_login, int) or account_login <= 0:
         raise PnlReconciliationError("authenticated account login is required")
@@ -72,6 +73,9 @@ def _verify_history_coverage(
             raise PnlReconciliationError(f"deal_history_chunks[{index}] must be a mapping")
         if chunk.get("account_login") != account_login or chunk.get("account_server") != account_server:
             raise PnlReconciliationError("deal-history account identity does not match the position snapshot")
+        chunk_currency = chunk.get("currency")
+        if not isinstance(chunk_currency, str) or chunk_currency.upper() != account_currency.upper():
+            raise PnlReconciliationError("deal-history currency does not match the authenticated account currency")
         if chunk.get("truncated") is not False:
             raise PnlReconciliationError("deal-history chunk is truncated or lacks an explicit false flag")
         start = _utc(chunk.get("from_time"), f"deal_history_chunks[{index}].from_time")
@@ -139,6 +143,7 @@ def build_net_pnl_snapshot(
         snapshot_as_of=snapshot_as_of,
         positions=positions,
         deal_history_chunks=deal_history_chunks,
+        account_currency=account_currency,
     )
     rate = _decimal(currency_to_usd_rate, "currency_to_usd_rate")
     if rate <= 0:
@@ -153,7 +158,7 @@ def build_net_pnl_snapshot(
             position_id = int(position["identifier"])
         except (KeyError, TypeError, ValueError):
             raise PnlReconciliationError(f"positions[{index}].identifier is required") from None
-        if position_id <= 0 or position_id in active_ids:
+        if isinstance(position.get("identifier"), bool) or position_id <= 0 or position_id in active_ids:
             raise PnlReconciliationError("position identifiers must be unique positive integers")
         active_ids.add(position_id)
         _utc(position.get("time"), f"positions[{index}].time")
@@ -170,7 +175,7 @@ def build_net_pnl_snapshot(
             ticket = int(deal["ticket"])
         except (KeyError, TypeError, ValueError):
             raise PnlReconciliationError(f"deals[{index}] requires position_id and ticket") from None
-        if ticket <= 0 or ticket in seen_tickets:
+        if isinstance(deal.get("ticket"), bool) or ticket <= 0 or ticket in seen_tickets:
             raise PnlReconciliationError("deal tickets must be unique positive integers")
         seen_tickets.add(ticket)
         deal_time = _utc(deal.get("time"), f"deals[{index}].time")
@@ -181,8 +186,6 @@ def build_net_pnl_snapshot(
             continue
         if position_id not in active_ids:
             continue
-        if deal_time < earliest_required or deal_time > _utc(snapshot_as_of, "snapshot_as_of"):
-            raise PnlReconciliationError("deal timestamp falls outside the verified active-position history window")
         for field in ("profit", "commission", "fee"):
             if field not in deal:
                 raise PnlReconciliationError(f"deals[{index}].{field} is required")
