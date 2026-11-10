@@ -34,7 +34,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "broker-map-v1")
         ])
-        result = normalizer.to_usd("1000.25", broker="Exness", native_currency="USD",
+        result = normalizer.to_usd("1000.25", broker="Exness", native_currency="USD", account_denomination="standard",
                                    fx=FXRateBook([]), as_of=NOW)
         self.assertEqual(result.amount, Decimal("1000.25"))
         self.assertEqual(result.target_currency, "USD")
@@ -43,7 +43,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USC", "cent", "USD", Decimal("0.01"), "exness-usc-map-v1")
         ])
-        result = normalizer.to_usd("25000", broker="Exness", native_currency="USC",
+        result = normalizer.to_usd("25000", broker="Exness", native_currency="USC", account_denomination="cent",
                                    fx=FXRateBook([]), as_of=NOW)
         self.assertEqual(result.amount, Decimal("250.00"))
         self.assertEqual(result.path, ("USC", "USD"))
@@ -53,7 +53,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             DenominationRule("ExampleBroker", "USD", "micro-contract-account", "USD",
                              Decimal("1"), "verified-usd-unit-v1")
         ])
-        result = normalizer.to_usd("100", broker="ExampleBroker", native_currency="USD",
+        result = normalizer.to_usd("100", broker="ExampleBroker", native_currency="USD", account_denomination="micro",
                                    fx=FXRateBook([]), as_of=NOW)
         self.assertEqual(result.amount, Decimal("100"))
         # Contract/tick specifications must be used for position valuation;
@@ -62,7 +62,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_unknown_or_ambiguous_account_unit_fails_closed(self):
         normalizer = CurrencyNormalizer([])
         with self.assertRaises(UnsupportedDenomination):
-            normalizer.to_usd("100", broker="Exness", native_currency="USC",
+            normalizer.to_usd("100", broker="Exness", native_currency="USC", account_denomination="cent",
                               fx=FXRateBook([]), as_of=NOW)
 
     def test_eur_account_converts_to_usd_using_bid_for_positive_equity(self):
@@ -70,7 +70,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.081", quote_id="eurusd-1")])
-        result = normalizer.to_usd("100", broker="Exness", native_currency="EUR", fx=fx, as_of=NOW)
+        result = normalizer.to_usd("100", broker="Exness", native_currency="EUR", account_denomination="standard", fx=fx, as_of=NOW)
         self.assertEqual(result.amount, Decimal("108.00"))
         self.assertEqual(result.quote_ids, ("eurusd-1",))
 
@@ -133,6 +133,28 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_invalid_or_crossed_fx_quote_is_rejected(self):
         with self.assertRaises(CurrencyNormalizationError):
             FXQuote("EUR", "USD", Decimal("1.1"), Decimal("1.0"), NOW, "feed", "crossed")
+
+    def test_same_native_currency_requires_exact_denomination_rule(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "standard-v1"),
+            DenominationRule("Exness", "USD", "micro", "USD", Decimal("1"), "micro-v1"),
+        ])
+        standard = normalizer.to_usd("100", broker="Exness", native_currency="USD",
+                                     account_denomination="standard", fx=FXRateBook([]), as_of=NOW)
+        micro = normalizer.to_usd("100", broker="Exness", native_currency="USD",
+                                  account_denomination="micro", fx=FXRateBook([]), as_of=NOW)
+        self.assertEqual(standard.amount, Decimal("100"))
+        self.assertEqual(micro.amount, Decimal("100"))
+        with self.assertRaises(UnsupportedDenomination):
+            normalizer.to_usd("100", broker="Exness", native_currency="USD",
+                              account_denomination="unknown", fx=FXRateBook([]), as_of=NOW)
+
+    def test_duplicate_fx_pairs_are_rejected_as_ambiguous(self):
+        with self.assertRaises(CurrencyNormalizationError):
+            FXRateBook([
+                quote("EUR", "USD", "1.08", quote_id="provider-a"),
+                quote("EUR", "USD", "1.07", quote_id="provider-b"),
+            ])
 
 
 if __name__ == "__main__":
