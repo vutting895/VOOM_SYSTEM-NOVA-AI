@@ -5,9 +5,9 @@ from profit_first_pnl import PnlReconciliationError, build_net_pnl_snapshot
 
 def chunk(start="2026-11-10T00:00:00+00:00", end="2026-11-11T00:00:00+00:00", **overrides):
     deals = [
-        {"ticket": 1, "position_id": 1001, "time": "2026-11-10T02:00:00+00:00",
+        {"ticket": 1, "position_id": 1001, "entry": 0, "time": "2026-11-10T02:00:00+00:00",
          "profit": "2", "commission": "-0.5", "swap": "0", "fee": "-0.1"},
-        {"ticket": 2, "position_id": 9999, "time": "2026-11-10T03:00:00+00:00",
+        {"ticket": 2, "position_id": 9999, "entry": 0, "time": "2026-11-10T03:00:00+00:00",
          "profit": "500", "commission": "0", "swap": "0", "fee": "0"},
     ]
     item = {
@@ -48,6 +48,13 @@ class NetPnlTests(unittest.TestCase):
         data = chunk()
         data["deals"][0]["swap"] = "-3"
         self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
+
+    def test_closed_deal_swap_is_included_without_double_counting_open_position_swap(self):
+        data = chunk()
+        data["deals"][0]["entry"] = 1
+        data["deals"][0]["swap"] = "-3"
+        result = build(deal_history_chunks=[data])
+        self.assertEqual(result["net_pnl_account_currency"], "7.4")
 
     def test_usd_account_uses_identity_rate(self):
         self.assertEqual(build(account_currency="USD", currency_to_usd_rate="1")["net_pnl_usd"], "10.4")
