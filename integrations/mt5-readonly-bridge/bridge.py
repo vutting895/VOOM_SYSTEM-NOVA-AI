@@ -191,12 +191,21 @@ def profit_calculation(
         info = mt5.symbol_info(symbol)
         if info is None:
             raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
+        if not info.visible and not mt5.symbol_select(symbol, True):
+            raise HTTPException(status_code=503, detail="Could not select requested symbol")
         minimum = optional_decimal_string(info, "volume_min")
         maximum = optional_decimal_string(info, "volume_max")
         step = optional_decimal_string(info, "volume_step")
-        if minimum is None or maximum is None or step is None:
-            raise HTTPException(status_code=503, detail="MT5 volume constraints unavailable")
+        tick_size_raw = optional_decimal_string(info, "trade_tick_size")
+        if minimum is None or maximum is None or step is None or tick_size_raw is None:
+            raise HTTPException(status_code=503, detail="MT5 volume or tick constraints unavailable")
         min_volume, max_volume, volume_step = Decimal(minimum), Decimal(maximum), Decimal(step)
+        tick_size = Decimal(tick_size_raw)
+        if tick_size <= 0:
+            raise HTTPException(status_code=503, detail="MT5 tick size is invalid")
+        if ((open_price / tick_size) != (open_price / tick_size).to_integral_value()
+                or (stop_price / tick_size) != (stop_price / tick_size).to_integral_value()):
+            raise HTTPException(status_code=400, detail="Prices do not match broker tick size")
         if min_volume <= 0 or max_volume < min_volume or volume_step <= 0:
             raise HTTPException(status_code=503, detail="MT5 volume constraints are invalid")
         if volume < min_volume or volume > max_volume:
