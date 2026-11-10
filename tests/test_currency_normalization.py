@@ -398,10 +398,9 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertEqual(usd.currency, "USD")
         self.assertEqual(usd.currency_units_per_native_unit, Decimal("1"))
         self.assertEqual(eur.currency, "EUR")
-        with self.assertRaises(UnsupportedDenomination):
-            broker_native_currency_rule("Exness", "USC")
-        with self.assertRaises(UnsupportedDenomination):
-            broker_native_currency_rule("Exness", "EUC")
+        for cent_code in ("USC", "EUC", "GBC", "CHC", "AUC", "CAC", "IDC", "VNC", "JPC", "THC"):
+            with self.subTest(cent_code=cent_code), self.assertRaises(UnsupportedDenomination):
+                broker_native_currency_rule("Exness", cent_code)
 
 
 if __name__ == "__main__":
