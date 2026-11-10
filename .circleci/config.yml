@@ -1,0 +1,57 @@
+version: 2.1
+
+jobs:
+  build-and-verify:
+    docker:
+      - image: cimg/node:22.13
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Install Python runtime
+          command: |
+            if ! command -v python3 >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y python3
+            fi
+            python3 --version
+      - run:
+          name: Install root dependencies without mutating lockfiles
+          command: npm install --no-package-lock --include=dev
+      - run:
+          name: TypeScript typecheck
+          command: npm run lint
+      - run:
+          name: NOVA Demo-only and database security contracts
+          command: |
+            node --test tests/nova-trading-readonly-guard.test.mjs
+            node --test tests/supabase-marketplace-security-migration.test.mjs
+            node --test tests/secret-vault-readiness.test.mjs
+            node --test tests/nova-approval-migration.test.mjs
+            node --check tests/staging-customer-isolation.mjs
+      - run:
+          name: NOVA AI Worker, System Hub and Remote MCP tests
+          command: |
+            node --test integrations/nova-ai-worker/*.test.mjs
+            node --test integrations/system-hub/tests/*.test.mjs
+            node --test integrations/remote-mcp-worker/tests/*.test.mjs
+      - run:
+          name: MT5 relay, proxy and Bridge Python tests
+          command: |
+            node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+            python3 -m py_compile integrations/mt5-readonly-bridge/*.py
+            python3 -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py" -v
+      - run:
+          name: Validate Cloudflare Worker bundles without credentials
+          command: |
+            npm install --no-save --package-lock=false wrangler@4.156.0
+            npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+            npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - run:
+          name: Build production frontend
+          command: npm run build
+
+workflows:
+  nova-linux-production-gates:
+    jobs:
+      - build-and-verify
