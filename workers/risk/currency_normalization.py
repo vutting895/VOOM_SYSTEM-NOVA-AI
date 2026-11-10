@@ -285,3 +285,25 @@ def evaluate_usd_risk_limits(
         max_daily_loss_usd=max_daily,
         reason_codes=tuple(reasons),
     )
+
+
+def exness_standard_cent_rule(native_currency: str, *, symbol_name: str) -> DenominationRule:
+    """Return the documented Exness USC-cent mapping after a symbol cross-check.
+
+    Exness documents Standard Cent balances in cent currency (for example,
+    5 USD is displayed as 500 USC) and uses the -c symbol suffix. This helper
+    intentionally supports USC only; other cent currencies need separately
+    verified conversion rules before they can be enabled.
+    """
+    if native_currency.strip().upper() != "USC":
+        raise UnsupportedDenomination("only Exness USC has an enabled verified cent mapping")
+    if not symbol_name.strip().upper().endswith("C"):
+        raise UnsupportedDenomination("Exness USC account requires a verified -c cent symbol")
+    return DenominationRule(
+        broker="Exness",
+        native_currency="USC",
+        denomination="standard-cent",
+        currency="USD",
+        currency_units_per_native_unit=Decimal("0.01"),
+        evidence_id="https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account",
+    )
