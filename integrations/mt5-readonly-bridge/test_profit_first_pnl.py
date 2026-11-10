@@ -12,7 +12,7 @@ def chunk(start="2026-11-10T00:00:00+00:00", end="2026-11-11T00:00:00+00:00", **
     ]
     item = {
         "from_time": start, "to_time": end, "truncated": False, "count": len(deals),
-        "account_login": 123456, "account_server": "Exness-MT5Trial", "deals": deals,
+        "account_login": 123456, "account_server": "Exness-MT5Trial", "currency": "EUR", "deals": deals,
     }
     item.update(overrides)
     return item
@@ -126,6 +126,31 @@ class NetPnlTests(unittest.TestCase):
         duplicate["count"] = len(duplicate["deals"])
         with self.assertRaises(PnlReconciliationError):
             build(deal_history_chunks=[duplicate])
+
+
+    def test_reported_chunk_counts_must_match_returned_deals(self):
+        with self.assertRaises(PnlReconciliationError):
+            build(deals=[])
+
+    def test_deal_currency_must_match_account_currency(self):
+        with self.assertRaises(PnlReconciliationError):
+            build(deal_history_chunks=[chunk(currency="USD")])
+
+    def test_nonzero_unattributed_account_level_deal_fails_closed(self):
+        deals = [
+            {"ticket": 1, "position_id": 0, "time": "2026-11-10T02:00:00+00:00", "profit": "0", "commission": "-1", "swap": "0", "fee": "0"},
+            {"ticket": 2, "position_id": 1001, "time": "2026-11-10T03:00:00+00:00", "profit": "2", "commission": "-0.5", "swap": "0", "fee": "-0.1"},
+        ]
+        with self.assertRaises(PnlReconciliationError):
+            build(deals=deals)
+
+    def test_deal_timestamp_outside_snapshot_window_fails_closed(self):
+        deals = [
+            {"ticket": 1, "position_id": 1001, "time": "2026-11-09T23:59:59+00:00", "profit": "2", "commission": "-0.5", "swap": "0", "fee": "-0.1"},
+            {"ticket": 2, "position_id": 9999, "time": "2026-11-10T03:00:00+00:00", "profit": "500", "commission": "0", "swap": "0", "fee": "0"},
+        ]
+        with self.assertRaises(PnlReconciliationError):
+            build(deals=deals)
 
 
 if __name__ == "__main__":
