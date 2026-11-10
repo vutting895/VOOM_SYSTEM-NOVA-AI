@@ -121,6 +121,10 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('symbol.strip().upper().endswith("C")', SOURCE)
         self.assertIn("Exness USC Cent accounts require a cent-suffixed symbol", SOURCE)
 
+    def test_unverified_cent_currency_codes_are_not_mislabeled_native(self):
+        self.assertIn('"unsupported-cent" if str(getattr(account, "currency", "")).upper().endswith("C")', SOURCE)
+        self.assertIn('"unsupported-cent" if account_currency.endswith("C")', SOURCE)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
