@@ -42,7 +42,9 @@ def build_net_pnl_snapshot(
     MT5 position fields: identifier, profit, swap.
     MT5 deal fields: position_id, profit, commission, swap, fee.
     Current-position floating profit and swap are included once. Deal profit,
-    commission, swap and fee are included for realized/charged components.
+    commission and fee are included for realized/charged components. Deal-level
+    swap is deliberately excluded because MT5 POSITION_SWAP is the authoritative
+    accumulated swap for the currently open position; adding both can double count.
     Because broker accounting conventions vary, caller must ensure that deal
     history covers the full lifetime of every active position.
     """
@@ -78,7 +80,6 @@ def build_net_pnl_snapshot(
 
     realized = Decimal("0")
     commissions = Decimal("0")
-    deal_swaps = Decimal("0")
     fees = Decimal("0")
     seen_tickets: set[int] = set()
     for index, deal in enumerate(deals):
@@ -96,10 +97,9 @@ def build_net_pnl_snapshot(
             continue
         realized += _decimal(deal.get("profit", 0), f"deals[{index}].profit")
         commissions += _decimal(deal.get("commission", 0), f"deals[{index}].commission")
-        deal_swaps += _decimal(deal.get("swap", 0), f"deals[{index}].swap")
         fees += _decimal(deal.get("fee", 0), f"deals[{index}].fee")
 
-    net_account_currency = floating + realized + commissions + deal_swaps + fees
+    net_account_currency = floating + realized + commissions + fees
     net_usd = net_account_currency * rate
     return {
         "account_environment": "EXNESS_DEMO",
@@ -116,7 +116,6 @@ def build_net_pnl_snapshot(
             "floating_profit_and_swap": format(floating, "f"),
             "realized_deal_profit": format(realized, "f"),
             "deal_commission": format(commissions, "f"),
-            "deal_swap": format(deal_swaps, "f"),
             "deal_fee": format(fees, "f"),
         },
     }
