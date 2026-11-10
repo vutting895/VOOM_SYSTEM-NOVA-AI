@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
 from urllib.request import Request, urlopen
@@ -24,7 +25,7 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/profit-calculation"}
 TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
 
 
@@ -72,7 +73,7 @@ def normalize_read_path(value: object) -> str:
         limit = params.get("limit", ["100"])[0]
         if not limit.isdigit() or not 1 <= int(limit) <= 500:
             raise ValueError("Symbol limit is invalid.")
-    else:
+    elif parsed.path == "/api/quotes":
         if set(params) - {"symbol", "timeframe", "count"}:
             raise ValueError("Query parameter is not allowed.")
         symbol = params.get("symbol", [""])[0]
@@ -84,6 +85,31 @@ def normalize_read_path(value: object) -> str:
         count = params.get("count", ["100"])[0]
         if not count.isdigit() or not 1 <= int(count) <= 500:
             raise ValueError("Candle count is invalid.")
+    else:
+        if set(params) - {"symbol", "side", "volume", "open_price", "stop_price"}:
+            raise ValueError("Query parameter is not allowed.")
+        symbol = params.get("symbol", [""])[0]
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", symbol):
+            raise ValueError("Symbol is invalid.")
+        side = params.get("side", [""])[0].lower()
+        if side not in {"buy", "sell"}:
+            raise ValueError("Side is invalid.")
+        parsed_values = {}
+        for name in ("volume", "open_price", "stop_price"):
+            raw = params.get(name, [""])[0]
+            if not re.fullmatch(r"\\d+(?:\\.\\d+)?", raw):
+                raise ValueError(f"{name} is invalid.")
+            try:
+                number = Decimal(raw)
+            except InvalidOperation as exc:
+                raise ValueError(f"{name} is invalid.") from exc
+            if not number.is_finite() or number <= 0:
+                raise ValueError(f"{name} must be positive.")
+            parsed_values[name] = number
+        if (side == "buy" and parsed_values["stop_price"] >= parsed_values["open_price"]) or (
+            side == "sell" and parsed_values["stop_price"] <= parsed_values["open_price"]
+        ):
+            raise ValueError("Stop price must represent a loss for the selected side.")
 
     return parsed.path + (("?" + urlencode({key: items[0] for key, items in params.items()})) if params else "")
 
