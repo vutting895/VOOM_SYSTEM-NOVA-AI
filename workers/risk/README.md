@@ -7,7 +7,7 @@ Status: scaffold; not connected to EA or broker.
 ## Currency normalization
 
 `currency_normalization.py` provides a deterministic, network-free core:
-- Broker-native account units are mapped through explicit `DenominationRule` records.
+- Standard broker-native account currencies are mapped 1:1 from authenticated MT5 `account_info().currency`; cent-style codes ending in C are rejected from this generic path and require a separately verified rule.
 - Account values and instrument profit values are normalized to USD using timestamped FX bid/ask quotes.
 - Positive assets convert conservatively at bid; liabilities and daily-loss amounts use ask-side pricing (inverse pairs use the corresponding inverse side). All available fresh paths are evaluated and the most conservative result is selected.
 - Multi-hop paths are supported and quote IDs/sources are retained in the result.
