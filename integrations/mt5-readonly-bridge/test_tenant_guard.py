@@ -100,6 +100,20 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('optional_decimal_string(account, "equity")', SOURCE)
         self.assertIn('optional_decimal_string(account, "balance")', SOURCE)
 
+    def test_profit_calculation_is_read_only_tenant_guarded_and_uses_mt5_calculator(self):
+        functions = function_nodes()
+        calculation = functions["profit_calculation"]
+        args = {arg.arg for arg in calculation.args.args + calculation.args.kwonlyargs}
+        self.assertIn("authorization", args)
+        self.assertIn("tenant_id", args)
+        self.assertTrue(has_call(calculation, "require_token", ["authorization", "tenant_id"]))
+        self.assertTrue(has_call(calculation, "order_calc_profit"))
+        self.assertFalse(has_call(calculation, "order_send"))
+        self.assertIn('app.get("/api/profit-calculation")', SOURCE)
+        self.assertIn("volume_step", SOURCE)
+        self.assertIn("native_profit >= 0", SOURCE)
+        self.assertIn('"calculation_method": "mt5.order_calc_profit"', SOURCE)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
