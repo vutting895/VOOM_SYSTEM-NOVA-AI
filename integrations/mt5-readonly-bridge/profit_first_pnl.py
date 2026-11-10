@@ -80,6 +80,8 @@ def _verify_history_coverage(
             chunk_login = _integer(chunk.get("account_login"), f"deal_history_chunks[{index}].account_login", minimum=1)
         except PnlReconciliationError:
             raise
+        if chunk.get("account_environment") != "EXNESS_DEMO":
+            raise PnlReconciliationError("deal-history response is not explicitly Exness Demo")
         if chunk_login != account_login or chunk.get("account_server") != account_server:
             raise PnlReconciliationError("deal-history account identity does not match the position snapshot")
         chunk_currency = chunk.get("currency")
@@ -120,31 +122,45 @@ def _verify_history_coverage(
 
 def build_net_pnl_snapshot(
     *,
-    account_environment: str,
-    account_currency: str,
     currency_to_usd_rate: Any,
     fx_rate_status: str,
-    account_login: int,
-    account_server: str,
-    snapshot_as_of: str,
+    positions_snapshot: Mapping[str, Any],
     deal_history_chunks: Sequence[Mapping[str, Any]],
-    positions: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Build portfolio net PnL from identity-bound, complete Bridge response chunks.
+    """Build net PnL from the exact read-only Bridge snapshots being reconciled.
 
-    Position fields: identifier, time, profit, swap.
-    Each deal-history chunk is the complete Bridge JSON response, including
-    deals, count, truncated, from_time, to_time, account_login and account_server.
-    Detached deal lists are deliberately rejected by this interface.
+    The positions_snapshot is the complete /api/positions response. Each
+    deal_history_chunks item is the complete /api/history/deals response,
+    including its own deals array and account identity. Callers cannot pass
+    detached account metadata or a separate deals list.
     """
-    if account_environment != "EXNESS_DEMO":
+    if not isinstance(positions_snapshot, Mapping):
+        raise PnlReconciliationError("positions_snapshot must be the complete Bridge response")
+    if positions_snapshot.get("account_environment") != "EXNESS_DEMO":
         raise PnlReconciliationError("only Exness Demo is permitted")
-    if not account_currency or not isinstance(account_currency, str):
-        raise PnlReconciliationError("account currency is required")
+    if positions_snapshot.get("mode") != "read-only" or positions_snapshot.get("order_submission_enabled") is not False:
+        raise PnlReconciliationError("positions snapshot is not explicitly read-only")
+    if positions_snapshot.get("truncated") is not False:
+        raise PnlReconciliationError("positions snapshot is truncated or lacks an explicit false flag")
+    positions = positions_snapshot.get("positions")
+    if not isinstance(positions, list):
+        raise PnlReconciliationError("positions snapshot must contain a positions array")
+    count = positions_snapshot.get("count")
+    if isinstance(count, bool) or not isinstance(count, int) or count != len(positions):
+        raise PnlReconciliationError("positions snapshot count does not match its positions array")
+    account_currency = positions_snapshot.get("currency")
+    if not isinstance(account_currency, str) or not account_currency.strip():
+        raise PnlReconciliationError("positions snapshot account currency is required")
+    account_login = _integer(positions_snapshot.get("account_login"), "positions_snapshot.account_login", minimum=1)
+    account_server = positions_snapshot.get("account_server")
+    if not isinstance(account_server, str) or not account_server.strip():
+        raise PnlReconciliationError("positions snapshot account server is required")
+    snapshot_as_of = positions_snapshot.get("as_of")
+    _utc(snapshot_as_of, "positions_snapshot.as_of")
     if fx_rate_status != "verified":
         raise PnlReconciliationError("FX conversion rate is not verified")
-    if not isinstance(positions, (list, tuple)) or not isinstance(deal_history_chunks, (list, tuple)):
-        raise PnlReconciliationError("positions and deal_history_chunks must be sequences")
+    if not isinstance(deal_history_chunks, (list, tuple)):
+        raise PnlReconciliationError("deal_history_chunks must be a sequence")
 
     deals = _verify_history_coverage(
         account_login=account_login,
