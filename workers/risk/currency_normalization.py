@@ -62,10 +62,13 @@ class DenominationRule:
     evidence_id: str
 
     def __post_init__(self) -> None:
-        if not self.broker.strip() or not self.native_currency.strip() or not self.denomination.strip():
-            raise CurrencyNormalizationError("broker, native currency, and denomination are required")
-        if not self.currency.isalpha() or len(self.currency) != 3:
-            raise CurrencyNormalizationError("canonical currency must be a 3-letter code")
+        if not self.broker.strip() or not self.denomination.strip():
+            raise CurrencyNormalizationError("broker and denomination are required")
+        if (len(self.native_currency) != 3 or not self.native_currency.isalpha()
+                or self.native_currency != self.native_currency.upper()):
+            raise CurrencyNormalizationError("native currency must be an uppercase 3-letter code")
+        if len(self.currency) != 3 or not self.currency.isalpha() or self.currency != self.currency.upper():
+            raise CurrencyNormalizationError("canonical currency must be an uppercase 3-letter code")
         if money(self.currency_units_per_native_unit) <= 0:
             raise CurrencyNormalizationError("denomination multiplier must be positive")
         if not self.evidence_id.strip():
@@ -84,8 +87,10 @@ class FXQuote:
     quote_id: str
 
     def __post_init__(self) -> None:
-        if len(self.base) != 3 or len(self.quote) != 3 or self.base == self.quote:
-            raise CurrencyNormalizationError("FX pair must contain two distinct 3-letter currencies")
+        if (len(self.base) != 3 or len(self.quote) != 3 or not self.base.isalpha()
+                or not self.quote.isalpha() or self.base != self.base.upper()
+                or self.quote != self.quote.upper() or self.base == self.quote):
+            raise CurrencyNormalizationError("FX pair must contain two distinct uppercase 3-letter currencies")
         bid, ask = money(self.bid), money(self.ask)
         if bid <= 0 or ask < bid:
             raise CurrencyNormalizationError("FX bid/ask must be positive and non-crossed")
@@ -113,6 +118,12 @@ class FXRateBook:
         if max_age_seconds <= 0 or future_tolerance_seconds < 0:
             raise CurrencyNormalizationError("invalid FX freshness policy")
         self.quotes = tuple(quotes)
+        seen_pairs: set[frozenset[str]] = set()
+        for quote in self.quotes:
+            pair = frozenset((quote.base, quote.quote))
+            if pair in seen_pairs:
+                raise CurrencyNormalizationError(f"ambiguous duplicate FX pair: {quote.base}/{quote.quote}")
+            seen_pairs.add(pair)
         self.max_age_seconds = max_age_seconds
         self.future_tolerance_seconds = future_tolerance_seconds
 
@@ -173,25 +184,29 @@ class CurrencyNormalizer:
     """Converts account-native values to USD; THB is optional reporting only."""
 
     def __init__(self, denomination_rules: Iterable[DenominationRule]):
-        self._rules: dict[tuple[str, str], DenominationRule] = {}
+        self._rules: dict[tuple[str, str, str], DenominationRule] = {}
         for rule in denomination_rules:
-            key = (rule.broker.strip().casefold(), rule.native_currency.strip().upper())
+            key = (rule.broker.strip().casefold(), rule.native_currency.strip().upper(),
+                   rule.denomination.strip().casefold())
             if key in self._rules:
                 raise CurrencyNormalizationError(f"duplicate denomination rule: {key}")
             self._rules[key] = rule
 
-    def resolve_rule(self, broker: str, native_currency: str) -> DenominationRule:
-        key = (broker.strip().casefold(), native_currency.strip().upper())
+    def resolve_rule(self, broker: str, native_currency: str,
+                     account_denomination: str) -> DenominationRule:
+        key = (broker.strip().casefold(), native_currency.strip().upper(),
+               account_denomination.strip().casefold())
         rule = self._rules.get(key)
         if rule is None:
             raise UnsupportedDenomination(
-                f"no broker-verified denomination rule for {key[0]} / {key[1]}"
+                f"no broker-verified denomination rule for {key[0]} / {key[1]} / {key[2]}"
             )
         return rule
 
     def to_usd(self, amount: Decimal | int | str, *, broker: str,
-               native_currency: str, fx: FXRateBook, as_of: datetime) -> ConversionResult:
-        rule = self.resolve_rule(broker, native_currency)
+               native_currency: str, account_denomination: str,
+               fx: FXRateBook, as_of: datetime) -> ConversionResult:
+        rule = self.resolve_rule(broker, native_currency, account_denomination)
         currency_amount = money(amount) * money(rule.currency_units_per_native_unit)
         converted = fx.convert(currency_amount, rule.currency, "USD", as_of=as_of)
         return ConversionResult(
