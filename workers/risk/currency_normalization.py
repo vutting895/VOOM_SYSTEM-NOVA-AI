@@ -409,10 +409,13 @@ class MT5TradeRiskResult:
     """Risk calculation result only; not a broker order authorization."""
     stop_loss: StopLossEstimate
     decision: USDRiskDecision
-    risk_passed: bool = False
+
+    @property
+    def risk_passed(self) -> bool:
+        return self.decision.allowed
 
 
-def evaluate_mt5_demo_trade_risk(
+def evaluate_mt5_trade_risk(
     *,
     current_equity_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
@@ -454,4 +457,4 @@ def evaluate_mt5_demo_trade_risk(
         estimated_trade_loss_usd=stop_loss.usd_loss,
         daily_loss_usd=daily_loss_usd,
     )
-    return MT5TradeRiskResult(stop_loss=stop_loss, decision=decision, risk_passed=decision.allowed)
+    return MT5TradeRiskResult(stop_loss=stop_loss, decision=decision)
