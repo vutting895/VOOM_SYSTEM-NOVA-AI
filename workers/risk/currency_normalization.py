@@ -5,7 +5,6 @@ broker denomination rules and fresh FX quotes from trusted adapters.
 """
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
@@ -150,12 +149,16 @@ class FXRateBook:
             edges.setdefault(quote.base, []).append((quote.quote, quote, False))
             edges.setdefault(quote.quote, []).append((quote.base, quote, True))
 
-        queue = deque([(source, value, (source,), (), (), ())])
-        visited = {source}
-        while queue:
-            currency, current, path, ids, sources, times = queue.popleft()
+        candidates: list[ConversionResult] = []
+        max_hops = min(4, max(0, len(edges)))
+        
+        def walk(currency: str, current: Decimal, path: tuple[str, ...],
+                 ids: tuple[str, ...], sources: tuple[str, ...],
+                 times: tuple[datetime, ...]) -> None:
+            if len(ids) >= max_hops:
+                return
             for next_currency, quote, inverse in edges.get(currency, []):
-                if next_currency in visited:
+                if next_currency in path:
                     continue
                 # Conservative side: assets convert at bid; liabilities at ask.
                 if not inverse:
@@ -168,12 +171,20 @@ class FXRateBook:
                 next_sources = sources + (quote.source,)
                 next_times = times + (_aware_utc(quote.observed_at, "FX observed_at"),)
                 if next_currency == target:
-                    return ConversionResult(
+                    candidates.append(ConversionResult(
                         converted, source, target, next_path, next_ids, next_sources,
                         min(next_times) if next_times else None,
-                    )
-                visited.add(next_currency)
-                queue.append((next_currency, converted, next_path, next_ids, next_sources, next_times))
+                    ))
+                else:
+                    walk(next_currency, converted, next_path, next_ids, next_sources, next_times)
+
+        walk(source, value, (source,), (), (), ())
+        if candidates:
+            # Pick the lowest converted value: conservative for positive assets
+            # and the largest absolute liability for negative risk amounts.
+            return min(candidates, key=lambda result: (
+                result.amount, len(result.quote_ids), result.path, result.quote_ids
+            ))
 
         if stale_pairs:
             raise StaleExchangeRate("no fresh FX path; stale quotes: " + ", ".join(stale_pairs))
