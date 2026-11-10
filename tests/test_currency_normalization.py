@@ -71,7 +71,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_eur_account_converts_to_usd_using_bid_for_positive_equity(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+            DenominationRule("Exness", "EUR", "currency-native", "EUR", Decimal("1"), "mt5-account-currency-eur-v1")
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.081", quote_id="eurusd-1")])
         result = normalizer.to_usd("100", broker="Exness", native_currency="EUR", account_denomination="standard", fx=fx, as_of=NOW)
@@ -227,7 +227,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_stop_loss_estimate_uses_tick_size_value_volume_and_explicit_costs(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+            DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         estimate = estimate_stop_loss_usd(
             volume_lots="0.1", entry_price="2000.00", stop_loss_price="1999.50",
@@ -274,7 +274,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_stop_distance_rounds_tick_count_up_conservatively(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+            DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         estimate = estimate_stop_loss_usd(
             volume_lots="1", entry_price="2000", stop_loss_price="1999.499",
@@ -287,7 +287,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_stop_loss_estimate_fails_closed_on_stale_fx(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+            DenominationRule("Exness", "EUR", "currency-native", "EUR", Decimal("1"), "mt5-account-currency-eur-v1")
         ])
         stale_fx = FXRateBook([quote("EUR", "USD", "1.08", seconds_old=31)], max_age_seconds=30)
         with self.assertRaises(StaleExchangeRate):
@@ -301,12 +301,12 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_mt5_usd_risk_adapter_rejects_trade_above_one_percent(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+            DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
             current_equity_usd="1000", daily_loss_usd="0",
             mt5_profit_native="-10", estimated_other_costs_native="0",
-            broker="Exness", native_currency="USD", account_denomination="standard",
+            broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
         )
         self.assertEqual(result.loss.usd_loss, Decimal("10"))
@@ -315,12 +315,12 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_mt5_usd_risk_adapter_blocks_trade_when_daily_loss_limit_reached(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+            DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
             current_equity_usd="1000", daily_loss_usd="100",
             mt5_profit_native="-5", estimated_other_costs_native="0",
-            broker="Exness", native_currency="USD", account_denomination="standard",
+            broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
         )
         self.assertFalse(result.risk_passed)
@@ -341,7 +341,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_positive_daily_loss_uses_liability_side_fx_conversion(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+            DenominationRule("Exness", "EUR", "currency-native", "EUR", Decimal("1"), "mt5-account-currency-eur-v1")
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.10")])
         converted = normalizer.to_usd_loss(
@@ -367,20 +367,20 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_mt5_order_calc_profit_is_already_in_account_currency_before_usd_fx(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+            DenominationRule("Exness", "EUR", "currency-native", "EUR", Decimal("1"), "mt5-account-currency-eur-v1")
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.10")])
         result = evaluate_mt5_trade_risk(
             current_equity_usd="1000", daily_loss_usd="0",
             mt5_profit_native="-100", estimated_other_costs_native="0",
-            broker="Exness", native_currency="EUR", account_denomination="standard",
+            broker="Exness", native_currency="EUR", account_denomination="currency-native",
             normalizer=normalizer, fx=fx, as_of=NOW,
         )
         self.assertEqual(result.loss.usd_loss, Decimal("110.00"))
 
     def test_mt5_order_calc_profit_non_loss_result_fails_closed(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+            DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         with self.assertRaises(CurrencyNormalizationError):
             evaluate_mt5_trade_risk(
