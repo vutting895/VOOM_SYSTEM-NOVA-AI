@@ -13,6 +13,7 @@ def chunk(
         {
             "ticket": 1,
             "position_id": 1001,
+            "entry": 1,
             "time": "2026-11-10T02:00:00+00:00",
             "profit": "2",
             "commission": "-0.5",
@@ -22,6 +23,7 @@ def chunk(
         {
             "ticket": 2,
             "position_id": 9999,
+            "entry": 0,
             "time": "2026-11-10T03:00:00+00:00",
             "profit": "500",
             "commission": "0",
@@ -89,6 +91,18 @@ class NetPnlTests(unittest.TestCase):
 
     def test_closed_deal_swap_is_added_to_open_position_swap(self):
         data = chunk()
+        data["deals"][0]["swap"] = "-3"
+        self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
+
+    def test_open_entry_swap_is_not_double_counted_with_position_snapshot(self):
+        data = chunk()
+        data["deals"][0]["entry"] = 0  # DEAL_ENTRY_IN
+        data["deals"][0]["swap"] = "-3"
+        self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "10.4")
+
+    def test_reversal_entry_swap_is_included(self):
+        data = chunk()
+        data["deals"][0]["entry"] = 2  # DEAL_ENTRY_INOUT
         data["deals"][0]["swap"] = "-3"
         self.assertEqual(build(deal_history_chunks=[data])["net_pnl_account_currency"], "7.4")
 
