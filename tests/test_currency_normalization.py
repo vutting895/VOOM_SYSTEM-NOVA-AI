@@ -52,7 +52,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_micro_usd_account_does_not_get_arbitrary_balance_multiplier(self):
         normalizer = CurrencyNormalizer([
-            DenominationRule("ExampleBroker", "USD", "micro-contract-account", "USD",
+            DenominationRule("ExampleBroker", "USD", "micro", "USD",
                              Decimal("1"), "verified-usd-unit-v1")
         ])
         result = normalizer.to_usd("100", broker="ExampleBroker", native_currency="USD", account_denomination="micro",
@@ -211,6 +211,13 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertEqual(rule.currency, "USD")
         self.assertEqual(rule.currency_units_per_native_unit, Decimal("0.01"))
         self.assertEqual(rule.denomination, "standard-cent")
+        normalizer = CurrencyNormalizer([rule])
+        normalized = normalizer.to_usd(
+            "50000", broker="Exness", native_currency="USC",
+            account_denomination="standard-cent", fx=FXRateBook([]), as_of=NOW
+        )
+        self.assertEqual(normalized.amount, Decimal("500.00"))
+        self.assertEqual(normalized.target_currency, "USD")
         with self.assertRaises(UnsupportedDenomination):
             exness_standard_cent_rule("USC", symbol_name="XAUUSD")
         with self.assertRaises(UnsupportedDenomination):
