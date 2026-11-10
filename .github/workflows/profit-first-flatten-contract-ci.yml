@@ -13,6 +13,8 @@ on:
     paths:
       - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
       - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/profit_first_pnl.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_pnl.py"
       - ".github/workflows/profit-first-flatten-contract-ci.yml"
 
 permissions:
@@ -39,11 +41,27 @@ jobs:
         run: |
           python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_flatten_contract.py" -v
           python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_pnl.py" -v
-      - name: Assert contract cannot submit broker orders
-        shell: bash
+      - name: Assert decision modules contain no broker execution imports or calls
         run: |
-          if grep -Eq 'MetaTrader5|mt5\.order_send|order_send\(' integrations/mt5-readonly-bridge/profit_first_flatten_contract.py; then
-            echo "Broker execution code must not exist in the decision-only contract."
-            exit 1
-          fi
-          echo "Decision contract contains no broker execution adapter."
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          files = [
+              Path("integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"),
+              Path("integrations/mt5-readonly-bridge/profit_first_pnl.py"),
+          ]
+          forbidden_imports = {"MetaTrader5", "mt5"}
+          forbidden_calls = {"order_send", "order_check", "positions_close", "order_delete"}
+          for path in files:
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      assert not any(alias.name in forbidden_imports for alias in node.names), f"forbidden import in {path}"
+                  elif isinstance(node, ast.ImportFrom):
+                      assert node.module not in forbidden_imports, f"forbidden import in {path}"
+                  elif isinstance(node, ast.Call):
+                      name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
+                      assert name not in forbidden_calls, f"broker mutation call in {path}"
+          print("Pure decision modules contain no broker execution imports or calls.")
+          PY
