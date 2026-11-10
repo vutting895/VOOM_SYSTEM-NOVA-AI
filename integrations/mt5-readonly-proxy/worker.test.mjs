@@ -211,6 +211,23 @@ test("authenticated proxy forwards bounded profit calculation inputs to tenant r
   }
 });
 
+
+test("proxy rejects duplicate and malformed profit calculation parameters before forwarding", async () => {
+  const duplicate = await worker.fetch(new Request(
+    "https://proxy.test/api/profit-calculation?connection_id=" + CONNECTION_ID +
+    "&symbol=XAUUSDc&side=buy&volume=0.1&volume=0.2&open_price=2000&stop_price=1990"
+  ), envWithRoutes());
+  assert.equal(duplicate.status, 400);
+  assert.equal((await duplicate.json()).error, "duplicate_query_parameter");
+
+  const invalidStop = await worker.fetch(new Request(
+    "https://proxy.test/api/profit-calculation?connection_id=" + CONNECTION_ID +
+    "&symbol=XAUUSDc&side=buy&volume=0.1&open_price=2000&stop_price=2010"
+  ), envWithRoutes());
+  assert.equal(invalidStop.status, 400);
+  assert.equal((await invalidStop.json()).error, "stop_price_must_represent_loss");
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
