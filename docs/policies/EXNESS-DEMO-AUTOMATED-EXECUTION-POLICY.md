@@ -1,6 +1,6 @@
 # Exness Demo Automated Execution Policy
 
-**Status:** Approved policy intent; implementation and runtime activation are NOT yet approved as complete.  
+**Status:** Owner-approved policy intent; implementation and runtime activation are NOT yet approved as complete.  
 **Policy version:** 2026-11-11  
 **Applies to:** NOVA, Exness MT5 Demo only.
 
@@ -50,11 +50,21 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 ## 5. Mandatory risk gates
 
+### Owner-selected per-trade ceiling
+
+**Maximum risk per trade: 10% of current account Equity.**
+
+For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, and slippage, divided by current Equity. It does **not** mean 10% of notional position value, margin used, or order volume.
+
+The 10% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance and instrument contract specifications; it must never infer volume directly from the 10% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract calculation is unavailable, reject the order.
+
+Because 10% per trade is an aggressive risk ceiling, aggregate open risk must be independently capped. **The aggregate open-risk limit, daily loss limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not invent these values or interpret the per-trade ceiling as permission to stack unlimited simultaneous 10% risks.
+
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
-- Maximum risk per trade and position size.
-- Aggregate open risk and exposure by symbol/direction.
-- Maximum concurrent positions and pending orders.
-- Daily loss and peak-to-trough drawdown limits.
+- Per-trade risk not exceeding 10% of current Equity, calculated to initial Stop Loss including estimated costs.
+- Aggregate open risk and exposure by symbol/direction, subject to a separately approved cap.
+- Maximum concurrent positions and pending orders, subject to approved limits.
+- Daily loss and peak-to-trough drawdown, subject to approved limits.
 - Spread, slippage, quote freshness, and market/session conditions.
 - Stop-loss presence and validity; reject unbounded-risk entries.
 - Margin sufficiency and broker volume/price constraints.
@@ -63,7 +73,7 @@ Before every new order or risk-increasing modification, the Risk Engine must eva
 
 Risk-increasing actions must be rejected if any required metric is unavailable, stale, invalid, or outside configured bounds. Risk-reducing actions (cancel pending order, reduce exposure, close position) may use a separate narrowly scoped emergency policy, with audit logging and Demo-account verification.
 
-**Numeric thresholds are intentionally not invented in this policy document.** Automated execution must remain disabled until the owner-approved risk configuration is present, validated, versioned, and covered by tests.
+Automated execution must remain disabled until the complete owner-approved risk configuration is present, validated, versioned, and covered by tests.
 
 ## 6. Kill switches and operational controls
 
@@ -91,15 +101,16 @@ Never log passwords, bearer tokens, bridge secrets, or full credential-bearing p
 ## 8. Required verification before activation
 
 Activation is blocked until all of the following are demonstrated:
-1. Unit and integration tests for every allowed action and forbidden action.
-2. Positive Exness Demo account-mode verification and negative Live-account rejection.
-3. Owner-vs-foreign-tenant isolation tests for every read and write path.
-4. Risk boundary tests, missing/stale-data fail-closed tests, and kill-switch tests.
-5. Duplicate request/idempotency and retry/reconciliation tests.
-6. Broker error, timeout, partial fill, and disconnect recovery tests.
-7. Security review of Backend Policy, MCP tool registry, execution adapter, and Bridge.
-8. End-to-end runtime proof on the dedicated Exness Demo account.
-9. Exact-head CI and deployment verification for the reviewed commit.
+1. Owner approval of aggregate open-risk, daily loss, drawdown, concurrency, and order-rate limits.
+2. Unit and integration tests for every allowed action and forbidden action.
+3. Positive Exness Demo account-mode verification and negative Live-account rejection.
+4. Owner-vs-foreign-tenant isolation tests for every read and write path.
+5. Risk boundary tests at, below, and above the 10% per-trade ceiling; missing/stale-data fail-closed tests; and kill-switch tests.
+6. Duplicate request/idempotency and retry/reconciliation tests.
+7. Broker error, timeout, partial fill, and disconnect recovery tests.
+8. Security review of Backend Policy, MCP tool registry, execution adapter, and Bridge.
+9. End-to-end runtime proof on the dedicated Exness Demo account.
+10. Exact-head CI and deployment verification for the reviewed commit.
 
 Until these gates pass, the existing MT5 Bridge and MCP endpoints remain read-only and all execution flags remain false.
 
