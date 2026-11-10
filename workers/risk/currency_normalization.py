@@ -382,6 +382,29 @@ def evaluate_usd_risk_limits(
     )
 
 
+def broker_native_currency_rule(broker: str, native_currency: str) -> DenominationRule:
+    """Map an account's broker-reported native ISO-style currency at 1:1.
+
+    MT5 account_info().currency is the authoritative unit. Cent-style codes
+    ending in C are intentionally rejected and require a separate verified
+    denomination rule (USC is supported below; other cent codes fail closed).
+    Micro lot sizing is not a balance-currency multiplier.
+    """
+    code = native_currency.strip().upper()
+    if len(code) != 3 or not code.isalpha() or code.endswith("C"):
+        raise UnsupportedDenomination(
+            "non-standard or cent currency requires a separately verified denomination rule"
+        )
+    return DenominationRule(
+        broker=broker,
+        native_currency=code,
+        denomination="currency-native",
+        currency=code,
+        currency_units_per_native_unit=Decimal("1"),
+        evidence_id="MT5 account_info().currency",
+    )
+
+
 def exness_standard_cent_rule(native_currency: str, *, symbol_name: str) -> DenominationRule:
     """Return the documented Exness USC-cent mapping after a symbol cross-check.
 
