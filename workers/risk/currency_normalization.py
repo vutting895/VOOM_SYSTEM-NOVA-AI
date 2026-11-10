@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from typing import Iterable
 
 
@@ -227,6 +227,74 @@ class CurrencyNormalizer:
                             as_of: datetime) -> ConversionResult:
         """Normalize symbol profit/tick/commission values into the USD risk unit."""
         return fx.convert(amount, profit_currency, "USD", as_of=as_of)
+
+
+@dataclass(frozen=True)
+class StopLossEstimate:
+    """Conservative stop-loss estimate normalized to USD."""
+    ticks: Decimal
+    native_loss: Decimal
+    native_currency: str
+    usd_loss: Decimal
+    fx_path: tuple[str, ...]
+    quote_ids: tuple[str, ...]
+    fx_sources: tuple[str, ...]
+
+
+def estimate_stop_loss_usd(
+    *,
+    volume_lots: Decimal | int | str,
+    entry_price: Decimal | int | str,
+    stop_loss_price: Decimal | int | str,
+    tick_size: Decimal | int | str,
+    tick_value_loss_native_per_lot: Decimal | int | str,
+    estimated_other_costs_native: Decimal | int | str,
+    broker: str,
+    native_currency: str,
+    account_denomination: str,
+    normalizer: CurrencyNormalizer,
+    fx: FXRateBook,
+    as_of: datetime,
+) -> StopLossEstimate:
+    """Estimate loss using MT5 tick-loss value in account deposit currency.
+
+    Tick count rounds up so a non-integral stop distance cannot understate risk.
+    The caller must supply commission/slippage/swap estimate explicitly in
+    native account currency. Loss is converted as a liability (conservative FX
+    side), then returned as a positive USD risk amount.
+    """
+    volume = money(volume_lots)
+    entry = money(entry_price)
+    stop = money(stop_loss_price)
+    tick = money(tick_size)
+    tick_value = money(tick_value_loss_native_per_lot)
+    other_costs = money(estimated_other_costs_native)
+    if volume <= 0 or entry <= 0 or stop <= 0 or tick <= 0 or tick_value <= 0:
+        raise CurrencyNormalizationError("volume, prices, tick size and tick value must be positive")
+    if other_costs < 0:
+        raise CurrencyNormalizationError("estimated other costs must be non-negative")
+    distance = abs(entry - stop)
+    if distance <= 0:
+        raise CurrencyNormalizationError("stop loss must differ from entry price")
+    ticks = (distance / tick).to_integral_value(rounding=ROUND_CEILING)
+    native_loss = ticks * tick_value * volume + other_costs
+    converted = normalizer.to_usd(
+        -native_loss,
+        broker=broker,
+        native_currency=native_currency,
+        account_denomination=account_denomination,
+        fx=fx,
+        as_of=as_of,
+    )
+    return StopLossEstimate(
+        ticks=ticks,
+        native_loss=native_loss,
+        native_currency=native_currency.upper(),
+        usd_loss=abs(converted.amount),
+        fx_path=converted.path,
+        quote_ids=converted.quote_ids,
+        fx_sources=converted.sources,
+    )
 
 
 @dataclass(frozen=True)
