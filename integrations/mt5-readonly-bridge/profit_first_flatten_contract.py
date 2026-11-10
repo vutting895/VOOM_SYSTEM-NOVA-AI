@@ -14,7 +14,7 @@ class ProfitFirstFlattenError(ValueError):
 
 
 def _money(value: Any, field: str) -> Decimal:
-    if isinstance(value, bool) or value is None:
+    if isinstance(value, (bool, float)) or value is None:
         raise ProfitFirstFlattenError(f"{field} must be a finite USD amount")
     try:
         amount = Decimal(str(value))
@@ -31,7 +31,7 @@ def evaluate_profit_first_flatten(snapshot: Mapping[str, Any]) -> dict[str, Any]
     Required snapshot fields:
       account_environment: exactly EXNESS_DEMO
       currency_normalization_status: exactly verified
-      positions: sequence with profit_usd, swap_usd, commission_usd per position
+      positions: sequence with profit_usd, swap_usd, commission_usd, fee_usd per position
       pending_orders: sequence of pending-order records
 
     A positive aggregate means strictly greater than USD 0.00. Commission and
@@ -56,7 +56,7 @@ def evaluate_profit_first_flatten(snapshot: Mapping[str, Any]) -> dict[str, Any]
     for index, position in enumerate(positions):
         if not isinstance(position, Mapping):
             raise ProfitFirstFlattenError(f"positions[{index}] must be a mapping")
-        for field in ("profit_usd", "swap_usd", "commission_usd"):
+        for field in ("profit_usd", "swap_usd", "commission_usd", "fee_usd"):
             if field not in position:
                 raise ProfitFirstFlattenError(f"positions[{index}].{field} is required")
         net_pnl_usd += (
