@@ -57,6 +57,7 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 - `GET /api/account` — retains existing numeric fields and adds `balance_decimal`, `equity_decimal`, `margin_decimal` and `free_margin_decimal` strings for exact decimal parsing.
 - `GET /api/symbols?q=XAU&limit=100` — includes read-only contract size, tick size/value (profit and loss), profit/margin currencies, volume min/max/step, stops/freeze levels, calculation mode and a `risk_metadata_complete` indicator.
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/profit-calculation?symbol=<exact-terminal-symbol>&side=buy&volume=0.1&open_price=2000&stop_price=1990` — hypothetical stop-loss estimate via MT5 `order_calc_profit`; returns loss in account currency, never submits an order.
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
@@ -78,3 +79,10 @@ A passing CI build, a healthy relay Worker, an active local process, or an MT5 t
 The `/api/symbols` response exposes the terminal's own `trade_contract_size` and matching `*_decimal` strings for exact decimal parsing, `trade_tick_size`, `trade_tick_value_profit`, `trade_tick_value_loss`, `currency_profit`, `currency_margin`, `volume_min`, `volume_max` and `volume_step` values. Missing, non-finite or non-positive required numeric values are returned as `null` and cause `risk_metadata_complete=false`; callers must not estimate or substitute contract/tick values. This is metadata only, not a position-sizing or execution endpoint. The bridge remains GET/OPTIONS-only and Exness Demo-only.
 
 The legacy numeric JSON fields are preserved for compatibility. Risk consumers must use the `*_decimal` strings with decimal arithmetic; never pass JSON floating-point values directly into the risk normalizer.
+
+
+## Read-only stop-loss calculation
+
+`GET /api/profit-calculation` calls MT5 `order_calc_profit` with a strictly validated `buy` or `sell` side, symbol, lot volume, entry and adverse stop price. It validates the broker's volume min/max/step and returns the negative result as a decimal string in the authenticated account's deposit currency, plus the account currency and denomination key. This uses the terminal's own calculation for the current market environment rather than assuming every symbol's tick value is denominated in the account currency. The endpoint is tenant-authenticated, Exness Demo-only, GET-only and does not call `order_send`.
+
+The result is a pre-trade estimate, not a guaranteed fill price. The risk layer must add explicit commission, slippage and swap assumptions, normalize the native account amount into USD, and fail closed if any required value or FX rate is missing. MetaQuotes documents that `order_calc_profit` returns the estimated profit/loss in account currency: https://www.mql5.com/en/docs/python_metatrader5/mt5ordercalcprofit_py.
