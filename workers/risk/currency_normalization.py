@@ -211,7 +211,8 @@ class CurrencyNormalizer:
         converted = fx.convert(currency_amount, rule.currency, "USD", as_of=as_of)
         return ConversionResult(
             converted.amount, native_currency.upper(), "USD",
-            (native_currency.upper(),) + converted.path,
+            converted.path if rule.currency == native_currency.upper()
+            else (native_currency.upper(),) + converted.path,
             converted.quote_ids, (rule.evidence_id,) + converted.sources,
             converted.oldest_quote_at,
         )
@@ -226,3 +227,61 @@ class CurrencyNormalizer:
                             as_of: datetime) -> ConversionResult:
         """Normalize symbol profit/tick/commission values into the USD risk unit."""
         return fx.convert(amount, profit_currency, "USD", as_of=as_of)
+
+
+@dataclass(frozen=True)
+class USDRiskDecision:
+    """Pure USD risk-limit decision; it never authorizes broker execution."""
+    allowed: bool
+    equity_usd: Decimal
+    trade_loss_usd: Decimal
+    max_trade_loss_usd: Decimal
+    daily_loss_usd: Decimal
+    max_daily_loss_usd: Decimal
+    reason_codes: tuple[str, ...]
+
+
+def evaluate_usd_risk_limits(
+    *,
+    current_equity_usd: Decimal | int | str,
+    estimated_trade_loss_usd: Decimal | int | str,
+    daily_loss_usd: Decimal | int | str,
+    max_per_trade_pct: Decimal | int | str = Decimal("0.01"),
+    max_daily_loss_pct: Decimal | int | str = Decimal("0.10"),
+) -> USDRiskDecision:
+    """Apply the owner-selected 1% trade / 10% daily ceilings to USD values.
+
+    `daily_loss_usd` must already be reconciled from the persisted broker-day
+    opening-equity snapshot, including realized and unrealized P&L. This helper
+    does not manufacture that snapshot or authorize an order.
+    """
+    equity = money(current_equity_usd)
+    trade_loss = money(estimated_trade_loss_usd)
+    daily_loss = money(daily_loss_usd)
+    trade_pct = money(max_per_trade_pct)
+    daily_pct = money(max_daily_loss_pct)
+    if equity <= 0:
+        raise CurrencyNormalizationError("current USD equity must be positive")
+    if trade_loss < 0 or daily_loss < 0:
+        raise CurrencyNormalizationError("loss amounts must be non-negative")
+    if not (Decimal("0") < trade_pct <= Decimal("1")):
+        raise CurrencyNormalizationError("per-trade risk percentage must be in (0, 1]")
+    if not (Decimal("0") < daily_pct <= Decimal("1")):
+        raise CurrencyNormalizationError("daily loss percentage must be in (0, 1]")
+
+    max_trade = equity * trade_pct
+    max_daily = equity * daily_pct
+    reasons: list[str] = []
+    if trade_loss > max_trade:
+        reasons.append("per_trade_risk_limit")
+    if daily_loss >= max_daily:
+        reasons.append("daily_loss_limit")
+    return USDRiskDecision(
+        allowed=not reasons,
+        equity_usd=equity,
+        trade_loss_usd=trade_loss,
+        max_trade_loss_usd=max_trade,
+        daily_loss_usd=daily_loss,
+        max_daily_loss_usd=max_daily,
+        reason_codes=tuple(reasons),
+    )
