@@ -175,6 +175,38 @@ async function loadConnection(request, env, user) {
   }
 }
 
+function validateProfitCalculationQuery(url) {
+  const keys = [...url.searchParams.keys()];
+  if (new Set(keys).size !== keys.length) return { ok: false, error: "duplicate_query_parameter" };
+  const allowed = new Set(["connection_id", "symbol", "side", "volume", "open_price", "stop_price"]);
+  if (keys.some((key) => !allowed.has(key))) return { ok: false, error: "query_parameter_not_allowed" };
+  for (const key of ["connection_id", "symbol", "side", "volume", "open_price", "stop_price"]) {
+    if (!url.searchParams.get(key)) return { ok: false, error: "missing_" + key };
+  }
+  if (!/^[A-Za-z0-9._-]{1,40}$/.test(url.searchParams.get("symbol"))) {
+    return { ok: false, error: "invalid_symbol" };
+  }
+  const side = url.searchParams.get("side").toLowerCase();
+  if (side !== "buy" && side !== "sell") return { ok: false, error: "invalid_side" };
+  const numbers = {};
+  for (const key of ["volume", "open_price", "stop_price"]) {
+    const raw = url.searchParams.get(key);
+    if (raw.length > 32 || !/^\\d+(?:\\.\\d+)?$/.test(raw)) {
+      return { ok: false, error: "invalid_" + key };
+    }
+    numbers[key] = Number(raw);
+    if (!Number.isFinite(numbers[key]) || numbers[key] <= 0) {
+      return { ok: false, error: "invalid_" + key };
+    }
+  }
+  if ((side === "buy" && numbers.stop_price >= numbers.open_price) ||
+      (side === "sell" && numbers.stop_price <= numbers.open_price)) {
+    return { ok: false, error: "stop_price_must_represent_loss" };
+  }
+  return { ok: true };
+}
+
+
 async function forward(request, route, path, origin) {
   const url = new URL(request.url);
   const target = new URL(path, route.url);
@@ -237,6 +269,10 @@ export default {
     }
     if (request.method !== "GET") {
       return json({ error: "method_not_allowed", mode: "read-only", ordersEnabled: false }, 405, origin);
+    }
+    if (url.pathname === "/api/profit-calculation") {
+      const validation = validateProfitCalculationQuery(url);
+      if (!validation.ok) return json({ error: validation.error, mode: "read-only" }, 400, origin);
     }
 
     const user = await authenticate(request, env);
