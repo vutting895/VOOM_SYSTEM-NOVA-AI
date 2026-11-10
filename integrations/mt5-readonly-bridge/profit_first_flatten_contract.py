@@ -63,6 +63,7 @@ def evaluate_profit_first_flatten(snapshot: Mapping[str, Any]) -> dict[str, Any]
             _money(position["profit_usd"], f"positions[{index}].profit_usd")
             + _money(position["swap_usd"], f"positions[{index}].swap_usd")
             + _money(position["commission_usd"], f"positions[{index}].commission_usd")
+            + _money(position["fee_usd"], f"positions[{index}].fee_usd")
         )
 
     triggered = net_pnl_usd > Decimal("0")
