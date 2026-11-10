@@ -146,6 +146,10 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "connected": bool(terminal.connected),
             "server": str(getattr(account, "server", "")),
             "currency": str(getattr(account, "currency", "")),
+            "account_denomination": (
+                "standard-cent" if str(getattr(account, "currency", "")).upper() == "USC"
+                else "currency-native"
+            ),
             "balance": float(account.balance),
             "balance_decimal": optional_decimal_string(account, "balance"),
             "equity": float(account.equity),
@@ -158,6 +162,75 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "terminal_trade_allowed": bool(terminal.trade_allowed),
             "order_submission_enabled": False,
             "mode": "read-only",
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/profit-calculation")
+def profit_calculation(
+    symbol: str = Query(min_length=1, max_length=40),
+    side: str = Query(min_length=3, max_length=4),
+    volume: Decimal = Query(gt=0),
+    open_price: Decimal = Query(gt=0),
+    stop_price: Decimal = Query(gt=0),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Calculate a hypothetical stop loss in account currency; never sends an order."""
+    require_token(authorization, tenant_id)
+    normalized_side = side.strip().lower()
+    if normalized_side not in {"buy", "sell"}:
+        raise HTTPException(status_code=400, detail="Side must be buy or sell")
+    if (normalized_side == "buy" and stop_price >= open_price) or (
+        normalized_side == "sell" and stop_price <= open_price
+    ):
+        raise HTTPException(status_code=400, detail="Stop price must represent a loss for the selected side")
+    with LOCK:
+        _, account = get_terminal_and_account()
+        info = mt5.symbol_info(symbol)
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
+        minimum = optional_decimal_string(info, "volume_min")
+        maximum = optional_decimal_string(info, "volume_max")
+        step = optional_decimal_string(info, "volume_step")
+        if minimum is None or maximum is None or step is None:
+            raise HTTPException(status_code=503, detail="MT5 volume constraints unavailable")
+        min_volume, max_volume, volume_step = Decimal(minimum), Decimal(maximum), Decimal(step)
+        if min_volume <= 0 or max_volume < min_volume or volume_step <= 0:
+            raise HTTPException(status_code=503, detail="MT5 volume constraints are invalid")
+        if volume < min_volume or volume > max_volume:
+            raise HTTPException(status_code=400, detail="Volume is outside broker min/max constraints")
+        step_units = (volume - min_volume) / volume_step
+        if step_units != step_units.to_integral_value():
+            raise HTTPException(status_code=400, detail="Volume does not match broker volume step")
+        order_type = mt5.ORDER_TYPE_BUY if normalized_side == "buy" else mt5.ORDER_TYPE_SELL
+        result = mt5.order_calc_profit(
+            order_type, symbol, float(volume), float(open_price), float(stop_price)
+        )
+        if result is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 profit calculation unavailable: {error[0]}")
+        native_profit = Decimal(str(result))
+        if not native_profit.is_finite() or native_profit >= 0:
+            raise HTTPException(status_code=503, detail="MT5 did not return a valid negative stop-loss result")
+        account_currency = str(getattr(account, "currency", "") or "").upper()
+        if not account_currency:
+            raise HTTPException(status_code=503, detail="MT5 account currency unavailable")
+        return {
+            "symbol": symbol,
+            "side": normalized_side,
+            "volume_decimal": format(volume, "f"),
+            "open_price_decimal": format(open_price, "f"),
+            "stop_price_decimal": format(stop_price, "f"),
+            "profit_native_decimal": format(native_profit, "f"),
+            "loss_native_decimal": format(abs(native_profit), "f"),
+            "account_currency": account_currency,
+            "account_denomination": (
+                "standard-cent" if account_currency == "USC" else "currency-native"
+            ),
+            "calculation_method": "mt5.order_calc_profit",
+            "mode": "read-only",
+            "order_submission_enabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 
