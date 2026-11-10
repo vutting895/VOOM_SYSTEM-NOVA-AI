@@ -54,7 +54,7 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 ## Endpoints
 
 - `GET /health`
-- `GET /api/account`
+- `GET /api/account` — retains existing numeric fields and adds `balance_decimal`, `equity_decimal`, `margin_decimal` and `free_margin_decimal` strings for exact decimal parsing.
 - `GET /api/symbols?q=XAU&limit=100` — includes read-only contract size, tick size/value (profit and loss), profit/margin currencies, volume min/max/step, stops/freeze levels, calculation mode and a `risk_metadata_complete` indicator.
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 
@@ -75,4 +75,6 @@ A passing CI build, a healthy relay Worker, an active local process, or an MT5 t
 
 ## Instrument risk metadata contract
 
-The `/api/symbols` response exposes the terminal's own `trade_contract_size`, `trade_tick_size`, `trade_tick_value_profit`, `trade_tick_value_loss`, `currency_profit`, `currency_margin`, `volume_min`, `volume_max` and `volume_step` values. Missing, non-finite or non-positive required numeric values are returned as `null` and cause `risk_metadata_complete=false`; callers must not estimate or substitute contract/tick values. This is metadata only, not a position-sizing or execution endpoint. The bridge remains GET/OPTIONS-only and Exness Demo-only.
+The `/api/symbols` response exposes the terminal's own `trade_contract_size` and matching `*_decimal` strings for exact decimal parsing, `trade_tick_size`, `trade_tick_value_profit`, `trade_tick_value_loss`, `currency_profit`, `currency_margin`, `volume_min`, `volume_max` and `volume_step` values. Missing, non-finite or non-positive required numeric values are returned as `null` and cause `risk_metadata_complete=false`; callers must not estimate or substitute contract/tick values. This is metadata only, not a position-sizing or execution endpoint. The bridge remains GET/OPTIONS-only and Exness Demo-only.
+
+The legacy numeric JSON fields are preserved for compatibility. Risk consumers must use the `*_decimal` strings with decimal arithmetic; never pass JSON floating-point values directly into the risk normalizer.
