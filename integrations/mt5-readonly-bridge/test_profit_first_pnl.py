@@ -29,6 +29,15 @@ class NetPnlTests(unittest.TestCase):
         self.assertEqual(result["net_pnl_usd"], "11.440")
         self.assertEqual(result["currency_normalization_status"], "verified")
 
+    def test_deal_swap_is_not_double_counted_with_open_position_swap(self):
+        deals = [{
+            "ticket": 1, "position_id": 1001, "profit": "2",
+            "commission": "-0.5", "swap": "-3", "fee": "-0.1",
+        }]
+        result = build(deals=deals)
+        # Open-position swap (-1) is counted; deal swap (-3) is intentionally ignored.
+        self.assertEqual(result["net_pnl_account_currency"], "10.4")
+
     def test_usd_account_uses_identity_rate(self):
         result = build(account_currency="USD", currency_to_usd_rate="1")
         self.assertEqual(result["net_pnl_usd"], "10.4")
