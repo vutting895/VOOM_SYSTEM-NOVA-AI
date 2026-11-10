@@ -61,7 +61,7 @@ async def enforce_read_only(request: Request, call_next):
     return await call_next(request)
 
 
-def _required_deal_integer(deal: Any, field: str) -> int:
+def _required_deal_integer(deal: Any, field: str, *, allow_zero: bool = False) -> int:
     raw = getattr(deal, field, None)
     if isinstance(raw, bool) or raw is None:
         raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata unavailable")
@@ -69,7 +69,7 @@ def _required_deal_integer(deal: Any, field: str) -> int:
         value = int(raw)
     except (TypeError, ValueError, OverflowError):
         raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid") from None
-    if value <= 0:
+    if value < 0 or (value == 0 and not allow_zero):
         raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid")
     return value
 
@@ -252,7 +252,7 @@ def deal_history(
                 {
                     "ticket": _required_deal_integer(deal, "ticket"),
                     "order": int(getattr(deal, "order", 0)),
-                    "position_id": _required_deal_integer(deal, "position_id"),
+                    "position_id": _required_deal_integer(deal, "position_id", allow_zero=True),
                     "time": datetime.fromtimestamp(int(deal.time), timezone.utc).isoformat(),
                     "type": int(getattr(deal, "type", -1)),
                     "entry": int(getattr(deal, "entry", -1)),
