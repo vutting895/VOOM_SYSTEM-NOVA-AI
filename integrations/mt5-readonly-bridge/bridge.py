@@ -188,6 +188,68 @@ def symbols(
         }
 
 
+@app.get("/api/history/deals")
+def deal_history(
+    from_time: str = Query(min_length=20, max_length=40),
+    to_time: str = Query(min_length=20, max_length=40),
+    limit: int = Query(default=1000, ge=1, le=5000),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return bounded, read-only MT5 deal history for commission reconciliation."""
+    require_token(authorization, tenant_id)
+    try:
+        start = datetime.fromisoformat(from_time.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(to_time.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="from_time and to_time must be ISO-8601 timestamps") from None
+    if start.tzinfo is None or end.tzinfo is None:
+        raise HTTPException(status_code=400, detail="timestamps must include a timezone")
+    start = start.astimezone(timezone.utc)
+    end = end.astimezone(timezone.utc)
+    if end <= start:
+        raise HTTPException(status_code=400, detail="to_time must be later than from_time")
+    if (end - start).total_seconds() > 7 * 24 * 60 * 60:
+        raise HTTPException(status_code=400, detail="deal history range cannot exceed 7 days")
+
+    with LOCK:
+        get_terminal_and_account()
+        deals = mt5.history_deals_get(start, end)
+        if deals is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 deal history unavailable: {error[0]}")
+        selected = deals[-limit:]
+        account = mt5.account_info()
+        return {
+            "deals": [
+                {
+                    "ticket": int(getattr(deal, "ticket", 0)),
+                    "order": int(getattr(deal, "order", 0)),
+                    "position_id": int(getattr(deal, "position_id", 0)),
+                    "time": datetime.fromtimestamp(int(deal.time), timezone.utc).isoformat(),
+                    "type": int(getattr(deal, "type", -1)),
+                    "entry": int(getattr(deal, "entry", -1)),
+                    "symbol": str(getattr(deal, "symbol", "")),
+                    "volume": float(getattr(deal, "volume", 0.0)),
+                    "price": float(getattr(deal, "price", 0.0)),
+                    "profit": float(getattr(deal, "profit", 0.0)),
+                    "commission": float(getattr(deal, "commission", 0.0)),
+                    "swap": float(getattr(deal, "swap", 0.0)),
+                    "fee": float(getattr(deal, "fee", 0.0)),
+                }
+                for deal in selected
+            ],
+            "count": len(selected),
+            "truncated": len(deals) > limit,
+            "from_time": start.isoformat(),
+            "to_time": end.isoformat(),
+            "currency": str(getattr(account, "currency", "")),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
 @app.get("/api/quotes")
 def quotes(
     symbol: str = Query(min_length=1, max_length=40),
