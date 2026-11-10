@@ -109,6 +109,19 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
 
+    def test_account_positions_are_read_only_and_bounded(self):
+        self.assertIn("mt5.positions_get()", SOURCE)
+        self.assertIn("get_open_positions(limit=100)", SOURCE)
+        self.assertIn('"open_positions_truncated"', SOURCE)
+        position_reader = SOURCE[SOURCE.index("def get_open_positions"):SOURCE.index("def get_terminal_and_account")]
+        self.assertIn('getattr(item, "identifier", None)', position_reader)
+        self.assertIn('"identifier": position_identifier', position_reader)
+        self.assertIn("position identifier unavailable", position_reader)
+        self.assertNotIn("mt5.order_send", SOURCE)
+        self.assertNotIn("order_send(", SOURCE)
+        for method in ("@app.post(", "@app.put(", "@app.patch(", "@app.delete("):
+            self.assertNotIn(method, SOURCE)
+
     def test_no_order_submission_endpoint_is_registered(self):
         registered_paths = []
         for node in TREE.body:
