@@ -14,6 +14,7 @@ from workers.risk.currency_normalization import (
     UnsupportedDenomination,
     evaluate_usd_risk_limits,
     exness_standard_cent_rule,
+    estimate_stop_loss_usd,
 )
 
 NOW = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
@@ -222,6 +223,80 @@ class CurrencyNormalizationTests(unittest.TestCase):
             exness_standard_cent_rule("USC", symbol_name="XAUUSD")
         with self.assertRaises(UnsupportedDenomination):
             exness_standard_cent_rule("EUC", symbol_name="EURUSDc")
+
+    def test_stop_loss_estimate_uses_tick_size_value_volume_and_explicit_costs(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+        ])
+        estimate = estimate_stop_loss_usd(
+            volume_lots="0.1", entry_price="2000.00", stop_loss_price="1999.50",
+            tick_size="0.01", tick_value_loss_native_per_lot="1",
+            estimated_other_costs_native="1", broker="Exness", native_currency="USD",
+            account_denomination="standard", normalizer=normalizer,
+            fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertEqual(estimate.ticks, Decimal("50"))
+        self.assertEqual(estimate.native_loss, Decimal("6.0"))
+        self.assertEqual(estimate.usd_loss, Decimal("6.0"))
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd="1000", estimated_trade_loss_usd=estimate.usd_loss,
+            daily_loss_usd="0",
+        )
+        self.assertTrue(decision.allowed)
+
+    def test_stop_loss_estimate_converts_exness_usc_cent_loss_to_usd(self):
+        rule = exness_standard_cent_rule("USC", symbol_name="XAUUSDc")
+        normalizer = CurrencyNormalizer([rule])
+        estimate = estimate_stop_loss_usd(
+            volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
+            tick_size="0.01", tick_value_loss_native_per_lot="10",
+            estimated_other_costs_native="10", broker="Exness", native_currency="USC",
+            account_denomination="standard-cent", normalizer=normalizer,
+            fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertEqual(estimate.native_loss, Decimal("60.0"))
+        self.assertEqual(estimate.usd_loss, Decimal("0.600"))
+
+    def test_micro_contract_tick_value_is_used_without_scaling_usd_balance(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "micro", "USD", Decimal("1"), "usd-micro-unit-v1")
+        ])
+        estimate = estimate_stop_loss_usd(
+            volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
+            tick_size="0.01", tick_value_loss_native_per_lot="0.01",
+            estimated_other_costs_native="0", broker="Exness", native_currency="USD",
+            account_denomination="micro", normalizer=normalizer,
+            fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertEqual(estimate.native_loss, Decimal("0.050"))
+        self.assertEqual(estimate.usd_loss, Decimal("0.050"))
+
+    def test_stop_distance_rounds_tick_count_up_conservatively(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "USD", "standard", "USD", Decimal("1"), "usd-standard-v1")
+        ])
+        estimate = estimate_stop_loss_usd(
+            volume_lots="1", entry_price="2000", stop_loss_price="1999.499",
+            tick_size="0.01", tick_value_loss_native_per_lot="1",
+            estimated_other_costs_native="0", broker="Exness", native_currency="USD",
+            account_denomination="standard", normalizer=normalizer,
+            fx=FXRateBook([]), as_of=NOW,
+        )
+        self.assertEqual(estimate.ticks, Decimal("51"))
+
+    def test_stop_loss_estimate_fails_closed_on_stale_fx(self):
+        normalizer = CurrencyNormalizer([
+            DenominationRule("Exness", "EUR", "standard", "EUR", Decimal("1"), "eur-standard-v1")
+        ])
+        stale_fx = FXRateBook([quote("EUR", "USD", "1.08", seconds_old=31)], max_age_seconds=30)
+        with self.assertRaises(StaleExchangeRate):
+            estimate_stop_loss_usd(
+                volume_lots="0.1", entry_price="2000", stop_loss_price="1999.50",
+                tick_size="0.01", tick_value_loss_native_per_lot="1",
+                estimated_other_costs_native="1", broker="Exness", native_currency="EUR",
+                account_denomination="standard", normalizer=normalizer,
+                fx=stale_fx, as_of=NOW,
+            )
 
 
 if __name__ == "__main__":
