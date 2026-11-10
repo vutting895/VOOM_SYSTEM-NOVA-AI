@@ -6,6 +6,7 @@ import os
 import re
 import threading
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import MetaTrader5 as mt5
@@ -146,9 +147,13 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "server": str(getattr(account, "server", "")),
             "currency": str(getattr(account, "currency", "")),
             "balance": float(account.balance),
+            "balance_decimal": format(Decimal(str(account.balance)), "f"),
             "equity": float(account.equity),
+            "equity_decimal": format(Decimal(str(account.equity)), "f"),
             "margin": float(account.margin),
+            "margin_decimal": format(Decimal(str(account.margin)), "f"),
             "free_margin": float(account.margin_free),
+            "free_margin_decimal": format(Decimal(str(account.margin_free)), "f"),
             "margin_level": float(account.margin_level) if account.margin_level else None,
             "terminal_trade_allowed": bool(terminal.trade_allowed),
             "order_submission_enabled": False,
@@ -169,6 +174,18 @@ def optional_number(source: Any, field: str) -> float | None:
     return result if math.isfinite(result) else None
 
 
+def optional_decimal_string(source: Any, field: str) -> str | None:
+    """Preserve broker numeric precision as a decimal string for risk consumers."""
+    value = getattr(source, field, None)
+    if value is None:
+        return None
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return format(result, "f") if result.is_finite() else None
+
+
 def symbol_spec(item: Any) -> dict[str, Any]:
     """Expose read-only MT5 contract, tick, currency and volume constraints."""
     spec = {
@@ -181,14 +198,23 @@ def symbol_spec(item: Any) -> dict[str, Any]:
         "margin_currency": str(getattr(item, "currency_margin", "") or ""),
         "trade_calc_mode": getattr(item, "trade_calc_mode", None),
         "contract_size": optional_number(item, "trade_contract_size"),
+        "contract_size_decimal": optional_decimal_string(item, "trade_contract_size"),
         "point": optional_number(item, "point"),
+        "point_decimal": optional_decimal_string(item, "point"),
         "tick_size": optional_number(item, "trade_tick_size"),
+        "tick_size_decimal": optional_decimal_string(item, "trade_tick_size"),
         "tick_value": optional_number(item, "trade_tick_value"),
+        "tick_value_decimal": optional_decimal_string(item, "trade_tick_value"),
         "tick_value_profit": optional_number(item, "trade_tick_value_profit"),
+        "tick_value_profit_decimal": optional_decimal_string(item, "trade_tick_value_profit"),
         "tick_value_loss": optional_number(item, "trade_tick_value_loss"),
+        "tick_value_loss_decimal": optional_decimal_string(item, "trade_tick_value_loss"),
         "volume_min": optional_number(item, "volume_min"),
+        "volume_min_decimal": optional_decimal_string(item, "volume_min"),
         "volume_max": optional_number(item, "volume_max"),
+        "volume_max_decimal": optional_decimal_string(item, "volume_max"),
         "volume_step": optional_number(item, "volume_step"),
+        "volume_step_decimal": optional_decimal_string(item, "volume_step"),
         "stops_level_points": getattr(item, "trade_stops_level", None),
         "freeze_level_points": getattr(item, "trade_freeze_level", None),
         "trade_mode": getattr(item, "trade_mode", None),
