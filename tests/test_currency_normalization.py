@@ -12,6 +12,7 @@ from workers.risk.currency_normalization import (
     MissingExchangeRate,
     StaleExchangeRate,
     UnsupportedDenomination,
+    evaluate_usd_risk_limits,
 )
 
 NOW = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
@@ -155,6 +156,54 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 quote("EUR", "USD", "1.08", quote_id="provider-a"),
                 quote("EUR", "USD", "1.07", quote_id="provider-b"),
             ])
+
+    def test_per_trade_limit_is_one_percent_of_current_usd_equity(self):
+        allowed = evaluate_usd_risk_limits(
+            current_equity_usd="1000", estimated_trade_loss_usd="10", daily_loss_usd="0"
+        )
+        rejected = evaluate_usd_risk_limits(
+            current_equity_usd="1000", estimated_trade_loss_usd="10.01", daily_loss_usd="0"
+        )
+        self.assertTrue(allowed.allowed)
+        self.assertEqual(allowed.max_trade_loss_usd, Decimal("10.00"))
+        self.assertFalse(rejected.allowed)
+        self.assertEqual(rejected.reason_codes, ("per_trade_risk_limit",))
+
+    def test_daily_loss_limit_is_ten_percent_of_latest_current_equity(self):
+        allowed = evaluate_usd_risk_limits(
+            current_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="99.99"
+        )
+        rejected = evaluate_usd_risk_limits(
+            current_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="100"
+        )
+        self.assertTrue(allowed.allowed)
+        self.assertFalse(rejected.allowed)
+        self.assertEqual(rejected.max_daily_loss_usd, Decimal("100.00"))
+        self.assertEqual(rejected.reason_codes, ("daily_loss_limit",))
+
+    def test_trade_and_daily_limits_use_current_equity_not_start_equity(self):
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd="800", estimated_trade_loss_usd="8", daily_loss_usd="79.99"
+        )
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
+        self.assertEqual(decision.max_daily_loss_usd, Decimal("80.00"))
+        self.assertTrue(decision.allowed)
+
+    def test_invalid_equity_or_loss_inputs_fail_closed(self):
+        for kwargs in (
+            {"current_equity_usd":"0", "estimated_trade_loss_usd":"1", "daily_loss_usd":"0"},
+            {"current_equity_usd":"100", "estimated_trade_loss_usd":"-1", "daily_loss_usd":"0"},
+            {"current_equity_usd":"100", "estimated_trade_loss_usd":"1", "daily_loss_usd":"-1"},
+        ):
+            with self.subTest(kwargs=kwargs), self.assertRaises(CurrencyNormalizationError):
+                evaluate_usd_risk_limits(**kwargs)
+
+    def test_default_risk_policy_percentages_are_fixed_to_owner_selected_limits(self):
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd="2000", estimated_trade_loss_usd="20", daily_loss_usd="199"
+        )
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("20.00"))
+        self.assertEqual(decision.max_daily_loss_usd, Decimal("200.00"))
 
 
 if __name__ == "__main__":
