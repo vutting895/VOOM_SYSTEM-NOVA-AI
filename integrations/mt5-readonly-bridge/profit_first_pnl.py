@@ -57,11 +57,12 @@ def _verify_history_coverage(
         raise PnlReconciliationError("at least one deal-history coverage chunk is required")
 
     if positions:
-        earliest_required = min(
-            _utc(position.get("time"), f"positions[{i}].time")
-            for i, position in enumerate(positions)
-            if isinstance(position, Mapping)
-        )
+        opened_times = []
+        for index, position in enumerate(positions):
+            if not isinstance(position, Mapping):
+                raise PnlReconciliationError(f"positions[{index}] must be a mapping")
+            opened_times.append(_utc(position.get("time"), f"positions[{index}].time"))
+        earliest_required = min(opened_times)
     else:
         earliest_required = snapshot_time
 
