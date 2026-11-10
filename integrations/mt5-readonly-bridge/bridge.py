@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import math
 import os
 import re
 import threading
@@ -156,6 +157,52 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         }
 
 
+def optional_number(source: Any, field: str) -> float | None:
+    """Return finite broker metadata as a JSON number; missing/invalid stays null."""
+    value = getattr(source, field, None)
+    if value is None:
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return result if math.isfinite(result) else None
+
+
+def symbol_spec(item: Any) -> dict[str, Any]:
+    """Expose read-only MT5 contract, tick, currency and volume constraints."""
+    spec = {
+        "name": str(getattr(item, "name", "")),
+        "description": str(getattr(item, "description", "")),
+        "visible": bool(getattr(item, "visible", False)),
+        "digits": int(getattr(item, "digits", 0)),
+        "base_currency": str(getattr(item, "currency_base", "") or ""),
+        "profit_currency": str(getattr(item, "currency_profit", "") or ""),
+        "margin_currency": str(getattr(item, "currency_margin", "") or ""),
+        "trade_calc_mode": getattr(item, "trade_calc_mode", None),
+        "contract_size": optional_number(item, "trade_contract_size"),
+        "point": optional_number(item, "point"),
+        "tick_size": optional_number(item, "trade_tick_size"),
+        "tick_value": optional_number(item, "trade_tick_value"),
+        "tick_value_profit": optional_number(item, "trade_tick_value_profit"),
+        "tick_value_loss": optional_number(item, "trade_tick_value_loss"),
+        "volume_min": optional_number(item, "volume_min"),
+        "volume_max": optional_number(item, "volume_max"),
+        "volume_step": optional_number(item, "volume_step"),
+        "stops_level_points": getattr(item, "trade_stops_level", None),
+        "freeze_level_points": getattr(item, "trade_freeze_level", None),
+        "trade_mode": getattr(item, "trade_mode", None),
+    }
+    required = (
+        "contract_size", "tick_size", "tick_value_profit", "tick_value_loss",
+        "volume_min", "volume_max", "volume_step",
+    )
+    spec["risk_metadata_complete"] = all(
+        spec[field] is not None and spec[field] > 0 for field in required
+    ) and bool(spec["profit_currency"]) and bool(spec["margin_currency"])
+    return spec
+
+
 @app.get("/api/symbols")
 def symbols(
     q: str = Query(default="", max_length=40),
@@ -171,17 +218,7 @@ def symbols(
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 symbols unavailable: {error[0]}")
         return {
-            "symbols": [
-                {
-                    "name": item.name,
-                    "description": item.description,
-                    "visible": bool(item.visible),
-                    "digits": int(item.digits),
-                    "base_currency": str(item.currency_base),
-                    "profit_currency": str(item.currency_profit),
-                }
-                for item in found[:limit]
-            ],
+            "symbols": [symbol_spec(item) for item in found[:limit]],
             "count": min(len(found), limit),
             "truncated": len(found) > limit,
             "as_of": datetime.now(timezone.utc).isoformat(),
