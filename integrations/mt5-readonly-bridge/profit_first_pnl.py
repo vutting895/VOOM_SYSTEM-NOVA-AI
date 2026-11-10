@@ -1,11 +1,12 @@
 """Fail-closed USD PnL reconciliation for active MT5 positions.
 
 Pure calculation only: no MetaTrader5 dependency and no broker mutations.
-The caller must supply a complete deal-history window covering every active
-position's lifetime and an independently verified account-currency/USD rate.
+History completeness is established from contiguous, identity-matched bridge
+responses, not from a caller-supplied boolean.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping, Sequence
 
@@ -26,27 +27,87 @@ def _decimal(value: Any, field: str) -> Decimal:
     return result
 
 
+def _utc(value: Any, field: str) -> datetime:
+    if not isinstance(value, str):
+        raise PnlReconciliationError(f"{field} must be an ISO-8601 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        raise PnlReconciliationError(f"{field} must be an ISO-8601 timestamp") from None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise PnlReconciliationError(f"{field} must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def _verify_history_coverage(
+    *,
+    account_login: Any,
+    account_server: str,
+    snapshot_as_of: str,
+    positions: Sequence[Mapping[str, Any]],
+    deal_history_chunks: Sequence[Mapping[str, Any]],
+) -> None:
+    if isinstance(account_login, bool) or not isinstance(account_login, int) or account_login <= 0:
+        raise PnlReconciliationError("authenticated account login is required")
+    if not isinstance(account_server, str) or not account_server.strip():
+        raise PnlReconciliationError("authenticated account server is required")
+    snapshot_time = _utc(snapshot_as_of, "snapshot_as_of")
+
+    if not deal_history_chunks:
+        raise PnlReconciliationError("at least one deal-history coverage chunk is required")
+    if not positions:
+        # There are no active position lifetimes to reconcile. Still require a
+        # non-truncated, identity-matched point-in-time history response.
+        earliest_required = snapshot_time
+    else:
+        opened = [_utc(p.get("time"), f"positions[{i}].time") for i, p in enumerate(positions)]
+        earliest_required = min(opened)
+
+    chunks = []
+    for index, chunk in enumerate(deal_history_chunks):
+        if not isinstance(chunk, Mapping):
+            raise PnlReconciliationError(f"deal_history_chunks[{index}] must be a mapping")
+        if chunk.get("account_login") != account_login or chunk.get("account_server") != account_server:
+            raise PnlReconciliationError("deal-history account identity does not match the position snapshot")
+        if chunk.get("truncated") is not False:
+            raise PnlReconciliationError("deal-history chunk is truncated or lacks an explicit false flag")
+        count = chunk.get("count")
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise PnlReconciliationError("deal-history chunk count is invalid")
+        start = _utc(chunk.get("from_time"), f"deal_history_chunks[{index}].from_time")
+        end = _utc(chunk.get("to_time"), f"deal_history_chunks[{index}].to_time")
+        if end <= start or end - start > timedelta(days=7):
+            raise PnlReconciliationError("deal-history chunk must be positive and no longer than 7 days")
+        chunks.append((start, end))
+
+    chunks.sort(key=lambda pair: pair[0])
+    if chunks[0][0] > earliest_required or chunks[-1][1] < snapshot_time:
+        raise PnlReconciliationError("deal-history chunks do not cover every active position through snapshot time")
+    for previous, current in zip(chunks, chunks[1:]):
+        if previous[1] != current[0]:
+            raise PnlReconciliationError("deal-history chunks contain a gap or overlap")
+
+
 def build_net_pnl_snapshot(
     *,
     account_environment: str,
     account_currency: str,
     currency_to_usd_rate: Any,
     fx_rate_status: str,
-    deal_history_complete: bool,
-    deal_history_truncated: bool,
+    account_login: int,
+    account_server: str,
+    snapshot_as_of: str,
+    deal_history_chunks: Sequence[Mapping[str, Any]],
     positions: Sequence[Mapping[str, Any]],
     deals: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Build portfolio net PnL from active positions and their associated deals.
+    """Build portfolio net PnL using authenticated, contiguous deal-history coverage.
 
-    MT5 position fields: identifier, profit, swap.
-    MT5 deal fields: position_id, profit, commission, swap, fee.
-    Current-position floating profit and swap are included once. Deal profit,
-    commission and fee are included for realized/charged components. Deal-level
-    swap is deliberately excluded because MT5 POSITION_SWAP is the authoritative
-    accumulated swap for the currently open position; adding both can double count.
-    Because broker accounting conventions vary, caller must ensure that deal
-    history covers the full lifetime of every active position.
+    Position fields: identifier, time, profit, swap.
+    Deal fields: position_id, ticket, profit, commission, fee.
+    Each chunk must be a <=7-day, non-truncated Bridge response carrying the
+    same account login/server as the authenticated position snapshot. Chunks
+    must be contiguous and cover the earliest active position through snapshot.
     """
     if account_environment != "EXNESS_DEMO":
         raise PnlReconciliationError("only Exness Demo is permitted")
@@ -54,11 +115,18 @@ def build_net_pnl_snapshot(
         raise PnlReconciliationError("account currency is required")
     if fx_rate_status != "verified":
         raise PnlReconciliationError("FX conversion rate is not verified")
-    if not deal_history_complete or deal_history_truncated:
-        raise PnlReconciliationError("complete, non-truncated deal history is required")
     if not isinstance(positions, (list, tuple)) or not isinstance(deals, (list, tuple)):
         raise PnlReconciliationError("positions and deals must be sequences")
+    if not isinstance(deal_history_chunks, (list, tuple)):
+        raise PnlReconciliationError("deal_history_chunks must be a sequence")
 
+    _verify_history_coverage(
+        account_login=account_login,
+        account_server=account_server,
+        snapshot_as_of=snapshot_as_of,
+        positions=positions,
+        deal_history_chunks=deal_history_chunks,
+    )
     rate = _decimal(currency_to_usd_rate, "currency_to_usd_rate")
     if rate <= 0:
         raise PnlReconciliationError("currency_to_usd_rate must be greater than zero")
@@ -75,6 +143,7 @@ def build_net_pnl_snapshot(
         if position_id <= 0 or position_id in active_ids:
             raise PnlReconciliationError("position identifiers must be unique positive integers")
         active_ids.add(position_id)
+        _utc(position.get("time"), f"positions[{index}].time")
         floating += _decimal(position.get("profit"), f"positions[{index}].profit")
         floating += _decimal(position.get("swap"), f"positions[{index}].swap")
 
@@ -109,8 +178,7 @@ def build_net_pnl_snapshot(
         "account_currency": account_currency.upper(),
         "currency_to_usd_rate": format(rate, "f"),
         "fx_rate_status": "verified",
-        "deal_history_complete": True,
-        "deal_history_truncated": False,
+        "deal_history_coverage_verified": True,
         "active_position_count": len(active_ids),
         "net_pnl_account_currency": format(net_account_currency, "f"),
         "net_pnl_usd": format(net_usd, "f"),
