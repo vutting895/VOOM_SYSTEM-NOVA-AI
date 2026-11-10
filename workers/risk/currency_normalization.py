@@ -375,3 +375,56 @@ def exness_standard_cent_rule(native_currency: str, *, symbol_name: str) -> Deno
         currency_units_per_native_unit=Decimal("0.01"),
         evidence_id="https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account",
     )
+
+
+@dataclass(frozen=True)
+class MT5TradeRiskResult:
+    """Risk calculation result only; not a broker order authorization."""
+    stop_loss: StopLossEstimate
+    decision: USDRiskDecision
+    risk_passed: bool = False
+
+
+def evaluate_mt5_demo_trade_risk(
+    *,
+    current_equity_usd: Decimal | int | str,
+    daily_loss_usd: Decimal | int | str,
+    volume_lots: Decimal | int | str,
+    entry_price: Decimal | int | str,
+    stop_loss_price: Decimal | int | str,
+    tick_size: Decimal | int | str,
+    tick_value_loss_native_per_lot: Decimal | int | str,
+    estimated_other_costs_native: Decimal | int | str,
+    broker: str,
+    native_currency: str,
+    account_denomination: str,
+    normalizer: CurrencyNormalizer,
+    fx: FXRateBook,
+    as_of: datetime,
+) -> MT5TradeRiskResult:
+    """Connect MT5-derived stop risk to the USD 1% / 10% risk-limit evaluator.
+
+    This returns a calculation result only. It must not be interpreted as
+    approval to submit an order; aggregate risk, drawdown, concurrency, market
+    freshness, tenant, Demo-account and kill-switch gates remain independent.
+    """
+    stop_loss = estimate_stop_loss_usd(
+        volume_lots=volume_lots,
+        entry_price=entry_price,
+        stop_loss_price=stop_loss_price,
+        tick_size=tick_size,
+        tick_value_loss_native_per_lot=tick_value_loss_native_per_lot,
+        estimated_other_costs_native=estimated_other_costs_native,
+        broker=broker,
+        native_currency=native_currency,
+        account_denomination=account_denomination,
+        normalizer=normalizer,
+        fx=fx,
+        as_of=as_of,
+    )
+    decision = evaluate_usd_risk_limits(
+        current_equity_usd=current_equity_usd,
+        estimated_trade_loss_usd=stop_loss.usd_loss,
+        daily_loss_usd=daily_loss_usd,
+    )
+    return MT5TradeRiskResult(stop_loss=stop_loss, decision=decision, risk_passed=decision.allowed)
