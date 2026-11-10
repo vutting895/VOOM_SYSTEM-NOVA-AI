@@ -28,6 +28,12 @@ def _decimal(value: Any, field: str) -> Decimal:
     return result
 
 
+def _integer(value: Any, field: str, *, minimum: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise PnlReconciliationError(f"{field} must be an integer >= {minimum}")
+    return value
+
+
 def _utc(value: Any, field: str) -> datetime:
     if not isinstance(value, str):
         raise PnlReconciliationError(f"{field} must be an ISO-8601 timestamp")
@@ -49,8 +55,7 @@ def _verify_history_coverage(
     deal_history_chunks: Sequence[Mapping[str, Any]],
     account_currency: str,
 ) -> list[Mapping[str, Any]]:
-    if isinstance(account_login, bool) or not isinstance(account_login, int) or account_login <= 0:
-        raise PnlReconciliationError("authenticated account login is required")
+    _integer(account_login, "account_login", minimum=1)
     if not isinstance(account_server, str) or not account_server.strip():
         raise PnlReconciliationError("authenticated account server is required")
     snapshot_time = _utc(snapshot_as_of, "snapshot_as_of")
@@ -71,7 +76,11 @@ def _verify_history_coverage(
     for index, chunk in enumerate(deal_history_chunks):
         if not isinstance(chunk, Mapping):
             raise PnlReconciliationError(f"deal_history_chunks[{index}] must be a mapping")
-        if chunk.get("account_login") != account_login or chunk.get("account_server") != account_server:
+        try:
+            chunk_login = _integer(chunk.get("account_login"), f"deal_history_chunks[{index}].account_login", minimum=1)
+        except PnlReconciliationError:
+            raise
+        if chunk_login != account_login or chunk.get("account_server") != account_server:
             raise PnlReconciliationError("deal-history account identity does not match the position snapshot")
         chunk_currency = chunk.get("currency")
         if not isinstance(chunk_currency, str) or chunk_currency.upper() != account_currency.upper():
@@ -159,11 +168,10 @@ def build_net_pnl_snapshot(
     for index, position in enumerate(positions):
         if not isinstance(position, Mapping):
             raise PnlReconciliationError(f"positions[{index}] must be a mapping")
-        try:
-            position_id = int(position["identifier"])
-        except (KeyError, TypeError, ValueError):
-            raise PnlReconciliationError(f"positions[{index}].identifier is required") from None
-        if isinstance(position.get("identifier"), bool) or position_id <= 0 or position_id in active_ids:
+        if "identifier" not in position:
+            raise PnlReconciliationError(f"positions[{index}].identifier is required")
+        position_id = _integer(position["identifier"], f"positions[{index}].identifier", minimum=1)
+        if position_id in active_ids:
             raise PnlReconciliationError("position identifiers must be unique positive integers")
         active_ids.add(position_id)
         _utc(position.get("time"), f"positions[{index}].time")
