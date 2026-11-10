@@ -88,7 +88,7 @@ def _required_deal_money(deal: Any, field: str) -> float:
 
 
 
-def _required_position_integer(position: Any, field: str) -> int:
+def _required_position_integer(position: Any, field: str, *, allow_zero: bool = False) -> int:
     raw = getattr(position, field, None)
     if isinstance(raw, bool) or raw is None:
         raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata unavailable")
@@ -96,7 +96,7 @@ def _required_position_integer(position: Any, field: str) -> int:
         value = int(raw)
     except (TypeError, ValueError, OverflowError):
         raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid") from None
-    if value <= 0:
+    if value < 0 or (value == 0 and not allow_zero):
         raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid")
     return value
 
@@ -263,7 +263,7 @@ def open_positions(
                 "ticket": _required_position_integer(position, "ticket"),
                 "identifier": _required_position_integer(position, "identifier"),
                 "time": datetime.fromtimestamp(int(position.time), timezone.utc).isoformat(),
-                "type": _required_position_integer(position, "type"),
+                "type": _required_position_integer(position, "type", allow_zero=True),
                 "magic": int(getattr(position, "magic", 0)),
                 "symbol": str(getattr(position, "symbol", "")),
                 "volume": _required_position_number(position, "volume"),
