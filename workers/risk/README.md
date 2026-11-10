@@ -30,8 +30,10 @@ Other cent currencies are deliberately not enabled until their exact unit conver
 
 ### MT5 tick-based stop-loss estimate
 
-`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate.
+`estimate_stop_loss_usd` calculates a conservative stop-loss amount from terminal-supplied tick size, loss tick value (in the account deposit currency), volume and entry/stop prices. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% current-Equity per-trade gate. `evaluate_mt5_demo_trade_risk` composes the stop-loss estimator with the 1% per-trade and 10% daily-loss USD gate in one pure function.
 
 For Exness USC Cent, the account-native tick loss is normalized with the verified USC -> USD 0.01 mapping. For USD Micro accounts, the USD balance is not scaled; the terminal's actual smaller tick value/contract metadata drives the loss estimate.
 
 This remains a pure calculation layer. The legacy `manager_prototype.py` is not replaced or wired to broker execution by this change; full risk-manager integration still requires review of daily-loss snapshot semantics, drawdown, aggregate open risk, and other owner-approved gates.
+
+The adapter returns `risk_passed` as a calculation outcome only; it is not order authorization. It does not replace the existing risk worker or satisfy aggregate open-risk, drawdown, concurrency, market freshness, tenant authentication, Demo-account verification or kill-switch gates. Daily loss must be supplied from the persisted broker-day opening-equity snapshot, with realized and unrealized P&L reconciled by the trusted account adapter.
