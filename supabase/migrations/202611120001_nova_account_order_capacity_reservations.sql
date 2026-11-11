@@ -176,7 +176,7 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
-AS $
+AS $$
 DECLARE
   v_deleted integer;
 BEGIN
@@ -196,7 +196,7 @@ BEGIN
   GET DIAGNOSTICS v_deleted = ROW_COUNT;
   RETURN v_deleted = 1;
 END;
-$;
+$$;
 
 -- Release only after a fresh broker snapshot proves the submitted ticket is
 -- reflected in the account-wide count. Caller must supply ticket IDs actually
