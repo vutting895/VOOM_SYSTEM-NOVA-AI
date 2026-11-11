@@ -88,6 +88,18 @@ class BasketCalculationTests(unittest.TestCase):
             self.assertFalse(result.should_trigger)
             self.assertIsNone(result.net_profit_usd)
 
+    def test_invalid_quote_age_and_negative_costs_are_rejected(self):
+        with self.assertRaises(ValueError):
+            position(quote_age_seconds=float("inf"))
+        result = calculate_basket_profit(
+            [position(entry_commission=Decimal("-1"))],
+            config=ProfitTargetConfig(Decimal("100")),
+            account_binding="exness-demo:123", tenant_id="tenant-a",
+            account_currency="USD", registered_magic_numbers={70001},
+        )
+        self.assertFalse(result.complete)
+        self.assertIn("invalid_cost_attribution", result.reason_codes)
+
     def test_empty_basket_does_not_trigger(self):
         result = calculate_basket_profit(
             [], config=ProfitTargetConfig(), account_binding="exness-demo:123",
@@ -152,6 +164,37 @@ class ControllerTests(unittest.TestCase):
         controller.complete_cycle(broker_confirmed_no_remaining_positions=True)
         self.assertEqual(controller.config.target_usd, Decimal("100.00"))
         self.assertEqual(controller.state, BasketState.MONITORING)
+
+    def test_cycle_rejects_mismatched_account_or_tenant_binding(self):
+        controller = AggregateProfitTargetController(enabled=True)
+        calc = calculate_basket_profit(
+            [position()], config=controller.config,
+            account_binding="exness-demo:123", tenant_id="tenant-a",
+            account_currency="USD", registered_magic_numbers={70001},
+        )
+        with self.assertRaises(ValueError):
+            controller.begin_cycle(calculation=calc,
+                                   account_binding="exness-demo:foreign", tenant_id="tenant-a")
+        with self.assertRaises(ValueError):
+            controller.begin_cycle(calculation=calc,
+                                   account_binding="exness-demo:123", tenant_id="tenant-b")
+
+    def test_partial_or_blocked_cycle_remains_active_and_defers_target_change(self):
+        controller = AggregateProfitTargetController(enabled=True)
+        calc = calculate_basket_profit(
+            [position()], config=controller.config,
+            account_binding="exness-demo:123", tenant_id="tenant-a",
+            account_currency="USD", registered_magic_numbers={70001},
+        )
+        controller.begin_cycle(calculation=calc,
+                               account_binding="exness-demo:123", tenant_id="tenant-a")
+        controller.set_cycle_state(BasketState.PARTIAL_OR_BLOCKED)
+        controller.set_target(400, actor_id="owner-1", account_binding="exness-demo:123",
+                              authorized_owner=True)
+        self.assertEqual(controller.config.target_usd, Decimal("100.00"))
+        self.assertEqual(controller.pending_config.target_usd, Decimal("400.00"))
+        with self.assertRaises(RuntimeError):
+            controller.disable()
 
     def test_invalid_state_transition_is_rejected(self):
         controller = AggregateProfitTargetController(enabled=True)
