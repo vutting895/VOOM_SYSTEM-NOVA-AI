@@ -161,17 +161,17 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 quote("EUR", "USD", "1.07", quote_id="provider-b"),
             ])
 
-    def test_per_trade_limit_is_one_percent_of_current_usd_equity(self):
+    def test_per_trade_limit_is_five_percent_of_current_usd_equity(self):
         allowed = evaluate_usd_risk_limits(
             current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="10", daily_loss_usd="0"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="50", daily_loss_usd="0"
         )
         rejected = evaluate_usd_risk_limits(
             current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="10.01", daily_loss_usd="0"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="50.01", daily_loss_usd="0"
         )
         self.assertTrue(allowed.allowed)
-        self.assertEqual(allowed.max_trade_loss_usd, Decimal("10.00"))
+        self.assertEqual(allowed.max_trade_loss_usd, Decimal("50.00"))
         self.assertFalse(rejected.allowed)
         self.assertEqual(rejected.reason_codes, ("per_trade_risk_limit",))
 
@@ -192,16 +192,16 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_trade_limit_uses_current_equity_and_daily_limit_uses_day_start_equity(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="800",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="8", daily_loss_usd="99.99"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="40", daily_loss_usd="99.99"
         )
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
         self.assertTrue(decision.allowed)
 
     def test_daily_limit_does_not_shrink_when_current_equity_falls_intraday(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="800", day_start_equity_usd="1000",
-            estimated_trade_loss_usd="8", daily_loss_usd="99.99",
+            estimated_trade_loss_usd="40", daily_loss_usd="99.99",
         )
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
@@ -210,7 +210,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_daily_limit_uses_start_equity_even_when_current_equity_rises(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="1200", day_start_equity_usd="1000",
-            estimated_trade_loss_usd="12", daily_loss_usd="100",
+            estimated_trade_loss_usd="60", daily_loss_usd="100",
         )
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
@@ -229,9 +229,9 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_default_risk_policy_percentages_are_fixed_to_owner_selected_limits(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="2000",
-            day_start_equity_usd="2000", estimated_trade_loss_usd="20", daily_loss_usd="199"
+            day_start_equity_usd="2000", estimated_trade_loss_usd="100", daily_loss_usd="199"
         )
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("20.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("100.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("200.00"))
 
     def test_exness_usc_cent_rule_requires_c_symbol_and_returns_cent_factor(self):
@@ -326,20 +326,20 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 fx=stale_fx, as_of=NOW,
             )
 
-    def test_mt5_usd_risk_adapter_rejects_trade_above_one_percent(self):
+    def test_mt5_usd_risk_adapter_rejects_trade_above_five_percent(self):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
             current_equity_usd="1000",
             day_start_equity_usd="1000", daily_loss_usd="0",
-            mt5_profit_native="-10", estimated_other_costs_native="0",
+            mt5_profit_native="-50.01", estimated_other_costs_native="0",
             broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
         )
-        self.assertEqual(result.loss.usd_loss, Decimal("10"))
-        self.assertTrue(result.risk_passed)
-        self.assertTrue(result.decision.allowed)
+        self.assertEqual(result.loss.usd_loss, Decimal("50.01"))
+        self.assertFalse(result.risk_passed)
+        self.assertFalse(result.decision.allowed)
 
     def test_mt5_usd_risk_adapter_blocks_trade_when_daily_loss_limit_reached(self):
         normalizer = CurrencyNormalizer([
