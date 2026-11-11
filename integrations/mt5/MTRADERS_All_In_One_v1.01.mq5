@@ -11,6 +11,7 @@
 #property strict
 
 #define MODULES 30
+#define NOVA_MAX_TOTAL_ORDERS 5
 #define STATE_SIGNATURE 1095323465
 #define STATE_VERSION 100
 const string ENGINE_LABEL="MTRADERS All In One 1.01";
@@ -24,7 +25,6 @@ input double          InpRiskPercent          = 1.0;
 input bool            InpAllowBoundedMinLot    = false;
 input double          InpMaxSingleRiskPct      = 1.0;
 input double          InpMaxOpenRiskPct        = 9.0;
-input int             InpMaxPositions          = 9;
 input double          InpMaxMarginUsedPct      = 60.0;
 input double          InpDailyLossPct          = 10.0;
 input double          InpDailyProfitPct        = 0.0;
@@ -130,6 +130,20 @@ bool DirectionAllowed(const int dir)
    if(mode==SYMBOL_TRADE_MODE_FULL) return true;
    return (dir>0 && mode==SYMBOL_TRADE_MODE_LONGONLY) ||
           (dir<0 && mode==SYMBOL_TRADE_MODE_SHORTONLY);
+}
+
+// Account-wide exposure count: every open position plus every active pending order,
+// across all symbols and all magic numbers. This is a hard policy constant, not an input.
+// The caller must perform this check inside the future shared atomic capacity reservation
+// gate immediately before submission; this helper alone is a snapshot, not a mutex.
+int CountAccountExposureOrders()
+{
+   return PositionsTotal()+OrdersTotal();
+}
+
+bool HasAccountOrderCapacity()
+{
+   return (CountAccountExposureOrders()<NOVA_MAX_TOTAL_ORDERS);
 }
 
 int OnInit()
