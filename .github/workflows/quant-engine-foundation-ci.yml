@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "workers/quant_engine/**"
+      - "workers/feature/supervised_xgboost_prototype.py"
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
       - "tests/test_quant_meta_decision.py"
