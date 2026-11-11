@@ -18,6 +18,7 @@ def make_bars(timeframe: str, count: int = 12) -> list[dict]:
         close_price = open_price + (0.3 if index % 2 == 0 else -0.1)
         bars.append({
             "timestamp": (start + timedelta(seconds=seconds * index)).isoformat().replace("+00:00", "Z"),
+            "bar_close_utc": (start + timedelta(seconds=seconds * (index + 1))).isoformat().replace("+00:00", "Z"),
             "open": open_price,
             "high": max(open_price, close_price) + 0.4,
             "low": min(open_price, close_price) - 0.4,
@@ -117,9 +118,11 @@ class MultiTimeframeStructureTests(unittest.TestCase):
             + timedelta(hours=8)
         ).isoformat().replace("+00:00", "Z")
         # Keep timestamps sorted while introducing an 8-hour gap.
-        for index in range(8, 12):
+        for index in range(7, 12):
             current = datetime.fromisoformat(self.data["H4"][index]["timestamp"].replace("Z", "+00:00"))
+            close_time = datetime.fromisoformat(self.data["H4"][index]["bar_close_utc"].replace("Z", "+00:00"))
             self.data["H4"][index]["timestamp"] = (current + timedelta(hours=8)).isoformat().replace("+00:00", "Z")
+            self.data["H4"][index]["bar_close_utc"] = (close_time + timedelta(hours=8)).isoformat().replace("+00:00", "Z")
         results = [fake_smc("bullish") for _ in range(5)]
         with patch("workers.feature.smc_wave.multi_timeframe.analyze_smc", side_effect=results):
             report = analyze_multi_timeframe(self.data, (AS_OF + timedelta(hours=8)).isoformat(), "XAUUSDm")
@@ -141,8 +144,8 @@ class MultiTimeframeStructureTests(unittest.TestCase):
             analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
 
     def test_rejects_incomplete_candle_at_as_of(self):
-        self.data["M5"][-1]["timestamp"] = (
-            AS_OF - timedelta(minutes=2)
+        self.data["M5"][-1]["bar_close_utc"] = (
+            AS_OF + timedelta(minutes=1)
         ).isoformat().replace("+00:00", "Z")
         with self.assertRaisesRegex(ValueError, "not complete"):
             analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
@@ -159,6 +162,44 @@ class MultiTimeframeStructureTests(unittest.TestCase):
         self.data["D1"] = make_bars("D1", 501)
         with self.assertRaisesRegex(ValueError, "between 10 and 500"):
             analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
+
+    def test_neutral_d1_does_not_mislabel_other_timeframes_as_countertrend(self):
+        results = [
+            fake_smc("neutral"),
+            fake_smc("bearish"),
+            fake_smc("bearish"),
+            fake_smc("neutral"),
+            fake_smc("neutral"),
+        ]
+        with patch("workers.feature.smc_wave.multi_timeframe.analyze_smc", side_effect=results):
+            report = analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
+        self.assertEqual(report["market_state"], "UNCLASSIFIED")
+        self.assertEqual(report["relations_to_d1"]["H4"], "NO_DIRECTIONAL_D1_CONTEXT")
+
+    def test_stale_h1_choch_does_not_create_a_reversal_candidate(self):
+        stale_event = {"type": "CHoCH", "direction": "bearish", "index": 4}
+        results = [
+            fake_smc("bullish"),
+            fake_smc("bearish"),
+            fake_smc("bearish", stale_event),
+            fake_smc("neutral"),
+            fake_smc("neutral"),
+        ]
+        with patch("workers.feature.smc_wave.multi_timeframe.analyze_smc", side_effect=results):
+            report = analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
+        self.assertEqual(report["market_state"], "UNCLASSIFIED")
+
+    def test_d1_close_time_can_reflect_a_dst_shift(self):
+        self.data["D1"][-1]["bar_close_utc"] = (
+            AS_OF - timedelta(hours=1)
+        ).isoformat().replace("+00:00", "Z")
+        results = [fake_smc("bullish") for _ in range(5)]
+        with patch("workers.feature.smc_wave.multi_timeframe.analyze_smc", side_effect=results):
+            report = analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
+        self.assertEqual(
+            report["timeframe_context"]["D1"]["latest_bar_close_utc"],
+            (AS_OF - timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
+        )
 
     def test_invalid_symbol_and_as_of_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "symbol must"):
