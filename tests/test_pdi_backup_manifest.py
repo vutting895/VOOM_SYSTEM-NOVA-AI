@@ -95,5 +95,27 @@ class ManifestTests(unittest.TestCase):
             self.create(migration_history_schema="history-schema.sql")
 
 
+    def test_rejects_symlinked_parent_directory(self):
+        outside_dir = self.root.parent / "outside-pdi-dir"
+        outside_dir.mkdir()
+        (outside_dir / "roles.sql").write_text("-- external roles\\n")
+        try:
+            (self.root / "linked-dir").symlink_to(outside_dir, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                self.create(roles="linked-dir/roles.sql")
+        finally:
+            (outside_dir / "roles.sql").unlink(missing_ok=True)
+            outside_dir.rmdir()
+
+    def test_rejects_symlinked_manifest(self):
+        outside_manifest = self.root.parent / "outside-manifest.json"
+        outside_manifest.write_text("{}")
+        try:
+            (self.root / "manifest.json").symlink_to(outside_manifest)
+            with self.assertRaises(ValueError):
+                self.verify()
+        finally:
+            outside_manifest.unlink(missing_ok=True)
+
 if __name__ == "__main__":
     unittest.main()
