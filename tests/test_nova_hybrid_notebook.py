@@ -24,12 +24,13 @@ class HybridNotebookContractTests(unittest.TestCase):
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
         }
-        module = ast.Module(body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"]], type_ignores=[])
+        module = ast.Module(body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"]], type_ignores=[])
         namespace.update({"LABEL_HORIZON_BARS": 5, "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]})
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
         cls.make_features = staticmethod(namespace["make_features"])
+        cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
 
     @staticmethod
     def valid_votes(timestamp="2026-06-30T12:00:00Z"):
@@ -120,6 +121,20 @@ class HybridNotebookContractTests(unittest.TestCase):
         votes = pd.concat([votes, votes.iloc[[0]]], ignore_index=True)
         with self.assertRaisesRegex(ValueError, "duplicate"):
             self.validate_oof_bundle(votes)
+
+    def test_walk_forward_purges_by_actual_label_end_timestamp(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps + pd.Timedelta(hours=20),
+            "label": np.tile([0, 1], 100),
+        })
+        folds = self.walk_forward_folds(frame, folds=3, horizon=5)
+        self.assertEqual(len(folds), 3)
+        for train, valid in folds:
+            validation_start = valid["timestamp_utc"].min()
+            self.assertTrue((train["label_end_utc"] < validation_start).all())
+            self.assertTrue((train["timestamp_utc"] < validation_start).all())
 
     def test_feature_engineering_drops_non_finite_volume_ratios(self):
         timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=50, freq="h")
