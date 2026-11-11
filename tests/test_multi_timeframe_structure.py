@@ -113,10 +113,6 @@ class MultiTimeframeStructureTests(unittest.TestCase):
         self.assertIsNone(grouping["interpretation"])
 
     def test_h4_222_refuses_to_group_across_missing_bars(self):
-        self.data["H4"][7]["timestamp"] = (
-            datetime.fromisoformat(self.data["H4"][7]["timestamp"].replace("Z", "+00:00"))
-            + timedelta(hours=8)
-        ).isoformat().replace("+00:00", "Z")
         # Keep timestamps sorted while introducing an 8-hour gap.
         for index in range(7, 12):
             current = datetime.fromisoformat(self.data["H4"][index]["timestamp"].replace("Z", "+00:00"))
