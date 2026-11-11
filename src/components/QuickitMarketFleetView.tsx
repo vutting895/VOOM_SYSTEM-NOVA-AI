@@ -36,6 +36,7 @@ import TradingInfrastructureView from './infrastructure/TradingInfrastructureVie
 import LearningUniverseView from './learning/LearningUniverseView';
 import DevDiagnosticOverlay from './common/DevDiagnosticOverlay';
 import MarketNewsTicker from './dashboard/MarketNewsTicker';
+import StrategyPerformanceView from './strategy/StrategyPerformanceView';
 
 export type TabId =
   | 'dashboard'
@@ -46,7 +47,8 @@ export type TabId =
   | 'market'
   | 'trading'
   | 'portfolio'
-  | 'settings';
+  | 'settings'
+  | 'strategy-perf';
 
 export type SubscriptionPlanId = 'free' | 'pro' | 'elite';
 
@@ -1341,6 +1343,7 @@ export default function QuickitMarketFleetView({
                     },
                     { id: 'learning', label: '5. Learning Universe' },
                     { id: 'market', label: 'Fleet Market', badge: `Fleet (${runningBotsCount}/${fleetBots.length})` },
+                    { id: 'strategy-perf', label: 'MTRADERS 30 Modules' },
                     { id: 'trading', label: 'Research Chat' },
                     { id: 'settings', label: 'Settings' },
                   ] as { id: TabId, label: string, badge?: string, indicators?: {status: 'online' | 'warning' | 'offline', label: string}[] }[]
@@ -3178,6 +3181,15 @@ export default function QuickitMarketFleetView({
           {activeTab === 'portfolio' && (
             <div>
               <NovaProWorkspaceView />
+            </div>
+          )}
+
+          {/* =====================================================================
+              TAB: MTRADERS 30 MODULES PERFORMANCE
+             ===================================================================== */}
+          {activeTab === 'strategy-perf' && (
+            <div>
+              <StrategyPerformanceView />
             </div>
           )}
 

@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import QuickitMarketFleetView from './components/QuickitMarketFleetView';
 import QuantumEngineView from './components/QuantumEngineView';
 import LearningWorksheetView from './components/learning/LearningWorksheetView';
+import NovaNeuralStudioView from './components/strategy/NovaNeuralStudioView';
 
 export default function App() {
   return (
@@ -25,6 +26,8 @@ export default function App() {
       <Route path="/broker" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/profile" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/login" element={<QuickitMarketFleetView initialTab="settings" />} />
+      <Route path="/studio" element={<NovaNeuralStudioView />} />
+      <Route path="/neural" element={<NovaNeuralStudioView />} />
       <Route
         path="/quantum"
         element={
