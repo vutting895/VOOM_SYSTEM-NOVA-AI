@@ -11,7 +11,7 @@ import logging
 import os
 import threading
 import time
-from decimal import Decimal, InvalidOperation, ROUND_DOWN
+from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_FLOOR, ROUND_CEILING
 from typing import Any, Optional
 
 try:
@@ -248,6 +248,10 @@ class MT5BridgeEngine:
                 for order in orders[:MAX_PENDING_ORDERS]
             ]
 
+    @staticmethod
+    def _is_tick_aligned(price: Decimal, tick_size: Decimal) -> bool:
+        return tick_size > 0 and price % tick_size == 0
+
     def calculate_sl_tp_prices(
         self,
         symbol: str,
@@ -266,17 +270,27 @@ class MT5BridgeEngine:
         if side not in {"BUY", "SELL"} or sl_points <= 0 or tp_points < 0:
             raise ValueError("Side must be BUY/SELL; SL points must be positive and TP non-negative.")
         point = self._decimal(info.point, "point")
+        tick_size = self._decimal(getattr(info, "trade_tick_size", info.point), "trade_tick_size")
         entry = self._decimal(entry_price, "entry_price")
         sl_points_decimal = self._decimal(sl_points, "sl_points")
         tp_points_decimal = self._decimal(tp_points, "tp_points")
-        if entry <= 0 or point <= 0 or sl_points_decimal <= 0 or tp_points_decimal < 0:
-            raise ValueError("Entry, point and stop distance must be positive; target distance cannot be negative.")
+        if entry <= 0 or point <= 0 or tick_size <= 0 or sl_points_decimal <= 0 or tp_points_decimal < 0:
+            raise ValueError("Entry, point, tick size and stop distance must be positive; target distance cannot be negative.")
+        if not self._is_tick_aligned(entry, tick_size):
+            raise ValueError("Entry price is not aligned to the symbol trade tick size.")
         sl_delta = sl_points_decimal * point
         tp_delta = tp_points_decimal * point
         if side == "BUY":
             sl, tp = entry - sl_delta, (entry + tp_delta if tp_points else Decimal("0"))
         else:
             sl, tp = entry + sl_delta, (entry - tp_delta if tp_points else Decimal("0"))
+        sl_steps = sl / tick_size
+        sl = (sl_steps.to_integral_value(rounding=ROUND_FLOOR) if side == "BUY" else sl_steps.to_integral_value(rounding=ROUND_CEILING)) * tick_size
+        if tp_points:
+            tp_steps = tp / tick_size
+            tp = (tp_steps.to_integral_value(rounding=ROUND_FLOOR) if side == "BUY" else tp_steps.to_integral_value(rounding=ROUND_CEILING)) * tick_size
+        if sl <= 0 or (tp_points and tp <= 0):
+            raise ValueError("Calculated SL/TP price must remain positive.")
         digits = int(info.digits)
         quantum = Decimal("1").scaleb(-digits)
         return {
@@ -318,6 +332,9 @@ class MT5BridgeEngine:
         info = api.symbol_info(symbol)
         if account is None or info is None or not api.symbol_select(symbol, True):
             raise MT5BridgeUnavailable("Account or symbol metadata is unavailable.")
+        tick_size = self._decimal(getattr(info, "trade_tick_size", info.point), "trade_tick_size")
+        if tick_size <= 0 or not self._is_tick_aligned(entry, tick_size) or not self._is_tick_aligned(stop, tick_size):
+            raise ValueError("Entry and stop-loss prices must align to the symbol trade tick size.")
         equity = self._decimal(account.equity, "equity")
         if equity <= 0:
             raise MT5PolicyViolation("Non-positive equity blocks risk sizing.")
