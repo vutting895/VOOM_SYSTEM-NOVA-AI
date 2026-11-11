@@ -38,7 +38,7 @@ function json(body, status = 200, origin = "") {
   });
 }
 function fail(error, status, origin) {
-  return json({ error, executionEnabled: false, liveTradingEnabled: false }, status, origin);
+  return json({ error, executionEnabled: false, ordersEnabled: false, liveTradingEnabled: false }, status, origin);
 }
 export function validateInput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -160,7 +160,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const AGGREGATE_PROFIT_TARGET_PATH = "/api/nova/aggregate-profit/target";
 
 function requestBearerToken(request) {
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
+  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   return match?.[1] || null;
 }
 
@@ -177,7 +177,7 @@ function validateAggregateProfitTargetInput(value) {
   if (!UUID_RE.test(brokerConnectionId)) {
     throw Object.assign(new Error("invalid_demo_connection_id"), { status: 400 });
   }
-  if (!/^\\d{1,7}(?:\\.\\d{1,2})?$/.test(targetText)) {
+  if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(targetText)) {
     throw Object.assign(new Error("invalid_profit_target"), { status: 400 });
   }
   const target = Number(targetText);
