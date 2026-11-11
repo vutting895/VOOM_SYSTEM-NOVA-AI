@@ -160,11 +160,10 @@ class HybridNotebookContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "equal direction"):
             self.validate_oof_bundle(votes)
 
-    def test_oof_rejects_mixed_dataset_hashes_at_one_timestamp(self):
+    def test_oof_rejects_dataset_hash_changes_within_asset_timeframe_history(self):
         votes = self.valid_votes()
-        first_ts = votes["timestamp_utc"].min()
-        votes.loc[(votes["timestamp_utc"] == first_ts) & (votes["family"] == "vision"), "dataset_sha256"] = "b" * 64
-        with self.assertRaisesRegex(ValueError, "same dataset SHA-256"):
+        votes.loc[(votes["timestamp_utc"] == votes["timestamp_utc"].max()) & (votes["family"] == "vision"), "dataset_sha256"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "one immutable dataset SHA-256"):
             self.validate_oof_bundle(votes)
 
     def test_oof_rejects_missing_model_family_even_if_strategy_context_exists(self):
