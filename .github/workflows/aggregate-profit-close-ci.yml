@@ -26,3 +26,9 @@ jobs:
         env:
           PYTHONPATH: .
         run: python -m unittest discover -s tests -p "test_aggregate_profit_close.py" -v
+      - name: Set up Node for Supabase migration contract tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run aggregate profit migration security tests
+        run: node --test tests/nova-aggregate-profit-migration.test.mjs
