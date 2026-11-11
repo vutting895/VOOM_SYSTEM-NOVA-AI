@@ -72,7 +72,33 @@ class NovaIntentGateTests(unittest.TestCase):
 
     def test_position_cap_denied(self):
         risk = RiskSnapshot(10000, 50, 2, 0, 9, 0.5)
-        self.assertEqual(validate_intent(self.intent, self.account, risk, **self.kw).reason, "max_positions_reached")
+        self.assertEqual(validate_intent(self.intent, self.account, risk, **self.kw).reason, "max_total_orders_reached")
+
+    def test_positions_plus_pending_orders_at_five_is_denied(self):
+        risk = RiskSnapshot(10000, 50, 2, 0, 4, 0.5, open_pending_orders=1)
+        self.assertEqual(
+            validate_intent(self.intent, self.account, risk, **self.kw).reason,
+            "max_total_orders_reached",
+        )
+
+    def test_positions_plus_pending_orders_below_five_is_allowed(self):
+        risk = RiskSnapshot(10000, 50, 2, 0, 3, 0.5, open_pending_orders=1)
+        result = validate_intent(self.intent, self.account, risk, **self.kw)
+        self.assertTrue(result.allowed)
+
+    def test_five_positions_without_pending_orders_is_denied(self):
+        risk = RiskSnapshot(10000, 50, 2, 0, 5, 0.5)
+        self.assertEqual(
+            validate_intent(self.intent, self.account, risk, **self.kw).reason,
+            "max_total_orders_reached",
+        )
+
+    def test_negative_pending_order_count_is_denied(self):
+        risk = RiskSnapshot(10000, 50, 2, 0, 1, 0.5, open_pending_orders=-1)
+        self.assertEqual(
+            validate_intent(self.intent, self.account, risk, **self.kw).reason,
+            "invalid_exposure_snapshot",
+        )
 
     def test_stale_quote_denied(self):
         risk = RiskSnapshot(10000, 50, 2, 0, 1, 5.1)
