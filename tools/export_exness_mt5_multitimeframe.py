@@ -90,13 +90,17 @@ def rate_row(rate: Any, start: datetime, end: datetime, seconds: int,
 def atomic_write(path: Path, payload: bytes) -> None:
     if not path.parent.is_dir():
         raise ValueError(f"output_directory_missing:{path.parent}")
+    if path.exists():
+        raise FileExistsError(f"output_exists_refusing_to_overwrite:{path}")
     fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(payload)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temp_name, path)
+        # Hard-link creation is atomic and fails if another process created the
+        # destination meanwhile; unlike os.replace it cannot overwrite data.
+        os.link(temp_name, path)
     finally:
         Path(temp_name).unlink(missing_ok=True)
 
