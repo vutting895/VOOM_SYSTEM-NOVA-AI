@@ -218,9 +218,10 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_invalid_equity_or_loss_inputs_fail_closed(self):
         for kwargs in (
-            {"current_equity_usd":"0", "estimated_trade_loss_usd":"1", "daily_loss_usd":"0"},
-            {"current_equity_usd":"100", "estimated_trade_loss_usd":"-1", "daily_loss_usd":"0"},
-            {"current_equity_usd":"100", "estimated_trade_loss_usd":"1", "daily_loss_usd":"-1"},
+            {"current_equity_usd":"0", "day_start_equity_usd":"100", "estimated_trade_loss_usd":"1", "daily_loss_usd":"0"},
+            {"current_equity_usd":"100", "day_start_equity_usd":"0", "estimated_trade_loss_usd":"1", "daily_loss_usd":"0"},
+            {"current_equity_usd":"100", "day_start_equity_usd":"100", "estimated_trade_loss_usd":"-1", "daily_loss_usd":"0"},
+            {"current_equity_usd":"100", "day_start_equity_usd":"100", "estimated_trade_loss_usd":"1", "daily_loss_usd":"-1"},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(CurrencyNormalizationError):
                 evaluate_usd_risk_limits(**kwargs)
