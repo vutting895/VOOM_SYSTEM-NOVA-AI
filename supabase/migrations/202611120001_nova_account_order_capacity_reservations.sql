@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS nova_order_capacity_reservations_account_idx
   ON private.nova_order_capacity_reservations
   (tenant_id, account_login, account_server, expires_at);
 
-REVOKE ALL ON ALL TABLES IN SCHEMA private FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE private.nova_order_capacity_accounts, private.nova_order_capacity_reservations FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   private.nova_order_capacity_accounts,
   private.nova_order_capacity_reservations
@@ -144,6 +144,13 @@ BEGIN
   IF p_broker_order_ticket IS NULL THEN
     RETURN false;
   END IF;
+  PERFORM 1
+  FROM private.nova_order_capacity_accounts
+  WHERE tenant_id = p_tenant_id
+    AND account_login = p_account_login
+    AND account_server = p_account_server
+  FOR UPDATE;
+
   UPDATE private.nova_order_capacity_reservations
   SET broker_order_ticket = p_broker_order_ticket, expires_at = NULL
   WHERE reservation_id = p_reservation_id
@@ -156,6 +163,40 @@ BEGIN
   RETURN v_updated = 1;
 END;
 $$;
+
+-- Release only when the trusted broker adapter has positively confirmed that
+-- the submission failed and no position or pending order was created.
+CREATE OR REPLACE FUNCTION private.release_failed_nova_order_reservation(
+  p_tenant_id uuid,
+  p_account_login bigint,
+  p_account_server text,
+  p_reservation_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $
+DECLARE
+  v_deleted integer;
+BEGIN
+  PERFORM 1
+  FROM private.nova_order_capacity_accounts
+  WHERE tenant_id = p_tenant_id
+    AND account_login = p_account_login
+    AND account_server = p_account_server
+  FOR UPDATE;
+
+  DELETE FROM private.nova_order_capacity_reservations
+  WHERE reservation_id = p_reservation_id
+    AND tenant_id = p_tenant_id
+    AND account_login = p_account_login
+    AND account_server = p_account_server
+    AND broker_order_ticket IS NULL;
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted = 1;
+END;
+$;
 
 -- Release only after a fresh broker snapshot proves the submitted ticket is
 -- reflected in the account-wide count. Caller must supply ticket IDs actually
@@ -216,6 +257,9 @@ REVOKE ALL ON FUNCTION private.confirm_nova_order_reservation(
 REVOKE ALL ON FUNCTION private.reconcile_nova_order_reservations(
   uuid, bigint, text, text[], integer, integer, timestamptz
 ) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION private.release_failed_nova_order_reservation(
+  uuid, bigint, text, uuid
+) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION private.reserve_nova_order_capacity(
   uuid, bigint, text, uuid, uuid, integer, integer, timestamptz, integer
 ) TO service_role;
@@ -225,7 +269,9 @@ GRANT EXECUTE ON FUNCTION private.confirm_nova_order_reservation(
 GRANT EXECUTE ON FUNCTION private.reconcile_nova_order_reservations(
   uuid, bigint, text, text[], integer, integer, timestamptz
 ) TO service_role;
+GRANT EXECUTE ON FUNCTION private.release_failed_nova_order_reservation(
+  uuid, bigint, text, uuid
+) TO service_role;
 
-COMMENT ON SCHEMA private IS 'Private internal schema; not exposed through the Supabase Data API.';
 COMMENT ON TABLE private.nova_order_capacity_reservations IS
   'Account-wide reservations that serialize NOVA order-capacity checks across all symbols and magic numbers; not broker orders.';
