@@ -40,13 +40,21 @@ class NativeTests(unittest.TestCase):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")
         block = source.split("int StrategyFamily(const int id)", 1)[1].split("string FamilyName", 1)[0]
-        mapping = {}
+        mql_mapping = {}
         for condition, family in re.findall(r"if\((.*?)\) return ([0-7]);", block):
             for module_id in map(int, re.findall(r"id==(\d+)", condition)):
-                self.assertNotIn(module_id, mapping)
-                mapping[module_id] = int(family)
-        self.assertEqual(mapping, STRATEGY_FAMILY_BY_ID)
-
+                self.assertNotIn(module_id, mql_mapping)
+                mql_mapping[module_id] = int(family)
+        python_path = Path(__file__).resolve().parents[1] / "workers/quant_engine/mtraders_hybrid.py"
+        python_source = python_path.read_text(encoding="utf-8")
+        family_block = python_source.split("STRATEGY_FAMILY_BY_ID = {", 1)[1].split("}", 1)[0]
+        python_mapping = {}
+        for family, ids in re.findall(r"sid: ([0-7]) for sid in \(([^)]*)\)", family_block):
+            for module_id in map(int, ids.split(",")):
+                self.assertNotIn(module_id, python_mapping)
+                python_mapping[module_id] = int(family)
+        self.assertEqual(mql_mapping, STRATEGY_FAMILY_BY_ID)
+        self.assertEqual(python_mapping, STRATEGY_FAMILY_BY_ID)
 
     def test_ontick_runs_closed_bar_research_only_controller(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
@@ -269,12 +277,10 @@ class DecisionContractTests(unittest.TestCase):
             with self.subTest(score=score), self.assertRaises(DecisionContractError):
                 build_research_decision_contract({**self.result, "ensemble_score": score}, **self.kwargs)
         for weight in (float("nan"), float("inf"), float("-inf")):
-            families = [dict(item) for item in self.result["selected_families"]]
-            if not families:
-                self.skipTest("fixture has no family votes")
-            families[0]["weight"] = weight
-            bad = {**self.result, "selected_families": families,
-                   "strategy_vote_count": len(families)}
+            families = [{"family_id": 0, "direction": 1, "weight": weight},
+                        {"family_id": 1, "direction": -1, "weight": 0.5}]
+            bad = {**self.result, "decision": "NO_TRADE", "signal": None,
+                   "selected_families": families, "strategy_vote_count": 2}
             with self.subTest(weight=weight), self.assertRaises(DecisionContractError):
                 build_research_decision_contract(bad, **self.kwargs)
 
