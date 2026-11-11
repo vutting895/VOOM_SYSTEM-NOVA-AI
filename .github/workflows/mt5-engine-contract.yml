@@ -1,0 +1,32 @@
+name: MT5 Read-only Engine Contract
+
+on:
+  pull_request:
+    paths:
+      - "integrations/mt5-readonly-bridge/mt5_bridge_engine.py"
+      - "tests/test_mt5_bridge_engine.py"
+      - ".github/workflows/mt5-engine-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mt5-engine-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.4
+      - name: Compile engine and tests
+        run: python -m py_compile integrations/mt5-readonly-bridge/mt5_bridge_engine.py tests/test_mt5_bridge_engine.py
+      - name: Run read-only engine contract tests
+        run: python -m pytest tests/test_mt5_bridge_engine.py -q
