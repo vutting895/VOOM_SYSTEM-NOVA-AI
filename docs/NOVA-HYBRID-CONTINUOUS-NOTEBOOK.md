@@ -39,3 +39,10 @@ The previously reviewed Exness XAUUSDm H1 dataset PR #238 is explicitly not trai
 
 ## Validation
 Run `python -m unittest discover -s tests -p "test_nova_hybrid_notebook.py" -v`. Notebook CI validates nbformat, Python syntax and data/OOF contracts. It does not claim that real market training, OOS evaluation, Kaggle execution or profitability has been demonstrated.
+
+
+## Nested temporal evaluation
+
+The outer walk-forward fold is reserved for one-time candidate evaluation. Fit and early-stopping partitions are created inside the outer training window; fit labels must mature strictly before the inner early-stopping boundary. The outer evaluation fold is never used for early stopping. Outer training labels must also mature strictly before the outer fit cutoff, with a horizon-sized embargo before the evaluation block.
+
+Reported accuracy and log-loss are fold-level candidate diagnostics only. They are not calibrated OOF probabilities, do not populate the five-family Meta Decision evidence bundle, and do not demonstrate trading profitability. This notebook does not fabricate Vision, Temporal CNN or Residual MLP predictions; those families must supply independently trained, calibrated, timestamp-aligned OOF evidence. The OOF validator rejects unexpected families as well as missing families.
