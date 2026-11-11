@@ -1,7 +1,7 @@
 """Fail-closed aggregate profit target logic. Calculation/configuration only; never sends broker commands."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
@@ -80,6 +80,7 @@ ACTIVE_CLOSE_STATES = {
     BasketState.TRIGGERED,
     BasketState.CLOSING,
     BasketState.RECONCILING,
+    BasketState.PARTIAL_OR_BLOCKED,
 }
 
 
@@ -104,6 +105,8 @@ class PositionProfit:
             object.__setattr__(self, name, _decimal(getattr(self, name), name))
         if self.exit_cost_estimate is not None:
             object.__setattr__(self, "exit_cost_estimate", _decimal(self.exit_cost_estimate, "exit_cost_estimate"))
+        if isinstance(self.quote_age_seconds, bool) or not isinstance(self.quote_age_seconds, (int, float)) or not isfinite(self.quote_age_seconds) or self.quote_age_seconds < 0:
+            raise ValueError("quote_age_seconds must be a finite non-negative number")
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,8 @@ class BasketCalculation:
     complete: bool
     net_profit_usd: Optional[Decimal]
     target_usd: Decimal
+    account_binding: str
+    tenant_id: str
     remaining_usd: Optional[Decimal]
     should_trigger: bool
     included_position_ids: tuple[str, ...]
@@ -161,7 +166,7 @@ def calculate_basket_profit(
     excluded: list[str] = []
     reasons: list[str] = []
 
-    if account_currency.upper() != "USD":
+    if not isinstance(account_currency, str) or account_currency.upper() != "USD":
         reasons.append("unsupported_account_currency")
     if not account_binding or not tenant_id:
         reasons.append("missing_account_or_tenant_binding")
@@ -175,7 +180,7 @@ def calculate_basket_profit(
                              registered_magic_numbers=registered_magic_numbers):
             excluded.append(position.position_id)
             continue
-        if not isfinite(position.quote_age_seconds) or position.quote_age_seconds < 0 or position.quote_age_seconds > max_quote_age_seconds:
+        if position.quote_age_seconds > max_quote_age_seconds:
             reasons.append("stale_or_invalid_quote")
         if position.exit_cost_estimate is None:
             reasons.append("missing_exit_cost_estimate")
@@ -204,6 +209,8 @@ def calculate_basket_profit(
         complete=complete,
         net_profit_usd=net,
         target_usd=config.target_usd,
+        account_binding=account_binding,
+        tenant_id=tenant_id,
         remaining_usd=remaining,
         should_trigger=trigger,
         included_position_ids=tuple(p.position_id for p in included),
@@ -251,11 +258,12 @@ class AggregateProfitTargetController:
         if not actor_id or not account_binding:
             raise ValueError("actor_id and account_binding are required")
         target = validate_target_usd(value)
-        next_config = ProfitTargetConfig(target_usd=target, version=self._config.version + 1)
+        previous_config = self._pending_config or self._config
+        next_config = ProfitTargetConfig(target_usd=target, version=previous_config.version + 1)
         change = TargetChange(
             actor_id=actor_id,
             account_binding=account_binding,
-            old_target_usd=self._config.target_usd,
+            old_target_usd=previous_config.target_usd,
             new_target_usd=target,
             changed_at=datetime.now(timezone.utc).isoformat(),
             reason=reason,
@@ -275,6 +283,8 @@ class AggregateProfitTargetController:
             raise ValueError("complete calculation at or above target is required")
         if calculation.target_usd != self._config.target_usd:
             raise ValueError("calculation target does not match current configuration")
+        if calculation.account_binding != account_binding or calculation.tenant_id != tenant_id:
+            raise ValueError("calculation account/tenant binding does not match cycle owner")
         self._cycle = BasketCycle(
             cycle_id=str(uuid4()),
             config=self._config,
