@@ -36,17 +36,17 @@ class NativeTests(unittest.TestCase):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")
         registered = sorted(
-            ((int(index), name) for index, name in re.findall(r'gName\\[(\\d+)\\]\\s*=\\s*"([^"]+)"', source)),
+            ((int(index), name) for index, name in re.findall(r'gName[[]([0-9]+)[]][ ]*=[ ]*"([^"]+)"', source)),
             key=lambda item: item[0],
         )
         self.assertEqual([index for index, _ in registered], list(range(30)))
         self.assertEqual([name for _, name in registered], list(MTRADERS_STRATEGY_NAMES))
-        self.assertRegex(source, r"input bool\\s+InpTradeEnabled\\s*=\\s*false")
-        self.assertRegex(source, r"input double\\s+InpRiskPercent\\s*=\\s*1\\.0")
-        self.assertRegex(source, r"input double\\s+InpDailyLossPct\\s*=\\s*10\\.0")
-        on_tick = re.search(r"void OnTick\\(\\)\\s*\\{([^}]*)\\}", source, re.DOTALL)
+        self.assertRegex(source, r"input bool[ ]+InpTradeEnabled[ ]*=[ ]*false")
+        self.assertRegex(source, r"input double[ ]+InpRiskPercent[ ]*=[ ]*1[.]0")
+        self.assertRegex(source, r"input double[ ]+InpDailyLossPct[ ]*=[ ]*10[.]0")
+        on_tick = re.search(r"void OnTick[(][)][ ]*[{]([^}]*)[}]", source, re.DOTALL)
         self.assertIsNotNone(on_tick)
-        self.assertNotRegex(on_tick.group(1), r"\\b(OrderSend|PositionOpen|Buy|Sell)\\s*\\(")
+        self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(])
 
     def test_all_30_return_standardized_research_outputs(self):
         result = evaluate_all_mtraders_modules({"candles": candles()})
