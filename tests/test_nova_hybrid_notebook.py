@@ -24,10 +24,12 @@ class HybridNotebookContractTests(unittest.TestCase):
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
         }
-        module = ast.Module(body=[functions["validate_oof_bundle"], functions["validate_market_frame"]], type_ignores=[])
+        module = ast.Module(body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"]], type_ignores=[])
+        namespace.update({"LABEL_HORIZON_BARS": 5, "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]})
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
+        cls.make_features = staticmethod(namespace["make_features"])
 
     @staticmethod
     def valid_votes(timestamp="2026-06-30T12:00:00Z"):
@@ -118,6 +120,22 @@ class HybridNotebookContractTests(unittest.TestCase):
         votes = pd.concat([votes, votes.iloc[[0]]], ignore_index=True)
         with self.assertRaisesRegex(ValueError, "duplicate"):
             self.validate_oof_bundle(votes)
+
+    def test_feature_engineering_drops_non_finite_volume_ratios(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=50, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "segment_id": 0,
+            "open": np.linspace(100, 110, 50),
+            "high": np.linspace(101, 111, 50),
+            "low": np.linspace(99, 109, 50),
+            "close": np.linspace(100.5, 110.5, 50),
+            "volume": [0.0] * 25 + [100.0] * 25,
+        })
+        features = self.make_features(frame)
+        numeric = features[["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]].to_numpy()
+        self.assertTrue(np.isfinite(numeric).all())
+        self.assertGreater(len(features), 0)
 
     def test_market_data_rejects_bars_closer_than_declared_timeframe(self):
         frame, manifest = self.market_fixture()
