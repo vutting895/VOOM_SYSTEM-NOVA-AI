@@ -11,6 +11,7 @@ const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
 const novaChat = read('src/components/NovaChatOSView.tsx');
+const ea = read('integrations/mt5/MTRADERS_All_In_One_v1.01.mq5');
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -143,4 +144,15 @@ test('infrastructure health reports only verified configuration and current fail
   assert.match(route, /ordersEnabled: false/);
   assert.match(route, /executionEnabled: false/);
   assert.doesNotMatch(route, /STANDBY_DEMO_READY|Exness-MT5Trial12|latencyMs: 14\.2|status: 'OPTIMAL'/);
+});
+
+test('MQL5 research scaffold keeps Demo risk defaults bounded and exposes no broker-write API', () => {
+  assert.match(ea, /InpTradeEnabled\\s*=\\s*false/);
+  assert.match(ea, /InpRiskPercent\\s*=\\s*1\\.0/);
+  assert.match(ea, /InpMaxSingleRiskPct\\s*=\\s*1\\.0/);
+  assert.match(ea, /InpMaxOpenRiskPct\\s*=\\s*9\\.0/);
+  assert.match(ea, /InpMaxPositions\\s*=\\s*9/);
+  assert.match(ea, /InpDailyLossPct\\s*=\\s*10\\.0/);
+  assert.match(ea, /InpAllowBoundedMinLot\\s*=\\s*false/);
+  assert.doesNotMatch(ea, /\\bOrderSend(?:Async)?\\s*\\(|\\bCTrade\\b|\\bPositionClose\\s*\\(|\\bPositionModify\\s*\\(|\\bOrderModify\\s*\\(|\\bOrderDelete\\s*\\(/);
 });
