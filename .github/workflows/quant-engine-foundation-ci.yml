@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_quant_meta_decision.py tests/test_model_plugin_contract.py tests/test_sequence_data.py tests/test_training_contract.py
+        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_quant_meta_decision.py tests/test_model_plugin_contract.py tests/test_sequence_data.py tests/test_training_contract.py tests/test_xgboost_data.py
       - name: Run Quant Engine contract tests
         env:
           PYTHONPATH: .
@@ -36,4 +36,5 @@ jobs:
           python -m unittest discover -s tests -p "test_quant*.py" -v
           python -m unittest discover -s tests -p "test_model_plugin_contract.py" -v
           python -m unittest discover -s tests -p "test_sequence_data.py" -v
-          python -m unittest discover -s tests -p "test_training_contract.py" -v\n          python -m unittest discover -s tests -p "test_xgboost_data.py" -v
+          python -m unittest discover -s tests -p "test_training_contract.py" -v
+          python -m unittest discover -s tests -p "test_xgboost_data.py" -v
