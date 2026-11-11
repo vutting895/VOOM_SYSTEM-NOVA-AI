@@ -4,6 +4,12 @@ These helpers are deterministic and data-only. They do not connect to brokers
 or submit orders. Heavy backtests and model training belong in an isolated worker.
 """
 
+from .model_plugin import ModelInput, ModelOutput, ModelPluginError, ModelPluginRegistry, feature_schema_sha256
+from .sequence_data import (FeatureNormalizer, SequenceDataError, SequencePartitions, SequenceSample, build_sequence_samples, chronological_sequence_split, fit_feature_normalizer)
+from .training import TrainingError, TrainingResult, train_sequence_model, validate_training_inputs
+from .xgboost_data import (FEATURE_NAMES as XGBOOST_FEATURE_NAMES, TabularPartitions, TabularSample, XGBoostDataError, build_xgboost_samples, fit_xgboost_classifier, split_xgboost_samples)
+from .torch_models import build_lstm_model, build_temporal_cnn_model, build_residual_mlp_model
+from .vision import VisionTrainingError, VisionTrainingResult, build_chart_mae, train_chart_mae
 from .identity import build_run_fingerprint
 from .experiment import ExperimentValidationError, validate_quant_experiment
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
@@ -17,7 +23,37 @@ from .splits import (
 )
 
 __all__ = [
+    "XGBOOST_FEATURE_NAMES",
+    "TabularPartitions",
+    "TabularSample",
+    "XGBoostDataError",
+    "build_xgboost_samples",
+    "fit_xgboost_classifier",
+    "split_xgboost_samples",
     "ChronologicalSplit",
+    "VisionTrainingError",
+    "VisionTrainingResult",
+    "build_chart_mae",
+    "train_chart_mae",
+    "build_residual_mlp_model",
+    "build_lstm_model",
+    "build_temporal_cnn_model",
+    "TrainingError",
+    "TrainingResult",
+    "train_sequence_model",
+    "validate_training_inputs",
+    "FeatureNormalizer",
+    "SequenceDataError",
+    "SequencePartitions",
+    "SequenceSample",
+    "build_sequence_samples",
+    "chronological_sequence_split",
+    "fit_feature_normalizer",
+    "ModelInput",
+    "ModelOutput",
+    "ModelPluginError",
+    "ModelPluginRegistry",
+    "feature_schema_sha256",
     "DatasetQualityReport",
     "DatasetValidationError",
     "ExperimentValidationError",
