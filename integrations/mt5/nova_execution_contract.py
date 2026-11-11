@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import math
 from typing import Iterable
 
 
@@ -91,7 +92,7 @@ def validate_intent(
     numbers = (intent.volume, intent.entry, intent.stop_loss, intent.take_profit,
                risk.equity, risk.proposed_risk_money, risk.open_risk_pct,
                risk.daily_loss_pct, risk.quote_age_seconds)
-    if any(not isinstance(value, (int, float)) or value != value for value in numbers):
+    if any(not isinstance(value, (int, float)) or not math.isfinite(value) for value in numbers):
         return GateResult(False, "non_finite_numeric_value")
     if intent.volume <= 0 or intent.entry <= 0 or intent.stop_loss <= 0 or intent.take_profit <= 0:
         return GateResult(False, "invalid_order_geometry")

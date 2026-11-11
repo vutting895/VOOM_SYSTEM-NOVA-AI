@@ -82,6 +82,10 @@ class NovaIntentGateTests(unittest.TestCase):
         intent = TradeIntent(**{**self.intent.__dict__, "magic": 690712000})
         self.assertEqual(validate_intent(intent, self.account, self.risk, **self.kw).reason, "magic_not_nova_owned")
 
+    def test_infinite_risk_rejected(self):
+        risk = RiskSnapshot(10000, float("inf"), 2, 0, 1, 0.5)
+        self.assertEqual(validate_intent(self.intent, self.account, risk, **self.kw).reason, "non_finite_numeric_value")
+
     def test_non_usd_denied(self):
         account = DemoAccount(123456, "Exness-MT5Trial", "DEMO", "EUR", "tenant-A")
         self.assertEqual(validate_intent(self.intent, account, self.risk, **self.kw).reason, "account_currency_must_be_usd")
