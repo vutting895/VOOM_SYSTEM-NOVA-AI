@@ -93,7 +93,7 @@ def train_chart_mae(model,train_images:Sequence,validation_images:Sequence,*,
             raise VisionTrainingError(f"{name} must be finite and positive")
     if isinstance(mask_ratio,bool) or not isinstance(mask_ratio,(int,float)) or not 0<mask_ratio<1:
         raise VisionTrainingError("mask_ratio must be strictly between 0 and 1")
-    if not train_images or not validation_images: raise VisionTrainingError("train and validation images must be non-empty")
+    if len(train_images) == 0 or len(validation_images) == 0: raise VisionTrainingError("train and validation images must be non-empty")
     try:
         import numpy as np
         import torch
