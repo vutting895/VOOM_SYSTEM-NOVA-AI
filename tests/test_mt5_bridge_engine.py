@@ -53,7 +53,7 @@ class FakeMT5:
 
     def symbol_info(self, symbol):
         return SimpleNamespace(
-            point=0.01, digits=2, volume_step=0.01,
+            point=0.00001, digits=5, volume_step=0.01,
             volume_min=0.01, volume_max=100.0,
         )
 
@@ -122,8 +122,8 @@ def test_sl_tp_are_advisory_and_side_aware():
     bridge = engine(FakeMT5())
     buy = bridge.calculate_sl_tp_prices("EURUSD", "BUY", 1.10, 100, 200)
     sell = bridge.calculate_sl_tp_prices("EURUSD", "SELL", 1.10, 100, 200)
-    assert buy == {"entry": 1.1, "sl": 0.1, "tp": 3.1}
-    assert sell == {"entry": 1.1, "sl": 2.1, "tp": -0.9}
+    assert buy == {"entry": 1.1, "sl": 1.099, "tp": 1.102}
+    assert sell == {"entry": 1.1, "sl": 1.101, "tp": 1.098}
 
 
 def test_order_submission_and_position_close_are_fail_closed():
