@@ -2,7 +2,7 @@
 
 **Scope:** Supabase `Voom_system` (`tlyyxufuiimrbaksoitf`) Production migration ledger only. Extracted read-only on 2026-11-06.
 
-This directory contains the exact SQL statement payloads currently stored in `supabase_migrations.schema_migrations.statements[1]` for all 25 Production versions. Each file is written without an added terminal newline. The adjacent `manifest.json` records version, migration name, character count and SHA-256 calculated from the exact UTF-8 SQL payload.
+This directory contains the exact SQL statement payloads currently stored in `supabase_migrations.schema_migrations.statements[1]` for all 28 Production versions. Each file is written without an added terminal newline. The adjacent `manifest.json` records version, migration name, character count and SHA-256 calculated from the exact UTF-8 SQL payload.
 
 ## Critical safety boundary
 
