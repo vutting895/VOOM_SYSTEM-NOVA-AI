@@ -243,5 +243,24 @@ class DecisionContractTests(unittest.TestCase):
             build_research_decision_contract(bad, **self.kwargs)
 
 
+    def test_rejects_directional_candidate_without_two_families(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        bad = {**self.result, "decision": "LONG_CANDIDATE", "signal": 1,
+               "ensemble_score": 0.8, "selected_families": [{"family_id": 0, "direction": 1, "weight": 0.8}],
+               "strategy_vote_count": 1}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(bad, **self.kwargs)
+
+    def test_rejects_invalid_family_vote_shape_and_dataset_hash(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        bad_family = {**self.result, "selected_families": [{"family_id": True, "direction": 1, "weight": 0.8}],
+                      "strategy_vote_count": 1}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(bad_family, **self.kwargs)
+        bad_receipt = {**self.result, "dataset_receipt": {**self.result["dataset_receipt"], "dataset_sha256": "not-a-hash"}}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(bad_receipt, **self.kwargs)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

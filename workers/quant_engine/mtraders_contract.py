@@ -59,9 +59,26 @@ def build_research_decision_contract(
     modules = result.get("selected_modules", [])
     if not isinstance(families, list) or not isinstance(modules, list):
         raise DecisionContractError("selected modules and families must be arrays")
-    family_ids = [x.get("family_id") for x in families if isinstance(x, Mapping)]
-    if len(family_ids) != len(families) or len(set(family_ids)) != len(family_ids) or len(families) > 8:
+    family_ids = []
+    for family in families:
+        if not isinstance(family, Mapping):
+            raise DecisionContractError("each family vote must be an object")
+        family_id = family.get("family_id")
+        direction = family.get("direction")
+        weight = family.get("weight")
+        if isinstance(family_id, bool) or not isinstance(family_id, int) or not 0 <= family_id < 8:
+            raise DecisionContractError("family_id must be an integer in [0, 7]")
+        if isinstance(direction, bool) or direction not in (-1, 1):
+            raise DecisionContractError("family direction must be -1 or 1")
+        if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not 0 < float(weight) <= 1.25:
+            raise DecisionContractError("family weight must be in (0, 1.25]")
+        family_ids.append(family_id)
+    if len(set(family_ids)) != len(family_ids) or len(families) > 8:
         raise DecisionContractError("family votes must be unique and limited to eight")
+    if len(modules) > 30:
+        raise DecisionContractError("module votes cannot exceed the 30-module registry")
+    if signal is not None and len(families) < 2:
+        raise DecisionContractError("directional candidate requires two independent families")
     if result.get("strategy_vote_count", len(families)) != len(families):
         raise DecisionContractError("strategy_vote_count does not match selected families")
     if result.get("module_vote_count", len(modules)) != len(modules):
@@ -74,6 +91,8 @@ def build_research_decision_contract(
         for key in ("dataset_id", "quality_report_id", "dataset_sha256"):
             if not isinstance(receipt.get(key), str) or not receipt[key]:
                 raise DecisionContractError(f"dataset receipt missing {key}")
+        if not re.fullmatch(r"[0-9a-f]{64}", receipt["dataset_sha256"]):
+            raise DecisionContractError("dataset_sha256 must be a lowercase SHA-256 hex digest")
 
     body = {
         "schema_version": SCHEMA_VERSION,
