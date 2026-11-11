@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -99,7 +100,7 @@ def test_lot_size_floors_to_broker_step_and_stays_within_one_percent():
         "EURUSD", "BUY", 1.10, 1.09
     )
     assert result["volume_decimal"] == "0.30"
-    assert result["estimated_stop_loss_account_currency"] == "9.90"
+    assert Decimal(result["estimated_stop_loss_account_currency"]) == Decimal("9.90")
     assert result["risk_budget_account_currency"] == "10.00"
     assert result["execution_authorized"] is False
 
