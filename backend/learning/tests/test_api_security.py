@@ -51,8 +51,8 @@ def test_candidate_registration_requires_trusted_evaluator():
         raise AssertionError("Candidate registration must remain disabled without trusted evaluator identity")
 
 
-def test_candidate_registration_route_uses_evaluator_dependency():
+def test_candidate_registration_route_requires_owner_and_evaluator_dependencies():
     route = next(route for route in router.routes if route.path == "/learning/models/candidates")
     dependency_calls = {dependency.call for dependency in route.dependant.dependencies}
+    assert require_learning_user in dependency_calls
     assert require_learning_evaluator in dependency_calls
-    assert require_learning_user not in dependency_calls
