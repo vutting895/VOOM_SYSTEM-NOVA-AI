@@ -45,3 +45,14 @@ This change establishes a fail-closed source baseline and a pure intent-validati
 ### Concurrency limitation / release blocker
 
 A count-then-submit sequence is not atomic. Multiple EA instances or command workers could all observe four existing orders and each accept a new request. The future execution adapter must implement a shared, account-scoped atomic reservation/lock, reconcile reservations against broker positions and pending orders, and release or expire reservations safely after broker outcomes. The current helper is only a snapshot and is **not** evidence that concurrent execution is protected. No order submission is enabled by this change.
+
+## Account-wide five-order cap and reservation design (2026-11-12)
+
+- Confirmed policy: no more than **5 total items per MT5 account**, across all symbols, all Magic Numbers, and all NOVA strategy modules.
+- Exposure = authenticated broker open positions + authenticated broker active pending orders.
+- Added a private-schema reservation ledger and service-role-only RPCs. A per-account row lock serializes reservation decisions across concurrent backend workers.
+- A new reservation is accepted only when broker exposure + all outstanding reservations is below 5. Broker snapshots older than five seconds are rejected. Unconfirmed reservations have a bounded 30-second lease (configurable 1–60 seconds).
+- A successful broker submission is confirmed with its broker ticket and remains reserved until a fresh broker snapshot includes that ticket; a confirmed failed submission can release its reservation.
+- The migration is repository-only at this stage. It has **not** been applied to the Supabase production project, and no Supabase branch was created.
+- The SQL integration test is authored but has not been executed against a disposable database.
+- Runtime bridge wiring is not complete. The Python contract's count check and the MQL5 PositionsTotal()+OrdersTotal() helper are preliminary gates; neither is proof of atomic cross-process reservation. No broker order submission is enabled.
