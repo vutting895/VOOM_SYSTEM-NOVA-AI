@@ -178,8 +178,6 @@ async def heartbeat_job(
             updated_at = now()
         WHERE id = $1 AND worker_id = $2 AND status = 'running'
           AND lease_expires_at > now()
-          AND lease_expires_at > now()
-          AND lease_expires_at > now()
         """,
         job_id, worker_id, lease_seconds,
     )
@@ -193,6 +191,7 @@ async def complete_job(conn: Connection, *, job_id: str, worker_id: str) -> bool
         SET status = 'succeeded', worker_id = NULL, lease_expires_at = NULL,
             last_error_code = NULL, updated_at = now()
         WHERE id = $1 AND worker_id = $2 AND status = 'running'
+          AND lease_expires_at > now()
         """,
         job_id, worker_id,
     )
@@ -222,6 +221,7 @@ async def fail_job(
             worker_id = NULL, lease_expires_at = NULL,
             last_error_code = $3, updated_at = now()
         WHERE id = $1 AND worker_id = $2 AND status = 'running'
+          AND lease_expires_at > now()
         RETURNING status
         """,
         job_id, worker_id, error_code, retry_delay_seconds,
