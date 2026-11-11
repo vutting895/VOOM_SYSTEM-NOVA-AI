@@ -24,7 +24,7 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/exposure", "/api/symbols", "/api/quotes"}
 TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
 
 
@@ -58,7 +58,7 @@ def normalize_read_path(value: object) -> str:
     if any(len(items) != 1 for items in params.values()):
         raise ValueError("Duplicate query parameters are not allowed.")
 
-    if parsed.path in {"/health", "/api/account"}:
+    if parsed.path in {"/health", "/api/account", "/api/exposure"}:
         if params:
             raise ValueError("This read endpoint does not accept query parameters.")
         return parsed.path
