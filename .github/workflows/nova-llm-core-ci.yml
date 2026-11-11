@@ -1,0 +1,28 @@
+name: NOVA LLM Core CI
+
+on:
+  pull_request:
+    paths:
+      - "workers/llm_core/**"
+      - "tests/test_llm_core.py"
+      - ".github/workflows/nova-llm-core-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  llm-core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile NOVA LLM Core
+        run: python -m compileall -q workers/llm_core tests/test_llm_core.py
+      - name: Run NOVA LLM Core tests
+        env:
+          PYTHONPATH: .
+        run: python -m unittest tests.test_llm_core -v
