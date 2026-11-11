@@ -10,6 +10,7 @@ on:
       - "tests/test_model_plugin_contract.py"
       - "tests/test_sequence_data.py"
       - "tests/test_training_contract.py"
+      - "tests/test_xgboost_data.py"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
 
@@ -35,4 +36,4 @@ jobs:
           python -m unittest discover -s tests -p "test_quant*.py" -v
           python -m unittest discover -s tests -p "test_model_plugin_contract.py" -v
           python -m unittest discover -s tests -p "test_sequence_data.py" -v
-          python -m unittest discover -s tests -p "test_training_contract.py" -v
+          python -m unittest discover -s tests -p "test_training_contract.py" -v\n          python -m unittest discover -s tests -p "test_xgboost_data.py" -v
