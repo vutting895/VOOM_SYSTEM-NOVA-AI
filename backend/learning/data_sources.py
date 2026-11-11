@@ -114,17 +114,26 @@ def _decimal(record: Mapping[str, Any], key: str) -> Decimal:
 
 
 def _timeframe_delta(timeframe: str) -> timedelta:
+    """Accept MT5 codes (M15/H1/D1) and unit-suffix forms (15m/1h/1d)."""
     normalized = timeframe.strip().lower()
     try:
-        if normalized.endswith("m"):
-            return timedelta(minutes=int(normalized[:-1]))
-        if normalized.endswith("h"):
-            return timedelta(hours=int(normalized[:-1]))
-        if normalized.endswith("d"):
-            return timedelta(days=int(normalized[:-1]))
+        if normalized[:1] in {"m", "h", "d"} and normalized[1:].isdigit():
+            amount = int(normalized[1:])
+            unit = normalized[0]
+        elif normalized[-1:] in {"m", "h", "d"} and normalized[:-1].isdigit():
+            amount = int(normalized[:-1])
+            unit = normalized[-1]
+        else:
+            raise ValueError
+        if amount <= 0:
+            raise ValueError
+        if unit == "m":
+            return timedelta(minutes=amount)
+        if unit == "h":
+            return timedelta(hours=amount)
+        return timedelta(days=amount)
     except ValueError as exc:
         raise DataSourceError(f"Unsupported timeframe: {timeframe}") from exc
-    raise DataSourceError(f"Unsupported timeframe: {timeframe}")
 
 
 def _check_ohlcv(bar: MarketBar) -> None:
