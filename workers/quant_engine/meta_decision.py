@@ -48,7 +48,7 @@ def _validate_vote(name: str, vote: Any) -> dict[str, Any]:
     if name not in MODEL_WEIGHTS or not isinstance(vote, Mapping):
         raise MetaDecisionInputError(f"unsupported model vote: {name}")
     direction = vote.get("direction")
-    if isinstance(direction, bool) or direction not in (-1, 0, 1):
+    if isinstance(direction, bool) or not isinstance(direction, int) or direction not in (-1, 0, 1):
         raise MetaDecisionInputError(f"{name}.direction must be -1, 0, or 1")
     score = _finite_number(vote.get("score"), f"{name}.score", 0.0, 1.0)
     reliability = _finite_number(vote.get("calibrated_reliability"), f"{name}.calibrated_reliability", 0.0, 1.0)
