@@ -1,0 +1,28 @@
+name: NOVA Aggregate Profit Close Contract Tests
+
+on:
+  pull_request:
+    paths:
+      - "workers/risk/aggregate_profit_close.py"
+      - "tests/test_aggregate_profit_close.py"
+      - ".github/workflows/aggregate-profit-close-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  aggregate-profit-close-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile implementation and tests
+        run: python -m py_compile workers/risk/aggregate_profit_close.py tests/test_aggregate_profit_close.py
+      - name: Run aggregate profit close contract tests
+        env:
+          PYTHONPATH: .
+        run: python -m unittest tests.test_aggregate_profit_close -v
