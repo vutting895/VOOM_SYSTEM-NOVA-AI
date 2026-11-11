@@ -83,6 +83,14 @@ broker's volume step; a result below the minimum volume is rejected.
 
 This module is not an execution adapter:
 
+Before constructing `MT5BridgeEngine`, provision both `MT5_EXPECTED_LOGIN` and
+`MT5_EXPECTED_SERVER` from the trusted tenant connection record (or pass the
+same values explicitly). The login must be a positive account login and the
+server must be the exact Exness Demo server name reported by the terminal.
+Missing identity configuration, a different login, a different server, or an
+account switch during reconnect fails closed. These identifiers are not broker
+passwords and must never be used as a substitute for tenant authorization.
+
 - Market submission, pending submission and position close methods fail closed with `BROKER_WRITES_DISABLED`.
 - No MT5 order mutation function is called; the bridge remains GET/OPTIONS-only.
 - The advisory sizing result is in the authenticated account currency. It is not
