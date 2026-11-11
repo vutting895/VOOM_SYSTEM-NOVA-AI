@@ -194,7 +194,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_trade_limit_uses_current_equity_and_daily_limit_uses_day_start_equity(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="800",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="40", daily_loss_usd="99.99"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="40", daily_loss_usd="99.99",
+            max_per_trade_pct="0.05",
         )
         self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
@@ -204,6 +205,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="800", day_start_equity_usd="1000",
             estimated_trade_loss_usd="40", daily_loss_usd="99.99",
+            max_per_trade_pct="0.05",
         )
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
@@ -213,6 +215,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="1200", day_start_equity_usd="1000",
             estimated_trade_loss_usd="60", daily_loss_usd="100",
+            max_per_trade_pct="0.05",
         )
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
