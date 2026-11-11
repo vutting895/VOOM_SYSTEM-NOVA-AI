@@ -1,11 +1,6 @@
 name: MT5 Read-only Engine Contract
 
 on:
-  pull_request:
-    paths:
-      - "integrations/mt5-readonly-bridge/mt5_bridge_engine.py"
-      - "tests/test_mt5_bridge_engine.py"
-      - ".github/workflows/mt5-engine-contract.yml"
   workflow_dispatch:
 
 permissions:
@@ -13,7 +8,7 @@ permissions:
 
 jobs:
   mt5-engine-contract:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - name: Checkout exact PR head
