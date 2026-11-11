@@ -164,11 +164,13 @@ class CurrencyNormalizationTests(unittest.TestCase):
     def test_per_trade_limit_is_five_percent_of_current_usd_equity(self):
         allowed = evaluate_usd_risk_limits(
             current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="50", daily_loss_usd="0"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="50", daily_loss_usd="0",
+            max_per_trade_pct="0.05",
         )
         rejected = evaluate_usd_risk_limits(
             current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="50.01", daily_loss_usd="0"
+            day_start_equity_usd="1000", estimated_trade_loss_usd="50.01", daily_loss_usd="0",
+            max_per_trade_pct="0.05",
         )
         self.assertTrue(allowed.allowed)
         self.assertEqual(allowed.max_trade_loss_usd, Decimal("50.00"))
@@ -226,12 +228,12 @@ class CurrencyNormalizationTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(CurrencyNormalizationError):
                 evaluate_usd_risk_limits(**kwargs)
 
-    def test_default_risk_policy_percentages_are_fixed_to_owner_selected_limits(self):
+    def test_demo_default_risk_policy_is_one_percent_per_trade_and_ten_percent_daily(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="2000",
             day_start_equity_usd="2000", estimated_trade_loss_usd="100", daily_loss_usd="199"
         )
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("100.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("20.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("200.00"))
 
     def test_exness_usc_cent_rule_requires_c_symbol_and_returns_cent_factor(self):
@@ -326,18 +328,18 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 fx=stale_fx, as_of=NOW,
             )
 
-    def test_mt5_usd_risk_adapter_rejects_trade_above_five_percent(self):
+    def test_mt5_usd_risk_adapter_rejects_trade_above_demo_one_percent(self):
         normalizer = CurrencyNormalizer([
             DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
             current_equity_usd="1000",
             day_start_equity_usd="1000", daily_loss_usd="0",
-            mt5_profit_native="-50.01", estimated_other_costs_native="0",
+            mt5_profit_native="-10.01", estimated_other_costs_native="0",
             broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
         )
-        self.assertEqual(result.loss.usd_loss, Decimal("50.01"))
+        self.assertEqual(result.loss.usd_loss, Decimal("10.01"))
         self.assertFalse(result.risk_passed)
         self.assertFalse(result.decision.allowed)
 
