@@ -54,7 +54,7 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 **Maximum risk per trade for the active Exness Demo policy: 1% of current account Equity, calculated in USD.** A 5% per-trade ceiling is only a separately prepared future Real-account profile; it is not the Demo default and is not execution authorization. Live/Real execution remains disabled.
 
-For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 5% of notional position value, margin used, or order volume.
+For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 1% of notional position value, margin used, or order volume.
 
 The 1% Demo value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the percentage. The prepared 5% Real profile must remain isolated and cannot override Demo policy. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
 
@@ -86,11 +86,11 @@ The implementation must persist the selected baseline value, account identity, n
 
 **At or above the 10% threshold, apply Entry Lock Only:** set `DAILY_LOSS_LOCKED`, reject all new entries and risk-increasing actions, and cancel all pending entry orders. Keep existing open positions unchanged under this Daily Loss Guard; do not automatically close them. Preserve protective Stop Loss / Take Profit and other orders that reduce or protect existing exposure. Continue monitoring and reporting the risk breach. The lock persists until the next broker trading day and a fresh, valid baseline is captured. This is an entry-stop threshold, not a guaranteed maximum-loss cap; retained positions can continue to lose beyond 10%.
 
-Because 5% per trade and 10% daily loss are aggressive ceilings, two concurrent positions each risking 5% of the same current Equity can consume the full 10% daily threshold. If two full-risk losses occur sequentially and risk is recalculated against the reduced Current Equity, the compounded loss is approximately 9.75% before costs and slippage. Aggregate open risk must be independently capped at the owner-approved **9% of Equity**. Enforcement and aggregation semantics (open positions plus pending entries, normalized to USD) remain unproven and are activation blockers. Maximum drawdown, position count, and order-rate thresholds also remain unspecified blockers. Do not interpret the per-trade ceiling as permission to stack unlimited simultaneous 5% risks.
+At the 1% Demo per-trade ceiling, multiple positions can still accumulate correlated exposure and losses; the separate owner-approved **9% aggregate open-risk cap** must therefore be enforced across open positions and pending entry orders in USD. Enforcement and aggregation semantics remain unproven and are activation blockers. Maximum drawdown, position count, and order-rate thresholds also remain unspecified blockers. Do not interpret the 1% per-trade ceiling as permission to exceed the 9% aggregate cap.
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
 - Demo per-trade risk not exceeding 1% of current Equity in USD, calculated to initial Stop Loss including estimated costs. The 5% future Real profile is isolated and inactive.
-- Daily loss not exceeding 10% of persisted Broker Day Start Equity in USD, with Entry Lock Only and pending-entry cancellation at the threshold.
+- Daily loss not exceeding 10% of the approved Equity baseline in USD, with Entry Lock Only and pending-entry cancellation at the threshold. The baseline semantics must be explicitly resolved; do not silently substitute Broker Day Start Equity.
 - Aggregate open risk and exposure by symbol/direction not exceeding 9% of Equity in USD, including pending entry exposure.
 - Maximum concurrent positions and pending orders, subject to approved limits.
 - Maximum drawdown, subject to an approved limit.
