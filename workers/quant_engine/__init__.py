@@ -4,6 +4,7 @@ These helpers are deterministic and data-only. They do not connect to brokers
 or submit orders. Heavy backtests and model training belong in an isolated worker.
 """
 
+from .model_plugin import ModelInput, ModelOutput, ModelPluginError, ModelPluginRegistry, feature_schema_sha256
 from .identity import build_run_fingerprint
 from .experiment import ExperimentValidationError, validate_quant_experiment
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
@@ -18,6 +19,11 @@ from .splits import (
 
 __all__ = [
     "ChronologicalSplit",
+    "ModelInput",
+    "ModelOutput",
+    "ModelPluginError",
+    "ModelPluginRegistry",
+    "feature_schema_sha256",
     "DatasetQualityReport",
     "DatasetValidationError",
     "ExperimentValidationError",
