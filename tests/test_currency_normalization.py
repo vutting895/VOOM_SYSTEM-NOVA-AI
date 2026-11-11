@@ -163,35 +163,58 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_per_trade_limit_is_one_percent_of_current_usd_equity(self):
         allowed = evaluate_usd_risk_limits(
-            current_equity_usd="1000", estimated_trade_loss_usd="10", daily_loss_usd="0"
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", estimated_trade_loss_usd="10", daily_loss_usd="0"
         )
         rejected = evaluate_usd_risk_limits(
-            current_equity_usd="1000", estimated_trade_loss_usd="10.01", daily_loss_usd="0"
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", estimated_trade_loss_usd="10.01", daily_loss_usd="0"
         )
         self.assertTrue(allowed.allowed)
         self.assertEqual(allowed.max_trade_loss_usd, Decimal("10.00"))
         self.assertFalse(rejected.allowed)
         self.assertEqual(rejected.reason_codes, ("per_trade_risk_limit",))
 
-    def test_daily_loss_limit_is_ten_percent_of_latest_current_equity(self):
+    def test_daily_loss_limit_is_ten_percent_of_broker_day_start_equity(self):
         allowed = evaluate_usd_risk_limits(
-            current_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="99.99"
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="99.99"
         )
         rejected = evaluate_usd_risk_limits(
-            current_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="100"
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", estimated_trade_loss_usd="1", daily_loss_usd="100"
         )
         self.assertTrue(allowed.allowed)
         self.assertFalse(rejected.allowed)
         self.assertEqual(rejected.max_daily_loss_usd, Decimal("100.00"))
         self.assertEqual(rejected.reason_codes, ("daily_loss_limit",))
 
-    def test_trade_and_daily_limits_use_current_equity_not_start_equity(self):
+    def test_trade_limit_uses_current_equity_and_daily_limit_uses_day_start_equity(self):
         decision = evaluate_usd_risk_limits(
-            current_equity_usd="800", estimated_trade_loss_usd="8", daily_loss_usd="79.99"
+            current_equity_usd="800",
+            day_start_equity_usd="1000", estimated_trade_loss_usd="8", daily_loss_usd="99.99"
         )
         self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
-        self.assertEqual(decision.max_daily_loss_usd, Decimal("80.00"))
+        self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
         self.assertTrue(decision.allowed)
+
+    def test_daily_limit_does_not_shrink_when_current_equity_falls_intraday(self):
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd="800", day_start_equity_usd="1000",
+            estimated_trade_loss_usd="8", daily_loss_usd="99.99",
+        )
+        self.assertTrue(decision.allowed)
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
+        self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
+
+    def test_daily_limit_uses_start_equity_even_when_current_equity_rises(self):
+        decision = evaluate_usd_risk_limits(
+            current_equity_usd="1200", day_start_equity_usd="1000",
+            estimated_trade_loss_usd="12", daily_loss_usd="100",
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
+        self.assertEqual(decision.reason_codes, ("daily_loss_limit",))
 
     def test_invalid_equity_or_loss_inputs_fail_closed(self):
         for kwargs in (
@@ -204,7 +227,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_default_risk_policy_percentages_are_fixed_to_owner_selected_limits(self):
         decision = evaluate_usd_risk_limits(
-            current_equity_usd="2000", estimated_trade_loss_usd="20", daily_loss_usd="199"
+            current_equity_usd="2000",
+            day_start_equity_usd="2000", estimated_trade_loss_usd="20", daily_loss_usd="199"
         )
         self.assertEqual(decision.max_trade_loss_usd, Decimal("20.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("200.00"))
@@ -241,7 +265,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertEqual(estimate.native_loss, Decimal("6.0"))
         self.assertEqual(estimate.usd_loss, Decimal("6.0"))
         decision = evaluate_usd_risk_limits(
-            current_equity_usd="1000", estimated_trade_loss_usd=estimate.usd_loss,
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", estimated_trade_loss_usd=estimate.usd_loss,
             daily_loss_usd="0",
         )
         self.assertTrue(decision.allowed)
@@ -305,7 +330,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
             DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
-            current_equity_usd="1000", daily_loss_usd="0",
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", daily_loss_usd="0",
             mt5_profit_native="-10", estimated_other_costs_native="0",
             broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
@@ -319,7 +345,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
             DenominationRule("Exness", "USD", "currency-native", "USD", Decimal("1"), "mt5-account-currency-v1")
         ])
         result = evaluate_mt5_trade_risk(
-            current_equity_usd="1000", daily_loss_usd="100",
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", daily_loss_usd="100",
             mt5_profit_native="-5", estimated_other_costs_native="0",
             broker="Exness", native_currency="USD", account_denomination="currency-native",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
@@ -357,7 +384,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
             exness_standard_cent_rule("USC", symbol_name="XAUUSDc")
         ])
         result = evaluate_mt5_trade_risk(
-            current_equity_usd="1000", daily_loss_usd="0",
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", daily_loss_usd="0",
             mt5_profit_native="-500", estimated_other_costs_native="10",
             broker="Exness", native_currency="USC", account_denomination="standard-cent",
             normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
@@ -372,7 +400,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
         ])
         fx = FXRateBook([quote("EUR", "USD", "1.08", "1.10")])
         result = evaluate_mt5_trade_risk(
-            current_equity_usd="1000", daily_loss_usd="0",
+            current_equity_usd="1000",
+            day_start_equity_usd="1000", daily_loss_usd="0",
             mt5_profit_native="-100", estimated_other_costs_native="0",
             broker="Exness", native_currency="EUR", account_denomination="currency-native",
             normalizer=normalizer, fx=fx, as_of=NOW,
@@ -385,7 +414,8 @@ class CurrencyNormalizationTests(unittest.TestCase):
         ])
         with self.assertRaises(CurrencyNormalizationError):
             evaluate_mt5_trade_risk(
-                current_equity_usd="1000", daily_loss_usd="0",
+                current_equity_usd="1000",
+                day_start_equity_usd="1000", daily_loss_usd="0",
                 mt5_profit_native="5", estimated_other_costs_native="0",
                 broker="Exness", native_currency="USD", account_denomination="currency-native",
                 normalizer=normalizer, fx=FXRateBook([]), as_of=NOW,
@@ -419,6 +449,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
         self.assertEqual(daily_loss.amount, Decimal("50.00"))
         decision = evaluate_usd_risk_limits(
             current_equity_usd=equity.amount,
+            day_start_equity_usd=equity.amount,
             estimated_trade_loss_usd="5",
             daily_loss_usd=daily_loss.amount,
         )
