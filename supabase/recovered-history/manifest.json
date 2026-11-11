@@ -6,7 +6,7 @@
   "generated_from": "supabase_migrations.schema_migrations.statements[1]",
   "extracted_on": "2026-11-06",
   "hash_algorithm": "SHA-256 over exact UTF-8 SQL payload (no added newline)",
-  "purpose": "Forensic recovery only; not active Supabase migrations.",
+  "purpose": "Forensic archive of exact Production-applied payloads; byte-identical active copies are restored under their original Production versions.",
   "environments": {
     "production": {
       "migration_count": 28,
