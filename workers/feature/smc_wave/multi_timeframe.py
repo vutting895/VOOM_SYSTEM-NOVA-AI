@@ -204,10 +204,10 @@ def analyze_multi_timeframe(
     market_state = "UNCLASSIFIED"
     state_evidence: list[str] = []
     if d1_bias in DIRECTIONAL_BIASES and h4_bias == d1_bias:
-        market_state = "TREND_CONTINUATION_CANDIDATE"
+        market_state = "ALIGNED_HTF_BIAS"
         state_evidence.extend([
             f"D1 and H4 both report {d1_bias} SMC structure bias.",
-            "Alignment is a research candidate, not a validated continuation forecast.",
+            "Directional alignment is contextual evidence only; continuation is not confirmed."
         ])
     elif d1_bias in DIRECTIONAL_BIASES and h4_bias in DIRECTIONAL_BIASES:
         h1_event = analyses.get("H1", {}).get("latest_structure_event")
