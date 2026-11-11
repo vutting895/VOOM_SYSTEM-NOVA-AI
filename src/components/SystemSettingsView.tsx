@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import AggregateProfitTargetSettings from './AggregateProfitTargetSettings';
 import {
   Activity,
   Bot,
@@ -494,6 +495,7 @@ export default function SystemSettingsView() {
               </div>
             </div>
           </div>
+          <AggregateProfitTargetSettings />
         </div>
       )}
 
