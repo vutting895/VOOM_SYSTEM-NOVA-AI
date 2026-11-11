@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 from workers.quant_engine.mtraders_native import MTRADERS_STRATEGY_NAMES, StrategyInputError, evaluate_all_mtraders_modules, evaluate_mtraders_strategy
-from workers.quant_engine.mtraders_hybrid import detect_market_regime, evaluate_hybrid_strategy
+from workers.quant_engine.mtraders_hybrid import STRATEGY_FAMILY_BY_ID, detect_market_regime, evaluate_hybrid_strategy
 
 
 def candles(n=180, trend=True, timestamps=False):
@@ -31,6 +31,10 @@ class NativeTests(unittest.TestCase):
     def test_30_unique_modules(self):
         self.assertEqual(len(MTRADERS_STRATEGY_NAMES), 30)
         self.assertEqual(len(set(MTRADERS_STRATEGY_NAMES)), 30)
+
+    def test_all_modules_map_to_exactly_one_of_eight_families(self):
+        self.assertEqual(set(STRATEGY_FAMILY_BY_ID), set(range(30)))
+        self.assertEqual(set(STRATEGY_FAMILY_BY_ID.values()), set(range(8)))
 
     def test_ontick_runs_closed_bar_research_only_controller(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
@@ -79,6 +83,11 @@ class NativeTests(unittest.TestCase):
         on_tick = re.search(r"void OnTick[(][)][ ]*[{]([^}]*)[}]", source, re.DOTALL)
         self.assertIsNotNone(on_tick)
         self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(])
+        for forbidden in ("OrderSend(", "PositionOpen(", ".Buy(", ".Sell("):
+            self.assertNotIn(forbidden, source)
+        init_block = source.split("int OnInit()", 1)[1].split("void OnDeinit", 1)[0]
+        self.assertIn("if(InpTradeEnabled)", init_block)
+        self.assertIn("return(INIT_FAILED)", init_block)
 
     def test_all_30_return_standardized_research_outputs(self):
         result = evaluate_all_mtraders_modules({"candles": candles()})
@@ -150,6 +159,7 @@ class HybridTests(unittest.TestCase):
         self.assertEqual(len(family_ids), out["strategy_vote_count"])
         self.assertEqual(out["module_vote_count"], len(out["selected_modules"]))
         self.assertLessEqual(out["strategy_vote_count"], 8)
+        self.assertGreater(out["module_vote_count"], out["strategy_vote_count"])
 
     def test_model_votes_cannot_bypass_strategy_vote_minimum(self):
         out = evaluate_hybrid_strategy(approved(candles()), model_votes={"wave3": {"direction": 1, "score": 1.0}},
