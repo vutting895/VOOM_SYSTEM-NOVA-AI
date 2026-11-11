@@ -24,7 +24,7 @@ class PremiumDiscountTests(unittest.TestCase):
         self.assertEqual(calculate_premium_discount(price=75, swing_low=0, swing_high=100,
             range_id="r1", timeframe="H1", swing_confirmed=True, as_of_timestamp="2026-11-12T00:00:00Z", swing_confirmed_at="2026-11-11T22:00:00Z", confirmation_bars=2)["zone"], "PREMIUM")
         self.assertEqual(calculate_premium_discount(price=50, swing_low=0, swing_high=100,
-            range_id="r1", timeframe="H1", swing_confirmed=True, as_of_timestamp="2026-11-12T00:00:00Z")["zone"], "EQUILIBRIUM")
+            range_id="r1", timeframe="H1", swing_confirmed=True, as_of_timestamp="2026-11-12T00:00:00Z", swing_confirmed_at="2026-11-11T22:00:00Z", confirmation_bars=2)["zone"], "EQUILIBRIUM")
 
     def test_future_confirmation_and_insufficient_right_bars_rejected(self):
         with self.assertRaises(PremiumDiscountInputError):
