@@ -27,7 +27,7 @@ class HybridNotebookContractTests(unittest.TestCase):
             "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
         }
         module = ast.Module(
-            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"]],
+            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"], functions["split_fit_early_stop"]],
             type_ignores=[],
         )
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
@@ -35,6 +35,7 @@ class HybridNotebookContractTests(unittest.TestCase):
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
         cls.make_features = staticmethod(namespace["make_features"])
         cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
+        cls.split_fit_early_stop = staticmethod(namespace["split_fit_early_stop"])
 
     @staticmethod
     def valid_votes(start="2026-06-29T00:00:00Z"):
@@ -182,10 +183,12 @@ class HybridNotebookContractTests(unittest.TestCase):
         })
         folds = self.walk_forward_folds(frame, folds=3, horizon=5)
         self.assertEqual(len(folds), 3)
-        for train, valid in folds:
-            validation_start = valid["timestamp_utc"].min()
-            self.assertTrue((train["timestamp_utc"] < validation_start).all())
-            self.assertTrue((train["label_end_utc"] < validation_start).all())
+        block = len(frame) // 4
+        for fold_index, (train, valid) in enumerate(folds):
+            train_cutoff = timestamps[block * (fold_index + 1)]
+            self.assertTrue((train["timestamp_utc"] < train_cutoff).all())
+            self.assertTrue((train["label_end_utc"] < train_cutoff).all())
+            self.assertGreaterEqual(valid["timestamp_utc"].min(), timestamps[block * (fold_index + 1) + 5])
 
     def test_walk_forward_rejects_timezone_naive_timestamps(self):
         timestamps = pd.date_range("2026-01-01", periods=200, freq="h")
@@ -284,6 +287,29 @@ class HybridNotebookContractTests(unittest.TestCase):
     def test_no_automatic_artifact_promotion(self):
         self.assertIn("auto_promote':False", self.source)
         self.assertIn("Artifact persistence is disabled", self.source)
+
+
+    def test_inner_early_stopping_split_purges_unmatured_labels(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps + pd.Timedelta(hours=5),
+            "label": np.tile([0, 1], 100),
+        })
+        fit, early_stop = self.split_fit_early_stop(frame)
+        boundary = early_stop["timestamp_utc"].min()
+        self.assertLess(fit["timestamp_utc"].max(), boundary)
+        self.assertTrue((fit["label_end_utc"] < boundary).all())
+        self.assertGreaterEqual(len(fit), 100)
+        self.assertGreaterEqual(len(early_stop), 30)
+
+    def test_oof_rejects_unexpected_strategy_family_even_with_all_five_models(self):
+        votes = self.valid_votes()
+        extra = votes[votes["family"] == "lstm"].copy()
+        extra["family"] = "wave3"
+        votes = pd.concat([votes, extra], ignore_index=True)
+        with self.assertRaisesRegex(ValueError, "unexpected Meta Decision model families"):
+            self.validate_oof_bundle(votes)
 
 
 if __name__ == "__main__":
