@@ -36,7 +36,7 @@ class ProfitFirstFlattenContractTests(unittest.TestCase):
             ],
             pending_orders=[{"ticket": 10}],
         ))
-        self.assertEqual(result["net_pnl_usd"], "14.5")
+        self.assertEqual(result["net_pnl_usd"], "14.50")
         self.assertTrue(result["triggered"])
         self.assertTrue(result["close_positions"])
         self.assertTrue(result["cancel_pending_orders"])
@@ -98,7 +98,7 @@ class ProfitFirstFlattenContractTests(unittest.TestCase):
 
     def test_missing_or_non_finite_pnl_fails_closed(self):
         invalid_positions = [
-            {"profit_usd": "1", "swap_usd": "0", "commission_usd": "0", "fee_usd": "0"},
+            {"swap_usd": "0", "commission_usd": "0", "fee_usd": "0"},
             position(profit="NaN"),
             position(profit=True),
         ]
