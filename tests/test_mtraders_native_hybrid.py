@@ -47,12 +47,16 @@ class NativeTests(unittest.TestCase):
                 mql_mapping[module_id] = int(family)
         python_path = Path(__file__).resolve().parents[1] / "workers/quant_engine/mtraders_hybrid.py"
         python_source = python_path.read_text(encoding="utf-8")
-        family_block = python_source.split("STRATEGY_FAMILY_BY_ID = {", 1)[1].split("}", 1)[0]
+        family_block = python_source.split("STRATEGY_FAMILY_BY_ID = {", 1)[1]
         python_mapping = {}
         for family, ids in re.findall(r"sid: ([0-7]) for sid in \(([^)]*)\)", family_block):
             for module_id in map(int, ids.split(",")):
                 self.assertNotIn(module_id, python_mapping)
                 python_mapping[module_id] = int(family)
+        literal_family = re.search(r"(?m)^[ ]*25:[ ]*([0-7])[ ]*,", family_block)
+        self.assertIsNotNone(literal_family, "Reversal module 25 must be mapped explicitly")
+        python_mapping[25] = int(literal_family.group(1))
+        self.assertEqual(set(python_mapping), set(range(30)))
         self.assertEqual(mql_mapping, STRATEGY_FAMILY_BY_ID)
         self.assertEqual(python_mapping, STRATEGY_FAMILY_BY_ID)
 
