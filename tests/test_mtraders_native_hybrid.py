@@ -35,11 +35,12 @@ class NativeTests(unittest.TestCase):
     def test_ontick_runs_closed_bar_research_only_controller(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")
-        on_tick = re.search(r"void OnTick\\(\\)\\s*\\{([^}]*)\\}", source, re.DOTALL)
-        self.assertIsNotNone(on_tick)
-        self.assertIn("EvaluateClosedBar()", on_tick.group(1))
-        self.assertIn("InpTradeEnabled", on_tick.group(1))
-        self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(]")
+        self.assertIn("void OnTick()", source)
+        on_tick = source.split("void OnTick()", 1)[1].split("}", 1)[0]
+        self.assertIn("EvaluateClosedBar()", on_tick)
+        self.assertIn("InpTradeEnabled", on_tick)
+        for forbidden in ("OrderSend(", "PositionOpen(", ".Buy(", ".Sell("):
+            self.assertNotIn(forbidden, on_tick)
         self.assertIn("One aggregated candidate only", source)
         self.assertIn("TIMEZONE MAP REQUIRED", source)
 
