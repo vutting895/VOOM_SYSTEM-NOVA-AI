@@ -92,3 +92,68 @@ def _validate_dimensions(input_size: int, hidden_size: int, num_layers: int, dro
         raise ValueError("input_size, hidden_size and num_layers must be positive integers")
     if not 0 <= dropout < 1:
         raise ValueError("dropout must be in [0, 1)")
+
+
+def build_residual_mlp_model(*, input_size: int, sequence_length: int,
+                             hidden_size: int = 128, num_blocks: int = 3,
+                             dropout: float = 0.1):
+    """Return a residual MLP neural network over a fixed causal feature window.
+
+    Input shape is [batch, sequence_length, input_size]. The entire window
+    must end at the decision timestamp; no future bars or labels are accepted.
+    This is a distinct feed-forward neural baseline, not an LSTM/TCN alias.
+    """
+    try:
+        from torch import nn
+    except ImportError as exc:
+        raise RuntimeError("PyTorch is required to construct the residual MLP") from exc
+    for name, value in (("input_size", input_size), ("sequence_length", sequence_length),
+                        ("hidden_size", hidden_size), ("num_blocks", num_blocks)):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"{name} must be a positive integer")
+    if hidden_size < 4:
+        raise ValueError("hidden_size must be at least 4")
+    if isinstance(dropout, bool) or not isinstance(dropout, (int, float)) or not 0 <= dropout < 1:
+        raise ValueError("dropout must be in [0, 1)")
+
+    class ResidualBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.norm = nn.LayerNorm(hidden_size)
+            self.layers = nn.Sequential(
+                nn.Linear(hidden_size, hidden_size),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_size, hidden_size),
+                nn.Dropout(dropout),
+            )
+            self.activation = nn.GELU()
+
+        def forward(self, x):
+            return self.activation(x + self.layers(self.norm(x)))
+
+    class ResidualMLPReturnModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.sequence_length = sequence_length
+            self.input_size = input_size
+            self.stem = nn.Sequential(
+                nn.Linear(sequence_length * input_size, hidden_size),
+                nn.LayerNorm(hidden_size),
+                nn.GELU(),
+            )
+            self.blocks = nn.Sequential(*(ResidualBlock() for _ in range(num_blocks)))
+            self.head = nn.Sequential(
+                nn.LayerNorm(hidden_size),
+                nn.Linear(hidden_size, hidden_size // 2),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_size // 2, 1),
+            )
+
+        def forward(self, values):
+            if values.ndim != 3 or tuple(values.shape[1:]) != (sequence_length, input_size):
+                raise ValueError("Residual MLP input must have shape [batch, sequence_length, input_size]")
+            return self.head(self.blocks(self.stem(values.reshape(values.shape[0], -1)))).squeeze(-1)
+
+    return ResidualMLPReturnModel()
