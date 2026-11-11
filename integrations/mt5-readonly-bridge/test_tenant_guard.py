@@ -62,7 +62,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
@@ -72,7 +72,38 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+        self.assertIn("copy_rates_range", SOURCE)
+        self.assertIn(r'utc_pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"', SOURCE)
+        self.assertIn("strict UTC ISO-8601 Z format", SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
+
+    def test_every_data_read_requires_connected_exness_demo_terminal(self):
+        terminal_guard = SOURCE[SOURCE.index("def get_terminal_and_account"):SOURCE.index("def timeframe_value")]
+        self.assertIn("validate_exness_demo_terminal(", terminal_guard)
+        self.assertIn('getattr(mt5, "ACCOUNT_TRADE_MODE_DEMO", None)', terminal_guard)
+        contract = Path(__file__).with_name("terminal_contract.py").read_text(encoding="utf-8")
+        self.assertIn('getattr(terminal, "connected", False)', contract)
+        self.assertIn("demo_trade_mode is None", contract)
+        self.assertIn('"exness" not in server_name.lower()', contract)
+
+    def test_history_endpoint_uses_pure_market_data_integrity_validator(self):
+        self.assertIn("from history_contract import serialize_history_rates", SOURCE)
+        self.assertIn("serialize_history_rates(rates, start, end, MAX_HISTORY_BARS)", SOURCE)
+        self.assertIn("MT5 returned invalid historical data", SOURCE)
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+
+    def test_all_read_endpoints_expose_explicit_disabled_execution_capabilities(self):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
+            with self.subTest(endpoint=name):
+                calls = [
+                    node for node in ast.walk(function_nodes()[name])
+                    if isinstance(node, ast.Call) and called_name(node.func) == "read_only_metadata"
+                ]
+                self.assertTrue(calls)
+        metadata = SOURCE[SOURCE.index("def read_only_metadata"):SOURCE.index("app = FastAPI")]
+        for flag in ("order_submission_enabled", "ordersEnabled", "executionEnabled", "liveTradingEnabled"):
+            self.assertIn(f'"{flag}": False', metadata)
 
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
