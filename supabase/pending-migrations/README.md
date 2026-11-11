@@ -6,7 +6,7 @@ This directory holds SQL that has **not** been applied to Production and is deli
 
 - Preserved source: `supabase/migrations/202610310001_nova_video_workspace.sql`
 - Preserved from main commit: `6e8d390ac45187fb70b6acb23f1e428a20ca7006`
-- Production migration ledger maximum: `20261031070311`
+- Production migration ledger maximum: `20261107225005`
 - Reason parked: its filename timestamp sorts before the latest already-applied Production migration. Leaving it active would make a clean chronological replay ambiguous.
 - Preserved SQL: `nova_video_workspace.sql`
 
