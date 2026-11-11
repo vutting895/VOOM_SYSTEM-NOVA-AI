@@ -71,3 +71,22 @@ Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol
 7. Confirm no order method exists and every layer keeps order execution disabled.
 
 A passing CI build, a healthy relay Worker, an active local process, or an MT5 terminal connection alone does not prove that a specific customer connection has been provisioned. Do not mark a connection as connected until the entire authenticated path is tested.
+
+
+## Advisory engine (no broker writes)
+
+`mt5_bridge_engine.py` provides a bounded reconnect/health client, account,
+open-position and pending-order snapshots, hypothetical SL/TP price calculation,
+and a 1%-of-current-equity advisory lot-size calculation using MT5
+`order_calc_profit` in the broker account currency. Volume is floored to the
+broker's volume step; a result below the minimum volume is rejected.
+
+This module is not an execution adapter:
+
+- Market submission, pending submission and position close methods fail closed with `BROKER_WRITES_DISABLED`.
+- No MT5 order mutation function is called; the bridge remains GET/OPTIONS-only.
+- The advisory sizing result is in the authenticated account currency. It is not
+  USD-normalized and does not enforce the 10% daily-loss gate, commission,
+  slippage or swap. It must not be treated as final risk authorization.
+- The upstream NOVA Backend Policy and the separately reviewed USD risk adapter
+  remain authoritative. Live Trading remains OFF.
