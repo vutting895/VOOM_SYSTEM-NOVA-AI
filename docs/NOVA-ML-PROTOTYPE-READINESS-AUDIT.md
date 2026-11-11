@@ -52,3 +52,8 @@ Disposition: locate and review any candidate implementation before reuse. Otherw
 ## Decision
 
 The new Meta Decision and Premium/Discount modules are research scaffolding only. Existing XGBoost and Vision prototypes are explicitly blocked from production fusion until corrected and re-evaluated. No trained-model performance claim is made.
+
+
+## Residual Neural Network (2026-11-12)
+
+The Quant Engine now includes a distinct fixed-window residual MLP neural network baseline via `build_residual_mlp_model`. It accepts only causal sequence tensors shaped [batch, sequence_length, input_size], applies a dense stem plus LayerNorm/GELU residual blocks, and returns a scalar forward-return research prediction. It uses the shared validation-only `train_sequence_model` trainer. The Meta Decision Layer recognizes `neural_network` as a fifth model family and divides its configured base weight equally across five families (0.20 each); correlated prediction histories are still clustered to prevent redundant votes from multiplying consensus. This is an untrained architecture until trained on provenance-verified data. It does not change risk policy or enable broker execution.
