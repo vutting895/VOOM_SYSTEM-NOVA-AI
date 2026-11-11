@@ -326,7 +326,7 @@ def deal_history(
                 {
                     "ticket": _required_deal_integer(deal, "ticket"),
                     "order": int(getattr(deal, "order", 0)),
-                    "position_id": _required_deal_integer(deal, "position_id", allow_zero=True),
+                    "position_id": _required_deal_integer(deal, "position_id"),
                     "time": datetime.fromtimestamp(int(deal.time), timezone.utc).isoformat(),
                     "type": int(getattr(deal, "type", -1)),
                     "entry": int(getattr(deal, "entry", -1)),
