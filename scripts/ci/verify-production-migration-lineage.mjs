@@ -13,7 +13,7 @@ const entries = manifest?.environments?.production?.migrations;
 assert.equal(manifest?.schema_version, 1, "unsupported archive manifest schema");
 assert.equal(manifest?.hash_algorithm, "SHA-256 over exact UTF-8 SQL payload (no added newline)");
 assert.ok(Array.isArray(entries), "production migration inventory missing");
-assert.equal(entries.length, 25, "expected exactly 25 recovered Production migrations");
+assert.equal(entries.length, 28, "expected exactly 28 recovered Production migrations");
 
 const expectedNames = [];
 const seenVersions = new Set();
