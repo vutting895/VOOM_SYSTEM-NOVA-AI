@@ -342,12 +342,12 @@ def evaluate_usd_risk_limits(
     day_start_equity_usd: Decimal | int | str,
     estimated_trade_loss_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
-    max_per_trade_pct: Decimal | int | str = Decimal("0.01"),
+    max_per_trade_pct: Decimal | int | str = Decimal("0.05"),
     max_daily_loss_pct: Decimal | int | str = Decimal("0.10"),
 ) -> USDRiskDecision:
-    """Apply the owner-selected 1% trade / 10% daily ceilings to USD values.
+    """Apply the owner-selected 5% trade / 10% daily ceilings to USD values.
 
-    `current_equity_usd` is the sizing base for the 1% per-trade ceiling.
+    `current_equity_usd` is the sizing base for the 5% per-trade ceiling.
     `day_start_equity_usd` is the immutable broker-day opening snapshot and is
     the sizing base for the 10% daily-loss ceiling. `daily_loss_usd` must be
     reconciled from that broker-day snapshot, including realized and floating
