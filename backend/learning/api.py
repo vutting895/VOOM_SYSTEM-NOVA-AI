@@ -109,6 +109,7 @@ def performance_summary(strategy_id: str | None = None, environment: str | None 
 @router.post("/models/candidates", status_code=201)
 def register_candidate(
     body: CandidateIn,
+    _actor: str = Depends(require_learning_user),
     _evaluator: str = Depends(require_learning_evaluator),
     db: Session = Depends(get_learning_session),
 ):
