@@ -30,6 +30,7 @@ def make_bars(timeframe: str, count: int = 12) -> list[dict]:
 def fake_smc(bias: str, event: dict | None = None) -> dict:
     return {
         "ok": True,
+        "bars_analyzed": 12,
         "structure_bias": bias,
         "latest_structure_event": event,
         "confluence_count": 1,
@@ -140,8 +141,9 @@ class MultiTimeframeStructureTests(unittest.TestCase):
             analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
 
     def test_rejects_incomplete_candle_at_as_of(self):
+        self.data["M5"][-1]["timestamp"] = AS_OF.isoformat().replace("+00:00", "Z")
         self.data["M5"][-1]["bar_close_utc"] = (
-            AS_OF + timedelta(minutes=1)
+            AS_OF + timedelta(minutes=5)
         ).isoformat().replace("+00:00", "Z")
         with self.assertRaisesRegex(ValueError, "not complete"):
             analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
