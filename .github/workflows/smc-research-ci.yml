@@ -7,6 +7,8 @@ on:
       - "workers/feature/elliott_wave/**"
       - "workers/backtest/**"
       - "tests/test_smc_strategy.py"
+      - "tests/test_multi_timeframe_structure.py"
+      - "tests/test_mtf_runtime_api.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
       - "tests/test_runtime_api.py"
@@ -64,8 +66,12 @@ jobs:
           python-version: "3.11"
       - name: Install Python test dependencies
         run: python -m pip install pytest fastapi pydantic httpx
-      - name: Compile SMC research module
-        run: python -m py_compile workers/feature/smc_wave/smc_strategy.py
+      - name: Compile SMC and multi-timeframe research modules
+        run: python -m py_compile workers/feature/smc_wave/smc_strategy.py workers/feature/smc_wave/multi_timeframe.py workers/runtime.py
+      - name: Run multi-timeframe unit tests
+        run: python -m unittest discover -s tests -p "test_multi_timeframe_structure.py" -v
+      - name: Run multi-timeframe API tests
+        run: python -m pytest tests/test_mtf_runtime_api.py -q
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
       - name: Run pytest regression suite
