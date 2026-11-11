@@ -26,6 +26,18 @@ class HybridNotebookContractTests(unittest.TestCase):
         module = ast.Module(body=[function], type_ignores=[])
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
+        market_function = next(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "validate_market_frame"
+        )
+        market_namespace = {
+            "pd": pd, "np": np,
+            "TIMEFRAME_MINUTES": {"M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 240, "D1": 1440},
+            "REQUIRED_COLUMNS": {"timestamp_utc", "asset", "timeframe", "open", "high", "low", "close", "volume", "volume_type"},
+        }
+        market_module = ast.Module(body=[market_function], type_ignores=[])
+        exec(compile(market_module, str(NOTEBOOK), "exec"), market_namespace)
+        cls.validate_market_frame = staticmethod(market_namespace["validate_market_frame"])
 
     @staticmethod
     def valid_votes(timestamp="2026-06-30T12:00:00Z"):
@@ -57,6 +69,30 @@ class HybridNotebookContractTests(unittest.TestCase):
         forbidden = ("OrderSend(", "order_send(", "positions_get(", "NOVA_MT5_BRIDGE_TOKEN")
         for value in forbidden:
             self.assertNotIn(value, self.source)
+
+    @staticmethod
+    def market_frame(times):
+        return pd.DataFrame([
+            {"timestamp_utc": timestamp, "asset": "XAUUSDm", "timeframe": "M5",
+             "open": 2000.0, "high": 2001.0, "low": 1999.0, "close": 2000.5,
+             "volume": 100.0, "volume_type": "tick_volume"}
+            for timestamp in times
+        ])
+
+    def test_market_frame_accepts_exact_timeframe_cadence(self):
+        frame = self.market_frame(["2026-06-30T00:00:00Z", "2026-06-30T00:05:00Z"])
+        manifest = {"completeness_status": "PASS", "training_eligible": True,
+                    "row_count": 2, "verified_gap_intervals": []}
+        clean, gaps = self.validate_market_frame(frame, "XAUUSDm", "M5", manifest)
+        self.assertEqual(len(clean), 2)
+        self.assertEqual(gaps, [])
+
+    def test_market_frame_rejects_bars_closer_than_timeframe(self):
+        frame = self.market_frame(["2026-06-30T00:00:00Z", "2026-06-30T00:02:00Z"])
+        manifest = {"completeness_status": "PASS", "training_eligible": True,
+                    "row_count": 2, "verified_gap_intervals": []}
+        with self.assertRaisesRegex(ValueError, "off-cadence"):
+            self.validate_market_frame(frame, "XAUUSDm", "M5", manifest)
 
     def test_gap_segments_prevent_cross_gap_windows(self):
         self.assertIn("segment_id", self.source)
