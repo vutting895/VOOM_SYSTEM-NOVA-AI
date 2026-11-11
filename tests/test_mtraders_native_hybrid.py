@@ -57,6 +57,13 @@ class NativeTests(unittest.TestCase):
         self.assertIn("InpMinFamilyVotes", source)
         self.assertIn("current_tick.ask-current_tick.bid", source)
 
+    def test_mql5_specialized_module_rules_are_not_one_shared_placeholder(self):
+        source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
+        source = source_path.read_text(encoding="utf-8")
+        for fragment in ("VWAPAt(20,end_index)", "CloseLocation(i)", "RSIAt(14,end_index)",
+                         "near_high>=2", "ATRAt(5,end_index)", "compressed && expanded"):
+            self.assertIn(fragment, source)
+
     def test_mql5_module_registry_matches_python_registry_and_safe_defaults(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")

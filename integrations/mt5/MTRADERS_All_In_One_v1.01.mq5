@@ -223,6 +223,39 @@ double VolumeRatioAt(const int period,const int end_index)
    if(average<=0.0) return 0.0;
    return (double)gRates[end_index].tick_volume/average;
 }
+double VWAPAt(const int period,const int end_index)
+{
+   if(period<2 || end_index<period-1) return 0.0;
+   double pv=0.0,volume=0.0;
+   for(int i=end_index-period+1;i<=end_index;i++)
+   {
+      double v=(double)gRates[i].tick_volume;
+      pv+=((gRates[i].high+gRates[i].low+gRates[i].close)/3.0)*v;
+      volume+=v;
+   }
+   return (volume>0.0 ? pv/volume : 0.0);
+}
+double RSIAt(const int period,const int end_index)
+{
+   if(period<2 || end_index<period) return 50.0;
+   double gains=0.0,losses=0.0;
+   for(int i=end_index-period+1;i<=end_index;i++)
+   {
+      double change=gRates[i].close-gRates[i-1].close;
+      if(change>0.0) gains+=change;
+      else losses-=change;
+   }
+   gains/=period; losses/=period;
+   if(losses<=0.0) return (gains>0.0 ? 100.0 : 50.0);
+   double rs=gains/losses;
+   return 100.0-(100.0/(1.0+rs));
+}
+double CloseLocation(const int index)
+{
+   double range=gRates[index].high-gRates[index].low;
+   if(range<=0.0) return 0.5;
+   return (gRates[index].close-gRates[index].low)/range;
+}
 double Clamp01(const double value)
 {
    return MathMax(0.0,MathMin(1.0,value));
@@ -253,30 +286,130 @@ int EvaluateNativeModule(const int id,const int end_index,const double atr,
                          close<gRates[end_index].open && previous<gRates[end_index-1].open ? -1 : 0); break;
       case 8: direction=(ema10>ema20 && close>ema10 ? 1 :
                          ema10<ema20 && close<ema10 ? -1 : 0); break;
-      case 9:
-      case 10:
-      case 12:
-      case 17:
-      case 19:
-      case 25:
-      case 29:
-         direction=(close>ema20 && close>previous ? 1 :
-                    close<ema20 && close<previous ? -1 : 0); break;
+      case 9: // VWAP band proxy
+      {
+         double vwap=VWAPAt(20,end_index);
+         direction=(vwap>0.0 && close>vwap && previous<=vwap ? 1 :
+                    vwap>0.0 && close<vwap && previous>=vwap ? -1 : 0);
+         break;
+      }
+      case 10: // CMF-style flow matrix using tick volume
+      {
+         double flow=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            flow+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         double cmf=(volume>0.0 ? flow/volume : 0.0);
+         direction=(cmf>0.08 ? 1 : cmf< -0.08 ? -1 : 0);
+         break;
+      }
+      case 12: // Prior-range floor pivot R1/S1 cross
+      {
+         double pivot=(prior_high+prior_low+gRates[end_index-1].close)/3.0;
+         double r1=2.0*pivot-prior_low, s1=2.0*pivot-prior_high;
+         direction=(close>r1 && previous<=r1 ? 1 : close<s1 && previous>=s1 ? -1 : 0);
+         break;
+      }
+      case 17: // Effort versus result
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double range=gRates[end_index].high-gRates[end_index].low;
+         double body=MathAbs(close-gRates[end_index].open)/MathMax(range,_Point);
+         direction=(ratio>1.5 && body>0.55 && close>gRates[end_index].open ? 1 :
+                    ratio>1.5 && body>0.55 && close<gRates[end_index].open ? -1 : 0);
+         break;
+      }
+      case 19: // OHLCV close-location footprint proxy
+      {
+         double imbalance=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            imbalance+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         double delta=(volume>0.0 ? imbalance/volume : 0.0);
+         direction=(delta>0.15 ? 1 : delta< -0.15 ? -1 : 0);
+         break;
+      }
+      case 25: // Range extreme with RSI rejection
+      {
+         double range=MathMax(prior_high-prior_low,_Point);
+         double location=(close-prior_low)/range;
+         double rsi=RSIAt(14,end_index);
+         direction=(location<0.12 && rsi<35.0 && close>previous ? 1 :
+                    location>0.88 && rsi>65.0 && close<previous ? -1 : 0);
+         break;
+      }
+      case 29: // Wyckoff spring/upthrust and relative-volume confirmation
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double clv=CloseLocation(end_index);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && clv>0.65 && ratio>1.1 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && clv<0.35 && ratio>1.1 ? -1 : 0);
+         break;
+      }
       case 14: direction=(close>prior_high && previous<=prior_high ? 1 :
                           close<prior_low && previous>=prior_low ? -1 : 0); break;
       case 15:
       case 27: direction=(ema10>ema20 && ema20>ema50 ? 1 :
                           ema10<ema20 && ema20<ema50 ? -1 : 0); break;
-      case 16:
-      case 24:
-      case 28:
-         direction=(close>prior_high && atr>0 ? 1 :
-                    close<prior_low && atr>0 ? -1 : 0); break;
-      case 18:
-      case 20:
-      case 23:
-         direction=(gRates[end_index].low<prior_low && close>prior_low ? 1 :
-                    gRates[end_index].high>prior_high && close<prior_high ? -1 : 0); break;
+      case 16: // ATR expansion and range breakout
+      {
+         double fast=ATRAt(5,end_index),slow=ATRAt(20,end_index);
+         direction=(slow>0.0 && fast/slow>1.25 && close>prior_high ? 1 :
+                    slow>0.0 && fast/slow>1.25 && close<prior_low ? -1 : 0);
+         break;
+      }
+      case 24: // Volatility-conditioned SuperTrend proxy
+      {
+         double fast=ATRAt(10,end_index),slow=ATRAt(50,end_index);
+         double multiplier=(slow>0.0 && fast/slow>1.2 ? 2.0 :
+                            slow>0.0 && fast/slow<0.85 ? 3.0 : 2.5);
+         direction=(close>ema20+multiplier*atr*0.05 ? 1 :
+                    close<ema20-multiplier*atr*0.05 ? -1 : 0);
+         break;
+      }
+      case 28: // Compression-to-expansion with a price break
+      {
+         double current=ATRAt(10,end_index),prior=ATRAt(10,end_index-3),slow=ATRAt(50,end_index);
+         bool compressed=(slow>0.0 && prior/slow<0.8);
+         bool expanded=(slow>0.0 && current/slow>1.2);
+         direction=(compressed && expanded && close>prior_high ? 1 :
+                    compressed && expanded && close<prior_low ? -1 : 0);
+         break;
+      }
+      case 18: // QEX sweep/reclaim with tick-volume confirmation
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && ratio>1.1 && CloseLocation(end_index)>0.6 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && ratio>1.1 && CloseLocation(end_index)<0.4 ? -1 : 0);
+         break;
+      }
+      case 20: // Repeated liquidity pool followed by a sweep
+      {
+         double tolerance=MathMax(atr*0.15,_Point*2.0);
+         int near_high=0,near_low=0;
+         for(int i=end_index-20;i<end_index;i++)
+         {
+            if(MathAbs(gRates[i].high-prior_high)<=tolerance) near_high++;
+            if(MathAbs(gRates[i].low-prior_low)<=tolerance) near_low++;
+         }
+         direction=(near_low>=2 && gRates[end_index].low<prior_low && close>prior_low ? 1 :
+                    near_high>=2 && gRates[end_index].high>prior_high && close<prior_high ? -1 : 0);
+         break;
+      }
+      case 23: // QEX liquidity sweep with directional candle and strong volume
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double body=MathAbs(close-gRates[end_index].open)/MathMax(gRates[end_index].high-gRates[end_index].low,_Point);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && close>gRates[end_index].open && ratio>1.25 && body>0.5 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && close<gRates[end_index].open && ratio>1.25 && body>0.5 ? -1 : 0);
+         break;
+      }
       case 21: // Transparent linear proxy; not a trained neural network.
          direction=(close/gRates[end_index-5].close-1.0>0.001 && ema20>ema50 ? 1 :
                     close/gRates[end_index-5].close-1.0< -0.001 && ema20<ema50 ? -1 : 0); break;
@@ -298,19 +431,40 @@ int EvaluateNativeModule(const int id,const int end_index,const double atr,
          strength=MathAbs(close-ema10)/MathMax(atr*1.5,_Point); break;
       case 7:
          strength=(MathAbs(close-gRates[end_index].open)+MathAbs(previous-gRates[end_index-1].open))/MathMax(atr*2.0,_Point); break;
+      case 9:
+         strength=MathAbs(close-VWAPAt(20,end_index))/MathMax(atr,_Point); break;
+      case 10: case 19:
+      {
+         double flow=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            flow+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         strength=(volume>0.0 ? MathAbs(flow/volume)*4.0 : 0.0); break;
+      }
+      case 12:
+         strength=MathAbs(close-(direction>0 ? (2.0*(prior_high+prior_low+gRates[end_index-1].close)/3.0-prior_low) :
+                    (2.0*(prior_high+prior_low+gRates[end_index-1].close)/3.0-prior_high)))/MathMax(atr,_Point); break;
       case 14:
          strength=MathAbs(close-(direction>0 ? prior_high : prior_low))/MathMax(atr,_Point); break;
-      case 16: case 24: case 28:
-         strength=(gRates[end_index].high-gRates[end_index].low)/MathMax(atr*1.5,_Point); break;
+      case 16:
+         strength=ATRAt(5,end_index)/MathMax(ATRAt(20,end_index),_Point)-1.0; break;
+      case 17:
+         strength=VolumeRatioAt(20,end_index)*MathAbs(close-gRates[end_index].open)/MathMax(gRates[end_index].high-gRates[end_index].low,_Point)/2.0; break;
       case 18: case 20: case 23: case 29:
-         strength=MathMax(MathAbs(gRates[end_index].low-prior_low),MathAbs(gRates[end_index].high-prior_high))/MathMax(atr,_Point); break;
+         strength=VolumeRatioAt(20,end_index)*MathMax(MathAbs(gRates[end_index].low-prior_low),MathAbs(gRates[end_index].high-prior_high))/MathMax(atr,_Point); break;
+      case 19: // close-location volume proxy strength
+         strength=MathAbs(strength); break;
       case 21:
          strength=MathAbs(close/gRates[end_index-5].close-1.0)/0.01; break;
-      case 9: case 10: case 17: case 19:
-         strength=MathMin(1.0,VolumeRatioAt(20,end_index)/2.0)*
-                  MathAbs(close-gRates[end_index].open)/MathMax(atr,_Point); break;
+      case 24:
+         strength=MathAbs(ATRAt(10,end_index)/MathMax(ATRAt(50,end_index),_Point)-1.0); break;
       case 25:
          strength=MathAbs(close-ema20)/MathMax(atr*2.0,_Point); break;
+      case 28:
+         strength=MathAbs(ATRAt(10,end_index)/MathMax(ATRAt(50,end_index),_Point)-1.0); break;
       default:
          strength=MathAbs(close-ema20)/MathMax(atr*2.5,_Point); break;
    }
