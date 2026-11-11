@@ -17,6 +17,7 @@ def bars(timeframe_seconds: int, as_of: datetime) -> list[dict]:
         close_price = open_price + 0.5
         result.append({
             "timestamp": (start + timedelta(seconds=timeframe_seconds * index)).isoformat().replace("+00:00", "Z"),
+            "bar_close_utc": (start + timedelta(seconds=timeframe_seconds * (index + 1))).isoformat().replace("+00:00", "Z"),
             "open": open_price,
             "high": close_price + 0.5,
             "low": open_price - 0.5,
