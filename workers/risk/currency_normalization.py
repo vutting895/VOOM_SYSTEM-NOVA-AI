@@ -352,41 +352,32 @@ def evaluate_usd_risk_limits(
     day_start_equity_usd: Decimal | int | str,
     estimated_trade_loss_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
-    max_per_trade_pct: Decimal | int | str = Decimal("0.01"),
-    max_daily_loss_pct: Decimal | int | str = Decimal("0.10"),
 ) -> USDRiskDecision:
-    """Apply the active Demo default of 1% per-trade / 10% daily-loss.
+    """Apply the immutable NOVA limits: 1% per trade and 10% daily loss.
 
-    `current_equity_usd` is the sizing base for the per-trade ceiling.
-    `day_start_equity_usd` is the immutable broker-day opening snapshot and is
-    the sizing base for the 10% daily-loss ceiling. `daily_loss_usd` must be
-    reconciled from that broker-day snapshot, including realized and floating
-    P&L, commission, and swap.
+    `current_equity_usd` is the sizing base for the 1% per-trade ceiling.
+    `day_start_equity_usd` is the broker-day opening snapshot used for the 10%
+    daily-loss ceiling. The approved baseline/reset semantics must be verified
+    by the policy layer before production integration; this helper must not
+    choose or silently change that baseline.
 
-    A separately approved future Real-account policy may pass an explicit
-    `max_per_trade_pct=Decimal("0.05")`; that override is not the Demo default.
-    This helper does not enforce aggregate open risk, drawdown, concurrency, or
-    kill switches and never authorizes an order.
+    Risk percentages are constants, not caller-controlled parameters. The
+    helper does not enforce the separate 9% aggregate open-risk ceiling,
+    pending-entry cancellation, position management, or kill switches and
+    never authorizes an order.
     """
     equity = money(current_equity_usd)
     day_start_equity = money(day_start_equity_usd)
     trade_loss = money(estimated_trade_loss_usd)
     daily_loss = money(daily_loss_usd)
-    trade_pct = money(max_per_trade_pct)
-    daily_pct = money(max_daily_loss_pct)
     if equity <= 0:
         raise CurrencyNormalizationError("current USD equity must be positive")
     if day_start_equity <= 0:
         raise CurrencyNormalizationError("broker-day opening USD equity must be positive")
     if trade_loss < 0 or daily_loss < 0:
         raise CurrencyNormalizationError("loss amounts must be non-negative")
-    if not (Decimal("0") < trade_pct <= Decimal("1")):
-        raise CurrencyNormalizationError("per-trade risk percentage must be in (0, 1]")
-    if not (Decimal("0") < daily_pct <= Decimal("1")):
-        raise CurrencyNormalizationError("daily loss percentage must be in (0, 1]")
-
-    max_trade = equity * trade_pct
-    max_daily = day_start_equity * daily_pct
+    max_trade = equity * Decimal("0.01")
+    max_daily = day_start_equity * Decimal("0.10")
     reasons: list[str] = []
     if trade_loss > max_trade:
         reasons.append("per_trade_risk_limit")
