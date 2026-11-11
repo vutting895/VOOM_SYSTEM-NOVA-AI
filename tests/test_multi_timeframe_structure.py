@@ -51,7 +51,7 @@ class MultiTimeframeStructureTests(unittest.TestCase):
         with patch("workers.feature.smc_wave.multi_timeframe.analyze_smc", side_effect=results):
             report = analyze_multi_timeframe(self.data, AS_OF.isoformat(), "XAUUSDm")
 
-        self.assertEqual(report["market_state"], "TREND_CONTINUATION_CANDIDATE")
+        self.assertEqual(report["market_state"], "ALIGNED_HTF_BIAS")
         self.assertEqual(report["relations_to_d1"]["M5"], "ALIGNED_WITH_D1")
         self.assertEqual(report["decision"], "RESEARCH_ONLY")
         self.assertIsNone(report["signal"])
