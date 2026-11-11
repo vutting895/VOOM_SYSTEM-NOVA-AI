@@ -13,6 +13,7 @@ on:
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - "docs/NOVA-MTRADERS-HYBRID-STRATEGY.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
+      - "tools/ci/**"
 
 permissions:
   contents: read
