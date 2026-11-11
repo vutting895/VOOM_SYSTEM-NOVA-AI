@@ -8,8 +8,13 @@ Metrics are historical simulation results, not forecasts. Confirm candle source,
 
 The isolated research runtime exposes:
 - `GET /health`
+- `POST /v1/mtf/analyze`
 - `POST /v1/smc/analyze`
 - `POST /v1/smc/backtest`
+
+### Multi-timeframe structure analysis
+
+`POST /v1/mtf/analyze` accepts `symbol`, an explicit timezone-aware `as_of_utc`, and `candles_by_timeframe` containing D1 and H4 plus optional H1, M15, and M5 arrays. Every series must contain 10–500 strictly increasing, completed OHLC bars with timezone-aware `timestamp` (bar open) and `bar_close_utc` values. Intraday candle duration must match its timeframe; D1 close boundaries are supplied explicitly to account for broker/server DST shifts, with a bounded 20–28 hour daily-bar duration check. The endpoint returns deterministic SMC-derived context, D1-relative timeframe relationships, cautious continuation/pullback/reversal candidates, and descriptive statistics for the latest six contiguous H4 bars. It does not verify broker provenance, infer the broker-day anchor for the H4 2-2-2 hypothesis, emit confidence, or create a trading signal. `decision` remains `RESEARCH_ONLY`; no broker action is possible through this route.
 
 Submit chronological, completed OHLC candles as JSON. Backtest settings include `reward_risk`, `fee_rate`, `slippage_rate`, and `initial_equity`. The engine assumes next-bar-open entry and conservatively assumes stop loss first when stop and target are touched in the same candle. Results are per-unit research estimates, not portfolio-sized returns.
 
