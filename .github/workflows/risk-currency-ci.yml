@@ -1,0 +1,32 @@
+name: Risk Currency Normalization CI
+
+on:
+  pull_request:
+    paths:
+      - "workers/risk/currency_normalization.py"
+      - "tests/test_currency_normalization.py"
+      - ".github/workflows/risk-currency-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workers/risk/currency_normalization.py"
+      - "tests/test_currency_normalization.py"
+      - ".github/workflows/risk-currency-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  currency-normalization:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile normalization engine and tests
+        run: python -m py_compile workers/risk/currency_normalization.py tests/test_currency_normalization.py
+      - name: Run normalization tests
+        run: python -m unittest discover -s tests -p "test_currency_normalization.py" -v
