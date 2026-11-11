@@ -36,6 +36,8 @@ class FakeMT5:
         )
         self.terminal = SimpleNamespace(connected=True, company="Exness")
         self.pnl = pnl
+        self.positions = ()
+        self.orders = ()
         self.initialized = 0
         self.shutdown_called = False
 
@@ -65,10 +67,10 @@ class FakeMT5:
         return self.pnl * volume
 
     def positions_get(self, **kwargs):
-        return ()
+        return self.positions
 
     def orders_get(self, **kwargs):
-        return ()
+        return self.orders
 
     def shutdown(self):
         self.shutdown_called = True
@@ -166,6 +168,20 @@ def test_order_submission_and_position_close_are_fail_closed():
     assert bridge.submit_pending_order(symbol="EURUSD")["code"] == "BROKER_WRITES_DISABLED"
     assert bridge.close_position(ticket=1)["code"] == "BROKER_WRITES_DISABLED"
     assert not hasattr(api, "order_send")
+
+
+def test_positions_snapshot_fails_closed_instead_of_silently_truncating():
+    api = FakeMT5()
+    api.positions = tuple(object() for _ in range(MODULE.MAX_POSITIONS + 1))
+    with pytest.raises(MODULE.MT5BridgeUnavailable, match="truncated snapshot"):
+        engine(api).get_open_positions()
+
+
+def test_pending_order_snapshot_fails_closed_instead_of_silently_truncating():
+    api = FakeMT5()
+    api.orders = tuple(object() for _ in range(MODULE.MAX_PENDING_ORDERS + 1))
+    with pytest.raises(MODULE.MT5BridgeUnavailable, match="truncated snapshot"):
+        engine(api).get_pending_orders()
 
 
 def test_positions_and_pending_orders_are_read_only_snapshots():
