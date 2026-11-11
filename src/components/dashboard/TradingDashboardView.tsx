@@ -69,7 +69,12 @@ export default function TradingDashboardView() {
     return (
       <div className="space-y-6">
         <ReadonlySafetyBadge />
-        <LoadingSpinner label="กำลังเชื่อมต่อดึงข้อมูลตลาด XAUUSDm & BTCUSD (Exness Demo Read-Only)..." />
+
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+        <div><strong>STATIC SAMPLE DATA - NOT A LIVE BROKER FEED.</strong> Prices, candles, signals and analysis on this screen are unverified examples. Do not use them to make trading decisions.</div>
+      </div>
+        <LoadingSpinner label="Loading static sample market data (not connected to Exness MT5)..." />
       </div>
     );
   }
@@ -97,7 +102,7 @@ export default function TradingDashboardView() {
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300">
-              Market Overview (ภาพรวมตลาด Exness Demo)
+              Market Overview (STATIC SAMPLE - NOT LIVE)
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -195,7 +200,7 @@ export default function TradingDashboardView() {
             change24h={selectedAsset.change24h}
             timeframe={timeframe}
             onTimeframeChange={setTimeframe}
-            dataModeLabel="EXNESS DEMO FEED · READ-ONLY"
+            dataModeLabel="STATIC SAMPLE - NOT LIVE"
           />
 
           {/* Quick Metrics Under Chart */}
@@ -214,8 +219,8 @@ export default function TradingDashboardView() {
             </div>
             <div>
               <span className="text-slate-400 block text-[11px]">Data Feed Source</span>
-              <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" /> Exness Demo
+              <span className="text-amber-300 font-mono font-semibold flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3" /> {selectedAsset.feedSource}
               </span>
             </div>
           </div>

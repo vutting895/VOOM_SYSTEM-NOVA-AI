@@ -1,6 +1,6 @@
 // NOVA AI - Frontend Types & API Contracts (Read-Only / Demo Architecture)
 
-export type DataFeedMode = 'HISTORICAL' | 'DEMO_READONLY' | 'SIMULATED_FEED' | 'LIVE_STREAM_READONLY';
+export type DataFeedMode = 'HISTORICAL' | 'DEMO_READONLY' | 'SIMULATED_FEED' | 'LIVE_STREAM_READONLY' | 'STATIC_SAMPLE_UNVERIFIED' | 'SIMULATED_SAMPLE_UNVERIFIED';
 
 export interface MarketAssetQuote {
   symbol: string;
@@ -87,8 +87,8 @@ export interface IntelligenceResponse {
   ok: boolean;
   engineArchitecture: string;
   models: IntelligenceModelStatus[];
-  ensembleConfidencePct: number;
-  marketRegimeDetected: string;
+  ensembleConfidencePct: number | null;
+  marketRegimeDetected: string | null;
   safetyPolicy: string;
 }
 
@@ -220,9 +220,9 @@ export interface LearningUniverseResponse {
     monitoredSymbols: string[];
     totalSamplesStored: number;
     featureCategories: string[];
-    lastDataUpdateAt: string;
-    dailyUpdateStatus: 'SUCCESS_SYNCED' | 'IN_PROGRESS' | 'SCHEDULED';
-    nextScheduledUpdateAt: string;
+    lastDataUpdateAt: string | null;
+    dailyUpdateStatus: 'SUCCESS_SYNCED' | 'IN_PROGRESS' | 'SCHEDULED' | 'NOT_CONFIGURED';
+    nextScheduledUpdateAt: string | null;
   };
   modelPerformanceByRegime: Array<{
     regimeName: string;

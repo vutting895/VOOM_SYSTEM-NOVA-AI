@@ -35,6 +35,9 @@ test('Trading Dashboard view displays XAUUSDm, BTCUSD, Candlestick chart, Signal
   assert.ok(dashboard.includes('AI Market Analysis'));
   assert.ok(dashboard.includes('AI Trading Signals'));
   assert.ok(dashboard.includes('ReadonlySafetyBadge'));
+  assert.match(dashboard, /STATIC SAMPLE DATA - NOT A LIVE BROKER FEED/);
+  assert.match(dashboard, /STATIC SAMPLE - NOT LIVE/);
+  assert.doesNotMatch(dashboard, /EXNESS DEMO FEED/);
   assert.doesNotMatch(dashboard, /order_send|execute_live|place_trade_order/);
 });
 
@@ -70,6 +73,8 @@ test('Trading Infrastructure view enforces MT5 connection, Exness Demo, and Risk
   assert.ok(infrastructure.includes('Model Training Status'));
   assert.ok(infrastructure.includes('ReadonlySafetyBadge'));
   assert.match(infrastructure, /HARD BLOCKED \(Fail-Closed\)/);
+  assert.match(infrastructure, /POLICY NOT ENFORCED/);
+  assert.doesNotMatch(infrastructure, /HARD RULES ACTIVE/);
   assert.match(infrastructure, /ไม่รับและไม่แสดง Password\/Secrets/);
 });
 
@@ -80,6 +85,8 @@ test('Learning Universe view features dataset management, model performance by r
   assert.ok(learning.includes('Daily Data Update Status'));
   assert.ok(learning.includes('handleManualTrigger'));
   assert.ok(learning.includes('ReadonlySafetyBadge'));
+  assert.match(learning, /NOT CONFIGURED/);
+  assert.match(learning, /Schema validation and data-drift status are unavailable/);
 });
 
 test('Safety badge clearly presents READ-ONLY and LIVE TRADING OFF across all viewports', () => {

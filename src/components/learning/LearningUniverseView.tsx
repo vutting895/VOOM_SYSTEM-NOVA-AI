@@ -85,19 +85,17 @@ export default function LearningUniverseView() {
             <div className="flex items-center gap-2">
               <Database className="w-5 h-5 text-purple-400" />
               <h2 className="text-lg font-bold text-white tracking-wide">
-                Learning Universe: Feature Store & Continuous Adaptation
+                Learning Universe: Dataset & Model Readiness
               </h2>
             </div>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              ศูนย์กลางคลังข้อมูลฟีเจอร์ (Feast Feature Store on Parquet) และประวัติการฝึกฝนโมเดลอัตโนมัติ สำหรับ 16 คู่สินทรัพย์หลัก พร้อมการอัปเดตข้อมูลรายวัน
-            </p>
+            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">Dataset and model metrics appear only after a verified feature store and training runner are connected.</p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => handleManualTrigger('XAU/USDm')}
-              disabled={triggering}
+              disabled={triggering || !learningData.autoUpdateJob.automated}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/20 transition-all disabled:opacity-50"
             >
               <Zap className="w-4 h-4 fill-current" />
@@ -133,7 +131,7 @@ export default function LearningUniverseView() {
 
         <div>
           <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block font-mono mb-2">
-            16 Monitored Assets (คู่สินทรัพย์ที่จัดเก็บใน Feature Store)
+            Configured Assets (unverified)
           </span>
           <div className="flex flex-wrap gap-2">
             {learningData.featureStore.monitoredSymbols.map((sym) => (
@@ -175,7 +173,7 @@ export default function LearningUniverseView() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {learningData.modelPerformanceByRegime.map((regime, i) => (
+          {learningData.modelPerformanceByRegime.length === 0 ? (<div className="col-span-full p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-200">No verified model evaluation metrics are available.</div>) : learningData.modelPerformanceByRegime.map((regime, i) => (
             <div key={i} className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between">
               <div>
                 <span className="text-xs font-bold text-cyan-300 block mb-1">{regime.regimeName}</span>
@@ -210,7 +208,7 @@ export default function LearningUniverseView() {
           </div>
 
           <div className="space-y-3">
-            {learningData.trainingHistory.map((th) => (
+            {learningData.trainingHistory.length === 0 ? (<div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-200">No verified training runs are available. Training is not configured.</div>) : learningData.trainingHistory.map((th) => (
               <div key={th.id} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-white">{th.pair} (Epoch #{th.epoch})</span>
@@ -237,7 +235,7 @@ export default function LearningUniverseView() {
                 <Calendar className="w-4 h-4 text-amber-400" />
                 4. Daily Data Update Status (สถานะการอัปเดตข้อมูล)
               </h3>
-              <span className="text-xs font-mono text-emerald-400">100% HEALTH</span>
+              <span className="text-xs font-mono text-emerald-400">{learningData.autoUpdateJob.automated ? learningData.autoUpdateJob.healthPct + "% HEALTH" : "NOT CONFIGURED"}</span>
             </div>
 
             <div className="mt-4 space-y-2.5 text-xs font-mono">
@@ -247,12 +245,12 @@ export default function LearningUniverseView() {
               </div>
               <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between">
                 <span className="text-slate-400">Automated Pipeline:</span>
-                <span className="text-emerald-400 font-bold">ACTIVE (Cron Daemon)</span>
+                <span className="text-amber-300 font-bold">{learningData.autoUpdateJob.automated ? "ACTIVE" : "NOT CONFIGURED"}</span>
               </div>
               <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between">
                 <span className="text-slate-400">Next Scheduled Sync:</span>
                 <span className="text-cyan-300">
-                  {new Date(learningData.featureStore.nextScheduledUpdateAt).toLocaleTimeString()}
+                  {learningData.featureStore.nextScheduledUpdateAt ? new Date(learningData.featureStore.nextScheduledUpdateAt).toLocaleTimeString() : 'Not scheduled'}
                 </span>
               </div>
             </div>
@@ -271,7 +269,7 @@ export default function LearningUniverseView() {
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono flex items-center gap-2">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Feast Schema Contract Validated · Zero Data Drift Detected</span>
+            <span>Schema validation and data-drift status are unavailable; the pipeline has not run.</span>
           </div>
         </div>
       </div>

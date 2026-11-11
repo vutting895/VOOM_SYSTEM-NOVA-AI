@@ -219,7 +219,7 @@ export default function TradingInfrastructureView() {
                 4. Risk Policy / Fail-Closed Guard
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400">
-                HARD RULES ACTIVE
+                POLICY NOT ENFORCED
               </span>
             </div>
 
