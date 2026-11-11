@@ -54,9 +54,9 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 **Maximum risk per trade: 5% of current account Equity, calculated in USD.** This is the owner-selected target policy for future production readiness; it does not enable Live execution.
 
-For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 1% of notional position value, margin used, or order volume.
+For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 5% of notional position value, margin used, or order volume.
 
-The 5% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the 1% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
+The 5% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the 5% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
 
 ### Canonical currency and reporting policy
 
