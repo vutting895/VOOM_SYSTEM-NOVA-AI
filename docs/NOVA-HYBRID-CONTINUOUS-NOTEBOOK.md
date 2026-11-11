@@ -46,3 +46,15 @@ Run `python -m unittest discover -s tests -p "test_nova_hybrid_notebook.py" -v`.
 The outer walk-forward fold is reserved for one-time candidate evaluation. Fit and early-stopping partitions are created inside the outer training window; fit labels must mature strictly before the inner early-stopping boundary. The outer evaluation fold is never used for early stopping. Outer training labels must also mature strictly before the outer fit cutoff, with a horizon-sized embargo before the evaluation block.
 
 Reported accuracy and log-loss are fold-level candidate diagnostics only. They are not calibrated OOF probabilities, do not populate the five-family Meta Decision evidence bundle, and do not demonstrate trading profitability. This notebook does not fabricate Vision, Temporal CNN or Residual MLP predictions; those families must supply independently trained, calibrated, timestamp-aligned OOF evidence. The OOF validator rejects unexpected families as well as missing families.
+
+
+## Approved OOF evidence input
+
+The notebook can ingest a separately generated canonical five-family bundle from Kaggle input directory `/kaggle/input/nova-approved-oof` using:
+- `nova_meta_oof.csv`
+- `nova_meta_oof.manifest.json`
+- `nova_meta_oof.manifest.approval.json`
+
+The manifest must bind the CSV SHA-256, integer row count, source provenance, 40-character source commit SHA, evaluator version, `completeness_status=PASS`, and `oof_status=PASS`. The approval receipt must bind the same CSV SHA and source commit. Every CSV row must carry the same evaluator version as the manifest and pass the strict five-family OOF contract. Missing or invalid inputs return a BLOCKED audit; they are never silently accepted.
+
+This is an ingestion path, not an OOF generator. Notebook XGBoost/LSTM outer-fold diagnostics do not supply calibrated five-family OOF evidence. The canonical Quant Engine must separately produce and approve that bundle.
