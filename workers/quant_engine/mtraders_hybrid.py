@@ -16,6 +16,20 @@ REGIME_STRATEGIES = {
     "MIXED": tuple(range(30)),
 }
 MODEL_WEIGHTS = {"wave3": 0.15, "xgboost": 0.15, "lstm": 0.15, "smc": 0.20}
+STRATEGY_FAMILY_NAMES = (
+    "TREND", "MOMENTUM", "BREAKOUT", "VOLATILITY",
+    "LIQUIDITY", "FLOW_VOLUME", "SESSION", "REVERSAL",
+)
+STRATEGY_FAMILY_BY_ID = {
+    **{sid: 0 for sid in (0, 2, 4, 5, 8, 15, 27)},
+    **{sid: 1 for sid in (3, 6, 7, 21)},
+    **{sid: 2 for sid in (1, 12, 14, 22, 26)},
+    **{sid: 3 for sid in (16, 24, 28)},
+    **{sid: 4 for sid in (18, 20, 23, 29)},
+    **{sid: 5 for sid in (9, 10, 17, 19)},
+    **{sid: 6 for sid in (11, 13)},
+    25: 7,
+}
 
 
 def detect_market_regime(candles: Any) -> dict[str, Any]:
@@ -57,8 +71,8 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
     for name, x in (("minimum_strategy_score", minimum_strategy_score), ("consensus_threshold", consensus_threshold)):
         if isinstance(x, bool) or not isinstance(x, (int, float)) or not isfinite(float(x)) or not 0 <= x <= 1:
             raise ValueError(f"{name} must be finite and in [0, 1]")
-    if isinstance(minimum_strategy_votes, bool) or not isinstance(minimum_strategy_votes, int) or not 1 <= minimum_strategy_votes <= 30:
-        raise ValueError("minimum_strategy_votes must be 1..30")
+    if isinstance(minimum_strategy_votes, bool) or not isinstance(minimum_strategy_votes, int) or not 1 <= minimum_strategy_votes <= len(STRATEGY_FAMILY_NAMES):
+        raise ValueError("minimum_strategy_votes must be 1..8 independent families")
     if performance_weights is not None:
         if not isinstance(performance_weights, Mapping):
             raise ValueError("performance_weights must be a mapping")
@@ -76,24 +90,54 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
             "orders_submitted": False, "execution_enabled": False, "live_trading_enabled": False}
     if receipt is None:
         return {**base, "decision": "DATA_QUALITY_BLOCKED", "signal": None, "reason": "server_attached_dataset_quality_receipt_required",
-                "dataset_receipt": None, "selected_modules": [], "model_votes_used": [], "ensemble_score": 0.0}
+                "dataset_receipt": None, "selected_modules": [], "selected_families": [], "model_votes_used": [], "ensemble_score": 0.0}
     if regime["regime"] == "INSUFFICIENT_DATA":
         return {**base, "decision": "INSUFFICIENT_DATA", "signal": None, "reason": "at_least_55_completed_bars_required",
-                "dataset_receipt": receipt, "selected_modules": [], "model_votes_used": [], "ensemble_score": 0.0}
+                "dataset_receipt": receipt, "selected_modules": [], "selected_families": [], "model_votes_used": [], "ensemble_score": 0.0}
     eligible_ids = REGIME_STRATEGIES[regime["regime"]]
     selected = [x for x in modules if x["strategy_id"] in eligible_ids and x["signal"] and abs(x["score"]) >= minimum_strategy_score]
-    total = long = short = 0.0
     votes = []
+    by_family: dict[int, dict[str, list[dict[str, Any]]]] = {}
     for x in selected:
         sid = x["strategy_id"]
         weight = max(0.25, abs(x["score"]))
         if performance_weights is not None:
             weight *= performance_weights.get(str(sid), 1.0)
-        total += weight * x["signal"]
-        if x["signal"] > 0: long += weight
-        else: short += weight
-        votes.append({"strategy_id": sid, "name": x["name"], "direction": x["signal"], "score": x["score"], "weight": round(weight, 6), "reason": x["reason"]})
-    strategy_score = total / sum(v["weight"] for v in votes) if votes else 0.0
+        family_id = STRATEGY_FAMILY_BY_ID[sid]
+        family_bucket = by_family.setdefault(family_id, {"long": [], "short": []})
+        direction_key = "long" if x["signal"] > 0 else "short"
+        vote = {"strategy_id": sid, "name": x["name"], "direction": x["signal"],
+                "score": x["score"], "weight": round(weight, 6), "reason": x["reason"],
+                "family": STRATEGY_FAMILY_NAMES[family_id]}
+        votes.append(vote)
+        family_bucket[direction_key].append(vote)
+
+    family_votes = []
+    conflicted_families = []
+    for family_id, bucket in sorted(by_family.items()):
+        longs, shorts = bucket["long"], bucket["short"]
+        # A family with internal disagreement contributes no independent vote.
+        if longs and shorts:
+            conflicted_families.append(STRATEGY_FAMILY_NAMES[family_id])
+            continue
+        candidates = longs or shorts
+        if not candidates:
+            continue
+        strongest = max(candidates, key=lambda item: (item["weight"], -item["strategy_id"]))
+        family_votes.append({
+            "family": STRATEGY_FAMILY_NAMES[family_id],
+            "family_id": family_id,
+            "direction": strongest["direction"],
+            "score": strongest["score"],
+            "weight": strongest["weight"],
+            "selected_strategy_id": strongest["strategy_id"],
+            "supporting_module_ids": [item["strategy_id"] for item in candidates],
+        })
+
+    long = sum(item["weight"] for item in family_votes if item["direction"] > 0)
+    short = sum(item["weight"] for item in family_votes if item["direction"] < 0)
+    total = long + short
+    strategy_score = (long - short) / total if total else 0.0
     if model_votes is not None and not isinstance(model_votes, Mapping):
         raise ValueError("model_votes must be a mapping")
     model_total = model_weight = 0.0
@@ -119,14 +163,15 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
     conflict = min(long, short) / max(long + short, 1e-12)
     direction = 1 if ensemble >= consensus_threshold else -1 if ensemble <= -consensus_threshold else 0
     reason = "regime_compatible_strategy_consensus"
-    if len(votes) < minimum_strategy_votes:
-        direction, reason = 0, "insufficient_independent_strategy_votes"
+    if len(family_votes) < minimum_strategy_votes:
+        direction, reason = 0, "insufficient_independent_strategy_families"
     elif conflict >= 0.45:
         direction, reason = 0, "material_strategy_conflict"
     elif not direction:
         reason = "consensus_below_threshold"
     return {**base, "dataset_receipt": receipt, "eligible_module_ids": list(eligible_ids),
-            "selected_modules": votes, "strategy_vote_count": len(votes), "strategy_score": round(strategy_score, 6),
+            "selected_modules": votes, "selected_families": family_votes, "conflicted_families": conflicted_families,
+            "module_vote_count": len(votes), "strategy_vote_count": len(family_votes), "strategy_score": round(strategy_score, 6),
             "model_votes_used": model_used, "model_score": round(model_score, 6), "ensemble_score": round(ensemble, 6),
             "opposing_weight_share": round(conflict, 6), "signal": direction or None,
             "decision": "LONG_CANDIDATE" if direction > 0 else "SHORT_CANDIDATE" if direction < 0 else "NO_TRADE",

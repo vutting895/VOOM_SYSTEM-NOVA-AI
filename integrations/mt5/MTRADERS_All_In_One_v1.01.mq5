@@ -514,8 +514,15 @@ bool EvaluateClosedBar()
    int long_families=0,short_families=0;
    for(int family=0;family<STRATEGY_FAMILIES;family++)
    {
+      // If modules in one family disagree, discard that family rather than
+      // counting the same family once on each side.
+      if(family_long[family]>0.0 && family_short[family]>0.0)
+      {
+         if(InpJournal) PrintFormat("%s | family conflict: %s",ENGINE_LABEL,FamilyName(family));
+         continue;
+      }
       if(family_long[family]>0.0) { long_families++; long_weight+=family_long[family]; }
-      if(family_short[family]>0.0) { short_families++; short_weight+=family_short[family]; }
+      else if(family_short[family]>0.0) { short_families++; short_weight+=family_short[family]; }
    }
    int total_families=long_families+short_families;
    double total_weight=long_weight+short_weight;

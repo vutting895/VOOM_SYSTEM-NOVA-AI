@@ -140,9 +140,20 @@ class HybridTests(unittest.TestCase):
         self.assertEqual(out["decision"], "INSUFFICIENT_DATA")
         self.assertIsNone(out["signal"])
 
+
+    def test_family_aggregation_counts_one_vote_per_family_and_drops_conflicts(self):
+        out = evaluate_hybrid_strategy(approved(candles()))
+        module_ids = {item["strategy_id"] for item in out["selected_modules"]}
+        family_ids = {item["family_id"] for item in out["selected_families"]}
+        self.assertLessEqual(len(family_ids), len(module_ids))
+        self.assertEqual(out["strategy_vote_count"], len(out["selected_families"]))
+        self.assertEqual(len(family_ids), out["strategy_vote_count"])
+        self.assertEqual(out["module_vote_count"], len(out["selected_modules"]))
+        self.assertLessEqual(out["strategy_vote_count"], 8)
+
     def test_model_votes_cannot_bypass_strategy_vote_minimum(self):
         out = evaluate_hybrid_strategy(approved(candles()), model_votes={"wave3": {"direction": 1, "score": 1.0}},
-                                       minimum_strategy_votes=30)
+                                       minimum_strategy_votes=8)
         self.assertEqual(out["decision"], "NO_TRADE")
 
     def test_invalid_model_vote_rejected(self):
