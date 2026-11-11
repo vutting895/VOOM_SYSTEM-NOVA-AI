@@ -33,6 +33,11 @@ class HybridNotebookContractTests(unittest.TestCase):
         for value in forbidden:
             self.assertNotIn(value, self.source)
 
+    def test_gap_segments_prevent_cross_gap_windows(self):
+        self.assertIn("segment_id", self.source)
+        self.assertIn("groupby('segment_id'", self.source)
+        self.assertIn("no feature/label/sequence may cross it", self.source)
+
     def test_multimarket_contract_and_oof_gate(self):
         self.assertIn("ASSETS =", self.source)
         self.assertIn("TIMEFRAMES =", self.source)
