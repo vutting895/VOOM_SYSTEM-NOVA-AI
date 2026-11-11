@@ -142,9 +142,9 @@ def _write_exness_h1_fixture(
         "training_eligible": training_eligible,
         "completeness_status": "PASS" if training_eligible else "BLOCKED_MISSING_HISTORICAL_SEGMENT",
         "max_allowed_gap_hours_for_training": 96,
-        "tick_volume_min": min(int(value) for value in volumes),
-        "tick_volume_max": max(int(value) for value in volumes),
-        "tick_volume_zero_rows": sum(int(value) == 0 for value in volumes),
+        "tick_volume_min": str(min(Decimal(value) for value in volumes)),
+        "tick_volume_max": str(max(Decimal(value) for value in volumes)),
+        "tick_volume_zero_rows": sum(Decimal(value) == 0 for value in volumes),
         "gap_audit": {
             "gap_count_over_1h": sum(
                 classification != "contiguous" for classification in classifications
