@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from workers.feature.smc_wave.smc_strategy import analyze_smc
+from workers.feature.smc_wave.smc_strategy import _validate, analyze_smc
 
 TIMEFRAME_SECONDS = {
     "D1": 86_400,
@@ -59,8 +59,8 @@ def _validate_timeframe_bars(
         timestamps.append(timestamp)
         previous = timestamp
 
-    # Reuse the canonical OHLC validation and research structure implementation.
-    analyze_smc(candles)
+    # Reuse the canonical OHLC validator without running the full SMC engine twice.
+    _validate(candles)
     return timestamps
 
 
