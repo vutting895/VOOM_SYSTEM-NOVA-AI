@@ -1,0 +1,95 @@
+name: Windows CI Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - "tools/ci/**"
+      - "workers/quant_engine/**"
+      - "tests/**"
+      - "integrations/**"
+      - "src/**"
+      - "package.json"
+      - "vite.config.ts"
+      - ".github/workflows/windows-ci-diagnostic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-windows-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quant-windows:
+    name: Quant Engine (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: .
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Windows runner preflight
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "OS=$([System.Environment]::OSVersion.VersionString)"
+          python --version
+          python -m pip --version
+          git --version
+      - name: Compile and run Quant Engine tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python tools/ci/run.py --suite quant
+      - name: Upload Quant test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quant-windows-diagnostics
+          path: |
+            **/test-reports/**
+            **/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend-windows:
+    name: Frontend (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      PYTHONUNBUFFERED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder-not-a-secret"
+      NEXT_PUBLIC_SYSTEM_HUB_URL: "https://example.invalid"
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAFlosj98ci8iYugG"
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Windows runner preflight
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "OS=$([System.Environment]::OSVersion.VersionString)"
+          python --version
+          node --version
+          npm --version
+      - name: Run Frontend suite through Python controller
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python tools/ci/run.py --suite frontend
