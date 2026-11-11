@@ -1,6 +1,6 @@
 # NOVA Aggregate Profit Close — Configurable Target Design
 
-Status: design proposal; disabled by default. No broker execution is implemented or authorized by this document.
+Status: Core calculator, owner-scoped Supabase persistence/RPC, authenticated Worker API and Dashboard target settings are implemented on the feature branch. Disabled by default; no broker close execution is implemented or authorized.
 Baseline main: dad49ccbd6e69a02c6bb5c248657d6e12a421fe3
 Feature branch: feat/aggregate-profit-close-100usd-20261111
 
@@ -10,10 +10,10 @@ Feature branch: feat/aggregate-profit-close-100usd-20261111
 - Input: positive decimal amount, normalized to two decimal places. Reject zero, negative, NaN, infinity, malformed values, and values outside the configured safety maximum.
 - Scope: all NOVA-owned open positions across registered NOVA symbols and strategies; never all account positions.
 - Display: current target, current eligible net basket P/L, remaining amount to target, calculation freshness, active basket cycle, and whether the target change is pending.
-- Persist every setting version with actor, timestamp, old value, new value, account binding, and reason. Never store credentials in this record.
+- Persist every setting version with actor, timestamp, old value, new value, account binding, and reason. Never store credentials in this record. The Supabase migration adds owner-scoped settings, pending-target fields, cycle snapshots and audit history.
 
 ## Change semantics
-- Target changes are allowed only for an authorized owner and while no close cycle is TRIGGERED, CLOSING, or RECONCILING.
+- Target changes are allowed only for an authorized owner and while no close cycle is TRIGGERED, CLOSING, RECONCILING, or PARTIAL_OR_BLOCKED.
 - If a basket cycle is already active, stage the new target for the next cycle. Do not mutate the immutable target snapshot of the active cycle.
 - Every basket cycle snapshots target amount, currency, scope, account/server, owner/tenant, eligible position identifiers, calculation inputs, and configuration version.
 - Changing the target must not itself submit a close request. The monitor evaluates the new target only after the setting is saved and a fresh complete calculation is available.
@@ -66,8 +66,8 @@ Feature branch: feat/aggregate-profit-close-100usd-20261111
 
 ## Delivery gates
 1. Review and approve semantics and configurable target bounds.
-2. Implement pure basket calculation, input validation, settings persistence/audit, ownership classifier, and tests.
-3. Implement Demo-only close coordinator behind disabled capability boundary; preserve read-only Bridge.
-4. Add adapter contract tests for idempotency, partial fills, reconciliation, and risk precedence.
-5. Complete native EA compilation and isolated Demo close lifecycle tests.
-6. Submit implementation PR for review; do not merge or deploy automatically.
+2. DONE on feature branch: pure basket calculation, input validation, ownership classifier, Supabase settings/audit schema and owner-authenticated target RPC, Worker GET/POST API, Dashboard target editor, and local Windows tests.
+3. IN PROGRESS: implement trusted backend cycle creation/reconciliation and pending-target promotion behind a disabled capability boundary; preserve read-only Bridge.
+4. PENDING: add adapter contract tests for idempotency, partial fills, reconciliation, and risk precedence.
+5. PENDING: complete native EA compilation and isolated Demo close lifecycle tests.
+6. OPEN: implementation PR #290 remains Draft; do not merge or deploy automatically. Windows evidence: 17 Python tests, 6 migration contract tests, 21 Worker API tests, and targeted TypeScript check passed. Migration not yet executed against PostgreSQL.
