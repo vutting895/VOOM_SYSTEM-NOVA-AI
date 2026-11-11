@@ -104,7 +104,7 @@ if (!jobResponse.ok) throw new Error(jobPayload.error || "Could not record job")
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NOVA_VIDEO_ALLOWED_ORIGINS`
 
-The Supabase migration `202610310001_nova_video_workspace` is not yet applied to the hosted project. The API will return 503 for project/job operations until the migration is applied to an approved isolated staging environment and then an explicitly approved production release. Do not apply it to production as part of this API-only branch.
+The unapplied Video Workspace SQL is preserved at `supabase/pending-migrations/nova_video_workspace.sql`, outside the active migration directory. Its original filename timestamp (`202610310001`) sorts before the latest applied Production version (`20261031070311`), so it must not be reactivated under that timestamp. After the Production migration history is restored, generate a fresh filename with `supabase migration new nova_video_workspace`, copy this preserved SQL into the generated file, and verify it on an isolated local/Staging path before any hosted apply. The API will return 503 for project/job operations until the corresponding schema exists in an explicitly approved target. Do not apply it to Production as part of this API-only branch.
 
 ## Release gates
 

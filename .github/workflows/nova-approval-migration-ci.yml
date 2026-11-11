@@ -3,9 +3,9 @@ name: NOVA Approval Migration CI
 on:
   pull_request:
     paths:
-      - "supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql"
+      - "supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql"
       - "tests/sql/nova-approval-migration.integration.sql"
-      - "supabase/migrations/202610270001_mt5_customer_connections.sql"
+      - "supabase/migrations/20261027160402_mt5_customer_connections.sql"
       - "frontend/app/api/agent/**"
       - "frontend/lib/agent-approval-server.js"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
@@ -16,9 +16,9 @@ on:
       - main
       - feat/nova-durable-approval-lifecycle-20261030
     paths:
-      - "supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql"
+      - "supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql"
       - "tests/sql/nova-approval-migration.integration.sql"
-      - "supabase/migrations/202610270001_mt5_customer_connections.sql"
+      - "supabase/migrations/20261027160402_mt5_customer_connections.sql"
       - "frontend/app/api/agent/**"
       - "frontend/lib/agent-approval-server.js"
       - "frontend/scripts/nova-approval-local-supabase.integration.mjs"
@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           pg_container="$(docker ps -q --filter 'ancestor=postgres:17' | head -n1)"
-          docker cp supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$pg_container:/tmp/nova-approval-migration.sql"
+          docker cp supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql "$pg_container:/tmp/nova-approval-migration.sql"
           docker exec "$pg_container" psql -U postgres -d nova_test -v ON_ERROR_STOP=1 -f /tmp/nova-approval-migration.sql
 
       - name: Verify owner session, foreign-user denial and one-time decision in PostgreSQL
@@ -129,8 +129,8 @@ jobs:
           CREATE SCHEMA IF NOT EXISTS extensions;
           CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
           SQL
-          cp supabase/migrations/202610270001_mt5_customer_connections.sql "$workdir/supabase/migrations/"
-          cp supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+          cp supabase/migrations/20261027160402_mt5_customer_connections.sql "$workdir/supabase/migrations/"
+          cp supabase/migrations/20261031070311_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
 
           cd "$workdir"
           supabase init
