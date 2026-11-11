@@ -76,6 +76,7 @@ test("MTRADERS EA defaults are disabled and match the configured NOVA risk polic
   assert.match(ea, /InpMaxSingleRiskPct\s*=\s*1\.0/);
   assert.match(ea, /InpMaxOpenRiskPct\s*=\s*9\.0/);
   assert.match(ea, /InpDailyLossPct\s*=\s*10\.0/);
+  assert.match(ea, /InpAllowBoundedMinLot\s*=\s*false/);
   assert.doesNotMatch(ea, /InpTradeEnabled\s*=\s*true|InpRiskPercent\s*=\s*5\.0|InpMaxOpenRiskPct\s*=\s*30\.0|InpDailyLossPct\s*=\s*35\.0/);
   assert.doesNotMatch(ea, /OrderSend|OrderSendAsync|trade\.Buy|trade\.Sell/);
 });
