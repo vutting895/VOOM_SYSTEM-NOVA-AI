@@ -121,6 +121,18 @@ async def claim_job(
     if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 5 <= lease_seconds <= 900:
         raise QueueError("lease_seconds must be an integer from 5 to 900")
 
+    # Expired leases that exhausted their retry budget must not remain running forever.
+    await conn.execute(
+        """
+        UPDATE nova_jobs
+        SET status = 'dead', worker_id = NULL, lease_expires_at = NULL,
+            last_error_code = COALESCE(last_error_code, 'LEASE_EXPIRED'),
+            updated_at = now()
+        WHERE status = 'running'
+          AND lease_expires_at < now()
+          AND attempts >= max_attempts
+        """
+    )
     row = await conn.fetchrow(
         """
         WITH candidate AS (
@@ -157,8 +169,8 @@ async def heartbeat_job(
     worker_id: str,
     lease_seconds: int = 60,
 ) -> bool:
-    if not 5 <= lease_seconds <= 900:
-        raise QueueError("lease_seconds must be from 5 to 900")
+    if isinstance(lease_seconds, bool) or not isinstance(lease_seconds, int) or not 5 <= lease_seconds <= 900:
+        raise QueueError("lease_seconds must be an integer from 5 to 900")
     result = await conn.execute(
         """
         UPDATE nova_jobs
