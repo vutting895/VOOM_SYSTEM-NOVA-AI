@@ -124,7 +124,7 @@ class NetPnlTests(unittest.TestCase):
 
     def test_usd_account_uses_identity_rate(self):
         self.assertEqual(
-            build(positions_snapshot=snapshot(currency="USD"), currency_to_usd_rate="1")["net_pnl_usd"],
+            build(positions_snapshot=snapshot(currency="USD"), currency_to_usd_rate="1", deal_history_chunks=[chunk(currency="USD")])["net_pnl_usd"],
             "10.4",
         )
 
