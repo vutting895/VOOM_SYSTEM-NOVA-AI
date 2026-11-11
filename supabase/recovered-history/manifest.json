@@ -9,9 +9,9 @@
   "purpose": "Forensic recovery only; not active Supabase migrations.",
   "environments": {
     "production": {
-      "migration_count": 25,
+      "migration_count": 28,
       "first_version": "20261023110233",
-      "latest_version": "20261031070311",
+      "latest_version": "20261107225005",
       "migrations": [
         {
           "version": "20261023110233",
@@ -212,6 +212,30 @@
           "statement_count": 1,
           "sql_chars": 15377,
           "sha256": "7eb494acd6f498cd50e4d52ec06f7c21fe7f8d91ec28afcfb3c8396b804deb3e"
+        },
+        {
+          "version": "20261107224836",
+          "name": "nova_durable_analysis_jobs",
+          "path": "supabase/recovered-history/production/20261107224836_nova_durable_analysis_jobs.sql",
+          "statement_count": 1,
+          "sql_chars": 8777,
+          "sha256": "37c560fdc23091bdc14019f7269d6624f4a4e58d445dffe73c327b2a5165e8a7"
+        },
+        {
+          "version": "20261107224911",
+          "name": "nova_analysis_fk_indexes",
+          "path": "supabase/recovered-history/production/20261107224911_nova_analysis_fk_indexes.sql",
+          "statement_count": 1,
+          "sql_chars": 429,
+          "sha256": "de9c21ff2c05f0d7c121339c08cf93a0fc67b6238f1e859c65e50f99fc5c16b9"
+        },
+        {
+          "version": "20261107225005",
+          "name": "nova_analysis_status_null_guard",
+          "path": "supabase/recovered-history/production/20261107225005_nova_analysis_status_null_guard.sql",
+          "statement_count": 1,
+          "sql_chars": 2050,
+          "sha256": "b23c421430efa0459607df273ed79908bad670bbcf164fb385f688ee273a13d0"
         }
       ]
     }
