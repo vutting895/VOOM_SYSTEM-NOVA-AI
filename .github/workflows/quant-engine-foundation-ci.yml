@@ -8,6 +8,8 @@ on:
       - "tests/test_quant_experiment_contract.py"
       - "tests/test_mtraders_native_hybrid.py"
       - "tests/test_mtraders_backtest.py"
+      - "tests/test_nova_execution_contract.py"
+      - "tests/test_nova_position_lifecycle.py"
       - "workers/quant_engine/mtraders_backtest.py"
       - "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
@@ -48,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py tests/test_mtraders_backtest.py 2>&1 | tee test-results/compile.log
+          python -m compileall -q workers/quant_engine integrations/mt5/nova_execution_contract.py integrations/mt5/nova_position_lifecycle.py tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py tests/test_mtraders_backtest.py tests/test_nova_execution_contract.py tests/test_nova_position_lifecycle.py 2>&1 | tee test-results/compile.log
       - name: Run Quant Engine contract tests
         env:
           PYTHONPATH: .
@@ -63,6 +65,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tests -p "test_mtraders*.py" -v 2>&1 | tee test-results/mtraders-tests.log
+      - name: Run NOVA Demo execution contract and position lifecycle unit tests
+        env:
+          PYTHONPATH: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p "test_nova_execution_contract.py" -v 2>&1 | tee test-results/nova-execution-contract.log
+          python -m unittest discover -s tests -p "test_nova_position_lifecycle.py" -v 2>&1 | tee test-results/nova-position-lifecycle.log
       - name: Write exact-head test summary
         if: always()
         shell: bash
