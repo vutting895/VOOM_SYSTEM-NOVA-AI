@@ -102,6 +102,30 @@ class NovaPositionClosePlannerTests(unittest.TestCase):
             "intent_ttl_invalid",
         )
 
+
+    def test_non_numeric_position_volume_is_rejected(self):
+        positions = [PositionSnapshot(
+            7001, "XAUUSDm", 690711000, "0.01", 123456, "Exness-MT5Trial"
+        ), self.positions[1]]
+        self.assertEqual(
+            plan_owned_position_closes(self.intent, positions, **self.kw).reason,
+            "invalid_position_snapshot",
+        )
+
+    def test_duplicate_snapshot_ticket_is_rejected(self):
+        positions = [self.positions[0], self.positions[0], self.positions[1]]
+        self.assertEqual(
+            plan_owned_position_closes(self.intent, positions, **self.kw).reason,
+            "duplicate_snapshot_ticket",
+        )
+
+    def test_malformed_snapshot_object_is_rejected(self):
+        positions = [self.positions[0], object()]
+        self.assertEqual(
+            plan_owned_position_closes(self.intent, positions, **self.kw).reason,
+            "invalid_position_snapshot",
+        )
+
     def test_invalid_position_volume_is_rejected(self):
         positions = [PositionSnapshot(
             7001, "XAUUSDm", 690711000, float("inf"), 123456, "Exness-MT5Trial"
