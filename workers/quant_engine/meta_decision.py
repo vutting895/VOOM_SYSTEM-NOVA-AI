@@ -11,7 +11,7 @@ import math
 import re
 from typing import Any
 
-MODEL_WEIGHTS = {"lstm": 0.25, "deep_learning": 0.25, "xgboost": 0.25, "vision": 0.25}
+MODEL_WEIGHTS = {"lstm": 0.20, "deep_learning": 0.20, "xgboost": 0.20, "vision": 0.20, "neural_network": 0.20}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 MIN_OOS_SAMPLES = 30
 REDUNDANCY_CORRELATION = 0.90
