@@ -46,7 +46,7 @@ TO service_role;
 -- Serializes capacity decisions per tenant + MT5 account. The broker snapshot
 -- must be authenticated and no older than five seconds. Existing reservations
 -- are counted in addition to broker positions and pending orders.
-CREATE OR REPLACE FUNCTION private.reserve_nova_order_capacity(
+CREATE OR REPLACE FUNCTION public.reserve_nova_order_capacity(
   p_tenant_id uuid,
   p_account_login bigint,
   p_account_server text,
@@ -126,7 +126,7 @@ $$;
 -- ticket. A ticketed reservation no longer expires automatically; it remains
 -- counted until a fresh broker snapshot confirms that ticket is now included
 -- in Positions + Pending Orders.
-CREATE OR REPLACE FUNCTION private.confirm_nova_order_reservation(
+CREATE OR REPLACE FUNCTION public.confirm_nova_order_reservation(
   p_tenant_id uuid,
   p_account_login bigint,
   p_account_server text,
@@ -166,7 +166,7 @@ $$;
 
 -- Release only when the trusted broker adapter has positively confirmed that
 -- the submission failed and no position or pending order was created.
-CREATE OR REPLACE FUNCTION private.release_failed_nova_order_reservation(
+CREATE OR REPLACE FUNCTION public.release_failed_nova_order_reservation(
   p_tenant_id uuid,
   p_account_login bigint,
   p_account_server text,
@@ -201,7 +201,7 @@ $;
 -- Release only after a fresh broker snapshot proves the submitted ticket is
 -- reflected in the account-wide count. Caller must supply ticket IDs actually
 -- present in that authenticated snapshot.
-CREATE OR REPLACE FUNCTION private.reconcile_nova_order_reservations(
+CREATE OR REPLACE FUNCTION public.reconcile_nova_order_reservations(
   p_tenant_id uuid,
   p_account_login bigint,
   p_account_server text,
@@ -248,28 +248,28 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION private.reserve_nova_order_capacity(
+REVOKE ALL ON FUNCTION public.reserve_nova_order_capacity(
   uuid, bigint, text, uuid, uuid, integer, integer, timestamptz, integer
 ) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION private.confirm_nova_order_reservation(
+REVOKE ALL ON FUNCTION public.confirm_nova_order_reservation(
   uuid, bigint, text, uuid, text
 ) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION private.reconcile_nova_order_reservations(
+REVOKE ALL ON FUNCTION public.reconcile_nova_order_reservations(
   uuid, bigint, text, text[], integer, integer, timestamptz
 ) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION private.release_failed_nova_order_reservation(
+REVOKE ALL ON FUNCTION public.release_failed_nova_order_reservation(
   uuid, bigint, text, uuid
 ) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION private.reserve_nova_order_capacity(
+GRANT EXECUTE ON FUNCTION public.reserve_nova_order_capacity(
   uuid, bigint, text, uuid, uuid, integer, integer, timestamptz, integer
 ) TO service_role;
-GRANT EXECUTE ON FUNCTION private.confirm_nova_order_reservation(
+GRANT EXECUTE ON FUNCTION public.confirm_nova_order_reservation(
   uuid, bigint, text, uuid, text
 ) TO service_role;
-GRANT EXECUTE ON FUNCTION private.reconcile_nova_order_reservations(
+GRANT EXECUTE ON FUNCTION public.reconcile_nova_order_reservations(
   uuid, bigint, text, text[], integer, integer, timestamptz
 ) TO service_role;
-GRANT EXECUTE ON FUNCTION private.release_failed_nova_order_reservation(
+GRANT EXECUTE ON FUNCTION public.release_failed_nova_order_reservation(
   uuid, bigint, text, uuid
 ) TO service_role;
 
