@@ -27,13 +27,14 @@ class HybridNotebookContractTests(unittest.TestCase):
             "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
         }
         module = ast.Module(
-            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"]],
+            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"]],
             type_ignores=[],
         )
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
         cls.make_features = staticmethod(namespace["make_features"])
+        cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
 
     @staticmethod
     def valid_votes(start="2026-06-29T00:00:00Z"):
@@ -171,6 +172,26 @@ class HybridNotebookContractTests(unittest.TestCase):
         votes.loc[votes["family"] == "vision", "family"] = "wave3"
         with self.assertRaisesRegex(ValueError, "missing Meta Decision model families"):
             self.validate_oof_bundle(votes)
+
+    def test_walk_forward_purges_training_labels_by_actual_timestamp(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps + pd.Timedelta(hours=20),
+            "label": np.tile([0, 1], 100),
+        })
+        folds = self.walk_forward_folds(frame, folds=3, horizon=5)
+        self.assertEqual(len(folds), 3)
+        for train, valid in folds:
+            validation_start = valid["timestamp_utc"].min()
+            self.assertTrue((train["timestamp_utc"] < validation_start).all())
+            self.assertTrue((train["label_end_utc"] < validation_start).all())
+
+    def test_walk_forward_rejects_missing_label_end_timestamp(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({"timestamp_utc": timestamps, "label": np.tile([0, 1], 100)})
+        with self.assertRaisesRegex(ValueError, "requires timestamp_utc and label_end_utc"):
+            self.walk_forward_folds(frame, folds=3, horizon=5)
 
     def test_feature_engineering_drops_non_finite_volume_ratios(self):
         timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=50, freq="h")
