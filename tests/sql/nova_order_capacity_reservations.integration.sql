@@ -15,7 +15,7 @@ DECLARE
   v_released integer;
 BEGIN
   -- 3 positions + 1 pending = 4; one reservation fills the final slot.
-  v_allowed := private.reserve_nova_order_capacity(
+  v_allowed := public.reserve_nova_order_capacity(
     v_tenant, v_login, v_server, v_command_1, v_reservation_1,
     3, 1, clock_timestamp(), 30
   );
@@ -25,7 +25,7 @@ BEGIN
 
   -- A second concurrent caller sees the first reservation under the same
   -- account row lock and is denied: 3 + 1 + 1 reservation = 5.
-  v_allowed := private.reserve_nova_order_capacity(
+  v_allowed := public.reserve_nova_order_capacity(
     v_tenant, v_login, v_server, v_command_2, v_reservation_2,
     3, 1, clock_timestamp(), 30
   );
@@ -35,13 +35,13 @@ BEGIN
 
   -- Confirm broker acceptance; keep reservation until a fresh snapshot
   -- proves that the returned ticket is reflected in positions/pending.
-  IF NOT private.confirm_nova_order_reservation(
+  IF NOT public.confirm_nova_order_reservation(
     v_tenant, v_login, v_server, v_reservation_1, 'TEST-TICKET-1'
   ) THEN
     RAISE EXCEPTION 'expected reservation confirmation';
   END IF;
 
-  v_released := private.reconcile_nova_order_reservations(
+  v_released := public.reconcile_nova_order_reservations(
     v_tenant, v_login, v_server, ARRAY['TEST-TICKET-1'],
     3, 2, clock_timestamp()
   );
@@ -50,7 +50,7 @@ BEGIN
   END IF;
 
   -- Actual broker exposure is now 5, so no new reservation may be created.
-  v_allowed := private.reserve_nova_order_capacity(
+  v_allowed := public.reserve_nova_order_capacity(
     v_tenant, v_login, v_server, v_command_2, v_reservation_2,
     3, 2, clock_timestamp(), 30
   );
@@ -59,14 +59,14 @@ BEGIN
   END IF;
 
   -- Explicit broker rejection safely releases an unconfirmed reservation.
-  v_allowed := private.reserve_nova_order_capacity(
+  v_allowed := public.reserve_nova_order_capacity(
     v_tenant, v_login, v_server, gen_random_uuid(), v_reservation_2,
     2, 1, clock_timestamp(), 30
   );
   IF NOT v_allowed THEN
     RAISE EXCEPTION 'expected capacity after confirmed broker exposure dropped to 3';
   END IF;
-  IF NOT private.release_failed_nova_order_reservation(
+  IF NOT public.release_failed_nova_order_reservation(
     v_tenant, v_login, v_server, v_reservation_2
   ) THEN
     RAISE EXCEPTION 'expected failed submission reservation to release';
