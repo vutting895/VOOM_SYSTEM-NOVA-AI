@@ -1773,5 +1773,3 @@ async function startServer() {
 }
 
 startServer();
-
-[executed on device: 10_0_16_116 (1b921001-c4e2-479a-8a95-7345393686dd)]
