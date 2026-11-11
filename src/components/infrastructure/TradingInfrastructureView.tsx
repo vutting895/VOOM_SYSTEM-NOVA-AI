@@ -125,7 +125,7 @@ export default function TradingInfrastructureView() {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-emerald-400 font-mono">
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-amber-300 font-mono">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Credential isolation not verified - no broker session</span>
           </div>
@@ -139,8 +139,8 @@ export default function TradingInfrastructureView() {
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 2. Exness Demo Target
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
-                READ-ONLY CATALOGUE
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                TARGET ONLY - NOT CONNECTED
               </span>
             </div>
 
@@ -266,7 +266,7 @@ export default function TradingInfrastructureView() {
                 <Database className="w-3.5 h-3.5 text-emerald-400" />
                 5. Data Pipeline
               </span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300">
                 {infraData.dataPipeline.status}
               </span>
             </div>

@@ -235,7 +235,7 @@ export default function LearningUniverseView() {
                 <Calendar className="w-4 h-4 text-amber-400" />
                 4. Daily Data Update Status (สถานะการอัปเดตข้อมูล)
               </h3>
-              <span className="text-xs font-mono text-emerald-400">{learningData.autoUpdateJob.automated ? learningData.autoUpdateJob.healthPct + "% HEALTH" : "NOT CONFIGURED"}</span>
+              <span className={`text-xs font-mono ${learningData.autoUpdateJob.automated ? "text-emerald-400" : "text-amber-300"}`}>{learningData.autoUpdateJob.automated ? learningData.autoUpdateJob.healthPct + "% HEALTH" : "NOT CONFIGURED"}</span>
             </div>
 
             <div className="mt-4 space-y-2.5 text-xs font-mono">
