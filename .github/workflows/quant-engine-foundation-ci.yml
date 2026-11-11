@@ -7,6 +7,7 @@ on:
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
       - "tests/test_mtraders_native_hybrid.py"
+      - "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - "docs/NOVA-MTRADERS-HYBRID-STRATEGY.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"

@@ -2,7 +2,7 @@
 
 ## Source attribution and status
 
-The checked-in MTRADERS EA source currently contains a 30-module name/registration scaffold and a non-executing OnTick handler; it does not expose the original per-module signal rules. This implementation is therefore a new NOVA research baseline inspired by the 30 names and broad strategy families, not an exact source recovery or decompilation.
+The checked-in `integrations/mt5/MTRADERS_All_In_One_v1.01.mq5` contains a 30-module name/registration scaffold and a deliberately non-executing `OnTick` handler; it does not contain the original per-module signal rules. The NOVA Python implementation is therefore a newly authored research baseline inspired by the registered names and broad strategy families, not an exact source recovery or decompilation. A source-parity test checks all 30 names and the safe EA defaults. MetaEditor compilation is still required.
 
 ## Design
 
@@ -21,4 +21,4 @@ FootprintLite estimates close-location volume from OHLCV; it is not true bid/ask
 
 Hybrid output requires a server-attached quality receipt containing PASS status, dataset ID, quality report ID, and dataset SHA-256. The authenticated gateway must resolve that receipt against its dataset registry; user/LLM-supplied values must not be trusted. Missing or invalid receipt returns DATA_QUALITY_BLOCKED. At least 55 completed bars are required for regime classification. OHLCV is validated; invalid values and out-of-order timestamps are rejected; no missing bars/prices are fabricated. Input is bounded to 100,000 bars.
 
-The strategy library does not produce position size, SL/TP instructions, or broker orders. Keep ordersEnabled=false, executionEnabled=false, liveTradingEnabled=false. Existing risk policy, Demo-only boundary, MT5 Bridge permissions, and EA execution gates are unchanged. Cost-aware backtests, walk-forward validation, and frozen final OOS are still required before any paper/shadow promotion.
+The MQL5 scaffold defaults `InpTradeEnabled=false`, `InpRiskPercent=1.0`, `InpMaxSingleRiskPct=1.0`, `InpMaxOpenRiskPct=9.0`, and `InpDailyLossPct=10.0`; `OnInit` rejects an execution-enabled configuration and `OnTick` intentionally contains no order logic. These are defensive defaults, not evidence of a compiled or Demo-tested EA. The strategy library does not produce position size, SL/TP instructions, or broker orders. Keep ordersEnabled=false, executionEnabled=false, liveTradingEnabled=false. Existing risk policy, Demo-only boundary, MT5 Bridge permissions, and EA execution gates are unchanged. Cost-aware backtests, walk-forward validation, and frozen final OOS are still required before any paper/shadow promotion.
