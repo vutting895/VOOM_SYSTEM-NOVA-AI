@@ -1,51 +1,60 @@
+"""Deprecated compatibility wrapper for the NOVA XGBoost research adapter.
 
+The former implementation generated random funding values, trained and scored
+on the same rows, and mislabeled the incomplete future tail. This wrapper
+requires timestamped OHLCV and uses chronological purged validation instead.
 """
-Supervised Learning Worker - XGBoost / LightGBM
-งานหลัก: ทำนายทิศทางราคา - แม่นกว่า LLM ในงาน tabular
-"""
-import xgboost as xgb
-import pandas as pd
-import numpy as np
+from __future__ import annotations
+
+from workers.quant_engine.xgboost_data import (
+    build_xgboost_samples, fit_xgboost_classifier, split_xgboost_samples,
+)
+
 
 class SupervisedWorker:
-    def __init__(self):
-        self.model = xgb.XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.05)
+    def __init__(self, *, label_horizon_bars: int = 5, seed: int = 42):
+        self.label_horizon_bars = label_horizon_bars
+        self.seed = seed
+        self.model = None
         self.trained = False
-        
-    def create_features(self, df):
-        # RSI, MACD, Volume, Funding
-        df['rsi'] = self._rsi(df['close'])
-        df['macd'] = df['close'].ewm(12).mean() - df['close'].ewm(26).mean()
-        df['vol_spike'] = df['volume'] / df['volume'].rolling(20).mean()
-        df['funding'] = np.random.uniform(-0.001, 0.001, len(df))
-        return df.dropna()
-    
-    def _rsi(self, series, period=14):
-        delta = series.diff()
-        gain = (delta.where(delta > 0, 0)).rolling(period).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(period).mean()
-        rs = gain / loss
-        return 100 - (100 / (1 + rs))
-    
-    def train(self, df):
-        df = self.create_features(df)
-        df['label'] = (df['close'].shift(-5) > df['close']).astype(int) # 5 แท่งข้างหน้าขึ้น?
-        X = df[['rsi','macd','vol_spike','funding']]
-        y = df['label']
-        self.model.fit(X, y)
-        self.trained = True
-        acc = self.model.score(X, y)
-        print(f"✅ XGBoost Trained - Accuracy {acc*100:.1f}% - ใช้ใน NOVA: ทำนายทิศทาง")
-        return acc
-    
-    def predict(self, features):
-        if not self.trained:
-            return 0.5
-        return self.model.predict_proba([features])[0][1]
 
-# Example
+    def train(self, frame):
+        """Train on chronological OHLCV records; return validation metadata, not accuracy."""
+        if not hasattr(frame, "to_dict"):
+            raise TypeError("train expects a pandas DataFrame with timestamped OHLCV columns")
+        required = {"timestamp", "open", "high", "low", "close", "volume"}
+        if not required.issubset(set(frame.columns)):
+            raise ValueError("timestamp, open, high, low, close and volume columns are required")
+        samples = build_xgboost_samples(
+            frame.to_dict(orient="records"),
+            label_horizon_bars=self.label_horizon_bars,
+        )
+        partitions = split_xgboost_samples(
+            samples, label_horizon_bars=self.label_horizon_bars,
+        )
+        self.model = fit_xgboost_classifier(partitions, seed=self.seed)
+        self.trained = True
+        return {
+            "status": "TRAINED_RESEARCH_ONLY",
+            "train_samples": len(partitions.train),
+            "validation_samples": len(partitions.validation),
+            "test_samples": len(partitions.test),
+            "purged_samples": len(partitions.purged_indices),
+            "best_iteration": getattr(self.model, "best_iteration", None),
+            "test_evaluated": False,
+            "production_eligible": False,
+        }
+
+    def predict(self, features):
+        if not self.trained or self.model is None:
+            raise RuntimeError("XGBoost model has not been trained")
+        if len(features) != 6:
+            raise ValueError("features must follow the fixed six-column NOVA XGBoost schema")
+        return float(self.model.predict_proba([features])[0][1])
+
+
 if __name__ == "__main__":
-    # Mock data
-    df = pd.DataFrame({"close": np.random.randn(1000).cumsum()+50000, "volume": np.random.randint(100,1000,1000)})
-    worker = SupervisedWorker()
-    worker.train(df)
+    raise SystemExit(
+        "This prototype no longer creates synthetic market data. "
+        "Use timestamped, provenance-verified OHLCV through the NOVA research pipeline."
+    )
