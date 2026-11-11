@@ -19,7 +19,7 @@ The approval receipt must set `approved=true` and bind the same dataset SHA-256 
 - No synthetic bars or imputed volume.
 - Every unexplained gap blocks ingestion. Verified session gaps must be enumerated exactly in the manifest and each gap starts a new segment; rolling features, forward labels and sequence windows cannot cross segments.
 - Volume semantics must remain explicit and match the manifest. Examples include MT5 `tick_volume`, MT5 `real_volume`, and exchange-defined base/contract volume; do not compare raw volume magnitudes across unlike semantics.
-- UTC timestamps, unique ordering, OHLC bounds, non-negative volume, source provenance, boundary coverage, manifest hash and row count are mandatory.
+- Timezone-aware UTC timestamps, unique ordering, OHLC bounds, non-negative volume, integer-valued MT5 tick volume, source provenance, boundary coverage, manifest hash and row count are mandatory.
 - Final OOS begins at `2026-07-01T00:00:00Z`; any training input containing bars at or after that cutoff is rejected.
 - Train/validation partitions are chronological and purge the forward-label horizon.
 
