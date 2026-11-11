@@ -171,7 +171,9 @@ def analyze_multi_timeframe(
     relations: dict[str, str] = {}
     for timeframe, analysis in analyses.items():
         bias = analysis["structure_bias"]
-        if bias not in DIRECTIONAL_BIASES:
+        if d1_bias not in DIRECTIONAL_BIASES:
+            relations[timeframe] = "NO_DIRECTIONAL_D1_CONTEXT"
+        elif bias not in DIRECTIONAL_BIASES:
             relations[timeframe] = "NEUTRAL_OR_UNCLASSIFIED"
         elif bias == d1_bias:
             relations[timeframe] = "ALIGNED_WITH_D1"
@@ -199,11 +201,14 @@ def analyze_multi_timeframe(
             and isinstance(h1_event, dict)
             and h1_event.get("type") == "CHoCH"
             and h1_event.get("direction") == h4_bias
+            and isinstance(h1_event.get("index"), int)
+            and not isinstance(h1_event.get("index"), bool)
+            and h1_event["index"] >= max(0, analyses["H1"]["bars_analyzed"] - 3)
         ):
             market_state = "REVERSAL_CANDIDATE"
             state_evidence.extend([
                 f"D1 reports {d1_bias} while H4 and H1 report {h4_bias}.",
-                "The latest H1 structure event is a CHoCH in the counter-D1 direction; D1 reversal is not confirmed.",
+                "A CHoCH in the counter-D1 direction occurred within the latest three H1 bars; D1 reversal is not confirmed.",
             ])
         else:
             state_evidence.append("D1 and H4 directional structure disagree without sufficient lower-timeframe confirmation.")
