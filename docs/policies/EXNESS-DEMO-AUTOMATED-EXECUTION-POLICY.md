@@ -2,7 +2,7 @@
 
 **Status:** Owner-approved policy intent; implementation and runtime activation are NOT yet approved as complete.  
 **Policy version:** 2026-11-11  
-**Applies to:** NOVA, Exness MT5 Demo only.
+**Applies to:** NOVA Exness MT5 Demo implementation and future Live-readiness planning. Live account connection and execution remain disabled.
 
 ## 1. Authorization boundary
 
@@ -52,11 +52,11 @@ Each action must be explicitly allow-listed and schema-validated. No generic arb
 
 ### Owner-selected per-trade ceiling
 
-**Maximum risk per trade: 1% of current account Equity, calculated in USD.**
+**Maximum risk per trade: 5% of current account Equity, calculated in USD.** This is the owner-selected target policy for future production readiness; it does not enable Live execution.
 
 For this policy, risk per trade means the estimated maximum monetary loss if the initial Stop Loss is executed, including estimated spread, commission, swap where applicable, and slippage, divided by the latest verified current Equity converted to USD. It does **not** mean 1% of notional position value, margin used, or order volume.
 
-The 1% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the 1% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
+The 5% value is a hard upper bound, not a target or recommended default. The Risk Engine must size volume from the stop distance, instrument contract specifications, account denomination, and currency conversion; it must never infer volume directly from the 1% percentage. Risk must be recalculated against fresh Equity and broker metadata immediately before submission. If a valid Stop Loss or reliable cost/contract/currency calculation is unavailable, reject the order.
 
 ### Canonical currency and reporting policy
 
@@ -80,17 +80,19 @@ Automated account normalization is a risk-critical component, not a cosmetic dis
 
 ### Owner-selected daily loss ceiling
 
-**Maximum daily loss: 10% of current account Equity (dynamic/current-Equity basis), with all risk values normalized to USD.**
+**Maximum daily loss: 10% of Broker Day Start Equity (fixed baseline), with all risk values normalized to USD.**
 
-Daily loss must be measured as the net decline from the captured start-of-day Equity, including realized and unrealized P&L attributable to the current broker trading day. At every risk check, compare that USD-denominated loss amount against 10% of the latest verified current Equity converted to USD. The threshold therefore changes as current Equity changes; it is not 10% of the beginning-of-day Equity. Use a consistent FX valuation convention for the start-of-day snapshot and current valuation, and retain both broker-native and USD values for audit.
+At the first verified account snapshot for each broker trading day, capture `day_start_equity_usd` from the authenticated MT5 account Equity. Persist the exact broker-server day identifier/timezone, native equity and currency (`USC` where applicable), normalized USD value, FX/denomination provenance, capture timestamp, and policy version. The baseline is immutable for that broker day: restarts, reconnects, strategy changes, deposits/withdrawals, or intraday Equity changes must not silently reset or rebase it. If a valid baseline cannot be loaded or reconciled, fail closed for new entries.
 
-The trading-day boundary and start-of-day Equity snapshot must use a single explicitly configured broker-server timezone/day boundary, be persisted and auditable, and must not be reset by restarting NOVA, reconnecting, changing tenants, or changing strategy. If the snapshot, timezone, current Equity, P&L inputs, denomination, or required FX inputs are missing, stale, inconsistent, or cannot be reconciled, reject new risk-increasing actions and fail closed. Once the daily limit is reached, block new entries and all risk-increasing modifications for the remainder of that broker trading day. Risk-reducing actions may remain available through the separately scoped emergency policy.
+Calculate `daily_loss_usd = max(0, day_start_equity_usd - current_equity_usd)` and `daily_loss_limit_usd = day_start_equity_usd * 0.10`. Current Equity and day-start Equity must use a consistent denomination and FX valuation convention. If either value, the broker-day boundary, account identity, denomination, or required FX input is missing, stale, inconsistent, or cannot be reconciled, reject new entries.
 
-Because 1% per trade and 10% daily loss are aggressive ceilings, aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not interpret the per-trade ceiling as permission to stack unlimited simultaneous 1% risks.
+**At or above the 10% threshold, apply Entry Lock Only:** set `DAILY_LOSS_LOCKED`, reject all new entries and risk-increasing actions, and cancel all pending entry orders. Keep existing open positions unchanged under this Daily Loss Guard; do not automatically close them. Preserve protective Stop Loss / Take Profit and other orders that reduce or protect existing exposure. Continue monitoring and reporting the risk breach. The lock persists until the next broker trading day and a fresh, valid baseline is captured. This is an entry-stop threshold, not a guaranteed maximum-loss cap; retained positions can continue to lose beyond 10%.
+
+Because 5% per trade and 10% daily loss are aggressive ceilings, two fully realized losses at the per-trade ceiling can consume the daily limit before costs and slippage. Aggregate open risk must be independently capped. **The aggregate open-risk limit, maximum drawdown, position count, and order-rate thresholds remain unspecified and are activation blockers.** Do not interpret the per-trade ceiling as permission to stack unlimited simultaneous 5% risks.
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
-- Per-trade risk not exceeding 1% of current Equity in USD, calculated to initial Stop Loss including estimated costs.
-- Daily loss not exceeding 10% of latest current Equity in USD, measured from the persisted start-of-broker-day Equity snapshot.
+- Per-trade risk not exceeding 5% of current Equity in USD, calculated to initial Stop Loss including estimated costs.
+- Daily loss not exceeding 10% of persisted Broker Day Start Equity in USD, with Entry Lock Only and pending-entry cancellation at the threshold.
 - Aggregate open risk and exposure by symbol/direction, subject to a separately approved cap.
 - Maximum concurrent positions and pending orders, subject to approved limits.
 - Maximum drawdown, subject to an approved limit.
@@ -135,17 +137,20 @@ Activation is blocked until all of the following are demonstrated:
 2. Unit and integration tests for every allowed action and forbidden action.
 3. Positive Exness Demo account-mode verification and negative Live-account rejection.
 4. Owner-vs-foreign-tenant isolation tests for every read and write path.
-5. Risk boundary tests at, below, and above the 1% per-trade and 10% daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
+5. Risk boundary tests at, below, and above the 5% per-trade and 10% fixed Broker Day Start Equity daily-loss ceilings; missing/stale-data fail-closed tests; and kill-switch tests.
 6. Standard, micro, cent, multi-currency, instrument profit-currency, USD normalization, THB reporting, and FX-staleness/rounding tests.
 7. Duplicate request/idempotency and retry/reconciliation tests.
 8. Broker error, timeout, partial fill, and disconnect recovery tests.
 9. Security review of Backend Policy, MCP tool registry, execution adapter, normalization service, and Bridge.
-10. End-to-end runtime proof on the dedicated Exness Demo account.
+10. End-to-end runtime proof on the dedicated Exness Demo account using the final 5% / 10% / Entry Lock Only policy.
 11. Exact-head CI and deployment verification for the reviewed commit.
+12. For any future Live activation: a separate explicit owner approval, isolated Live credentials and tenant route, independent security review, broker/account identity verification, production monitoring/kill-switch drill, rollback plan, and Live-specific end-to-end acceptance. Passing Demo gates alone never authorizes Live execution.
 
 Until these gates pass, the existing MT5 Bridge and MCP endpoints remain read-only and all execution flags remain false.
 
-## 9. Explicit disabled capabilities
+## 9. Live-readiness boundary and explicit disabled capabilities
+
+This policy prepares the risk contract for a possible future Live environment but does not approve or activate it. Live readiness requires a separate owner authorization after the full gate set below is evidenced. Until then, reject Live account connections and all Live order paths at the Backend Policy, Risk Engine, MCP, Adapter, and Bridge layers; keep `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false` for Live.
 
 The following remain prohibited:
 - Live/real-money trading.
