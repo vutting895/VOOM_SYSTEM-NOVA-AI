@@ -86,7 +86,7 @@ class MT5BridgeEngine:
 
         terminal = api.terminal_info()
         account = api.account_info()
-        if terminal is None or account is None:
+        if terminal is None or account is None or not bool(getattr(terminal, "connected", False)):
             self.is_connected = False
             logger.warning("MT5 terminal/account snapshot unavailable after initialize.")
             return False
@@ -267,8 +267,12 @@ class MT5BridgeEngine:
             raise ValueError("Side must be BUY/SELL; SL points must be positive and TP non-negative.")
         point = self._decimal(info.point, "point")
         entry = self._decimal(entry_price, "entry_price")
-        sl_delta = self._decimal(sl_points, "sl_points") * point
-        tp_delta = self._decimal(tp_points, "tp_points") * point
+        sl_points_decimal = self._decimal(sl_points, "sl_points")
+        tp_points_decimal = self._decimal(tp_points, "tp_points")
+        if entry <= 0 or point <= 0 or sl_points_decimal <= 0 or tp_points_decimal < 0:
+            raise ValueError("Entry, point and stop distance must be positive; target distance cannot be negative.")
+        sl_delta = sl_points_decimal * point
+        tp_delta = tp_points_decimal * point
         if side == "BUY":
             sl, tp = entry - sl_delta, (entry + tp_delta if tp_points else Decimal("0"))
         else:
@@ -303,9 +307,11 @@ class MT5BridgeEngine:
         side = side.upper()
         if side not in {"BUY", "SELL"}:
             raise ValueError("Side must be BUY or SELL.")
-        if (side == "BUY" and stop_loss_price >= entry_price) or (
-            side == "SELL" and stop_loss_price <= entry_price
-        ):
+        entry = self._decimal(entry_price, "entry_price")
+        stop = self._decimal(stop_loss_price, "stop_loss_price")
+        if entry <= 0 or stop <= 0:
+            raise ValueError("Entry and stop-loss prices must be positive.")
+        if (side == "BUY" and stop >= entry) or (side == "SELL" and stop <= entry):
             raise ValueError("Stop loss must be on the adverse side of the entry price.")
 
         account = api.account_info()
@@ -318,7 +324,7 @@ class MT5BridgeEngine:
         risk_amount = equity * DEMO_RISK_PER_TRADE_PERCENT / Decimal("100")
         order_type = api.ORDER_TYPE_BUY if side == "BUY" else api.ORDER_TYPE_SELL
         one_lot_pnl = api.order_calc_profit(
-            order_type, symbol, 1.0, float(entry_price), float(stop_loss_price)
+            order_type, symbol, 1.0, float(entry), float(stop)
         )
         if one_lot_pnl is None:
             raise MT5BridgeUnavailable("MT5 stop-loss profit calculation is unavailable.")
@@ -350,6 +356,9 @@ class MT5BridgeEngine:
             "risk_budget_account_currency": str(risk_amount),
             "estimated_stop_loss_account_currency": str(estimated_loss),
             "account_currency": str(getattr(account, "currency", "")),
+            "risk_calculation_currency": "broker_account_currency",
+            "usd_normalized": False,
+            "daily_loss_gate_enforced": False,
             "sizing_method": "mt5_order_calc_profit_floor_to_volume_step",
             "execution_authorized": False,
             "execution_enabled": False,
