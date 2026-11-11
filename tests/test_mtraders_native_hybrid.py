@@ -195,5 +195,53 @@ class HybridTests(unittest.TestCase):
             evaluate_hybrid_strategy(approved(candles()), performance_weights={"0": 2.0})
 
 
+class DecisionContractTests(unittest.TestCase):
+    def setUp(self):
+        self.result = evaluate_hybrid_strategy(approved(candles()))
+        self.kwargs = {"symbol": "XAUUSDm", "timeframe": "H1", "bar_time_utc": "2026-11-11T18:00:00Z"}
+
+    def test_builds_versioned_research_only_contract(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract
+        contract = build_research_decision_contract(self.result, **self.kwargs)
+        self.assertEqual(contract["schema_version"], "nova.mtraders.decision.v1")
+        self.assertEqual(contract["symbol"], "XAUUSDm")
+        self.assertTrue(contract["research_only"])
+        self.assertFalse(contract["execution_enabled"])
+        self.assertFalse(contract["live_trading_enabled"])
+        self.assertEqual(len(contract["decision_id"]), 64)
+
+    def test_decision_id_is_deterministic(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract
+        first = build_research_decision_contract(self.result, **self.kwargs)
+        second = build_research_decision_contract(self.result, **self.kwargs)
+        self.assertEqual(first["decision_id"], second["decision_id"])
+
+    def test_rejects_non_utc_timestamp_and_bad_symbol(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        for kwargs in ({**self.kwargs, "bar_time_utc": "2026-11-11T18:00:00+07:00"},
+                       {**self.kwargs, "symbol": "xau/usd"}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(DecisionContractError):
+                build_research_decision_contract(self.result, **kwargs)
+
+    def test_rejects_execution_enabled_result(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        unsafe = {**self.result, "execution_enabled": True}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(unsafe, **self.kwargs)
+
+    def test_rejects_inconsistent_signal_and_decision(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        bad = {**self.result, "decision": "LONG_CANDIDATE", "signal": -1, "ensemble_score": 0.8}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(bad, **self.kwargs)
+
+    def test_rejects_duplicate_family_votes(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        bad = {**self.result, "selected_families": [{"family_id": 0}, {"family_id": 0}],
+               "strategy_vote_count": 2}
+        with self.assertRaises(DecisionContractError):
+            build_research_decision_contract(bad, **self.kwargs)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

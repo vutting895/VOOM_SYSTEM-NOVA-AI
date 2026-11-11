@@ -9,3 +9,7 @@ Hybrid requires a server-attached quality_receipt with PASS, dataset_id, quality
 Run from repository root:
 python -m unittest discover -s tests -p "test_quant*.py" -v
 python -m unittest discover -s tests -p "test_mtraders*.py" -v
+
+## Decision adapter contract
+
+`mtraders_contract.py` creates a deterministic, versioned research envelope for downstream adapters. It validates canonical symbol/timeframe, UTC closed-bar timestamp, decision/signal consistency, bounded ensemble score, unique family votes, dataset receipt presence, and hard-false execution flags. It emits no order, lot size, SL, TP, or broker command. The gateway must independently resolve the dataset receipt; a client-supplied PASS object is not trusted.
