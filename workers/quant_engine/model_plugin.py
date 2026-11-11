@@ -29,6 +29,9 @@ class ModelInput:
     feature_values: Mapping[str, float]
     timeframe: str
 
+    def __post_init__(self) -> None:
+        self.validate()
+
     def validate(self) -> None:
         _timestamp(self.decision_timestamp, "decision_timestamp")
         _sha(self.dataset_sha256, "dataset_sha256")
