@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_CEILING
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_FLOOR, localcontext
 from typing import Iterable
 
 
@@ -161,11 +161,21 @@ class FXRateBook:
                 if next_currency in path:
                     continue
                 # Conservative side: assets convert at bid; liabilities at ask.
+                # For inverse pairs, round the reciprocal away from the less
+                # conservative side: assets down, liabilities up. Then round
+                # the signed converted amount toward negative infinity so
+                # neither positive assets nor negative liabilities are overstated.
                 if not inverse:
                     rate = quote.ask if current < 0 else quote.bid
                 else:
-                    rate = (Decimal(1) / quote.bid) if current < 0 else (Decimal(1) / quote.ask)
-                converted = current * rate
+                    with localcontext() as ctx:
+                        ctx.prec = 28
+                        ctx.rounding = ROUND_CEILING if current < 0 else ROUND_FLOOR
+                        rate = Decimal(1) / (quote.bid if current < 0 else quote.ask)
+                with localcontext() as ctx:
+                    ctx.prec = 28
+                    ctx.rounding = ROUND_FLOOR
+                    converted = current * rate
                 next_path = path + (next_currency,)
                 next_ids = ids + (quote.quote_id,)
                 next_sources = sources + (quote.source,)
