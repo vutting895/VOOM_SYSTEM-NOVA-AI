@@ -165,6 +165,7 @@ def account_exposure(
     require_token(authorization, tenant_id)
     with LOCK:
         terminal, account = get_terminal_and_account()
+        snapshot_started_at = datetime.now(timezone.utc)
         positions = mt5.positions_get()
         if positions is None:
             error = mt5.last_error()
@@ -183,7 +184,8 @@ def account_exposure(
             "open_pending_orders": len(pending_tickets),
             "position_tickets": position_tickets,
             "pending_order_tickets": pending_tickets,
-            "as_of": datetime.now(timezone.utc).isoformat(),
+            "as_of": snapshot_started_at.isoformat(),
+            "snapshot_completed_at": datetime.now(timezone.utc).isoformat(),
             "mode": "read-only",
             "order_submission_enabled": False,
             "liveTradingEnabled": False,
