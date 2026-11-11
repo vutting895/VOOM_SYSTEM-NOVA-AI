@@ -57,12 +57,23 @@ class MT5BridgeEngine:
         self,
         path: Optional[str] = None,
         expected_login: Optional[int] = None,
+        expected_server: Optional[str] = None,
         reconnect_attempts: int = 2,
         reconnect_delay_seconds: float = 1.0,
         api: Any = None,
     ) -> None:
         self.path = path or os.environ.get("MT5_TERMINAL_PATH") or None
-        self.expected_login = int(expected_login) if expected_login is not None else None
+        raw_login = expected_login if expected_login is not None else os.environ.get("MT5_EXPECTED_LOGIN")
+        raw_server = expected_server if expected_server is not None else os.environ.get("MT5_EXPECTED_SERVER")
+        try:
+            self.expected_login = int(raw_login) if raw_login is not None else 0
+        except (TypeError, ValueError) as exc:
+            raise MT5PolicyViolation("A valid MT5_EXPECTED_LOGIN must be configured.") from exc
+        self.expected_server = str(raw_server or "").strip()
+        if self.expected_login <= 0 or not self.expected_server or "exness" not in self.expected_server.casefold():
+            raise MT5PolicyViolation(
+                "The provisioned Exness Demo account login and exact server must be configured."
+            )
         self.reconnect_attempts = max(1, min(int(reconnect_attempts), 5))
         self.reconnect_delay_seconds = max(0.0, min(float(reconnect_delay_seconds), 10.0))
         self._api = api if api is not None else mt5
@@ -102,11 +113,13 @@ class MT5BridgeEngine:
         trade_mode = getattr(account, "trade_mode", None)
         server = str(getattr(account, "server", "") or "")
         company = str(getattr(terminal, "company", "") or "")
-        if trade_mode != demo_mode or "exness" not in f"{server} {company}".lower():
+        if trade_mode != demo_mode or "exness" not in f"{server} {company}".casefold():
             raise MT5PolicyViolation("Only an Exness Demo MT5 account is permitted.")
         login = getattr(account, "login", None)
-        if self.expected_login is not None and login != self.expected_login:
-            raise MT5PolicyViolation("MT5 account login does not match the configured tenant account.")
+        if login != self.expected_login:
+            raise MT5PolicyViolation("MT5 account login does not match the provisioned tenant account.")
+        if server.casefold() != self.expected_server.casefold():
+            raise MT5PolicyViolation("MT5 server does not match the provisioned tenant server.")
 
     def initialize(self) -> bool:
         """Attach to the existing terminal session and validate Demo identity."""
