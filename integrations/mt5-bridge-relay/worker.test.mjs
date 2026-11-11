@@ -95,6 +95,37 @@ test("legacy per-route origin is ignored; relay uses only the tenant session", a
   assert.notEqual(observedOrigin, "https://stale-origin.invalid");
 });
 
+test("additional tenant routes are additive and preserve the primary map", async () => {
+  const additionalTenant = "tenant_additional_123";
+  const additionalToken = "additional_read_only_token_which_is_long_enough_123456";
+  let observedId;
+  const env = makeEnv(async (_request, id) => {
+    observedId = id;
+    return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
+  }, {
+    MT5_TENANT_ROUTES_ADDITIONAL: JSON.stringify({
+      [additionalTenant]: { tenantId: additionalTenant, token: additionalToken }
+    })
+  });
+  const response = await worker.fetch(request("/api/account", {
+    token: additionalToken,
+    tenant: additionalTenant
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(observedId, additionalTenant);
+});
+
+test("a tenant duplicated across route maps fails closed", () => {
+  const result = authorizeBridge(request("/api/account", {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), {
+    MT5_TENANT_ROUTES: RELAY_ROUTES,
+    MT5_TENANT_ROUTES_ADDITIONAL: RELAY_ROUTES
+  });
+  assert.deepEqual(result, { ok: false, status: 503, error: "tenant_route_map_conflict" });
+});
+
 test("route map configuration fails closed", async () => {
   const response = await worker.fetch(request("/api/account", {
     token: TOKEN,
