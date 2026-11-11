@@ -399,7 +399,7 @@ bool EvaluateClosedBar()
       Comment(ENGINE_LABEL,"\n",_Symbol," ",EnumToString(InpAnalysisTF),
          "\nMode: SAFE RESEARCH / NO ORDERS",
          "\nMeta signal: ",(final_dir>0 ? "LONG CANDIDATE" : final_dir<0 ? "SHORT CANDIDATE" : "NO TRADE"),
-         "\nVotes: ",long_votes," BUY / ",short_votes," SELL",
+         "\nFamilies: ",long_families," BUY / ",short_families," SELL", "\nModules: ",long_modules," BUY / ",short_modules," SELL",
          "\nConsensus: ",DoubleToString(consensus,3)," | Opposing: ",gLastOpposing,"%",
          "\nSL/TP are research levels only");
    return true;
