@@ -54,7 +54,8 @@ def plan_owned_position_closes(
 ) -> ClosePlan:
     """Return a close plan only for explicitly requested NOVA-owned positions."""
     now = now or datetime.now(timezone.utc)
-    if now.tzinfo is None or intent.issued_at.tzinfo is None or intent.expires_at.tzinfo is None:
+    if (now.utcoffset() is None or intent.issued_at.utcoffset() is None
+            or intent.expires_at.utcoffset() is None):
         return ClosePlan(False, "timezone_required")
     if not expected_tenant_id or intent.tenant_id != expected_tenant_id:
         return ClosePlan(False, "tenant_mismatch")
@@ -70,13 +71,14 @@ def plan_owned_position_closes(
     tickets = intent.position_tickets
     if not tickets:
         return ClosePlan(False, "empty_close_request")
-    if any(not isinstance(ticket, int) or ticket <= 0 for ticket in tickets):
+    if any(type(ticket) is not int or ticket <= 0 for ticket in tickets):
         return ClosePlan(False, "invalid_position_ticket")
     if len(set(tickets)) != len(tickets):
         return ClosePlan(False, "duplicate_position_ticket")
 
-    by_ticket = {p.ticket: p for p in positions}
-    if len(by_ticket) != len(list(positions)) if not isinstance(positions, (list, tuple)) else False:
+    snapshots = tuple(positions)
+    by_ticket = {p.ticket: p for p in snapshots}
+    if len(by_ticket) != len(snapshots):
         return ClosePlan(False, "duplicate_snapshot_ticket")
     selected = []
     for ticket in tickets:
