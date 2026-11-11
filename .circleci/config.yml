@@ -1,0 +1,40 @@
+version: 2.1
+
+jobs:
+  quant-engine-python:
+    docker:
+      - image: cimg/python:3.11-node
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Report Python and Node toolchains
+          command: |
+            python --version
+            node --version
+            npm --version
+      - run:
+          name: Run Quant Engine suite through Python controller
+          command: python tools/ci/run.py --suite quant
+
+  frontend-python-controller:
+    docker:
+      - image: cimg/python:3.11-node
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Report Python and Node toolchains
+          command: |
+            python --version
+            node --version
+            npm --version
+      - run:
+          name: Run frontend suite through Python controller
+          command: python tools/ci/run.py --suite frontend
+
+workflows:
+  nova-python-ci:
+    jobs:
+      - quant-engine-python
+      - frontend-python-controller
