@@ -1,41 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
-process.env.NOVA_VIDEO_ALLOWED_ORIGINS = "https://client.example,https://preview.client.example";
+const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../supabase/migrations/202610310001_nova_video_workspace.sql", import.meta.url), "utf8");
 
-const { videoApiOptions, withVideoCors } = await import("../frontend/lib/video-api-cors.js?cors-contract-test");
-
-test("video API accepts preflight only from exact allowlisted origins", () => {
-  const allowed = videoApiOptions(new Request("https://api.example/api/video/jobs", {
-    method: "OPTIONS",
-    headers: { Origin: "https://client.example" },
-  }), ["GET", "POST", "OPTIONS"]);
-  assert.equal(allowed.status, 204);
-  assert.equal(allowed.headers.get("Access-Control-Allow-Origin"), "https://client.example");
-  assert.match(allowed.headers.get("Access-Control-Allow-Headers"), /Authorization/);
-  assert.match(allowed.headers.get("Access-Control-Allow-Methods"), /POST/);
-  assert.match(allowed.headers.get("Vary"), /Origin/);
-
-  const denied = videoApiOptions(new Request("https://api.example/api/video/jobs", {
-    method: "OPTIONS",
-    headers: { Origin: "https://attacker.example" },
-  }), ["GET", "POST", "OPTIONS"]);
-  assert.equal(denied.status, 403);
-  assert.equal(denied.headers.get("Access-Control-Allow-Origin"), null);
+test("Vite runtime does not expose removed legacy Next.js video API routes", () => {
+  assert.doesNotMatch(server, /app\.(?:get|post|put|patch|delete)\(['"]\/api\/video\//);
+  assert.doesNotMatch(server, /\/api\/video\/(?:jobs|projects)/);
 });
 
-test("video API responses add CORS only for allowlisted origins and never enable cookies", () => {
-  const allowed = withVideoCors(
-    new Request("https://api.example/api/video/jobs", { headers: { Origin: "https://client.example" } }),
-    Response.json({ ok: true }),
-  );
-  assert.equal(allowed.headers.get("Access-Control-Allow-Origin"), "https://client.example");
-  assert.equal(allowed.headers.get("Access-Control-Allow-Credentials"), null);
-
-  const denied = withVideoCors(
-    new Request("https://api.example/api/video/jobs", { headers: { Origin: "https://attacker.example" } }),
-    Response.json({ ok: true }),
-  );
-  assert.equal(denied.headers.get("Access-Control-Allow-Origin"), null);
-  assert.match(denied.headers.get("Vary"), /Origin/);
+test("video workspace database remains owner-scoped while API runtime is disabled", () => {
+  assert.match(migration, /nova_video_projects ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /nova_video_jobs ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /user_id = \(select auth\.uid\(\)\)/i);
+  assert.match(migration, /estimated_cost numeric\(12,4\) not null default 0 check \(estimated_cost = 0\)/i);
+  assert.match(migration, /execution_mode text not null default 'free_only' check \(execution_mode = 'free_only'\)/i);
 });

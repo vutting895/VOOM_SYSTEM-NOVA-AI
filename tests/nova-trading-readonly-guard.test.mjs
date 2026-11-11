@@ -128,3 +128,19 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
 });
+
+test('infrastructure health reports only verified configuration and current fail-closed policy', () => {
+  const route = section(server, "app.get('/api/infrastructure/health'", "// 5. Learning Universe & Dataset Management");
+  assert.match(route, /dataSource: 'LOCAL_API_CONFIGURATION_ONLY'/);
+  assert.match(route, /status: 'NOT_CONNECTED'/);
+  assert.match(route, /latencyMs: null/);
+  assert.match(route, /server: null/);
+  assert.match(route, /maxRiskPerTradeLimitPct: 1/);
+  assert.match(route, /maxOpenRiskPct: 9/);
+  assert.match(route, /dailyLossLimitPct: 10/);
+  assert.match(route, /policyEnforced: false/);
+  assert.match(route, /liveTradingEnabled: false/);
+  assert.match(route, /ordersEnabled: false/);
+  assert.match(route, /executionEnabled: false/);
+  assert.doesNotMatch(route, /STANDBY_DEMO_READY|Exness-MT5Trial12|latencyMs: 14\.2|status: 'OPTIMAL'/);
+});
