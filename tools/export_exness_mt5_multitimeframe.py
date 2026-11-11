@@ -68,8 +68,12 @@ def rate_row(rate: Any, start: datetime, end: datetime, seconds: int,
     stamp = datetime.fromtimestamp(epoch, UTC)
     if stamp < start or stamp > end:
         raise ValueError("returned_bar_outside_requested_range")
-    if int(stamp.timestamp()) % seconds:
+    # Intraday bars up to H1 have UTC epoch alignment. H4/D1 opens follow
+    # broker-session boundaries (and DST), so UTC modulo alignment is invalid.
+    if seconds <= 3600 and int(stamp.timestamp()) % seconds:
         raise ValueError("bar_timestamp_not_timeframe_aligned")
+    if seconds > 3600 and (stamp.minute or stamp.second or stamp.microsecond):
+        raise ValueError("higher_timeframe_timestamp_not_minute_aligned")
     if stamp + timedelta(seconds=seconds) > completed_at:
         return None  # Never export a forming bar.
     prices = {k: number(field(rate, k), k) for k in ("open", "high", "low", "close")}
