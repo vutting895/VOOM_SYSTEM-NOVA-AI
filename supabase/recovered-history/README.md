@@ -6,10 +6,10 @@ This directory contains the exact SQL statement payloads currently stored in `su
 
 ## Critical safety boundary
 
-- This is a **forensic recovery archive**, not an active migration directory.
-- Do not copy these files wholesale into `supabase/migrations/` or apply them to a hosted database.
+- This directory remains the **forensic recovery archive**. PR #284 also restores byte-identical copies of these 28 already-applied Production payloads into `supabase/migrations/` under their original Production version IDs so local history matches the hosted ledger.
+- Do not apply these recovered payloads to the hosted database; they are already recorded as applied.
 - Do not edit, insert, delete or repair rows in the hosted migration ledger.
-- The current active migration filenames contain identity/version collisions. Resolve those through a separate reviewed reconciliation change and disposable clean replay.
+- Validate the active copies and archive copies against this manifest, then perform a disposable clean replay before merging.
 - The pending NOVA Video migration is not in this archive because it is not recorded as applied in Production.
 - No secret, credential, customer row data or database backup is stored here.
 
