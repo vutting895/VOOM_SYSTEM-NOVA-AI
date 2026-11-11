@@ -19,6 +19,25 @@ permissions:
   contents: read
 
 jobs:
+  runner-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report GitHub Actions runner availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner-preflight=started"
+          echo "runner-os=$RUNNER_OS"
+          echo "runner-arch=$RUNNER_ARCH"
+          echo "runner-name=$RUNNER_NAME"
+          echo "github-run-id=$GITHUB_RUN_ID"
+          echo "github-sha=$GITHUB_SHA"
+          python3 --version
+          node --version
+          npm --version
+          echo "runner-preflight=passed"
+
   quant-foundation-tests:
     runs-on: ubuntu-latest
     steps:
