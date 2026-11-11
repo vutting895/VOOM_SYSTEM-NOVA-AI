@@ -59,6 +59,14 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
             raise ValueError(f"{name} must be finite and in [0, 1]")
     if isinstance(minimum_strategy_votes, bool) or not isinstance(minimum_strategy_votes, int) or not 1 <= minimum_strategy_votes <= 30:
         raise ValueError("minimum_strategy_votes must be 1..30")
+    if performance_weights is not None:
+        if not isinstance(performance_weights, Mapping):
+            raise ValueError("performance_weights must be a mapping")
+        for key, factor in performance_weights.items():
+            if not isinstance(key, str) or not key.isdigit() or str(int(key)) != key or not 0 <= int(key) < 30:
+                raise ValueError(f"invalid strategy id in performance_weights: {key!r}")
+            if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not isfinite(float(factor)) or not 0.75 <= factor <= 1.25:
+                raise ValueError(f"validation weight for strategy {key} must be in [0.75, 1.25]")
     b = _bars(market_data.get("candles"))
     modules = evaluate_all_mtraders_modules({"candles": b})
     regime = detect_market_regime(b)
@@ -80,12 +88,7 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
         sid = x["strategy_id"]
         weight = max(0.25, abs(x["score"]))
         if performance_weights is not None:
-            if not isinstance(performance_weights, Mapping):
-                raise ValueError("performance_weights must be a mapping")
-            factor = performance_weights.get(str(sid), 1.0)
-            if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not isfinite(float(factor)) or not 0.75 <= factor <= 1.25:
-                raise ValueError(f"validation weight for strategy {sid} must be in [0.75, 1.25]")
-            weight *= factor
+            weight *= performance_weights.get(str(sid), 1.0)
         total += weight * x["signal"]
         if x["signal"] > 0: long += weight
         else: short += weight

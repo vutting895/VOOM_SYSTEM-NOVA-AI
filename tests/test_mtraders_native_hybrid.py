@@ -109,6 +109,16 @@ class HybridTests(unittest.TestCase):
         out = evaluate_hybrid_strategy(approved(candles()), model_votes=vote)
         self.assertAlmostEqual(out["model_score"], 0.15 / sum((0.15, 0.15, 0.15, 0.20)), places=6)
 
+    def test_boolean_thresholds_are_rejected(self):
+        for kwargs in ({"minimum_strategy_score": True}, {"consensus_threshold": False}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                evaluate_hybrid_strategy(approved(candles()), **kwargs)
+
+    def test_invalid_performance_weight_keys_are_rejected_even_if_module_is_not_selected(self):
+        for weights in ({"30": 1.0}, {"01": 1.0}, {"not-an-id": 1.0}, {"0": True}):
+            with self.subTest(weights=weights), self.assertRaises(ValueError):
+                evaluate_hybrid_strategy(approved(candles()), performance_weights=weights)
+
     def test_validation_weights_bounded(self):
         with self.assertRaises(ValueError):
             evaluate_hybrid_strategy(approved(candles()), performance_weights={"0": 2.0})
