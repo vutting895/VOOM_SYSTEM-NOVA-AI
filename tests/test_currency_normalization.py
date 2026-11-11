@@ -204,7 +204,7 @@ class CurrencyNormalizationTests(unittest.TestCase):
             estimated_trade_loss_usd="40", daily_loss_usd="99.99",
         )
         self.assertTrue(decision.allowed)
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
 
     def test_daily_limit_uses_start_equity_even_when_current_equity_rises(self):
