@@ -19,12 +19,14 @@ The approval receipt must set `approved=true` and bind the same dataset SHA-256 
 - No synthetic bars or imputed volume.
 - Every unexplained gap blocks ingestion. Verified session gaps must be enumerated exactly in the manifest and each gap starts a new segment; rolling features, forward labels and sequence windows cannot cross segments.
 - Volume semantics must remain explicit and match the manifest. Examples include MT5 `tick_volume`, MT5 `real_volume`, and exchange-defined base/contract volume; do not compare raw volume magnitudes across unlike semantics.
-- Timezone-aware UTC timestamps, unique ordering, OHLC bounds, non-negative volume, integer-valued MT5 tick volume, source provenance, boundary coverage, manifest hash and row count are mandatory.
+- Timezone-aware UTC timestamps, unique ordering, exact timeframe cadence, OHLC bounds, non-negative volume, integer-valued MT5 tick volume, source provenance, boundary coverage, manifest hash and row count are mandatory.
 - Final OOS begins at `2026-07-01T00:00:00Z`; any training input containing bars at or after that cutoff is rejected.
 - Train/validation partitions are chronological and purge the forward-label horizon.
 
 ## Models and hybrid decision
-XGBoost and PyTorch LSTM are CPU candidate trainers. Wave3 and SMC must provide their own timestamp-aligned OOF evidence from the canonical NOVA Quant Engine; this notebook does not reimplement or claim fidelity to those engines. Meta-Learning requires every required family at every (timestamp, asset, timeframe), timezone-aware timestamps before the sealed Final OOS cutoff, non-empty fold/model/calibration metadata and unique OOF votes. In-sample predictions are rejected. Highly correlated model families must be clustered and cannot multiply consensus. The canonical Meta Decision implementation and its independent-cluster/conflict gates remain authoritative.
+XGBoost and PyTorch LSTM are candidate trainers in this notebook. The canonical Quant Engine Meta Decision contract uses five independent model families: `lstm`, `deep_learning` (temporal CNN), `xgboost`, `vision`, and `neural_network` (residual MLP). The OOF bundle validator requires all five families at every (timestamp, asset, timeframe), explicit direction/score/reliability, signed prediction history, shared dataset SHA-256, passing walk-forward OOS calibration metadata, and at least 30 aligned OOS observations per family. In-sample predictions, naïve timestamps, missing families, duplicate votes and sealed Final OOS predictions are rejected.
+
+Wave3 and SMC are strategy/context refinements (separate from the five independent Meta Decision model votes). They must pass their own strategy and dataset-quality gates; they must not be relabeled as substitute model families or counted as independent ML votes. Correlation clustering and consensus/conflict rules remain owned by the canonical Meta Decision implementation.
 
 ## Continuous learning
 Continuous learning means controlled candidate refresh, not automatic retraining or promotion. A new candidate requires verified new data or a documented drift trigger, then the full data-quality, purged walk-forward, OOF calibration, transaction-cost, baseline, risk and human-approval gates. No model is automatically promoted.
