@@ -99,7 +99,7 @@ No component may treat an AI proposal, UI state, health endpoint, CI pass, or lo
 ## 6. Known policy conflicts and reconciliation status
 
 - **Active Demo per-trade policy:** 1% of current Equity in USD. PR #276's policy document has been updated to this value.
-- **Future Real preparation:** 5% per-trade remains a separately prepared profile only. PR #277's low-level helper allows an explicit 5% override, but its default is 1% for Demo; the override is not active and does not authorize Live execution.
+- **5% per-trade:** no 5% policy is currently authorized for Demo or Real accounts. Any 5% value or caller override found in draft code/docs is unapproved and must not be wired or enabled. The active per-trade cap remains 1% of current USD Equity.
 - **Daily loss:** 10% with Entry Lock Only is approved. The exact Equity baseline (current Equity versus broker-day opening Equity) remains unresolved against the production implementation. Do not silently adopt Broker Day Start Equity.
 - **Aggregate exposure:** the owner-approved aggregate open-risk ceiling is 9% of Equity in USD. PR #277 does not calculate or enforce aggregate open risk; this remains a production blocker.
 - **MT5 read-only engine:** PR #280 uses 1% Demo / 10% daily constants and contains no broker mutation API, but it does not enforce the complete daily-loss lock, USD normalization, or 9% aggregate exposure gate.
