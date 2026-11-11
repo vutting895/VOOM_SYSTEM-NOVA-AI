@@ -15,6 +15,142 @@ function authFetch(status = 200, payload = { id: "user-test" }) {
 }
 test.afterEach(() => { globalThis.fetch = originalFetch; });
 
+
+const DEMO_CONNECTION_ID = "11111111-1111-4111-8111-111111111111";
+function authAndRestFetch(restHandler) {
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls += 1;
+    if (calls === 1) {
+      assert.equal(String(url), "https://supabase.example/auth/v1/user");
+      assert.equal(init.headers.apikey, "public-test-key");
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      return new Response(JSON.stringify({ id: "user-test" }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      });
+    }
+    return restHandler(url, init, calls);
+  };
+  return () => calls;
+}
+
+
+test("aggregate profit connection list is filtered to the authenticated owner's Exness Demo connections", async () => {
+  authAndRestFetch(async (url, init) => {
+    const parsed = new URL(String(url));
+    assert.equal(parsed.pathname, "/rest/v1/broker_connections");
+    assert.equal(parsed.searchParams.get("user_id"), "eq.user-test");
+    assert.equal(parsed.searchParams.get("provider"), "eq.exness_mt5");
+    assert.equal(parsed.searchParams.get("environment"), "eq.demo");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    return new Response(JSON.stringify([{
+      id: DEMO_CONNECTION_ID, account_label: "Exness MT5 Demo", status: "connected",
+      provider: "exness_mt5", environment: "demo",
+    }]), { status: 200 });
+  });
+  const response = await worker.fetch(new Request("https://worker.test/api/nova/aggregate-profit/connections", {
+    headers: { Authorization: "Bearer valid-token" },
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connections.length, 1);
+  assert.equal(body.connections[0].id, DEMO_CONNECTION_ID);
+  assert.equal(body.connections[0].environment, "demo");
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("aggregate profit target GET is owner-scoped and returns disabled default when no setting exists", async () => {
+  const calls = authAndRestFetch(async (url, init, callNo) => {
+    assert.equal(init.headers.apikey, "public-test-key");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    assert.equal(init.redirect, "manual");
+    if (callNo === 2) {
+      const parsed = new URL(String(url));
+      assert.equal(parsed.pathname, "/rest/v1/broker_connections");
+      assert.equal(parsed.searchParams.get("user_id"), "eq.user-test");
+      assert.equal(parsed.searchParams.get("environment"), "eq.demo");
+      return new Response(JSON.stringify([{ id: DEMO_CONNECTION_ID }]), { status: 200 });
+    }
+    const parsed = new URL(String(url));
+    assert.equal(parsed.pathname, "/rest/v1/nova_aggregate_profit_settings");
+    assert.equal(parsed.searchParams.get("user_id"), "eq.user-test");
+    return new Response("[]", { status: 200 });
+  });
+  const response = await worker.fetch(new Request(
+    "https://worker.test/api/nova/aggregate-profit/target?brokerConnectionId=" + DEMO_CONNECTION_ID,
+    { headers: { Authorization: "Bearer valid-token" } },
+  ), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.settings.targetUsd, "100.00");
+  assert.equal(body.settings.enabled, false);
+  assert.equal(body.settings.persisted, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(calls(), 3);
+});
+
+test("aggregate profit target POST uses the authenticated user's Supabase RPC and preserves decimal target", async () => {
+  authAndRestFetch(async (url, init) => {
+    assert.equal(String(url), "https://supabase.example/rest/v1/rpc/nova_set_aggregate_profit_target");
+    assert.equal(init.method, "POST");
+    assert.equal(init.headers.apikey, "public-test-key");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    const payload = JSON.parse(init.body);
+    assert.equal(payload.p_broker_connection_id, DEMO_CONNECTION_ID);
+    assert.equal(payload.p_target_usd, "250.75");
+    assert.equal(payload.p_reason, "owner_update");
+    return new Response(JSON.stringify([{
+      target_usd: "100.00", pending_target_usd: "250.75",
+      config_version: 1, pending_config_version: 2, applied_immediately: false,
+    }]), { status: 200 });
+  });
+  const response = await worker.fetch(new Request("https://worker.test/api/nova/aggregate-profit/target", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ brokerConnectionId: DEMO_CONNECTION_ID, targetUsd: "250.75" }),
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.settings.targetUsd, "100.00");
+  assert.equal(body.settings.pendingTargetUsd, "250.75");
+  assert.equal(body.settings.appliedImmediately, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("aggregate profit target POST rejects invalid amounts before calling Supabase RPC", async () => {
+  const calls = authAndRestFetch(async () => {
+    throw new Error("PostgREST must not be called for invalid input");
+  });
+  const response = await worker.fetch(new Request("https://worker.test/api/nova/aggregate-profit/target", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ brokerConnectionId: DEMO_CONNECTION_ID, targetUsd: "1.001" }),
+  }), env);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "invalid_profit_target");
+  assert.equal(calls(), 1);
+});
+
+test("aggregate profit target GET rejects a foreign or non-Demo connection without querying settings", async () => {
+  const calls = authAndRestFetch(async (url) => {
+    assert.equal(new URL(String(url)).pathname, "/rest/v1/broker_connections");
+    return new Response("[]", { status: 200 });
+  });
+  const response = await worker.fetch(new Request(
+    "https://worker.test/api/nova/aggregate-profit/target?brokerConnectionId=" + DEMO_CONNECTION_ID,
+    { headers: { Authorization: "Bearer valid-token" } },
+  ), env);
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error, "demo_connection_not_found");
+  assert.equal(calls(), 2);
+});
+
 test("health is public but explicitly reports execution disabled", async () => {
   const response = await worker.fetch(new Request("https://worker.test/health"), {});
   const body = await response.json();
