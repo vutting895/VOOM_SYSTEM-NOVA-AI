@@ -347,9 +347,12 @@ def evaluate_usd_risk_limits(
 ) -> USDRiskDecision:
     """Apply the owner-selected 1% trade / 10% daily ceilings to USD values.
 
-    `daily_loss_usd` must already be reconciled from the persisted broker-day
-    opening-equity snapshot, including realized and unrealized P&L. This helper
-    does not manufacture that snapshot or authorize an order.
+    `current_equity_usd` is the sizing base for the 1% per-trade ceiling.
+    `day_start_equity_usd` is the immutable broker-day opening snapshot and is
+    the sizing base for the 10% daily-loss ceiling. `daily_loss_usd` must be
+    reconciled from that broker-day snapshot, including realized and floating
+    P&L, commission, and swap. This helper does not create the snapshot or
+    authorize an order.
     """
     equity = money(current_equity_usd)
     day_start_equity = money(day_start_equity_usd)
