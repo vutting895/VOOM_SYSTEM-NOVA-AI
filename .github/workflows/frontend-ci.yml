@@ -79,6 +79,8 @@ jobs:
         run: npm install --no-package-lock --include=dev
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
+      - name: Test NOVA live-data and model-status honesty
+        run: node --test tests/nova-training-data-honesty.test.mjs
 
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
@@ -162,3 +164,5 @@ jobs:
             exit 1
           fi
           echo "Netlify root, login, and Exness broker settings routes returned HTTP 200."
+
+[executed on device: 10_0_16_116 (1b921001-c4e2-479a-8a95-7345393686dd)]

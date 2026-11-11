@@ -187,88 +187,38 @@ async function startServer() {
   // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
   // Runs strictly in the backend; frontend only receives a compact status notification
   // =========================================================================
-  const pairList = Object.keys(ALL_MAJOR_PAIRS);
-  let autoTrainCursor = 0;
-  let autoTrainEpoch = 148;
-  let autoTrainSamples = 248900;
-  let autoTrainState: 'SYNCED_READY' | 'INGESTING_AND_TRAINING' = 'SYNCED_READY';
-  let activeTrainedPair = 'XAU/USDm';
-  let lastValidationAcc = 94.8;
-  let lastTrainedAt = new Date().toISOString();
-
-  async function runBackendTrainingCycle(targetSymbol?: string) {
-    autoTrainState = 'INGESTING_AND_TRAINING';
-    const symbol = targetSymbol && ALL_MAJOR_PAIRS[targetSymbol] ? targetSymbol : pairList[autoTrainCursor % pairList.length];
-    if (!targetSymbol) autoTrainCursor += 1;
-    activeTrainedPair = symbol;
-
-    // Pull live market klines from Binance REST API when Crypto pair is selected (or Exness feed for Forex)
-    if (ALL_MAJOR_PAIRS[symbol]?.category === 'CRYPTO') {
-      const binanceSym = symbol.replace('/', '');
-      try {
-        const resp = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSym}`);
-        if (resp.ok) {
-          const json = (await resp.json()) as { price?: string };
-          const livePrice = Number(json?.price);
-          if (Number.isFinite(livePrice) && livePrice > 0) {
-            ALL_MAJOR_PAIRS[symbol].price = livePrice;
-          }
-        }
-      } catch {
-        // Fallback to cached tick if external network is restricted
-      }
-    }
-
-    autoTrainEpoch += 1;
-    autoTrainSamples += 512;
-    lastValidationAcc = Number((93.8 + (autoTrainEpoch % 19) * 0.12).toFixed(2));
-    lastTrainedAt = new Date().toISOString();
-    autoTrainState = 'SYNCED_READY';
-  }
-
-  // Run autonomous background training every 18 seconds in the backend
-  setInterval(() => {
-    runBackendTrainingCycle().catch(() => {
-      autoTrainState = 'SYNCED_READY';
-    });
-  }, 18000);
+  // Training remains unavailable until a provenance-backed pipeline is connected.
+  const autoTrainState = 'NOT_CONFIGURED' as const;
+  const autoTrainEpoch: number | null = null;
+  const autoTrainSamples: number | null = null;
+  const activeTrainedPair: string | null = null;
+  const lastValidationAcc: number | null = null;
+  const lastTrainedAt: string | null = null;
 
   app.get('/api/auto-train/status', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
       ok: true,
-      mode: 'BACKEND_AUTONOMOUS_DAEMON',
-      state: autoTrainState,
-      activePair: activeTrainedPair,
-      category: ALL_MAJOR_PAIRS[activeTrainedPair]?.category || 'FOREX',
-      livePrice: ALL_MAJOR_PAIRS[activeTrainedPair]?.price || 2749.4,
-      epoch: autoTrainEpoch,
-      samplesIngested: autoTrainSamples,
-      validationAccuracyPct: lastValidationAcc,
-      totalPairsMonitored: pairList.length,
-      lastTrainedAt,
-      statusNotification:
-        autoTrainState === 'INGESTING_AND_TRAINING'
-          ? `🔄 Backend Auto-Train: กำลังดึงกราฟสดและอัปเดตโมเดล ${activeTrainedPair} หลังบ้าน...`
-          : `🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดล ${activeTrainedPair} อัตโนมัติสำเร็จ (Epoch #${autoTrainEpoch} · ความแม่นยำ ${lastValidationAcc}%)`,
+      mode: 'NOT_CONFIGURED',
+      state: 'NOT_CONFIGURED',
+      activePair: null,
+      livePrice: null,
+      epoch: null,
+      samplesIngested: null,
+      validationAccuracyPct: null,
+      totalPairsMonitored: 0,
+      lastTrainedAt: null,
+      statusNotification: 'Training pipeline is not configured. No training run or model metric is being claimed.',
     });
   });
 
-  app.post('/api/auto-train/trigger', async (req, res) => {
-    const requestedSymbol = String(req.body?.symbol || 'XAU/USDm');
-    await runBackendTrainingCycle(requestedSymbol);
-    res.json({
-      ok: true,
-      mode: 'BACKEND_AUTONOMOUS_DAEMON',
-      state: autoTrainState,
-      activePair: activeTrainedPair,
-      category: ALL_MAJOR_PAIRS[activeTrainedPair]?.category || 'FOREX',
-      livePrice: ALL_MAJOR_PAIRS[activeTrainedPair]?.price || 2749.4,
-      epoch: autoTrainEpoch,
-      samplesIngested: autoTrainSamples,
-      validationAccuracyPct: lastValidationAcc,
-      totalPairsMonitored: pairList.length,
-      lastTrainedAt,
-      statusNotification: `🟢 Backend Auto-Train: ดึงข้อมูลกราฟสด ${activeTrainedPair} และเทรนโมเดล (VQC + TFT + FinRL) หลังบ้านเสร็จสมบูรณ์ · ความแม่นยำ ${lastValidationAcc}% (Epoch #${autoTrainEpoch})`,
+  app.post('/api/auto-train/trigger', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      error: 'training_pipeline_not_configured',
+      state: 'NOT_CONFIGURED',
+      detail: 'No verified dataset, training runner, or evaluation artifact is connected.',
     });
   });
 
@@ -665,8 +615,8 @@ async function startServer() {
     res.json({
       ok: true,
       timestamp: new Date().toISOString(),
-      safetyNotice: 'READ-ONLY DEMO FEED · LIVE TRADING OFF · EXNESS DEMO TARGET',
-      dataMode: 'DEMO_READONLY',
+      safetyNotice: 'STATIC SAMPLE DATA - NOT A LIVE BROKER FEED - LIVE TRADING OFF',
+      dataMode: 'STATIC_SAMPLE_UNVERIFIED',
       assets: [
         {
           symbol: 'XAU/USDm',
@@ -680,8 +630,8 @@ async function startServer() {
           spreadLabel: '1.2 pips',
           atr14: 16.4,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
         {
           symbol: 'BTC/USDm',
@@ -695,8 +645,8 @@ async function startServer() {
           spreadLabel: '$12.0',
           atr14: 1240.0,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
         {
           symbol: 'EUR/USDm',
@@ -710,8 +660,8 @@ async function startServer() {
           spreadLabel: '0.6 pips',
           atr14: 0.0054,
           decimals: 4,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
         {
           symbol: 'GBP/USDm',
@@ -725,8 +675,8 @@ async function startServer() {
           spreadLabel: '0.8 pips',
           atr14: 0.0078,
           decimals: 4,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
         {
           symbol: 'USD/JPYm',
@@ -740,8 +690,8 @@ async function startServer() {
           spreadLabel: '0.7 pips',
           atr14: 0.95,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
         {
           symbol: 'ETH/USDm',
@@ -755,8 +705,8 @@ async function startServer() {
           spreadLabel: '$1.8',
           atr14: 84.5,
           decimals: 2,
-          feedSource: 'Exness MT5 Demo Terminal',
-          dataMode: 'DEMO_READONLY',
+          feedSource: 'Static sample - not connected to Exness MT5',
+          dataMode: 'STATIC_SAMPLE_UNVERIFIED',
         },
       ],
       signals: [
@@ -887,159 +837,23 @@ async function startServer() {
       ok: true,
       symbol,
       timeframe,
-      dataMode: 'DEMO_READONLY_FEED',
+      dataMode: 'SIMULATED_SAMPLE_UNVERIFIED',
       bars,
     });
   });
 
   // 2. Trading Intelligence & AI Models
   app.get('/api/intelligence/models', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
       ok: true,
-      engineArchitecture: 'NOVA Multi-Agent Quantitative Intelligence Ensemble',
-      ensembleConfidencePct: 87.5,
-      marketRegimeDetected: 'BULLISH_EXPANSION_WITH_SMC_CONFLUENCE',
+      status: 'NOT_CONFIGURED',
+      engineArchitecture: 'NOVA research models - runtime not connected',
+      models: [],
+      ensembleConfidencePct: null,
+      marketRegimeDetected: null,
       safetyPolicy: 'READ_ONLY_INTELLIGENCE_LAYER_NON_EXECUTABLE',
-      models: [
-        {
-          id: 'elliott-wave-3',
-          name: 'Elliott Wave 3 Impulse Engine',
-          tag: 'Harmonic & Fractal Waves',
-          status: 'ACTIVE',
-          accuracyPct: 84.6,
-          latencyMs: 3.2,
-          primaryMetricLabel: 'Fibonacci Target 1.618',
-          primaryMetricValue: '2,768.40',
-          highlights: [
-            'ตรวจพบ Subwave 3 ในระดับ Intermediate Degree',
-            'อัตราส่วน Fibonacci Extension: 161.8% ที่ 2,768.40',
-            'ระดับ Invalidation Level (จุดยกเลิกโครงสร้าง): 2,738.00',
-            'โมเมนตัม RSI 64.2 ไม่มีสัญญาณ Bearish Divergence',
-          ],
-          details: {
-            waveCycle: 'Cycle V -> Primary Wave 1 -> Intermediate Wave 3',
-            extensionRatio: 1.618,
-            invalidationPrice: 2738.0,
-            rsiMomentum: 64.2,
-          },
-          accentColor: 'amber',
-        },
-        {
-          id: 'xgboost-classifier',
-          name: 'XGBoost Trend & Volatility Classifier',
-          tag: 'Gradient Boosted Trees',
-          status: 'TRAINED',
-          accuracyPct: 79.2,
-          latencyMs: 1.8,
-          primaryMetricLabel: 'Validation Accuracy',
-          primaryMetricValue: '79.2%',
-          highlights: [
-            'โมเดลเทรนด้วย 300 Decision Trees (Max Depth 6)',
-            'Feature สำคัญอันดับ 1: Volume Delta (28.4%)',
-            'Feature สำคัญอันดับ 2: 4H Order Block Distance (22.1%)',
-            'AUC-ROC Score: 0.865 บนชุดข้อมูลทดสอบ Out-of-Sample',
-          ],
-          details: {
-            trees: 300,
-            maxDepth: 6,
-            aucRoc: 0.865,
-            topFeatures: ['Volume Delta', '4H OB Distance', '5m FVG Width', 'Realized Volatility'],
-          },
-          accentColor: 'emerald',
-        },
-        {
-          id: 'lstm-pytorch',
-          name: 'LSTM / PyTorch Deep Horizon Predictor',
-          tag: 'Deep Neural Sequences',
-          status: 'CONVERGED',
-          accuracyPct: 76.8,
-          latencyMs: 8.5,
-          primaryMetricLabel: 'Validation MSE Loss',
-          primaryMetricValue: '0.0142',
-          highlights: [
-            'สถาปัตยกรรม Bidirectional LSTM 2 ชั้น พร้อม Self-Attention',
-            'พยากรณ์กรอบราคา 4 ชั่วโมงข้างหน้า: มีแนวโน้มเชิงบวก +0.68%',
-            'ขนาด Latent Space: 128 มิติ ผ่านการ Fine-tune บน PyTorch 2.3',
-            'Dropout 0.2 ป้องกัน Overfitting ในช่วงตลาด Sideway',
-          ],
-          details: {
-            framework: 'PyTorch 2.3.0',
-            architecture: 'Bi-LSTM + Self-Attention (128 units)',
-            predictedHorizonDrift: '+0.68%',
-            mseLoss: 0.0142,
-          },
-          accentColor: 'purple',
-        },
-        {
-          id: 'smc-liquidity',
-          name: 'Smart Money Concepts (SMC) & FVG Engine',
-          tag: 'Institutional Order Flow',
-          status: 'ACTIVE',
-          accuracyPct: 88.0,
-          latencyMs: 2.1,
-          primaryMetricLabel: 'Order Block Mitigation',
-          primaryMetricValue: '72% Mitigated',
-          highlights: [
-            'ตรวจพบการกวาดสภาพคล่อง (Asian Low Liquidity Sweep) ที่ 2,739.10',
-            'กรอบ Order Block ฝั่งซื้อ (Bullish OB) แข็งแกร่งที่ 2,742.00 - 2,745.50',
-            'Fair Value Gap (FVG 15m) เติมเต็มครบแล้ว พร้อม Break of Structure',
-            'ระดับความน่าจะเป็นของการดีดตัว (Confluence Score): 5/5 ดาว',
-          ],
-          details: {
-            orderBlockRange: '2,742.00 - 2,745.50',
-            fvgRange: '2,746.20 - 2,747.80',
-            liquiditySwept: 'Asian Low (2,739.10)',
-            marketStructure: 'Bullish BOS Confirmed',
-          },
-          accentColor: 'cyan',
-        },
-        {
-          id: 'auto-learning-loop',
-          name: 'Auto-Learning & Regime Adaptation',
-          tag: 'Continual Online Learning',
-          status: 'CONTINUOUS_ADAPTATION',
-          accuracyPct: 82.5,
-          latencyMs: 12.0,
-          primaryMetricLabel: 'Concept Drift Score',
-          primaryMetricValue: '0.12 (Low Drift)',
-          highlights: [
-            'ใช้อัลกอริทึม Elastic Weight Consolidation (EWC) ป้องกันลืมข้อมูลเดิม',
-            'ตรวจสอบ Market Regime อัตโนมัติทุกๆ 18 วินาที',
-            'ปรับค่าน้ำหนัก Ensemble Models แบบไดนามิกตามสภาพความผันผวน',
-            'ซิงค์ผลการประเมินเข้าสู่ Feature Store อย่างต่อเนื่อง',
-          ],
-          details: {
-            algorithm: 'Elastic Weight Consolidation (EWC)',
-            driftScore: 0.12,
-            syncCycleSec: 18,
-            regimeStability: 'Stable High-Confidence Regime',
-          },
-          accentColor: 'indigo',
-        },
-        {
-          id: 'neural-network-ensemble',
-          name: 'Neural Network Meta-Analyst',
-          tag: 'Attention Weight Aggregator',
-          status: 'READY',
-          accuracyPct: 86.4,
-          latencyMs: 4.1,
-          primaryMetricLabel: 'Model Agreement',
-          primaryMetricValue: '5 of 6 (83%)',
-          highlights: [
-            'รวบรวมสัญญาณจากโมเดลทั้ง 5 ตัวด้วย Multi-Head Attention',
-            'คะแนนความเชื่อมั่นรวม (Ensemble Confidence): 87.5%',
-            'คำนวณ Multiplier ปรับลดความเสี่ยงอัตโนมัติ: 0.85x',
-            'Fail-Closed Hard Invariant: สัญญาณทั้งหมดเป็นคำแนะนำเชิงวิจัยเท่านั้น',
-          ],
-          details: {
-            confidenceScore: 0.875,
-            modelsAgreed: 5,
-            totalModels: 6,
-            safetyMode: 'NON_EXECUTABLE_ADVISORY',
-          },
-          accentColor: 'blue',
-        },
-      ],
+      detail: 'No verified model artifacts or inference runtime are connected. Accuracy and regime metrics are unavailable.',
     });
   });
 
@@ -1173,154 +987,85 @@ async function startServer() {
   });
 
   // 4. Trading Infrastructure & Health
+  // Report only verified configuration. This local API has no authenticated MT5 read path.
   app.get('/api/infrastructure/health', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
       ok: true,
       timestamp: new Date().toISOString(),
+      dataSource: 'LOCAL_API_CONFIGURATION_ONLY',
       systemMode: 'FAIL_CLOSED_READONLY',
       liveTradingEnabled: false,
+      ordersEnabled: false,
+      executionEnabled: false,
       mt5BridgeEnabled: false,
       mt5Connection: {
-        status: 'STANDBY_DEMO_READY',
-        target: 'Exness MT5 Demo Terminal',
-        server: 'Exness-MT5Trial12 (Read-Only Catalogue)',
-        latencyMs: 14.2,
-        accountClass: 'Exness Demo (Read-Only)',
-        credentialsSecured: true,
+        status: 'NOT_CONNECTED',
+        target: 'Exness MT5 Demo (intended target only)',
+        server: null,
+        latencyMs: null,
+        accountClass: null,
+        credentialsSecured: null,
         orderExecutionBlocked: true,
       },
       brokerConnector: {
-        selectedBroker: 'Exness (MT5 Demo & REST Feed)',
-        protocol: 'Ed25519 Signed / Secure Gateway (Read-Only)',
-        supportedBrokers: ['Exness MT5 Demo', 'IC Markets REST', 'Binance Spot Read-Only', 'Bybit V5 Linear'],
-        directApiAvailable: true,
+        selectedBroker: 'Exness MT5 Demo (not connected)',
+        protocol: 'MT5 Python Bridge / tenant-scoped read-only; not enabled in this API',
+        supportedBrokers: ['Exness MT5 Demo'],
+        directApiAvailable: false,
       },
       riskEngine: {
-        status: 'HARD_RULES_ENFORCED',
-        maxDrawdownCapPct: 5.0,
-        maxLotSizeLimit: 2.0,
-        maxMarginUsageLimitPct: 35.0,
-        maxRiskPerTradeLimitPct: 2.0,
+        status: 'FAIL_CLOSED_NOT_ENFORCED',
+        maxDrawdownCapPct: null,
+        maxLotSizeLimit: null,
+        maxMarginUsageLimitPct: null,
+        maxRiskPerTradeLimitPct: 1,
+        maxOpenRiskPct: 9,
+        dailyLossLimitPct: 10,
+        policyConfigured: true,
+        policyEnforced: false,
         failClosedGuardActive: true,
         realMoneyWritesDisabled: true,
       },
       dataPipeline: {
-        status: 'OPTIMAL',
-        tickIngestionRatePerSec: 145,
-        redisBufferHitRatePct: 98.7,
-        featureStoreLatencyMs: 24.5,
-        schemaValidationPassPct: 100.0,
+        status: 'NOT_CONFIGURED',
+        tickIngestionRatePerSec: null,
+        redisBufferHitRatePct: null,
+        featureStoreLatencyMs: null,
+        schemaValidationPassPct: null,
       },
       modelTrainingStatus: {
-        status: autoTrainState,
-        epoch: autoTrainEpoch,
-        activePair: activeTrainedPair,
-        samplesIngested: autoTrainSamples,
-        lastValidationAccPct: lastValidationAcc,
-        lastTrainedAt,
+        status: 'NOT_CONNECTED',
+        epoch: null,
+        activePair: null,
+        samplesIngested: null,
+        lastValidationAccPct: null,
+        lastTrainedAt: null,
       },
     });
   });
 
   // 5. Learning Universe & Dataset Management
   app.get('/api/learning/universe', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.json({
       ok: true,
       featureStore: {
-        provider: 'Feast Feature Store on Apache Parquet',
-        monitoredSymbols: [
-          'XAU/USDm',
-          'BTC/USDm',
-          'EUR/USDm',
-          'GBP/USDm',
-          'USD/JPYm',
-          'ETH/USDm',
-          'SOL/USDm',
-          'AUD/USDm',
-          'USD/CADm',
-          'GBP/JPYm',
-          'XAG/USDm',
-          'TON/USDm',
-          'BNB/USDm',
-          'NZD/USDm',
-          'USD/CHFm',
-          'DOGE/USDm',
-        ],
-        totalSamplesStored: 1485000,
-        featureCategories: [
-          'Microstructure (VPIN, Order Book Imbalance, Tick Intensity)',
-          'SMC Signals (OB Distance, FVG Gap Width, BOS Flags)',
-          'Wave & Momentum (Fibonacci Extensions, Wavelet Energy, ATR)',
-          'Deep Latent Embeddings (Bi-LSTM 128-d, Attention Weights)',
-        ],
-        lastDataUpdateAt: new Date(Date.now() - 35 * 60000).toISOString(),
-        dailyUpdateStatus: 'SUCCESS_SYNCED',
-        nextScheduledUpdateAt: new Date(Date.now() + 4.5 * 3600000).toISOString(),
+        provider: 'Not connected',
+        monitoredSymbols: [],
+        totalSamplesStored: 0,
+        featureCategories: [],
+        lastDataUpdateAt: null,
+        dailyUpdateStatus: 'NOT_CONFIGURED',
+        nextScheduledUpdateAt: null,
       },
-      modelPerformanceByRegime: [
-        {
-          regimeName: 'Trending Bullish / Expansion',
-          description: 'ช่วงตลาดมีทิศทางชัดเจน ขับเคลื่อนด้วยคลื่นขยายตัว',
-          accuracyPct: 83.2,
-          f1Score: 0.84,
-          sampleCount: 524000,
-        },
-        {
-          regimeName: 'Range-bound / Asian Sideway',
-          description: 'ตลาดเคลื่อนไหวในกรอบแคบ รอการกวาดสภาพคล่อง',
-          accuracyPct: 78.5,
-          f1Score: 0.79,
-          sampleCount: 612000,
-        },
-        {
-          regimeName: 'High Volatility / News Event',
-          description: 'ช่วงประกาศตัวเลขเศรษฐกิจ ข่าว Fed/CPI ปรับลดความเสี่ยง',
-          accuracyPct: 74.6,
-          f1Score: 0.73,
-          sampleCount: 349000,
-        },
-      ],
-      trainingHistory: [
-        {
-          id: 'th-01',
-          timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-          pair: activeTrainedPair,
-          epoch: autoTrainEpoch,
-          trainingLoss: 0.0124,
-          validationAccuracyPct: lastValidationAcc,
-          durationSec: 14,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-02',
-          timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-          pair: 'BTC/USDm',
-          epoch: autoTrainEpoch - 1,
-          trainingLoss: 0.0148,
-          validationAccuracyPct: 81.5,
-          durationSec: 16,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-03',
-          timestamp: new Date(Date.now() - 75 * 60000).toISOString(),
-          pair: 'EUR/USDm',
-          epoch: autoTrainEpoch - 2,
-          trainingLoss: 0.0152,
-          validationAccuracyPct: 79.8,
-          durationSec: 12,
-          status: 'COMPLETED',
-        },
-      ],
+      modelPerformanceByRegime: [],
+      trainingHistory: [],
       autoUpdateJob: {
-        cadence: 'Daily at 00:00 UTC + Continuous Micro-updates every 18s',
-        automated: true,
-        healthPct: 100.0,
-        logs: [
-          'Feature Pipeline: 16 คู่หลักซิงค์ข้อมูลลง Parquet สำเร็จ',
-          'Schema Invariant: ผ่านการตรวจสอบ 0 corrupt frames',
-          'Auto-Train Daemon: ทำงานปกติ เชื่อมต่อ Real-Time WebSocket',
-        ],
+        cadence: 'Not scheduled',
+        automated: false,
+        healthPct: 0,
+        logs: ['No verified feature store or training runner is connected. No model performance is available.'],
       },
     });
   });
@@ -2028,3 +1773,5 @@ async function startServer() {
 }
 
 startServer();
+
+[executed on device: 10_0_16_116 (1b921001-c4e2-479a-8a95-7345393686dd)]
