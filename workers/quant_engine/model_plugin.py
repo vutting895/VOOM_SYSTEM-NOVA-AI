@@ -5,7 +5,7 @@ This registry does not load arbitrary Python modules or execute user-provided co
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 import json
