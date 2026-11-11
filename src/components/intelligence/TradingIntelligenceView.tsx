@@ -59,6 +59,19 @@ export default function TradingIntelligenceView() {
     );
   }
 
+  if (intelData.models.length === 0) {
+    return (
+      <div className="space-y-6 text-slate-100">
+        <ReadonlySafetyBadge />
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 space-y-2">
+          <h2 className="text-lg font-bold text-amber-200">AI Models Not Configured</h2>
+          <p className="text-sm text-slate-300">No verified model artifacts or inference runtime are connected. Accuracy, latency, ensemble confidence, and market-regime claims are intentionally unavailable.</p>
+          <p className="text-xs text-slate-400">Connect a provenance-backed model and evaluation pipeline before displaying predictions.</p>
+        </div>
+      </div>
+    );
+  }
+
   const selectedModel =
     intelData.models.find((m) => m.id === selectedModelId) || intelData.models[0];
 
