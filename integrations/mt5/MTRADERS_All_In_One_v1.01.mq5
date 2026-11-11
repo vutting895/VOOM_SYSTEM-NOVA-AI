@@ -149,6 +149,12 @@ double gLastConsensus=0.0;
 int gLastVotes=0;
 int gLastOpposing=0;
 int gLastLongFamilies=0,gLastShortFamilies=0;
+datetime gPendingSignalBar=0;
+int gPendingSignal=0;
+double gPendingConsensus=0.0,gPendingATR=0.0;
+int gPendingVotes=0,gPendingOpposing=0;
+int gPendingLongFamilies=0,gPendingShortFamilies=0;
+int gPendingLongModules=0,gPendingShortModules=0;
 
 double EMAAt(const int period,const int end_index)
 {
@@ -469,11 +475,65 @@ int EvaluateNativeModule(const int id,const int end_index,const double atr,
    score_out=Clamp01(strength);
    return (int)direction;
 }
+bool PublishPendingSignal()
+{
+   if(gPendingSignalBar<=0 || gPendingSignalBar==gLastSignalBar) return false;
+   int final_dir=gPendingSignal;
+   // A neutral result has no spread-sensitive candidate and can be consumed now.
+   if(final_dir!=0)
+   {
+      MqlTick current_tick;
+      if(!SymbolInfoTick(_Symbol,current_tick) || current_tick.ask<=0.0 || current_tick.bid<=0.0 ||
+         current_tick.ask<current_tick.bid ||
+         (current_tick.ask-current_tick.bid)>gPendingATR*InpMaxSpreadATR)
+      {
+         Note(0,"SPREAD WAIT - CACHED SIGNAL");
+         return false; // Keep the bar pending; retry the spread gate on the next tick.
+      }
+   }
+
+   gLastSignalBar=gPendingSignalBar;
+   gLastSignal=final_dir;
+   gLastConsensus=gPendingConsensus;
+   gLastVotes=gPendingVotes;
+   gLastLongFamilies=gPendingLongFamilies;
+   gLastShortFamilies=gPendingShortFamilies;
+   gLastOpposing=gPendingOpposing;
+   if(final_dir!=0)
+   {
+      // One aggregated research candidate only; no module can submit an order.
+      gCandidate[0].dir=final_dir;
+      gCandidate[0].atr=gPendingATR;
+      gCandidate[0].sl=NormalizeDouble(gRates[ArraySize(gRates)-1].close-final_dir*InpStopATR*gPendingATR,_Digits);
+      gCandidate[0].tp=NormalizeDouble(gRates[ArraySize(gRates)-1].close+final_dir*InpTargetATR*gPendingATR,_Digits);
+      gCandidate[0].key=gPendingSignalBar;
+      gCandidate[0].expiry=gPendingSignalBar+PeriodSeconds(InpAnalysisTF)*3;
+      gCandidate[0].tag=30; // Meta-ensemble candidate, not module 0.
+   }
+   if(InpJournal)
+      PrintFormat("%s | %s | signal=%d families=%d long=%d short=%d modules=%d/%d consensus=%.3f opposing=%d%% ATR=%.5f",
+         ENGINE_LABEL,_Symbol,final_dir,gPendingVotes,gPendingLongFamilies,gPendingShortFamilies,
+         gPendingLongModules,gPendingShortModules,gPendingConsensus,gLastOpposing,gPendingATR);
+   if(InpPanel)
+      Comment(ENGINE_LABEL,"\n",_Symbol," ",EnumToString(InpAnalysisTF),
+         "\nMode: SAFE RESEARCH / NO ORDERS",
+         "\nMeta signal: ",(final_dir>0 ? "LONG CANDIDATE" : final_dir<0 ? "SHORT CANDIDATE" : "NO TRADE"),
+         "\nFamilies: ",gPendingLongFamilies," BUY / ",gPendingShortFamilies," SELL",
+         "\nModules: ",gPendingLongModules," BUY / ",gPendingShortModules," SELL",
+         "\nConsensus: ",DoubleToString(gPendingConsensus,3)," | Opposing: ",gLastOpposing,"%",
+         "\nSL/TP are research levels only");
+   return true;
+}
+
 bool EvaluateClosedBar()
 {
    // Avoid copying 120 bars on every tick. Retry the same bar if history is not ready.
    datetime expected_closed=iTime(_Symbol,InpAnalysisTF,1);
    if(expected_closed<=0 || expected_closed==gLastSignalBar) return false;
+   // Reuse the cached closed-bar decision while waiting for a valid spread.
+   // This avoids recalculating 30 modules on every tick and prevents a transient
+   // first-tick spread spike from permanently consuming the signal bar.
+   if(expected_closed==gPendingSignalBar) return PublishPendingSignal();
    ArraySetAsSeries(gRates,false);
    int copied=CopyRates(_Symbol,InpAnalysisTF,1,InpSignalBars,gRates);
    if(copied<InpSignalBars) { gDataOK=false; return false; }
@@ -531,37 +591,21 @@ bool EvaluateClosedBar()
    int final_dir=(consensus>=InpMinConsensus ? 1 : consensus<=-InpMinConsensus ? -1 : 0);
    if(total_families<InpMinFamilyVotes || opposing>=InpMaxOpposingShare) final_dir=0;
 
-   // Spread is checked against current tick/ATR; it is a research gate, not an execution quote.
-   MqlTick current_tick;
-   if(!SymbolInfoTick(_Symbol,current_tick) || current_tick.ask<=0.0 || current_tick.bid<=0.0 ||
-      current_tick.ask<current_tick.bid || (current_tick.ask-current_tick.bid)>atr*InpMaxSpreadATR)
-      final_dir=0;
-   // The bar is marked consumed only after all required market data and features are valid.
-   gLastSignalBar=closed_bar;
-   gLastSignal=final_dir; gLastConsensus=consensus; gLastVotes=total_families; gLastLongFamilies=long_families; gLastShortFamilies=short_families; gLastOpposing=(int)MathRound(opposing*100.0);
+   // Cache the decision independently of the current tick's spread.
+   // PublishPendingSignal() will retry only the inexpensive spread gate on later ticks.
+   gPendingSignalBar=closed_bar;
+   gPendingSignal=final_dir;
+   gPendingConsensus=consensus;
+   gPendingATR=atr;
+   gPendingVotes=total_families;
+   gPendingLongFamilies=long_families;
+   gPendingShortFamilies=short_families;
+   gPendingOpposing=(int)MathRound(opposing*100.0);
+   gPendingLongModules=long_modules;
+   gPendingShortModules=short_modules;
+   gCandidate[0].dir=0;
    gDataOK=true;
-   if(final_dir!=0)
-   {
-      // One aggregated candidate only; no module is allowed to submit its own order.
-      gCandidate[0].dir=final_dir;
-      gCandidate[0].atr=atr;
-      gCandidate[0].sl=NormalizeDouble(gRates[last].close-final_dir*InpStopATR*atr,_Digits);
-      gCandidate[0].tp=NormalizeDouble(gRates[last].close+final_dir*InpTargetATR*atr,_Digits);
-      gCandidate[0].key=closed_bar;
-      gCandidate[0].expiry=closed_bar+PeriodSeconds(InpAnalysisTF)*3;
-      gCandidate[0].tag=30; // Meta-ensemble candidate, not module 0.
-   }
-   if(InpJournal)
-      PrintFormat("%s | %s | signal=%d families=%d long=%d short=%d modules=%d/%d consensus=%.3f opposing=%d%% ATR=%.5f",
-         ENGINE_LABEL,_Symbol,final_dir,total_families,long_families,short_families,long_modules,short_modules,consensus,gLastOpposing,atr);
-   if(InpPanel)
-      Comment(ENGINE_LABEL,"\n",_Symbol," ",EnumToString(InpAnalysisTF),
-         "\nMode: SAFE RESEARCH / NO ORDERS",
-         "\nMeta signal: ",(final_dir>0 ? "LONG CANDIDATE" : final_dir<0 ? "SHORT CANDIDATE" : "NO TRADE"),
-         "\nFamilies: ",long_families," BUY / ",short_families," SELL", "\nModules: ",long_modules," BUY / ",short_modules," SELL",
-         "\nConsensus: ",DoubleToString(consensus,3)," | Opposing: ",gLastOpposing,"%",
-         "\nSL/TP are research levels only");
-   return true;
+   return PublishPendingSignal();
 }
 
 int OnInit()
