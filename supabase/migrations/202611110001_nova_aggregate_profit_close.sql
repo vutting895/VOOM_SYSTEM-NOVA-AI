@@ -111,7 +111,10 @@ AS $function$
 DECLARE
   v_user uuid := (SELECT auth.uid());
   v_old_target numeric(12,2);
+  v_pending_target numeric(12,2);
   v_version bigint;
+  v_pending_version bigint;
+  v_new_version bigint;
   v_deferred boolean;
 BEGIN
   IF v_user IS NULL THEN
@@ -144,8 +147,8 @@ BEGIN
   VALUES (v_user, p_broker_connection_id)
   ON CONFLICT (user_id, broker_connection_id) DO NOTHING;
 
-  SELECT s.target_usd, s.config_version
-    INTO v_old_target, v_version
+  SELECT s.target_usd, s.config_version, s.pending_target_usd, s.pending_config_version
+    INTO v_old_target, v_version, v_pending_target, v_pending_version
     FROM public.nova_aggregate_profit_settings s
    WHERE s.user_id = v_user AND s.broker_connection_id = p_broker_connection_id
    FOR UPDATE;
@@ -158,15 +161,18 @@ BEGIN
   ) INTO v_deferred;
 
   IF v_deferred THEN
+    v_new_version := COALESCE(v_pending_version, v_version) + 1;
+    v_old_target := COALESCE(v_pending_target, v_old_target);
     UPDATE public.nova_aggregate_profit_settings s
        SET pending_target_usd = p_target_usd,
-           pending_config_version = v_version + 1,
+           pending_config_version = v_new_version,
            updated_at = now()
      WHERE s.user_id = v_user AND s.broker_connection_id = p_broker_connection_id;
   ELSE
+    v_new_version := v_version + 1;
     UPDATE public.nova_aggregate_profit_settings s
        SET target_usd = p_target_usd,
-           config_version = v_version + 1,
+           config_version = v_new_version,
            pending_target_usd = NULL,
            pending_config_version = NULL,
            updated_at = now()
@@ -179,7 +185,7 @@ BEGIN
   ) VALUES (
     v_user, p_broker_connection_id, v_user, v_old_target,
     p_target_usd, NOT v_deferred,
-    CASE WHEN v_deferred THEN v_version + 1 ELSE v_version + 1 END,
+    v_new_version,
     btrim(p_reason)
   );
 
