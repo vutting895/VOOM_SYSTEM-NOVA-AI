@@ -62,13 +62,27 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "account_exposure", "symbols", "quotes"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
                 self.assertIn("authorization", args)
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
+
+    def test_exposure_endpoint_is_read_only_and_counts_all_account_positions_and_orders(self):
+        functions = function_nodes()
+        exposure = functions["account_exposure"]
+        self.assertTrue(has_call(exposure, "positions_get"))
+        self.assertTrue(has_call(exposure, "orders_get"))
+        source = ast.get_source_segment(SOURCE, exposure)
+        self.assertIn('"open_positions": len(position_tickets)', source)
+        self.assertIn('"open_pending_orders": len(pending_tickets)', source)
+        self.assertIn('"position_tickets": position_tickets', source)
+        self.assertIn('"pending_order_tickets": pending_tickets', source)
+        self.assertIn('"order_submission_enabled": False', source)
+        self.assertIn('"liveTradingEnabled": False', source)
+        self.assertIn('"ordersEnabled": False', source)
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
