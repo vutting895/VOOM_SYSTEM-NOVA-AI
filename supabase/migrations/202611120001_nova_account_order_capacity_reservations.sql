@@ -141,7 +141,7 @@ AS $$
 DECLARE
   v_updated integer;
 BEGIN
-  IF p_broker_order_ticket IS NULL THEN
+  IF p_broker_order_ticket IS NULL OR char_length(btrim(p_broker_order_ticket)) = 0 THEN
     RETURN false;
   END IF;
   PERFORM 1
