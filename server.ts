@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { registerNovaApprovalRoutes } from './src/server/nova-approval-api.mjs';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -158,8 +159,7 @@ async function startServer() {
         req.path === '/api/broker/status' ||
         req.path === '/api/mt5-bridge/toggle' ||
         req.path === '/api/agent/approvals/decision' ||
-        req.path === '/api/intent/interrupt/resolve' ||
-        (req.path.startsWith('/api/agent/threads/') && req.path.includes('/approvals'))
+        req.path === '/api/intent/interrupt/resolve'
       );
 
     if (blockedMutation) {
@@ -176,6 +176,9 @@ async function startServer() {
 
     return next();
   });
+
+  // Owner-scoped Approval/Audit APIs authenticate before parsing JSON bodies.
+  registerNovaApprovalRoutes(app);
 
   app.use(express.json());
 
