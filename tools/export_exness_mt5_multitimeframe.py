@@ -92,21 +92,55 @@ def rate_row(rate: Any, start: datetime, end: datetime, seconds: int,
 
 
 def atomic_write(path: Path, payload: bytes) -> None:
-    if not path.parent.is_dir():
-        raise ValueError(f"output_directory_missing:{path.parent}")
-    if path.exists():
-        raise FileExistsError(f"output_exists_refusing_to_overwrite:{path}")
-    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    """Atomically create one immutable file without replacing an existing file."""
+    atomic_write_pair(((path, payload),))
+
+
+def atomic_write_pair(files: tuple[tuple[Path, bytes], ...]) -> None:
+    """Create a related artifact set; roll back created paths if any link fails.
+
+    Each destination is immutable. This is not a crash-atomic multi-file
+    transaction, so consumers must treat the manifest as the commit marker and
+    ignore a CSV without its matching manifest.
+    """
+    if not files or len({path for path, _ in files}) != len(files):
+        raise ValueError("artifact_paths_must_be_non_empty_and_unique")
+    parents = {path.parent for path, _ in files}
+    if len(parents) != 1:
+        raise ValueError("artifact_pair_must_share_output_directory")
+    parent = next(iter(parents))
+    if not parent.is_dir():
+        raise ValueError(f"output_directory_missing:{parent}")
+    for path, _ in files:
+        if path.exists():
+            raise FileExistsError(f"output_exists_refusing_to_overwrite:{path}")
+
+    temporary: list[Path] = []
+    created: list[Path] = []
     try:
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(payload)
-            stream.flush()
-            os.fsync(stream.fileno())
-        # Hard-link creation is atomic and fails if another process created the
-        # destination meanwhile; unlike os.replace it cannot overwrite data.
-        os.link(temp_name, path)
+        for path, payload in files:
+            fd, temp_name = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".tmp", dir=parent
+            )
+            temp_path = Path(temp_name)
+            temporary.append(temp_path)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+
+        # Hard links are atomic per destination and never overwrite. If a later
+        # link fails, remove only paths created by this invocation.
+        for (path, _), temp_path in zip(files, temporary, strict=True):
+            os.link(temp_path, path)
+            created.append(path)
+    except Exception:
+        for path in reversed(created):
+            path.unlink(missing_ok=True)
+        raise
     finally:
-        Path(temp_name).unlink(missing_ok=True)
+        for temp_path in temporary:
+            temp_path.unlink(missing_ok=True)
 
 
 def export_timeframe(mt5: Any, name: str, seconds: int, mt5_constant: int,
@@ -197,8 +231,8 @@ def export_timeframe(mt5: Any, name: str, seconds: int, mt5_constant: int,
                   "A timeframe export is not automatically training eligible.",
                   "Validate session closures, gaps, source identity and hash before use."]
     }
-    atomic_write(csv_path, csv_bytes)
-    atomic_write(manifest_path, (json.dumps(manifest, indent=2) + "\n").encode())
+    manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()
+    atomic_write_pair(((csv_path, csv_bytes), (manifest_path, manifest_bytes)))
     return manifest
 
 
