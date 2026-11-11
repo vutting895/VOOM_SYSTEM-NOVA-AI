@@ -53,15 +53,24 @@ def build_xgboost_samples(rows: Sequence[Mapping[str,object]], *, label_horizon_
         if min(o,h,l,c)<=0 or h<max(o,c,l) or l>min(o,c) or v<0: raise XGBoostDataError(f"row {i} invalid OHLCV")
         closes.append(c); highs.append(h); lows.append(l); volumes.append(v)
     if any(times[i]<=times[i-1] for i in range(1,len(times))): raise XGBoostDataError("timestamps must strictly increase")
+    ema12_values=[closes[0]]; ema26_values=[closes[0]]
+    for j in range(1,len(closes)):
+        ema12_values.append((2/13)*closes[j]+(1-2/13)*ema12_values[-1])
+        ema26_values.append((2/27)*closes[j]+(1-2/27)*ema26_values[-1])
+    changes=[closes[j]-closes[j-1] for j in range(1,15)]
+    avg_gain=sum(max(x,0) for x in changes)/14
+    avg_loss=sum(max(-x,0) for x in changes)/14
+    rsi_values=[50.0]*14
+    rsi_values.append(100.0 if avg_loss==0 and avg_gain>0 else 50.0 if avg_loss==0 else 100-100/(1+avg_gain/avg_loss))
+    for j in range(15,len(closes)):
+        delta=closes[j]-closes[j-1]
+        avg_gain=(avg_gain*13+max(delta,0))/14
+        avg_loss=(avg_loss*13+max(-delta,0))/14
+        rsi_values.append(100.0 if avg_loss==0 and avg_gain>0 else 50.0 if avg_loss==0 else 100-100/(1+avg_gain/avg_loss))
     out=[]
     for i in range(26,len(rows)-label_horizon_bars):
-        changes=[closes[j]-closes[j-1] for j in range(i-13,i+1)]
-        gain=sum(max(x,0) for x in changes)/14; loss=sum(max(-x,0) for x in changes)/14
-        rsi=100.0 if loss==0 and gain>0 else 50.0 if loss==0 else 100-100/(1+gain/loss)
-        ema12=closes[i-25]; ema26=closes[i-25]
-        for j in range(i-24,i+1):
-            ema12=(2/13)*closes[j]+(1-2/13)*ema12
-            ema26=(2/27)*closes[j]+(1-2/27)*ema26
+        rsi=rsi_values[i]
+        ema12=ema12_values[i]; ema26=ema26_values[i]
         volmean=sum(volumes[i-19:i+1])/20
         if volmean<=0: raise XGBoostDataError(f"row {i} rolling volume mean must be positive")
         feats=(closes[i]/closes[i-1]-1,closes[i]/closes[i-5]-1,rsi,ema12-ema26,volumes[i]/volmean,(highs[i]-lows[i])/closes[i])
