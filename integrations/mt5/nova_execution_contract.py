@@ -24,6 +24,7 @@ class RiskSnapshot:
     daily_loss_pct: float
     open_positions: int
     quote_age_seconds: float
+    open_pending_orders: int = 0
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ def validate_intent(
     max_single_risk_pct: float = 1.0,
     max_open_risk_pct: float = 9.0,
     max_daily_loss_pct: float = 10.0,
-    max_positions: int = 9,
+    max_total_orders: int = 5,
     max_quote_age_seconds: float = 5.0,
 ) -> GateResult:
     """Validate a proposed intent. This function has no broker/execution side effects."""
@@ -100,6 +101,11 @@ def validate_intent(
         return GateResult(False, "invalid_buy_sl_tp_geometry")
     if intent.side == "SELL" and not (intent.take_profit < intent.entry < intent.stop_loss):
         return GateResult(False, "invalid_sell_sl_tp_geometry")
+    if (type(risk.open_positions) is not int or risk.open_positions < 0
+            or type(risk.open_pending_orders) is not int or risk.open_pending_orders < 0):
+        return GateResult(False, "invalid_exposure_snapshot")
+    if type(max_total_orders) is not int or max_total_orders < 1:
+        return GateResult(False, "invalid_max_total_orders_policy")
     if risk.equity <= 0 or risk.proposed_risk_money <= 0:
         return GateResult(False, "risk_snapshot_unavailable")
     proposed_pct = risk.proposed_risk_money / risk.equity * 100.0
@@ -109,8 +115,8 @@ def validate_intent(
         return GateResult(False, "aggregate_open_risk_limit")
     if risk.daily_loss_pct >= max_daily_loss_pct:
         return GateResult(False, "daily_loss_lock")
-    if risk.open_positions >= max_positions:
-        return GateResult(False, "max_positions_reached")
+    if risk.open_positions + risk.open_pending_orders >= max_total_orders:
+        return GateResult(False, "max_total_orders_reached")
     if risk.quote_age_seconds < 0 or risk.quote_age_seconds > max_quote_age_seconds:
         return GateResult(False, "stale_quote")
     return GateResult(True, "validated_demo_intent_only")
