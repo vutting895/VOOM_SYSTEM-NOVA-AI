@@ -221,8 +221,12 @@ class MT5BridgeEngine:
             positions = api.positions_get(symbol=symbol) if symbol else api.positions_get()
             if positions is None:
                 raise MT5BridgeUnavailable("MT5 positions snapshot failed.")
+            if len(positions) > MAX_POSITIONS:
+                raise MT5BridgeUnavailable(
+                    "MT5 positions snapshot exceeds the configured safety limit; risk aggregation must not use a truncated snapshot."
+                )
             result = []
-            for pos in positions[:MAX_POSITIONS]:
+            for pos in positions:
                 result.append({
                     "ticket": int(pos.ticket),
                     "symbol": str(pos.symbol),
@@ -246,6 +250,10 @@ class MT5BridgeEngine:
             orders = api.orders_get(symbol=symbol) if symbol else api.orders_get()
             if orders is None:
                 raise MT5BridgeUnavailable("MT5 pending-order snapshot failed.")
+            if len(orders) > MAX_PENDING_ORDERS:
+                raise MT5BridgeUnavailable(
+                    "MT5 pending-order snapshot exceeds the configured safety limit; risk aggregation must not use a truncated snapshot."
+                )
             return [
                 {
                     "ticket": int(order.ticket),
@@ -258,7 +266,7 @@ class MT5BridgeEngine:
                     "time_setup": int(order.time_setup),
                     "state": int(order.state),
                 }
-                for order in orders[:MAX_PENDING_ORDERS]
+                for order in orders
             ]
 
     @staticmethod
