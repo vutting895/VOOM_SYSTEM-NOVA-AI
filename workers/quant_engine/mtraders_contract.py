@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from math import isfinite
 import json
 import re
 from collections.abc import Mapping
@@ -50,9 +51,15 @@ def build_research_decision_contract(
         raise DecisionContractError("research result contains unsafe execution flags")
 
     score = result.get("ensemble_score", 0.0)
-    if isinstance(score, bool) or not isinstance(score, (int, float)) or not -1.0 <= float(score) <= 1.0:
-        raise DecisionContractError("ensemble_score must be in [-1, 1]")
-    if signal == 1 and score <= 0 or signal == -1 and score >= 0:
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        raise DecisionContractError("ensemble_score must be a finite number in [-1, 1]")
+    try:
+        score_value = float(score)
+    except (OverflowError, ValueError):
+        raise DecisionContractError("ensemble_score must be a finite number in [-1, 1]") from None
+    if not isfinite(score_value) or not -1.0 <= score_value <= 1.0:
+        raise DecisionContractError("ensemble_score must be a finite number in [-1, 1]")
+    if signal == 1 and score_value <= 0 or signal == -1 and score_value >= 0:
         raise DecisionContractError("ensemble_score conflicts with signal")
 
     families = result.get("selected_families", [])
@@ -70,8 +77,14 @@ def build_research_decision_contract(
             raise DecisionContractError("family_id must be an integer in [0, 7]")
         if isinstance(direction, bool) or direction not in (-1, 1):
             raise DecisionContractError("family direction must be -1 or 1")
-        if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not 0 < float(weight) <= 1.25:
-            raise DecisionContractError("family weight must be in (0, 1.25]")
+        if isinstance(weight, bool) or not isinstance(weight, (int, float)):
+            raise DecisionContractError("family weight must be a finite number in (0, 1.25]")
+        try:
+            weight_value = float(weight)
+        except (OverflowError, ValueError):
+            raise DecisionContractError("family weight must be a finite number in (0, 1.25]") from None
+        if not isfinite(weight_value) or not 0 < weight_value <= 1.25:
+            raise DecisionContractError("family weight must be a finite number in (0, 1.25]")
         family_ids.append(family_id)
     if len(set(family_ids)) != len(family_ids) or len(families) > 8:
         raise DecisionContractError("family votes must be unique and limited to eight")
@@ -102,7 +115,7 @@ def build_research_decision_contract(
         "bar_time_utc": bar_time_utc,
         "decision": decision,
         "signal": signal,
-        "ensemble_score": round(float(score), 6),
+        "ensemble_score": round(score_value, 6),
         "regime": result.get("regime", {}).get("regime") if isinstance(result.get("regime"), Mapping) else None,
         "module_vote_count": len(modules),
         "strategy_vote_count": len(families),
