@@ -1,4 +1,43 @@
 # Risk Worker
 
 Scope: independent fail-closed checks for exposure, leverage, drawdown, stale data, market status, and per-account limits. Risk decisions must be reproducible and audited.
+
 Status: scaffold; not connected to EA or broker.
+
+## Currency normalization
+
+`currency_normalization.py` provides a deterministic, network-free core:
+- Standard broker-native account currencies are mapped 1:1 from authenticated MT5 `account_info().currency`; cent-style codes ending in C are rejected from this generic path and require a separately verified rule.
+- Account values and instrument profit values are normalized to USD using timestamped FX bid/ask quotes.
+- Positive assets convert conservatively at bid; liabilities and daily-loss amounts use ask-side pricing (inverse pairs use the corresponding inverse side). All available fresh paths are evaluated and the most conservative result is selected.
+- Multi-hop paths are supported and quote IDs/sources are retained in the result.
+- THB is a separate reporting-only conversion from USD. A missing THB quote must suppress THB reporting, never change the USD risk decision.
+- Money uses `Decimal`; binary floats, unknown denomination rules, missing rates, stale rates, and invalid timestamps fail closed.
+
+### Important production boundary
+
+This module does not fetch FX rates and does not guess account denomination. A trusted adapter must supply fresh broker/FX metadata and broker-verified denomination rules. Do not register a Cent/Micro multiplier based on account display name. In particular, an account denominated in USD does not automatically have a smaller balance unit merely because it is marketed as a “micro” account; contract size and tick-value metadata are separate instrument properties. Do not infer a “micro account” from Exness's `-m` symbol suffix: Exness documents `-m` as the Standard account symbol group, not a currency denomination.
+
+No execution endpoint is implemented here. The MT5 bridge remains read-only, and this module is not authorization to place orders.
+
+
+### Exness Standard Cent evidence
+
+The verified Exness Standard Cent mapping currently enabled by `exness_standard_cent_rule` is `USC -> USD × 0.01`, and the requested instrument must also carry Exness's documented `c` suffix. Exness states that a 5 USD deposit is displayed as 500 USC and that Standard Cent instruments use cent lots. See the [Exness Standard Cent account specification](https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account).
+
+Other cent currencies are deliberately not enabled until their exact unit conversion is verified. Exness lists USC, EUC, GBC, CHC, AUC, CAC, IDC, VNC, JPC and THC as Standard Cent account currencies; this implementation enables only USC and rejects the others. See [Exness account currencies](https://get.exness.help/hc/en-us/articles/360011677700-Trading-account-currencies). Exness also documents `-c` for Standard Cent and `-m` for Standard symbols in its [account type suffix reference](https://get.exness.help/hc/en-us/articles/360014560220-Account-type-suffixes). “Micro” must not be treated as a currency multiplier: if an account reports USD, its account balance remains USD; smaller micro contract sizes must be obtained from instrument contract/tick metadata and valued separately.
+
+
+### MT5 account-currency loss calculation (primary path)
+
+Use the MT5 terminal's `order_calc_profit` for the proposed side, symbol, volume, entry and stop prices. MetaQuotes documents that this returns the estimated profit/loss in the current account currency, with no order sent. NOVA then normalizes the negative result into USD using the account currency/denomination rule and conservative liability-side FX. Add explicit commission/slippage/swap costs in the same native account currency. If the calculation is unavailable, stale, non-loss, or denomination metadata is unknown, fail closed. See the [MetaTrader 5 Python order_calc_profit reference](https://www.mql5.com/en/docs/python_metatrader5/mt5ordercalcprofit_py).
+
+### MT5 tick-based stop-loss estimate (fallback only)
+
+`estimate_stop_loss_usd` is a fallback calculation from terminal-supplied tick size, loss tick value, volume and entry/stop prices. Some symbol calculation modes may expose tick values in a currency other than the account deposit currency; use this helper only when the tick-value currency has been verified. Tick count rounds upward. The caller must supply estimated commission/slippage/swap costs explicitly in the native account currency; the helper does not silently assume zero. The resulting loss is converted as a liability (conservative FX side) into USD and can then be passed to `evaluate_usd_risk_limits` for the 1% Demo current-Equity per-trade gate by default. A separately approved future Real-account policy can pass an explicit 5% override; that does not change the active Demo policy. `evaluate_mt5_trade_risk` composes the MT5 `order_calc_profit` result with the 1% Demo per-trade and 10% fixed Broker Day Start Equity daily-loss USD gate in one pure function.
+
+For Exness USC Cent, the account-native tick loss is normalized with the verified USC -> USD 0.01 mapping. For USD Micro accounts, the USD balance is not scaled; the terminal's actual smaller tick value/contract metadata drives the loss estimate.
+
+This remains a pure calculation layer. The legacy `manager_prototype.py` is not replaced or wired to broker execution by this change; full risk-manager integration still requires review of daily-loss snapshot semantics, drawdown, the owner-approved 9% aggregate open-risk ceiling, and other owner-approved gates. Until aggregate open risk is calculated and enforced, this module is not Production-ready.
+
+`to_usd_loss` converts positive realized/unrealized loss amounts using liability-side FX pricing. The adapter returns `risk_passed` as a calculation outcome only; it is not order authorization. It does not replace the existing risk worker or satisfy aggregate open-risk, drawdown, concurrency, market freshness, tenant authentication, Demo-account verification or kill-switch gates. Daily loss must be supplied from the persisted broker-day opening-equity snapshot, with realized and unrealized P&L reconciled by the trusted account adapter.
