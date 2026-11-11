@@ -1,6 +1,9 @@
 name: Windows CI Diagnostic
 
 on:
+  push:
+    branches:
+      - "ci/python-ci-controller-20261112-v2"
   pull_request:
     paths:
       - "tools/ci/**"
