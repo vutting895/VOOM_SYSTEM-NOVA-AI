@@ -23,6 +23,7 @@ class HybridNotebookContractTests(unittest.TestCase):
         functions = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
         namespace = {
             "pd": pd, "np": np, "json": json, "hashlib": hashlib, "Path": Path,
+            "OOF_ROOT": Path("/tmp/nova-approved-oof"),
             "FINAL_OOS_START": FINAL_OOS_START,
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
