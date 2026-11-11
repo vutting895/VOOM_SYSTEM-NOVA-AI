@@ -1,5 +1,7 @@
 import ast
 import json
+import hashlib
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -20,18 +22,20 @@ class HybridNotebookContractTests(unittest.TestCase):
         tree = ast.parse(cls.source, filename=str(NOTEBOOK))
         functions = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
         namespace = {
-            "pd": pd, "np": np, "FINAL_OOS_START": FINAL_OOS_START,
+            "pd": pd, "np": np, "json": json, "hashlib": hashlib, "Path": Path,
+            "FINAL_OOS_START": FINAL_OOS_START,
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
             "LABEL_HORIZON_BARS": 5,
             "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
         }
         module = ast.Module(
-            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"], functions["split_fit_early_stop"]],
+            body=[functions["sha256_file"], functions["validate_oof_bundle"], functions["load_approved_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"], functions["split_fit_early_stop"]],
             type_ignores=[],
         )
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
+        cls.load_approved_oof_bundle = staticmethod(namespace["load_approved_oof_bundle"])
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
         cls.make_features = staticmethod(namespace["make_features"])
         cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
@@ -310,6 +314,60 @@ class HybridNotebookContractTests(unittest.TestCase):
         votes = pd.concat([votes, extra], ignore_index=True)
         with self.assertRaisesRegex(ValueError, "unexpected Meta Decision model families"):
             self.validate_oof_bundle(votes)
+
+
+    def test_oof_loader_accepts_checksum_bound_approved_bundle(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            csv_path = root / "nova_meta_oof.csv"
+            manifest_path = root / "nova_meta_oof.manifest.json"
+            approval_path = root / "nova_meta_oof.manifest.approval.json"
+            votes = self.valid_votes()
+            votes.to_csv(csv_path, index=False)
+            digest = hashlib.sha256(csv_path.read_bytes()).hexdigest()
+            source_commit = "c" * 40
+            manifest = {
+                "sha256": digest,
+                "row_count": len(votes),
+                "source": "quant_engine_oof_export",
+                "source_commit_sha": source_commit,
+                "evaluator_version": "nova-eval-v1",
+                "completeness_status": "PASS",
+                "oof_status": "PASS",
+            }
+            approval = {"approved": True, "dataset_sha256": digest,
+                        "source_commit_sha": source_commit}
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            loaded, audit = self.load_approved_oof_bundle(root)
+            self.assertIsNotNone(loaded)
+            self.assertEqual(len(loaded), len(votes))
+            self.assertEqual(audit[0]["status"], "PASS")
+
+    def test_oof_loader_rejects_checksum_mismatch(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            csv_path = root / "nova_meta_oof.csv"
+            votes = self.valid_votes()
+            votes.to_csv(csv_path, index=False)
+            source_commit = "d" * 40
+            manifest = {
+                "sha256": "0" * 64,
+                "row_count": len(votes),
+                "source": "quant_engine_oof_export",
+                "source_commit_sha": source_commit,
+                "evaluator_version": "nova-eval-v1",
+                "completeness_status": "PASS",
+                "oof_status": "PASS",
+            }
+            approval = {"approved": True, "dataset_sha256": "0" * 64,
+                        "source_commit_sha": source_commit}
+            (root / "nova_meta_oof.manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (root / "nova_meta_oof.manifest.approval.json").write_text(json.dumps(approval), encoding="utf-8")
+            loaded, audit = self.load_approved_oof_bundle(root)
+            self.assertIsNone(loaded)
+            self.assertEqual(audit[0]["status"], "BLOCKED")
+            self.assertIn("SHA-256 mismatch", audit[0]["reason"])
 
 
 if __name__ == "__main__":
