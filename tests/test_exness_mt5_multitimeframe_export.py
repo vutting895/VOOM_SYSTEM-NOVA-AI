@@ -6,6 +6,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location(
     "export_multitimeframe",
@@ -73,6 +74,40 @@ class MultiTimeframeExporterTests(unittest.TestCase):
             csv_text = (Path(tmp) / "XAUUSDm_M1.csv").read_text()
             self.assertIn(",321\n", csv_text)
             self.assertTrue((Path(tmp) / "XAUUSDm_M1.manifest.json").is_file())
+
+
+    def test_artifact_pair_refuses_existing_manifest_without_creating_csv(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            csv_path = root / "XAUUSDm_H1.csv"
+            manifest_path = root / "XAUUSDm_H1.manifest.json"
+            manifest_path.write_text("existing", encoding="utf-8")
+            with self.assertRaises(FileExistsError):
+                MODULE.atomic_write_pair(((csv_path, b"csv"), (manifest_path, b"manifest")))
+            self.assertFalse(csv_path.exists())
+            self.assertEqual(manifest_path.read_text(encoding="utf-8"), "existing")
+
+    def test_artifact_pair_rolls_back_first_link_if_second_link_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            csv_path = root / "XAUUSDm_H1.csv"
+            manifest_path = root / "XAUUSDm_H1.manifest.json"
+            real_link = MODULE.os.link
+            calls = 0
+
+            def fail_second_link(source, destination):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("simulated_manifest_link_failure")
+                return real_link(source, destination)
+
+            with patch.object(MODULE.os, "link", side_effect=fail_second_link):
+                with self.assertRaisesRegex(OSError, "simulated_manifest_link_failure"):
+                    MODULE.atomic_write_pair(((csv_path, b"csv"), (manifest_path, b"manifest")))
+            self.assertFalse(csv_path.exists())
+            self.assertFalse(manifest_path.exists())
+            self.assertEqual(list(root.iterdir()), [])
 
     def test_rejects_non_demo_account(self):
         mt5 = FakeMT5([])
