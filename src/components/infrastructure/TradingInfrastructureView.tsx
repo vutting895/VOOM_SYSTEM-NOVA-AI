@@ -127,7 +127,7 @@ export default function TradingInfrastructureView() {
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-emerald-400 font-mono">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Credential isolation not verified (no broker session)</span>
+            <span>Credential isolation not verified - no broker session</span>
           </div>
         </div>
 
@@ -144,7 +144,7 @@ export default function TradingInfrastructureView() {
               </span>
             </div>
 
-            <h3 className="text-sm font-bold text-white mb-2">Exness MT5 Demo Feed Gateway</h3>
+            <h3 className="text-sm font-bold text-white mb-2">Exness MT5 Demo (not connected)</h3>
 
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
@@ -271,7 +271,7 @@ export default function TradingInfrastructureView() {
               </span>
             </div>
 
-            <h3 className="text-sm font-bold text-white mb-2">Real-Time Ingestion & Buffer</h3>
+            <h3 className="text-sm font-bold text-white mb-2">Data Pipeline (not configured)</h3>
 
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
@@ -312,7 +312,7 @@ export default function TradingInfrastructureView() {
               </span>
             </div>
 
-            <h3 className="text-sm font-bold text-white mb-2">Autonomous Quant Training Daemon</h3>
+            <h3 className="text-sm font-bold text-white mb-2">Training Runner (not configured)</h3>
 
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">

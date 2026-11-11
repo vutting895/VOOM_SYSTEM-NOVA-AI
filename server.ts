@@ -184,8 +184,8 @@ async function startServer() {
   const liveTradingEnabled = false as const;
 
   // =========================================================================
-  // BACKEND-ONLY AUTONOMOUS DATA INGESTION & MODEL TRAINING WORKER
-  // Runs strictly in the backend; frontend only receives a compact status notification
+  // TRAINING STATUS - NOT CONFIGURED
+  // No training runner or verified evaluation pipeline is connected
   // =========================================================================
   // Training remains unavailable until a provenance-backed pipeline is connected.
   const autoTrainState = 'NOT_CONFIGURED' as const;

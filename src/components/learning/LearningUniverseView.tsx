@@ -99,7 +99,7 @@ export default function LearningUniverseView() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/20 transition-all disabled:opacity-50"
             >
               <Zap className="w-4 h-4 fill-current" />
-              {triggering ? 'กำลังประมวลผล...' : 'กระตุ้นรอบฝึกฝน (Trigger Train)'}
+              {triggering ? "Processing..." : learningData.autoUpdateJob.automated ? "Trigger Train" : "Training Not Configured"}
             </button>
           </div>
         </div>
