@@ -32,6 +32,17 @@ class NativeTests(unittest.TestCase):
         self.assertEqual(len(MTRADERS_STRATEGY_NAMES), 30)
         self.assertEqual(len(set(MTRADERS_STRATEGY_NAMES)), 30)
 
+    def test_ontick_runs_closed_bar_research_only_controller(self):
+        source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
+        source = source_path.read_text(encoding="utf-8")
+        on_tick = re.search(r"void OnTick\\(\\)\\s*\\{([^}]*)\\}", source, re.DOTALL)
+        self.assertIsNotNone(on_tick)
+        self.assertIn("EvaluateClosedBar()", on_tick.group(1))
+        self.assertIn("InpTradeEnabled", on_tick.group(1))
+        self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(]")
+        self.assertIn("One aggregated candidate only", source)
+        self.assertIn("TIMEZONE MAP REQUIRED", source)
+
     def test_mql5_module_registry_matches_python_registry_and_safe_defaults(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")
