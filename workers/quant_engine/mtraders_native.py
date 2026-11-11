@@ -31,6 +31,7 @@ def _bars(value: Any) -> list[dict[str, Any]]:
         raise StrategyInputError("candles exceeds the 100000-bar processing limit")
     result: list[dict[str, Any]] = []
     previous = None
+    timestamp_mode = None
     for i, row in enumerate(value):
         if not isinstance(row, Mapping):
             raise StrategyInputError(f"bar {i} must be a mapping")
@@ -59,6 +60,11 @@ def _bars(value: Any) -> list[dict[str, Any]]:
         if item["high"] < max(item["open"], item["close"]) or item["low"] > min(item["open"], item["close"]) or item["high"] < item["low"]:
             raise StrategyInputError(f"bar {i}: invalid OHLC bounds")
         stamp = row.get("timestamp")
+        has_timestamp = stamp is not None
+        if timestamp_mode is None:
+            timestamp_mode = has_timestamp
+        elif timestamp_mode != has_timestamp:
+            raise StrategyInputError("timestamps must be supplied for all bars or none")
         if stamp is not None:
             if isinstance(stamp, str):
                 raw_stamp = stamp[:-1] + "+00:00" if stamp.endswith("Z") else stamp

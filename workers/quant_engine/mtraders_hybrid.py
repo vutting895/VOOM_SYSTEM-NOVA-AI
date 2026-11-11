@@ -103,13 +103,15 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
             raise ValueError(f"{source} direction must be -1, 0, or 1")
         if isinstance(score, bool) or not isinstance(score, (int, float)) or not isfinite(float(score)) or not -1 <= score <= 1:
             raise ValueError(f"{source} score must be finite and in [-1, 1]")
-        if direction == 0 and score != 0 or direction != 0 and score * direction < 0:
+        if (direction == 0 and score != 0) or (direction != 0 and (score == 0 or score * direction < 0)):
             raise ValueError(f"{source} score conflicts with direction")
         if direction:
             model_total += score * MODEL_WEIGHTS[source]
             model_weight += MODEL_WEIGHTS[source]
             model_used.append({"source": source, "direction": direction, "score": score, "weight": MODEL_WEIGHTS[source]})
-    model_score = model_total / model_weight if model_weight else 0.0
+    # Missing model families contribute zero weight rather than letting one available model
+    # occupy the entire model sleeve. Total configured model weight is 0.65.
+    model_score = model_total / sum(MODEL_WEIGHTS.values()) if model_weight else 0.0
     ensemble = 0.8 * strategy_score + 0.2 * model_score if model_weight and votes else strategy_score
     conflict = min(long, short) / max(long + short, 1e-12)
     direction = 1 if ensemble >= consensus_threshold else -1 if ensemble <= -consensus_threshold else 0

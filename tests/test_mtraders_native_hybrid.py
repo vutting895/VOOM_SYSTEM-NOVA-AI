@@ -54,6 +54,13 @@ class NativeTests(unittest.TestCase):
         for sid in (11, 13, 22, 26):
             self.assertIn("timestamp", evaluate_mtraders_strategy(sid, {"candles": candles()})["reason"])
 
+
+    def test_mixed_timestamp_presence_is_rejected(self):
+        data = candles(timestamps=True)
+        data[20].pop("timestamp")
+        with self.assertRaises(StrategyInputError):
+            evaluate_all_mtraders_modules({"candles": data})
+
     def test_disclosed_approximations(self):
         neural = evaluate_mtraders_strategy(21, {"candles": candles()})
         footprint = evaluate_mtraders_strategy(19, {"candles": candles()})
@@ -91,6 +98,16 @@ class HybridTests(unittest.TestCase):
     def test_invalid_model_vote_rejected(self):
         with self.assertRaises(ValueError):
             evaluate_hybrid_strategy(approved(candles()), model_votes={"lstm": {"direction": 1, "score": -0.9}})
+
+
+    def test_zero_score_cannot_claim_direction(self):
+        with self.assertRaises(ValueError):
+            evaluate_hybrid_strategy(approved(candles()), model_votes={"xgboost": {"direction": 1, "score": 0.0}})
+
+    def test_partial_model_coverage_does_not_get_full_model_weight(self):
+        vote = {"xgboost": {"direction": 1, "score": 1.0}}
+        out = evaluate_hybrid_strategy(approved(candles()), model_votes=vote)
+        self.assertAlmostEqual(out["model_score"], 0.15 / sum((0.15, 0.15, 0.15, 0.20)), places=6)
 
     def test_validation_weights_bounded(self):
         with self.assertRaises(ValueError):
