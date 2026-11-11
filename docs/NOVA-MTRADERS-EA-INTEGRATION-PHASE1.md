@@ -56,3 +56,12 @@ A count-then-submit sequence is not atomic. Multiple EA instances or command wor
 - The migration is repository-only at this stage. It has **not** been applied to the Supabase production project, and no Supabase branch was created.
 - The SQL integration test is authored but has not been executed against a disposable database.
 - Runtime bridge wiring is not complete. The Python contract's count check and the MQL5 PositionsTotal()+OrdersTotal() helper are preliminary gates; neither is proof of atomic cross-process reservation. No broker order submission is enabled.
+
+## Read-only exposure snapshot transport (2026-11-12)
+
+- Added tenant-authenticated `GET /api/exposure` to the existing local MT5 Bridge.
+- Snapshot includes account login/server, total open-position count, total active pending-order count, and broker ticket IDs for both sets.
+- The handler fails closed if either `positions_get()` or `orders_get()` returns unavailable (`None`); an empty tuple is a valid zero count.
+- Added the route to the allowlisted outbound WSS relay and its query-free request validator. It remains GET-only and carries no order mutation capability.
+- This provides the broker-snapshot input required by the account-capacity reservation service. It does not call Supabase, reserve capacity, or submit broker orders yet.
+- Snapshot reads are sequential MT5 API reads under the bridge process lock, not an atomic broker transaction. External/manual account activity can still occur between reads; the reservation service must fail closed on stale snapshots and reconcile against subsequent snapshots.
