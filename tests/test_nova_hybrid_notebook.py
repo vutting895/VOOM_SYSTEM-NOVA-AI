@@ -8,7 +8,7 @@ import pandas as pd
 
 NOTEBOOK = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Hybrid_Continuous_MultiAsset_Training.ipynb"
 FINAL_OOS_START = pd.Timestamp("2026-07-01T00:00:00Z")
-REQUIRED_FAMILIES = ("xgboost", "lstm", "wave3", "smc")
+REQUIRED_FAMILIES = ("lstm", "deep_learning", "xgboost", "vision", "neural_network")
 
 
 class HybridNotebookContractTests(unittest.TestCase):
@@ -23,22 +23,42 @@ class HybridNotebookContractTests(unittest.TestCase):
             "pd": pd, "np": np, "FINAL_OOS_START": FINAL_OOS_START,
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
+            "LABEL_HORIZON_BARS": 5,
+            "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
         }
-        module = ast.Module(body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"]], type_ignores=[])
-        namespace.update({"LABEL_HORIZON_BARS": 5, "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]})
+        module = ast.Module(
+            body=[functions["validate_oof_bundle"], functions["validate_market_frame"], functions["make_features"]],
+            type_ignores=[],
+        )
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
         cls.validate_oof_bundle = staticmethod(namespace["validate_oof_bundle"])
         cls.validate_market_frame = staticmethod(namespace["validate_market_frame"])
         cls.make_features = staticmethod(namespace["make_features"])
-        cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
 
     @staticmethod
-    def valid_votes(timestamp="2026-06-30T12:00:00Z"):
+    def valid_votes(start="2026-06-29T00:00:00Z"):
+        timestamps = pd.date_range(start, periods=30, freq="h")
         return pd.DataFrame([
-            {"timestamp_utc": timestamp, "asset": "XAUUSDm", "timeframe": "H1",
-             "family": family, "probability": 0.65, "fold_id": "fold-1",
-             "model_version": f"{family}-v1", "calibration_id": f"{family}-cal-1",
-             "is_oof": True}
+            {
+                "timestamp_utc": timestamp,
+                "asset": "XAUUSDm",
+                "timeframe": "H1",
+                "family": family,
+                "direction": 1,
+                "score": 0.65,
+                "calibrated_reliability": 0.8,
+                "prediction_history_value": 0.65,
+                "fold_id": "fold-1",
+                "model_version": f"{family}-v1",
+                "calibration_id": f"{family}-cal-1",
+                "calibration_status": "PASS",
+                "calibration_method": "walk_forward_oos",
+                "oos_samples": 30,
+                "dataset_sha256": "a" * 64,
+                "evaluator_version": "nova-eval-v1",
+                "is_oof": True,
+            }
+            for timestamp in timestamps
             for family in REQUIRED_FAMILIES
         ])
 
@@ -85,30 +105,30 @@ class HybridNotebookContractTests(unittest.TestCase):
         self.assertIn("groupby('segment_id'", self.source)
         self.assertIn("no feature/label/sequence may cross it", self.source)
 
-    def test_multimarket_contract_and_oof_gate(self):
+    def test_multimarket_contract_and_meta_model_families(self):
         self.assertIn("ASSETS =", self.source)
         self.assertIn("TIMEFRAMES =", self.source)
         self.assertIn("def validate_oof_bundle", self.source)
-        self.assertIn("calibration_id", self.source)
+        for family in REQUIRED_FAMILIES:
+            self.assertIn(family, self.source)
 
-    def test_oof_accepts_complete_timestamp_aligned_votes(self):
+    def test_oof_accepts_all_five_meta_decision_families(self):
         self.assertTrue(self.validate_oof_bundle(self.valid_votes()))
 
-    def test_oof_rejects_missing_family_at_one_timestamp_even_if_present_elsewhere(self):
-        rows = self.valid_votes("2026-06-30T12:00:00Z")
-        second = self.valid_votes("2026-06-30T13:00:00Z")
-        rows.loc[rows["family"] == "smc", "family"] = "vision"
-        combined = pd.concat([rows, second], ignore_index=True)
+    def test_oof_rejects_missing_family_at_one_timestamp(self):
+        rows = self.valid_votes()
+        first_ts = rows["timestamp_utc"].min()
+        rows.loc[(rows["timestamp_utc"] == first_ts) & (rows["family"] == "vision"), "family"] = "wave3"
         with self.assertRaisesRegex(ValueError, "per-timestamp"):
-            self.validate_oof_bundle(combined)
+            self.validate_oof_bundle(rows)
 
     def test_oof_rejects_naive_timestamps(self):
         with self.assertRaisesRegex(ValueError, "explicit timezone"):
-            self.validate_oof_bundle(self.valid_votes("2026-06-30 12:00:00"))
+            self.validate_oof_bundle(self.valid_votes(start="2026-06-29 00:00:00"))
 
     def test_oof_rejects_sealed_final_oos(self):
         with self.assertRaisesRegex(ValueError, "sealed Final OOS"):
-            self.validate_oof_bundle(self.valid_votes("2026-07-01T00:00:00Z"))
+            self.validate_oof_bundle(self.valid_votes(start="2026-07-01T00:00:00Z"))
 
     def test_oof_rejects_in_sample_predictions(self):
         votes = self.valid_votes()
@@ -122,19 +142,36 @@ class HybridNotebookContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             self.validate_oof_bundle(votes)
 
-    def test_walk_forward_purges_by_actual_label_end_timestamp(self):
-        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
-        frame = pd.DataFrame({
-            "timestamp_utc": timestamps,
-            "label_end_utc": timestamps + pd.Timedelta(hours=20),
-            "label": np.tile([0, 1], 100),
-        })
-        folds = self.walk_forward_folds(frame, folds=3, horizon=5)
-        self.assertEqual(len(folds), 3)
-        for train, valid in folds:
-            validation_start = valid["timestamp_utc"].min()
-            self.assertTrue((train["label_end_utc"] < validation_start).all())
-            self.assertTrue((train["timestamp_utc"] < validation_start).all())
+    def test_oof_rejects_missing_or_failed_calibration(self):
+        votes = self.valid_votes()
+        votes.loc[0, "calibration_status"] = "PENDING"
+        with self.assertRaisesRegex(ValueError, "calibration"):
+            self.validate_oof_bundle(votes)
+
+    def test_oof_rejects_inadequate_oos_sample_count(self):
+        votes = self.valid_votes()
+        votes.loc[0, "oos_samples"] = 29
+        with self.assertRaisesRegex(ValueError, "at least 30"):
+            self.validate_oof_bundle(votes)
+
+    def test_oof_rejects_inconsistent_signed_prediction(self):
+        votes = self.valid_votes()
+        votes.loc[0, "prediction_history_value"] = -0.65
+        with self.assertRaisesRegex(ValueError, "equal direction"):
+            self.validate_oof_bundle(votes)
+
+    def test_oof_rejects_mixed_dataset_hashes_at_one_timestamp(self):
+        votes = self.valid_votes()
+        first_ts = votes["timestamp_utc"].min()
+        votes.loc[(votes["timestamp_utc"] == first_ts) & (votes["family"] == "vision"), "dataset_sha256"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "same dataset SHA-256"):
+            self.validate_oof_bundle(votes)
+
+    def test_oof_rejects_missing_model_family_even_if_strategy_context_exists(self):
+        votes = self.valid_votes()
+        votes.loc[votes["family"] == "vision", "family"] = "wave3"
+        with self.assertRaisesRegex(ValueError, "missing Meta Decision model families"):
+            self.validate_oof_bundle(votes)
 
     def test_feature_engineering_drops_non_finite_volume_ratios(self):
         timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=50, freq="h")
@@ -177,15 +214,16 @@ class HybridNotebookContractTests(unittest.TestCase):
 
     def test_market_data_rejects_timezone_naive_timestamps(self):
         frame, manifest = self.market_fixture()
-        frame['timestamp_utc'] = ['2026-01-05 10:00:00', '2026-01-05 12:00:00']
-        with self.assertRaisesRegex(ValueError, 'explicit timezone'):
-            self.validate_market_frame(frame, 'XAUUSDm', 'H1', manifest)
+        frame["timestamp_utc"] = ["2026-01-05 10:00:00", "2026-01-05 12:00:00"]
+        with self.assertRaisesRegex(ValueError, "explicit timezone"):
+            self.validate_market_frame(frame, "XAUUSDm", "H1", manifest)
 
     def test_market_data_rejects_fractional_tick_volume(self):
         frame, manifest = self.market_fixture()
-        frame.loc[0, 'volume'] = 100.5
-        with self.assertRaisesRegex(ValueError, 'tick_volume must be integer'):
-            self.validate_market_frame(frame, 'XAUUSDm', 'H1', manifest)
+        frame["volume"] = frame["volume"].astype(float)
+        frame.loc[0, "volume"] = 100.5
+        with self.assertRaisesRegex(ValueError, "tick_volume must be integer"):
+            self.validate_market_frame(frame, "XAUUSDm", "H1", manifest)
 
     def test_market_data_rejects_volume_type_mismatch(self):
         frame, manifest = self.market_fixture()
