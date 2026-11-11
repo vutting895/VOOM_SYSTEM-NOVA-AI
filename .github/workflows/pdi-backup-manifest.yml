@@ -1,0 +1,37 @@
+name: PDI Backup Manifest CI
+
+on:
+  pull_request:
+    paths:
+      - "scripts/pdi_backup_manifest.py"
+      - "tests/test_pdi_backup_manifest.py"
+      - ".github/workflows/pdi-backup-manifest.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/pdi_backup_manifest.py"
+      - "tests/test_pdi_backup_manifest.py"
+      - ".github/workflows/pdi-backup-manifest.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdi-backup-manifest-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile backup manifest utility
+        run: python -m py_compile scripts/pdi_backup_manifest.py tests/test_pdi_backup_manifest.py
+      - name: Run backup manifest security and integrity tests
+        run: python -m unittest discover -s tests -p "test_pdi_backup_manifest.py" -v
