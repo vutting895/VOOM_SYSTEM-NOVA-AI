@@ -36,6 +36,18 @@ class NativeTests(unittest.TestCase):
         self.assertEqual(set(STRATEGY_FAMILY_BY_ID), set(range(30)))
         self.assertEqual(set(STRATEGY_FAMILY_BY_ID.values()), set(range(8)))
 
+    def test_mql5_family_mapping_matches_python_exactly(self):
+        source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
+        source = source_path.read_text(encoding="utf-8")
+        block = source.split("int StrategyFamily(const int id)", 1)[1].split("string FamilyName", 1)[0]
+        mapping = {}
+        for condition, family in re.findall(r"if\((.*?)\) return ([0-7]);", block):
+            for module_id in map(int, re.findall(r"id==(\d+)", condition)):
+                self.assertNotIn(module_id, mapping)
+                mapping[module_id] = int(family)
+        self.assertEqual(mapping, STRATEGY_FAMILY_BY_ID)
+
+
     def test_ontick_runs_closed_bar_research_only_controller(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")

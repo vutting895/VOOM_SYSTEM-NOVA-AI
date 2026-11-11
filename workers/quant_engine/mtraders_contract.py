@@ -26,7 +26,7 @@ def build_research_decision_contract(
         raise DecisionContractError("result must be a mapping")
     if not isinstance(symbol, str) or not re.fullmatch(r"[A-Z0-9._-]{1,32}", symbol):
         raise DecisionContractError("symbol must be a canonical uppercase broker symbol")
-    if timeframe not in _ALLOWED_TIMEFRAMES:
+    if not isinstance(timeframe, str) or timeframe not in _ALLOWED_TIMEFRAMES:
         raise DecisionContractError("unsupported timeframe")
     if not isinstance(bar_time_utc, str) or not bar_time_utc.endswith("Z"):
         raise DecisionContractError("bar_time_utc must be an ISO-8601 UTC timestamp ending in Z")
@@ -39,7 +39,7 @@ def build_research_decision_contract(
 
     decision = result.get("decision")
     signal = result.get("signal")
-    if decision not in _ALLOWED_DECISIONS:
+    if not isinstance(decision, str) or decision not in _ALLOWED_DECISIONS:
         raise DecisionContractError("unsupported decision")
     if signal not in (None, -1, 1) or isinstance(signal, bool):
         raise DecisionContractError("signal must be -1, 1, or null")
