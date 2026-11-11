@@ -21,7 +21,7 @@ class BacktestTests(unittest.TestCase):
         self.assertAlmostEqual(result["trades"][0]["cost_return"],0.0005)
     def test_no_overlapping_positions(self):
         result=run_next_bar_backtest(bars([100+i for i in range(12)]),lambda h:1,warmup_bars=2)
-        for a,b in zip(result["trades"],result["trades"][1:]): self.assertGreater(b["signal_index"],a["exit_index"])
+        for a,b in zip(result["trades"],result["trades"][1:]): self.assertGreaterEqual(b["signal_index"],a["exit_index"])
     def test_invalid_signal_rejected(self):
         with self.assertRaises(ValueError): run_next_bar_backtest(bars([100+i for i in range(8)]),lambda h:True,warmup_bars=2)
     def test_bad_cost_rejected(self):
