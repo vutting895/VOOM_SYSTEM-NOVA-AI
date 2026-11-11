@@ -100,11 +100,13 @@ class QueueTests(unittest.TestCase):
             conn, job_id="job-1", worker_id="worker-1", lease_seconds=30,
         )))
         self.assertIn("worker_id = $2", conn.calls[0][0])
+        self.assertIn("lease_expires_at > now()", conn.calls[0][0])
 
     def test_complete_is_worker_scoped(self):
         conn = FakeConnection(execute_result="UPDATE 1")
         self.assertTrue(self.run_async(complete_job(conn, job_id="job-1", worker_id="worker-1")))
         self.assertIn("status = 'succeeded'", conn.calls[0][0])
+        self.assertIn("lease_expires_at > now()", conn.calls[0][0])
 
     def test_fail_job_uses_bounded_error_code_and_retry_state(self):
         conn = FakeConnection([{"status": "retry"}])
@@ -112,6 +114,28 @@ class QueueTests(unittest.TestCase):
             conn, job_id="job-1", worker_id="worker-1", error_code="DATA_VALIDATION_FAILED",
         ))
         self.assertEqual(result, "retry")
+        self.assertIn("lease_expires_at > now()", conn.calls[0][0])
+
+    def test_expired_worker_cannot_heartbeat(self):
+        conn = FakeConnection(execute_result="UPDATE 0")
+        self.assertFalse(self.run_async(heartbeat_job(
+            conn, job_id="job-1", worker_id="worker-1", lease_seconds=30,
+        )))
+
+    def test_expired_worker_cannot_complete(self):
+        conn = FakeConnection(execute_result="UPDATE 0")
+        self.assertFalse(self.run_async(complete_job(
+            conn, job_id="job-1", worker_id="worker-1",
+        )))
+
+    def test_expired_worker_cannot_fail_or_reschedule(self):
+        conn = FakeConnection()
+        with self.assertRaises(QueueError):
+            self.run_async(fail_job(
+                conn, job_id="job-1", worker_id="worker-1",
+                error_code="WORKER_TIMEOUT",
+            ))
+        self.assertIn("lease_expires_at > now()", conn.calls[0][0])
 
     def test_fail_job_rejects_raw_error_text(self):
         with self.assertRaises(QueueError):
