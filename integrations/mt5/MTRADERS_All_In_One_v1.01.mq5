@@ -455,8 +455,6 @@ int EvaluateNativeModule(const int id,const int end_index,const double atr,
          strength=VolumeRatioAt(20,end_index)*MathAbs(close-gRates[end_index].open)/MathMax(gRates[end_index].high-gRates[end_index].low,_Point)/2.0; break;
       case 18: case 20: case 23: case 29:
          strength=VolumeRatioAt(20,end_index)*MathMax(MathAbs(gRates[end_index].low-prior_low),MathAbs(gRates[end_index].high-prior_high))/MathMax(atr,_Point); break;
-      case 19: // close-location volume proxy strength
-         strength=MathAbs(strength); break;
       case 21:
          strength=MathAbs(close/gRates[end_index-5].close-1.0)/0.01; break;
       case 24:
@@ -478,7 +476,7 @@ bool EvaluateClosedBar()
    if(expected_closed<=0 || expected_closed==gLastSignalBar) return false;
    ArraySetAsSeries(gRates,false);
    int copied=CopyRates(_Symbol,InpAnalysisTF,1,InpSignalBars,gRates);
-   if(copied<65) { gDataOK=false; return false; }
+   if(copied<InpSignalBars) { gDataOK=false; return false; }
    int last=copied-1;
    datetime closed_bar=gRates[last].time;
    if(closed_bar<=0 || closed_bar!=expected_closed) { gDataOK=false; return false; }
@@ -569,7 +567,7 @@ int OnInit()
    }
    if(InpSignalBars<70 || InpSignalBars>5000 || InpMinFamilyVotes<2 || InpMinFamilyVotes>STRATEGY_FAMILIES ||
       InpMinModuleScore<0.0 || InpMinModuleScore>1.0 || InpMinConsensus<=0.0 || InpMinConsensus>1.0 || InpMaxOpposingShare<0.0 ||
-      InpMaxOpposingShare>=0.5 || InpStopATR<=0.0 || InpTargetATR<=0.0 || InpMaxSpreadATR<=0.0)
+      InpMaxOpposingShare>=0.5 || InpStopATR<=0.0 || InpTargetATR<=0.0 || InpMaxSpreadATR<=0.0 || InpMaxSpreadATR>1.0)
    {
       Print(ENGINE_LABEL,": invalid research signal parameters.");
       return(INIT_PARAMETERS_INCORRECT);
