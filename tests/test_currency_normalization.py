@@ -161,21 +161,26 @@ class CurrencyNormalizationTests(unittest.TestCase):
                 quote("EUR", "USD", "1.07", quote_id="provider-b"),
             ])
 
-    def test_per_trade_limit_is_five_percent_of_current_usd_equity(self):
+    def test_per_trade_limit_is_one_percent_of_current_usd_equity(self):
         allowed = evaluate_usd_risk_limits(
-            current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="50", daily_loss_usd="0",
-            max_per_trade_pct="0.05",
+            current_equity_usd="1000", day_start_equity_usd="1000",
+            estimated_trade_loss_usd="10", daily_loss_usd="0",
         )
         rejected = evaluate_usd_risk_limits(
-            current_equity_usd="1000",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="50.01", daily_loss_usd="0",
-            max_per_trade_pct="0.05",
+            current_equity_usd="1000", day_start_equity_usd="1000",
+            estimated_trade_loss_usd="10.01", daily_loss_usd="0",
         )
         self.assertTrue(allowed.allowed)
-        self.assertEqual(allowed.max_trade_loss_usd, Decimal("50.00"))
+        self.assertEqual(allowed.max_trade_loss_usd, Decimal("10.00"))
         self.assertFalse(rejected.allowed)
         self.assertEqual(rejected.reason_codes, ("per_trade_risk_limit",))
+    def test_risk_percentages_cannot_be_overridden_by_callers(self):
+        with self.assertRaises(TypeError):
+            evaluate_usd_risk_limits(
+                current_equity_usd="1000", day_start_equity_usd="1000",
+                estimated_trade_loss_usd="1", daily_loss_usd="0",
+                max_per_trade_pct="0.05",
+            )
 
     def test_daily_loss_limit_is_ten_percent_of_broker_day_start_equity(self):
         allowed = evaluate_usd_risk_limits(
@@ -193,34 +198,28 @@ class CurrencyNormalizationTests(unittest.TestCase):
 
     def test_trade_limit_uses_current_equity_and_daily_limit_uses_day_start_equity(self):
         decision = evaluate_usd_risk_limits(
-            current_equity_usd="800",
-            day_start_equity_usd="1000", estimated_trade_loss_usd="40", daily_loss_usd="99.99",
-            max_per_trade_pct="0.05",
+            current_equity_usd="800", day_start_equity_usd="1000",
+            estimated_trade_loss_usd="8", daily_loss_usd="99.99",
         )
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
         self.assertTrue(decision.allowed)
-
     def test_daily_limit_does_not_shrink_when_current_equity_falls_intraday(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="800", day_start_equity_usd="1000",
-            estimated_trade_loss_usd="40", daily_loss_usd="99.99",
-            max_per_trade_pct="0.05",
+            estimated_trade_loss_usd="8", daily_loss_usd="99.99",
         )
         self.assertTrue(decision.allowed)
-        self.assertEqual(decision.max_trade_loss_usd, Decimal("40.00"))
+        self.assertEqual(decision.max_trade_loss_usd, Decimal("8.00"))
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
-
     def test_daily_limit_uses_start_equity_even_when_current_equity_rises(self):
         decision = evaluate_usd_risk_limits(
             current_equity_usd="1200", day_start_equity_usd="1000",
-            estimated_trade_loss_usd="60", daily_loss_usd="100",
-            max_per_trade_pct="0.05",
+            estimated_trade_loss_usd="12", daily_loss_usd="100",
         )
         self.assertFalse(decision.allowed)
         self.assertEqual(decision.max_daily_loss_usd, Decimal("100.00"))
         self.assertEqual(decision.reason_codes, ("daily_loss_limit",))
-
     def test_invalid_equity_or_loss_inputs_fail_closed(self):
         for kwargs in (
             {"current_equity_usd":"0", "day_start_equity_usd":"100", "estimated_trade_loss_usd":"1", "daily_loss_usd":"0"},
