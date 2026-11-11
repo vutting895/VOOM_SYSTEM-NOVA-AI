@@ -1,0 +1,60 @@
+name: Sync NOVA Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "hf-space/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-hf-space-sync
+  cancel-in-progress: true
+
+jobs:
+  sync-space:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reviewed main
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Hugging Face Hub client
+        run: python -m pip install "huggingface_hub>=0.30,<2"
+
+      - name: Sync Space source (code only)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO_ID: ${{ vars.HF_SPACE_REPO_ID }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          token = os.environ.get("HF_TOKEN", "")
+          repo_id = os.environ.get("HF_SPACE_REPO_ID", "")
+          if not token or not repo_id:
+              raise SystemExit(
+                  "Missing repository configuration: add Actions secret HF_TOKEN "
+                  "(write access to the Space) and repository variable HF_SPACE_REPO_ID."
+              )
+
+          api = HfApi(token=token)
+          api.repo_info(repo_id=repo_id, repo_type="space")
+          commit = api.upload_folder(
+              folder_path="hf-space",
+              repo_id=repo_id,
+              repo_type="space",
+              commit_message=f"Sync NOVA Space from GitHub {os.environ['GITHUB_SHA'][:12]}",
+              ignore_patterns=["__pycache__/**", "*.pyc", ".env", ".env.*"],
+          )
+          print(f"Space sync commit: {commit.oid if commit else 'completed'}")
+          PY
