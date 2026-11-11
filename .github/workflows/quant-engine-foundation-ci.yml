@@ -13,11 +13,31 @@ on:
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - "docs/NOVA-MTRADERS-HYBRID-STRATEGY.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
+      - "tools/ci/**"
 
 permissions:
   contents: read
 
 jobs:
+  runner-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report GitHub Actions runner availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner-preflight=started"
+          echo "runner-os=$RUNNER_OS"
+          echo "runner-arch=$RUNNER_ARCH"
+          echo "runner-name=$RUNNER_NAME"
+          echo "github-run-id=$GITHUB_RUN_ID"
+          echo "github-sha=$GITHUB_SHA"
+          python3 --version
+          node --version
+          npm --version
+          echo "runner-preflight=passed"
+
   quant-foundation-tests:
     runs-on: ubuntu-latest
     steps:
@@ -27,17 +47,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py tests/test_mtraders_backtest.py
-      - name: Run Quant Engine contract tests
+      - name: Run Quant Engine verification through Python CI controller
         env:
           PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_quant*.py" -v
-      - name: Run MTRADERS Native and Hybrid strategy tests
-        env:
-          PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_mtraders*.py" -v
-      - name: Run cost-aware backtest tests
-        env:
-          PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_mtraders_backtest.py" -v
+        run: python tools/ci/run.py --suite quant
