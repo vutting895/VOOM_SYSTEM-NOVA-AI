@@ -77,6 +77,18 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.create()
 
+    def test_migration_history_pair_is_manifested_and_verified(self):
+        (self.root / "history-schema.sql").write_text("-- history schema\\n")
+        (self.root / "history-data.sql").write_text("-- history data\\n")
+        self.assertEqual(self.create(
+            migration_history_schema="history-schema.sql",
+            migration_history_data="history-data.sql",
+        ), 0)
+        self.assertEqual(self.verify(), 0)
+        manifest = json.loads((self.root / "manifest.json").read_text())
+        self.assertIn("migration_history_schema", manifest["artifacts"])
+        self.assertIn("migration_history_data", manifest["artifacts"])
+
     def test_migration_history_pair_is_atomic(self):
         (self.root / "history-schema.sql").write_text("-- history schema\n")
         with self.assertRaises(ValueError):
