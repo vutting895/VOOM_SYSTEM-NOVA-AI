@@ -762,7 +762,150 @@ export default function QuickitMarketFleetView({
     showNotification('Strategy generation unavailable: no verified AI model inference runtime is connected.');
   };
 
-    function handleDeployPairWithStrategy(_startImmediately: boolean) {
+    // Market Fleet State (Image 2)
+  const [fleetBots, setFleetBots] = useState<FleetBotConfig[]>(INITIAL_FLEET_BOTS);
+  const [marketFilter, setMarketFilter] = useState<'all' | 'running' | 'crypto' | 'forex'>('all');
+
+  // Backend Auto-Train compact status
+  const [autoTrainTick, setAutoTrainTick] = useState(0);
+
+  // Connectivity Status (MT5 Bridge and API)
+  const [bridgeStatus, setBridgeStatus] = useState<'online' | 'warning' | 'offline'>('warning');
+  const [apiStatus, setApiStatus] = useState<'online' | 'warning' | 'offline'>('warning');
+
+  useEffect(() => {
+    const pollHealth = async () => {
+      try {
+        const res = await fetch('/api/infrastructure/health');
+        if (res.ok) {
+          const data = await res.json();
+          // Fail-closed read-only status: if bridge is enabled (false), set as warning
+          setBridgeStatus(data.mt5Connection.status === 'STANDBY_DEMO_READY' ? 'online' : 'warning');
+          setApiStatus(data.dataPipeline.status === 'OPTIMAL' ? 'online' : 'warning');
+        } else {
+          setBridgeStatus('offline');
+          setApiStatus('offline');
+        }
+      } catch {
+        setBridgeStatus('offline');
+        setApiStatus('offline');
+      }
+    };
+    pollHealth();
+    const interval = setInterval(pollHealth, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isForexBrokerSelected =
+    loggedInBroker === 'exness' || loggedInBroker === 'icmarkets';
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  // Fetch tradable pairs from the logged-in broker account via Backend API (passing connectionMode=mt5 or api)
+  async function syncBrokerInstruments(
+    targetBroker: 'exness' | 'icmarkets' | 'binance' | 'bybit',
+    customAccountId?: string,
+    customConnMode?: 'mt5' | 'api',
+    customMt5Server?: string
+  ) {
+    setLoadingBrokerPairs(true);
+    const mode = customConnMode || forexConnectionMode;
+    const serverParam = customMt5Server || mt5Server;
+    const accId =
+      customAccountId ||
+      (targetBroker === 'exness'
+        ? 'Not verified'
+        : targetBroker === 'icmarkets'
+        ? 'Not verified'
+        : targetBroker === 'binance'
+        ? 'Not verified'
+        : 'Not verified');
+    try {
+      const res = await fetch(
+        `/api/broker/instruments?broker=${targetBroker}&accountId=${encodeURIComponent(
+          accId
+        )}&connectionMode=${mode}&mt5Server=${encodeURIComponent(serverParam)}`,
+        { cache: 'no-store' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.instruments) && data.instruments.length > 0) {
+          setBrokerInstruments(data.instruments);
+          setBrokerServerName(
+            data.serverLabel || FALLBACK_BROKER_CATALOGS[targetBroker].serverLabel
+          );
+          setBrokerProtocolLabel(
+            data.protocol || FALLBACK_BROKER_CATALOGS[targetBroker].protocol
+          );
+          setBrokerAccountId(data.accountId || accId);
+          setSelectedBrokerPair(data.instruments[0]);
+          setLoadingBrokerPairs(false);
+          return;
+        }
+      }
+    } catch {
+      // Fallback to local broker catalog if offline
+    }
+    const fallback = FALLBACK_BROKER_CATALOGS[targetBroker];
+    setBrokerInstruments(fallback.instruments);
+    setBrokerServerName(
+      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
+        ? `${serverParam} (MT5 Terminal / EA Bridge)`
+        : fallback.serverLabel
+    );
+    setBrokerProtocolLabel(
+      mode === 'mt5' && (targetBroker === 'exness' || targetBroker === 'icmarkets')
+        ? 'MetaTrader 5 (MT5 Python Worker Bridge)'
+        : fallback.protocol
+    );
+    setBrokerAccountId(accId);
+    setSelectedBrokerPair(fallback.instruments[0]);
+    setLoadingBrokerPairs(false);
+  }
+
+  useEffect(() => {
+    syncBrokerInstruments(loggedInBroker, undefined, forexConnectionMode, mt5Server);
+  }, [loggedInBroker, forexConnectionMode, mt5Server]);
+
+  // No synthetic P/L updates. Auto-training is not configured.
+  useEffect(() => {
+    const timer = setInterval(() => setAutoTrainTick((tick) => tick + 1), 2500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentPlan = useMemo(
+    () => SUBSCRIPTION_PLANS.find((p) => p.id === currentPlanId) || SUBSCRIPTION_PLANS[2],
+    [currentPlanId]
+  );
+
+  const selectedStrategyObj = useMemo(
+    () =>
+      availableStrategies.find((s) => s.id === selectedStrategyId) || availableStrategies[0],
+    [availableStrategies, selectedStrategyId]
+  );
+
+  const filteredBrokerInstruments = useMemo(() => {
+    return brokerInstruments.filter((inst) => {
+      const matchGroup = pairGroupFilter === 'ALL' || inst.group === pairGroupFilter;
+      const matchQuery =
+        !searchQuery.trim() ||
+        inst.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        inst.displayName.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchGroup && matchQuery;
+    });
+  }, [brokerInstruments, pairGroupFilter, searchQuery]);
+
+  function showNotification(msg: string) {
+    setToastBanner(msg);
+    setTimeout(() => {
+      setToastBanner((prev) => (prev === msg ? null : prev));
+    }, 4500);
+  }
+
+  // Handler when user finishes Step 1 (Select Pair from Broker) + Step 2 (Select Strategy)
+  function handleDeployPairWithStrategy(_startImmediately: boolean) {
     showNotification('Unavailable: no authenticated Exness Demo session is connected. No bot was deployed or started.');
   }
 
@@ -1823,10 +1966,10 @@ export default function QuickitMarketFleetView({
                     <span className="text-xs text-slate-400 mr-1">บัญชี Broker ที่ Login:</span>
                     {(
                       [
-                        { id: 'exness', label: 'Exness Forex (#Not verified)' },
-                        { id: 'icmarkets', label: 'IC Markets Forex (#Not verified)' },
-                        { id: 'binance', label: 'Binance Crypto (#Not verified)' },
-                        { id: 'bybit', label: 'Bybit Crypto (#Not verified)' },
+                        { id: 'exness', label: 'Exness Demo (not connected)' },
+                        { id: 'icmarkets', label: 'IC Markets (not connected)' },
+                        { id: 'binance', label: 'Binance (not connected)' },
+                        { id: 'bybit', label: 'Bybit (not connected)' },
                       ] as const
                     ).map((brk) => (
                       <button
