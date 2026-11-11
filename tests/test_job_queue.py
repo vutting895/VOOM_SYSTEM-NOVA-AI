@@ -87,7 +87,8 @@ class QueueTests(unittest.TestCase):
         conn = FakeConnection([{"id": "job-1", "status": "running"}])
         result = self.run_async(claim_job(conn, worker_id="nova-research-1", lease_seconds=30))
         self.assertEqual(result["id"], "job-1")
-        self.assertIn("FOR UPDATE SKIP LOCKED", conn.calls[0][0])
+        self.assertIn("FOR UPDATE SKIP LOCKED", conn.calls[1][0])
+        self.assertIn("attempts >= max_attempts", conn.calls[0][0])
 
     def test_claim_rejects_invalid_lease(self):
         with self.assertRaises(QueueError):
