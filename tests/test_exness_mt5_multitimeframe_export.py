@@ -86,6 +86,18 @@ class MultiTimeframeExporterTests(unittest.TestCase):
                     Path(tmp), "XAUUSDm", "Exness-MT5Trial7", 1,
                 )
 
+    def test_higher_timeframes_follow_broker_session_anchor_not_utc_midnight(self):
+        epoch = int(datetime(2026, 1, 5, 22, 0, tzinfo=timezone.utc).timestamp())
+        rate = {"time": epoch, "open": 2000, "high": 2002, "low": 1999,
+                "close": 2001, "tick_volume": 321}
+        row = MODULE.rate_row(
+            rate, datetime(2026, 1, 5, 22, 0, tzinfo=timezone.utc),
+            datetime(2026, 1, 6, 22, 0, tzinfo=timezone.utc), 86400,
+            datetime(2026, 1, 7, 0, 0, tzinfo=timezone.utc),
+        )
+        self.assertIsNotNone(row)
+        self.assertEqual(row["timestamp_utc"], "2026-01-05T22:00:00Z")
+
     def test_rejects_invalid_ohlc_and_fractional_tick_volume(self):
         epoch = int(datetime(2026, 1, 5, 0, 0, tzinfo=timezone.utc).timestamp())
         base = {"time": epoch, "open": 2000, "high": 2002, "low": 1999,
