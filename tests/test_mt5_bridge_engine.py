@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from integrations.mt5_readonly_bridge.mt5_bridge_engine import (
-    MT5BridgeEngine,
-    MT5PolicyViolation,
+MODULE_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "integrations"
+    / "mt5-readonly-bridge"
+    / "mt5_bridge_engine.py"
 )
+SPEC = importlib.util.spec_from_file_location("nova_mt5_bridge_engine", MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+MT5BridgeEngine = MODULE.MT5BridgeEngine
+MT5PolicyViolation = MODULE.MT5PolicyViolation
 
 
 class FakeMT5:
@@ -18,18 +28,10 @@ class FakeMT5:
 
     def __init__(self, *, equity=1000.0, pnl=-33.0, trade_mode=0, server="Exness-MT5Trial"):
         self.account = SimpleNamespace(
-            login=123456,
-            trade_mode=trade_mode,
-            server=server,
-            balance=equity,
-            equity=equity,
-            profit=0.0,
-            margin=0.0,
-            margin_free=equity,
-            margin_level=0.0,
-            leverage=100,
-            currency="USD",
-            company="Exness",
+            login=123456, trade_mode=trade_mode, server=server,
+            balance=equity, equity=equity, profit=0.0, margin=0.0,
+            margin_free=equity, margin_level=0.0, leverage=100,
+            currency="USD", company="Exness",
         )
         self.terminal = SimpleNamespace(connected=True, company="Exness")
         self.pnl = pnl
@@ -51,11 +53,8 @@ class FakeMT5:
 
     def symbol_info(self, symbol):
         return SimpleNamespace(
-            point=0.01,
-            digits=2,
-            volume_step=0.01,
-            volume_min=0.01,
-            volume_max=100.0,
+            point=0.01, digits=2, volume_step=0.01,
+            volume_min=0.01, volume_max=100.0,
         )
 
     def symbol_select(self, symbol, enable):
@@ -81,10 +80,8 @@ def engine(api):
 def test_health_and_account_are_demo_read_only():
     api = FakeMT5()
     bridge = engine(api)
-
     health = bridge.get_server_health()
     account = bridge.get_account_summary()
-
     assert health["status"] == "ok"
     assert health["execution_enabled"] is False
     assert account["trade_mode"] == "demo"
@@ -93,17 +90,14 @@ def test_health_and_account_are_demo_read_only():
 
 
 def test_rejects_non_demo_account():
-    api = FakeMT5(trade_mode=1)
     with pytest.raises(MT5PolicyViolation):
-        engine(api).initialize()
+        engine(FakeMT5(trade_mode=1)).initialize()
 
 
 def test_lot_size_floors_to_broker_step_and_stays_within_one_percent():
-    api = FakeMT5(equity=1000.0, pnl=-33.0)
-    result = engine(api).calculate_lot_size(
-        symbol="EURUSD", side="BUY", entry_price=1.10, stop_loss_price=1.09
+    result = engine(FakeMT5(equity=1000.0, pnl=-33.0)).calculate_lot_size(
+        "EURUSD", "BUY", 1.10, 1.09
     )
-
     assert result["volume_decimal"] == "0.30"
     assert result["estimated_stop_loss_account_currency"] == "9.90"
     assert result["risk_budget_account_currency"] == "10.00"
@@ -111,26 +105,23 @@ def test_lot_size_floors_to_broker_step_and_stays_within_one_percent():
 
 
 def test_rejects_non_policy_risk_percentage():
-    api = FakeMT5()
     with pytest.raises(MT5PolicyViolation):
-        engine(api).calculate_lot_size(
+        engine(FakeMT5()).calculate_lot_size(
             "EURUSD", "BUY", 1.10, 1.09, risk_percent=5.0
         )
 
 
 def test_rejects_size_below_broker_minimum():
-    api = FakeMT5(equity=1000.0, pnl=-2000.0)
     with pytest.raises(MT5PolicyViolation):
-        engine(api).calculate_lot_size("EURUSD", "BUY", 1.10, 1.09)
+        engine(FakeMT5(equity=1000.0, pnl=-2000.0)).calculate_lot_size(
+            "EURUSD", "BUY", 1.10, 1.09
+        )
 
 
 def test_sl_tp_are_advisory_and_side_aware():
-    api = FakeMT5()
-    bridge = engine(api)
-
+    bridge = engine(FakeMT5())
     buy = bridge.calculate_sl_tp_prices("EURUSD", "BUY", 1.10, 100, 200)
     sell = bridge.calculate_sl_tp_prices("EURUSD", "SELL", 1.10, 100, 200)
-
     assert buy == {"entry": 1.1, "sl": 0.1, "tp": 3.1}
     assert sell == {"entry": 1.1, "sl": 2.1, "tp": -0.9}
 
@@ -138,7 +129,6 @@ def test_sl_tp_are_advisory_and_side_aware():
 def test_order_submission_and_position_close_are_fail_closed():
     api = FakeMT5()
     bridge = engine(api)
-
     assert bridge.submit_market_order(symbol="EURUSD")["code"] == "BROKER_WRITES_DISABLED"
     assert bridge.submit_pending_order(symbol="EURUSD")["code"] == "BROKER_WRITES_DISABLED"
     assert bridge.close_position(ticket=1)["code"] == "BROKER_WRITES_DISABLED"
@@ -146,8 +136,6 @@ def test_order_submission_and_position_close_are_fail_closed():
 
 
 def test_positions_and_pending_orders_are_read_only_snapshots():
-    api = FakeMT5()
-    bridge = engine(api)
-
+    bridge = engine(FakeMT5())
     assert bridge.get_open_positions() == []
     assert bridge.get_pending_orders() == []
