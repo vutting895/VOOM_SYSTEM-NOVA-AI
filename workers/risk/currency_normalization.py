@@ -352,17 +352,21 @@ def evaluate_usd_risk_limits(
     day_start_equity_usd: Decimal | int | str,
     estimated_trade_loss_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
-    max_per_trade_pct: Decimal | int | str = Decimal("0.05"),
+    max_per_trade_pct: Decimal | int | str = Decimal("0.01"),
     max_daily_loss_pct: Decimal | int | str = Decimal("0.10"),
 ) -> USDRiskDecision:
-    """Apply the owner-selected 5% trade / 10% daily ceilings to USD values.
+    """Apply the active Demo default of 1% per-trade / 10% daily-loss.
 
-    `current_equity_usd` is the sizing base for the 5% per-trade ceiling.
+    `current_equity_usd` is the sizing base for the per-trade ceiling.
     `day_start_equity_usd` is the immutable broker-day opening snapshot and is
     the sizing base for the 10% daily-loss ceiling. `daily_loss_usd` must be
     reconciled from that broker-day snapshot, including realized and floating
-    P&L, commission, and swap. This helper does not create the snapshot or
-    authorize an order.
+    P&L, commission, and swap.
+
+    A separately approved future Real-account policy may pass an explicit
+    `max_per_trade_pct=Decimal("0.05")`; that override is not the Demo default.
+    This helper does not enforce aggregate open risk, drawdown, concurrency, or
+    kill switches and never authorizes an order.
     """
     equity = money(current_equity_usd)
     day_start_equity = money(day_start_equity_usd)
