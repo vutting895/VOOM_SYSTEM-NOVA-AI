@@ -339,6 +339,7 @@ class USDRiskDecision:
 def evaluate_usd_risk_limits(
     *,
     current_equity_usd: Decimal | int | str,
+    day_start_equity_usd: Decimal | int | str,
     estimated_trade_loss_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
     max_per_trade_pct: Decimal | int | str = Decimal("0.01"),
@@ -351,12 +352,15 @@ def evaluate_usd_risk_limits(
     does not manufacture that snapshot or authorize an order.
     """
     equity = money(current_equity_usd)
+    day_start_equity = money(day_start_equity_usd)
     trade_loss = money(estimated_trade_loss_usd)
     daily_loss = money(daily_loss_usd)
     trade_pct = money(max_per_trade_pct)
     daily_pct = money(max_daily_loss_pct)
     if equity <= 0:
         raise CurrencyNormalizationError("current USD equity must be positive")
+    if day_start_equity <= 0:
+        raise CurrencyNormalizationError("broker-day opening USD equity must be positive")
     if trade_loss < 0 or daily_loss < 0:
         raise CurrencyNormalizationError("loss amounts must be non-negative")
     if not (Decimal("0") < trade_pct <= Decimal("1")):
@@ -365,7 +369,7 @@ def evaluate_usd_risk_limits(
         raise CurrencyNormalizationError("daily loss percentage must be in (0, 1]")
 
     max_trade = equity * trade_pct
-    max_daily = equity * daily_pct
+    max_daily = day_start_equity * daily_pct
     reasons: list[str] = []
     if trade_loss > max_trade:
         reasons.append("per_trade_risk_limit")
@@ -494,6 +498,7 @@ class MT5TradeRiskResult:
 def evaluate_mt5_trade_risk(
     *,
     current_equity_usd: Decimal | int | str,
+    day_start_equity_usd: Decimal | int | str,
     daily_loss_usd: Decimal | int | str,
     mt5_profit_native: Decimal | int | str,
     estimated_other_costs_native: Decimal | int | str,
@@ -522,6 +527,7 @@ def evaluate_mt5_trade_risk(
     )
     decision = evaluate_usd_risk_limits(
         current_equity_usd=current_equity_usd,
+        day_start_equity_usd=day_start_equity_usd,
         estimated_trade_loss_usd=loss.usd_loss,
         daily_loss_usd=daily_loss_usd,
     )
