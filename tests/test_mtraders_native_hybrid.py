@@ -46,7 +46,7 @@ class NativeTests(unittest.TestCase):
         self.assertRegex(source, r"input double[ ]+InpDailyLossPct[ ]*=[ ]*10[.]0")
         on_tick = re.search(r"void OnTick[(][)][ ]*[{]([^}]*)[}]", source, re.DOTALL)
         self.assertIsNotNone(on_tick)
-        self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(])
+        self.assertNotRegex(on_tick.group(1), r"(OrderSend|PositionOpen|Buy|Sell)[ ]*[(]")
 
     def test_all_30_return_standardized_research_outputs(self):
         result = evaluate_all_mtraders_modules({"candles": candles()})
