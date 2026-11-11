@@ -34,9 +34,11 @@ def safe_artifact(root: Path, raw: str) -> tuple[str, Path]:
     rel = PurePosixPath(raw)
     if rel.is_absolute() or not rel.parts or any(part in ("", ".", "..") for part in rel.parts):
         raise ValueError(f"Unsafe artifact path: {raw!r}")
-    candidate = root.joinpath(*rel.parts)
-    if candidate.is_symlink():
-        raise ValueError(f"Symlinks are not allowed: {raw}")
+    candidate = root
+    for part in rel.parts:
+        candidate = candidate / part
+        if candidate.is_symlink():
+            raise ValueError(f"Symlinks are not allowed: {raw}")
     resolved_root = root.resolve(strict=True)
     resolved = candidate.resolve(strict=True)
     if resolved_root not in resolved.parents or not resolved.is_file():
@@ -105,6 +107,8 @@ def create_manifest(args: argparse.Namespace) -> int:
 def verify_manifest(args: argparse.Namespace) -> int:
     root = Path(args.backup_dir).expanduser().resolve(strict=True)
     manifest_path = root / "manifest.json"
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("manifest.json must be a regular file, not a symlink")
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     if data.get("manifest_version") != MANIFEST_VERSION:
         raise ValueError("Unsupported manifest_version")
