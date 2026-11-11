@@ -44,6 +44,19 @@ class NativeTests(unittest.TestCase):
         self.assertIn("One aggregated candidate only", source)
         self.assertIn("TIMEZONE MAP REQUIRED", source)
 
+
+    def test_ontick_uses_new_closed_bar_guard_and_independent_families(self):
+        source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
+        source = source_path.read_text(encoding="utf-8")
+        self.assertIn("iTime(_Symbol,InpAnalysisTF,1)", source)
+        self.assertIn("if(expected_closed<=0 || expected_closed==gLastSignalBar) return false;", source)
+        self.assertIn("closed_bar!=expected_closed", source)
+        self.assertIn("gLastSignalBar=closed_bar;", source)
+        self.assertIn("StrategyFamily(id)", source)
+        self.assertIn("family_long[family]=MathMax(family_long[family],module_score)", source)
+        self.assertIn("InpMinFamilyVotes", source)
+        self.assertIn("current_tick.ask-current_tick.bid", source)
+
     def test_mql5_module_registry_matches_python_registry_and_safe_defaults(self):
         source_path = Path(__file__).resolve().parents[1] / "integrations/mt5/MTRADERS_All_In_One_v1.01.mq5"
         source = source_path.read_text(encoding="utf-8")
