@@ -11,6 +11,7 @@
 #property strict
 
 #define MODULES 30
+#define STRATEGY_FAMILIES 8
 #define STATE_SIGNATURE 1095323465
 #define STATE_VERSION 100
 const string ENGINE_LABEL="MTRADERS All In One 1.01";
@@ -132,6 +133,481 @@ bool DirectionAllowed(const int dir)
           (dir<0 && mode==SYMBOL_TRADE_MODE_SHORTONLY);
 }
 
+
+input group "=== Research signal controller ==="
+input int             InpSignalBars            = 120;
+input int             InpMinFamilyVotes        = 2;
+input double          InpMinModuleScore        = 0.15;
+input double          InpMinConsensus           = 0.22;
+input double          InpMaxOpposingShare       = 0.45;
+input double          InpStopATR                = 2.0;
+input double          InpTargetATR              = 3.0;
+
+datetime gLastSignalBar=0;
+int gLastSignal=0;
+double gLastConsensus=0.0;
+int gLastVotes=0;
+int gLastOpposing=0;
+int gLastLongFamilies=0,gLastShortFamilies=0;
+datetime gPendingSignalBar=0;
+int gPendingSignal=0;
+double gPendingConsensus=0.0,gPendingATR=0.0;
+int gPendingVotes=0,gPendingOpposing=0;
+int gPendingLongFamilies=0,gPendingShortFamilies=0;
+int gPendingLongModules=0,gPendingShortModules=0;
+
+double EMAAt(const int period,const int end_index)
+{
+   if(period<=0 || end_index<0) return 0.0;
+   double alpha=2.0/(period+1.0), value=gRates[0].close;
+   for(int i=1;i<=end_index;i++) value=alpha*gRates[i].close+(1.0-alpha)*value;
+   return value;
+}
+double ATRAt(const int period,const int end_index)
+{
+   if(period<=0 || end_index<period) return 0.0;
+   double total=0.0;
+   int first=end_index-period+1;
+   for(int i=first;i<=end_index;i++)
+   {
+      double prior=gRates[i-1].close;
+      double tr=MathMax(gRates[i].high-gRates[i].low,
+                 MathMax(MathAbs(gRates[i].high-prior),MathAbs(gRates[i].low-prior)));
+      total+=tr;
+   }
+   return total/period;
+}
+double HighestHigh(const int count,const int end_index)
+{
+   if(count<=0 || end_index<count) return 0.0;
+   double value=-DBL_MAX;
+   for(int i=end_index-count;i<end_index;i++) value=MathMax(value,gRates[i].high);
+   return value;
+}
+double LowestLow(const int count,const int end_index)
+{
+   if(count<=0 || end_index<count) return 0.0;
+   double value=DBL_MAX;
+   for(int i=end_index-count;i<end_index;i++) value=MathMin(value,gRates[i].low);
+   return value;
+}
+
+int StrategyFamily(const int id)
+{
+   // Correlated modules share one family vote; they cannot inflate consensus by count.
+   if(id==0 || id==2 || id==4 || id==5 || id==8 || id==15 || id==27) return 0; // Trend
+   if(id==3 || id==6 || id==7 || id==21) return 1;                            // Momentum
+   if(id==1 || id==12 || id==14 || id==22 || id==26) return 2;                // Breakout
+   if(id==16 || id==24 || id==28) return 3;                                   // Volatility
+   if(id==18 || id==20 || id==23 || id==29) return 4;                         // Liquidity
+   if(id==9 || id==10 || id==17 || id==19) return 5;                          // Flow/volume
+   if(id==11 || id==13) return 6;                                             // Session
+   if(id==25) return 7;                                                       // Reversal
+   return -1;
+}
+string FamilyName(const int family)
+{
+   switch(family)
+   {
+      case 0: return "TREND";
+      case 1: return "MOMENTUM";
+      case 2: return "BREAKOUT";
+      case 3: return "VOLATILITY";
+      case 4: return "LIQUIDITY";
+      case 5: return "FLOW_VOLUME";
+      case 6: return "SESSION";
+      case 7: return "REVERSAL";
+   }
+   return "UNKNOWN";
+}
+double VolumeRatioAt(const int period,const int end_index)
+{
+   if(period<2 || end_index<period) return 0.0;
+   double average=0.0;
+   for(int i=end_index-period;i<end_index;i++) average+=(double)gRates[i].tick_volume;
+   average/=(double)period;
+   if(average<=0.0) return 0.0;
+   return (double)gRates[end_index].tick_volume/average;
+}
+double VWAPAt(const int period,const int end_index)
+{
+   if(period<2 || end_index<period-1) return 0.0;
+   double pv=0.0,volume=0.0;
+   for(int i=end_index-period+1;i<=end_index;i++)
+   {
+      double v=(double)gRates[i].tick_volume;
+      pv+=((gRates[i].high+gRates[i].low+gRates[i].close)/3.0)*v;
+      volume+=v;
+   }
+   return (volume>0.0 ? pv/volume : 0.0);
+}
+double RSIAt(const int period,const int end_index)
+{
+   if(period<2 || end_index<period) return 50.0;
+   double gains=0.0,losses=0.0;
+   for(int i=end_index-period+1;i<=end_index;i++)
+   {
+      double change=gRates[i].close-gRates[i-1].close;
+      if(change>0.0) gains+=change;
+      else losses-=change;
+   }
+   gains/=period; losses/=period;
+   if(losses<=0.0) return (gains>0.0 ? 100.0 : 50.0);
+   double rs=gains/losses;
+   return 100.0-(100.0/(1.0+rs));
+}
+double CloseLocation(const int index)
+{
+   double range=gRates[index].high-gRates[index].low;
+   if(range<=0.0) return 0.5;
+   return (gRates[index].close-gRates[index].low)/range;
+}
+double Clamp01(const double value)
+{
+   return MathMax(0.0,MathMin(1.0,value));
+}
+
+int EvaluateNativeModule(const int id,const int end_index,const double atr,
+                         const double ema10,const double ema20,const double ema50,
+                         const double prior_high,const double prior_low,double &score_out)
+{
+   double close=gRates[end_index].close, previous=gRates[end_index-1].close;
+   double direction=0.0, strength=0.0;
+   score_out=0.0;
+   switch(id)
+   {
+      case 0: direction=(close>ema20 ? 1 : close<ema20 ? -1 : 0); break;
+      case 1: direction=(close>ema20+2.0*atr && previous<=ema20+2.0*atr ? 1 :
+                         close<ema20-2.0*atr && previous>=ema20-2.0*atr ? -1 : 0); break;
+      case 2: direction=(ema20>ema50 ? 1 : ema20<ema50 ? -1 : 0); break;
+      case 3: direction=(close/gRates[end_index-10].close-1.0>0.002 ? 1 :
+                         close/gRates[end_index-10].close-1.0< -0.002 ? -1 : 0); break;
+      case 4: direction=(ema10>ema20 && ema20>ema50 ? 1 :
+                         ema10<ema20 && ema20<ema50 ? -1 : 0); break;
+      case 5: direction=(close>ema20 && ema20>ema50 ? 1 :
+                         close<ema20 && ema20<ema50 ? -1 : 0); break;
+      case 6: direction=(close>ema10 && ema10>ema20 ? 1 :
+                         close<ema10 && ema10<ema20 ? -1 : 0); break;
+      case 7: direction=(close>gRates[end_index].open && previous>gRates[end_index-1].open ? 1 :
+                         close<gRates[end_index].open && previous<gRates[end_index-1].open ? -1 : 0); break;
+      case 8: direction=(ema10>ema20 && close>ema10 ? 1 :
+                         ema10<ema20 && close<ema10 ? -1 : 0); break;
+      case 9: // VWAP band proxy
+      {
+         double vwap=VWAPAt(20,end_index);
+         direction=(vwap>0.0 && close>vwap && previous<=vwap ? 1 :
+                    vwap>0.0 && close<vwap && previous>=vwap ? -1 : 0);
+         break;
+      }
+      case 10: // CMF-style flow matrix using tick volume
+      {
+         double flow=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            flow+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         double cmf=(volume>0.0 ? flow/volume : 0.0);
+         direction=(cmf>0.08 ? 1 : cmf< -0.08 ? -1 : 0);
+         break;
+      }
+      case 12: // Prior-range floor pivot R1/S1 cross
+      {
+         double pivot=(prior_high+prior_low+gRates[end_index-1].close)/3.0;
+         double r1=2.0*pivot-prior_low, s1=2.0*pivot-prior_high;
+         direction=(close>r1 && previous<=r1 ? 1 : close<s1 && previous>=s1 ? -1 : 0);
+         break;
+      }
+      case 17: // Effort versus result
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double range=gRates[end_index].high-gRates[end_index].low;
+         double body=MathAbs(close-gRates[end_index].open)/MathMax(range,_Point);
+         direction=(ratio>1.5 && body>0.55 && close>gRates[end_index].open ? 1 :
+                    ratio>1.5 && body>0.55 && close<gRates[end_index].open ? -1 : 0);
+         break;
+      }
+      case 19: // OHLCV close-location footprint proxy
+      {
+         double imbalance=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            imbalance+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         double delta=(volume>0.0 ? imbalance/volume : 0.0);
+         direction=(delta>0.15 ? 1 : delta< -0.15 ? -1 : 0);
+         break;
+      }
+      case 25: // Range extreme with RSI rejection
+      {
+         double range=MathMax(prior_high-prior_low,_Point);
+         double location=(close-prior_low)/range;
+         double rsi=RSIAt(14,end_index);
+         direction=(location<0.12 && rsi<35.0 && close>previous ? 1 :
+                    location>0.88 && rsi>65.0 && close<previous ? -1 : 0);
+         break;
+      }
+      case 29: // Wyckoff spring/upthrust and relative-volume confirmation
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double clv=CloseLocation(end_index);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && clv>0.65 && ratio>1.1 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && clv<0.35 && ratio>1.1 ? -1 : 0);
+         break;
+      }
+      case 14: direction=(close>prior_high && previous<=prior_high ? 1 :
+                          close<prior_low && previous>=prior_low ? -1 : 0); break;
+      case 15:
+      case 27: direction=(ema10>ema20 && ema20>ema50 ? 1 :
+                          ema10<ema20 && ema20<ema50 ? -1 : 0); break;
+      case 16: // ATR expansion and range breakout
+      {
+         double fast=ATRAt(5,end_index),slow=ATRAt(20,end_index);
+         direction=(slow>0.0 && fast/slow>1.25 && close>prior_high ? 1 :
+                    slow>0.0 && fast/slow>1.25 && close<prior_low ? -1 : 0);
+         break;
+      }
+      case 24: // Volatility-conditioned SuperTrend proxy
+      {
+         double fast=ATRAt(10,end_index),slow=ATRAt(50,end_index);
+         double multiplier=(slow>0.0 && fast/slow>1.2 ? 2.0 :
+                            slow>0.0 && fast/slow<0.85 ? 3.0 : 2.5);
+         direction=(close>ema20+multiplier*atr*0.05 ? 1 :
+                    close<ema20-multiplier*atr*0.05 ? -1 : 0);
+         break;
+      }
+      case 28: // Compression-to-expansion with a price break
+      {
+         double current=ATRAt(10,end_index),prior=ATRAt(10,end_index-3),slow=ATRAt(50,end_index);
+         bool compressed=(slow>0.0 && prior/slow<0.8);
+         bool expanded=(slow>0.0 && current/slow>1.2);
+         direction=(compressed && expanded && close>prior_high ? 1 :
+                    compressed && expanded && close<prior_low ? -1 : 0);
+         break;
+      }
+      case 18: // QEX sweep/reclaim with tick-volume confirmation
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && ratio>1.1 && CloseLocation(end_index)>0.6 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && ratio>1.1 && CloseLocation(end_index)<0.4 ? -1 : 0);
+         break;
+      }
+      case 20: // Repeated liquidity pool followed by a sweep
+      {
+         double tolerance=MathMax(atr*0.15,_Point*2.0);
+         int near_high=0,near_low=0;
+         for(int i=end_index-20;i<end_index;i++)
+         {
+            if(MathAbs(gRates[i].high-prior_high)<=tolerance) near_high++;
+            if(MathAbs(gRates[i].low-prior_low)<=tolerance) near_low++;
+         }
+         direction=(near_low>=2 && gRates[end_index].low<prior_low && close>prior_low ? 1 :
+                    near_high>=2 && gRates[end_index].high>prior_high && close<prior_high ? -1 : 0);
+         break;
+      }
+      case 23: // QEX liquidity sweep with directional candle and strong volume
+      {
+         double ratio=VolumeRatioAt(20,end_index);
+         double body=MathAbs(close-gRates[end_index].open)/MathMax(gRates[end_index].high-gRates[end_index].low,_Point);
+         direction=(gRates[end_index].low<prior_low && close>prior_low && close>gRates[end_index].open && ratio>1.25 && body>0.5 ? 1 :
+                    gRates[end_index].high>prior_high && close<prior_high && close<gRates[end_index].open && ratio>1.25 && body>0.5 ? -1 : 0);
+         break;
+      }
+      case 21: // Transparent linear proxy; not a trained neural network.
+         direction=(close/gRates[end_index-5].close-1.0>0.001 && ema20>ema50 ? 1 :
+                    close/gRates[end_index-5].close-1.0< -0.001 && ema20<ema50 ? -1 : 0); break;
+      default: direction=0.0; break; // UTC/session modules disabled without timezone mapping.
+   }
+   if(direction==0.0) return 0;
+   // Module-specific evidence magnitude. This is a heuristic strength, not probability.
+   switch(id)
+   {
+      case 0: case 8:
+         strength=MathAbs(close-ema20)/MathMax(atr*2.0,_Point); break;
+      case 1:
+         strength=MathAbs(close-(direction>0 ? ema20+2.0*atr : ema20-2.0*atr))/MathMax(atr,_Point); break;
+      case 2: case 4: case 5: case 15: case 27:
+         strength=MathAbs(ema20-ema50)/MathMax(atr*1.5,_Point); break;
+      case 3:
+         strength=MathAbs(close/gRates[end_index-10].close-1.0)/0.02; break;
+      case 6:
+         strength=MathAbs(close-ema10)/MathMax(atr*1.5,_Point); break;
+      case 7:
+         strength=(MathAbs(close-gRates[end_index].open)+MathAbs(previous-gRates[end_index-1].open))/MathMax(atr*2.0,_Point); break;
+      case 9:
+         strength=MathAbs(close-VWAPAt(20,end_index))/MathMax(atr,_Point); break;
+      case 10: case 19:
+      {
+         double flow=0.0,volume=0.0;
+         for(int i=end_index-19;i<=end_index;i++)
+         {
+            double v=(double)gRates[i].tick_volume;
+            flow+=(2.0*CloseLocation(i)-1.0)*v;
+            volume+=v;
+         }
+         strength=(volume>0.0 ? MathAbs(flow/volume)*4.0 : 0.0); break;
+      }
+      case 12:
+         strength=MathAbs(close-(direction>0 ? (2.0*(prior_high+prior_low+gRates[end_index-1].close)/3.0-prior_low) :
+                    (2.0*(prior_high+prior_low+gRates[end_index-1].close)/3.0-prior_high)))/MathMax(atr,_Point); break;
+      case 14:
+         strength=MathAbs(close-(direction>0 ? prior_high : prior_low))/MathMax(atr,_Point); break;
+      case 16:
+         strength=ATRAt(5,end_index)/MathMax(ATRAt(20,end_index),_Point)-1.0; break;
+      case 17:
+         strength=VolumeRatioAt(20,end_index)*MathAbs(close-gRates[end_index].open)/MathMax(gRates[end_index].high-gRates[end_index].low,_Point)/2.0; break;
+      case 18: case 20: case 23: case 29:
+         strength=VolumeRatioAt(20,end_index)*MathMax(MathAbs(gRates[end_index].low-prior_low),MathAbs(gRates[end_index].high-prior_high))/MathMax(atr,_Point); break;
+      case 21:
+         strength=MathAbs(close/gRates[end_index-5].close-1.0)/0.01; break;
+      case 24:
+         strength=MathAbs(ATRAt(10,end_index)/MathMax(ATRAt(50,end_index),_Point)-1.0); break;
+      case 25:
+         strength=MathAbs(close-ema20)/MathMax(atr*2.0,_Point); break;
+      case 28:
+         strength=MathAbs(ATRAt(10,end_index)/MathMax(ATRAt(50,end_index),_Point)-1.0); break;
+      default:
+         strength=MathAbs(close-ema20)/MathMax(atr*2.5,_Point); break;
+   }
+   score_out=Clamp01(strength);
+   return (int)direction;
+}
+bool PublishPendingSignal()
+{
+   if(gPendingSignalBar<=0 || gPendingSignalBar==gLastSignalBar) return false;
+   int final_dir=gPendingSignal;
+   // A neutral result has no spread-sensitive candidate and can be consumed now.
+   if(final_dir!=0)
+   {
+      MqlTick current_tick;
+      if(!SymbolInfoTick(_Symbol,current_tick) || current_tick.ask<=0.0 || current_tick.bid<=0.0 ||
+         current_tick.ask<current_tick.bid ||
+         (current_tick.ask-current_tick.bid)>gPendingATR*InpMaxSpreadATR)
+      {
+         Note(0,"SPREAD WAIT - CACHED SIGNAL");
+         return false; // Keep the bar pending; retry the spread gate on the next tick.
+      }
+   }
+
+   gLastSignalBar=gPendingSignalBar;
+   gLastSignal=final_dir;
+   gLastConsensus=gPendingConsensus;
+   gLastVotes=gPendingVotes;
+   gLastLongFamilies=gPendingLongFamilies;
+   gLastShortFamilies=gPendingShortFamilies;
+   gLastOpposing=gPendingOpposing;
+   if(final_dir!=0)
+   {
+      // One aggregated research candidate only; no module can submit an order.
+      gCandidate[0].dir=final_dir;
+      gCandidate[0].atr=gPendingATR;
+      gCandidate[0].sl=NormalizeDouble(gRates[ArraySize(gRates)-1].close-final_dir*InpStopATR*gPendingATR,_Digits);
+      gCandidate[0].tp=NormalizeDouble(gRates[ArraySize(gRates)-1].close+final_dir*InpTargetATR*gPendingATR,_Digits);
+      gCandidate[0].key=gPendingSignalBar;
+      gCandidate[0].expiry=gPendingSignalBar+PeriodSeconds(InpAnalysisTF)*3;
+      gCandidate[0].tag=30; // Meta-ensemble candidate, not module 0.
+   }
+   if(InpJournal)
+      PrintFormat("%s | %s | signal=%d families=%d long=%d short=%d modules=%d/%d consensus=%.3f opposing=%d%% ATR=%.5f",
+         ENGINE_LABEL,_Symbol,final_dir,gPendingVotes,gPendingLongFamilies,gPendingShortFamilies,
+         gPendingLongModules,gPendingShortModules,gPendingConsensus,gLastOpposing,gPendingATR);
+   if(InpPanel)
+      Comment(ENGINE_LABEL,"\n",_Symbol," ",EnumToString(InpAnalysisTF),
+         "\nMode: SAFE RESEARCH / NO ORDERS",
+         "\nMeta signal: ",(final_dir>0 ? "LONG CANDIDATE" : final_dir<0 ? "SHORT CANDIDATE" : "NO TRADE"),
+         "\nFamilies: ",gPendingLongFamilies," BUY / ",gPendingShortFamilies," SELL",
+         "\nModules: ",gPendingLongModules," BUY / ",gPendingShortModules," SELL",
+         "\nConsensus: ",DoubleToString(gPendingConsensus,3)," | Opposing: ",gLastOpposing,"%",
+         "\nSL/TP are research levels only");
+   return true;
+}
+
+bool EvaluateClosedBar()
+{
+   // Avoid copying 120 bars on every tick. Retry the same bar if history is not ready.
+   datetime expected_closed=iTime(_Symbol,InpAnalysisTF,1);
+   if(expected_closed<=0 || expected_closed==gLastSignalBar) return false;
+   // Reuse the cached closed-bar decision while waiting for a valid spread.
+   // This avoids recalculating 30 modules on every tick and prevents a transient
+   // first-tick spread spike from permanently consuming the signal bar.
+   if(expected_closed==gPendingSignalBar) return PublishPendingSignal();
+   ArraySetAsSeries(gRates,false);
+   int copied=CopyRates(_Symbol,InpAnalysisTF,1,InpSignalBars,gRates);
+   if(copied<InpSignalBars) { gDataOK=false; return false; }
+   int last=copied-1;
+   datetime closed_bar=gRates[last].time;
+   if(closed_bar<=0 || closed_bar!=expected_closed) { gDataOK=false; return false; }
+   double atr=ATRAt(14,last), ema10=EMAAt(10,last), ema20=EMAAt(20,last), ema50=EMAAt(50,last);
+   if(atr<=0.0 || !ValidNumber(atr) || !ValidNumber(ema50)) { gDataOK=false; return false; }
+   double prior_high=HighestHigh(20,last), prior_low=LowestLow(20,last);
+   double family_long[STRATEGY_FAMILIES],family_short[STRATEGY_FAMILIES];
+   ArrayInitialize(family_long,0.0);
+   ArrayInitialize(family_short,0.0);
+   int long_modules=0,short_modules=0;
+   for(int id=0;id<MODULES;id++)
+   {
+      gCandidate[id].dir=0;
+      double module_score=0.0;
+      int signal=EvaluateNativeModule(id,last,atr,ema10,ema20,ema50,prior_high,prior_low,module_score);
+      int family=StrategyFamily(id);
+      if(signal!=0 && module_score>=InpMinModuleScore && family>=0)
+      {
+         if(signal>0)
+         {
+            long_modules++;
+            family_long[family]=MathMax(family_long[family],module_score);
+            Note(id,"LONG RESEARCH VOTE");
+         }
+         else
+         {
+            short_modules++;
+            family_short[family]=MathMax(family_short[family],module_score);
+            Note(id,"SHORT RESEARCH VOTE");
+         }
+      }
+      else Note(id,(id==11 || id==13 || id==22 || id==26) ? "TIMEZONE MAP REQUIRED" : "NO QUALIFIED SIGNAL");
+   }
+   double long_weight=0.0,short_weight=0.0;
+   int long_families=0,short_families=0;
+   for(int family=0;family<STRATEGY_FAMILIES;family++)
+   {
+      // If modules in one family disagree, discard that family rather than
+      // counting the same family once on each side.
+      if(family_long[family]>0.0 && family_short[family]>0.0)
+      {
+         if(InpJournal) PrintFormat("%s | family conflict: %s",ENGINE_LABEL,FamilyName(family));
+         continue;
+      }
+      if(family_long[family]>0.0) { long_families++; long_weight+=family_long[family]; }
+      else if(family_short[family]>0.0) { short_families++; short_weight+=family_short[family]; }
+   }
+   int total_families=long_families+short_families;
+   double total_weight=long_weight+short_weight;
+   double opposing=(total_weight>0.0 ? MathMin(long_weight,short_weight)/total_weight : 0.0);
+   double consensus=(total_weight>0.0 ? (long_weight-short_weight)/total_weight : 0.0);
+   int final_dir=(consensus>=InpMinConsensus ? 1 : consensus<=-InpMinConsensus ? -1 : 0);
+   if(total_families<InpMinFamilyVotes || opposing>=InpMaxOpposingShare) final_dir=0;
+
+   // Cache the decision independently of the current tick's spread.
+   // PublishPendingSignal() will retry only the inexpensive spread gate on later ticks.
+   gPendingSignalBar=closed_bar;
+   gPendingSignal=final_dir;
+   gPendingConsensus=consensus;
+   gPendingATR=atr;
+   gPendingVotes=total_families;
+   gPendingLongFamilies=long_families;
+   gPendingShortFamilies=short_families;
+   gPendingOpposing=(int)MathRound(opposing*100.0);
+   gPendingLongModules=long_modules;
+   gPendingShortModules=short_modules;
+   gCandidate[0].dir=0;
+   gDataOK=true;
+   return PublishPendingSignal();
+}
+
 int OnInit()
 {
    RegisterModules();
@@ -140,15 +616,24 @@ int OnInit()
       Print(ENGINE_LABEL,": execution request rejected; NOVA execution adapter is not yet certified.");
       return(INIT_FAILED);
    }
+   if(InpSignalBars<70 || InpSignalBars>5000 || InpMinFamilyVotes<2 || InpMinFamilyVotes>STRATEGY_FAMILIES ||
+      InpMinModuleScore<0.0 || InpMinModuleScore>1.0 || InpMinConsensus<=0.0 || InpMinConsensus>1.0 || InpMaxOpposingShare<0.0 ||
+      InpMaxOpposingShare>=0.5 || InpStopATR<=0.0 || InpTargetATR<=0.0 || InpMaxSpreadATR<=0.0 || InpMaxSpreadATR>1.0)
+   {
+      Print(ENGINE_LABEL,": invalid research signal parameters.");
+      return(INIT_PARAMETERS_INCORRECT);
+   }
+   ArraySetAsSeries(gRates,false);
    Print(ENGINE_LABEL," initialized in SAFE RESEARCH MODE; trading disabled. Symbol=",_Symbol);
    return(INIT_SUCCEEDED);
 }
 void OnDeinit(const int reason)
 {
+   Comment("");
    Print(ENGINE_LABEL," deinitialized.");
 }
 void OnTick()
 {
-   // Deliberately no order logic: strategy modules and execution adapter are not certified.
-   // Do not add order submission here until NOVA's Demo-only gates and tests are complete.
+   if(InpTradeEnabled) return; // Execution is deliberately hard-disabled in this build.
+   EvaluateClosedBar();        // Closed-bar signal generation only; never sends broker orders.
 }
