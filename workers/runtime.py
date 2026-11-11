@@ -11,6 +11,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from workers.feature.smc_wave.smc_strategy import analyze_smc, run_smc_backtest
+from workers.feature.smc_wave.multi_timeframe import analyze_multi_timeframe
 from workers.feature.elliott_wave.elliott_wave import analyze_elliott_wave
 from workers.backtest.walk_forward import run_walk_forward
 from workers.risk.manager_prototype import RiskWorker
@@ -24,6 +25,12 @@ class BacktestRequest(BaseModel):
     fee_rate: float = Field(default=0.001, ge=0, lt=0.05)
     slippage_rate: float = Field(default=0.0005, ge=0, lt=0.05)
     initial_equity: float = Field(default=10000.0, gt=0)
+
+
+class MultiTimeframeRequest(BaseModel):
+    symbol: str = Field(min_length=1, max_length=64)
+    as_of_utc: str = Field(min_length=1, max_length=64)
+    candles_by_timeframe: dict[str, list[dict[str, Any]]]
 
 
 class WalkForwardRequest(BaseModel):
@@ -53,6 +60,18 @@ class RiskApprovalRequest(BaseModel):
 def health() -> dict[str, Any]:
     return {"ok": True, "service": "research-worker", "version": "0.3.0",
             "orders_enabled": False, "live_trading_enabled": False}
+
+
+@app.post("/v1/mtf/analyze")
+def multi_timeframe_analyze(payload: MultiTimeframeRequest) -> dict[str, Any]:
+    try:
+        return analyze_multi_timeframe(
+            payload.candles_by_timeframe,
+            as_of_utc=payload.as_of_utc,
+            symbol=payload.symbol,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/smc/analyze")
