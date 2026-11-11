@@ -34,6 +34,33 @@ function authAndRestFetch(restHandler) {
   return () => calls;
 }
 
+
+test("aggregate profit connection list is filtered to the authenticated owner's Exness Demo connections", async () => {
+  authAndRestFetch(async (url, init) => {
+    const parsed = new URL(String(url));
+    assert.equal(parsed.pathname, "/rest/v1/broker_connections");
+    assert.equal(parsed.searchParams.get("user_id"), "eq.user-test");
+    assert.equal(parsed.searchParams.get("provider"), "eq.exness_mt5");
+    assert.equal(parsed.searchParams.get("environment"), "eq.demo");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    return new Response(JSON.stringify([{
+      id: DEMO_CONNECTION_ID, account_label: "Exness MT5 Demo", status: "connected",
+      provider: "exness_mt5", environment: "demo",
+    }]), { status: 200 });
+  });
+  const response = await worker.fetch(new Request("https://worker.test/api/nova/aggregate-profit/connections", {
+    headers: { Authorization: "Bearer valid-token" },
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connections.length, 1);
+  assert.equal(body.connections[0].id, DEMO_CONNECTION_ID);
+  assert.equal(body.connections[0].environment, "demo");
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
 test("aggregate profit target GET is owner-scoped and returns disabled default when no setting exists", async () => {
   const calls = authAndRestFetch(async (url, init, callNo) => {
     assert.equal(init.headers.apikey, "public-test-key");

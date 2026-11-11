@@ -162,6 +162,10 @@ class ApiClientService {
     );
   }
 
+  public async getAggregateProfitConnections<T>(): Promise<T> {
+    return this.get<T>('/api/nova/aggregate-profit/connections');
+  }
+
   public async getAggregateProfitTarget<T>(brokerConnectionId: string): Promise<T> {
     const query = new URLSearchParams({ brokerConnectionId });
     return this.get<T>(`/api/nova/aggregate-profit/target?${query.toString()}`);

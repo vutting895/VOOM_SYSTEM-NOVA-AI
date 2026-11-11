@@ -158,6 +158,7 @@ export async function authenticateRequest(request, env) {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const AGGREGATE_PROFIT_TARGET_PATH = "/api/nova/aggregate-profit/target";
+const AGGREGATE_PROFIT_CONNECTIONS_PATH = "/api/nova/aggregate-profit/connections";
 
 function requestBearerToken(request) {
   const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
@@ -242,6 +243,36 @@ async function callSupabaseUserRest(request, env, path, init = {}) {
   try { return await response.json(); } catch {
     throw Object.assign(new Error("aggregate_profit_storage_invalid_response"), { status: 503 });
   }
+}
+
+
+async function readAggregateProfitConnections(request, env, userId) {
+  const query = new URLSearchParams({
+    select: "id,account_label,status,provider,environment",
+    user_id: "eq." + userId,
+    provider: "eq.exness_mt5",
+    environment: "eq.demo",
+    order: "created_at.desc",
+    limit: "20",
+  });
+  const rows = await callSupabaseUserRest(
+    request, env, "/rest/v1/broker_connections?" + query.toString(),
+  );
+  if (!Array.isArray(rows)) {
+    throw Object.assign(new Error("aggregate_profit_storage_invalid_response"), { status: 503 });
+  }
+  return {
+    connections: rows.map((row) => ({
+      id: row.id,
+      label: typeof row.account_label === "string" ? row.account_label.slice(0, 80) : "Exness MT5 Demo",
+      status: row.status,
+      provider: row.provider,
+      environment: row.environment,
+    })),
+    executionEnabled: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false,
+  };
 }
 
 async function readAggregateProfitTarget(request, env, userId, brokerConnectionId) {
@@ -495,13 +526,20 @@ export default {
       }, 200, origin);
     }
     if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);
-    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", AGGREGATE_PROFIT_TARGET_PATH].includes(url.pathname)) {
+    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", AGGREGATE_PROFIT_TARGET_PATH, AGGREGATE_PROFIT_CONNECTIONS_PATH].includes(url.pathname)) {
       return fail("not_found", 404, origin);
     }
     const auth = await authenticateRequest(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin);
     if (request.method === "GET" && url.pathname === "/api/marketplace") {
       return json({ items: catalog, count: catalog.length, source: "built-in-starter-catalog", liveTrading: false }, 200, origin);
+    }
+    if (request.method === "GET" && url.pathname === AGGREGATE_PROFIT_CONNECTIONS_PATH) {
+      try {
+        return json(await readAggregateProfitConnections(request, env, auth.userId), 200, origin);
+      } catch (error) {
+        return fail(error.message || "aggregate_profit_storage_unavailable", error.status || 503, origin);
+      }
     }
     if (request.method === "GET" && url.pathname === AGGREGATE_PROFIT_TARGET_PATH) {
       try {
