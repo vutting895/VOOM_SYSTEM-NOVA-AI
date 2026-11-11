@@ -174,6 +174,12 @@ test("chat returns a model response only when the AI binding succeeds", async ()
         assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
         assert.equal(input.messages[0].role, "system");
         assert.match(input.messages[0].content, /Live trading and order submission are disabled/);
+        assert.match(input.messages[0].content, /NOVA-MTF-001/);
+        assert.match(input.messages[0].content, /D1 as higher-timeframe context and H4/);
+        assert.match(input.messages[0].content, /pullback candidate, but it is not automatically a pullback or a reversal/);
+        assert.match(input.messages[0].content, /H4 2-2-2 grouping.*unvalidated, testable hypothesis only/);
+        assert.match(input.messages[0].content, /not a market law, session definition or trade rule/);
+        assert.match(input.messages[0].content, /Without supplied bars, provide conceptual analysis/);
         assert.equal(input.messages.at(-1).content, "Explain EMA and RSI in Thai");
         return { response: "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม" };
       },
