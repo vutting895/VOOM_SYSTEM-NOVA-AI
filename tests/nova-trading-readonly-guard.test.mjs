@@ -147,12 +147,12 @@ test('infrastructure health reports only verified configuration and current fail
 });
 
 test('MQL5 research scaffold keeps Demo risk defaults bounded and exposes no broker-write API', () => {
-  assert.match(ea, /InpTradeEnabled\\s*=\\s*false/);
-  assert.match(ea, /InpRiskPercent\\s*=\\s*1\\.0/);
-  assert.match(ea, /InpMaxSingleRiskPct\\s*=\\s*1\\.0/);
-  assert.match(ea, /InpMaxOpenRiskPct\\s*=\\s*9\\.0/);
-  assert.match(ea, /InpMaxPositions\\s*=\\s*9/);
-  assert.match(ea, /InpDailyLossPct\\s*=\\s*10\\.0/);
-  assert.match(ea, /InpAllowBoundedMinLot\\s*=\\s*false/);
-  assert.doesNotMatch(ea, /\\bOrderSend(?:Async)?\\s*\\(|\\bCTrade\\b|\\bPositionClose\\s*\\(|\\bPositionModify\\s*\\(|\\bOrderModify\\s*\\(|\\bOrderDelete\\s*\\(/);
+  assert.match(ea, /InpTradeEnabled\s*=\s*false/);
+  assert.match(ea, /InpRiskPercent\s*=\s*1\.0/);
+  assert.match(ea, /InpMaxSingleRiskPct\s*=\s*1\.0/);
+  assert.match(ea, /InpMaxOpenRiskPct\s*=\s*9\.0/);
+  assert.match(ea, /InpMaxPositions\s*=\s*9/);
+  assert.match(ea, /InpDailyLossPct\s*=\s*10\.0/);
+  assert.match(ea, /InpAllowBoundedMinLot\s*=\s*false/);
+  assert.doesNotMatch(ea, /\bOrderSend(?:Async)?\s*\(|\bCTrade\b|\bPositionClose\s*\(|\bPositionModify\s*\(|\bOrderModify\s*\(|\bOrderDelete\s*\(/);
 });
