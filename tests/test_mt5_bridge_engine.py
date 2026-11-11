@@ -53,7 +53,7 @@ class FakeMT5:
 
     def symbol_info(self, symbol):
         return SimpleNamespace(
-            point=0.00001, digits=5, volume_step=0.01,
+            point=0.00001, trade_tick_size=0.00001, digits=5, volume_step=0.01,
             volume_min=0.01, volume_max=100.0,
         )
 
@@ -139,3 +139,16 @@ def test_positions_and_pending_orders_are_read_only_snapshots():
     bridge = engine(FakeMT5())
     assert bridge.get_open_positions() == []
     assert bridge.get_pending_orders() == []
+
+
+
+def test_sl_tp_rejects_entry_not_aligned_to_trade_tick():
+    bridge = engine(FakeMT5())
+    with pytest.raises(ValueError):
+        bridge.calculate_sl_tp_prices("EURUSD", "BUY", 1.100001, 100, 200)
+
+
+def test_lot_size_rejects_stop_not_aligned_to_trade_tick():
+    bridge = engine(FakeMT5())
+    with pytest.raises(ValueError):
+        bridge.calculate_lot_size("EURUSD", "BUY", 1.10, 1.090001)
