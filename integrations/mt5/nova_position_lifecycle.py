@@ -54,7 +54,10 @@ def plan_owned_position_closes(
 ) -> ClosePlan:
     """Return a close plan only for explicitly requested NOVA-owned positions."""
     now = now or datetime.now(timezone.utc)
-    if (now.utcoffset() is None or intent.issued_at.utcoffset() is None
+    if not isinstance(intent, CloseIntent) or not isinstance(now, datetime):
+        return ClosePlan(False, "invalid_close_intent")
+    if (not isinstance(intent.issued_at, datetime) or not isinstance(intent.expires_at, datetime)
+            or now.utcoffset() is None or intent.issued_at.utcoffset() is None
             or intent.expires_at.utcoffset() is None):
         return ClosePlan(False, "timezone_required")
     if not expected_tenant_id or intent.tenant_id != expected_tenant_id:
@@ -76,7 +79,14 @@ def plan_owned_position_closes(
     if len(set(tickets)) != len(tickets):
         return ClosePlan(False, "duplicate_position_ticket")
 
-    snapshots = tuple(positions)
+    try:
+        snapshots = tuple(positions)
+    except TypeError:
+        return ClosePlan(False, "invalid_position_snapshot")
+    if any(not isinstance(p, PositionSnapshot) for p in snapshots):
+        return ClosePlan(False, "invalid_position_snapshot")
+    if any(type(p.ticket) is not int or p.ticket <= 0 for p in snapshots):
+        return ClosePlan(False, "invalid_position_snapshot")
     by_ticket = {p.ticket: p for p in snapshots}
     if len(by_ticket) != len(snapshots):
         return ClosePlan(False, "duplicate_snapshot_ticket")
@@ -87,9 +97,11 @@ def plan_owned_position_closes(
             return ClosePlan(False, "position_not_found_or_already_closed")
         if position.account_login != expected_login or position.account_server != expected_server:
             return ClosePlan(False, "position_account_mismatch")
-        if not (magic_base <= position.magic < magic_base + module_count):
+        if type(position.magic) is not int or not (magic_base <= position.magic < magic_base + module_count):
             return ClosePlan(False, "position_not_nova_owned")
-        if not position.symbol or not math.isfinite(position.volume) or position.volume <= 0:
+        if (not isinstance(position.symbol, str) or not position.symbol
+                or not isinstance(position.volume, (int, float))
+                or not math.isfinite(position.volume) or position.volume <= 0):
             return ClosePlan(False, "invalid_position_snapshot")
         selected.append(ticket)
     return ClosePlan(True, "validated_nova_owned_close_plan", tuple(selected))
