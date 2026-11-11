@@ -46,6 +46,14 @@ class MetaDecisionTests(unittest.TestCase):
         self.assertEqual(result["direction"], 1)
         self.assertFalse(result["live_trading_enabled"])
 
+    def test_residual_neural_network_vote_is_supported(self):
+        votes = {"neural_network": vote(), "xgboost": vote()}
+        histories = {"neural_network": history(3), "xgboost": history(2)}
+        result = evaluate_meta_decision(model_votes=votes, prediction_history=histories,
+                                        premium_discount=context())
+        self.assertEqual(result["decision"], "RESEARCH_CANDIDATE")
+        self.assertEqual(result["independent_cluster_count"], 2)
+
     def test_highly_correlated_models_count_as_one_cluster(self):
         h = history(1)
         result = evaluate_meta_decision(model_votes={"lstm": vote(), "xgboost": vote()},
