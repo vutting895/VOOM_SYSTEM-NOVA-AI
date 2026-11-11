@@ -25,8 +25,13 @@ class CiFailure(RuntimeError):
 def run(label: str, command: Sequence[str], *, cwd: Path = ROOT) -> None:
     printable = " ".join(command)
     print(f"\n=== {label} ===\n$ {printable}", flush=True)
+    invocation = list(command)
+    # npm and npx are .cmd shims on Windows; CreateProcess cannot execute
+    # batch files directly when shell=False. Route only those tools via cmd.exe.
+    if os.name == "nt" and command[0].lower() in {"npm", "npx"}:
+        invocation = ["cmd.exe", "/d", "/c", *command]
     completed = subprocess.run(
-        list(command),
+        invocation,
         cwd=cwd,
         env=os.environ.copy(),
         check=False,
