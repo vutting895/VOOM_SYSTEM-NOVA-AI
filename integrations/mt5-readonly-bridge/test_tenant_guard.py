@@ -110,6 +110,11 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertNotIn("voom.ai", LAUNCHER.lower())
         self.assertNotIn("C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe", LAUNCHER)
 
+    def test_exposure_snapshot_is_allowed_through_the_authenticated_read_only_relay(self):
+        self.assertIn('"/api/exposure"', RELAY_CLIENT)
+        self.assertIn('"/api/exposure"', SOURCE)
+        self.assertIn('"/api/exposure"', Path(__file__).with_name("README.md").read_text(encoding="utf-8"))
+
     def test_outbound_relay_uses_stable_workers_dev_and_no_custom_domain(self):
         self.assertIn("wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect", RELAY_CLIENT)
         self.assertNotIn("voom.ai", RELAY_CLIENT.lower())
