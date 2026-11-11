@@ -323,10 +323,11 @@ def load_exness_xauusdm_m15(
     metadata_hash = _sha256_bytes(metadata_bytes)
     if len(csv_bytes) != int(manifest["csv_size_bytes"]) or csv_hash != manifest["csv_sha256"]:
         raise DataSourceError("Exness CSV size/hash does not match dataset manifest")
-    if len(metadata_bytes) != int(manifest["source_metadata_size_bytes"]):
-        raise DataSourceError("Exness source metadata size does not match manifest")
-    if metadata_hash != manifest["metadata_source_sha256"]:
-        raise DataSourceError("Exness source metadata hash does not match manifest")
+    if (
+        len(metadata_bytes) != int(manifest["source_metadata_size_bytes"])
+        or metadata_hash != manifest["metadata_source_sha256"]
+    ):
+        raise DataSourceError("Exness source metadata hash/size does not match manifest")
 
     try:
         metadata = json.loads(metadata_bytes.decode("utf-8"))
@@ -525,7 +526,7 @@ def load_exness_xauusdm_h1(
         raise DataSourceError("Exness H1 maximum allowed historical gap must be 96 hours")
     if unexplained:
         raise DatasetEligibilityError(
-            f"Exness H1 contains {len(unexplained)} unexplained gap(s); training is blocked"
+            f"Exness H1 contains unexplained historical gaps ({len(unexplained)} gap(s)); training is blocked"
         )
     if (
         manifest.get("training_eligible") is not True
