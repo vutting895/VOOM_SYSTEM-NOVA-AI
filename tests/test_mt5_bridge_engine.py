@@ -74,8 +74,14 @@ class FakeMT5:
         self.shutdown_called = True
 
 
-def engine(api):
-    return MT5BridgeEngine(api=api, reconnect_attempts=1, reconnect_delay_seconds=0)
+def engine(api, **identity):
+    return MT5BridgeEngine(
+        api=api,
+        expected_login=identity.get("expected_login", 123456),
+        expected_server=identity.get("expected_server", "Exness-MT5Trial"),
+        reconnect_attempts=1,
+        reconnect_delay_seconds=0,
+    )
 
 
 def test_health_and_account_are_demo_read_only():
@@ -88,6 +94,32 @@ def test_health_and_account_are_demo_read_only():
     assert account["trade_mode"] == "demo"
     assert account["equity_decimal"] == "1000.0"
     assert account["execution_enabled"] is False
+
+
+def test_rejects_missing_provisioned_account_identity():
+    with pytest.raises(MT5PolicyViolation):
+        MT5BridgeEngine(api=FakeMT5())
+
+
+def test_rejects_wrong_provisioned_login():
+    api = FakeMT5()
+    api.account.login = 654321
+    with pytest.raises(MT5PolicyViolation):
+        engine(api).initialize()
+
+
+def test_rejects_wrong_provisioned_server():
+    with pytest.raises(MT5PolicyViolation):
+        engine(FakeMT5(server="Exness-MT5Real")).initialize()
+
+
+def test_rejects_account_switch_after_initial_connection():
+    api = FakeMT5()
+    bridge = engine(api)
+    assert bridge.initialize()
+    api.account.login = 654321
+    with pytest.raises(MT5PolicyViolation):
+        bridge.ensure_connection()
 
 
 def test_rejects_non_demo_account():
