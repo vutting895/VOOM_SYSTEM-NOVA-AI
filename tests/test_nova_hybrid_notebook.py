@@ -187,6 +187,24 @@ class HybridNotebookContractTests(unittest.TestCase):
             self.assertTrue((train["timestamp_utc"] < validation_start).all())
             self.assertTrue((train["label_end_utc"] < validation_start).all())
 
+    def test_walk_forward_rejects_timezone_naive_timestamps(self):
+        timestamps = pd.date_range("2026-01-01", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps + pd.Timedelta(hours=5),
+        })
+        with self.assertRaisesRegex(ValueError, "explicit timezone"):
+            self.walk_forward_folds(frame, folds=3, horizon=5)
+
+    def test_walk_forward_rejects_label_end_before_prediction_time(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps - pd.Timedelta(hours=1),
+        })
+        with self.assertRaisesRegex(ValueError, "cannot precede"):
+            self.walk_forward_folds(frame, folds=3, horizon=5)
+
     def test_walk_forward_rejects_missing_label_end_timestamp(self):
         timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
         frame = pd.DataFrame({"timestamp_utc": timestamps, "label": np.tile([0, 1], 100)})
