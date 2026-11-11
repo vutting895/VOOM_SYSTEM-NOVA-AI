@@ -8,6 +8,7 @@ const learningView = readFileSync(new URL("src/components/learning/LearningUnive
 const intelligenceView = readFileSync(new URL("src/components/intelligence/TradingIntelligenceView.tsx", root), "utf8");
 const infrastructureView = readFileSync(new URL("src/components/infrastructure/TradingInfrastructureView.tsx", root), "utf8");
 const chartView = readFileSync(new URL("src/components/dashboard/CandlestickChart.tsx", root), "utf8");
+const fleetView = readFileSync(new URL("src/components/QuickitMarketFleetView.tsx", root), "utf8");
 
 test("auto-training reports unavailable until a real training runner is connected", () => {
   assert.match(server, /mode: 'NOT_CONFIGURED'/);
@@ -79,4 +80,14 @@ test("MTRADERS EA defaults are disabled and match the configured NOVA risk polic
   assert.match(ea, /InpAllowBoundedMinLot\s*=\s*false/);
   assert.doesNotMatch(ea, /InpTradeEnabled\s*=\s*true|InpRiskPercent\s*=\s*5\.0|InpMaxOpenRiskPct\s*=\s*30\.0|InpDailyLossPct\s*=\s*35\.0/);
   assert.doesNotMatch(ea, /OrderSend|OrderSendAsync|trade\.Buy|trade\.Sell/);
+});
+
+
+test("legacy fleet screen is explicitly sample-only and cannot start auto-trading", () => {
+  assert.match(fleetView, /STATIC SAMPLE \/ NOT CONNECTED/);
+  assert.doesNotMatch(fleetView, /23908764|Exness-Real14|running: true|autoTradeEnabled: true/);
+  assert.match(fleetView, /No bot was started/);
+  assert.match(fleetView, /No broker emergency-stop command was sent/);
+  assert.match(fleetView, /disabled=\{true\}/);
+  assert.doesNotMatch(fleetView, /LIVE ENGINE • Pine v6\.2/);
 });
