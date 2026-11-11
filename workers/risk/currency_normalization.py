@@ -161,21 +161,21 @@ class FXRateBook:
                 if next_currency in path:
                     continue
                 # Conservative side: assets convert at bid; liabilities at ask.
-                # For inverse pairs, round the reciprocal away from the less
-                # conservative side: assets down, liabilities up. Then round
-                # the signed converted amount toward negative infinity so
-                # neither positive assets nor negative liabilities are overstated.
-                if not inverse:
-                    rate = quote.ask if current < 0 else quote.bid
-                else:
-                    with localcontext() as ctx:
-                        ctx.prec = 28
-                        ctx.rounding = ROUND_CEILING if current < 0 else ROUND_FLOOR
-                        rate = Decimal(1) / (quote.bid if current < 0 else quote.ask)
+                # For inverse pairs, divide the amount directly by the opposite
+                # quote side. This avoids a rounded reciprocal followed by a
+                # second rounding (which can turn exact results such as 110/1.10
+                # into 99.999... instead of 100). ROUND_FLOOR keeps positive
+                # assets from being overstated and negative liabilities from
+                # being understated.
                 with localcontext() as ctx:
                     ctx.prec = 28
                     ctx.rounding = ROUND_FLOOR
-                    converted = current * rate
+                    if inverse:
+                        denominator = quote.bid if current < 0 else quote.ask
+                        converted = current / denominator
+                    else:
+                        rate = quote.ask if current < 0 else quote.bid
+                        converted = current * rate
                 next_path = path + (next_currency,)
                 next_ids = ids + (quote.quote_id,)
                 next_sources = sources + (quote.source,)
