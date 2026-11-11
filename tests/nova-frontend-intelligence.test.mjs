@@ -65,7 +65,7 @@ test('Trading Infrastructure view enforces MT5 connection, Exness Demo, and Risk
   assert.ok(infrastructure.includes('MT5 Connection Status'));
   assert.ok(infrastructure.includes('Exness Demo Target'));
   assert.ok(infrastructure.includes('Broker Connector'));
-  assert.ok(infrastructure.includes('Rule-Based Risk Engine'));
+  assert.ok(infrastructure.includes('Risk Policy / Fail-Closed Guard'));
   assert.ok(infrastructure.includes('Data Pipeline'));
   assert.ok(infrastructure.includes('Model Training Status'));
   assert.ok(infrastructure.includes('ReadonlySafetyBadge'));

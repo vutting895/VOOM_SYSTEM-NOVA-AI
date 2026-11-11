@@ -108,15 +108,15 @@ export default function TradingInfrastructureView() {
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
                 <span>Terminal Server:</span>
-                <span className="text-slate-200">{infraData.mt5Connection.server}</span>
+                <span className="text-slate-200">{infraData.mt5Connection.server ?? 'Not verified'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Network Latency:</span>
-                <span className="text-emerald-400 font-bold">{infraData.mt5Connection.latencyMs} ms</span>
+                <span className="text-emerald-400 font-bold">{infraData.mt5Connection.latencyMs === null ? 'Not measured' : infraData.mt5Connection.latencyMs + ' ms'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Account Mode:</span>
-                <span className="text-cyan-300">{infraData.mt5Connection.accountClass}</span>
+                <span className="text-cyan-300">{infraData.mt5Connection.accountClass ?? 'Not verified'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Order Execution:</span>
@@ -127,7 +127,7 @@ export default function TradingInfrastructureView() {
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-emerald-400 font-mono">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Credentials Isolated & Protected</span>
+            <span>Credential isolation not verified (no broker session)</span>
           </div>
         </div>
 
@@ -149,15 +149,15 @@ export default function TradingInfrastructureView() {
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
                 <span>Protocol:</span>
-                <span className="text-slate-200">MT5 Demo Terminal REST</span>
+                <span className="text-slate-200">{infraData.brokerConnector.protocol}</span>
               </div>
               <div className="flex justify-between">
                 <span>Credentials Saved:</span>
-                <span className="text-emerald-400 font-bold">NONE (Zero Storage)</span>
+                <span className="text-slate-400 font-bold">Not verified</span>
               </div>
               <div className="flex justify-between">
                 <span>Real Money Fund:</span>
-                <span className="text-slate-400">$0.00 (No Live Account)</span>
+                <span className="text-slate-400">Not queried (no session)</span>
               </div>
               <div className="flex justify-between">
                 <span>Live Orders:</span>
@@ -181,7 +181,7 @@ export default function TradingInfrastructureView() {
                 3. Broker Connector
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-                MULTI-GATEWAY
+                EXNESS DEMO ONLY
               </span>
             </div>
 
@@ -200,7 +200,7 @@ export default function TradingInfrastructureView() {
               </div>
               <div className="flex justify-between pt-1">
                 <span>Direct API Feed:</span>
-                <span className="text-emerald-400 font-bold">AVAILABLE (Read-Only)</span>
+                <span className="text-slate-400 font-bold">{infraData.brokerConnector.directApiAvailable ? 'AVAILABLE' : 'NOT AVAILABLE'}</span>
               </div>
             </div>
           </div>
@@ -216,38 +216,45 @@ export default function TradingInfrastructureView() {
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-slate-300 font-mono uppercase flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                4. Rule-Based Risk Engine
+                4. Risk Policy / Fail-Closed Guard
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-400">
                 HARD RULES ACTIVE
               </span>
             </div>
 
-            <h3 className="text-sm font-bold text-white mb-2">Pre-Order Guard Layer</h3>
+            <h3 className="text-sm font-bold text-white mb-2">Policy configured; runtime enforcement not verified</h3>
 
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
                 <span>Max Drawdown Ceiling:</span>
-                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxDrawdownCapPct}% Max</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxDrawdownCapPct === null ? 'Not configured' : infraData.riskEngine.maxDrawdownCapPct + '% Max'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Max Lot Size Ceiling:</span>
-                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxLotSizeLimit} Lots</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxLotSizeLimit === null ? 'Not configured' : infraData.riskEngine.maxLotSizeLimit + ' Lots'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Max Margin Usage:</span>
-                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxMarginUsageLimitPct}% Max</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxMarginUsageLimitPct === null ? 'Not configured' : infraData.riskEngine.maxMarginUsageLimitPct + '% Max'}</span>
               </div>
               <div className="flex justify-between">
-                <span>Max Risk Per Trade:</span>
-                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxRiskPerTradeLimitPct}% Max</span>
+                <span>Max Risk Per Trade (configured):</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxRiskPerTradeLimitPct}% Max · policy only</span>
+              </div>              <div className="flex justify-between">
+                <span>Max Open Risk (configured):</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.maxOpenRiskPct}% · policy only</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Daily Loss Limit (configured):</span>
+                <span className="text-slate-200 font-bold">{infraData.riskEngine.dailyLossLimitPct}% · policy only</span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-rose-400 font-mono flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5" />
-            <span>Real Money Writes: HARD BLOCKED</span>
+            <span>Broker writes: API fail-closed · policy enforcement not verified</span>
           </div>
         </div>
 
@@ -269,26 +276,26 @@ export default function TradingInfrastructureView() {
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
                 <span>Tick Ingestion Rate:</span>
-                <span className="text-cyan-400 font-bold">{infraData.dataPipeline.tickIngestionRatePerSec} ticks/s</span>
+                <span className="text-cyan-400 font-bold">{infraData.dataPipeline.tickIngestionRatePerSec === null ? 'Not verified' : infraData.dataPipeline.tickIngestionRatePerSec + ' ticks/s'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Redis Buffer Hit Rate:</span>
-                <span className="text-emerald-400 font-bold">{infraData.dataPipeline.redisBufferHitRatePct}%</span>
+                <span className="text-emerald-400 font-bold">{infraData.dataPipeline.redisBufferHitRatePct === null ? 'Not verified' : infraData.dataPipeline.redisBufferHitRatePct + '%'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Feature Store Latency:</span>
-                <span className="text-slate-200 font-bold">{infraData.dataPipeline.featureStoreLatencyMs} ms</span>
+                <span className="text-slate-200 font-bold">{infraData.dataPipeline.featureStoreLatencyMs === null ? 'Not verified' : infraData.dataPipeline.featureStoreLatencyMs + ' ms'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Schema Validation:</span>
-                <span className="text-emerald-400 font-bold">{infraData.dataPipeline.schemaValidationPassPct}% Pass</span>
+                <span className="text-emerald-400 font-bold">{infraData.dataPipeline.schemaValidationPassPct === null ? 'Not verified' : infraData.dataPipeline.schemaValidationPassPct + '% Pass'}</span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Zero Malformed Events Ingested</span>
+            <span>Pipeline telemetry not connected</span>
           </div>
         </div>
 
@@ -310,25 +317,25 @@ export default function TradingInfrastructureView() {
             <div className="space-y-2 text-xs font-mono text-slate-400 bg-slate-900/70 p-3 rounded-xl border border-slate-800">
               <div className="flex justify-between">
                 <span>Active Epoch:</span>
-                <span className="text-purple-300 font-bold">Epoch #{infraData.modelTrainingStatus.epoch}</span>
+                <span className="text-purple-300 font-bold">{infraData.modelTrainingStatus.epoch === null ? 'Not available' : 'Epoch #' + infraData.modelTrainingStatus.epoch}</span>
               </div>
               <div className="flex justify-between">
                 <span>Active Monitored Pair:</span>
-                <span className="text-cyan-300 font-bold">{infraData.modelTrainingStatus.activePair}</span>
+                <span className="text-cyan-300 font-bold">{infraData.modelTrainingStatus.activePair ?? 'Not available'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Samples Ingested:</span>
-                <span className="text-slate-200">{infraData.modelTrainingStatus.samplesIngested.toLocaleString()}</span>
+                <span className="text-slate-200">{infraData.modelTrainingStatus.samplesIngested === null ? 'Not verified' : infraData.modelTrainingStatus.samplesIngested.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span>Validation Accuracy:</span>
-                <span className="text-emerald-400 font-bold">{infraData.modelTrainingStatus.lastValidationAccPct}%</span>
+                <span className="text-emerald-400 font-bold">{infraData.modelTrainingStatus.lastValidationAccPct === null ? 'Not verified' : infraData.modelTrainingStatus.lastValidationAccPct + '%'}</span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono">
-            Last Cycle: {new Date(infraData.modelTrainingStatus.lastTrainedAt).toLocaleTimeString()}
+            Last Cycle: {infraData.modelTrainingStatus.lastTrainedAt ? new Date(infraData.modelTrainingStatus.lastTrainedAt).toLocaleTimeString() : 'No verified training run'}
           </div>
         </div>
       </div>
