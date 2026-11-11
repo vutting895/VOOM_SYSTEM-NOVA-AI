@@ -39,33 +39,54 @@ def _parse_aware_utc(value: Any, field: str) -> datetime:
 
 def _validate_timeframe_bars(
     timeframe: str, candles: list[dict[str, Any]], as_of: datetime
-) -> list[datetime]:
+) -> tuple[list[datetime], list[datetime]]:
     if not isinstance(candles, list) or not 10 <= len(candles) <= MAX_BARS_PER_TIMEFRAME:
         raise ValueError(
             f"{timeframe} must contain between 10 and {MAX_BARS_PER_TIMEFRAME} bars"
         )
 
-    duration = timedelta(seconds=TIMEFRAME_SECONDS[timeframe])
+    expected_duration = timedelta(seconds=TIMEFRAME_SECONDS[timeframe])
     timestamps: list[datetime] = []
-    previous: datetime | None = None
+    close_times: list[datetime] = []
+    previous_open: datetime | None = None
+    previous_close: datetime | None = None
     for index, candle in enumerate(candles):
         if not isinstance(candle, dict):
             raise ValueError(f"{timeframe} candle {index} must be an object")
         timestamp = _parse_aware_utc(candle.get("timestamp"), f"{timeframe} candle {index} timestamp")
-        if previous is not None and timestamp <= previous:
+        bar_close = _parse_aware_utc(
+            candle.get("bar_close_utc"), f"{timeframe} candle {index} bar_close_utc"
+        )
+        if previous_open is not None and timestamp <= previous_open:
             raise ValueError(f"{timeframe} timestamps must be strictly increasing and unique")
-        if timestamp + duration > as_of:
+        if bar_close <= timestamp:
+            raise ValueError(f"{timeframe} candle {index} bar_close_utc must follow its open")
+        actual_duration = bar_close - timestamp
+        if timeframe == "D1":
+            # D1 boundaries can shift with broker/server DST; use the supplied
+            # broker-derived close time instead of assuming every day is 24h.
+            if not timedelta(hours=20) <= actual_duration <= timedelta(hours=28):
+                raise ValueError(f"{timeframe} candle {index} duration is outside the accepted daily-bar range")
+        elif actual_duration != expected_duration:
+            raise ValueError(f"{timeframe} candle {index} duration does not match its timeframe")
+        if bar_close > as_of:
             raise ValueError(f"{timeframe} candle {index} is not complete at as_of_utc")
+        if previous_close is not None and timestamp < previous_close:
+            raise ValueError(f"{timeframe} candles overlap or are out of order")
         timestamps.append(timestamp)
-        previous = timestamp
+        close_times.append(bar_close)
+        previous_open = timestamp
+        previous_close = bar_close
 
     # Reuse the canonical OHLC validator without running the full SMC engine twice.
     _validate(candles)
-    return timestamps
+    return timestamps, close_times
 
 
 def _summarize_h4_222(
-    candles: list[dict[str, Any]], timestamps: list[datetime]
+    candles: list[dict[str, Any]],
+    timestamps: list[datetime],
+    close_times: list[datetime],
 ) -> dict[str, Any]:
     if len(candles) < 6:
         return {
@@ -77,10 +98,8 @@ def _summarize_h4_222(
 
     last_six = candles[-6:]
     last_times = timestamps[-6:]
-    contiguous = all(
-        last_times[index + 1] - last_times[index] == timedelta(seconds=14_400)
-        for index in range(5)
-    )
+    last_closes = close_times[-6:]
+    contiguous = all(last_times[index + 1] == last_closes[index] for index in range(5))
     if not contiguous:
         return {
             "status": "NOT_COMPUTED_NONCONTIGUOUS_BARS",
@@ -101,7 +120,7 @@ def _summarize_h4_222(
             "sequence_position": position + 1,
             "bar_count": 2,
             "start_utc": last_times[start].isoformat().replace("+00:00", "Z"),
-            "end_utc": (last_times[start + 1] + timedelta(seconds=14_400)).isoformat().replace("+00:00", "Z"),
+            "end_utc": last_closes[start + 1].isoformat().replace("+00:00", "Z"),
             "high": pair_high,
             "low": pair_low,
             "range": pair_high - pair_low,
@@ -143,18 +162,20 @@ def analyze_multi_timeframe(
     as_of = _parse_aware_utc(as_of_utc, "as_of_utc")
     analyses: dict[str, dict[str, Any]] = {}
     timestamps_by_tf: dict[str, list[datetime]] = {}
+    close_times_by_tf: dict[str, list[datetime]] = {}
     context: dict[str, dict[str, Any]] = {}
 
     for timeframe in TIMEFRAME_ORDER:
         candles = candles_by_timeframe.get(timeframe)
         if candles is None:
             continue
-        timestamps = _validate_timeframe_bars(timeframe, candles, as_of)
+        timestamps, close_times = _validate_timeframe_bars(timeframe, candles, as_of)
         analysis = analyze_smc(candles)
         analyses[timeframe] = analysis
         timestamps_by_tf[timeframe] = timestamps
+        close_times_by_tf[timeframe] = close_times
         latest_open = timestamps[-1]
-        latest_close = latest_open + timedelta(seconds=TIMEFRAME_SECONDS[timeframe])
+        latest_close = close_times[-1]
         context[timeframe] = {
             "bars_analyzed": len(candles),
             "first_bar_open_utc": timestamps[0].isoformat().replace("+00:00", "Z"),
@@ -214,7 +235,7 @@ def analyze_multi_timeframe(
             state_evidence.append("D1 and H4 directional structure disagree without sufficient lower-timeframe confirmation.")
 
     h4_222 = _summarize_h4_222(
-        candles_by_timeframe["H4"], timestamps_by_tf["H4"]
+        candles_by_timeframe["H4"], timestamps_by_tf["H4"], close_times_by_tf["H4"]
     )
     return {
         "ok": True,
