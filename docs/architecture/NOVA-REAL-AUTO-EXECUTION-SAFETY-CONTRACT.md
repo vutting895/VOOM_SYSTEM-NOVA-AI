@@ -96,13 +96,16 @@ No component may treat an AI proposal, UI state, health endpoint, CI pass, or lo
 - Operational tests: kill switch, pending-entry cancellation, protective SL/TP retention, audit-log integrity, alerting and rollback.
 - Strategy acceptance: cost-aware walk-forward; final untouched OOS beginning 2026-07-01; at least 30 closed OOS trades; positive net profit; profit factor above 1 and above baseline; no tuning on final OOS.
 
-## 6. Known policy conflicts to resolve
+## 6. Known policy conflicts and reconciliation status
 
-- EA defaults are materially more permissive than NOVA policy.
-- Draft PRs #276 and #277 contain 5% risk-per-trade text; these must be corrected to 1% before they can represent the approved policy.
-- Draft PR #277 describes a fixed Broker Day Start Equity daily-loss baseline. The approved user-facing policy says 10% of equity; implementation semantics require explicit reconciliation rather than assumption.
-- Existing Demo bridge cannot be used as a Real adapter.
-- A 30-name module registry and a Python deterministic stub do not establish strategy implementation or performance.
+- **Active Demo per-trade policy:** 1% of current Equity in USD. PR #276's policy document has been updated to this value.
+- **Future Real preparation:** 5% per-trade remains a separately prepared profile only. PR #277's low-level helper allows an explicit 5% override, but its default is 1% for Demo; the override is not active and does not authorize Live execution.
+- **Daily loss:** 10% with Entry Lock Only is approved. The exact Equity baseline (current Equity versus broker-day opening Equity) remains unresolved against the production implementation. Do not silently adopt Broker Day Start Equity.
+- **Aggregate exposure:** the owner-approved aggregate open-risk ceiling is 9% of Equity in USD. PR #277 does not calculate or enforce aggregate open risk; this remains a production blocker.
+- **MT5 read-only engine:** PR #280 uses 1% Demo / 10% daily constants and contains no broker mutation API, but it does not enforce the complete daily-loss lock, USD normalization, or 9% aggregate exposure gate.
+- **EA defaults:** the audited main-branch EA defaults are materially more permissive than NOVA policy. PR #283 proposes safer disabled defaults, but it remains unmerged and MetaEditor compilation has not been demonstrated.
+- Existing Demo bridge cannot be reused as a Real adapter; Real read-only requires a separately scoped and independently reviewed adapter.
+- A 30-name module registry and deterministic Python strategy stub do not establish strategy implementation or performance.
 
 ## 7. Release rule
 
