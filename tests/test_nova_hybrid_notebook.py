@@ -119,6 +119,23 @@ class HybridNotebookContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate"):
             self.validate_oof_bundle(votes)
 
+    def test_market_data_rejects_bars_closer_than_declared_timeframe(self):
+        frame, manifest = self.market_fixture()
+        frame.loc[1, "timestamp_utc"] = "2026-01-05T10:30:00Z"
+        manifest["end_utc"] = "2026-01-05T10:30:00Z"
+        manifest["verified_gap_intervals"] = []
+        with self.assertRaisesRegex(ValueError, "off-cadence"):
+            self.validate_market_frame(frame, "XAUUSDm", "H1", manifest)
+
+    def test_market_data_accepts_exact_timeframe_cadence(self):
+        frame, manifest = self.market_fixture()
+        frame.loc[1, "timestamp_utc"] = "2026-01-05T11:00:00Z"
+        manifest["end_utc"] = "2026-01-05T11:00:00Z"
+        manifest["verified_gap_intervals"] = []
+        clean, gaps = self.validate_market_frame(frame, "XAUUSDm", "H1", manifest)
+        self.assertEqual(len(clean), 2)
+        self.assertEqual(gaps, [])
+
     def test_market_data_accepts_z_gap_manifest_and_segments(self):
         frame, manifest = self.market_fixture()
         clean, gaps = self.validate_market_frame(frame, "XAUUSDm", "H1", manifest)
