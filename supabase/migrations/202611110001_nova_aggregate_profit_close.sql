@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.nova_aggregate_profit_target_audit (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   broker_connection_id uuid NOT NULL REFERENCES public.broker_connections(id) ON DELETE CASCADE,
-  actor_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
+  actor_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   old_target_usd numeric(12,2) NOT NULL CHECK (old_target_usd > 0 AND old_target_usd <= 1000000.00),
   requested_target_usd numeric(12,2) NOT NULL CHECK (requested_target_usd > 0 AND requested_target_usd <= 1000000.00),
   applied_immediately boolean NOT NULL,
@@ -78,7 +78,7 @@ GRANT SELECT ON TABLE public.nova_aggregate_profit_cycles TO authenticated;
 GRANT SELECT ON TABLE public.nova_aggregate_profit_target_audit TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.nova_aggregate_profit_settings TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.nova_aggregate_profit_cycles TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.nova_aggregate_profit_target_audit TO service_role;
+GRANT SELECT, INSERT ON TABLE public.nova_aggregate_profit_target_audit TO service_role;
 
 DROP POLICY IF EXISTS nova_aggregate_profit_settings_select_own ON public.nova_aggregate_profit_settings;
 CREATE POLICY nova_aggregate_profit_settings_select_own ON public.nova_aggregate_profit_settings
@@ -198,9 +198,12 @@ END;
 $function$;
 
 REVOKE ALL ON FUNCTION private.nova_set_aggregate_profit_target_impl(uuid, numeric, text)
-  FROM PUBLIC, anon, authenticated;
+  FROM PUBLIC, anon;
+-- The private SECURITY DEFINER implementation re-checks auth.uid() and the
+-- owner-scoped Demo connection on every call; authenticated execution is needed
+-- because the public PostgREST wrapper is deliberately SECURITY INVOKER.
 GRANT EXECUTE ON FUNCTION private.nova_set_aggregate_profit_target_impl(uuid, numeric, text)
-  TO service_role;
+  TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.nova_set_aggregate_profit_target(
   p_broker_connection_id uuid,
