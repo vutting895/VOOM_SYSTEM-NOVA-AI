@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "workers/quant_engine/**"
+      - "tests/test_vision_mae.py"
+      - "docs/NOVA-CAUSAL-CHART-VISION-MAE.md"
       - "workers/feature/supervised_xgboost_prototype.py"
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
@@ -39,3 +41,4 @@ jobs:
           python -m unittest discover -s tests -p "test_sequence_data.py" -v
           python -m unittest discover -s tests -p "test_training_contract.py" -v
           python -m unittest discover -s tests -p "test_xgboost_data.py" -v
+          python -m unittest discover -s tests -p "test_vision_mae.py" -v
