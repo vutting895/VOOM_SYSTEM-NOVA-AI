@@ -11,6 +11,7 @@ on:
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - "docs/NOVA-MTRADERS-HYBRID-STRATEGY.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
+      - "tools/ci/**"
 
 permissions:
   contents: read
@@ -25,13 +26,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py
-      - name: Run Quant Engine contract tests
+      - name: Run Quant Engine verification through Python CI controller
         env:
           PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_quant*.py" -v
-      - name: Run MTRADERS Native and Hybrid strategy tests
-        env:
-          PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_mtraders*.py" -v
+        run: python tools/ci/run.py --suite quant
