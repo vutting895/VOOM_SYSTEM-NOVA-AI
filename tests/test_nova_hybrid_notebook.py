@@ -125,6 +125,18 @@ class HybridNotebookContractTests(unittest.TestCase):
         self.assertEqual(len(gaps), 1)
         self.assertEqual(clean["segment_id"].tolist(), [0, 1])
 
+    def test_market_data_rejects_timezone_naive_timestamps(self):
+        frame, manifest = self.market_fixture()
+        frame['timestamp_utc'] = ['2026-01-05 10:00:00', '2026-01-05 12:00:00']
+        with self.assertRaisesRegex(ValueError, 'explicit timezone'):
+            self.validate_market_frame(frame, 'XAUUSDm', 'H1', manifest)
+
+    def test_market_data_rejects_fractional_tick_volume(self):
+        frame, manifest = self.market_fixture()
+        frame.loc[0, 'volume'] = 100.5
+        with self.assertRaisesRegex(ValueError, 'tick_volume must be integer'):
+            self.validate_market_frame(frame, 'XAUUSDm', 'H1', manifest)
+
     def test_market_data_rejects_volume_type_mismatch(self):
         frame, manifest = self.market_fixture()
         manifest["volume_type"] = "real_volume"
