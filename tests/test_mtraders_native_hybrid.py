@@ -263,6 +263,21 @@ class DecisionContractTests(unittest.TestCase):
         with self.assertRaises(DecisionContractError):
             build_research_decision_contract(bad, **self.kwargs)
 
+    def test_rejects_non_finite_score_and_family_weight(self):
+        from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
+        for score in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(score=score), self.assertRaises(DecisionContractError):
+                build_research_decision_contract({**self.result, "ensemble_score": score}, **self.kwargs)
+        for weight in (float("nan"), float("inf"), float("-inf")):
+            families = [dict(item) for item in self.result["selected_families"]]
+            if not families:
+                self.skipTest("fixture has no family votes")
+            families[0]["weight"] = weight
+            bad = {**self.result, "selected_families": families,
+                   "strategy_vote_count": len(families)}
+            with self.subTest(weight=weight), self.assertRaises(DecisionContractError):
+                build_research_decision_contract(bad, **self.kwargs)
+
     def test_rejects_invalid_family_vote_shape_and_dataset_hash(self):
         from workers.quant_engine.mtraders_contract import build_research_decision_contract, DecisionContractError
         bad_family = {**self.result, "selected_families": [{"family_id": True, "direction": 1, "weight": 0.8}],
