@@ -159,7 +159,7 @@ def evaluate_hybrid_strategy(market_data: Mapping[str, Any], *, model_votes: Map
     # Missing model families contribute zero weight rather than letting one available model
     # occupy the entire model sleeve. Total configured model weight is 0.65.
     model_score = model_total / sum(MODEL_WEIGHTS.values()) if model_weight else 0.0
-    ensemble = 0.8 * strategy_score + 0.2 * model_score if model_weight and votes else strategy_score
+    ensemble = 0.8 * strategy_score + 0.2 * model_score if model_weight and family_votes else strategy_score
     conflict = min(long, short) / max(long + short, 1e-12)
     direction = 1 if ensemble >= consensus_threshold else -1 if ensemble <= -consensus_threshold else 0
     reason = "regime_compatible_strategy_consensus"
