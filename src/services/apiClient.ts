@@ -162,6 +162,19 @@ class ApiClientService {
     );
   }
 
+  public async getAggregateProfitTarget<T>(brokerConnectionId: string): Promise<T> {
+    const query = new URLSearchParams({ brokerConnectionId });
+    return this.get<T>(`/api/nova/aggregate-profit/target?${query.toString()}`);
+  }
+
+  public async setAggregateProfitTarget<T>(input: {
+    brokerConnectionId: string;
+    targetUsd: string;
+    reason?: string;
+  }): Promise<T> {
+    return this.post<T>('/api/nova/aggregate-profit/target', input);
+  }
+
   // Generic Request Methods
   public async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return (await this.axiosInstance.get<T, T>(url, config)) as T;

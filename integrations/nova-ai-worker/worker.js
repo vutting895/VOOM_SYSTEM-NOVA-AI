@@ -155,6 +155,181 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const AGGREGATE_PROFIT_TARGET_PATH = "/api/nova/aggregate-profit/target";
+
+function requestBearerToken(request) {
+  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
+  return match?.[1] || null;
+}
+
+function validateAggregateProfitTargetInput(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw Object.assign(new Error("invalid_json_object"), { status: 400 });
+  }
+  const brokerConnectionId = typeof value.brokerConnectionId === "string" ? value.brokerConnectionId.trim() : "";
+  const targetText = typeof value.targetUsd === "number" && Number.isFinite(value.targetUsd)
+    ? String(value.targetUsd)
+    : typeof value.targetUsd === "string" ? value.targetUsd.trim() : "";
+  const reason = value.reason === undefined ? "owner_update"
+    : typeof value.reason === "string" ? value.reason.trim() : "";
+  if (!UUID_RE.test(brokerConnectionId)) {
+    throw Object.assign(new Error("invalid_demo_connection_id"), { status: 400 });
+  }
+  if (!/^\\d{1,7}(?:\\.\\d{1,2})?$/.test(targetText)) {
+    throw Object.assign(new Error("invalid_profit_target"), { status: 400 });
+  }
+  const target = Number(targetText);
+  if (!Number.isFinite(target) || target <= 0 || target > 1000000) {
+    throw Object.assign(new Error("invalid_profit_target"), { status: 400 });
+  }
+  if (!reason || reason.length > 200) {
+    throw Object.assign(new Error("invalid_target_change_reason"), { status: 400 });
+  }
+  return { brokerConnectionId, targetUsd: targetText, reason };
+}
+
+function supabaseRestBase(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) {
+    throw Object.assign(new Error("aggregate_profit_storage_not_configured"), { status: 503 });
+  }
+  let base;
+  try { base = new URL(env.SUPABASE_URL); } catch {
+    throw Object.assign(new Error("aggregate_profit_storage_not_configured"), { status: 503 });
+  }
+  if (base.protocol !== "https:" || base.username || base.password) {
+    throw Object.assign(new Error("aggregate_profit_storage_not_configured"), { status: 503 });
+  }
+  return base.origin;
+}
+
+async function callSupabaseUserRest(request, env, path, init = {}) {
+  const token = requestBearerToken(request);
+  if (!token) throw Object.assign(new Error("authentication_required"), { status: 401 });
+  const base = supabaseRestBase(env);
+  let response;
+  try {
+    response = await fetch(new URL(path, base), {
+      ...init,
+      redirect: "manual",
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        apikey: env.SUPABASE_PUBLISHABLE_KEY,
+        Authorization: "Bearer " + token,
+        Accept: "application/json",
+        ...init.headers,
+      },
+    });
+  } catch {
+    throw Object.assign(new Error("aggregate_profit_storage_unavailable"), { status: 503 });
+  }
+  if (response.status >= 300 && response.status < 400) {
+    throw Object.assign(new Error("aggregate_profit_storage_unavailable"), { status: 503 });
+  }
+  if (!response.ok) {
+    const status = response.status === 401 ? 401
+      : response.status === 403 ? 403
+        : response.status === 404 ? 503
+          : response.status === 400 ? 400 : 503;
+    const code = response.status === 404 ? "aggregate_profit_storage_not_ready"
+      : response.status === 400 ? "aggregate_profit_target_rejected"
+        : response.status === 401 ? "invalid_or_expired_session"
+          : response.status === 403 ? "demo_connection_access_denied"
+            : "aggregate_profit_storage_unavailable";
+    throw Object.assign(new Error(code), { status });
+  }
+  try { return await response.json(); } catch {
+    throw Object.assign(new Error("aggregate_profit_storage_invalid_response"), { status: 503 });
+  }
+}
+
+async function readAggregateProfitTarget(request, env, userId, brokerConnectionId) {
+  if (!UUID_RE.test(brokerConnectionId || "")) {
+    throw Object.assign(new Error("invalid_demo_connection_id"), { status: 400 });
+  }
+  const connectionQuery = new URLSearchParams({
+    select: "id",
+    id: "eq." + brokerConnectionId,
+    user_id: "eq." + userId,
+    provider: "eq.exness_mt5",
+    environment: "eq.demo",
+    limit: "1",
+  });
+  const connections = await callSupabaseUserRest(
+    request, env, "/rest/v1/broker_connections?" + connectionQuery.toString(),
+  );
+  if (!Array.isArray(connections) || connections.length !== 1) {
+    throw Object.assign(new Error("demo_connection_not_found"), { status: 404 });
+  }
+
+  const settingsQuery = new URLSearchParams({
+    select: "target_usd,pending_target_usd,config_version,pending_config_version,enabled,updated_at",
+    broker_connection_id: "eq." + brokerConnectionId,
+    user_id: "eq." + userId,
+    limit: "1",
+  });
+  const rows = await callSupabaseUserRest(
+    request, env, "/rest/v1/nova_aggregate_profit_settings?" + settingsQuery.toString(),
+  );
+  const row = Array.isArray(rows) ? rows[0] : null;
+  return {
+    settings: row ? {
+      targetUsd: row.target_usd,
+      pendingTargetUsd: row.pending_target_usd,
+      configVersion: row.config_version,
+      pendingConfigVersion: row.pending_config_version,
+      enabled: row.enabled === true,
+      updatedAt: row.updated_at || null,
+      persisted: true,
+    } : {
+      targetUsd: "100.00",
+      pendingTargetUsd: null,
+      configVersion: 1,
+      pendingConfigVersion: null,
+      enabled: false,
+      updatedAt: null,
+      persisted: false,
+    },
+    executionEnabled: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false,
+  };
+}
+
+async function saveAggregateProfitTarget(request, env, value) {
+  const input = validateAggregateProfitTargetInput(value);
+  const rows = await callSupabaseUserRest(
+    request, env, "/rest/v1/rpc/nova_set_aggregate_profit_target", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        p_broker_connection_id: input.brokerConnectionId,
+        p_target_usd: input.targetUsd,
+        p_reason: input.reason,
+      }),
+    },
+  );
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  if (!row || typeof row !== "object" || row.target_usd === undefined) {
+    throw Object.assign(new Error("aggregate_profit_storage_invalid_response"), { status: 503 });
+  }
+  return {
+    settings: {
+      targetUsd: row.target_usd,
+      pendingTargetUsd: row.pending_target_usd ?? null,
+      configVersion: row.config_version,
+      pendingConfigVersion: row.pending_config_version ?? null,
+      appliedImmediately: row.applied_immediately === true,
+      enabled: false,
+      persisted: true,
+    },
+    executionEnabled: false,
+    ordersEnabled: false,
+    liveTradingEnabled: false,
+  };
+}
+
 function fallback(input, reason = "AI binding unavailable") {
   const prompt = input.prompt.toLowerCase();
   const key = input.risk === "low" ? "conservative"
@@ -320,13 +495,23 @@ export default {
       }, 200, origin);
     }
     if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);
-    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest"].includes(url.pathname)) {
+    if (!["/api/marketplace", "/api/gen-ai/generate", "/api/chat", "/api/backtest", AGGREGATE_PROFIT_TARGET_PATH].includes(url.pathname)) {
       return fail("not_found", 404, origin);
     }
     const auth = await authenticateRequest(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin);
     if (request.method === "GET" && url.pathname === "/api/marketplace") {
       return json({ items: catalog, count: catalog.length, source: "built-in-starter-catalog", liveTrading: false }, 200, origin);
+    }
+    if (request.method === "GET" && url.pathname === AGGREGATE_PROFIT_TARGET_PATH) {
+      try {
+        const result = await readAggregateProfitTarget(
+          request, env, auth.userId, url.searchParams.get("brokerConnectionId"),
+        );
+        return json(result, 200, origin);
+      } catch (error) {
+        return fail(error.message || "aggregate_profit_storage_unavailable", error.status || 503, origin);
+      }
     }
     if (request.method !== "POST") return fail("method_not_allowed", 405, origin);
     if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
@@ -340,6 +525,13 @@ export default {
     let body;
     try { body = JSON.parse(raw); } catch { return fail("invalid_json", 400, origin); }
     if (!body || typeof body !== "object" || Array.isArray(body)) return fail("invalid_json_object", 400, origin);
+    if (url.pathname === AGGREGATE_PROFIT_TARGET_PATH) {
+      try {
+        return json(await saveAggregateProfitTarget(request, env, body), 200, origin);
+      } catch (error) {
+        return fail(error.message || "aggregate_profit_target_rejected", error.status || 503, origin);
+      }
+    }
     if (url.pathname === "/api/gen-ai/generate") {
       let input;
       try { input = validateInput(body); }
