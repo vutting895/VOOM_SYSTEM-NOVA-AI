@@ -13,31 +13,79 @@ on:
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - "docs/NOVA-MTRADERS-HYBRID-STRATEGY.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   quant-foundation-tests:
+    name: Quant Engine + MTRADERS unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout exact PR head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Record runner diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "runner=${RUNNER_OS}"
+            uname -a
+            python --version || true
+          } | tee test-results/runner-diagnostics.txt
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py tests/test_mtraders_backtest.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q workers/quant_engine tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_mtraders_native_hybrid.py tests/test_mtraders_backtest.py 2>&1 | tee test-results/compile.log
       - name: Run Quant Engine contract tests
         env:
           PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_quant*.py" -v
-      - name: Run MTRADERS Native and Hybrid strategy tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p "test_quant*.py" -v 2>&1 | tee test-results/quant-contract-tests.log
+      - name: Run MTRADERS native, hybrid, contract and backtest tests
         env:
           PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_mtraders*.py" -v
-      - name: Run cost-aware backtest tests
-        env:
-          PYTHONPATH: .
-        run: python -m unittest discover -s tests -p "test_mtraders_backtest.py" -v
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p "test_mtraders*.py" -v 2>&1 | tee test-results/mtraders-tests.log
+      - name: Write exact-head test summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## NOVA Quant Engine test evidence"
+            echo
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Event: ${GITHUB_EVENT_NAME}"
+            echo "- Runner: ${RUNNER_OS}"
+            echo
+            for f in test-results/*.log; do
+              if [ -f "$f" ]; then
+                echo "### $f"
+                tail -n 30 "$f" || true
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-quant-test-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 14
