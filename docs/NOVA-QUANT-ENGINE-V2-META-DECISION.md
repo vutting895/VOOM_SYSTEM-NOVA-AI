@@ -33,7 +33,7 @@ Thresholds are initial research defaults, not empirically optimized parameters. 
 
 ## Premium / Discount
 
-The calculation accepts an explicitly supplied, confirmed swing low/high, range ID, timeframe and as-of timestamp. It does not discover swings or assume a pivot is known before its right-side confirmation bars have elapsed. Price below the equilibrium ratio is Discount; above is Premium; equal is Equilibrium. Values outside the range are flagged rather than silently clamped.
+The calculation accepts an explicitly supplied, confirmed swing low/high, range ID, timeframe and as-of timestamp. It requires an explicit confirmation timestamp no later than the decision timestamp and at least two right-side confirmation bars. It does not discover swings or assume a pivot is known before those bars have elapsed. Price below the equilibrium ratio is Discount; above is Premium; equal is Equilibrium. Values outside the range are flagged rather than silently clamped.
 
 ## Model implementation status
 
