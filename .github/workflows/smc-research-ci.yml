@@ -33,6 +33,8 @@ on:
     paths:
       - "workers/feature/smc_wave/**"
       - "tests/test_smc_strategy.py"
+      - "tests/test_multi_timeframe_structure.py"
+      - "tests/test_mtf_runtime_api.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
       - "tests/test_runtime_api.py"
