@@ -177,6 +177,9 @@ async def heartbeat_job(
         SET lease_expires_at = now() + make_interval(secs => $3),
             updated_at = now()
         WHERE id = $1 AND worker_id = $2 AND status = 'running'
+          AND lease_expires_at > now()
+          AND lease_expires_at > now()
+          AND lease_expires_at > now()
         """,
         job_id, worker_id, lease_seconds,
     )
