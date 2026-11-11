@@ -67,6 +67,11 @@ export default function BacktestSimulatorView() {
       {/* 1. Safety Status Banner */}
       <ReadonlySafetyBadge />
 
+      <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+        <div><strong>SIMULATED SAMPLE ONLY.</strong> This endpoint returns illustrative strategy results, not a backtest on verified Exness history. Trade counts, P/L, win rate, profit factor, and out-of-sample metrics are not evidence for live decisions.</div>
+      </div>
+
       {/* 2. Top Controls & Strategy Selection Bar */}
       <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
@@ -78,7 +83,7 @@ export default function BacktestSimulatorView() {
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              ทดสอบกลยุทธ์ย้อนหลังบนข้อมูลจริงของ Exness Demo พร้อมการตรวจสอบ Out-of-Sample เพื่อป้องกัน Overfitting
+              ผลลัพธ์เป็น Simulation จากข้อมูลตัวอย่าง ไม่ใช่ประวัติราคา Exness จริง และยังไม่มี OOS evidence ที่ตรวจสอบได้
             </p>
           </div>
 
