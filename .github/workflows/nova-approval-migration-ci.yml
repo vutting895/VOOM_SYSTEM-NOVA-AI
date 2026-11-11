@@ -119,6 +119,8 @@ jobs:
           set -euo pipefail
           workdir="$(mktemp -d /tmp/nova-local-supabase.XXXXXX)"
           echo "NOVA_SUPABASE_WORKDIR=$workdir" >> "$GITHUB_ENV"
+          cd "$workdir"
+          supabase init
           mkdir -p "$workdir/supabase/migrations"
 
           # Bootstrap only pgcrypto, then the exact Exness connection and approval
@@ -127,11 +129,9 @@ jobs:
           CREATE SCHEMA IF NOT EXISTS extensions;
           CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
           SQL
-          cp supabase/migrations/202610270001_mt5_customer_connections.sql "$workdir/supabase/migrations/"
-          cp supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+          cp "$GITHUB_WORKSPACE/supabase/migrations/202610270001_mt5_customer_connections.sql" "$workdir/supabase/migrations/"
+          cp "$GITHUB_WORKSPACE/supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql" "$workdir/supabase/migrations/"
 
-          cd "$workdir"
-          supabase init
           supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
           supabase status -o env > "$workdir/status.env"
 
