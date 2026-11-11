@@ -51,7 +51,7 @@ class ManifestTests(unittest.TestCase):
 
     def test_rejects_wrong_project(self):
         self.create()
-        self.assertEqual(self.verify(project="NOVA"), 2)
+        self.assertEqual(self.verify(project="__wrong_project__"), 2)
 
     def test_rejects_path_traversal(self):
         (self.root / "manifest.json").write_text(json.dumps({
