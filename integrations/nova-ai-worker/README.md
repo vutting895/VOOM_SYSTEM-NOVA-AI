@@ -19,10 +19,36 @@ Run `npm test` from this directory with Node.js 22+. Tests mock the Supabase Aut
 The dedicated GitHub Actions workflow deploys this Worker only when this folder changes on main. Cloudflare AI binding is declared in `wrangler.toml`. The frontend API route forwards the authenticated user's access token to this Worker; it must never forward an unauthenticated request.
 
 
-## Authenticated Chat and Zero-Menu intent contract
+## Authenticated Chat and Agent Runtime
 
-- `POST /api/chat` requires an authenticated Supabase bearer session. It accepts only bounded user/assistant messages; it does not accept system-role messages or any order/execution tool.
-- Worker responses include a `nova.intent.v1` data-only envelope classified for research and validated by the API route before it reaches the browser.
-- The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
-- This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
+- `POST /api/chat` requires a valid Supabase bearer session and accepts at most eight bounded user/assistant messages. System-role messages and browser-supplied tool definitions are rejected.
+- The Agent uses Cloudflare Workers AI function calling with `@cf/meta/llama-3.3-70b-instruct-fp8-fast`. This model is documented by Cloudflare as supporting function calling. The Agent executes at most three sequential tool calls per request.
+- The only tools are:
+  - `list_my_broker_connections` — list connections scoped to the signed-in user.
+  - `get_my_connection_status` — read one of that user's connection statuses.
+  - `get_my_demo_account_snapshot` — read an existing connected Exness MT5 Demo account snapshot.
+  - `get_my_demo_market_quotes` — read quotes and recent OHLC bars from an existing connected Exness MT5 Demo connection.
+- Every broker read is sent only to the fixed System Integration Hub endpoint. The authenticated user's bearer token is forwarded server-to-server; the Hub validates the session and independently enforces connection ownership and Demo/read-only capability. The model never receives credentials or chooses a URL, provider, bridge route, or user ID.
+- Tool names and arguments are validated server-side. Unknown tools, malformed connection IDs, unsupported timeframes, invalid symbols, missing sessions, and Hub failures fail closed. Tool output is allowlisted before it is added to the model context.
+- Trade-action requests are stopped by the deterministic policy guard before inference. There is no order, broker mutation, credential-management, or Live Trading tool. `executionEnabled`, `ordersEnabled`, and `liveTradingEnabled` remain false.
+- The response preserves the `nova.intent.v1` data-only envelope and adds `agent.runtime`, `agent.toolCalls`, and `agent.toolCallCount` for operational visibility. The allow-listed UI renderer remains unchanged; no model-generated HTML/JavaScript is evaluated.
+- This is a bounded tool-calling Agent runtime, not yet a LangGraph graph with durable checkpointing. Conversation persistence, approval/resume and any future write-capability workflow remain separate work and require owner-scoped persistence, replay protection and a reviewed approval boundary before activation.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## Request contract
+
+```http
+POST /api/chat
+Authorization: Bearer <Supabase access token>
+Content-Type: application/json
+```
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "ตรวจสอบบัญชี Demo ของฉัน" }
+  ]
+}
+```
+
+No `thread_id`, `user_id`, broker credential, API secret or tool definition is accepted from the browser. The Worker derives the user identity from Supabase Auth and uses only the fixed tool registry.
