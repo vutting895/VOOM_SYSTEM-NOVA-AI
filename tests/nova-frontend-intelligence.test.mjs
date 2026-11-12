@@ -112,3 +112,18 @@ test('SMC Fleet configuration is research-only and cannot start automated tradin
   assert.match(fleet, /disabled=\{bot\.strategyId === 'smc-mean-rejection'\}/);
   assert.match(fleet, /autoTradeEnabled: false/);
 });
+
+test('SMC remains non-executable and has no fabricated fleet performance metrics', () => {
+  const fleet = read('src/components/QuickitMarketFleetView.tsx');
+  assert.match(fleet, /strategyBadge: 'RESEARCH ONLY'/);
+  assert.match(fleet, /todayPnlBaht: null/);
+  assert.match(fleet, /totalTrades: null/);
+  assert.match(fleet, /handleToggleBotRun[\s\S]*?Research Only/);
+  assert.doesNotMatch(fleet, /TAB 2: TRADING INTELLIGENCE \(Elliott Wave 3/);
+});
+
+test('Backtest UI does not offer Wave3 as a new selectable strategy', () => {
+  const backtestView = read('src/components/backtest/BacktestSimulatorView.tsx');
+  assert.doesNotMatch(backtestView, /elliott-wave-impulse/);
+  assert.match(backtestView, /ส่วน Backtest ยังถูกปิดไว้/);
+});
