@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { authorizeBridge, constantTimeEqual, validateReadRequest } from "./worker.js";
+import worker, { BridgeSession, authorizeBridge, constantTimeEqual, validateReadRequest } from "./worker.js";
 
 const TENANT_ID = "tenant_12345678";
 const TOKEN = "read_only_test_token_which_is_long_enough_123456";
@@ -51,11 +51,40 @@ test("tenant bridge health rejects missing credentials", async () => {
   assert.equal((await response.json()).error, "authentication_required");
 });
 
-test("authenticated tenant bridge health requires an active WebSocket", async () => {
+test("authenticated tenant health is routed through its tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, headers: req.headers };
+    return Response.json({
+      status: "ok",
+      terminal_connected: true,
+      account_session_available: true,
+      mode: "read-only",
+      order_submission_enabled: false
+    });
+  });
   const response = await worker.fetch(request("/health", {
     token: TOKEN,
     tenant: TENANT_ID
-  }), makeEnv());
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.terminal_connected, true);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.url.pathname, "/health");
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+});
+
+test("Durable Object reports disconnected when no tenant WebSocket exists", async () => {
+  const session = new BridgeSession({ getWebSockets: () => [] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error, "bridge_not_connected");
 });
