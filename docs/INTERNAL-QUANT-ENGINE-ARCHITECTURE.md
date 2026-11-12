@@ -26,7 +26,14 @@ These are checked-in main-branch observations, not claims that every component i
 | workers/risk and workers/portfolio | Risk/allocation scaffolds | Keep deterministic controls authoritative; ML cannot override risk policy |
 | workers/execution | Intentionally disabled | Keep outside the Quant Engine boundary |
 
-### Strategy replacement decision (2026-11-12)\n\n- SMC Mean Rejection replaces Wave3 as NOVA's primary deterministic strategy path. The implementation lives in workers/quant_engine/smc_mean_rejection.py and consumes completed 4H/5M bars with UTC close-time timestamps.\n- XGBoost/LSTM remain independent supporting models. The five-family Meta Decision Layer is not changed to treat SMC as an ML vote.\n- Keep historical Wave3 branches, artifacts and Final OOS records immutable for audit/comparison; do not merge stale Wave3 PRs as the active strategy.\n- The new module is research-only until exact-head tests, cost-aware walk-forward and sealed OOS acceptance gates pass.\n\n### Existing research branch dependency
+### Strategy replacement decision (2026-11-12)
+
+- SMC Mean Rejection replaces Wave3 as NOVA's primary deterministic strategy path. The implementation lives in workers/quant_engine/smc_mean_rejection.py and consumes completed 4H/5M bars with UTC close-time timestamps.
+- XGBoost/LSTM remain independent supporting models. The five-family Meta Decision Layer is not changed to treat SMC as an ML vote.
+- Keep historical Wave3 branches, artifacts and Final OOS records immutable for audit/comparison; do not merge stale Wave3 PRs as the active strategy.
+- The new module is research-only until exact-head tests, cost-aware walk-forward and sealed OOS acceptance gates pass.
+
+### Existing research branch dependency
 
 PR #66 (feature/wave3-hybrid-backtest-20261029) contains Wave3/SMC + XGBoost/LSTM research and frozen v6.2.6.3 gates. Its latest recorded report describes zero closed Final OOS trades, classification below its majority baseline, and maximum SMC score 75 against the unchanged threshold 85. The PR remains Draft/open and its recorded branch was 58 commits behind the then-current main baseline. Do not merge or couple it directly into this engine. Use stable dataset/experiment contracts so it can be reconciled and evaluated separately after overlap and regression review.
 
@@ -157,7 +164,7 @@ A run is not reproducible if dataset checksum, code revision, strategy parameter
 ### Phase 3 — experiment runner and evaluation
 - Define strategy plugin interface and bounded asynchronous job contract.
 - Add nested walk-forward runner, frozen final OOS, baseline comparison, trial log and evaluation report.
-- Add SMC/Wave3 adapter only after PR #66 is reviewed/reconciled with main and causal event timing/full-history issues are addressed without weakening frozen gates.
+- Treat PR #66 Wave3 artifacts as historical benchmark evidence only. Implement SMC Mean Rejection against the current main contracts; do not merge the stale Wave3 branch as the active strategy.
 
 ### Phase 4 — persistence and orchestration
 - Store owner-scoped run metadata and immutable artifact references; add migrations only after schema/RLS review.
