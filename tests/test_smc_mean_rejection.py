@@ -32,7 +32,9 @@ def one_signal():
         "strategy_id": "smc-mean-rejection",
         "direction": "long",
         "signal_index": 0,
+        "signal_timestamp": "2026-01-01T00:00:00Z",
         "entry_index": 1,
+        "entry_timestamp": "2026-01-01T00:05:00Z",
         "entry_price": 100.0,
         "stop_price": 99.0,
         "target_1": 102.5,
@@ -134,6 +136,20 @@ class TestSMCMeanRejection(unittest.TestCase):
             one_signal(), bars, fee_rate_per_side=0.001, slippage_per_unit=0.01
         )
         self.assertLessEqual(abs(result["trades"][0]["net_pnl"]), 100.0 + 1e-8)
+
+    def test_simulator_rejects_non_next_bar_or_mismatched_timestamps(self):
+        bars = make_bars(12)
+        delayed = one_signal()[0]
+        delayed["entry_index"] = 2
+        delayed["entry_timestamp"] = bars[2]["timestamp"]
+        delayed["entry_price"] = bars[2]["open"]
+        with self.assertRaises(StrategyInputError):
+            simulate_smc_mean_rejection([delayed], bars)
+
+        mismatched = one_signal()[0]
+        mismatched["signal_timestamp"] = bars[1]["timestamp"]
+        with self.assertRaises(StrategyInputError):
+            simulate_smc_mean_rejection([mismatched], bars)
 
     def test_invalid_risk_inputs_fail_closed(self):
         bars = make_bars(12)
