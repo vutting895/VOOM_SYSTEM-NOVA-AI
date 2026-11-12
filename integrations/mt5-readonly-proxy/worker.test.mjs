@@ -215,6 +215,97 @@ test("account-wide exposure snapshot is routed through the authenticated custome
   }
 });
 
+test("capacity coordinator reserves only from a fresh authenticated broker snapshot", async () => {
+  const originalFetch = globalThis.fetch;
+  let rpcBody;
+  let relayPath;
+  const env = { ...envWithRoutes(), SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-test-only" };
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayPath = url.pathname;
+      assert.equal(new Headers(init.headers).get("X-VOOM-TENANT-ID"), TENANT_ID);
+      return Response.json({
+        account_login: 12345678, server: "Exness-MT5Trial",
+        open_positions: 2, open_pending_orders: 1,
+        position_tickets: ["101", "102"], pending_order_tickets: ["201"],
+        as_of: new Date().toISOString(), order_submission_enabled: false,
+        liveTradingEnabled: false
+      });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/rpc/reserve_nova_order_capacity") {
+      assert.equal(init.method, "POST");
+      assert.equal(new Headers(init.headers).get("Authorization"), "Bearer service-role-secret-test-only");
+      rpcBody = JSON.parse(init.body);
+      return Response.json(true);
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/capacity/reserve?connection_id=" + CONNECTION_ID,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + USER_TOKEN,
+          Origin: UI_ORIGIN,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ command_id: "00000000-0000-4000-8000-000000000123" })
+      }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.reserved, true);
+    assert.equal(body.capacity_limit, 5);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(relayPath, "/api/exposure");
+    assert.equal(rpcBody.p_open_positions, 2);
+    assert.equal(rpcBody.p_open_pending_orders, 1);
+    assert.equal(rpcBody.p_tenant_id, TENANT_ID);
+    assert.equal(rpcBody.p_command_id, "00000000-0000-4000-8000-000000000123");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("capacity coordinator fails closed when service role key is absent", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.pathname === "/auth/v1/user") return Response.json({ id: "user-test-id" });
+    if (url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+      environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+    }]);
+    throw new Error("No broker or RPC call should occur without service role key");
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/capacity/reserve?connection_id=" + CONNECTION_ID,
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({ command_id: "00000000-0000-4000-8000-000000000123" })
+      }
+    ), envWithRoutes());
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).reserved, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
