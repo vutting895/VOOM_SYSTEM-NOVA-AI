@@ -24,6 +24,16 @@ function envWithRoutes() {
   };
 }
 
+test("proxy CORS preflight allows the authenticated capacity reservation POST", async () => {
+  const response = await worker.fetch(new Request("https://proxy.test/api/capacity/reserve", {
+    method: "OPTIONS",
+    headers: { Origin: UI_ORIGIN, "Access-Control-Request-Method": "POST" }
+  }), envWithRoutes());
+  assert.equal(response.status, 204);
+  assert.match(response.headers.get("Access-Control-Allow-Methods") || "", /POST/);
+  assert.match(response.headers.get("Access-Control-Allow-Headers") || "", /Content-Type/);
+});
+
 test("proxy health is public and read-only", async () => {
   const response = await worker.fetch(new Request("https://proxy.test/health"), {});
   const body = await response.json();
