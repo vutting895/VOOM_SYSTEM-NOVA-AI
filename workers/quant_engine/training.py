@@ -1,7 +1,12 @@
-"""Training utilities for PyTorch sequence models."""
-import hashlib
+"""Training entry point reserved for a verified PyTorch training implementation.
+
+The previous implementation returned fixed metrics and mock checkpoint bytes.
+Fail explicitly until real optimization, validation, and checkpoint serialization
+are implemented. Never present a placeholder as a trained model.
+"""
 from collections.abc import Sequence
 from dataclasses import dataclass
+
 
 @dataclass
 class TrainingResult:
@@ -9,6 +14,7 @@ class TrainingResult:
     best_validation_loss: float
     checkpoint_bytes: bytes
     checkpoint_sha256: str
+
 
 def train_sequence_model(
     model,
@@ -24,10 +30,12 @@ def train_sequence_model(
     patience: int = 2,
     seed: int = 13,
 ) -> TrainingResult:
-    ckpt_bytes = b"mock-checkpoint-bytes"
-    return TrainingResult(
-        best_epoch=1,
-        best_validation_loss=0.15,
-        checkpoint_bytes=ckpt_bytes,
-        checkpoint_sha256=hashlib.sha256(ckpt_bytes).hexdigest()
+    """Run actual training once the audited training pipeline is implemented.
+
+    The parameters are retained as the intended API contract. No input is
+    consumed and no checkpoint or metric is fabricated by this placeholder.
+    """
+    raise NotImplementedError(
+        "TRAINING_RUNTIME_NOT_IMPLEMENTED: no verified optimizer, evaluator, "
+        "or checkpoint serializer is configured"
     )
