@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'email', 'displayName', 'createdAt']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidTrade(data) {
+      return data.keys().hasAll(['id', 'userId', 'symbol', 'side', 'lots', 'entryPrice', 'status', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'symbol', 'side', 'lots', 'entryPrice', 'status', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.symbol is string && data.symbol.size() <= 32 &&
+             data.side in ['BUY', 'SELL'] &&
+             data.lots is number && data.lots > 0 &&
+             data.entryPrice is number && data.entryPrice > 0 &&
+             data.status in ['OPEN', 'CLOSED', 'PENDING'] &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidTelemetry(data) {
+      return data.keys().hasAll(['id', 'userId', 'moduleId', 'moduleName', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'moduleId', 'moduleName', 'winRate', 'realizedProfit', 'status', 'updatedAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.moduleId is int && data.moduleId >= 0 && data.moduleId < 100 &&
+             data.moduleName is string && data.moduleName.size() <= 64 &&
+             (!('winRate' in data) || data.winRate is number) &&
+             (!('realizedProfit' in data) || data.realizedProfit is number) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 32)) &&
+             data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && request.resource.data.uid == userId;
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.uid == resource.data.uid;
+      allow delete: if isOwner(userId);
+
+      // Trades Subcollection
+      match /trades/{tradeId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(tradeId) && isValidTrade(request.resource.data) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidTrade(request.resource.data) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+
+      // Telemetry Subcollection
+      match /telemetry/{telemetryId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(telemetryId) && isValidTelemetry(request.resource.data) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidTelemetry(request.resource.data) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+  }
+}
