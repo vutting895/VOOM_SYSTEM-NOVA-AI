@@ -19,7 +19,7 @@ const json = (value, status = 200, origin = "") => new Response(JSON.stringify(v
   status,
   headers: { ...BASE, "Content-Type": "application/json; charset=utf-8", ...cors(origin) }
 });
-const allowed = new Set(["/health", "/api/account", "/api/exposure", "/api/symbols", "/api/quotes"]);
+const allowed = new Set(["/health", "/api/account", "/api/exposure", "/api/capacity/reserve", "/api/symbols", "/api/quotes"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function bearer(request) {
@@ -175,6 +175,122 @@ async function loadConnection(request, env, user) {
   }
 }
 
+async function reserveAccountCapacity(request, env, route, origin) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    return json({ error: "capacity_service_not_configured", reserved: false, ordersEnabled: false, liveTradingEnabled: false }, 503, origin);
+  }
+  if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
+    return json({ error: "content_type_must_be_application_json", reserved: false }, 415, origin);
+  }
+  let body;
+  try {
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).byteLength > 4096) {
+      return json({ error: "request_too_large", reserved: false }, 413, origin);
+    }
+    body = JSON.parse(raw);
+  } catch {
+    return json({ error: "invalid_json", reserved: false }, 400, origin);
+  }
+  const commandId = body && typeof body.command_id === "string" ? body.command_id : "";
+  if (!uuid.test(commandId) || Object.keys(body || {}).some((key) => key !== "command_id")) {
+    return json({ error: "valid_command_id_required", reserved: false }, 400, origin);
+  }
+
+  const exposureUrl = new URL("/api/exposure", route.url);
+  let snapshotResponse;
+  try {
+    snapshotResponse = await fetch(exposureUrl, {
+      method: "GET",
+      headers: {
+        Authorization: "Bearer " + route.token,
+        "X-VOOM-TENANT-ID": route.tenantId,
+        Accept: "application/json"
+      },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(8000)
+    });
+  } catch {
+    return json({ error: "broker_snapshot_unavailable", reserved: false, ordersEnabled: false }, 502, origin);
+  }
+  if (!snapshotResponse.ok) {
+    return json({ error: "broker_snapshot_unavailable", reserved: false, ordersEnabled: false }, 503, origin);
+  }
+  let snapshot;
+  try { snapshot = await snapshotResponse.json(); } catch {
+    return json({ error: "invalid_broker_snapshot", reserved: false }, 503, origin);
+  }
+  const login = Number(snapshot?.account_login);
+  const positions = snapshot?.open_positions;
+  const pending = snapshot?.open_pending_orders;
+  const server = typeof snapshot?.server === "string" ? snapshot.server.trim() : "";
+  const snapshotAt = typeof snapshot?.as_of === "string" ? snapshot.as_of : "";
+  const positionTickets = snapshot?.position_tickets;
+  const pendingTickets = snapshot?.pending_order_tickets;
+  if (!Number.isSafeInteger(login) || login <= 0 || !server || server.length > 120 ||
+      !Number.isSafeInteger(positions) || positions < 0 ||
+      !Number.isSafeInteger(pending) || pending < 0 ||
+      !Array.isArray(positionTickets) || !Array.isArray(pendingTickets) ||
+      positionTickets.length !== positions || pendingTickets.length !== pending ||
+      !Number.isFinite(Date.parse(snapshotAt)) ||
+      snapshot?.order_submission_enabled !== false || snapshot?.liveTradingEnabled !== false) {
+    return json({ error: "invalid_broker_snapshot", reserved: false, ordersEnabled: false }, 503, origin);
+  }
+
+  const rpcUrl = new URL("/rest/v1/rpc/reserve_nova_order_capacity", env.SUPABASE_URL);
+  let rpcResponse;
+  try {
+    rpcResponse = await fetch(rpcUrl, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: "Bearer " + env.SUPABASE_SERVICE_ROLE_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        p_tenant_id: route.tenantId,
+        p_account_login: login,
+        p_account_server: server,
+        p_command_id: commandId,
+        p_reservation_id: crypto.randomUUID(),
+        p_open_positions: positions,
+        p_open_pending_orders: pending,
+        p_snapshot_at: snapshotAt,
+        p_lease_seconds: 30
+      }),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(8000)
+    });
+  } catch {
+    return json({ error: "capacity_reservation_unavailable", reserved: false, ordersEnabled: false }, 503, origin);
+  }
+  if (!rpcResponse.ok) {
+    return json({ error: "capacity_reservation_unavailable", reserved: false, ordersEnabled: false }, 503, origin);
+  }
+  let reserved;
+  try { reserved = await rpcResponse.json(); } catch {
+    return json({ error: "capacity_reservation_unavailable", reserved: false }, 503, origin);
+  }
+  if (typeof reserved !== "boolean") {
+    return json({ error: "invalid_capacity_reservation_response", reserved: false }, 503, origin);
+  }
+  return json({
+    reserved,
+    reason: reserved ? "capacity_reserved" : "account_capacity_reached_or_duplicate_command",
+    account_login: login,
+    account_server: server,
+    observed_positions: positions,
+    observed_pending_orders: pending,
+    capacity_limit: 5,
+    reservation_lease_seconds: reserved ? 30 : 0,
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, reserved ? 200 : 409, origin);
+}
+
 async function forward(request, route, path, origin) {
   const url = new URL(request.url);
   const target = new URL(path, route.url);
@@ -255,6 +371,9 @@ export default {
       liveTradingEnabled: false
     }, connection.status, origin);
 
+    if (url.pathname === "/api/capacity/reserve") {
+      return reserveAccountCapacity(request, env, connection.route, origin);
+    }
     return forward(request, connection.route, url.pathname === "/health" ? "/health" : url.pathname, origin);
   }
 };
