@@ -219,7 +219,11 @@ test("capacity coordinator reserves only from a fresh authenticated broker snaps
   const originalFetch = globalThis.fetch;
   let rpcBody;
   let relayPath;
+  const testTenantId = "00000000-0000-4000-8000-000000000321";
   const env = { ...envWithRoutes(), SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-test-only" };
+  env.MT5_TENANT_ROUTES = JSON.stringify({
+    [testTenantId]: { tenantId: testTenantId, token: BRIDGE_TOKEN }
+  });
   globalThis.fetch = async (input, init = {}) => {
     const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
@@ -228,12 +232,12 @@ test("capacity coordinator reserves only from a fresh authenticated broker snaps
     if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
-        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+        environment: "demo", status: "connected", bridge_route_id: testTenantId
       }]);
     }
     if (url.origin === RELAY_ORIGIN) {
       relayPath = url.pathname;
-      assert.equal(new Headers(init.headers).get("X-VOOM-TENANT-ID"), TENANT_ID);
+      assert.equal(new Headers(init.headers).get("X-VOOM-TENANT-ID"), testTenantId);
       return Response.json({
         account_login: 12345678, server: "Exness-MT5Trial",
         open_positions: 2, open_pending_orders: 1,
@@ -272,7 +276,7 @@ test("capacity coordinator reserves only from a fresh authenticated broker snaps
     assert.equal(relayPath, "/api/exposure");
     assert.equal(rpcBody.p_open_positions, 2);
     assert.equal(rpcBody.p_open_pending_orders, 1);
-    assert.equal(rpcBody.p_tenant_id, TENANT_ID);
+    assert.equal(rpcBody.p_tenant_id, testTenantId);
     assert.equal(rpcBody.p_command_id, "00000000-0000-4000-8000-000000000123");
   } finally {
     globalThis.fetch = originalFetch;
