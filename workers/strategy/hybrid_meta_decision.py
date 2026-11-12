@@ -12,6 +12,7 @@ resolve and hash-check the referenced reports before constructing evidence.
 from __future__ import annotations
 
 from datetime import datetime
+from math import isfinite
 import re
 from typing import Any
 
@@ -69,6 +70,7 @@ def _validate_context(context: Any) -> tuple[datetime, str]:
     if (
         isinstance(age, bool) or not isinstance(age, (int, float))
         or isinstance(maximum, bool) or not isinstance(maximum, (int, float))
+        or not isfinite(float(age)) or not isfinite(float(maximum))
         or age < 0 or maximum <= 0 or age > maximum
     ):
         raise HybridDecisionInputError("context: stale_or_invalid_data_age")
@@ -94,7 +96,7 @@ def _validate_evidence(
             raise HybridDecisionInputError(f"{expected_id}: {field}_required")
     if item["status"] != "PASS":
         raise HybridDecisionInputError(f"{expected_id}: evidence_not_passed")
-    if item["direction"] not in _DIRECTIONS:
+    if not isinstance(item["direction"], str) or item["direction"] not in _DIRECTIONS:
         raise HybridDecisionInputError(f"{expected_id}: invalid_direction")
     if item["dataset_sha256"] != dataset_sha256:
         raise HybridDecisionInputError(f"{expected_id}: dataset_hash_mismatch")
