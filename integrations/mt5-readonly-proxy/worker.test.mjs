@@ -165,6 +165,56 @@ test("connected user is routed only to the stable workers.dev relay", async () =
 });
 
 
+test("account-wide exposure snapshot is routed through the authenticated customer proxy", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-test-id",
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "connected",
+        bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({
+        account_login: 12345678,
+        open_positions: 2,
+        open_pending_orders: 1,
+        position_tickets: ["101", "102"],
+        pending_order_tickets: ["201"],
+        order_submission_enabled: false
+      });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/exposure?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.open_positions + body.open_pending_orders, 3);
+    assert.equal(new URL(relayRequest.url).pathname, "/api/exposure");
+    assert.equal(new URL(relayRequest.url).search, "");
+    assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + BRIDGE_TOKEN);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+    assert.equal(body.order_submission_enabled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
