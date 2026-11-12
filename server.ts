@@ -1008,130 +1008,26 @@ async function startServer() {
 
   // 3. Backtest Simulation Engine (Simulated Historical Strategy Tester)
   app.post('/api/backtest/run', (req, res) => {
-    const {
-      strategyId = 'smc-mean-rejection',
-      symbol = 'XAU/USDm',
-      timeframe = '15m',
-      historicalPeriod = '1Y',
-      initialBalance = 10000,
-      riskPerTradePct = 1.0,
-    } = req.body || {};
+    const strategyId =
+      typeof req.body?.strategyId === 'string' && req.body.strategyId.trim()
+        ? req.body.strategyId.trim()
+        : 'smc-mean-rejection';
 
-    const strategyNames: Record<string, string> = {
-      'smc-mean-rejection': 'SMC Mean Rejection & 4H Order Block Strategy',
-      'momentum-bos-ob': 'Momentum BOS + Liquidity Sweep Strategy',
-      'elliott-wave-impulse': 'Elliott Wave 3 Trend Extension Strategy',
-      'xgboost-volatility': 'XGBoost Multi-Factor Volatility Breakout',
-    };
-
-    const isHighYield = strategyId === 'smc-mean-rejection' || strategyId === 'momentum-bos-ob';
-    const totalTrades = isHighYield ? 138 : 112;
-    const winRatePct = isHighYield ? 63.8 : 58.4;
-    const profitFactor = isHighYield ? 2.18 : 1.84;
-    const netProfitPct = isHighYield ? 48.6 : 32.4;
-    const maxDrawdownPct = isHighYield ? 4.4 : 5.8;
-    const sharpeRatio = isHighYield ? 2.34 : 1.92;
-
-    const netProfit = Math.round(initialBalance * (netProfitPct / 100));
-    const finalBalance = initialBalance + netProfit;
-    const winningTrades = Math.round((totalTrades * winRatePct) / 100);
-    const losingTrades = totalTrades - winningTrades;
-
-    // Generate realistic simulated equity curve points
-    const equityCurve = [];
-    const pointsCount = 32;
-    let runningEquity = initialBalance;
-    let peakEquity = initialBalance;
-
-    for (let i = 0; i < pointsCount; i++) {
-      const progress = i / (pointsCount - 1);
-      const simulatedGain = (netProfit * progress) + Math.sin(i * 1.3) * (initialBalance * 0.015);
-      runningEquity = Math.round(initialBalance + simulatedGain);
-      if (runningEquity > peakEquity) peakEquity = runningEquity;
-      const dd = Math.max(0, Number((((peakEquity - runningEquity) / peakEquity) * 100).toFixed(2)));
-      const benchmark = Math.round(initialBalance * (1 + 0.12 * progress));
-
-      equityCurve.push({
-        date: `2026-M${Math.floor(i / 3) + 1}-D${(i % 28) + 1}`,
-        equity: runningEquity,
-        drawdownPct: dd,
-        benchmarkEquity: benchmark,
-      });
-    }
-
-    res.json({
-      ok: true,
+    // Fail closed until an approved, provenance-checked historical dataset is
+    // connected to the deterministic research engine. Never synthesize KPIs.
+    return res.status(503).json({
+      ok: false,
+      status: 'NOT_RUN',
+      code: 'BACKTEST_DATA_OR_ENGINE_NOT_APPROVED',
       strategyId,
-      strategyName: strategyNames[strategyId] || 'NOVA Adaptive Quant Strategy',
-      symbol,
-      timeframe,
-      initialBalance,
-      finalBalance,
-      netProfit,
-      netProfitPct,
-      profitFactor,
-      winRatePct,
-      maxDrawdownPct,
-      sharpeRatio,
-      totalTrades,
-      winningTrades,
-      losingTrades,
-      avgTradeDuration: '3 ชั่วโมง 45 นาที',
-      inSampleResults: {
-        datasetPct: 70,
-        winRatePct: Number((winRatePct + 1.8).toFixed(1)),
-        profitFactor: Number((profitFactor + 0.12).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct - 0.4).toFixed(1)),
-        trades: Math.round(totalTrades * 0.7),
-      },
-      outOfSampleResults: {
-        datasetPct: 30,
-        winRatePct: Number((winRatePct - 1.6).toFixed(1)),
-        profitFactor: Number((profitFactor - 0.14).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct + 0.5).toFixed(1)),
-        trades: Math.round(totalTrades * 0.3),
-        generalizationScorePct: 94.2,
-      },
-      equityCurve,
-      recentTrades: [
-        {
-          id: 'bt-tr-01',
-          timestamp: '2026-11-06 14:30',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2742.5,
-          exitPrice: 2758.0,
-          pnl: +465.0,
-          returnPct: +4.65,
-          holdTime: '4h 15m',
-          reason: 'Take Profit 2 (161.8% Fib Extension)',
-        },
-        {
-          id: 'bt-tr-02',
-          timestamp: '2026-11-05 09:15',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2736.0,
-          exitPrice: 2748.2,
-          pnl: +366.0,
-          returnPct: +3.66,
-          holdTime: '2h 50m',
-          reason: 'Take Profit 1 (SMC Liquidity Grab)',
-        },
-        {
-          id: 'bt-tr-03',
-          timestamp: '2026-11-04 18:40',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2741.0,
-          exitPrice: 2734.5,
-          pnl: -195.0,
-          returnPct: -1.95,
-          holdTime: '1h 10m',
-          reason: 'Stop Loss Hit (Risk Rule Enforced)',
-        },
+      message:
+        'Backtest ถูกระงับ: ยังไม่มีการเชื่อมต่อชุดข้อมูล Historical OHLCV ที่ผ่านการอนุมัติและ Research Engine ที่ตรวจสอบได้ จึงไม่สร้าง Win Rate, Profit Factor, Net Profit, Equity Curve หรือผล Out-of-Sample จำลอง',
+      requiredEvidence: [
+        'Approved 4H and 5M OHLCV with UTC candle-close timestamps',
+        'Verified instrument point value, spread, commission and slippage',
+        'Exact-head unit tests and cost-aware walk-forward validation',
+        'Sealed Final OOS results and independent strategy review',
       ],
-      dataNotice: 'SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH',
     });
   });
 
