@@ -28,12 +28,14 @@
 - The five-order helper is not concurrency-safe. It must not be used as an execution gate by itself.
 - Exact PR-head CI status was checked: CircleCI Pipeline #903 reports `error`. GitHub Actions returned no PR workflow runs for the inspected head SHA. The CircleCI page/logs were not accessible through the available inspection route, so the failing job and root cause remain unknown.
 - Netlify Deploy Preview for PR #310 reports `success`; this validates the website preview only, not MQL5 compilation, EA behavior, or trading safety.
-- The connected remote device is Windows. Searches in the inspected `C:\\Program Files` and `C:\\Program Files (x86)` locations returned no `MetaEditor64.exe` match. These searches do not prove the executable is absent from every location on the machine. No compilation was attempted.
+- The connected remote device is Windows. A process named `metaeditor64.exe` was present (PID 3636) during process inspection. However, the executable path and compiler version could not be retrieved. File searches in inspected Program Files, AppData/MetaQuotes, and user-profile locations returned no matching path; the full-drive search was still running at inspection time. Therefore MetaEditor presence is confirmed at process level, but compiler readiness and the exact executable location remain unverified. No compilation was attempted.
+- The MT5 terminal data folder contains an existing `MTRADERS_AllInOne_v1_01_NOVA_SAFE.ex5`; it is not a NOVA QUANTUM v1.02 build and must not be treated as one.
 
 ## Verdict
 
 **STATIC SAFETY REVIEW: PASS WITH LIMITATIONS**  
 **CI: BLOCKED — CircleCI #903 ERROR, ROOT CAUSE UNKNOWN**  
+**METAEDITOR PROCESS: DETECTED — EXECUTABLE PATH / COMPILER READINESS UNVERIFIED**  
 **COMPILE / FUNCTIONAL VALIDATION: NOT RUN**  
 **RELEASE READINESS: BLOCKED**
 
