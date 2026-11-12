@@ -14,6 +14,8 @@ test('NOVA primary strategy defaults to SMC Mean Rejection in the active Vite fr
   assert.match(fleet, /useState<string>\(STRATEGY_BLUEPRINTS\[0\]\.id\)/);
   assert.match(intelligence, /useState<string>\('smc-mean-rejection'\)/);
   assert.match(server, /id: 'smc-mean-rejection'[\s\S]*?status: 'RESEARCH_ONLY'/);
+  assert.match(fleet, /badgeLabel: 'RESEARCH ONLY'/);
+  assert.match(fleet, /winRatePct: null/);
 });
 
 test('Wave3 is not presented as an active primary intelligence model', () => {
@@ -26,5 +28,6 @@ test('SMC performance is not fabricated before validation evidence exists', () =
   assert.match(server, /latencyMs: null/);
   assert.match(server, /ensembleConfidencePct: null/);
   assert.match(server, /performanceMetrics: null/);
+  assert.match(server, /BACKTEST_DATA_OR_ENGINE_NOT_APPROVED/);
   assert.match(intelligence, /NOT VALIDATED/);
 });
