@@ -112,7 +112,7 @@ class TestSMCMeanRejection(unittest.TestCase):
 
     def test_partial_tp1_then_tp2_realizes_two_partial_legs(self):
         bars = make_bars(12)
-        bars[1].update({"open": 100.0, "high": 102.6, "low": 100.2, "close": 102.0})
+        bars[1].update({"open": 100.0, "high": 102.6, "low": 99.9, "close": 102.0})
         bars[2].update({"open": 102.0, "high": 103.1, "low": 100.1, "close": 102.8})
         result = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0, slippage_per_unit=0)
         trade = result["trades"][0]
@@ -121,7 +121,7 @@ class TestSMCMeanRejection(unittest.TestCase):
 
     def test_costs_reduce_net_pnl(self):
         bars = make_bars(12)
-        bars[1].update({"open": 100.0, "high": 102.6, "low": 100.2, "close": 102.0})
+        bars[1].update({"open": 100.0, "high": 102.6, "low": 99.9, "close": 102.0})
         bars[2].update({"open": 102.0, "high": 103.1, "low": 100.1, "close": 102.8})
         gross = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0, slippage_per_unit=0)
         net = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0.001, slippage_per_unit=0.01)
