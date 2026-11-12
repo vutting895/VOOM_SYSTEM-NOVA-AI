@@ -1158,106 +1158,15 @@ async function startServer() {
     });
   });
 
-  // 5. Learning Universe & Dataset Management
+  // Learning metrics and training history are unavailable until backed by
+  // verified datasets, model artifacts, and provenance-bearing evaluation runs.
   app.get('/api/learning/universe', (_req, res) => {
-    res.json({
-      ok: true,
-      featureStore: {
-        provider: 'Feast Feature Store on Apache Parquet',
-        monitoredSymbols: [
-          'XAU/USDm',
-          'BTC/USDm',
-          'EUR/USDm',
-          'GBP/USDm',
-          'USD/JPYm',
-          'ETH/USDm',
-          'SOL/USDm',
-          'AUD/USDm',
-          'USD/CADm',
-          'GBP/JPYm',
-          'XAG/USDm',
-          'TON/USDm',
-          'BNB/USDm',
-          'NZD/USDm',
-          'USD/CHFm',
-          'DOGE/USDm',
-        ],
-        totalSamplesStored: 1485000,
-        featureCategories: [
-          'Microstructure (VPIN, Order Book Imbalance, Tick Intensity)',
-          'SMC Signals (OB Distance, FVG Gap Width, BOS Flags)',
-          'Wave & Momentum (Fibonacci Extensions, Wavelet Energy, ATR)',
-          'Deep Latent Embeddings (Bi-LSTM 128-d, Attention Weights)',
-        ],
-        lastDataUpdateAt: new Date(Date.now() - 35 * 60000).toISOString(),
-        dailyUpdateStatus: 'SUCCESS_SYNCED',
-        nextScheduledUpdateAt: new Date(Date.now() + 4.5 * 3600000).toISOString(),
-      },
-      modelPerformanceByRegime: [
-        {
-          regimeName: 'Trending Bullish / Expansion',
-          description: 'ช่วงตลาดมีทิศทางชัดเจน ขับเคลื่อนด้วยคลื่นขยายตัว',
-          accuracyPct: 83.2,
-          f1Score: 0.84,
-          sampleCount: 524000,
-        },
-        {
-          regimeName: 'Range-bound / Asian Sideway',
-          description: 'ตลาดเคลื่อนไหวในกรอบแคบ รอการกวาดสภาพคล่อง',
-          accuracyPct: 78.5,
-          f1Score: 0.79,
-          sampleCount: 612000,
-        },
-        {
-          regimeName: 'High Volatility / News Event',
-          description: 'ช่วงประกาศตัวเลขเศรษฐกิจ ข่าว Fed/CPI ปรับลดความเสี่ยง',
-          accuracyPct: 74.6,
-          f1Score: 0.73,
-          sampleCount: 349000,
-        },
-      ],
-      trainingHistory: [
-        {
-          id: 'th-01',
-          timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-          pair: activeTrainedPair,
-          epoch: autoTrainEpoch,
-          trainingLoss: 0.0124,
-          validationAccuracyPct: lastValidationAcc,
-          durationSec: 14,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-02',
-          timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-          pair: 'BTC/USDm',
-          epoch: autoTrainEpoch - 1,
-          trainingLoss: 0.0148,
-          validationAccuracyPct: 81.5,
-          durationSec: 16,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-03',
-          timestamp: new Date(Date.now() - 75 * 60000).toISOString(),
-          pair: 'EUR/USDm',
-          epoch: autoTrainEpoch - 2,
-          trainingLoss: 0.0152,
-          validationAccuracyPct: 79.8,
-          durationSec: 12,
-          status: 'COMPLETED',
-        },
-      ],
-      autoUpdateJob: {
-        cadence: 'Daily at 00:00 UTC + Continuous Micro-updates every 18s',
-        automated: true,
-        healthPct: 100.0,
-        logs: [
-          'Feature Pipeline: 16 คู่หลักซิงค์ข้อมูลลง Parquet สำเร็จ',
-          'Schema Invariant: ผ่านการตรวจสอบ 0 corrupt frames',
-          'Auto-Train Daemon: ทำงานปกติ เชื่อมต่อ Real-Time WebSocket',
-        ],
-      },
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      available: false,
+      error: 'LEARNING_DATA_RUNTIME_NOT_CONFIGURED',
+      detail: 'Feature-store counts, model metrics, training history, and sync health are not available as verified runtime data.',
     });
   });
 
