@@ -95,6 +95,16 @@ def validate_trade_proposal(
         return RiskDecision(False, "invalid_intent_or_account")
     if not isinstance(snapshot, ExposureSnapshot) or not _aware(now):
         return RiskDecision(False, "invalid_snapshot_or_clock")
+    if (not isinstance(allowed_symbols, frozenset)
+            or not all(isinstance(symbol, str) and symbol for symbol in allowed_symbols)
+            or not isinstance(consumed_command_ids, frozenset)
+            or not all(isinstance(command_id, str) for command_id in consumed_command_ids)):
+        return RiskDecision(False, "invalid_validation_context")
+    if not all(isinstance(value, str) for value in (
+        account.tenant_id, account.server, account.trade_mode, account.currency,
+        intent.tenant_id, intent.account_server, intent.symbol, intent.side,
+    )):
+        return RiskDecision(False, "invalid_identity_or_intent_fields")
     if not all(_aware(value) for value in (intent.issued_at, intent.expires_at, snapshot.as_of)):
         return RiskDecision(False, "timezone_required")
 
