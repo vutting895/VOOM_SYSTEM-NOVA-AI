@@ -94,8 +94,8 @@ class QuantExperimentIdentityTests(unittest.TestCase):
         common = {
             "dataset_sha256": "a" * 64,
             "code_revision": "abc123",
-            "strategy_id": "wave3-smc",
-            "strategy_version": "6.2.6.3",
+            "strategy_id": "smc-mean-rejection",
+            "strategy_version": "2.0.0-research",
             "evaluation": {"train_bars": 1000, "test_bars": 200},
             "seed": 42,
         }
