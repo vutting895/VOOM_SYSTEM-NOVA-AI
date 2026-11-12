@@ -22,10 +22,14 @@ test('server implements all 5 core platform endpoints with read-only safeguards'
   assert.ok(server.includes("app.get('/api/infrastructure/health'"));
   assert.ok(server.includes("app.get('/api/learning/universe'"));
 
-  // Check read-only invariant in infrastructure endpoint
-  assert.match(server, /systemMode:\s*'FAIL_CLOSED_READONLY'/);
-  assert.match(server, /orderExecutionBlocked:\s*true/);
-  assert.match(server, /realMoneyWritesDisabled:\s*true/);
+  // Infrastructure telemetry must fail closed until backed by verified runtime measurements.
+  const infraStart = server.indexOf("app.get('/api/infrastructure/health'");
+  const infraEnd = server.indexOf("app.get('/api/learning/universe'", infraStart);
+  const infraRoute = server.slice(infraStart, infraEnd);
+  assert.match(infraRoute, /status\(503\)/);
+  assert.match(infraRoute, /INFRASTRUCTURE_TELEMETRY_NOT_CONFIGURED/);
+  assert.match(infraRoute, /liveTradingEnabled: false/);
+  assert.match(infraRoute, /mt5BridgeEnabled: false/);
 });
 
 test('Trading Dashboard view displays XAUUSDm, BTCUSD, Candlestick chart, Signals, and AI Analysis', () => {
