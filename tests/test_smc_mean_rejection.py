@@ -102,7 +102,7 @@ class TestSMCMeanRejection(unittest.TestCase):
 
     def test_partial_tp1_then_breakeven_for_remaining_half(self):
         bars = make_bars(12)
-        bars[1].update({"open": 100.0, "high": 102.6, "low": 100.2, "close": 102.0})
+        bars[1].update({"open": 100.0, "high": 102.6, "low": 99.9, "close": 102.0})
         bars[2].update({"open": 102.0, "high": 102.2, "low": 99.9, "close": 100.2})
         result = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0, slippage_per_unit=0)
         trade = result["trades"][0]
