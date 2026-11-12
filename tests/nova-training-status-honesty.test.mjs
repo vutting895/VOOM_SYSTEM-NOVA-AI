@@ -46,3 +46,31 @@ test('settings UI never reports training success when the runtime is unavailable
   assert.doesNotMatch(handler, /เทรนโมเดล .*เรียบร้อยแล้ว/);
   assert.match(handler, /ไม่มีการยืนยันว่ามีการฝึกโมเดล/);
 });
+
+test('Learning Universe never reports unverified feature-store or model metrics', () => {
+  const start = server.indexOf("app.get('/api/learning/universe'");
+  const end = server.indexOf('// Hybrid Architecture Endpoint:', start);
+  const route = server.slice(start, end);
+
+  assert.match(route, /status\(503\)/);
+  assert.match(route, /available: false/);
+  assert.match(route, /LEARNING_DATA_RUNTIME_NOT_CONFIGURED/);
+  assert.doesNotMatch(route, /accuracyPct:|f1Score:|sampleCount:|totalSamplesStored:/);
+});
+
+test('quant training placeholder cannot emit a fabricated checkpoint or loss', () => {
+  const training = read('workers/quant_engine/training.py');
+  assert.match(training, /raise NotImplementedError/);
+  assert.match(training, /TRAINING_RUNTIME_NOT_IMPLEMENTED/);
+  assert.doesNotMatch(training, /mock-checkpoint-bytes|best_validation_loss=0\.15/);
+});
+
+test('Google Drive export lists and previews only actual remote file content', () => {
+  const drive = read('src/components/workspace/GoogleWorkspaceExportView.tsx');
+  assert.match(drive, /Google Drive file listing failed/);
+  assert.match(drive, /files\(id,name,mimeType,size\)/);
+  assert.match(drive, /\?alt=media/);
+  assert.match(drive, /\/export\?mimeType=text\/plain/);
+  assert.match(drive, /\/export\?mimeType=text\/csv/);
+  assert.doesNotMatch(drive, /file-1|mnf-892147|mock requested files|Fallback sample files|BTC-USD OOS 2025-2026/);
+});
