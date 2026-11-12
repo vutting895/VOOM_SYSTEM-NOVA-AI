@@ -26,12 +26,14 @@
 - No Strategy Tester run or Exness Demo forward test was performed.
 - The 30 module names are registrations/labels; this review does not validate 30 working strategy implementations.
 - The five-order helper is not concurrency-safe. It must not be used as an execution gate by itself.
-- CI failure remains unresolved: CircleCI Pipeline #900 reports `error`; the available GitHub status did not expose the failing job log. The PR's Netlify Deploy Preview passed, but it is not an EA build/test.
-- The connected remote device is Windows, and MetaEditor64.exe was not found in the inspected Program Files and MT5 terminal data paths. No compilation was attempted.
+- Exact PR-head CI status was checked: CircleCI Pipeline #903 reports `error`. GitHub Actions returned no PR workflow runs for the inspected head SHA. The CircleCI page/logs were not accessible through the available inspection route, so the failing job and root cause remain unknown.
+- Netlify Deploy Preview for PR #310 reports `success`; this validates the website preview only, not MQL5 compilation, EA behavior, or trading safety.
+- The connected remote device is Windows. Searches in the inspected `C:\\Program Files` and `C:\\Program Files (x86)` locations returned no `MetaEditor64.exe` match. These searches do not prove the executable is absent from every location on the machine. No compilation was attempted.
 
 ## Verdict
 
 **STATIC SAFETY REVIEW: PASS WITH LIMITATIONS**  
+**CI: BLOCKED — CircleCI #903 ERROR, ROOT CAUSE UNKNOWN**  
 **COMPILE / FUNCTIONAL VALIDATION: NOT RUN**  
 **RELEASE READINESS: BLOCKED**
 
