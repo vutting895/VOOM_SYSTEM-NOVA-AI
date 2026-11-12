@@ -14,6 +14,11 @@ def valid_context(regime="trend"):
         "symbol": "XAUUSDm",
         "timeframes": {"bias": "H4", "entry": "M5"},
         "regime": regime,
+        "regime_evidence": {
+            "status": "PASS",
+            "source": "synthetic-causal-regime-fixture-v1",
+            "input_sha256": "a" * 64,
+        },
         "data_quality": {
             "status": "PASS",
             "sha256": "a" * 64,
@@ -101,6 +106,12 @@ class AdaptiveStrategyControllerTests(unittest.TestCase):
     def test_rejects_stale_data(self):
         context = valid_context()
         context["data_quality"]["age_seconds"] = 121
+        with self.assertRaises(ControllerInputError):
+            select_research_strategy(context, catalog=self.catalog)
+
+    def test_rejects_regime_label_not_bound_to_dataset_hash(self):
+        context = valid_context()
+        context["regime_evidence"]["input_sha256"] = "b" * 64
         with self.assertRaises(ControllerInputError):
             select_research_strategy(context, catalog=self.catalog)
 
