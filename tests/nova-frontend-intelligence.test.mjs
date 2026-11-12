@@ -95,3 +95,20 @@ test('Safety badge clearly presents READ-ONLY and LIVE TRADING OFF across all vi
   assert.match(safetyBadge, /TARGET: EXNESS MT5 DEMO \(READ-ONLY\)/);
   assert.match(safetyBadge, /ไม่มีการจัดเก็บ Broker Password\/Secret/);
 });
+
+test('SMC Backtest fails closed until approved market data and a real engine are available', () => {
+  assert.match(server, /BACKTEST_DATA_OR_ENGINE_NOT_APPROVED/);
+  assert.match(server, /Backtest ถูกระงับ/);
+  assert.doesNotMatch(server, /const totalTrades = isHighYield/);
+  assert.doesNotMatch(server, /generalizationScorePct: 94\.2/);
+});
+
+test('SMC Fleet configuration is research-only and cannot start automated trading', () => {
+  const fleet = read('src/components/QuickitMarketFleetView.tsx');
+  assert.match(fleet, /badgeLabel: 'RESEARCH ONLY'/);
+  assert.match(fleet, /winRatePct: null/);
+  assert.match(fleet, /profitFactor: null/);
+  assert.match(fleet, /SMC Mean Rejection เป็น Research Only/);
+  assert.match(fleet, /disabled=\{bot\.strategyId === 'smc-mean-rejection'\}/);
+  assert.match(fleet, /autoTradeEnabled: false/);
+});
