@@ -74,3 +74,15 @@ test('Google Drive export lists and previews only actual remote file content', (
   assert.match(drive, /\/export\?mimeType=text\/csv/);
   assert.doesNotMatch(drive, /file-1|mnf-892147|mock requested files|Fallback sample files|BTC-USD OOS 2025-2026/);
 });
+
+test('infrastructure endpoint does not claim unverified MT5, risk, or data-pipeline health', () => {
+  const start = server.indexOf("app.get('/api/infrastructure/health'");
+  const end = server.indexOf("app.get('/api/learning/universe'", start);
+  const route = server.slice(start, end);
+
+  assert.match(route, /status\(503\)/);
+  assert.match(route, /INFRASTRUCTURE_TELEMETRY_NOT_CONFIGURED/);
+  assert.match(route, /liveTradingEnabled: false/);
+  assert.match(route, /mt5BridgeEnabled: false/);
+  assert.doesNotMatch(route, /latencyMs:|tickIngestionRatePerSec:|redisBufferHitRatePct:|schemaValidationPassPct:|credentialsSecured: true/);
+});
