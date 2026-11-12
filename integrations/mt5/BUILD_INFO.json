@@ -5,7 +5,7 @@
   "artifact_status": "SOURCE_ONLY",
   "source_path": "integrations/mt5/NOVA_QUANTUM_v1.02.mq5",
   "source_commit_sha": "788c743a4bbb75db82eec69571bd3b86b9ba77a9",
-  "source_blob_sha": null,
+  "source_blob_sha": "6d741a0bf7ac15818bf4d6999d8360858f80de64",
   "binary_path": null,
   "binary_sha256": null,
   "compiler": null,
