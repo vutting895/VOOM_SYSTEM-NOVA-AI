@@ -17,7 +17,7 @@ The Windows process opens an outbound authenticated WSS connection to /connect. 
 
 ## Deployment and secret provisioning
 
-The relay code is deployed by the repository Cloudflare backend workflow after the reviewed change is merged and CI passes. Its Worker has a Durable Object binding named BRIDGE_SESSIONS. The public health endpoint verifies the Worker is deployed, not that a Windows bridge is connected.
+The relay code is deployed by the repository Cloudflare backend workflow after the reviewed change is merged and CI passes. Its Worker has a Durable Object binding named BRIDGE_SESSIONS. Public `/healthz` verifies Worker liveness only. Tenant `/health` requires bearer-token and tenant authentication, then checks the active tenant WebSocket and local MT5 Bridge; it must not report healthy from Worker liveness alone.
 
 Before the customer connection can work, the relay Worker must have its own secret named MT5_TENANT_ROUTES. This is a JSON object keyed by tenant ID. Each entry requires tenantId and token; the token must match the private Windows token file and the existing proxy route entry. The proxy ignores the old per-tenant URL and routes to this stable relay Worker.
 
