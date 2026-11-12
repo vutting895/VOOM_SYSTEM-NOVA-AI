@@ -5,7 +5,7 @@ NOVA Gold Lab is the governed research workspace for NOVA AI Trading. It is sepa
 ## Responsibilities
 
 - Reproducible market-data diagnostics and provenance checks.
-- Feature engineering and research experiments for Wave3, XGBoost, PyTorch LSTM, and SMC.
+- Feature engineering and research experiments for SMC Mean Rejection, XGBoost, and PyTorch LSTM.\n- SMC Mean Rejection is the primary deterministic strategy replacing Wave3; Wave3 is retained only as historical research/benchmark context, not an active primary strategy.
 - Cost-aware backtests, walk-forward evaluation, and sealed out-of-sample reporting.
 - Model artifact evaluation and handoff to reviewed Python inference modules.
 
@@ -27,7 +27,7 @@ NOVA Gold Lab is the governed research workspace for NOVA AI Trading. It is sepa
 4. The final out-of-sample boundary is sealed at `2026-07-01T00:00:00Z` exclusive. Do not tune against data at or after that boundary.
 5. Do not train on incomplete or unverified data. A failed data gate must stop the pipeline.
 
-## Model research gates
+## Strategy and model research gates\n\n- Primary strategy: SMC Mean Rejection (4H confirmed structure/EQ/OB/FVG context; 5M liquidity sweep and price-action confirmation).\n- XGBoost and PyTorch LSTM remain separate supporting model candidates; do not register SMC as a model vote in the Meta Decision Layer.\n- Wave3 is retired from the primary strategy path. Preserve historical artifacts and sealed benchmark records; do not silently delete or rewrite old research.\n\n## Model research gates
 
 - Keep train/validation/test periods chronological and prevent leakage.
 - Include transaction costs and realistic execution assumptions in backtests.
