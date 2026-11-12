@@ -65,3 +65,13 @@ A count-then-submit sequence is not atomic. Multiple EA instances or command wor
 - Added the route to the allowlisted outbound WSS relay and its query-free request validator. It remains GET-only and carries no order mutation capability.
 - This provides the broker-snapshot input required by the account-capacity reservation service. It does not call Supabase, reserve capacity, or submit broker orders yet.
 - Snapshot reads are sequential MT5 API reads under the bridge process lock, not an atomic broker transaction. External/manual account activity can still occur between reads; the reservation service must fail closed on stale snapshots and reconcile against subsequent snapshots.
+
+## Customer proxy exposure path and migration correction (2026-11-12)
+
+- Added `/api/exposure` to the authenticated customer MT5 proxy allowlist; the proxy still verifies the Supabase user session and owner-scopes `broker_connections` before forwarding to the tenant-specific relay.
+- Added a proxy test asserting the account-wide exposure request reaches only the authenticated user's dedicated relay route, with the broker bridge token and tenant header; the connection_id is not forwarded to the relay.
+- Exposure `as_of` now records the time immediately before the first MT5 read (conservative freshness bound); `snapshot_completed_at` records the end of the sequential positions/orders reads.
+- Corrected the release RPC's PL/pgSQL dollar quoting and added static migration safety tests. SQL integration test comments now correctly state that it is sequential, not a parallel-session test.
+- Static checks are not a PostgreSQL execution proof. The SQL integration script and multi-session concurrency test remain unexecuted.
+- Supabase project `Voom_system` was inspected read-only and is ACTIVE_HEALTHY. Its applied migration list does not include `202611120001_nova_account_order_capacity_reservations`; no production migration was applied.
+- The reservation RPC is still not invoked by any deployed backend. The customer proxy only returns broker exposure; it does not reserve capacity or authorize an order.
