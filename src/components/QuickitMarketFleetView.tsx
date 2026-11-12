@@ -1083,6 +1083,12 @@ export default function QuickitMarketFleetView({
           strategyId: strat.id,
           running: strat.id === 'smc-mean-rejection' ? false : bot.running,
           autoTradeEnabled: strat.id === 'smc-mean-rejection' ? false : bot.autoTradeEnabled,
+          riskPct: strat.id === 'smc-mean-rejection' ? 1.0 : bot.riskPct,
+          todayPnlBaht: strat.id === 'smc-mean-rejection' ? null : bot.todayPnlBaht,
+          totalTrades: strat.id === 'smc-mean-rejection' ? null : bot.totalTrades,
+          positionStateLabel:
+            strat.id === 'smc-mean-rejection' ? 'RESEARCH ONLY · NO LIVE POSITION' : bot.positionStateLabel,
+          positionIsLong: strat.id === 'smc-mean-rejection' ? false : bot.positionIsLong,
           name: `${strat.shortTitle} AI-${inst.symbol}`,
           strategyBadge: strat.badgeLabel,
           pair: inst.symbol,
@@ -1093,19 +1099,25 @@ export default function QuickitMarketFleetView({
           profitFactor: strat.profitFactor,
           tp1HitPct: strat.tp1HitPct,
           tp2HitPct: strat.tp2HitPct,
-          entryPrice: levels.entry,
-          stopLossPrice: levels.sl,
-          tp1Price: levels.tp1,
-          tp2Price: levels.tp2,
+          entryPrice: strat.id === 'smc-mean-rejection' ? 'NOT AVAILABLE' : levels.entry,
+          stopLossPrice: strat.id === 'smc-mean-rejection' ? 'NOT AVAILABLE' : levels.sl,
+          tp1Price: strat.id === 'smc-mean-rejection' ? 'NOT AVAILABLE' : levels.tp1,
+          tp2Price: strat.id === 'smc-mean-rejection' ? 'NOT AVAILABLE' : levels.tp2,
           confluenceScore: strat.confluenceScore,
           setupGrade: strat.setupGrade,
           featHeadline: strat.featHeadline,
           featTags: strat.featTags,
           accentColor: strat.accentColor,
-          logs: [
-            `[${nowStr}] เปลี่ยนคู่เทรดเป็น ${inst.symbol} • กลยุทธ์ ${strat.shortTitle}`,
-            ...bot.logs.slice(0, 2),
-          ],
+          logs:
+            strat.id === 'smc-mean-rejection'
+              ? [
+                  'SMC Mean Rejection is RESEARCH ONLY; no live position or execution is available.',
+                  'Performance metrics remain NOT VALIDATED until approved backtest evidence exists.',
+                ]
+              : [
+                  `[${nowStr}] เปลี่ยนคู่เทรดเป็น ${inst.symbol} • กลยุทธ์ ${strat.shortTitle}`,
+                  ...bot.logs.slice(0, 2),
+                ],
         };
       })
     );
