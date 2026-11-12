@@ -16,7 +16,6 @@ import {
   ArrowDownRight,
   AlertCircle,
   CheckCircle2,
-  Sliders,
 } from 'lucide-react';
 
 export default function BacktestSimulatorView() {
@@ -32,16 +31,17 @@ export default function BacktestSimulatorView() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BacktestResult | null>(null);
-  const [autoOptimization, setAutoOptimization] = useState<boolean>(false);
 
   const runSimulation = async () => {
     try {
       setLoading(true);
       setError(null);
+      setResult(null);
       const res = await novaApi.runBacktest(params);
       setResult(res);
     } catch (err: any) {
-      setError(err?.message || 'Backtest simulation failed');
+      setResult(null);
+      setError(err?.message || 'Backtest is not available until approved data and engine validation are complete');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function BacktestSimulatorView() {
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              ทดสอบกลยุทธ์ย้อนหลังบนข้อมูลจริงของ Exness Demo พร้อมการตรวจสอบ Out-of-Sample เพื่อป้องกัน Overfitting
+              ส่วน Backtest ยังถูกปิดไว้จนกว่าจะเชื่อมต่อข้อมูล Historical ที่ผ่านการอนุมัติและ Research Engine ที่ตรวจสอบผลได้
             </p>
           </div>
 
@@ -89,7 +89,7 @@ export default function BacktestSimulatorView() {
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
           >
             <Play className="w-4 h-4 fill-current" />
-            {loading ? 'กำลังรันแบบจำลอง...' : 'รันแบบจำลอง (Run Backtest)'}
+            {loading ? 'กำลังตรวจสอบความพร้อม...' : 'ตรวจสอบความพร้อม Backtest'}
           </button>
         </div>
 
@@ -175,27 +175,7 @@ export default function BacktestSimulatorView() {
               className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
             />
           </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={() => setAutoOptimization(!autoOptimization)}
-              className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer ${
-                autoOptimization
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.25)]'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-              }`}
-              title="Toggle Auto-Optimization to run Walk-Forward Grid"
-            >
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                <span>Auto-Optimization</span>
-              </div>
-              <div className={`w-9 h-5 rounded-full transition-colors relative ${autoOptimization ? 'bg-cyan-500' : 'bg-slate-800'}`}>
-                <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${autoOptimization ? 'translate-x-4 bg-slate-950' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-          </div>
-        </div>
+            </div>
       </div>
 
       {loading && <LoadingSpinner label="กำลังจำลองผลการเทรดและคำนวณ Equity Curve ย้อนหลัง..." />}
@@ -266,81 +246,6 @@ export default function BacktestSimulatorView() {
               <span className="text-[11px] text-slate-400 block mt-0.5"> เฉลี่ย {result.avgTradeDuration} </span>
             </div>
           </div>
-
-          {/* Multi-Parameter Walk-Forward Validation Grid */}
-          {autoOptimization && (
-            <div className="bg-[#0D111A] border border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-fadeIn">
-              <div className="flex flex-wrap items-center justify-between pb-3 border-b border-cyan-500/20 gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-cyan-400" />
-                    Multi-Parameter Walk-Forward Validation Grid
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    จำลองระบบ Auto Optimization แบบ Walk-Forward Grid เพื่อค้นหาพารามิเตอร์ที่เสถียรที่สุดในสภาวะตลาดจริง
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-xs font-mono">
-                  <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-bold">
-                    WFE Score: 88.4% (Passed)
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold">
-                    Best: Iter #2 (PF 2.45)
-                  </span>
-                </div>
-              </div>
-
-              {/* 12-Iteration Parameter Matrix Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { iter: 1, ob: 20, rr: '1:2.5', atr: 1.5, pf: 2.14, wr: 64.2, sharpe: 2.31, status: 'PASSED', color: 'emerald' },
-                  { iter: 2, ob: 30, rr: '1:3.0', atr: 2.0, pf: 2.45, wr: 68.5, sharpe: 2.68, status: 'OPTIMAL', color: 'cyan' },
-                  { iter: 3, ob: 40, rr: '1:3.5', atr: 2.5, pf: 1.82, wr: 58.1, sharpe: 1.94, status: 'PASSED', color: 'emerald' },
-                  { iter: 4, ob: 50, rr: '1:4.0', atr: 3.0, pf: 1.28, wr: 46.2, sharpe: 1.15, status: 'OVERFITTED', color: 'rose' },
-                  { iter: 5, ob: 25, rr: '1:2.8', atr: 1.8, pf: 2.28, wr: 66.0, sharpe: 2.48, status: 'OPTIMAL', color: 'cyan' },
-                  { iter: 6, ob: 35, rr: '1:3.2', atr: 2.2, pf: 1.95, wr: 60.4, sharpe: 2.10, status: 'PASSED', color: 'emerald' },
-                  { iter: 7, ob: 45, rr: '1:3.8', atr: 2.7, pf: 1.45, wr: 51.0, sharpe: 1.40, status: 'PASSED', color: 'emerald' },
-                  { iter: 8, ob: 60, rr: '1:4.5', atr: 3.2, pf: 1.10, wr: 41.5, sharpe: 0.92, status: 'OVERFITTED', color: 'rose' },
-                ].map((item) => (
-                  <div
-                    key={item.iter}
-                    className={`p-3.5 rounded-xl bg-slate-950/80 border text-xs font-mono space-y-1.5 transition-all ${
-                      item.status === 'OPTIMAL'
-                        ? 'border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                        : item.status === 'OVERFITTED'
-                        ? 'border-rose-500/30 opacity-70'
-                        : 'border-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold text-slate-300">Iter #{item.iter}</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
-                          item.status === 'OPTIMAL'
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
-                            : item.status === 'PASSED'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] text-slate-400 leading-tight">
-                      OB: {item.ob}b | R:R: {item.rr} | ATR: {item.atr}x
-                    </div>
-
-                    <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between font-bold">
-                      <span className="text-emerald-400">PF {item.pf}</span>
-                      <span className="text-indigo-300">{item.wr}% WR</span>
-                      <span className="text-amber-400">S {item.sharpe}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* 4. Equity Curve Interactive SVG Visualizer */}
           <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
