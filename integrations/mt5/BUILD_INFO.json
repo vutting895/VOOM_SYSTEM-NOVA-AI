@@ -21,5 +21,10 @@
     "No strategy rewrite is implied by the rename.",
     "No EX5 binary has been built or provenance-verified.",
     "OnTick is intentionally empty and execution is rejected at initialization."
-  ]
+  ],
+  "static_review_path": "integrations/mt5/NOVA_QUANTUM_v1.02_STATIC_REVIEW.md",
+  "static_review_status": "PASS_WITH_LIMITATIONS",
+  "circleci_pipeline_status": "ERROR_UNRESOLVED",
+  "compile_validation": "NOT_RUN",
+  "release_readiness": "BLOCKED"
 }
