@@ -10,7 +10,7 @@ const BASE = {
 };
 const cors = (origin) => UI_ORIGINS.has(origin) ? {
   "Access-Control-Allow-Origin": origin,
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
   "Access-Control-Max-Age": "300",
   "Vary": "Origin"
