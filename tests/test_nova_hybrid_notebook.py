@@ -24,6 +24,7 @@ class HybridNotebookContractTests(unittest.TestCase):
         namespace = {
             "pd": pd, "np": np, "json": json, "hashlib": hashlib, "Path": Path,
             "OOF_ROOT": Path("/tmp/nova-approved-oof"),
+            "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
             "FINAL_OOS_START": FINAL_OOS_START,
             "TIMEFRAME_MINUTES": {"H1": 60},
             "REQUIRED_COLUMNS": {"timestamp_utc","asset","timeframe","open","high","low","close","volume","volume_type"},
@@ -31,7 +32,7 @@ class HybridNotebookContractTests(unittest.TestCase):
             "FEATURE_COLUMNS": ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"],
         }
         module = ast.Module(
-            body=[functions["sha256_file"], functions["validate_oof_bundle"], functions["load_approved_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"], functions["split_fit_early_stop"]],
+            body=[functions["sha256_file"], functions["validate_oof_bundle"], functions["load_approved_oof_bundle"], functions["validate_market_frame"], functions["make_features"], functions["walk_forward_folds"], functions["split_fit_early_stop"], functions["build_lstm_sequences"]],
             type_ignores=[],
         )
         exec(compile(module, str(NOTEBOOK), "exec"), namespace)
@@ -41,6 +42,7 @@ class HybridNotebookContractTests(unittest.TestCase):
         cls.make_features = staticmethod(namespace["make_features"])
         cls.walk_forward_folds = staticmethod(namespace["walk_forward_folds"])
         cls.split_fit_early_stop = staticmethod(namespace["split_fit_early_stop"])
+        cls.build_lstm_sequences = staticmethod(namespace["build_lstm_sequences"])
 
     @staticmethod
     def valid_votes(start="2026-06-29T00:00:00Z"):
@@ -369,6 +371,48 @@ class HybridNotebookContractTests(unittest.TestCase):
             self.assertIsNone(loaded)
             self.assertEqual(audit[0]["status"], "BLOCKED")
             self.assertIn("SHA-256 mismatch", audit[0]["reason"])
+
+
+    def test_lstm_early_stop_sequences_use_prior_fit_context_without_fit_labels(self):
+        import torch
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "segment_id": 0,
+            "label": np.tile([0, 1], 100),
+        })
+        for column_index, column in enumerate(
+            ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]
+        ):
+            frame[column] = np.linspace(column_index, column_index + 1, len(frame))
+        fit, early_stop = self.split_fit_early_stop(
+            frame.assign(label_end_utc=timestamps + pd.Timedelta(hours=1))
+        )
+        mean = fit[["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]].mean().to_numpy()
+        scale = fit[["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]].std().replace(0,1).to_numpy()
+        context = pd.concat([fit,early_stop],ignore_index=True).sort_values("timestamp_utc")
+        x,y,sequence_times = self.build_lstm_sequences(
+            context,early_stop,mean,scale,sequence_length=32
+        )
+        self.assertGreaterEqual(len(x),30)
+        self.assertEqual(tuple(x.shape[1:]),(32,6))
+        self.assertEqual(len(y),len(early_stop))
+        self.assertTrue(all(timestamp >= early_stop["timestamp_utc"].min() for timestamp in sequence_times))
+        self.assertTrue(torch.isfinite(x).all().item())
+
+    def test_lstm_sequences_never_cross_segment_boundary(self):
+        import torch
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=80, freq="h")
+        frame = pd.DataFrame({"timestamp_utc":timestamps,"segment_id":[0]*40+[1]*40,"label":np.tile([0,1],40)})
+        for column_index,column in enumerate(
+            ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]
+        ):
+            frame[column]=np.linspace(column_index,column_index+1,len(frame))
+        mean=np.zeros(6); scale=np.ones(6)
+        x,y,times=self.build_lstm_sequences(frame,frame,mean,scale,sequence_length=32)
+        self.assertEqual(len(x),18)
+        self.assertTrue(torch.isfinite(x).all().item())
+        self.assertEqual(len(times),18)
 
 
 if __name__ == "__main__":
