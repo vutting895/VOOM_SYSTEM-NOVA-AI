@@ -1,0 +1,49 @@
+{
+  "schema_version": "nova.strategy-catalog.v1",
+  "catalog_version": "1.1.0",
+  "strategies": [
+    {
+      "id": "smc-mean-rejection",
+      "version": "2.0.0-research",
+      "status": "research-only",
+      "engine": "workers.quant_engine.smc_mean_rejection:analyze_smc_mean_rejection",
+      "markets": ["XAUUSDm"],
+      "timeframes": {"bias": "H4", "entry": "M5"},
+      "regimes": ["trend", "transition"],
+      "operations": ["analyze", "simulate"],
+      "priority": 10,
+      "evidence": {"implementation": "draft-pr-308", "performance": "not-verified", "notes": "Causal research plugin; exact-head tests and independent market-data evaluation are still required."},
+      "safety": {"research_only": true, "trade_authorized": false, "orders_enabled": false, "execution_enabled": false, "live_trading_enabled": false}
+    },
+    {
+      "id": "wave3-v6.2.6.3",
+      "version": "6.2.6.3-research",
+      "status": "blocked",
+      "engine": null,
+      "markets": ["XAUUSDm", "BTCUSD"],
+      "timeframes": {"signal": "H1"},
+      "regimes": ["trend", "transition"],
+      "operations": [],
+      "priority": 20,
+      "evidence": {"implementation": "legacy-draft-pr-66", "performance": "blocked", "notes": "Recorded Final OOS had zero closed trades, below-baseline classification and no demonstrated positive edge. Keep frozen benchmark artifacts separate."},
+      "safety": {"research_only": true, "trade_authorized": false, "orders_enabled": false, "execution_enabled": false, "live_trading_enabled": false}
+    },
+    {
+      "id": "ai-market-scout",
+      "version": "0.1.0-design",
+      "status": "catalog-only",
+      "engine": null,
+      "markets": ["XAUUSDm", "BTCUSD"],
+      "timeframes": {"context": "multi"},
+      "regimes": ["trend", "range", "transition", "high-volatility", "unknown"],
+      "operations": [],
+      "priority": 100,
+      "evidence": {"implementation": "not-implemented", "performance": "not-applicable", "notes": "Catalog placeholder only; no tested strategy adapter is registered."},
+      "safety": {"research_only": true, "trade_authorized": false, "orders_enabled": false, "execution_enabled": false, "live_trading_enabled": false}
+    }
+  ],
+  "supporting_models": [
+    {"id": "xgboost", "version": "wave3-branch-research", "status": "diagnostic-only", "source_status": "draft-pr-66", "probability_calibration": "not-verified", "signal_vote_enabled": false},
+    {"id": "pytorch-lstm", "version": "wave3-branch-research", "status": "diagnostic-only", "source_status": "draft-pr-66", "probability_calibration": "not-verified", "signal_vote_enabled": false}
+  ]
+}
