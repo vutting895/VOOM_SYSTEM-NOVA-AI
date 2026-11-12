@@ -1110,51 +1110,15 @@ async function startServer() {
 
   // 4. Trading Infrastructure & Health
   app.get('/api/infrastructure/health', (_req, res) => {
-    res.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      available: false,
+      error: 'INFRASTRUCTURE_TELEMETRY_NOT_CONFIGURED',
+      detail: 'MT5 connectivity, broker latency, credential isolation, risk enforcement, data pipeline health, and model training telemetry are not verified runtime measurements.',
       systemMode: 'FAIL_CLOSED_READONLY',
       liveTradingEnabled: false,
       mt5BridgeEnabled: false,
-      mt5Connection: {
-        status: 'STANDBY_DEMO_READY',
-        target: 'Exness MT5 Demo Terminal',
-        server: 'Exness-MT5Trial12 (Read-Only Catalogue)',
-        latencyMs: 14.2,
-        accountClass: 'Exness Demo (Read-Only)',
-        credentialsSecured: true,
-        orderExecutionBlocked: true,
-      },
-      brokerConnector: {
-        selectedBroker: 'Exness (MT5 Demo & REST Feed)',
-        protocol: 'Ed25519 Signed / Secure Gateway (Read-Only)',
-        supportedBrokers: ['Exness MT5 Demo', 'IC Markets REST', 'Binance Spot Read-Only', 'Bybit V5 Linear'],
-        directApiAvailable: true,
-      },
-      riskEngine: {
-        status: 'HARD_RULES_ENFORCED',
-        maxDrawdownCapPct: 5.0,
-        maxLotSizeLimit: 2.0,
-        maxMarginUsageLimitPct: 35.0,
-        maxRiskPerTradeLimitPct: 2.0,
-        failClosedGuardActive: true,
-        realMoneyWritesDisabled: true,
-      },
-      dataPipeline: {
-        status: 'OPTIMAL',
-        tickIngestionRatePerSec: 145,
-        redisBufferHitRatePct: 98.7,
-        featureStoreLatencyMs: 24.5,
-        schemaValidationPassPct: 100.0,
-      },
-      modelTrainingStatus: {
-        status: autoTrainState,
-        epoch: autoTrainEpoch,
-        activePair: activeTrainedPair,
-        samplesIngested: autoTrainSamples,
-        lastValidationAccPct: lastValidationAcc,
-        lastTrainedAt,
-      },
     });
   });
 
