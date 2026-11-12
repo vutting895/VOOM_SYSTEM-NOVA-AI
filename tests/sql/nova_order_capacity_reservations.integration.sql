@@ -23,8 +23,8 @@ BEGIN
     RAISE EXCEPTION 'expected first reservation to be accepted at exposure 4';
   END IF;
 
-  -- A second concurrent caller sees the first reservation under the same
-  -- account row lock and is denied: 3 + 1 + 1 reservation = 5.
+  -- A second sequential call (the parallel-session test is still outstanding)
+  -- sees the first reservation and is denied: 3 + 1 + 1 reservation = 5.
   v_allowed := public.reserve_nova_order_capacity(
     v_tenant, v_login, v_server, v_command_2, v_reservation_2,
     3, 1, clock_timestamp(), 30
