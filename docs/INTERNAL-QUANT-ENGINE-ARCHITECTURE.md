@@ -26,7 +26,7 @@ These are checked-in main-branch observations, not claims that every component i
 | workers/risk and workers/portfolio | Risk/allocation scaffolds | Keep deterministic controls authoritative; ML cannot override risk policy |
 | workers/execution | Intentionally disabled | Keep outside the Quant Engine boundary |
 
-### Existing research branch dependency
+### Strategy replacement decision (2026-11-12)\n\n- SMC Mean Rejection replaces Wave3 as NOVA's primary deterministic strategy path. The implementation lives in workers/quant_engine/smc_mean_rejection.py and consumes completed 4H/5M bars with UTC close-time timestamps.\n- XGBoost/LSTM remain independent supporting models. The five-family Meta Decision Layer is not changed to treat SMC as an ML vote.\n- Keep historical Wave3 branches, artifacts and Final OOS records immutable for audit/comparison; do not merge stale Wave3 PRs as the active strategy.\n- The new module is research-only until exact-head tests, cost-aware walk-forward and sealed OOS acceptance gates pass.\n\n### Existing research branch dependency
 
 PR #66 (feature/wave3-hybrid-backtest-20261029) contains Wave3/SMC + XGBoost/LSTM research and frozen v6.2.6.3 gates. Its latest recorded report describes zero closed Final OOS trades, classification below its majority baseline, and maximum SMC score 75 against the unchanged threshold 85. The PR remains Draft/open and its recorded branch was 58 commits behind the then-current main baseline. Do not merge or couple it directly into this engine. Use stable dataset/experiment contracts so it can be reconciled and evaluated separately after overlap and regression review.
 
@@ -82,7 +82,7 @@ NOVA dashboard / AI (read-only result rendering)
 | dataset_quality | Schema, numeric validity, timezone, ordering, duplicate and gap checks | Silently sort, interpolate, or repair source data |
 | dataset_registry | Immutable manifests, source range, checksums, schema versions | Overwrite a snapshot referenced by a completed run |
 | feature_pipeline | Deterministic features with event-time and availability-time lineage | Use future bars, unconfirmed pivots, or later backfills |
-| strategy_plugins | EMA/RSI, SMC/Wave3, XGBoost/LSTM and future research algorithms | Modify risk limits or activate orders |
+| strategy_plugins | SMC Mean Rejection as the primary deterministic strategy; XGBoost/LSTM as separate supporting model candidates; EMA/RSI as baselines | Modify risk limits or activate orders |
 | simulator | Shared OHLCV simulation contract, costs, fills and trade ledger | Claim tick-level accuracy without tick data and a matching fill model |
 | experiment_runner | Seeds, params, code SHA, dataset SHA, fold schedule and artifacts | Tune on final OOS or omit failed runs |
 | evaluation | Baselines, walk-forward, costs, stability and uncertainty | Select from one favourable metric/window |
