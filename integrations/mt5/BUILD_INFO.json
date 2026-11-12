@@ -20,21 +20,27 @@
   "execution_enabled": false,
   "live_trading_enabled": false,
   "max_account_exposure_orders": 5,
+  "last_verified_pr_head": "b1235697f9f6d2fa0eaa0e20460a91b2eb47fbf4",
+  "ci_snapshot": {
+    "circleci_pipeline_number": 908,
+    "circleci_status": "ERROR",
+    "circleci_failure_job": null,
+    "circleci_root_cause": "UNRESOLVED_LOGS_NOT_ACCESSIBLE",
+    "netlify_deploy_preview_status": "SUCCESS_WEBSITE_ONLY",
+    "netlify_deploy_preview_url": "https://deploy-preview-310--voomsystem.netlify.app",
+    "github_actions_pr_runs": "NONE_RETURNED"
+  },
   "notes": [
     "Source identity transition from MTRADERS All In One v1.02 to NOVA QUANTUM v1.02.",
     "No strategy rewrite is implied by the rename.",
+    "The source is a safety scaffold: OnTick is intentionally empty; the 30 names are labels, not implemented strategy engines.",
     "No EX5 binary has been built or provenance-verified.",
-    "OnTick is intentionally empty and execution is rejected at initialization.",
-    "CircleCI PR-head Pipeline #903 reports ERROR; root cause and failing job remain unknown because logs could not be retrieved.",
-    "Netlify PR #310 Deploy Preview reports SUCCESS; this is website validation only, not an EA build or runtime test.",
-    "A metaeditor64.exe process was observed as PID 3636, but its executable path and compiler readiness could not be verified."
+    "The five-order exposure count is a non-atomic snapshot helper and is not an execution gate.",
+    "A metaeditor64.exe process was previously observed as PID 3636, but executable path, compiler version, and readiness remain unverified.",
+    "CI snapshot applies only to last_verified_pr_head; any new commit requires fresh exact-head CI inspection."
   ],
   "static_review_path": "integrations/mt5/NOVA_QUANTUM_v1.02_STATIC_REVIEW.md",
   "static_review_status": "PASS_WITH_LIMITATIONS",
-  "circleci_pipeline_number": 903,
-  "circleci_pipeline_status": "ERROR_UNRESOLVED",
-  "netlify_deploy_preview_status": "SUCCESS_WEBSITE_ONLY",
-  "github_actions_pr_runs": "NONE_RETURNED_FOR_INSPECTED_HEAD",
   "compile_validation": "NOT_RUN",
   "release_readiness": "BLOCKED"
 }
