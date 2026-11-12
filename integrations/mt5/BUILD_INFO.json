@@ -1,0 +1,25 @@
+{
+  "product": "NOVA QUANTUM",
+  "product_version": "1.02",
+  "release_channel": "ALPHA",
+  "artifact_status": "SOURCE_ONLY",
+  "source_path": "integrations/mt5/NOVA_QUANTUM_v1.02.mq5",
+  "source_commit_sha": "788c743a4bbb75db82eec69571bd3b86b9ba77a9",
+  "source_blob_sha": null,
+  "binary_path": null,
+  "binary_sha256": null,
+  "compiler": null,
+  "build_timestamp_utc": null,
+  "metaeditor_compile": "NOT_RUN",
+  "strategy_tester": "NOT_RUN",
+  "exness_demo_forward_test": "NOT_RUN",
+  "execution_enabled": false,
+  "live_trading_enabled": false,
+  "max_account_exposure_orders": 5,
+  "notes": [
+    "Source identity transition from MTRADERS All In One v1.02 to NOVA QUANTUM v1.02.",
+    "No strategy rewrite is implied by the rename.",
+    "No EX5 binary has been built or provenance-verified.",
+    "OnTick is intentionally empty and execution is rejected at initialization."
+  ]
+}
