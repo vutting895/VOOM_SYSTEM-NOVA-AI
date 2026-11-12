@@ -70,3 +70,8 @@ LSTM early-stopping and outer-evaluation targets now reuse only strictly prior f
 LSTM sequence construction now accepts separate feature context and target partitions. Historical context can come from earlier fit/early-stop rows, but labels are emitted only for the target partition. The sequence builder requires an explicit timeframe and rejects windows that cross a non-cadence interval or a verified segment boundary. This retains the 32-bar lookback for early-stopping and outer-evaluation targets without leaking future labels or bridging embargo/session gaps.
 
 The tests cover early-stop targets with prior fit context and verify that windows cannot bridge segment boundaries. These tests are committed but remain unexecuted while GitHub Actions jobs fail before exposing runner steps.
+
+
+## Google Colab runtime
+
+Colab-compatible notebook: `notebooks/NOVA_Hybrid_Continuous_Colab.ipynb`. It mounts Google Drive and reads approved datasets from `MyDrive/NOVA/approved-market-data/` and canonical OOF evidence from `MyDrive/NOVA/approved-oof/`. Research outputs are directed to `MyDrive/NOVA/colab-runs/`. Free CPU is the baseline; GPU is optional. `RUN_TRAINING`, `PERSIST_ARTIFACTS`, and `AUTO_PROMOTE` remain False by default. Training must not be enabled until all mounted dataset audits pass and `REQUESTED_STREAMS` exactly matches the approved streams. No broker credentials, MT5 connection or order execution are present.
