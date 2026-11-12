@@ -482,12 +482,12 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     id: 'bot-ai-btc',
     strategyId: 'smc-mean-rejection',
     name: 'การปฏิเสธค่าเฉลี่ย AI-BTC',
-    strategyBadge: 'ซึ่งอนุรักษนิยม',
+    strategyBadge: 'RESEARCH ONLY',
     pair: 'BTC/USDm',
     brokerSource: 'Exness #23908764',
     category: 'crypto',
     timeframe: '15 นาที',
-    rrLabel: 'RR 1.5 / 3.0',
+    rrLabel: 'Design target: 2.5R / 3R',
     requiredPlan: 'pro',
     selectedInPackage: true,
     running: false,
@@ -614,12 +614,12 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     id: 'bot-ai-eurusd',
     strategyId: 'smc-mean-rejection',
     name: 'การปฏิเสธค่าเฉลี่ย AI-EUR/USDm',
-    strategyBadge: 'ซึ่งอนุรักษนิยม',
+    strategyBadge: 'RESEARCH ONLY',
     pair: 'EUR/USDm',
     brokerSource: 'Exness #23908764',
     category: 'forex',
     timeframe: '15 นาที',
-    rrLabel: 'RR 1.5 / 3.0',
+    rrLabel: 'Design target: 2.5R / 3R',
     requiredPlan: 'elite',
     selectedInPackage: true,
     running: false,
@@ -1156,7 +1156,7 @@ export default function QuickitMarketFleetView({
   );
 
   const totalFleetPnlToday = useMemo(
-    () => fleetBots.reduce((acc, b) => acc + b.todayPnlBaht, 0),
+    () => fleetBots.reduce((acc, b) => acc + (b.todayPnlBaht ?? 0), 0),
     [fleetBots]
   );
 
@@ -2009,7 +2009,7 @@ export default function QuickitMarketFleetView({
           )}
 
           {/* =====================================================================
-              TAB 2: TRADING INTELLIGENCE (Elliott Wave 3, XGBoost, LSTM, SMC, Auto-Learning, Neural Net)
+              TAB 2: TRADING INTELLIGENCE (SMC Mean Rejection Primary, XGBoost / LSTM Supporting)
              ===================================================================== */}
           {activeTab === 'intelligence' && <TradingIntelligenceView />}
 
@@ -2624,7 +2624,7 @@ export default function QuickitMarketFleetView({
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-300">
                     อัตราการชนะเฉลี่ย:{' '}
-                    <span className="font-mono font-bold text-white">{avgWinRate}%</span>
+                    <span className="font-mono font-bold text-white">{avgWinRate === 'NOT VALIDATED' ? avgWinRate : `${avgWinRate}%`}</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-full bg-[#171A21] border border-white/[0.07] text-slate-400">
                     โหมด: การจำลองในหน่วยความจำ • จังหวะการทำงาน 2 วินาที
