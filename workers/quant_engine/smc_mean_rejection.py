@@ -368,7 +368,8 @@ def simulate_smc_mean_rejection(
             + 2 * point_value * slippage_per_unit
         )
         risk_per_unit = distance * point_value + expected_cost_per_unit
-        quantity = equity * risk_pct / risk_per_unit
+        risk_budget = equity * risk_pct
+        quantity = risk_budget / risk_per_unit
         if quantity <= 0 or not isfinite(quantity):
             continue
 
@@ -440,7 +441,7 @@ def simulate_smc_mean_rejection(
             "direction": direction, "entry_index": entry_i, "exit_index": exit_i,
             "entry_price": entry, "average_exit_price": average_exit_price,
             "stop_price": stop, "target_1": tp1, "target_2": tp2,
-            "quantity": quantity, "risk_budget": equity * risk_pct,
+            "quantity": quantity, "risk_budget": risk_budget,
             "partial_tp1": partial, "gross_pnl": realized,
             "estimated_costs": costs, "net_pnl": net, "equity_after": equity,
             "exit_reason": exit_reason,
