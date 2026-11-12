@@ -379,6 +379,7 @@ class HybridNotebookContractTests(unittest.TestCase):
         frame = pd.DataFrame({
             "timestamp_utc": timestamps,
             "segment_id": 0,
+            "timeframe": "H1",
             "label": np.tile([0, 1], 100),
         })
         for column_index, column in enumerate(
@@ -403,7 +404,7 @@ class HybridNotebookContractTests(unittest.TestCase):
     def test_lstm_sequences_never_cross_segment_boundary(self):
         import torch
         timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=80, freq="h")
-        frame = pd.DataFrame({"timestamp_utc":timestamps,"segment_id":[0]*40+[1]*40,"label":np.tile([0,1],40)})
+        frame = pd.DataFrame({"timestamp_utc":timestamps,"segment_id":[0]*40+[1]*40,"timeframe":"H1","label":np.tile([0,1],40)})
         for column_index,column in enumerate(
             ["return_1","return_5","rsi_14","ema_spread_pct","range_pct","volume_ratio_20"]
         ):
