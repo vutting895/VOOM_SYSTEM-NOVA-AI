@@ -39,14 +39,21 @@ test('Trading Dashboard view displays XAUUSDm, BTCUSD, Candlestick chart, Signal
 });
 
 test('Trading Intelligence view covers all 6 AI models required by specification', () => {
-  assert.ok(intelligence.includes('Elliott Wave 3'));
+  assert.ok(intelligence.includes('SMC Mean Rejection'));
+  assert.ok(intelligence.includes("useState<string>('smc-mean-rejection')"));
+  assert.doesNotMatch(intelligence, /Elliott Wave 3/);
   assert.ok(intelligence.includes('XGBoost'));
   assert.ok(intelligence.includes('LSTM / PyTorch'));
-  assert.ok(intelligence.includes('Smart Money Concepts'));
+  assert.ok(intelligence.includes('SMC Context Features'));
+  assert.ok(server.includes("id: 'smc-mean-rejection'"));
+  assert.ok(server.includes("status: 'RESEARCH_ONLY'"));
+  assert.ok(server.includes('ensembleConfidencePct: null'));
+  assert.ok(server.includes('performanceMetrics: null'));
   assert.ok(intelligence.includes('Auto-Learning'));
   assert.ok(intelligence.includes('Neural Network Analysis'));
   assert.ok(intelligence.includes('ReadonlySafetyBadge'));
-  assert.match(intelligence, /Ensemble Confidence/);
+  assert.match(intelligence, /Ensemble Validation/);
+  assert.match(intelligence, /NOT VALIDATED/);
 });
 
 test('Backtest Simulator view provides historical testing, equity curve, and out-of-sample results', () => {
