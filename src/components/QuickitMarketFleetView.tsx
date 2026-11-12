@@ -130,11 +130,11 @@ export interface StrategyBlueprintItem {
   shortTitle: string;
   badgeLabel: string;
   rrLabel: string;
-  winRatePct: number;
-  profitFactor: number;
-  tp1HitPct: number;
-  tp2HitPct: number;
-  confluenceScore: number;
+  winRatePct: number | null;
+  profitFactor: number | null;
+  tp1HitPct: number | null;
+  tp2HitPct: number | null;
+  confluenceScore: number | null;
   setupGrade: string;
   featHeadline: string;
   featTags: string[];
@@ -146,21 +146,21 @@ export const STRATEGY_BLUEPRINTS: StrategyBlueprintItem[] = [
   {
     id: 'smc-mean-rejection',
     shortTitle: 'การปฏิเสธค่าเฉลี่ย',
-    badgeLabel: 'ซึ่งอนุรักษนิยม',
-    rrLabel: 'RR 1.5 / 3.0',
-    winRatePct: 51.0,
-    profitFactor: 1.92,
-    tp1HitPct: 68,
-    tp2HitPct: 42,
-    confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
-    featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
+    badgeLabel: 'RESEARCH ONLY',
+    rrLabel: 'Design target: 2.5R / 3R',
+    winRatePct: null,
+    profitFactor: null,
+    tp1HitPct: null,
+    tp2HitPct: null,
+    confluenceScore: null,
+    setupGrade: 'NOT VALIDATED',
+    featHeadline: '4H confirmed structure + OB/FVG + 5M rejection confirmation',
     featTags: [
-      'การกระจาย: 12%',
-      'pa: การปฏิเสธขาลงอย่างรุนแรง',
-      'ob: 4H OB บรรเทาลง 78%',
-      'fvg: 5m FVG มีอยู่',
-      'กวาดล้าง: คว้าสภาพคล่องต่ำ',
+      '10/10 confirmed 4H pivots',
+      'BOS / CHoCH structure filter',
+      '50% equilibrium premium / discount',
+      '5M liquidity sweep + rejection + micro-BOS',
+      'Research simulator only · no execution',
     ],
     description: 'เน้นดักจังหวะราคาปฏิเสธกรอบ Order Block 4 ชั่วโมง ร่วมกับช่องว่าง FVG 5 นาที',
     accentColor: 'amber',
@@ -456,19 +456,19 @@ export interface FleetBotConfig {
   running: boolean;
   autoTradeEnabled: boolean;
   riskPct: number;
-  todayPnlBaht: number;
-  winRatePct: number;
-  profitFactor: number;
-  totalTrades: number;
-  tp1HitPct: number;
-  tp2HitPct: number;
+  todayPnlBaht: number | null;
+  winRatePct: number | null;
+  profitFactor: number | null;
+  totalTrades: number | null;
+  tp1HitPct: number | null;
+  tp2HitPct: number | null;
   positionStateLabel: string;
   positionIsLong: boolean;
   entryPrice: string;
   stopLossPrice: string;
   tp1Price: string;
   tp2Price: string;
-  confluenceScore: number;
+  confluenceScore: number | null;
   setupGrade: string;
   featHeadline: string;
   featTags: string[];
@@ -491,34 +491,32 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     requiredPlan: 'pro',
     selectedInPackage: true,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
-    todayPnlBaht: 343,
-    winRatePct: 51.0,
-    profitFactor: 1.92,
-    totalTrades: 84,
-    tp1HitPct: 68,
-    tp2HitPct: 42,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: null,
+    winRatePct: null,
+    profitFactor: null,
+    totalTrades: null,
+    tp1HitPct: null,
+    tp2HitPct: null,
+    positionStateLabel: 'RESEARCH ONLY · NO LIVE POSITION',
     positionIsLong: false,
-    entryPrice: '66,842.20',
-    stopLossPrice: '66,510.00',
-    tp1Price: '67,340.50',
-    tp2Price: '68,120.00',
-    confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
-    featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
+    entryPrice: 'NOT AVAILABLE',
+    stopLossPrice: 'NOT AVAILABLE',
+    tp1Price: 'NOT AVAILABLE',
+    tp2Price: 'NOT AVAILABLE',
+    confluenceScore: null,
+    setupGrade: 'NOT VALIDATED',
+    featHeadline: 'SMC Mean Rejection · Research only',
     featTags: [
-      'การกระจาย: 12%',
-      'pa: การปฏิเสธขาลงอย่างรุนแรง',
-      'ob: 4H OB บรรเทาลง 78%',
-      'fvg: 5m FVG มีอยู่',
-      'กวาดล้าง: คว้าสภาพคล่องต่ำ',
+      '4H confirmed pivots + structure context',
+      'OB/FVG zones with expiry',
+      '5M rejection confirmation',
+      'No broker connection or execution',
     ],
     logs: [
-      'คำสั่งทำงาน - คำสั่ง Start',
-      '[09:12] ระบบเริ่มต้นทำงานแล้ว',
-      '[09:14] กำลังรอโครงสร้าง 4H',
+      'Research-only strategy configuration; no orders are enabled.',
+      'Performance and live position data are not validated.',
     ],
     accentColor: 'amber',
   },
@@ -627,31 +625,30 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     running: false,
     autoTradeEnabled: false,
     riskPct: 0.8,
-    todayPnlBaht: 134,
-    winRatePct: 49.2,
-    profitFactor: 1.85,
-    totalTrades: 76,
-    tp1HitPct: 65,
-    tp2HitPct: 40,
-    positionStateLabel: 'แฟลต +0.0R',
+    todayPnlBaht: null,
+    winRatePct: null,
+    profitFactor: null,
+    totalTrades: null,
+    tp1HitPct: null,
+    tp2HitPct: null,
+    positionStateLabel: 'RESEARCH ONLY · NO LIVE POSITION',
     positionIsLong: false,
-    entryPrice: '1.0842',
-    stopLossPrice: '1.0818',
-    tp1Price: '1.0878',
-    tp2Price: '1.0915',
-    confluenceScore: 5,
-    setupGrade: 'การจัดเตรียมระดับ A+',
-    featHeadline: '4H OB + ระยะ 12% + PA แข็งแกร่ง + FVG',
+    entryPrice: 'NOT AVAILABLE',
+    stopLossPrice: 'NOT AVAILABLE',
+    tp1Price: 'NOT AVAILABLE',
+    tp2Price: 'NOT AVAILABLE',
+    confluenceScore: null,
+    setupGrade: 'NOT VALIDATED',
+    featHeadline: 'SMC Mean Rejection · Research only',
     featTags: [
-      'การกระจาย: 9%',
-      'pa: ปฏิเสธแนวต้าน 4H',
-      'ob: 30m OB บรรเทา 72%',
-      'fvg: 15m FVG พร้อมใช้งาน',
-      'กวาดล้าง: รอกวาด High ลอนดอน',
+      '4H confirmed pivots + structure context',
+      'OB/FVG zones with expiry',
+      '5M rejection confirmation',
+      'No broker connection or execution',
     ],
     logs: [
-      '[11:20] สแกนคู่เงินหลัก EUR/USDm เสร็จสมบูรณ์',
-      '[11:22] รอสัญญาณยืนยัน CHoCH ในกรอบ 15 นาที',
+      'Research-only strategy configuration; no orders are enabled.',
+      'Performance and live position data are not validated.',
     ],
     accentColor: 'cyan',
   },
@@ -939,7 +936,7 @@ export default function QuickitMarketFleetView({
           const delta = Math.round((Math.random() - 0.44) * 18);
           return {
             ...bot,
-            todayPnlBaht: bot.todayPnlBaht + delta,
+            todayPnlBaht: bot.todayPnlBaht == null ? null : bot.todayPnlBaht + delta,
           };
         })
       );
@@ -978,6 +975,10 @@ export default function QuickitMarketFleetView({
 
   // Handler when user finishes Step 1 (Select Pair from Broker) + Step 2 (Select Strategy)
   function handleDeployPairWithStrategy(startImmediately: boolean) {
+    if (selectedStrategyId === 'smc-mean-rejection') {
+      showNotification('SMC Mean Rejection เป็น Research Only — ไม่สามารถ Deploy เป็นบอทซื้อขายได้ก่อนผ่าน Validation');
+      return;
+    }
     if (currentPlanId === 'free') {
       setShowPlanModal(true);
       showNotification(
@@ -1080,6 +1081,8 @@ export default function QuickitMarketFleetView({
         return {
           ...bot,
           strategyId: strat.id,
+          running: strat.id === 'smc-mean-rejection' ? false : bot.running,
+          autoTradeEnabled: strat.id === 'smc-mean-rejection' ? false : bot.autoTradeEnabled,
           name: `${strat.shortTitle} AI-${inst.symbol}`,
           strategyBadge: strat.badgeLabel,
           pair: inst.symbol,
@@ -1159,8 +1162,12 @@ export default function QuickitMarketFleetView({
 
   const avgWinRate = useMemo(() => {
     if (fleetBots.length === 0) return 0;
-    const sum = fleetBots.reduce((acc, b) => acc + b.winRatePct, 0);
-    return (sum / fleetBots.length).toFixed(1);
+    const validatedBots = fleetBots.filter(
+      (bot) => bot.strategyId !== 'smc-mean-rejection' && bot.winRatePct != null
+    );
+    if (validatedBots.length === 0) return 'NOT VALIDATED';
+    const sum = validatedBots.reduce((acc, bot) => acc + (bot.winRatePct ?? 0), 0);
+    return (sum / validatedBots.length).toFixed(1);
   }, [fleetBots]);
 
   function handleSelectBotInPackage(botId: string) {
@@ -1205,6 +1212,11 @@ export default function QuickitMarketFleetView({
   }
 
   function handleToggleBotRun(botId: string, shouldRun: boolean) {
+    const requestedBot = fleetBots.find((bot) => bot.id === botId);
+    if (shouldRun && requestedBot?.strategyId === 'smc-mean-rejection') {
+      showNotification('SMC Mean Rejection อยู่ใน Research Only — ยังไม่อนุญาตให้เริ่มบอทหรือส่งคำสั่ง');
+      return;
+    }
     if (currentPlanId === 'free') {
       setShowPlanModal(true);
       showNotification('กรุณาสมัครแพ็คเกจก่อนสั่งเริ่มทำงานบอท AI');
@@ -2523,8 +2535,8 @@ export default function QuickitMarketFleetView({
                           </div>
 
                           <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-mono text-slate-300">
-                            <span>Win Rate: {strat.winRatePct}%</span>
-                            <span>PF: {strat.profitFactor}</span>
+                            <span>Win Rate: {strat.winRatePct == null ? 'NOT VALIDATED' : `${strat.winRatePct}%`}</span>
+                            <span>PF: {strat.profitFactor == null ? 'NOT VALIDATED' : strat.profitFactor}</span>
                           </div>
                         </button>
                       );
@@ -2712,7 +2724,7 @@ export default function QuickitMarketFleetView({
                     (currentPlanId === 'pro' &&
                       bot.requiredPlan === 'elite' &&
                       !bot.selectedInPackage);
-                  const pnlUp = bot.todayPnlBaht >= 0;
+                  const pnlUp = bot.todayPnlBaht != null && bot.todayPnlBaht >= 0;
 
                   return (
                     <div
@@ -2908,7 +2920,7 @@ export default function QuickitMarketFleetView({
                               pnlUp ? 'text-emerald-400' : 'text-rose-400'
                             }`}
                           >
-                            {pnlUp ? `+ ฿${bot.todayPnlBaht}` : `฿${bot.todayPnlBaht}`}
+                            {bot.todayPnlBaht == null ? 'NOT AVAILABLE' : pnlUp ? `+ ฿${bot.todayPnlBaht}` : `฿${bot.todayPnlBaht}`}
                           </div>
                           <div className="text-[11px] text-slate-400">วันนี้</div>
                           <div
@@ -2926,31 +2938,31 @@ export default function QuickitMarketFleetView({
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
                           <div className="text-[11px] text-slate-400">อัตราการชนะ</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.winRatePct.toFixed(1)}%
+                            {bot.winRatePct == null ? 'NOT VALIDATED' : `${bot.winRatePct.toFixed(1)}%`}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
                           <div className="text-[11px] text-slate-400">พีเอฟ</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.profitFactor.toFixed(2)}
+                            {bot.profitFactor == null ? 'NOT VALIDATED' : bot.profitFactor.toFixed(2)}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
                           <div className="text-[11px] text-slate-400">การค้า</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.totalTrades}
+                            {bot.totalTrades == null ? 'NOT AVAILABLE' : bot.totalTrades}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
                           <div className="text-[11px] text-slate-400">TP1 ฮิต</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp1HitPct}%
+                            {bot.tp1HitPct == null ? 'NOT VALIDATED' : `${bot.tp1HitPct}%`}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
                           <div className="text-[11px] text-slate-400">TP2 ฮิต</div>
                           <div className="mt-1 text-base font-extrabold text-white font-mono">
-                            {bot.tp2HitPct}%
+                            {bot.tp2HitPct == null ? 'NOT VALIDATED' : `${bot.tp2HitPct}%`}
                           </div>
                         </div>
                         <div className="rounded-2xl bg-[#16181F] border border-white/[0.06] p-3.5">
@@ -3013,7 +3025,7 @@ export default function QuickitMarketFleetView({
                                 <span
                                   key={seg}
                                   className={`w-5 h-1.5 rounded-full ${
-                                    seg <= bot.confluenceScore
+                                    bot.confluenceScore != null && seg <= bot.confluenceScore
                                       ? 'bg-amber-400'
                                       : 'bg-slate-700'
                                   }`}
@@ -3021,7 +3033,7 @@ export default function QuickitMarketFleetView({
                               ))}
                             </div>
                             <span className="text-xs font-mono font-bold text-amber-400">
-                              {bot.confluenceScore}/6
+                              {bot.confluenceScore == null ? 'NOT VALIDATED' : `${bot.confluenceScore}/6`}
                             </span>
                           </div>
 
@@ -3098,6 +3110,7 @@ export default function QuickitMarketFleetView({
                             <span className="text-slate-400">การซื้อขายอัตโนมัติ</span>
                             <button
                               type="button"
+                              disabled={bot.strategyId === 'smc-mean-rejection'}
                               onClick={() =>
                                 setFleetBots((prev) =>
                                   prev.map((b) =>
@@ -3107,7 +3120,7 @@ export default function QuickitMarketFleetView({
                                   )
                                 )
                               }
-                              className={`w-11 h-6 rounded-full p-0.5 transition-colors flex items-center ${
+                              className={`w-11 h-6 rounded-full p-0.5 transition-colors flex items-center disabled:opacity-40 disabled:cursor-not-allowed ${
                                 bot.autoTradeEnabled
                                   ? 'bg-emerald-500 justify-end'
                                   : 'bg-slate-700 justify-start'
