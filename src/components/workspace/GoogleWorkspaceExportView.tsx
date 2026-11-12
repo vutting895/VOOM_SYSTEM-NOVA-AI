@@ -63,81 +63,74 @@ export default function GoogleWorkspaceExportView() {
   const fetchDriveFiles = async (token: string) => {
     try {
       setLoading(true);
-      // Query Google Drive for the requested research files
       const q = encodeURIComponent("name contains 'oos_' or name contains 'manifest' or name contains 'checkpoint' or name contains 'equity'");
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=20`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.files) {
-        setFiles(data.files);
-        setStatusMessage(`Found ${data.files.length} research files in Google Drive.`);
-      } else {
-        // Fallback mock requested files if no exact matches in empty personal drive
-        setFiles([
-          { id: 'file-1', name: 'evaluation/oos_metrics.json', mimeType: 'application/json' },
-          { id: 'file-2', name: 'evaluation/oos_trades.csv', mimeType: 'text/csv' },
-          { id: 'file-3', name: 'approved-oof/manifest.json', mimeType: 'application/json' },
-          { id: 'file-4', name: 'reports/training_manifest.json', mimeType: 'application/json' },
-          { id: 'file-5', name: 'reports/checkpoint_sha256.json', mimeType: 'application/json' },
-          { id: 'file-6', name: 'evaluation/backtest_equity_curve.csv', mimeType: 'text/csv' },
-        ]);
-        setStatusMessage('Loaded requested research files structure from Google Drive manifest.');
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${q}&pageSize=20&fields=files(id,name,mimeType,size)`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) {
+        throw new Error(`Google Drive file listing failed (HTTP ${res.status})`);
       }
+      const data = await res.json();
+      const actualFiles = Array.isArray(data.files) ? data.files : [];
+      setFiles(actualFiles);
+      setSelectedFileContent(null);
+      setSelectedFileName(null);
+      setStatusMessage(
+        actualFiles.length > 0
+          ? `Found ${actualFiles.length} actual research files in Google Drive.`
+          : 'No matching research files were found in this Google Drive account.'
+      );
     } catch (err: any) {
       console.error('Drive fetch error:', err);
-      // Fallback sample files for demonstration
-      setFiles([
-        { id: 'file-1', name: 'evaluation/oos_metrics.json', mimeType: 'application/json' },
-        { id: 'file-2', name: 'evaluation/oos_trades.csv', mimeType: 'text/csv' },
-        { id: 'file-3', name: 'approved-oof/manifest.json', mimeType: 'application/json' },
-        { id: 'file-4', name: 'reports/training_manifest.json', mimeType: 'application/json' },
-        { id: 'file-5', name: 'reports/checkpoint_sha256.json', mimeType: 'application/json' },
-        { id: 'file-6', name: 'evaluation/backtest_equity_curve.csv', mimeType: 'text/csv' },
-      ]);
-      setStatusMessage('Loaded requested research files structure (Offline/Sample Mode).');
+      setFiles([]);
+      setSelectedFileContent(null);
+      setSelectedFileName(null);
+      setStatusMessage(err?.message || 'Unable to retrieve files from Google Drive.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectFile = async (file: { name: string; id: string; mimeType: string }) => {
+    if (!accessToken) {
+      setStatusMessage('Google Drive access token is unavailable. Sign in again.');
+      return;
+    }
+
     setSelectedFileName(file.name);
-    // Generate sample content for the requested file
-    if (file.name.includes('oos_metrics')) {
-      setSelectedFileContent(JSON.stringify({
-        schema_version: 'nova.oos.metrics.v1',
-        dataset: 'BTC-USD OOS 2025-2026',
-        metrics: {
-          winRatePct: 68.4,
-          profitFactor: 2.34,
-          sharpeRatio: 2.18,
-          maxDrawdownPct: 3.8,
-          oosSamples: 1250,
-          validationStatus: 'PASSED'
-        },
-        timestamp: new Date().toISOString()
-      }, null, 2));
-    } else if (file.name.includes('oos_trades')) {
-      setSelectedFileContent("trade_id,timestamp,symbol,side,entry,exit,pnl,return_pct\ntr-001,2026-11-01T14:30:00Z,BTC-USD,BUY,62500.0,64200.0,1700.0,2.72\ntr-002,2026-11-03T09:15:00Z,XAU-USD,BUY,2740.5,2768.0,27.5,1.00");
-    } else if (file.name.includes('manifest')) {
-      setSelectedFileContent(JSON.stringify({
-        manifest_id: 'mnf-892147',
-        approved_by: 'NOVA Quant Committee',
-        sha256: 'a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
-        models: ['lstm', 'xgboost', 'neural_network'],
-        status: 'APPROVED_FOR_RESEARCH'
-      }, null, 2));
-    } else if (file.name.includes('checkpoint')) {
-      setSelectedFileContent(JSON.stringify({
-        checkpoint_version: 'v2.4.0',
-        model_type: 'ResidualMLP',
-        sha256: 'f8d7c6b5a43210fedcba9876543210fedcba9876543210fedcba9876543210',
-        epochs: 148,
-        bestValidationLoss: 0.0142
-      }, null, 2));
-    } else {
-      setSelectedFileContent("date,equity,drawdown,benchmark\n2026-11-01,10000.0,0.0,10000.0\n2026-11-02,10340.0,0.4,10120.0\n2026-11-03,10890.0,0.2,10250.0");
+    setSelectedFileContent(null);
+    setLoading(true);
+    try {
+      let url: string;
+      if (file.mimeType === 'application/vnd.google-apps.document') {
+        url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}/export?mimeType=text/plain`;
+      } else if (file.mimeType === 'application/vnd.google-apps.spreadsheet') {
+        url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}/export?mimeType=text/csv`;
+      } else if (
+        file.mimeType.startsWith('text/') ||
+        file.mimeType === 'application/json' ||
+        file.mimeType === 'application/csv'
+      ) {
+        url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.id)}?alt=media`;
+      } else {
+        throw new Error(`Unsupported preview type: ${file.mimeType}. Only text, JSON, CSV, Google Docs, and Google Sheets are supported.`);
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!response.ok) {
+        throw new Error(`Google Drive file download failed (HTTP ${response.status})`);
+      }
+      const actualContent = await response.text();
+      setSelectedFileContent(actualContent);
+      setStatusMessage(`Loaded actual file content from Google Drive: ${file.name}`);
+    } catch (err: any) {
+      setSelectedFileContent(null);
+      setStatusMessage(err?.message || 'Unable to preview this Google Drive file.');
+    } finally {
+      setLoading(false);
     }
   };
 
