@@ -415,5 +415,36 @@ class HybridNotebookContractTests(unittest.TestCase):
         self.assertEqual(len(times),18)
 
 
+    def test_inner_split_rejects_timezone_naive_timestamps(self):
+        timestamps = pd.date_range("2026-01-01", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps + pd.Timedelta(hours=5),
+        })
+        with self.assertRaisesRegex(ValueError, "explicit timezone"):
+            self.split_fit_early_stop(frame)
+
+    def test_inner_split_rejects_label_end_before_prediction_time(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": timestamps - pd.Timedelta(hours=1),
+        })
+        with self.assertRaisesRegex(ValueError, "cannot precede"):
+            self.split_fit_early_stop(frame)
+
+    def test_inner_split_rejects_duplicate_prediction_timestamps(self):
+        timestamps = pd.date_range("2026-01-01T00:00:00Z", periods=200, freq="h")
+        timestamps = timestamps.to_list()
+        timestamps[10] = timestamps[9]
+        frame = pd.DataFrame({
+            "timestamp_utc": timestamps,
+            "label_end_utc": pd.to_datetime(timestamps, utc=True) + pd.Timedelta(hours=5),
+        })
+        with self.assertRaisesRegex(ValueError, "must be unique"):
+            self.split_fit_early_stop(frame)
+
+
+
 if __name__ == "__main__":
     unittest.main()
