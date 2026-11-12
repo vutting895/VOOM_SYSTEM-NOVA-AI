@@ -135,18 +135,21 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/health" && request.method === "GET") {
+    // Public liveness only. This endpoint does not claim an MT5 Bridge is connected.
+    if (url.pathname === "/healthz" && request.method === "GET") {
       return json({
         ok: true,
         service: "voom-mt5-bridge-relay",
         status: "relay_ready",
-        bridgeSession: "tenant_scoped",
         mode: "read-only",
         order_submission_enabled: false,
         liveTradingEnabled: false,
         ordersEnabled: false
       });
     }
+
+    // /health intentionally falls through to tenant authentication and the Durable Object.
+    // A 200 response therefore requires an active tenant WebSocket and a live local MT5 Bridge.
 
     if (url.pathname === "/connect") {
       if (request.method !== "GET") return unavailable("method_not_allowed", 405);
