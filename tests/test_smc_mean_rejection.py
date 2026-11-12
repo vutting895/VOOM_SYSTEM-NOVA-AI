@@ -30,6 +30,7 @@ def one_signal():
     return [{
         "strategy_id": "smc-mean-rejection",
         "direction": "long",
+        "signal_index": 0,
         "entry_index": 1,
         "entry_price": 100.0,
         "stop_price": 99.0,
@@ -110,6 +111,16 @@ class TestSMCMeanRejection(unittest.TestCase):
         gross = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0, slippage_per_unit=0)
         net = simulate_smc_mean_rejection(one_signal(), bars, fee_rate_per_side=0.001, slippage_per_unit=0.01)
         self.assertLess(net["net_profit"], gross["net_profit"])
+        self.assertLess(net["trades"][0]["quantity"], gross["trades"][0]["quantity"])
+        self.assertAlmostEqual(net["trades"][0]["risk_budget"], 100.0)
+
+    def test_cost_aware_sizing_keeps_planned_stop_loss_within_one_percent(self):
+        bars = make_bars(12)
+        bars[1].update({"open": 100.0, "high": 104.0, "low": 98.0, "close": 101.0})
+        result = simulate_smc_mean_rejection(
+            one_signal(), bars, fee_rate_per_side=0.001, slippage_per_unit=0.01
+        )
+        self.assertLessEqual(abs(result["trades"][0]["net_pnl"]), 100.0 + 1e-8)
 
     def test_invalid_risk_inputs_fail_closed(self):
         bars = make_bars(12)
