@@ -99,8 +99,14 @@ def _zone_contains(price: float, zones: Iterable[dict[str, Any]], direction: str
     return any(z["direction"] == direction and z["lower"] <= price <= z["upper"] for z in zones)
 
 
-def _build_4h_context(bars: list[dict[str, Any]], swing_left: int, swing_right: int,
-                      ob_search_bars: int) -> list[dict[str, Any]]:
+def _build_4h_context(
+    bars: list[dict[str, Any]],
+    swing_left: int,
+    swing_right: int,
+    ob_search_bars: int,
+    max_zone_age_bars: int,
+    fvg_min_size_pct: float,
+) -> list[dict[str, Any]]:
     """Create point-in-time context snapshots; no pivot/zone is visible before confirmation."""
     pivots = _pivots(bars, swing_left, swing_right)
     snapshots = []
@@ -117,7 +123,7 @@ def _build_4h_context(bars: list[dict[str, Any]], swing_left: int, swing_right: 
             pivot_cursor += 1
 
         close = float(bar["close"])
-        event = None
+        breaks = []
         for kind, direction in (("high", "bullish"), ("low", "bearish")):
             pivot = active_pivots[kind]
             if pivot is None:
@@ -125,49 +131,63 @@ def _build_4h_context(bars: list[dict[str, Any]], swing_left: int, swing_right: 
             key = (kind, pivot["index"])
             crossed = close > pivot["price"] if kind == "high" else close < pivot["price"]
             if crossed and key not in broken:
-                broken.add(key)
-                event = {"type": "CHoCH" if bias not in ("neutral", direction) else "BOS",
-                         "direction": direction, "index": index,
-                         "level": pivot["price"], "swing_index": pivot["index"]}
-                bias = direction
-                start = max(0, index - ob_search_bars)
-                opposite = [j for j in range(start, index)
-                            if (float(bars[j]["close"]) < float(bars[j]["open"])
-                                if direction == "bullish"
-                                else float(bars[j]["close"]) > float(bars[j]["open"]))]
-                if opposite:
-                    j = opposite[-1]
-                    active_zones.append({
-                        "kind": "OB", "direction": direction,
-                        "lower": float(bars[j]["low"]), "upper": float(bars[j]["high"]),
-                        "created_at": bar["timestamp"], "source_index": j,
-                    })
-                break
+                breaks.append((key, pivot, direction))
+
+        # A single OHLC close cannot establish which side broke first if both
+        # swing levels are crossed. Abstain instead of choosing an arbitrary side.
+        event = None
+        if len(breaks) == 1:
+            key, pivot, direction = breaks[0]
+            broken.add(key)
+            event = {
+                "type": "CHoCH" if bias not in ("neutral", direction) else "BOS",
+                "direction": direction, "index": index,
+                "level": pivot["price"], "swing_index": pivot["index"],
+            }
+            bias = direction
+            start = max(0, index - ob_search_bars)
+            opposite = [
+                j for j in range(start, index)
+                if (float(bars[j]["close"]) < float(bars[j]["open"])
+                    if direction == "bullish"
+                    else float(bars[j]["close"]) > float(bars[j]["open"]))
+            ]
+            if opposite:
+                j = opposite[-1]
+                active_zones.append({
+                    "kind": "OB", "direction": direction,
+                    "lower": float(bars[j]["low"]), "upper": float(bars[j]["high"]),
+                    "created_at": bar["timestamp"], "source_index": j,
+                })
 
         # Three-candle FVG becomes observable only after the third candle closes.
         if index >= 2:
             older, current = bars[index - 2], bar
+            close_now = float(current["close"])
             if float(current["low"]) > float(older["high"]):
-                active_zones.append({
-                    "kind": "FVG", "direction": "bullish",
-                    "lower": float(older["high"]), "upper": float(current["low"]),
-                    "created_at": bar["timestamp"], "source_index": index,
-                })
+                lower, upper = float(older["high"]), float(current["low"])
+                if (upper - lower) / close_now >= fvg_min_size_pct:
+                    active_zones.append({
+                        "kind": "FVG", "direction": "bullish",
+                        "lower": lower, "upper": upper,
+                        "created_at": bar["timestamp"], "source_index": index,
+                    })
             if float(current["high"]) < float(older["low"]):
-                active_zones.append({
-                    "kind": "FVG", "direction": "bearish",
-                    "lower": float(current["high"]), "upper": float(older["low"]),
-                    "created_at": bar["timestamp"], "source_index": index,
-                })
+                lower, upper = float(current["high"]), float(older["low"])
+                if (upper - lower) / close_now >= fvg_min_size_pct:
+                    active_zones.append({
+                        "kind": "FVG", "direction": "bearish",
+                        "lower": lower, "upper": upper,
+                        "created_at": bar["timestamp"], "source_index": index,
+                    })
 
-        # A first touch is a valid retest, not automatic invalidation. Remove a
-        # bullish zone only after a completed close below its lower boundary;
-        # remove a bearish zone only after a completed close above its upper boundary.
-        close = float(bar["close"])
+        # First touch is a valid retest, not automatic invalidation. Expire old
+        # zones and invalidate only on a completed close through the far boundary.
         active_zones = [
             zone for zone in active_zones
-            if not ((zone["direction"] == "bullish" and close < zone["lower"])
-                    or (zone["direction"] == "bearish" and close > zone["upper"]))
+            if index - zone["source_index"] <= max_zone_age_bars
+            and not ((zone["direction"] == "bullish" and close < zone["lower"])
+                     or (zone["direction"] == "bearish" and close > zone["upper"]))
         ]
 
         high_pivot, low_pivot = active_pivots["high"], active_pivots["low"]
@@ -186,22 +206,34 @@ def analyze_smc_mean_rejection(
     h4_bars: list[dict[str, Any]],
     m5_bars: list[dict[str, Any]],
     *,
-    swing_left: int = 2,
-    swing_right: int = 2,
-    ob_search_bars: int = 8,
+    swing_left: int = 10,
+    swing_right: int = 10,
+    ob_search_bars: int = 3,
+    max_zone_age_bars: int = 50,
+    fvg_min_size_pct: float = 0.001,
     minimum_rr: float = 2.5,
     target_rr: float = 3.0,
     risk_pct: float = 0.01,
     point_value: float = 1.0,
-    session_start_utc: int | None = None,
-    session_end_utc: int | None = None,
+    session_start_utc: int | None = 7,
+    session_end_utc: int | None = 21,
 ) -> dict[str, Any]:
     """Generate causal next-bar entry candidates from completed 4H and 5M candles."""
     _validate_bars(h4_bars, "h4_bars")
     _validate_bars(m5_bars, "m5_bars")
-    if not (1 <= swing_left <= 10 and 1 <= swing_right <= 10):
-        raise StrategyInputError("swing_left and swing_right must be in [1, 10]")
-    if not (1.0 <= minimum_rr <= 5.0 and minimum_rr <= target_rr <= 5.0):
+    if (isinstance(swing_left, bool) or not isinstance(swing_left, int)
+            or isinstance(swing_right, bool) or not isinstance(swing_right, int)
+            or not (1 <= swing_left <= 10 and 1 <= swing_right <= 10)):
+        raise StrategyInputError("swing_left and swing_right must be integers in [1, 10]")
+    if isinstance(ob_search_bars, bool) or not isinstance(ob_search_bars, int) or not 1 <= ob_search_bars <= 30:
+        raise StrategyInputError("ob_search_bars must be an integer in [1, 30]")
+    if isinstance(max_zone_age_bars, bool) or not isinstance(max_zone_age_bars, int) or not 1 <= max_zone_age_bars <= 500:
+        raise StrategyInputError("max_zone_age_bars must be an integer in [1, 500]")
+    if isinstance(fvg_min_size_pct, bool) or not isinstance(fvg_min_size_pct, (int, float)) or not isfinite(float(fvg_min_size_pct)) or not 0 <= fvg_min_size_pct <= 0.05:
+        raise StrategyInputError("fvg_min_size_pct must be finite and in [0, 0.05]")
+    if (isinstance(minimum_rr, bool) or not isinstance(minimum_rr, (int, float))
+            or isinstance(target_rr, bool) or not isinstance(target_rr, (int, float))
+            or not (1.0 <= minimum_rr <= 5.0 and minimum_rr <= target_rr <= 5.0)):
         raise StrategyInputError("RR must satisfy 1 <= minimum_rr <= target_rr <= 5")
     if isinstance(risk_pct, bool) or not isinstance(risk_pct, (int, float)) or not (0 < risk_pct <= 0.01):
         raise StrategyInputError("risk_pct must be greater than 0 and no more than 1%")
@@ -209,10 +241,17 @@ def analyze_smc_mean_rejection(
         raise StrategyInputError("point_value must be positive and finite")
     if (session_start_utc is None) != (session_end_utc is None):
         raise StrategyInputError("both session boundaries must be provided together")
-    if session_start_utc is not None and not (0 <= session_start_utc < 24 and 0 <= session_end_utc <= 24 and session_start_utc < session_end_utc):
+    if session_start_utc is not None and (
+        isinstance(session_start_utc, bool) or not isinstance(session_start_utc, int)
+        or isinstance(session_end_utc, bool) or not isinstance(session_end_utc, int)
+        or not (0 <= session_start_utc < 24 and 0 <= session_end_utc <= 24 and session_start_utc < session_end_utc)
+    ):
         raise StrategyInputError("session hours must satisfy 0 <= start < end <= 24")
 
-    contexts = _build_4h_context(h4_bars, swing_left, swing_right, ob_search_bars)
+    contexts = _build_4h_context(
+        h4_bars, swing_left, swing_right, ob_search_bars,
+        max_zone_age_bars, float(fvg_min_size_pct),
+    )
     context_cursor = -1
     signals = []
     pivots5 = _pivots(m5_bars, 2, 2)
