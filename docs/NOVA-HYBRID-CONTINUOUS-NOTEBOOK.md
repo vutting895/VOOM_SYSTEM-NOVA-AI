@@ -63,3 +63,10 @@ This is an ingestion path, not an OOF generator. Notebook XGBoost/LSTM outer-fol
 ## LSTM sequence context across nested temporal splits
 
 LSTM early-stopping and outer-evaluation targets now reuse only strictly prior feature history as sequence context. Labels are emitted only for rows in the target partition. Sequence windows are segment-local and cannot cross verified session gaps. This preserves the 32-bar lookback at partition boundaries without importing fit labels into early stopping or outer evaluation.
+
+
+## LSTM lookback across temporal partitions
+
+LSTM sequence construction now accepts separate feature context and target partitions. Historical context can come from earlier fit/early-stop rows, but labels are emitted only for the target partition. The sequence builder requires an explicit timeframe and rejects windows that cross a non-cadence interval or a verified segment boundary. This retains the 32-bar lookback for early-stopping and outer-evaluation targets without leaking future labels or bridging embargo/session gaps.
+
+The tests cover early-stop targets with prior fit context and verify that windows cannot bridge segment boundaries. These tests are committed but remain unexecuted while GitHub Actions jobs fail before exposing runner steps.
