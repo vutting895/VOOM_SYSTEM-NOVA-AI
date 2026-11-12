@@ -368,6 +368,12 @@ def simulate_smc_mean_rejection(
                 or isinstance(signal_i, bool) or not isinstance(signal_i, int)
                 or not 1 <= entry_i < len(m5_bars) or not 0 <= signal_i < entry_i):
             raise StrategyInputError(f"signals[{index}] has invalid signal/entry indexes")
+        if entry_i != signal_i + 1:
+            raise StrategyInputError(f"signals[{index}] entry must be the immediately following 5M bar")
+        if signal.get("signal_timestamp") != m5_bars[signal_i]["timestamp"]:
+            raise StrategyInputError(f"signals[{index}] signal_timestamp does not match its signal bar")
+        if signal.get("entry_timestamp") != m5_bars[entry_i]["timestamp"]:
+            raise StrategyInputError(f"signals[{index}] entry_timestamp does not match its next bar")
         if entry_i <= previous_entry:
             raise StrategyInputError("signals must be strictly ordered by entry_index")
         previous_entry = entry_i
