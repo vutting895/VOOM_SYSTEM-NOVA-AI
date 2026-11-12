@@ -58,3 +58,8 @@ The notebook can ingest a separately generated canonical five-family bundle from
 The manifest must bind the CSV SHA-256, integer row count, source provenance, 40-character source commit SHA, evaluator version, `completeness_status=PASS`, and `oof_status=PASS`. The approval receipt must bind the same CSV SHA and source commit. Every CSV row must carry the same evaluator version as the manifest and pass the strict five-family OOF contract. Missing or invalid inputs return a BLOCKED audit; they are never silently accepted.
 
 This is an ingestion path, not an OOF generator. Notebook XGBoost/LSTM outer-fold diagnostics do not supply calibrated five-family OOF evidence. The canonical Quant Engine must separately produce and approve that bundle.
+
+
+## LSTM sequence context across nested temporal splits
+
+LSTM early-stopping and outer-evaluation targets now reuse only strictly prior feature history as sequence context. Labels are emitted only for rows in the target partition. Sequence windows are segment-local and cannot cross verified session gaps. This preserves the 32-bar lookback at partition boundaries without importing fit labels into early stopping or outer evaluation.
