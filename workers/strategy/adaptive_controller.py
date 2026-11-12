@@ -15,10 +15,11 @@ from .catalog import load_strategy_catalog, validate_strategy_catalog
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ALLOWED_REGIMES = {"trend", "range", "transition", "high-volatility", "unknown"}
-_REQUIRED_CONTEXT = {"mode", "symbol", "timeframes", "regime", "data_quality"}
+_REQUIRED_CONTEXT = {"mode", "symbol", "timeframes", "regime", "data_quality", "regime_evidence"}
 _REQUIRED_QUALITY = {
     "status", "sha256", "closed_bars_only", "age_seconds", "max_age_seconds"
 }
+_REQUIRED_REGIME_EVIDENCE = {"status", "source", "input_sha256"}
 
 
 class ControllerInputError(ValueError):
@@ -39,7 +40,7 @@ def _validate_context(context: Any) -> None:
         for key, value in context["timeframes"].items()
     ):
         raise ControllerInputError("timeframes must be string pairs")
-    if context["regime"] not in _ALLOWED_REGIMES:
+    if not isinstance(context["regime"], str) or context["regime"] not in _ALLOWED_REGIMES:
         raise ControllerInputError("unsupported regime label")
 
     quality = context["data_quality"]
@@ -59,6 +60,14 @@ def _validate_context(context: Any) -> None:
         or not math.isfinite(maximum) or maximum <= 0 or age > maximum
     ):
         raise ControllerInputError("market data is stale or freshness metadata is invalid")
+
+    regime_evidence = context["regime_evidence"]
+    if not isinstance(regime_evidence, dict) or set(regime_evidence) != _REQUIRED_REGIME_EVIDENCE:
+        raise ControllerInputError("regime_evidence has an invalid shape")
+    if (regime_evidence["status"] != "PASS"
+            or not isinstance(regime_evidence["source"], str) or not regime_evidence["source"]
+            or regime_evidence["input_sha256"] != quality["sha256"]):
+        raise ControllerInputError("regime label is not bound to validated source data")
 
 
 def select_research_strategy(
@@ -86,10 +95,7 @@ def select_research_strategy(
             reason = "operation:not-supported"
         elif context["symbol"] not in strategy["markets"]:
             reason = "market:not-supported"
-        elif any(
-            context["timeframes"].get(key) != value
-            for key, value in strategy["timeframes"].items()
-        ):
+        elif context["timeframes"] != strategy["timeframes"]:
             reason = "timeframe:mismatch"
         elif context["regime"] not in strategy["regimes"]:
             reason = "regime:not-supported"
