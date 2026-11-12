@@ -26,8 +26,8 @@ def _timestamp(value: Any, label: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         raise StrategyInputError(f"{label} must be a valid ISO-8601 timestamp") from None
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise StrategyInputError(f"{label} must include a timezone")
+    if parsed.tzinfo is None or parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+        raise StrategyInputError(f"{label} must be a UTC timestamp")
     return parsed
 
 
@@ -111,7 +111,7 @@ def _build_4h_context(bars: list[dict[str, Any]], swing_left: int, swing_right: 
     pivot_cursor = 0
 
     for index, bar in enumerate(bars):
-        while pivot_cursor < len(pivots) and pivots[pivot_cursor]["confirmed_at"] < index:
+        while pivot_cursor < len(pivots) and pivots[pivot_cursor]["confirmed_at"] <= index:
             pivot = pivots[pivot_cursor]
             active_pivots[pivot["kind"]] = pivot
             pivot_cursor += 1
@@ -202,9 +202,9 @@ def analyze_smc_mean_rejection(
         raise StrategyInputError("swing_left and swing_right must be in [1, 10]")
     if not (1.0 <= minimum_rr <= 5.0 and minimum_rr <= target_rr <= 5.0):
         raise StrategyInputError("RR must satisfy 1 <= minimum_rr <= target_rr <= 5")
-    if not (0 < risk_pct <= 0.01):
+    if isinstance(risk_pct, bool) or not isinstance(risk_pct, (int, float)) or not (0 < risk_pct <= 0.01):
         raise StrategyInputError("risk_pct must be greater than 0 and no more than 1%")
-    if not isfinite(float(point_value)) or point_value <= 0:
+    if isinstance(point_value, bool) or not isinstance(point_value, (int, float)) or not isfinite(float(point_value)) or point_value <= 0:
         raise StrategyInputError("point_value must be positive and finite")
     if (session_start_utc is None) != (session_end_utc is None):
         raise StrategyInputError("both session boundaries must be provided together")
@@ -222,7 +222,7 @@ def analyze_smc_mean_rejection(
         now = _timestamp(m5_bars[i]["timestamp"], f"m5_bars[{i}].timestamp")
         while context_cursor + 1 < len(contexts) and _timestamp(contexts[context_cursor + 1]["available_at"], "h4 available_at") <= now:
             context_cursor += 1
-        while pivot5_cursor < len(pivots5) and pivots5[pivot5_cursor]["confirmed_at"] < i:
+        while pivot5_cursor < len(pivots5) and pivots5[pivot5_cursor]["confirmed_at"] <= i:
             p = pivots5[pivot5_cursor]
             latest5[p["kind"]] = p
             pivot5_cursor += 1
