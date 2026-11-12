@@ -5,6 +5,11 @@ or submit orders. Heavy backtests and model training belong in an isolated worke
 """
 
 from .identity import build_run_fingerprint
+from .smc_mean_rejection import (
+    StrategyInputError,
+    analyze_smc_mean_rejection,
+    simulate_smc_mean_rejection,
+)
 from .experiment import ExperimentValidationError, validate_quant_experiment
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
 from .splits import (
@@ -23,6 +28,9 @@ __all__ = [
     "ExperimentValidationError",
     "PurgePolicy",
     "WalkForwardWindow",
+    "StrategyInputError",
+    "analyze_smc_mean_rejection",
+    "simulate_smc_mean_rejection",
     "build_run_fingerprint",
     "canonical_dataset_sha256",
     "chronological_split",
