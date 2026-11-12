@@ -72,7 +72,7 @@ class TestSMCMeanRejection(unittest.TestCase):
         self.assertEqual(result["data_contract"]["timeframes"], {"bias": "4H", "entry": "5M"})
 
     def test_risk_cap_cannot_exceed_one_percent(self):
-        h4 = make_bars(20, minutes=240)
+        h4 = make_bars(30, minutes=240)
         m5 = make_bars(20, minutes=5)
         with self.assertRaises(StrategyInputError):
             analyze_smc_mean_rejection(h4, m5, risk_pct=0.02)
