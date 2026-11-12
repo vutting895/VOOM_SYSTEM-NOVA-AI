@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from workers.quant_engine.smc_mean_rejection import (
     StrategyInputError,
     _pivots,
+    _build_4h_context,
     analyze_smc_mean_rejection,
     simulate_smc_mean_rejection,
 )
@@ -49,6 +50,18 @@ class TestSMCMeanRejection(unittest.TestCase):
         pivot = next(p for p in pivots if p["kind"] == "high" and p["index"] == 3)
         self.assertEqual(pivot["confirmed_at"], 5)
         self.assertEqual(pivot["available_at"], bars[5]["timestamp"])
+
+    def test_fvg_is_not_visible_until_third_candle_closes(self):
+        bars = make_bars(12, minutes=240)
+        bars[0].update({"open": 99.0, "high": 100.0, "low": 98.0, "close": 99.5})
+        bars[2].update({"open": 103.0, "high": 104.0, "low": 102.0, "close": 103.5})
+        contexts = _build_4h_context(
+            bars, swing_left=1, swing_right=1, ob_search_bars=3,
+            max_zone_age_bars=50, fvg_min_size_pct=0.001,
+        )
+        self.assertFalse(any(z["kind"] == "FVG" for z in contexts[1]["zones"]))
+        self.assertTrue(any(z["kind"] == "FVG" and z["direction"] == "bullish"
+                            for z in contexts[2]["zones"]))
 
     def test_rejects_non_utc_and_naive_timestamps(self):
         bars = make_bars(12)
