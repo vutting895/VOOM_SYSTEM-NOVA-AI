@@ -13,30 +13,38 @@
 | Trading input defaults OFF | PASS | `InpTradeEnabled = false` |
 | Execution-enabled initialization is rejected | PASS | `OnInit()` returns `INIT_FAILED` when input is true |
 | Tick handler contains no executable logic | PASS | `OnTick()` body contains only a comment |
-| No order-submission / CTrade API references | PASS | No `OrderSend`, `OrderSendAsync`, `CTrade`, Buy/Sell, PositionOpen or OrderOpen references |
-| Account-wide exposure cap constant | PASS | `NOVA_MAX_TOTAL_ORDERS = 5` |
+| No order-submission / CTrade API references | PASS | No order-submission APIs in the current source |
+| Account-wide exposure cap constant | PASS WITH LIMITATION | `NOVA_MAX_TOTAL_ORDERS = 5` |
 | Exposure snapshot counts positions and pending orders | PASS | `PositionsTotal() + OrdersTotal()` |
-| Guarded defaults | PASS | Risk 1%, max single risk 1%, aggregate open risk 9%, daily loss 10% |
-| Atomic reservation | NOT IMPLEMENTED | The helper is explicitly a snapshot, not a mutex/reservation gate |
+| Atomic reservation | NOT IMPLEMENTED | Snapshot count is not a mutex/reservation gate |
+| 30 strategy implementations | NOT PRESENT / NOT VERIFIED | Names and state structures are registered, but no strategy evaluation pipeline exists in this source |
+| Compiler validation | NOT RUN | No verified MetaEditor path/compiler build or compile log |
+| Runtime / Strategy Tester | NOT RUN | No test evidence supplied |
 
-## Explicit limitations
+## Critical implementation gap
 
-- This is not a MetaEditor compiler result.
-- No EX5 binary was produced or inspected.
-- No Strategy Tester run or Exness Demo forward test was performed.
-- The 30 module names are registrations/labels; this review does not validate 30 working strategy implementations.
-- The five-order helper is not concurrency-safe. It must not be used as an execution gate by itself.
-- Exact PR-head CI status was checked: CircleCI Pipeline #903 reports `error`. GitHub Actions returned no PR workflow runs for the inspected head SHA. The CircleCI page/logs were not accessible through the available inspection route, so the failing job and root cause remain unknown.
-- Netlify Deploy Preview for PR #310 reports `success`; this validates the website preview only, not MQL5 compilation, EA behavior, or trading safety.
-- The connected remote device is Windows. A process named `metaeditor64.exe` was present (PID 3636) during process inspection. However, the executable path and compiler version could not be retrieved. File searches in inspected Program Files, AppData/MetaQuotes, and user-profile locations returned no matching path; the full-drive search was still running at inspection time. Therefore MetaEditor presence is confirmed at process level, but compiler readiness and the exact executable location remain unverified. No compilation was attempted.
-- The MT5 terminal data folder contains an existing `MTRADERS_AllInOne_v1_01_NOVA_SAFE.ex5`; it is not a NOVA QUANTUM v1.02 build and must not be treated as one.
+This file is currently a **safe research scaffold**, not a functioning trading EA. `OnTick()` is deliberately empty; no signal generation, candidate evaluation, risk sizing, portfolio exposure reservation, order lifecycle, position management, or strategy exits are implemented. The 30 module names must not be described as 30 working strategies.
+
+## Exact-head CI and preview snapshot
+
+Inspected PR head: `b1235697f9f6d2fa0eaa0e20460a91b2eb47fbf4`.
+
+- CircleCI Pipeline #908: `error`.
+- CircleCI failing job/root cause: unresolved; logs were not accessible through the available inspection route.
+- Netlify Deploy Preview: `success` — website preview only, not MQL5 compile or EA validation.
+- GitHub Actions: no PR workflow runs returned for the inspected head.
+- These results are a snapshot for the inspected SHA only. Any subsequent PR commit requires fresh exact-head CI inspection.
+
+## Compiler environment
+
+A process named `metaeditor64.exe` was previously observed (PID 3636) on the connected Windows device. Its executable path, compiler version, and readiness remain unverified. Prior searches did not establish a usable compiler path; no compilation was attempted. The existing terminal binary `MTRADERS_AllInOne_v1_01_NOVA_SAFE.ex5` is not a NOVA QUANTUM v1.02 build and must not be treated as one.
 
 ## Verdict
 
 **STATIC SAFETY REVIEW: PASS WITH LIMITATIONS**  
-**CI: BLOCKED — CircleCI #903 ERROR, ROOT CAUSE UNKNOWN**  
-**METAEDITOR PROCESS: DETECTED — EXECUTABLE PATH / COMPILER READINESS UNVERIFIED**  
-**COMPILE / FUNCTIONAL VALIDATION: NOT RUN**  
+**FUNCTIONAL EA IMPLEMENTATION: NOT PRESENT**  
+**CI: BLOCKED — CIRCLECI #908 ERROR, ROOT CAUSE UNKNOWN**  
+**METAEDITOR COMPILE / STRATEGY TESTER / EXNESS DEMO: NOT RUN**  
 **RELEASE READINESS: BLOCKED**
 
-Do not install as an active trading EA. Keep live trading and execution disabled until the compiler, atomic risk/exposure controls, independent review, Strategy Tester, and Demo validation gates pass.
+Do not install as an active trading EA. Keep execution and live trading disabled. Before implementation advances to an execution-capable EA, add independently reviewed signal logic, atomic account-wide capacity reservation, risk sizing and loss controls, order/position lifecycle management, and test coverage. Then compile with a verified MetaEditor build, run Strategy Tester, and validate on Exness Demo only.
