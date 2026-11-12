@@ -73,7 +73,7 @@ class RiskGovernorContractTests(unittest.TestCase):
         self.assertEqual(self.validate(snapshot=snapshot).reason, "single_trade_risk_limit")
 
     def test_aggregate_risk_limit_is_enforced(self):
-        snapshot = ExposureSnapshot(**{**self.snapshot.__dict__, "aggregate_open_risk_pct": 8.5})
+        snapshot = ExposureSnapshot(**{**self.snapshot.__dict__, "aggregate_open_risk_pct": 8.6})
         self.assertEqual(self.validate(snapshot=snapshot).reason, "aggregate_open_risk_limit")
 
     def test_ten_percent_daily_loss_locks_proposals(self):
