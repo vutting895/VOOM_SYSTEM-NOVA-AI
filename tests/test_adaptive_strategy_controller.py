@@ -121,6 +121,43 @@ class AdaptiveStrategyControllerTests(unittest.TestCase):
         with self.assertRaises(ControllerInputError):
             select_research_strategy(context, catalog=self.catalog)
 
+    def test_rejects_catalog_with_execution_enabled(self):
+        import copy
+        from workers.strategy import StrategyCatalogError
+        unsafe = copy.deepcopy(self.catalog)
+        unsafe["strategies"][0]["safety"]["orders_enabled"] = True
+        with self.assertRaises(StrategyCatalogError):
+            validate_strategy_catalog(unsafe)
+
+    def test_rejects_duplicate_strategy_ids(self):
+        import copy
+        from workers.strategy import StrategyCatalogError
+        duplicate = copy.deepcopy(self.catalog)
+        duplicate["strategies"].append(copy.deepcopy(duplicate["strategies"][0]))
+        with self.assertRaises(StrategyCatalogError):
+            validate_strategy_catalog(duplicate)
+
+    def test_rejects_supporting_model_vote_without_calibration(self):
+        import copy
+        from workers.strategy import StrategyCatalogError
+        unsafe = copy.deepcopy(self.catalog)
+        unsafe["supporting_models"][0]["signal_vote_enabled"] = True
+        with self.assertRaises(StrategyCatalogError):
+            validate_strategy_catalog(unsafe)
+
+    def test_synthetic_regime_simulation_selects_or_abstains(self):
+        expected = {
+            "trend": "smc-mean-rejection",
+            "transition": "smc-mean-rejection",
+            "range": None,
+            "high-volatility": None,
+            "unknown": None,
+        }
+        for regime, strategy_id in expected.items():
+            with self.subTest(regime=regime):
+                result = select_research_strategy(valid_context(regime), catalog=self.catalog)
+                self.assertEqual(result["selected_strategy_id"], strategy_id)
+
     def test_supporting_models_never_cast_strategy_votes(self):
         result = select_research_strategy(valid_context(), catalog=self.catalog)
         self.assertFalse(result["supporting_models"]["xgboost"]["signal_vote_enabled"])
