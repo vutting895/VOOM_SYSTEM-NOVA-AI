@@ -28,6 +28,26 @@
       },
       "required": ["id", "userId", "symbol", "side", "lots", "entryPrice", "status", "createdAt"]
     },
+    "BacktestReport": {
+      "title": "Backtest Report",
+      "description": "Saved quantitative backtest results and metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "strategyId": { "type": "string", "maxLength": 64 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "timeframe": { "type": "string", "maxLength": 16 },
+        "initialBalance": { "type": "number" },
+        "finalBalance": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "winRatePct": { "type": "number" },
+        "profitFactor": { "type": "number" },
+        "maxDrawdownPct": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "strategyId", "symbol", "createdAt"]
+    },
     "ModuleTelemetry": {
       "title": "MTRADERS Module Telemetry",
       "description": "Real-time performance state of the 30 MTRADERS strategy modules",
@@ -53,6 +73,10 @@
     "/users/{userId}/trades/{tradeId}": {
       "schema": { "$ref": "PortfolioTrade" },
       "description": "User portfolio trades subcollection"
+    },
+    "/users/{userId}/backtests/{backtestId}": {
+      "schema": { "$ref": "BacktestReport" },
+      "description": "User saved backtest reports subcollection"
     },
     "/users/{userId}/telemetry/{telemetryId}": {
       "schema": { "$ref": "ModuleTelemetry" },

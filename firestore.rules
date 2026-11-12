@@ -42,6 +42,23 @@ service cloud.firestore {
              data.createdAt is string && data.createdAt.size() <= 64;
     }
 
+    function isValidBacktest(data) {
+      return data.keys().hasAll(['id', 'userId', 'strategyId', 'symbol', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'userId', 'strategyId', 'symbol', 'timeframe', 'initialBalance', 'finalBalance', 'netProfit', 'winRatePct', 'profitFactor', 'maxDrawdownPct', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.strategyId is string && data.strategyId.size() <= 64 &&
+             data.symbol is string && data.symbol.size() <= 32 &&
+             (!('timeframe' in data) || (data.timeframe is string && data.timeframe.size() <= 16)) &&
+             (!('initialBalance' in data) || data.initialBalance is number) &&
+             (!('finalBalance' in data) || data.finalBalance is number) &&
+             (!('netProfit' in data) || data.netProfit is number) &&
+             (!('winRatePct' in data) || data.winRatePct is number) &&
+             (!('profitFactor' in data) || data.profitFactor is number) &&
+             (!('maxDrawdownPct' in data) || data.maxDrawdownPct is number) &&
+             data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
     function isValidTelemetry(data) {
       return data.keys().hasAll(['id', 'userId', 'moduleId', 'moduleName', 'updatedAt']) &&
              data.keys().hasOnly(['id', 'userId', 'moduleId', 'moduleName', 'winRate', 'realizedProfit', 'status', 'updatedAt']) &&
@@ -68,6 +85,14 @@ service cloud.firestore {
         allow get, list: if isOwner(userId);
         allow create: if isOwner(userId) && isValidId(tradeId) && isValidTrade(request.resource.data) && request.resource.data.userId == userId;
         allow update: if isOwner(userId) && isValidTrade(request.resource.data) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+
+      // Backtests Subcollection
+      match /backtests/{backtestId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidId(backtestId) && isValidBacktest(request.resource.data) && request.resource.data.userId == userId;
+        allow update: if isOwner(userId) && isValidBacktest(request.resource.data) && request.resource.data.userId == resource.data.userId;
         allow delete: if isOwner(userId);
       }
 
