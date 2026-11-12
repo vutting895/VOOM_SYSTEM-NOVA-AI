@@ -150,6 +150,12 @@ class HybridMetaDecisionTests(unittest.TestCase):
         with self.assertRaises(HybridDecisionInputError):
             evaluate_hybrid_decision(bad_context, evidence())
 
+    def test_rejects_non_finite_data_age(self):
+        bad_context = context()
+        bad_context["age_seconds"] = float("nan")
+        with self.assertRaises(HybridDecisionInputError):
+            evaluate_hybrid_decision(bad_context, evidence())
+
     def test_rejects_non_research_mode(self):
         bad_context = context()
         bad_context["mode"] = "live"
