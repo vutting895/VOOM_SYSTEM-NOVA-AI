@@ -37,7 +37,7 @@ Version: rule-based-regime-eligibility.v1
 1. Accept research mode only. Any live/execute mode is rejected.
 2. Require PASS data quality, canonical SHA-256, closed bars only, and freshness within the supplied maximum age.
 3. Match exact instrument and timeframe contract.
-4. Match a regime label produced by a separately validated feature pipeline. The controller does not infer regimes from raw candles.
+4. Match a regime label produced by a separately validated feature pipeline. The regime evidence must be PASS and bound to the same dataset SHA-256. The controller does not infer regimes from raw candles.
 5. Exclude BLOCKED and CATALOG-ONLY strategies.
 6. Select by stable registry priority only. Priority is a deterministic tie-break, not a performance ranking.
 7. If no candidate passes, return NO_ELIGIBLE_STRATEGY; never force a signal.
