@@ -19,7 +19,7 @@ const json = (value, status = 200, origin = "") => new Response(JSON.stringify(v
   status,
   headers: { ...BASE, "Content-Type": "application/json; charset=utf-8", ...cors(origin) }
 });
-const allowed = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const allowed = new Set(["/health", "/api/account", "/api/exposure", "/api/symbols", "/api/quotes"]);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function bearer(request) {
