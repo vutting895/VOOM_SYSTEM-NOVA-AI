@@ -160,14 +160,15 @@ def _build_4h_context(bars: list[dict[str, Any]], swing_left: int, swing_right: 
                     "created_at": bar["timestamp"], "source_index": index,
                 })
 
-        # Mitigation is applied only from this bar onward; invalidated zones are removed.
-        survivors = []
-        for zone in active_zones:
-            touched = float(bar["low"]) <= zone["upper"] and float(bar["high"]) >= zone["lower"]
-            if zone["created_at"] != bar["timestamp"] and touched:
-                continue
-            survivors.append(zone)
-        active_zones = survivors
+        # A first touch is a valid retest, not automatic invalidation. Remove a
+        # bullish zone only after a completed close below its lower boundary;
+        # remove a bearish zone only after a completed close above its upper boundary.
+        close = float(bar["close"])
+        active_zones = [
+            zone for zone in active_zones
+            if not ((zone["direction"] == "bullish" and close < zone["lower"])
+                    or (zone["direction"] == "bearish" and close > zone["upper"]))
+        ]
 
         high_pivot, low_pivot = active_pivots["high"], active_pivots["low"]
         eq = None
@@ -303,7 +304,8 @@ def simulate_smc_mean_rejection(
                         ("slippage_per_unit", slippage_per_unit)):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
             raise StrategyInputError(f"{name} must be finite numeric")
-    if initial_equity <= 0 or not (0 < risk_pct <= 0.01) or point_value <= 0:
+    if (initial_equity <= 0 or isinstance(risk_pct, bool) or not isinstance(risk_pct, (int, float))
+            or not (0 < risk_pct <= 0.01) or point_value <= 0):
         raise StrategyInputError("equity/point_value must be positive and risk_pct must be <= 1%")
     if not (0 <= fee_rate_per_side < 0.05 and 0 <= slippage_per_unit < 1):
         raise StrategyInputError("invalid cost assumptions")
