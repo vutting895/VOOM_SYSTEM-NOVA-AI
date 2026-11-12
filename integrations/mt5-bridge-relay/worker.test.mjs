@@ -35,14 +35,29 @@ function request(path, options = {}) {
   });
 }
 
-test("health is public and explicitly read-only", async () => {
-  const response = await worker.fetch(request("/health"), {});
+test("public liveness is separate from tenant bridge health", async () => {
+  const response = await worker.fetch(request("/healthz"), {});
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.status, "relay_ready");
   assert.equal(body.ordersEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
   assert.equal(body.order_submission_enabled, false);
+});
+
+test("tenant bridge health rejects missing credentials", async () => {
+  const response = await worker.fetch(request("/health"), makeEnv());
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "authentication_required");
+});
+
+test("authenticated tenant bridge health requires an active WebSocket", async () => {
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), makeEnv());
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bridge_not_connected");
 });
 
 test("account route rejects missing credentials", async () => {
