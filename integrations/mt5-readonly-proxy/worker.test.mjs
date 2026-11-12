@@ -283,6 +283,84 @@ test("capacity coordinator reserves only from a fresh authenticated broker snaps
   }
 });
 
+test("capacity coordinator rejects broker snapshots whose ticket arrays do not match counts", async () => {
+  const originalFetch = globalThis.fetch;
+  let rpcCalls = 0;
+  const testTenantId = "00000000-0000-4000-8000-000000000321";
+  const env = { ...envWithRoutes(), SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-test-only" };
+  env.MT5_TENANT_ROUTES = JSON.stringify({
+    [testTenantId]: { tenantId: testTenantId, token: BRIDGE_TOKEN }
+  });
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.pathname === "/auth/v1/user") return Response.json({ id: "user-test-id" });
+    if (url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+      environment: "demo", status: "connected", bridge_route_id: testTenantId
+    }]);
+    if (url.origin === RELAY_ORIGIN) return Response.json({
+      account_login: 12345678, server: "Exness-MT5Trial",
+      open_positions: 2, open_pending_orders: 1,
+      position_tickets: ["101"], pending_order_tickets: ["201"],
+      as_of: new Date().toISOString(), order_submission_enabled: false,
+      liveTradingEnabled: false
+    });
+    if (url.pathname === "/rest/v1/rpc/reserve_nova_order_capacity") rpcCalls += 1;
+    throw new Error("Invalid snapshot must not call RPC");
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/capacity/reserve?connection_id=" + CONNECTION_ID,
+      { method: "POST", headers: {
+        Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json"
+      }, body: JSON.stringify({ command_id: "00000000-0000-4000-8000-000000000123" }) }
+    ), env);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "invalid_broker_snapshot");
+    assert.equal(rpcCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("capacity coordinator reports account full when atomic reservation RPC denies the slot", async () => {
+  const originalFetch = globalThis.fetch;
+  const testTenantId = "00000000-0000-4000-8000-000000000321";
+  const env = { ...envWithRoutes(), SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-test-only" };
+  env.MT5_TENANT_ROUTES = JSON.stringify({
+    [testTenantId]: { tenantId: testTenantId, token: BRIDGE_TOKEN }
+  });
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.pathname === "/auth/v1/user") return Response.json({ id: "user-test-id" });
+    if (url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+      environment: "demo", status: "connected", bridge_route_id: testTenantId
+    }]);
+    if (url.origin === RELAY_ORIGIN) return Response.json({
+      account_login: 12345678, server: "Exness-MT5Trial",
+      open_positions: 5, open_pending_orders: 0,
+      position_tickets: ["101", "102", "103", "104", "105"], pending_order_tickets: [],
+      as_of: new Date().toISOString(), order_submission_enabled: false,
+      liveTradingEnabled: false
+    });
+    if (url.pathname === "/rest/v1/rpc/reserve_nova_order_capacity") return Response.json(false);
+    throw new Error("Unexpected outbound request " + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/capacity/reserve?connection_id=" + CONNECTION_ID,
+      { method: "POST", headers: {
+        Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json"
+      }, body: JSON.stringify({ command_id: "00000000-0000-4000-8000-000000000124" }) }
+    ), env);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).reserved, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("capacity coordinator fails closed when service role key is absent", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
