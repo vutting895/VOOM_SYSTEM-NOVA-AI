@@ -20,11 +20,17 @@
     "Source identity transition from MTRADERS All In One v1.02 to NOVA QUANTUM v1.02.",
     "No strategy rewrite is implied by the rename.",
     "No EX5 binary has been built or provenance-verified.",
-    "OnTick is intentionally empty and execution is rejected at initialization."
+    "OnTick is intentionally empty and execution is rejected at initialization.",
+    "CircleCI PR-head Pipeline #903 reports ERROR; root cause and failing job remain unknown because logs could not be retrieved.",
+    "Netlify PR #310 Deploy Preview reports SUCCESS; this is website validation only, not an EA build or runtime test.",
+    "MetaEditor64.exe was not found in the inspected Program Files locations; search coverage was not exhaustive."
   ],
   "static_review_path": "integrations/mt5/NOVA_QUANTUM_v1.02_STATIC_REVIEW.md",
   "static_review_status": "PASS_WITH_LIMITATIONS",
+  "circleci_pipeline_number": 903,
   "circleci_pipeline_status": "ERROR_UNRESOLVED",
+  "netlify_deploy_preview_status": "SUCCESS_WEBSITE_ONLY",
+  "github_actions_pr_runs": "NONE_RETURNED_FOR_INSPECTED_HEAD",
   "compile_validation": "NOT_RUN",
   "release_readiness": "BLOCKED"
 }
