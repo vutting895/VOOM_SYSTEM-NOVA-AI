@@ -75,3 +75,24 @@ A count-then-submit sequence is not atomic. Multiple EA instances or command wor
 - Static checks are not a PostgreSQL execution proof. The SQL integration script and multi-session concurrency test remain unexecuted.
 - Supabase project `Voom_system` was inspected read-only and is ACTIVE_HEALTHY. Its applied migration list does not include `202611120001_nova_account_order_capacity_reservations`; no production migration was applied.
 - The reservation RPC is still not invoked by any deployed backend. The customer proxy only returns broker exposure; it does not reserve capacity or authorize an order.
+
+## Account capacity coordinator — reservation-only integration (2026-11-12)
+
+### Endpoint
+- `POST /api/capacity/reserve?connection_id=<owned broker connection UUID>`
+- Requires a valid Supabase user session. The proxy owner-scopes the broker connection before any bridge or RPC call.
+- Request body accepts exactly one field: `command_id` (UUID). The caller cannot supply tenant, account login, server, exposure counts, snapshot time, or reservation ID.
+- The proxy obtains the tenant route from the owner-scoped connection, fetches `GET /api/exposure` from that dedicated relay, validates the account identity/counts/ticket-array lengths/read-only flags, then calls `reserve_nova_order_capacity` using the server-only `SUPABASE_SERVICE_ROLE_KEY`.
+- The service-role key is never returned to the browser or forwarded to the MT5 Bridge.
+- A successful call reserves one capacity slot for 30 seconds. A duplicate command or a full account returns HTTP 409. Missing service-role configuration, stale/invalid broker data, bridge failure, or RPC failure fails closed.
+- The endpoint only reserves capacity. It does not submit an order, confirm a broker ticket, release a failed broker submission, or reconcile broker state. No order-send endpoint exists in this path.
+
+### Deployment configuration
+- The Customer Read-only Proxy requires `SUPABASE_SERVICE_ROLE_KEY` as a protected server-side Worker secret before this endpoint can return a reservation.
+- Do not place this key in Vite variables, browser code, Netlify public environment variables, MT5 EA source, relay bindings, or logs.
+- No secret was created or changed as part of this code change. Without the secret, the endpoint intentionally returns `503 capacity_service_not_configured`.
+
+### Release gate
+- CI unit coverage includes the happy path and fail-closed behavior when the service-role secret is absent.
+- Before any production enablement, run the SQL integration script against a disposable PostgreSQL/Supabase preview database, add a genuine multi-session race test, verify exact owner isolation and duplicate-command behavior, and run the Exness Demo lifecycle.
+- This is a reservation preflight, not an executable trading pipeline. Keep Live Trading OFF and order execution DISABLED.
