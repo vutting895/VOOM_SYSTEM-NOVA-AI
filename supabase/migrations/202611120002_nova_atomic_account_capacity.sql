@@ -235,8 +235,8 @@ BEGIN
      OR p_open_positions + p_open_pending_orders > 5
      OR pg_catalog.cardinality(p_confirmed_broker_tickets) > p_open_positions + p_open_pending_orders
      OR EXISTS (
-       SELECT 1 FROM pg_catalog.unnest(p_confirmed_broker_tickets) AS ticket
-       WHERE ticket IS NULL OR pg_catalog.btrim(ticket) = ''
+       SELECT 1 FROM pg_catalog.unnest(p_confirmed_broker_tickets) AS t(ticket)
+       WHERE t.ticket IS NULL OR pg_catalog.btrim(t.ticket) = ''
      )
      OR p_snapshot_at IS NULL
      OR p_snapshot_at > pg_catalog.clock_timestamp() + interval '1 second'
