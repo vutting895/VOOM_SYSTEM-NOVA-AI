@@ -182,3 +182,97 @@ test("a wrong bearer token cannot attach to a tenant session", () => {
   const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
 });
+
+
+test("valid tenant A token cannot be replayed with tenant B identity", async () => {
+  const tenantB = "tenant_87654321";
+  const tokenB = "different_read_only_token_for_tenant_b_123456";
+  let routed = false;
+  const env = makeEnv(undefined, {
+    MT5_TENANT_ROUTES: JSON.stringify({
+      [TENANT_ID]: { tenantId: TENANT_ID, token: TOKEN },
+      [tenantB]: { tenantId: tenantB, token: tokenB }
+    }),
+    BRIDGE_SESSIONS: {
+      idFromName: (name) => name,
+      get: () => ({ fetch: async () => { routed = true; return Response.json({ status: "ok" }); } })
+    }
+  });
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: tenantB
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "invalid_bridge_token");
+  assert.equal(routed, false);
+});
+
+test("malformed tenant identity is rejected before Durable Object routing", async () => {
+  let routed = false;
+  const env = makeEnv(undefined, {
+    BRIDGE_SESSIONS: {
+      idFromName: () => { routed = true; return TENANT_ID; },
+      get: () => ({ fetch: async () => { routed = true; return Response.json({ status: "ok" }); } })
+    }
+  });
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: "tenant invalid!"
+  }), env);
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "tenant_mismatch");
+  assert.equal(routed, false);
+});
+
+test("tenant session health requires a matching active socket and a Bridge response", async () => {
+  let session;
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: TENANT_ID }),
+    send(payload) {
+      const message = JSON.parse(payload);
+      session.webSocketMessage(socket, JSON.stringify({
+        type: "response",
+        id: message.id,
+        status: 200,
+        body: JSON.stringify({
+          status: "ok",
+          terminal_connected: true,
+          mode: "read-only",
+          order_submission_enabled: false
+        })
+      }));
+    }
+  };
+  session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.terminal_connected, true);
+  assert.equal(body.order_submission_enabled, false);
+});
+
+test("tenant session health cannot use another tenant's active socket", async () => {
+  const tenantB = "tenant_87654321";
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: tenantB }),
+    send() { assert.fail("must not send a request to another tenant's socket"); }
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bridge_not_connected");
+});
