@@ -297,18 +297,55 @@ def simulate_smc_mean_rejection(
     fee_rate_per_side: float = 0.0,
     slippage_per_unit: float = 0.0,
 ) -> dict[str, Any]:
-    """Single-position, cost-aware simulator; 50% at TP1, then BE/TP2 for the remainder."""
+    """Single-position simulator; cost-aware 1% risk, 50% TP1, BE remainder, TP2."""
     _validate_bars(m5_bars, "m5_bars")
-    for name, value in (("initial_equity", initial_equity), ("risk_pct", risk_pct),
-                        ("point_value", point_value), ("fee_rate_per_side", fee_rate_per_side),
-                        ("slippage_per_unit", slippage_per_unit)):
+    numeric = {
+        "initial_equity": initial_equity,
+        "risk_pct": risk_pct,
+        "point_value": point_value,
+        "fee_rate_per_side": fee_rate_per_side,
+        "slippage_per_unit": slippage_per_unit,
+    }
+    for name, value in numeric.items():
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
             raise StrategyInputError(f"{name} must be finite numeric")
-    if (initial_equity <= 0 or isinstance(risk_pct, bool) or not isinstance(risk_pct, (int, float))
-            or not (0 < risk_pct <= 0.01) or point_value <= 0):
+    if initial_equity <= 0 or not (0 < risk_pct <= 0.01) or point_value <= 0:
         raise StrategyInputError("equity/point_value must be positive and risk_pct must be <= 1%")
     if not (0 <= fee_rate_per_side < 0.05 and 0 <= slippage_per_unit < 1):
         raise StrategyInputError("invalid cost assumptions")
+    if not isinstance(signals, list):
+        raise StrategyInputError("signals must be a list")
+
+    previous_entry = -1
+    for index, signal in enumerate(signals):
+        if not isinstance(signal, dict) or signal.get("strategy_id") != STRATEGY_ID:
+            raise StrategyInputError(f"signals[{index}] must be an SMC Mean Rejection signal")
+        direction = signal.get("direction")
+        entry_i = signal.get("entry_index")
+        signal_i = signal.get("signal_index")
+        if direction not in ("long", "short"):
+            raise StrategyInputError(f"signals[{index}].direction is invalid")
+        if (isinstance(entry_i, bool) or not isinstance(entry_i, int)
+                or isinstance(signal_i, bool) or not isinstance(signal_i, int)
+                or not 1 <= entry_i < len(m5_bars) or not 0 <= signal_i < entry_i):
+            raise StrategyInputError(f"signals[{index}] has invalid signal/entry indexes")
+        if entry_i <= previous_entry:
+            raise StrategyInputError("signals must be strictly ordered by entry_index")
+        previous_entry = entry_i
+        values = []
+        for key in ("entry_price", "stop_price", "target_1", "target_2"):
+            value = signal.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not isfinite(float(value)):
+                raise StrategyInputError(f"signals[{index}].{key} must be finite numeric")
+            values.append(float(value))
+        entry, stop, tp1, tp2 = values
+        actual_open = float(m5_bars[entry_i]["open"])
+        if abs(actual_open - entry) > max(1e-10, abs(actual_open) * 1e-10):
+            raise StrategyInputError(f"signals[{index}] entry_price must equal next-bar open")
+        if direction == "long" and not stop < entry < tp1 <= tp2:
+            raise StrategyInputError(f"signals[{index}] has inconsistent long stop/targets")
+        if direction == "short" and not stop > entry > tp1 >= tp2:
+            raise StrategyInputError(f"signals[{index}] has inconsistent short stop/targets")
 
     equity = float(initial_equity)
     peak = equity
@@ -317,64 +354,83 @@ def simulate_smc_mean_rejection(
     busy_until = -1
     for signal in signals:
         entry_i = int(signal["entry_index"])
-        if entry_i <= busy_until or entry_i >= len(m5_bars):
+        if entry_i <= busy_until:
             continue
         direction = signal["direction"]
         entry = float(signal["entry_price"])
         stop = float(signal["stop_price"])
         tp1, tp2 = float(signal["target_1"]), float(signal["target_2"])
         distance = abs(entry - stop)
-        quantity = equity * risk_pct / (distance * point_value)
+
+        # Include estimated round-trip fees and slippage in the 1% sizing budget.
+        expected_cost_per_unit = (
+            point_value * (abs(entry) + abs(stop)) * fee_rate_per_side
+            + 2 * point_value * slippage_per_unit
+        )
+        risk_per_unit = distance * point_value + expected_cost_per_unit
+        quantity = equity * risk_pct / risk_per_unit
         if quantity <= 0 or not isfinite(quantity):
             continue
+
         remaining = quantity
         realized = 0.0
+        weighted_exit_value = 0.0
         partial = False
         exit_i = None
         exit_reason = None
         for j in range(entry_i, len(m5_bars)):
             bar = m5_bars[j]
-            high, low = float(bar["high"]), float(bar["low"])
+            high, low, open_price = float(bar["high"]), float(bar["low"]), float(bar["open"])
             if not partial:
                 stop_hit = low <= stop if direction == "long" else high >= stop
                 tp1_hit = high >= tp1 if direction == "long" else low <= tp1
-                if stop_hit:  # conservative when stop and TP1 both touch in one OHLC bar
-                    exit_i, exit_reason = j, "stop_loss_before_tp1"
-                    realized += remaining * ((stop - entry) if direction == "long" else (entry - stop)) * point_value
+                if stop_hit:  # Conservative if stop and TP1 touch in the same OHLC bar.
+                    fill = min(stop, open_price) if direction == "long" else max(stop, open_price)
+                    realized += remaining * ((fill - entry) if direction == "long" else (entry - fill)) * point_value
+                    weighted_exit_value += remaining * fill
                     remaining = 0.0
+                    exit_i, exit_reason = j, "stop_loss_before_tp1"
                     break
                 if tp1_hit:
                     closed = quantity * 0.5
                     realized += closed * ((tp1 - entry) if direction == "long" else (entry - tp1)) * point_value
+                    weighted_exit_value += closed * tp1
                     remaining -= closed
                     partial = True
-                    # Do not assume an intrabar path from TP1 to TP2. The remainder
-                    # is conservatively closed at breakeven if TP2 is also touched.
                     tp2_hit_same_bar = high >= tp2 if direction == "long" else low <= tp2
                     if tp2_hit_same_bar:
-                        exit_i, exit_reason = j, "tp1_then_ambiguous_tp2_remainder_at_be"
-                        realized += 0.0
+                        # Intrabar order is unknown; close the remainder at BE, not TP2.
+                        weighted_exit_value += remaining * entry
                         remaining = 0.0
+                        exit_i, exit_reason = j, "tp1_then_ambiguous_tp2_remainder_at_be"
                         break
             else:
                 be_hit = low <= entry if direction == "long" else high >= entry
                 tp2_hit = high >= tp2 if direction == "long" else low <= tp2
-                if be_hit:  # conservative if BE and TP2 are both touched in the same bar
-                    exit_i, exit_reason = j, "breakeven_before_tp2"
+                if be_hit:  # Conservative if BE and TP2 touch in the same OHLC bar.
+                    fill = min(entry, open_price) if direction == "long" else max(entry, open_price)
+                    realized += remaining * ((fill - entry) if direction == "long" else (entry - fill)) * point_value
+                    weighted_exit_value += remaining * fill
                     remaining = 0.0
+                    exit_i, exit_reason = j, "breakeven_before_tp2"
                     break
                 if tp2_hit:
                     realized += remaining * ((tp2 - entry) if direction == "long" else (entry - tp2)) * point_value
+                    weighted_exit_value += remaining * tp2
                     remaining = 0.0
                     exit_i, exit_reason = j, "tp2"
                     break
+
         if exit_i is None:
             exit_i = len(m5_bars) - 1
             last = float(m5_bars[exit_i]["close"])
             realized += remaining * ((last - entry) if direction == "long" else (entry - last)) * point_value
+            weighted_exit_value += remaining * last
             remaining = 0.0
             exit_reason = "end_of_data"
-        turnover = quantity * point_value * (abs(entry) + abs(float(m5_bars[exit_i]["close"])))
+
+        average_exit_price = weighted_exit_value / quantity
+        turnover = quantity * point_value * (abs(entry) + abs(average_exit_price))
         costs = turnover * fee_rate_per_side + quantity * point_value * slippage_per_unit * 2
         net = realized - costs
         equity += net
@@ -382,15 +438,16 @@ def simulate_smc_mean_rejection(
         max_dd = max(max_dd, (peak - equity) / peak if peak > 0 else 0.0)
         trades.append({
             "direction": direction, "entry_index": entry_i, "exit_index": exit_i,
-            "entry_price": entry, "stop_price": stop, "target_1": tp1, "target_2": tp2,
-            "quantity": quantity, "partial_tp1": partial, "gross_pnl": realized,
+            "entry_price": entry, "average_exit_price": average_exit_price,
+            "stop_price": stop, "target_1": tp1, "target_2": tp2,
+            "quantity": quantity, "risk_budget": equity * risk_pct,
+            "partial_tp1": partial, "gross_pnl": realized,
             "estimated_costs": costs, "net_pnl": net, "equity_after": equity,
             "exit_reason": exit_reason,
         })
         busy_until = exit_i
 
     wins = sum(1 for trade in trades if trade["net_pnl"] > 0)
-    losses = sum(1 for trade in trades if trade["net_pnl"] < 0)
     gross_profit = sum(t["net_pnl"] for t in trades if t["net_pnl"] > 0)
     gross_loss = -sum(t["net_pnl"] for t in trades if t["net_pnl"] < 0)
     return {
@@ -406,6 +463,7 @@ def simulate_smc_mean_rejection(
         "fill_assumptions": ["signal only after completed 5M close",
                              "entry at next 5M open",
                              "same-bar stop/target ambiguity resolved conservatively",
-                             "TP1 closes 50%; remainder moves to breakeven"],
+                             "TP1 closes 50%; remainder moves to breakeven",
+                             "estimated fees and slippage are included in position sizing"],
         "orders_submitted": False, "execution_enabled": False, "live_trading_enabled": False,
     }
