@@ -11,7 +11,6 @@ import {
   Percent,
   ShieldCheck,
   Calendar,
-  Layers,
   ArrowUpRight,
   ArrowDownRight,
   AlertCircle,
@@ -54,7 +53,6 @@ export default function BacktestSimulatorView() {
   const STRATEGIES = [
     { id: 'smc-mean-rejection', name: 'SMC Mean Rejection & 4H Order Block' },
     { id: 'momentum-bos-ob', name: 'Momentum Break of Structure (BOS) & Sweep' },
-    { id: 'elliott-wave-impulse', name: 'Elliott Wave 3 Impulse & Fib Extension' },
     { id: 'xgboost-volatility', name: 'XGBoost Multi-Factor Volatility Breakout' },
   ];
 
