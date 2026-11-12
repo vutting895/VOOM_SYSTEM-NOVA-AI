@@ -10,10 +10,14 @@ CREATE TABLE IF NOT EXISTS private.nova_order_capacity_accounts (
   account_login bigint NOT NULL CHECK (account_login > 0),
   account_server text NOT NULL CHECK (char_length(btrim(account_server)) BETWEEN 1 AND 120),
   created_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (tenant_id, account_login, account_server),
-  CONSTRAINT nova_order_capacity_account_global_owner
-    UNIQUE (account_login, account_server)
+  PRIMARY KEY (tenant_id, account_login, account_server)
 );
+
+-- Also applies when the prior reservation table already exists from an earlier
+-- migration: CREATE TABLE IF NOT EXISTS alone would not add the global key.
+-- Existing duplicate account ownership intentionally makes this migration fail.
+CREATE UNIQUE INDEX IF NOT EXISTS nova_order_capacity_account_global_owner_idx
+  ON private.nova_order_capacity_accounts (account_login, account_server);
 
 CREATE TABLE IF NOT EXISTS private.nova_order_capacity_reservations (
   reservation_id uuid PRIMARY KEY,
