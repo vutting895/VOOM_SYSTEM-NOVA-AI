@@ -73,9 +73,9 @@ export interface IntelligenceModelStatus {
   id: string;
   name: string;
   tag: string;
-  status: 'ACTIVE' | 'TRAINED' | 'CONVERGED' | 'CONTINUOUS_ADAPTATION' | 'READY';
-  accuracyPct: number;
-  latencyMs: number;
+  status: 'ACTIVE' | 'TRAINED' | 'CONVERGED' | 'CONTINUOUS_ADAPTATION' | 'READY' | 'RESEARCH_ONLY' | 'NOT_VALIDATED' | 'DISABLED';
+  accuracyPct: number | null;
+  latencyMs: number | null;
   primaryMetricLabel: string;
   primaryMetricValue: string;
   details: Record<string, any>;
@@ -87,7 +87,7 @@ export interface IntelligenceResponse {
   ok: boolean;
   engineArchitecture: string;
   models: IntelligenceModelStatus[];
-  ensembleConfidencePct: number;
+  ensembleConfidencePct: number | null;
   marketRegimeDetected: string;
   safetyPolicy: string;
 }
