@@ -9,6 +9,10 @@
   "binary_path": null,
   "binary_sha256": null,
   "compiler": null,
+  "compiler_process": "metaeditor64.exe",
+  "compiler_process_id": 3636,
+  "compiler_executable_path": null,
+  "compiler_readiness": "UNVERIFIED",
   "build_timestamp_utc": null,
   "metaeditor_compile": "NOT_RUN",
   "strategy_tester": "NOT_RUN",
@@ -23,7 +27,7 @@
     "OnTick is intentionally empty and execution is rejected at initialization.",
     "CircleCI PR-head Pipeline #903 reports ERROR; root cause and failing job remain unknown because logs could not be retrieved.",
     "Netlify PR #310 Deploy Preview reports SUCCESS; this is website validation only, not an EA build or runtime test.",
-    "MetaEditor64.exe was not found in the inspected Program Files locations; search coverage was not exhaustive."
+    "A metaeditor64.exe process was observed as PID 3636, but its executable path and compiler readiness could not be verified."
   ],
   "static_review_path": "integrations/mt5/NOVA_QUANTUM_v1.02_STATIC_REVIEW.md",
   "static_review_status": "PASS_WITH_LIMITATIONS",
