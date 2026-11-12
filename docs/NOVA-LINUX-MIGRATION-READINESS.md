@@ -186,3 +186,65 @@ Never use force-push, delete user data, overwrite an unreviewed workspace, or re
 
 - 2026-11-12: Created this readiness plan from read-only GitHub, Cloudflare, Netlify, Supabase and Sprites evidence.
 - No source code, hosted settings, secrets, database rows, migrations, backups, deployments, broker settings or trading flags were changed.
+
+
+## 9. Architecture decision — Hybrid Windows Development + Linux/Cloud
+
+**Decision recorded:** 2026-11-12, requested by the project owner. Windows is an approved first-class development and operational control environment. NOVA is not a Linux-only migration.
+
+### 9.1 Target responsibilities
+
+| Layer | Primary responsibilities | Non-goals / constraints |
+|---|---|---|
+| Windows developer workstation | Google AI Studio, VS Code, Git, MQL5/MetaEditor, local debugging, integration control and release preparation | Never store secrets in source control or commit local credentials |
+| Windows MT5 terminal + Bridge | Exness Demo connectivity, authenticated account/quote/history reads, terminal diagnostics and rollback service | Read-only only; no order/position mutation, no withdrawal/transfer |
+| Linux/Cloud CPU services | Python APIs/workers, deterministic tests, backtesting, scheduled data validation and CPU-compatible research/training | No paid compute by default; no model promotion without data/OOS/human gates |
+| Optional GPU training runtime | Explicitly approved short-lived Colab/Kaggle or other free-tier session when available | No assumption of availability; no paid GPU provisioning without separate approval |
+| Cloudflare Workers | Edge routing, authenticated tenant gateway and lightweight event/API services | Workers are not a general-purpose Linux VM |
+| Netlify | Frontend hosting and deploy previews | Preview readiness is not Production release proof |
+| Supabase | Auth, PostgreSQL and Storage where already configured | No schema/data migration before encrypted backup and isolated restore pass |
+| GitHub | Canonical source, feature branches, PR review, exact-head CI and release provenance | No direct main edits, force push or bypass of review |
+
+### 9.2 Windows ↔ Linux/Cloud trust boundary
+
+- Treat Windows Bridge and Linux services as separate trust zones. Connect only through authenticated, encrypted, explicitly allowlisted APIs.
+- Do not expose MT5 terminal ports or desktop/RDP services publicly. Do not make the Windows workstation a public inbound server.
+- Use short-lived or rotatable service credentials held in provider secret stores; never copy broker credentials into Git, notebook output, logs or migration artifacts.
+- Enforce tenant identity at the authenticated gateway and again at the data/service boundary. Reject missing identity, stale sessions and foreign-tenant requests.
+- Linux research workers receive market-data artifacts and sanitized outputs only; they do not receive broker write credentials.
+- Keep Windows Bridge available and unchanged as rollback until Linux acceptance is demonstrated.
+
+### 9.3 Read-only trading safety invariants
+
+The Hybrid architecture does not grant execution authority. Maintain all of the following:
+- Exness MT5 Demo only for integration validation.
+- `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
+- Bridge/API allowlists limited to approved read endpoints such as account, quotes, positions/history snapshots and health; no order send, modify, close, deposit, withdrawal or transfer capability.
+- Anonymous access and foreign-tenant access must be denied.
+- A successful health check alone is insufficient: acceptance requires an authenticated owner session, account identity, live quotes, freshness/reconnect behavior and foreign-tenant denial.
+- The EA's maximum-five-order policy remains a separate safety constraint; this architecture does not enable EA execution or prove the cap is atomically enforced.
+
+### 9.4 Revised migration sequence
+
+1. **Windows baseline first:** record workstation toolchain versions, source SHA, MT5 terminal/Bridge version and a restorable local configuration snapshot with secrets excluded.
+2. **Backup/restore gate:** complete NOVA-only inventory, encrypted Production logical exports, integrity verification, independent archive read-back and isolated restore. No Production schema/data writes before this gate.
+3. **Linux development lane:** reproduce the repo in a disposable Linux environment; choose one package manager/lockfile strategy; execute clean install, tests, lint/typecheck and build with inspectable job steps.
+4. **Linux CPU research lane:** run deterministic tests/backtests against hash-bound, provenance-approved datasets. Training remains disabled until dataset completeness, sealed OOS and approval gates pass.
+5. **Linux service lane:** deploy only to isolated staging/preview; validate auth, tenant isolation, health, logs, resource limits and rollback. Do not create paid resources under the zero-additional-spend policy.
+6. **Headless MT5 evaluation:** keep Windows Bridge as primary; Linux/Wine/Xvfb is an optional candidate, not a mandatory replacement. Require real authenticated Exness Demo account/quote/history E2E and tenant-isolation proof before any traffic shift.
+7. **Controlled cutover:** migrate one stateless subsystem at a time, retain exact prior deploy/version/config references, run post-change read-only checks and roll back immediately on any identity, freshness, health or tenant-isolation regression.
+
+### 9.5 Revised exit criteria
+
+Hybrid migration is ready only when:
+- Windows development and MT5 rollback are documented and reproducible.
+- Backup integrity and isolated restore both PASS with inspectable evidence.
+- Linux CI runs on a real runner with non-zero runner ID, non-empty steps/logs and all required exact-head checks passing.
+- Linux services pass auth, tenant isolation, observability and rollback tests in isolated staging.
+- Dataset and model-training gates pass independently; no synthetic or unproven performance claims.
+- Exness Demo remains read-only and the Windows Bridge rollback is demonstrated.
+- Owner explicitly approves any Production cutover.
+
+### 9.6 Change log
+
+- 2026-11-12: Architecture decision updated from Linux-first readiness to Hybrid Windows Development + Linux/Cloud. No code, provider settings, credentials, database data/schema, deployment, broker state or trading permissions were changed.
