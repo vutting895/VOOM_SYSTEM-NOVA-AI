@@ -4,6 +4,8 @@ import QuickitMarketFleetView from './components/QuickitMarketFleetView';
 import QuantumEngineView from './components/QuantumEngineView';
 import LearningWorksheetView from './components/learning/LearningWorksheetView';
 import NovaNeuralStudioView from './components/strategy/NovaNeuralStudioView';
+import GoogleWorkspaceExportView from './components/workspace/GoogleWorkspaceExportView';
+import IndependentAuditView from './components/workspace/IndependentAuditView';
 
 export default function App() {
   return (
@@ -28,6 +30,10 @@ export default function App() {
       <Route path="/login" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/studio" element={<NovaNeuralStudioView />} />
       <Route path="/neural" element={<NovaNeuralStudioView />} />
+      <Route path="/workspace" element={<GoogleWorkspaceExportView />} />
+      <Route path="/drive" element={<GoogleWorkspaceExportView />} />
+      <Route path="/audit" element={<IndependentAuditView />} />
+      <Route path="/evidence" element={<IndependentAuditView />} />
       <Route
         path="/quantum"
         element={
