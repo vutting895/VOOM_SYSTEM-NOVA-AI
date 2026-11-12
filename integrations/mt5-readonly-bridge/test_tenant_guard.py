@@ -84,6 +84,14 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"liveTradingEnabled": False', source)
         self.assertIn('"ordersEnabled": False', source)
 
+    def test_exposure_timestamp_is_conservative_for_snapshot_freshness(self):
+        functions = function_nodes()
+        exposure = functions["account_exposure"]
+        source = ast.get_source_segment(SOURCE, exposure)
+        self.assertLess(source.index("snapshot_started_at ="), source.index("positions_get()"))
+        self.assertIn('"as_of": snapshot_started_at.isoformat()', source)
+        self.assertIn('"snapshot_completed_at": datetime.now(timezone.utc).isoformat()', source)
+
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
