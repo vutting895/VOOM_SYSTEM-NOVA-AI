@@ -176,7 +176,7 @@ async function loadConnection(request, env, user) {
 }
 
 async function reserveAccountCapacity(request, env, route, origin) {
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!uuid.test(route.tenantId)) {\n    return json({ error: "capacity_tenant_id_invalid", reserved: false, ordersEnabled: false }, 503, origin);\n  }\n  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     return json({ error: "capacity_service_not_configured", reserved: false, ordersEnabled: false, liveTradingEnabled: false }, 503, origin);
   }
   if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
