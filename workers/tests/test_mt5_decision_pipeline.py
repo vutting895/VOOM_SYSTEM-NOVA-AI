@@ -17,6 +17,7 @@ def event_with_snapshot(**risk_overrides):
         "market_open": True,
         "broker_day_start_at": "2026-11-13T00:00:00Z",
         "snapshot_at": "2026-11-13T08:59:30Z",
+        "market_data_at": "2026-11-13T08:59:30Z",
     }
     snapshot.update(risk_overrides)
     return {
