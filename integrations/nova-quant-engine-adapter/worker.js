@@ -13,6 +13,23 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), {
 function fail(error, status) {
   return json({ error, execution_enabled: false, live_trading_enabled: false }, status);
 }
+function constantTimeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+function authorizeServiceBinding(request, env) {
+  const expected = env.QUANT_ADAPTER_M2M_TOKEN;
+  if (typeof expected !== "string" || expected.length < 32) {
+    return { ok: false, status: 503, error: "service_auth_not_configured" };
+  }
+  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
+  if (!match || !constantTimeEqual(match[1], expected)) {
+    return { ok: false, status: 401, error: "service_authentication_required" };
+  }
+  return { ok: true };
+}
 function runtimeOrigin(env) {
   const configured = env.NOVA_QUANT_RUNTIME_ORIGIN;
   if (typeof configured !== "string" || !configured) return null;
@@ -34,6 +51,7 @@ export default {
         service: "nova-python-quant-runtime-adapter",
         runtime_origin_configured: Boolean(runtimeOrigin(env)),
         runtime_token_configured: Boolean(env.NOVA_QUANT_M2M_TOKEN),
+        service_binding_auth_configured: Boolean(env.QUANT_ADAPTER_M2M_TOKEN),
         execution_enabled: false,
       });
     }
