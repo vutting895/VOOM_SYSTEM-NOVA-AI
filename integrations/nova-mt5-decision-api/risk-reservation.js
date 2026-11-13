@@ -111,15 +111,19 @@ export class RiskReservation {
         expires_at_ms: now + PROCESSING_LEASE_MS,
       });
       await txn.put(STORAGE_KEY, active);
+      const nextAlarmAt = Math.min(...active
+        .filter((item) => item.status === "processing")
+        .map((item) => item.expires_at_ms));
       return {
         accepted: true, reserved_risk_money: reservedRisk + body.proposed_entry_risk_money,
         total_risk_money: totalRisk, risk_limit_money: riskLimit,
         expires_at_ms: now + PROCESSING_LEASE_MS,
+        next_alarm_at_ms: nextAlarmAt,
       };
     });
 
     if (!outcome.accepted) return json(outcome, 409);
-    await this.storage.setAlarm(now + PROCESSING_LEASE_MS);
+    await this.storage.setAlarm(outcome.next_alarm_at_ms);
     return json({ reserved: true, ...outcome }, 201);
   }
 
@@ -131,8 +135,9 @@ export class RiskReservation {
     const result = await this.storage.transaction(async (txn) => {
       const items = await txn.get(STORAGE_KEY) || [];
       const item = items.find((entry) => entry.event_id === body.event_id &&
-        entry.claim_id === body.claim_id && entry.status === "processing");
-      if (!item || item.expires_at_ms <= Date.now()) return false;
+        entry.claim_id === body.claim_id);
+      if (item?.status === "committed") return item.broker_ticket === body.broker_ticket;
+      if (!item || item.status !== "processing" || item.expires_at_ms <= Date.now()) return false;
       item.status = "committed";
       item.broker_ticket = body.broker_ticket;
       item.committed_at_ms = Date.now();
