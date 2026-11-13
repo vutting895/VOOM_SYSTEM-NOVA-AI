@@ -96,6 +96,8 @@ def build_exposure_snapshot(mt5: Any, account: Any, positions: list[Any], pendin
 
     return {
         "snapshot_at": captured_at,
+        "account_login": str(_value(account, "login", "") or ""),
+        "broker_server": str(_value(account, "server", "") or ""),
         "account_currency": str(_value(account, "currency", "") or ""),
         "current_equity": float(equity) if _finite_number(equity) else None,
         "positions": [row for row in rows if row["kind"] == "position"],
