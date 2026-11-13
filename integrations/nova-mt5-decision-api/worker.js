@@ -1,5 +1,6 @@
+import { RiskReservation } from "./risk-reservation.js";
 import { EventDedupe } from "./event-dedupe.js";
-export { EventDedupe };
+export { EventDedupe, RiskReservation };
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CLOCK_SKEW_SECONDS = 60;
@@ -316,6 +317,31 @@ async function dedupeRequest(env, dedupeKey, eventId, operation, claimId, timest
     return { ok: false, status: 503, error: "event_dedupe_unavailable" };
   }
 }
+
+async function riskReservationRequest(env, accountKey, operation, body) {
+  const namespace = env.RISK_RESERVATIONS;
+  if (!namespace || typeof namespace.idFromName !== "function" || typeof namespace.get !== "function") {
+    return { ok: false, status: 503, error: "risk_reservation_service_not_configured" };
+  }
+  try {
+    const stub = namespace.get(namespace.idFromName(accountKey));
+    const response = await stub.fetch("https://risk-reservations.internal/" + operation, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let result = {};
+    try { result = await response.json(); } catch {}
+    if (!response.ok) return {
+      ok: false, status: response.status === 409 ? 409 : 503,
+      error: result.error || "risk_reservation_unavailable",
+    };
+    return { ok: true, result };
+  } catch {
+    return { ok: false, status: 503, error: "risk_reservation_unavailable" };
+  }
+}
+
 async function callCompute(env, path, body) {
   if (!env.QUANT_ENGINE || typeof env.QUANT_ENGINE.fetch !== "function") {
     return { ok: false, status: 503, error: "quant_engine_adapter_not_configured" };
@@ -414,6 +440,7 @@ export default {
         ok: true, service: "nova-mt5-decision-api", contract: "nova.mt5-decision.v2",
         workers_ai_binding: Boolean(env.AI), quant_adapter_binding: Boolean(env.QUANT_ENGINE),
         event_dedupe_binding: Boolean(env.EVENT_DEDUPE),
+        risk_reservation_binding: Boolean(env.RISK_RESERVATIONS),
         trusted_mt5_bridge_binding: Boolean(env.MT5_BRIDGE),
         machine_auth_configured: Boolean(env.MT5_M2M_CLIENTS),
         quant_adapter_auth_configured: Boolean(env.QUANT_ADAPTER_M2M_TOKEN),
@@ -449,8 +476,35 @@ export default {
     const reserved = await dedupeRequest(env, dedupeKey, event.event_id, "reserve", claimId, timestamp);
     if (!reserved.ok) return fail(reserved.error, reserved.status);
 
+    const accountKey = auth.tenantId + ":" + auth.brokerServer + ":" + auth.accountLogin;
+    const riskReservationBody = {
+      event_id: event.event_id,
+      claim_id: claimId,
+      policy_version: "nova-mt5-risk.v2",
+      account_currency: bridge.snapshot.account_currency,
+      snapshot_at: bridge.snapshot.snapshot_at,
+      broker_day_start_at: bridge.snapshot.broker_day_start_at,
+      broker_day_baseline_capture_delay_seconds: bridge.snapshot.broker_day_baseline_capture_delay_seconds,
+      broker_day_baseline_available: bridge.snapshot.broker_day_baseline_available,
+      candidate_risk_complete: bridge.snapshot.candidate_risk_complete,
+      current_equity: bridge.snapshot.current_equity,
+      aggregate_open_risk_money: bridge.snapshot.aggregate_open_risk_money,
+      open_orders_count: bridge.snapshot.open_orders_count,
+      broker_day_start_equity: bridge.snapshot.broker_day_start_equity,
+      proposed_entry_risk_money: bridge.snapshot.proposed_entry_risk_money,
+    };
+    const riskReserved = await riskReservationRequest(env, accountKey, "reserve", riskReservationBody);
+    if (!riskReserved.ok) {
+      await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
+      return fail(riskReserved.error, riskReserved.status);
+    }
+
+    const releaseRiskReservation = () => riskReservationRequest(env, accountKey, "release", {
+      event_id: event.event_id, claim_id: claimId,
+    });
     const quantCall = await callCompute(env, "/v1/mt5/decision", { event, execution_enabled: false });
     if (!quantCall.ok || !validateQuantResult(quantCall.result, event)) {
+      await releaseRiskReservation();
       await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
       return fail(quantCall.error || "invalid_quant_engine_result", quantCall.status || 502);
     }
@@ -458,8 +512,14 @@ export default {
       event, quant_engine_result: quantCall.result,
     });
     if (!riskCall.ok || !validateRiskResult(riskCall.result, event.event_id, event.client_id)) {
+      await releaseRiskReservation();
       await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
       return fail(riskCall.error || "invalid_risk_gate_result", riskCall.status || 502);
+    }
+    const riskReleased = await releaseRiskReservation();
+    if (!riskReleased.ok) {
+      await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
+      return fail("risk_reservation_release_failed", 503);
     }
     const completed = await dedupeRequest(env, dedupeKey, event.event_id, "complete", claimId, timestamp);
     if (!completed.ok) return fail("event_dedupe_completion_failed", 503);
