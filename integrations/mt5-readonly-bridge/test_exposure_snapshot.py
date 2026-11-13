@@ -33,7 +33,7 @@ class ExposureSnapshotTests(unittest.TestCase):
             ticket=202, symbol="XAUUSDm", type=FakeMT5.ORDER_TYPE_SELL_LIMIT,
             volume_current=0.5, price_open=2010.0, sl=2020.0, tp=1990.0,
         )
-        account = SimpleNamespace(equity=10000.0, currency="USD")
+        account = SimpleNamespace(equity=10000.0, currency="USD", login=12345678, server="Exness-MT5Trial")
 
         result = build_exposure_snapshot(FakeMT5, account, [position], [pending])
 
@@ -46,6 +46,8 @@ class ExposureSnapshotTests(unittest.TestCase):
         self.assertEqual(result["aggregate_open_risk_pct_current_equity"], 15.0)
         self.assertTrue(result["risk_calculation_complete"])
         self.assertEqual(result["account_currency"], "USD")
+        self.assertEqual(result["account_login"], "12345678")
+        self.assertEqual(result["broker_server"], "Exness-MT5Trial")
         self.assertEqual(result["mode"], "read-only")
         self.assertFalse(result["order_submission_enabled"])
         self.assertEqual(result["policy_attestation"]["status"], "not_attested")
@@ -55,7 +57,7 @@ class ExposureSnapshotTests(unittest.TestCase):
             ticket=303, symbol="XAUUSDm", type=FakeMT5.POSITION_TYPE_BUY,
             volume=1.0, price_open=2000.0, sl=0.0, tp=2020.0,
         )
-        account = SimpleNamespace(equity=10000.0, currency="USD")
+        account = SimpleNamespace(equity=10000.0, currency="USD", login=12345678, server="Exness-MT5Trial")
 
         result = build_exposure_snapshot(FakeMT5, account, [position], [])
 
