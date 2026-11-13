@@ -19,6 +19,7 @@ def make_event(**changes):
         "market_open": True,
         "broker_day_start_at": "2026-11-13T00:00:00Z",
         "snapshot_at": "2026-11-13T08:59:30Z",
+        "market_data_at": "2026-11-13T08:59:30Z",
     }
     snapshot.update(changes)
     return {"payload": {"risk_snapshot": snapshot}}
@@ -48,6 +49,8 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
     def test_stale_or_missing_snapshot_fails_closed(self):
         result = evaluate_mt5_risk(make_event(snapshot_at="2026-11-13T08:58:00Z"), QUANT, now=NOW)
         self.assertIn("stale_risk_snapshot", result["reason_codes"])
+        result = evaluate_mt5_risk(make_event(market_data_at="2026-11-13T08:58:00Z"), QUANT, now=NOW)
+        self.assertIn("stale_market_data", result["reason_codes"])
         with self.assertRaisesRegex(ValueError, "risk_snapshot_required"):
             evaluate_mt5_risk({"payload": {}}, QUANT, now=NOW)
 
