@@ -78,6 +78,7 @@ function makeEnv(overrides = {}) {
   const calls = [];
   const dedupeIds = [];
   const env = {
+    QUANT_ADAPTER_M2M_TOKEN: "test-only-private-adapter-token-with-32-bytes-minimum",
     MT5_M2M_CLIENTS: JSON.stringify({
       "ea-local-demo-01": { secret: SECRETS["ea-local-demo-01"], client_id: "tenant-demo-01" },
       "ea-local-demo-02": { secret: SECRETS["ea-local-demo-02"], client_id: "tenant-demo-02" },
@@ -93,6 +94,7 @@ function makeEnv(overrides = {}) {
     QUANT_ENGINE: {
       fetch: async (request, init) => {
         const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
+        assert.equal(init.headers.Authorization, "Bearer test-only-private-adapter-token-with-32-bytes-minimum");
         calls.push(path);
         if (path === "/v1/mt5/decision") {
           const body = JSON.parse(init.body);
