@@ -1,7 +1,8 @@
-"""Independent, deterministic MT5 entry-risk gate.
+"""Independent deterministic MT5 entry-risk gate.
 
-Daily loss is measured against broker-day starting equity. Reaching 10% locks new
-entries only; this module never closes or modifies existing broker positions.
+This adapter matches the standalone MT5 AI Trading EA's local safety ceilings:
+3% broker-day loss, 2% aggregate open risk, and at most 5 open positions/orders.
+It only evaluates new-entry eligibility and never changes existing positions.
 """
 from __future__ import annotations
 
@@ -10,12 +11,13 @@ from math import isfinite
 from typing import Any
 
 
-POLICY_VERSION = "nova-mt5-risk.v1"
-DAILY_LOSS_ENTRY_LOCK_PCT = 10.0
-MAX_AGGREGATE_OPEN_RISK_PCT = 9.0
+POLICY_VERSION = "nova-mt5-risk.ea-compatible.v1"
+DAILY_LOSS_ENTRY_LOCK_PCT = 3.0
+MAX_AGGREGATE_OPEN_RISK_PCT = 2.0
 MAX_OPEN_ORDERS = 5
 MAX_SNAPSHOT_AGE_SECONDS = 60.0
 MAX_FUTURE_SKEW_SECONDS = 5.0
+QUANT_ENGINE = "MT5HeuristicConsensusAdapter"
 
 
 def _number(snapshot: dict[str, Any], key: str) -> float:
@@ -43,22 +45,19 @@ def evaluate_mt5_risk(
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    if not isinstance(quant_engine_result, dict):
-        raise ValueError("quant_engine_result_required")
+    if not isinstance(event, dict) or event.get("schema_version") != "nova.mt5-event.v2":
+        raise ValueError("unsupported_mt5_event_contract")
     if (
-        quant_engine_result.get("engine") != "HybridQuantumQuantEngine"
+        not isinstance(quant_engine_result, dict)
+        or quant_engine_result.get("engine") != QUANT_ENGINE
         or quant_engine_result.get("evaluation_status") != "research_only"
         or quant_engine_result.get("execution_enabled") is not False
-        or not isinstance(quant_engine_result.get("backend"), str)
-        or isinstance(quant_engine_result.get("directional_probability_up"), bool)
-        or not isinstance(quant_engine_result.get("directional_probability_up"), (int, float))
-        or not isfinite(quant_engine_result.get("directional_probability_up"))
-        or not 0.0 <= quant_engine_result.get("directional_probability_up") <= 1.0
+        or quant_engine_result.get("event_id") != event.get("event_id")
+        or quant_engine_result.get("module_count") != 30
     ):
-        raise ValueError("verified_quant_engine_result_required")
+        raise ValueError("verified_mt5_heuristic_result_required")
 
-    payload = event.get("payload") if isinstance(event, dict) else None
-    snapshot = payload.get("risk_snapshot") if isinstance(payload, dict) else None
+    snapshot = event.get("risk_snapshot")
     if not isinstance(snapshot, dict):
         raise ValueError("risk_snapshot_required")
 
