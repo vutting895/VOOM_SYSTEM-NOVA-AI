@@ -107,9 +107,20 @@ jobs:
       - name: Syntax-check MT5 Bridge and outbound relay client
         working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
-      - name: Test MT5 tenant guard contract
+      - name: Test MT5 Bridge tenant and exposure contracts
         working-directory: .
-        run: python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py" -v 2>&1 | tee mt5-bridge-python-tests.log
+      - name: Upload MT5 Bridge Python test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mt5-bridge-python-test-logs
+          path: mt5-bridge-python-tests.log
+          if-no-files-found: warn
+          retention-days: 7
       - name: Install Wrangler for Cloudflare backend config validation without changing lockfile
         run: npm install --no-save --package-lock=false wrangler@4.156.0
       - name: Validate tenant relay Durable Object configuration
