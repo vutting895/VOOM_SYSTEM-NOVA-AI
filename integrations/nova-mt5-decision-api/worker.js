@@ -223,22 +223,42 @@ async function callCompute(env, path, body) {
     return { ok: false, status: 502, error: "compute_service_unavailable" };
   }
 }
-function validateQuantResult(result, eventId) {
-  return Boolean(result &&
-    result.engine === "MT5HeuristicConsensusAdapter" &&
-    result.evaluation_status === "research_only" &&
-    result.execution_enabled === false &&
-    result.event_id === eventId &&
-    result.module_count === 30 &&
-    ["BUY", "SELL", "NEUTRAL"].includes(result.directional_bias));
+function validateQuantResult(result, event) {
+  if (!result ||
+      result.engine !== "MT5HeuristicConsensusAdapter" ||
+      result.evaluation_status !== "research_only" ||
+      result.execution_enabled !== false ||
+      result.event_id !== event.event_id ||
+      result.module_count !== 30 ||
+      result.signal_source !== "mt5_ea_heuristic_modules" ||
+      !["BUY", "SELL", "NEUTRAL"].includes(result.directional_bias)) return false;
+
+  const counts = result.vote_counts;
+  const expected = event.vote_counts;
+  if (!counts || !expected ||
+      counts.buy !== expected.buy ||
+      counts.sell !== expected.sell ||
+      counts.neutral !== expected.neutral ||
+      counts.buy + counts.sell + counts.neutral !== 30) return false;
+
+  const delta = counts.buy - counts.sell;
+  const expectedBias = delta > 0 ? "BUY" : delta < 0 ? "SELL" : "NEUTRAL";
+  return result.directional_bias === expectedBias;
 }
-function validateRiskResult(result) {
-  return Boolean(result &&
-    typeof result.policy_version === "string" &&
-    typeof result.passed === "boolean" &&
-    typeof result.action === "string" &&
-    result.execution_authorized === false &&
-    result.live_trading_enabled === false);
+function validateRiskResult(result, eventId) {
+  if (!result ||
+      result.event_id !== eventId ||
+      typeof result.policy_version !== "string" ||
+      typeof result.passed !== "boolean" ||
+      !["ELIGIBLE_FOR_RESEARCH_REVIEW", "ENTRY_LOCK_ONLY", "REJECT_NEW_ENTRY"].includes(result.action) ||
+      !Array.isArray(result.reason_codes) ||
+      result.execution_authorized !== false ||
+      result.live_trading_enabled !== false) return false;
+
+  if (result.passed) {
+    return result.action === "ELIGIBLE_FOR_RESEARCH_REVIEW" && result.reason_codes.length === 0;
+  }
+  return result.reason_codes.length > 0 && result.action !== "ELIGIBLE_FOR_RESEARCH_REVIEW";
 }
 async function explainWithWorkersAI(env, event, quant, risk) {
   if (!env.AI || typeof env.AI.run !== "function") {
@@ -295,14 +315,14 @@ export default {
     if (!reserved.ok) return fail(reserved.error, reserved.status);
 
     const quantCall = await callCompute(env, "/v1/mt5/decision", { event, execution_enabled: false });
-    if (!quantCall.ok || !validateQuantResult(quantCall.result, event.event_id)) {
+    if (!quantCall.ok || !validateQuantResult(quantCall.result, event)) {
       await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
       return fail(quantCall.error || "invalid_quant_engine_result", quantCall.status || 502);
     }
     const riskCall = await callCompute(env, "/v1/mt5/risk-gate", {
       event, quant_engine_result: quantCall.result,
     });
-    if (!riskCall.ok || !validateRiskResult(riskCall.result)) {
+    if (!riskCall.ok || !validateRiskResult(riskCall.result, event.event_id)) {
       await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
       return fail(riskCall.error || "invalid_risk_gate_result", riskCall.status || 502);
     }
