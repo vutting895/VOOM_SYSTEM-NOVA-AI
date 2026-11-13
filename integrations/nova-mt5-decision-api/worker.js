@@ -400,7 +400,7 @@ function validateRiskResult(result, eventId, clientId) {
   if (!result ||
       result.event_id !== eventId ||
       result.client_id !== clientId ||
-      typeof result.policy_version !== "string" ||
+      result.policy_version !== "nova-mt5-risk.v2" ||
       typeof result.passed !== "boolean" ||
       !["ELIGIBLE_FOR_RESEARCH_REVIEW", "ENTRY_LOCK_ONLY", "REJECT_NEW_ENTRY"].includes(result.action) ||
       !Array.isArray(result.reason_codes) ||
