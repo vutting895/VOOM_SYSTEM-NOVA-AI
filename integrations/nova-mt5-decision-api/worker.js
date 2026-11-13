@@ -85,7 +85,7 @@ export async function authenticateMachine(request, rawBody, env, nowSeconds = Ma
   if (!safeEqual(signature.toLowerCase(), expected)) {
     return { ok: false, status: 401, error: "invalid_machine_signature" };
   }
-  return { ok: true, keyId, clientId: client.clientId };
+  return { ok: true, keyId, clientId: client.clientId, tenantId: client.tenantId, accountLogin: client.accountLogin, brokerServer: client.brokerServer };
 }
 
 export function validateEvent(value) {
