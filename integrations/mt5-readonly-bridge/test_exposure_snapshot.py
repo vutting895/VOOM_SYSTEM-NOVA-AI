@@ -27,7 +27,7 @@ class ExposureSnapshotTests(unittest.TestCase):
     def test_positions_and_pending_orders_are_aggregated_in_account_currency(self):
         position = SimpleNamespace(
             ticket=101, symbol="XAUUSDm", type=FakeMT5.POSITION_TYPE_BUY,
-            volume=1.0, price_open=2000.0, sl=1990.0, tp=2020.0,
+            volume=1.0, price_open=2000.0, price_current=2005.0, sl=1990.0, tp=2020.0,
         )
         pending = SimpleNamespace(
             ticket=202, symbol="XAUUSDm", type=FakeMT5.ORDER_TYPE_SELL_LIMIT,
@@ -40,10 +40,10 @@ class ExposureSnapshotTests(unittest.TestCase):
         self.assertEqual(result["open_positions_count"], 1)
         self.assertEqual(result["pending_orders_count"], 1)
         self.assertEqual(result["open_orders_count"], 2)
-        self.assertEqual(result["aggregate_position_risk_money"], 1000.0)
+        self.assertEqual(result["aggregate_position_risk_money"], 1500.0)
         self.assertEqual(result["aggregate_pending_risk_money"], 500.0)
-        self.assertEqual(result["aggregate_open_risk_money"], 1500.0)
-        self.assertEqual(result["aggregate_open_risk_pct_current_equity"], 15.0)
+        self.assertEqual(result["aggregate_open_risk_money"], 2000.0)
+        self.assertEqual(result["aggregate_open_risk_pct_current_equity"], 20.0)
         self.assertTrue(result["risk_calculation_complete"])
         self.assertEqual(result["account_currency"], "USD")
         self.assertEqual(result["account_login"], "12345678")
