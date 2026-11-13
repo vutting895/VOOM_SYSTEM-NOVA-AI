@@ -70,10 +70,22 @@ export function validateEvent(value) {
       value.schema_version !== "nova.mt5-request.v1") {
     throw Object.assign(new Error("invalid_mt5_request_contract"), { status: 400 });
   }
+  const allowedEnvelopeKeys = new Set(["schema_version", "signal_event", "risk_snapshot"]);
+  if (Object.keys(value).some((key) => !allowedEnvelopeKeys.has(key))) {
+    throw Object.assign(new Error("unexpected_mt5_request_field"), { status: 400 });
+  }
   const signal = value.signal_event;
   if (!signal || typeof signal !== "object" || Array.isArray(signal) ||
       signal.schema_version !== "mt5ea.signal.v1") {
     throw Object.assign(new Error("invalid_ea_signal_contract"), { status: 400 });
+  }
+  const allowedSignalKeys = new Set([
+    "schema_version", "event_id", "symbol", "timeframe", "account_mode",
+    "bar_time_utc", "bid", "ask", "spread_points", "buy_votes", "sell_votes",
+    "neutral_votes", "module_votes",
+  ]);
+  if (Object.keys(signal).some((key) => !allowedSignalKeys.has(key))) {
+    throw Object.assign(new Error("unexpected_ea_signal_field"), { status: 400 });
   }
   const requiredString = (object, key, max) => {
     const field = object[key];
@@ -83,7 +95,7 @@ export function validateEvent(value) {
     return field.trim();
   };
   const eventId = requiredString(signal, "event_id", 128);
-  if (!/^[A-Za-z0-9._:-]+$/.test(eventId)) {
+  if (eventId.length < 12 || !/^[A-Za-z0-9._:-]+$/.test(eventId)) {
     throw Object.assign(new Error("invalid_event_id"), { status: 400 });
   }
   const symbol = requiredString(signal, "symbol", 32);
@@ -123,6 +135,9 @@ export function validateEvent(value) {
   for (const item of votes) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw Object.assign(new Error("invalid_module_vote"), { status: 400 });
+    }
+    if (Object.keys(item).some((key) => key !== "name" && key !== "vote")) {
+      throw Object.assign(new Error("unexpected_module_vote_field"), { status: 400 });
     }
     const name = requiredString(item, "name", 48);
     const vote = requiredString(item, "vote", 8);
