@@ -2,9 +2,10 @@ import unittest
 from datetime import datetime, timezone
 
 from workers.quant.mt5_decision_adapter import evaluate_mt5_event
-from workers.risk.mt5_decision_gate import evaluate_mt5_risk
+from workers.risk.mt5_decision_gate import POLICY_VERSION, evaluate_mt5_risk
 
 
+EXPECTED_POLICY_VERSION = "nova-mt5-risk.v2"
 NOW = datetime(2026, 11, 13, 9, 0, tzinfo=timezone.utc)
 MODULES = [
     "SuperTrend", "KeltnerBreak", "GoldenCross", "RocSurge", "Alligator",
@@ -49,6 +50,9 @@ def event_with_snapshot(**risk_overrides):
 
 
 class TestMT5HeuristicRiskPipeline(unittest.TestCase):
+    def test_risk_gate_policy_version_matches_published_contract(self):
+        self.assertEqual(POLICY_VERSION, EXPECTED_POLICY_VERSION)
+
     def test_actual_ea_vote_contract_flows_into_independent_risk_gate(self):
         event = event_with_snapshot()
         quant_result = evaluate_mt5_event(event)
@@ -61,7 +65,7 @@ class TestMT5HeuristicRiskPipeline(unittest.TestCase):
         self.assertEqual(quant_result["directional_bias"], "BUY")
         self.assertEqual(quant_result["signal_source"], "mt5_ea_heuristic_modules")
         self.assertTrue(risk_result["passed"])
-        self.assertEqual(risk_result["policy_version"], "nova-mt5-risk.ea-compatible.v1")
+        self.assertEqual(risk_result["policy_version"], POLICY_VERSION)
         self.assertFalse(risk_result["execution_authorized"])
         self.assertEqual(risk_result["existing_positions_action"], "NO_CHANGE")
 
