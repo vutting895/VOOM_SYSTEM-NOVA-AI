@@ -30,6 +30,22 @@ jobs:
       - name: Validate Python syntax
         run: python -m py_compile workers/quant/mt5_decision_adapter.py workers/risk/mt5_decision_gate.py
       - name: Run MT5 Python contract tests
-        run: python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline -v
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline -v 2>&1 | tee mt5-python-tests.log
       - name: Run MT5 Worker contract tests
-        run: node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quant-engine-adapter/*.test.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quant-engine-adapter/*.test.mjs 2>&1 | tee mt5-node-tests.log
+      - name: Upload MT5 contract test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-mt5-contract-test-logs
+          path: |
+            mt5-python-tests.log
+            mt5-node-tests.log
+          if-no-files-found: warn
+          retention-days: 7
