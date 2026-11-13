@@ -53,7 +53,13 @@ function resolveMachineClient(env, keyId) {
   if (!record || typeof record !== "object" || Array.isArray(record)) return null;
   if (typeof record.secret !== "string" || record.secret.length < 32) return null;
   if (typeof record.client_id !== "string" || !/^[A-Za-z0-9._:-]{1,96}$/.test(record.client_id)) return null;
-  return { secret: record.secret, clientId: record.client_id };
+  if (typeof record.tenant_id !== "string" || !/^[A-Za-z0-9_-]{8,100}$/.test(record.tenant_id)) return null;
+  if (typeof record.account_login !== "string" || !/^\\d{3,20}$/.test(record.account_login)) return null;
+  if (typeof record.broker_server !== "string" || !record.broker_server.trim() || record.broker_server.length > 128) return null;
+  return {
+    secret: record.secret, clientId: record.client_id, tenantId: record.tenant_id,
+    accountLogin: record.account_login, brokerServer: record.broker_server,
+  };
 }
 export async function authenticateMachine(request, rawBody, env, nowSeconds = Math.floor(Date.now() / 1000)) {
   const keyId = request.headers.get("X-NOVA-Key-Id") || "";
@@ -87,7 +93,10 @@ export function validateEvent(value) {
       value.schema_version !== "nova.mt5-request.v1") {
     throw Object.assign(new Error("invalid_mt5_request_contract"), { status: 400 });
   }
-  const allowedEnvelopeKeys = new Set(["schema_version", "signal_event", "risk_snapshot"]);
+  const allowedEnvelopeKeys = new Set(["schema_version", "signal_event"]);
+  if (Object.hasOwn(value, "risk_snapshot")) {
+    throw Object.assign(new Error("controller_risk_snapshot_not_trusted"), { status: 400 });
+  }
   if (Object.keys(value).some((key) => !allowedEnvelopeKeys.has(key))) {
     throw Object.assign(new Error("unexpected_mt5_request_field"), { status: 400 });
   }
@@ -175,10 +184,6 @@ export function validateEvent(value) {
     throw Object.assign(new Error("module_vote_totals_mismatch"), { status: 422 });
   }
 
-  const riskSnapshot = value.risk_snapshot ?? null;
-  if (riskSnapshot !== null && (!riskSnapshot || typeof riskSnapshot !== "object" || Array.isArray(riskSnapshot))) {
-    throw Object.assign(new Error("invalid_risk_snapshot"), { status: 400 });
-  }
   const event = {
     schema_version: "nova.mt5-event.v2",
     event_id: eventId,
@@ -190,12 +195,66 @@ export function validateEvent(value) {
     vote_counts: { buy: counts.BUY, sell: counts.SELL, neutral: counts.NEUTRAL },
     module_votes: normalizedVotes,
     market_snapshot: { bid, ask, spread_points: spreadPoints },
-    risk_snapshot: riskSnapshot,
+    risk_snapshot: null,
   };
   if (new TextEncoder().encode(JSON.stringify(event)).byteLength > 32 * 1024) {
     throw Object.assign(new Error("event_payload_too_large"), { status: 413 });
   }
   return event;
+}
+
+function resolveBridgeToken(env, tenantId) {
+  if (typeof env.MT5_BRIDGE_TOKENS !== "string" || !env.MT5_BRIDGE_TOKENS) return null;
+  try {
+    const tokens = JSON.parse(env.MT5_BRIDGE_TOKENS);
+    const token = tokens?.[tenantId];
+    return typeof token === "string" && token.length >= 32 ? token : null;
+  } catch { return null; }
+}
+
+export async function fetchTrustedBridgeSnapshot(env, client, event) {
+  if (!env.MT5_BRIDGE || typeof env.MT5_BRIDGE.fetch !== "function") {
+    return { ok: false, status: 503, error: "trusted_mt5_bridge_binding_not_configured" };
+  }
+  const bridgeToken = resolveBridgeToken(env, client.tenantId);
+  if (!bridgeToken) return { ok: false, status: 503, error: "trusted_mt5_bridge_credentials_not_configured" };
+  try {
+    const response = await env.MT5_BRIDGE.fetch("https://mt5-bridge-relay.internal/api/exposure", {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + bridgeToken,
+        "X-VOOM-TENANT-ID": client.tenantId,
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return { ok: false, status: 503, error: "trusted_mt5_bridge_unavailable" };
+    const snapshot = await response.json();
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) ||
+        snapshot.account_login !== client.accountLogin ||
+        snapshot.broker_server !== client.brokerServer ||
+        typeof snapshot.account_currency !== "string" || !snapshot.account_currency ||
+        snapshot.risk_calculation_complete !== true ||
+        !Number.isFinite(snapshot.current_equity) || snapshot.current_equity <= 0 ||
+        !Number.isFinite(snapshot.aggregate_open_risk_money) || snapshot.aggregate_open_risk_money < 0 ||
+        !Number.isInteger(snapshot.open_orders_count) || snapshot.open_orders_count < 0 ||
+        typeof snapshot.snapshot_at !== "string" ||
+        !Number.isFinite(Date.parse(snapshot.snapshot_at)) ||
+        Date.now() - Date.parse(snapshot.snapshot_at) > 60_000 ||
+        Date.parse(snapshot.snapshot_at) - Date.now() > 5_000) {
+      return { ok: false, status: 503, error: "trusted_mt5_bridge_identity_or_exposure_invalid" };
+    }
+    const requiredBrokerFields = [
+      "broker_day_start_equity", "broker_day_start_at", "market_open",
+      "market_data_at", "proposed_entry_risk_money",
+    ];
+    if (!requiredBrokerFields.every((key) => Object.hasOwn(snapshot, key))) {
+      return { ok: false, status: 503, error: "trusted_mt5_bridge_risk_contract_incomplete" };
+    }
+    return { ok: true, snapshot: { ...snapshot, tenant_id: client.tenantId } };
+  } catch {
+    return { ok: false, status: 503, error: "trusted_mt5_bridge_unavailable" };
+  }
 }
 
 async function dedupeRequest(env, dedupeKey, eventId, operation, claimId, timestamp) {
@@ -316,6 +375,7 @@ export default {
         ok: true, service: "nova-mt5-decision-api", contract: "nova.mt5-decision.v2",
         workers_ai_binding: Boolean(env.AI), quant_adapter_binding: Boolean(env.QUANT_ENGINE),
         event_dedupe_binding: Boolean(env.EVENT_DEDUPE),
+        trusted_mt5_bridge_binding: Boolean(env.MT5_BRIDGE),
         machine_auth_configured: Boolean(env.MT5_M2M_CLIENTS),
         quant_adapter_auth_configured: Boolean(env.QUANT_ADAPTER_M2M_TOKEN),
         ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false,
@@ -338,6 +398,11 @@ export default {
     let event;
     try { event = validateEvent(parsed); } catch (error) { return fail(error.message, error.status || 400); }
     event.client_id = auth.clientId;
+    const bridge = await fetchTrustedBridgeSnapshot(env, {
+      tenantId: auth.tenantId, accountLogin: auth.accountLogin, brokerServer: auth.brokerServer,
+    }, event);
+    if (!bridge.ok) return fail(bridge.error, bridge.status);
+    event.risk_snapshot = bridge.snapshot;
     const dedupeKey = auth.clientId + ":" + event.event_id;
 
     const claimId = crypto.randomUUID();
