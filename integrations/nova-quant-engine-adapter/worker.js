@@ -59,6 +59,8 @@ export default {
     if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
       return fail("content_type_must_be_application_json", 415);
     }
+    const callerAuth = authorizeServiceBinding(request, env);
+    if (!callerAuth.ok) return fail(callerAuth.error, callerAuth.status);
     const origin = runtimeOrigin(env);
     const token = env.NOVA_QUANT_M2M_TOKEN;
     if (!origin || typeof token !== "string" || token.length < 32) {
