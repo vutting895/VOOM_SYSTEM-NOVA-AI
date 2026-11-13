@@ -85,7 +85,7 @@ function makeEnv(overrides = {}) {
     MT5_BRIDGE_TOKENS: JSON.stringify({ tenant_12345678: "bridge-token-for-tenant-12345678-0123456789", tenant_87654321: "bridge-token-for-tenant-87654321-0123456789" }),
     MT5_BRIDGE: { fetch: async (request) => {
       calls.push("bridge");
-      assert.equal(new URL(request.url).pathname, "/api/exposure");
+      assert.equal(new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname, "/api/exposure");
       assert.equal(request.method, "GET");
       assert.equal(request.headers.get("X-VOOM-TENANT-ID"), "tenant_12345678");
       assert.equal(request.headers.get("Authorization"), "Bearer bridge-token-for-tenant-12345678-0123456789");
