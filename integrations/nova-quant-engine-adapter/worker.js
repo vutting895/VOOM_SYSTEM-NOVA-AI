@@ -24,7 +24,7 @@ function authorizeServiceBinding(request, env) {
   if (typeof expected !== "string" || expected.length < 32) {
     return { ok: false, status: 503, error: "service_auth_not_configured" };
   }
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
+  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match || !constantTimeEqual(match[1], expected)) {
     return { ok: false, status: 401, error: "service_authentication_required" };
   }
