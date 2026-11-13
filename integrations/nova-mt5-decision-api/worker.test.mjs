@@ -413,3 +413,20 @@ test("risk capacity conflict releases event dedupe claim and does not call Quant
   assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
   assert.ok(env.__calls.includes("release"));
 });
+
+
+test("Decision Worker rejects a Risk Gate result with a non-canonical policy version", async () => {
+  const env = makeEnv();
+  const originalFetch = env.QUANT_ENGINE.fetch;
+  env.QUANT_ENGINE.fetch = async (request, init) => {
+    const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
+    if (path === "/v1/mt5/risk-gate") {
+      return Response.json({ ...riskPass, policy_version: "nova-mt5-risk.ea-compatible.v1", client_id: "tenant-demo-01" });
+    }
+    return originalFetch(request, init);
+  };
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 502);
+  assert.equal((await response.json()).error, "invalid_risk_gate_result");
+  assert.ok(env.__calls.includes("risk:release"));
+});
