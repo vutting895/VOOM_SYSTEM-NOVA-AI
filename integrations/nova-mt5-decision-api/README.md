@@ -22,7 +22,13 @@ The API accepts a signed wrapper:
 ```json
 {
   "schema_version": "nova.mt5-request.v1",
-  "signal_event": { "...": "the exact mt5ea.signal.v1 object" },
+  "signal_event": { "...": "the exact mt5ea.signal.v1 object" }
+}
+
+The Controller must not send `risk_snapshot`; the Decision Worker rejects that field. The Worker fetches broker evidence from the tenant-authorized Bridge using its private `MT5_BRIDGE` Service Binding.
+
+<!-- legacy example removed -->
+<!--
   "risk_snapshot": {
     "broker_day_start_equity": 10000,
     "current_equity": 9900,
@@ -70,6 +76,15 @@ The Bridge still does **not** provide Broker-Day Starting Equity or calculate a 
 
 **Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
 
+## 3A. Trusted Bridge boundary (feature branch)
+
+- `MT5_M2M_CLIENTS` records must map each Key ID to `client_id`, `tenant_id`, `account_login`, and `broker_server`. These values are server-side registry data; callers cannot choose them.
+- `MT5_BRIDGE_TOKENS` is a Staging secret JSON map keyed by tenant ID. It contains the same tenant-scoped read-only relay token registered in the Relay Worker; do not commit token values.
+- Decision Worker calls `GET /api/exposure` only through the `MT5_BRIDGE` Service Binding. The Relay Worker routes the request to the Durable Object session for that tenant. The Bridge response's account login and broker server must exactly match the authenticated client registry.
+- Relay Worker allowlists `/api/exposure` as GET-only and rejects query parameters. The Windows Relay Client already has the endpoint in its allowlist and treats it as a query-free GET.
+- Missing binding/credentials, wrong account/server, stale snapshot, incomplete exposure, or missing required broker-risk fields returns a fail-closed error before Quant Engine dispatch.
+- Current Bridge `/api/exposure` only supplies current equity, open/pending exposure, account currency and snapshot time. It does **not** yet supply broker-day starting equity, broker-day start timestamp, market-open state, market-data timestamp, or candidate-entry risk. Therefore the present Bridge contract intentionally cannot satisfy the full Risk Gate contract; the Decision API remains fail-closed until those fields are added from authoritative sources. Do not synthesize them from Controller input.
+
 ## 4. Decision authority and AI boundary
 
 Processing order:
@@ -106,8 +121,10 @@ The EA must not hold the NOVA long-lived secret. M2M keys are distinct per regis
 The Local Controller must sign the exact forwarded request body using `<timestamp>.<key-id>.<exact raw body>` and keep only its own client secret in its local environment. The API derives `client_id` from its server-side key registry; callers cannot choose the client scope. Deduplication is namespaced by this trusted client scope. Do not place secrets in MQL5 source, EA inputs, `.set` files, logs, or Git.
 
 Required not-yet-provisioned configuration:
-- Decision API secret binding `MT5_M2M_CLIENTS` (JSON key registry mapping each Key ID to its secret and stable `client_id`; separate secret per client)
+- Decision API secret binding `MT5_M2M_CLIENTS` (JSON key registry mapping each Key ID to its secret, stable `client_id`, `tenant_id`, `account_login`, and `broker_server`; separate secret per client)
+- Decision API secret binding `MT5_BRIDGE_TOKENS` (tenant-ID to read-only Bridge relay token map; Staging only)
 - Matching Staging-only `QUANT_ADAPTER_M2M_TOKEN` secret on the Decision API Worker and Quant Adapter Worker (authenticates the private service-binding caller)
+- Decision API Service Binding `MT5_BRIDGE` to `voom-mt5-bridge-relay`
 - Decision API Service Binding `QUANT_ENGINE`
 - Durable Object namespace `EVENT_DEDUPE`
 - Quant adapter `NOVA_QUANT_RUNTIME_ORIGIN` (fixed HTTPS origin)
