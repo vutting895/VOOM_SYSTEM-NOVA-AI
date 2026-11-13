@@ -108,7 +108,7 @@ export function validateEvent(value) {
   const allowedSignalKeys = new Set([
     "schema_version", "event_id", "symbol", "timeframe", "account_mode",
     "bar_time_utc", "bid", "ask", "spread_points", "buy_votes", "sell_votes",
-    "neutral_votes", "module_votes",
+    "neutral_votes", "module_votes", "candidate",
   ]);
   if (Object.keys(signal).some((key) => !allowedSignalKeys.has(key))) {
     throw Object.assign(new Error("unexpected_ea_signal_field"), { status: 400 });
@@ -151,6 +151,22 @@ export function validateEvent(value) {
   const spreadPoints = numeric("spread_points", 0);
   if (ask < bid) throw Object.assign(new Error("ask_must_be_gte_bid"), { status: 422 });
 
+  const candidate = signal.candidate;
+  let normalizedCandidate = null;
+  if (candidate !== undefined) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate) ||
+        Object.keys(candidate).sort().join(",") !== "entry_price,side,stop_loss,symbol,volume" ||
+        !["BUY", "SELL"].includes(candidate.side) ||
+        candidate.symbol !== symbol ||
+        ![candidate.volume, candidate.entry_price, candidate.stop_loss].every((n) =>
+          typeof n === "number" && Number.isFinite(n) && n > 0)) {
+      throw Object.assign(new Error("invalid_trade_candidate"), { status: 422 });
+    }
+    normalizedCandidate = {
+      symbol, side: candidate.side, volume: candidate.volume,
+      entry_price: candidate.entry_price, stop_loss: candidate.stop_loss,
+    };
+  }
   const votes = signal.module_votes;
   if (!Array.isArray(votes) || votes.length !== 30) {
     throw Object.assign(new Error("exactly_30_module_votes_required"), { status: 400 });
@@ -195,6 +211,7 @@ export function validateEvent(value) {
     vote_counts: { buy: counts.BUY, sell: counts.SELL, neutral: counts.NEUTRAL },
     module_votes: normalizedVotes,
     market_snapshot: { bid, ask, spread_points: spreadPoints },
+    candidate: normalizedCandidate,
     risk_snapshot: null,
   };
   if (new TextEncoder().encode(JSON.stringify(event)).byteLength > 32 * 1024) {
@@ -219,7 +236,9 @@ export async function fetchTrustedBridgeSnapshot(env, client, event) {
   const bridgeToken = resolveBridgeToken(env, client.tenantId);
   if (!bridgeToken) return { ok: false, status: 503, error: "trusted_mt5_bridge_credentials_not_configured" };
   try {
-    const response = await env.MT5_BRIDGE.fetch("https://mt5-bridge-relay.internal/api/exposure", {
+    if (!event.candidate) return { ok: false, status: 422, error: "candidate_trade_plan_required" };
+    const candidateQuery = encodeURIComponent(JSON.stringify(event.candidate));
+    const response = await env.MT5_BRIDGE.fetch("https://mt5-bridge-relay.internal/api/exposure?candidate=" + candidateQuery, {
       method: "GET",
       headers: {
         "Authorization": "Bearer " + bridgeToken,
@@ -245,10 +264,23 @@ export async function fetchTrustedBridgeSnapshot(env, client, event) {
       return { ok: false, status: 503, error: "trusted_mt5_bridge_identity_or_exposure_invalid" };
     }
     const requiredBrokerFields = [
-      "broker_day_start_equity", "broker_day_start_at", "market_open",
-      "market_data_at", "proposed_entry_risk_money",
+      "broker_day_start_equity", "broker_day_start_at", "broker_day_baseline_available",
+      "market_open", "market_data_at", "proposed_entry_risk_money", "candidate_risk_complete",
     ];
-    if (!requiredBrokerFields.every((key) => Object.hasOwn(snapshot, key))) {
+    if (!requiredBrokerFields.every((key) => Object.hasOwn(snapshot, key)) ||
+        snapshot.broker_day_baseline_available !== true ||
+        snapshot.candidate_risk_complete !== true ||
+        !Number.isFinite(snapshot.broker_day_start_equity) || snapshot.broker_day_start_equity <= 0 ||
+        typeof snapshot.market_open !== "boolean" ||
+        !Number.isFinite(Date.parse(snapshot.broker_day_start_at)) ||
+        !Number.isFinite(Date.parse(snapshot.market_data_at)) ||
+        !Number.isFinite(snapshot.proposed_entry_risk_money) || snapshot.proposed_entry_risk_money < 0 ||
+        !snapshot.candidate_risk || snapshot.candidate_risk.complete !== true ||
+        snapshot.candidate_risk.symbol !== event.candidate.symbol ||
+        snapshot.candidate_risk.side !== event.candidate.side ||
+        snapshot.candidate_risk.volume !== event.candidate.volume ||
+        snapshot.candidate_risk.entry_price !== event.candidate.entry_price ||
+        snapshot.candidate_risk.stop_loss !== event.candidate.stop_loss) {
       return { ok: false, status: 503, error: "trusted_mt5_bridge_risk_contract_incomplete" };
     }
     return { ok: true, snapshot: { ...snapshot, tenant_id: client.tenantId } };
