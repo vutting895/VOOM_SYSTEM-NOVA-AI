@@ -49,6 +49,11 @@ def evaluate_mt5_risk(
         quant_engine_result.get("engine") != "HybridQuantumQuantEngine"
         or quant_engine_result.get("evaluation_status") != "research_only"
         or quant_engine_result.get("execution_enabled") is not False
+        or not isinstance(quant_engine_result.get("backend"), str)
+        or isinstance(quant_engine_result.get("directional_probability_up"), bool)
+        or not isinstance(quant_engine_result.get("directional_probability_up"), (int, float))
+        or not isfinite(quant_engine_result.get("directional_probability_up"))
+        or not 0.0 <= quant_engine_result.get("directional_probability_up") <= 1.0
     ):
         raise ValueError("verified_quant_engine_result_required")
 
