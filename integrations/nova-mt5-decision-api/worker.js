@@ -43,10 +43,27 @@ async function hmacHex(secret, message) {
   );
   return toHex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message)));
 }
+function resolveMachineClient(env, keyId) {
+  if (typeof keyId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(keyId)) return null;
+  if (typeof env.MT5_M2M_CLIENTS !== "string" || !env.MT5_M2M_CLIENTS) return null;
+  let clients;
+  try { clients = JSON.parse(env.MT5_M2M_CLIENTS); } catch { return null; }
+  if (!clients || typeof clients !== "object" || Array.isArray(clients)) return null;
+  const record = clients[keyId];
+  if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+  if (typeof record.secret !== "string" || record.secret.length < 32) return null;
+  if (typeof record.client_id !== "string" || !/^[A-Za-z0-9._:-]{1,96}$/.test(record.client_id)) return null;
+  return { secret: record.secret, clientId: record.client_id };
+}
 export async function authenticateMachine(request, rawBody, env, nowSeconds = Math.floor(Date.now() / 1000)) {
-  const secret = env.MT5_M2M_HMAC_SECRET;
-  if (typeof secret !== "string" || secret.length < 32) {
-    return { ok: false, status: 503, error: "machine_auth_not_configured" };
+  const keyId = request.headers.get("X-NOVA-Key-Id") || "";
+  const client = resolveMachineClient(env, keyId);
+  if (!client) {
+    return {
+      ok: false,
+      status: typeof env.MT5_M2M_CLIENTS === "string" && env.MT5_M2M_CLIENTS ? 401 : 503,
+      error: "machine_client_not_configured",
+    };
   }
   const timestamp = request.headers.get("X-NOVA-Timestamp") || "";
   const signature = request.headers.get("X-NOVA-Signature") || "";
@@ -58,11 +75,11 @@ export async function authenticateMachine(request, rawBody, env, nowSeconds = Ma
   if (!/^sha256=[a-f0-9]{64}$/i.test(signature)) {
     return { ok: false, status: 401, error: "invalid_machine_signature" };
   }
-  const expected = "sha256=" + await hmacHex(secret, timestamp + "." + rawBody);
+  const expected = "sha256=" + await hmacHex(client.secret, timestamp + "." + keyId + "." + rawBody);
   if (!safeEqual(signature.toLowerCase(), expected)) {
     return { ok: false, status: 401, error: "invalid_machine_signature" };
   }
-  return { ok: true };
+  return { ok: true, keyId, clientId: client.clientId };
 }
 
 export function validateEvent(value) {
@@ -165,6 +182,7 @@ export function validateEvent(value) {
   const event = {
     schema_version: "nova.mt5-event.v2",
     event_id: eventId,
+    client_id: null,
     symbol,
     timeframe,
     occurred_at: occurredAt,
@@ -180,13 +198,13 @@ export function validateEvent(value) {
   return event;
 }
 
-async function dedupeRequest(env, eventId, operation, claimId, timestamp) {
+async function dedupeRequest(env, dedupeKey, eventId, operation, claimId, timestamp) {
   const namespace = env.EVENT_DEDUPE;
   if (!namespace || typeof namespace.idFromName !== "function" || typeof namespace.get !== "function") {
     return { ok: false, status: 503, error: "event_dedupe_service_not_configured" };
   }
   try {
-    const stub = namespace.get(namespace.idFromName(eventId));
+    const stub = namespace.get(namespace.idFromName(dedupeKey));
     const response = await stub.fetch("https://event-dedupe.internal/" + operation, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event_id: eventId, claim_id: claimId, timestamp }),
@@ -229,6 +247,7 @@ function validateQuantResult(result, event) {
       result.evaluation_status !== "research_only" ||
       result.execution_enabled !== false ||
       result.event_id !== event.event_id ||
+      result.client_id !== event.client_id ||
       result.module_count !== 30 ||
       result.signal_source !== "mt5_ea_heuristic_modules" ||
       !["BUY", "SELL", "NEUTRAL"].includes(result.directional_bias)) return false;
@@ -245,9 +264,10 @@ function validateQuantResult(result, event) {
   const expectedBias = delta > 0 ? "BUY" : delta < 0 ? "SELL" : "NEUTRAL";
   return result.directional_bias === expectedBias;
 }
-function validateRiskResult(result, eventId) {
+function validateRiskResult(result, eventId, clientId) {
   if (!result ||
       result.event_id !== eventId ||
+      result.client_id !== clientId ||
       typeof result.policy_version !== "string" ||
       typeof result.passed !== "boolean" ||
       !["ELIGIBLE_FOR_RESEARCH_REVIEW", "ENTRY_LOCK_ONLY", "REJECT_NEW_ENTRY"].includes(result.action) ||
@@ -288,7 +308,7 @@ export default {
         ok: true, service: "nova-mt5-decision-api", contract: "nova.mt5-decision.v2",
         workers_ai_binding: Boolean(env.AI), quant_adapter_binding: Boolean(env.QUANT_ENGINE),
         event_dedupe_binding: Boolean(env.EVENT_DEDUPE),
-        machine_auth_configured: Boolean(env.MT5_M2M_HMAC_SECRET),
+        machine_auth_configured: Boolean(env.MT5_M2M_CLIENTS),
         ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false,
       });
     }
@@ -308,28 +328,31 @@ export default {
     try { parsed = JSON.parse(rawBody); } catch { return fail("invalid_json", 400); }
     let event;
     try { event = validateEvent(parsed); } catch (error) { return fail(error.message, error.status || 400); }
+    event.client_id = auth.clientId;
+    const dedupeKey = auth.clientId + ":" + event.event_id;
 
     const claimId = crypto.randomUUID();
     const timestamp = request.headers.get("X-NOVA-Timestamp");
-    const reserved = await dedupeRequest(env, event.event_id, "reserve", claimId, timestamp);
+    const reserved = await dedupeRequest(env, dedupeKey, event.event_id, "reserve", claimId, timestamp);
     if (!reserved.ok) return fail(reserved.error, reserved.status);
 
     const quantCall = await callCompute(env, "/v1/mt5/decision", { event, execution_enabled: false });
     if (!quantCall.ok || !validateQuantResult(quantCall.result, event)) {
-      await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
+      await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
       return fail(quantCall.error || "invalid_quant_engine_result", quantCall.status || 502);
     }
     const riskCall = await callCompute(env, "/v1/mt5/risk-gate", {
       event, quant_engine_result: quantCall.result,
     });
-    if (!riskCall.ok || !validateRiskResult(riskCall.result, event.event_id)) {
-      await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
+    if (!riskCall.ok || !validateRiskResult(riskCall.result, event.event_id, event.client_id)) {
+      await dedupeRequest(env, dedupeKey, event.event_id, "release", claimId, timestamp);
       return fail(riskCall.error || "invalid_risk_gate_result", riskCall.status || 502);
     }
-    const completed = await dedupeRequest(env, event.event_id, "complete", claimId, timestamp);
+    const completed = await dedupeRequest(env, dedupeKey, event.event_id, "complete", claimId, timestamp);
     if (!completed.ok) return fail("event_dedupe_completion_failed", 503);
 
-    const ai = await explainWithWorkersAI(env, event, quantCall.result, riskCall.result);
+    const { client_id: _clientId, ...aiSafeEvent } = event;
+    const ai = await explainWithWorkersAI(env, aiSafeEvent, quantCall.result, riskCall.result);
     const riskPassed = riskCall.result.passed === true;
     return json({
       ok: true, event_id: event.event_id, quant_engine: quantCall.result,
