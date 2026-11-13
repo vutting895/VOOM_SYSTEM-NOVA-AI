@@ -10,6 +10,7 @@ QUANT = {
     "evaluation_status": "research_only",
     "execution_enabled": False,
     "event_id": "ea-risk-001",
+    "client_id": "tenant-demo-01",
     "module_count": 30,
 }
 
@@ -29,6 +30,7 @@ def make_event(**changes):
     return {
         "schema_version": "nova.mt5-event.v2",
         "event_id": "ea-risk-001",
+        "client_id": "tenant-demo-01",
         "risk_snapshot": snapshot,
     }
 
@@ -90,6 +92,10 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
         )
         self.assertTrue(result["entry_lock_only"])
         self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
+
+    def test_mismatched_event_or_client_scope_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "verified_mt5_heuristic_result_required"):
+            evaluate_mt5_risk(make_event(), {**QUANT, "client_id": "tenant-other"}, now=NOW)
 
     def test_mismatched_event_or_untrusted_quant_envelope_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "verified_mt5_heuristic_result_required"):
