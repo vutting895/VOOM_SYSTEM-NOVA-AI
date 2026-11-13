@@ -150,7 +150,9 @@ def calculate_candidate_risk(mt5: Any, candidate: dict[str, Any] | None) -> dict
         profit = None
     if not _number(profit):
         return {"complete": False, "reason": "candidate_broker_calculation_failed", "risk_money": None}
-    risk = round(max(0.0, -float(profit)), 2)
+    if float(profit) >= 0:
+        return {"complete": False, "reason": "candidate_stop_loss_not_loss_making", "risk_money": None}
+    risk = round(-float(profit), 2)
     return {
         "complete": True,
         "reason": None,
