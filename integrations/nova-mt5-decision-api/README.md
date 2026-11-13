@@ -54,14 +54,14 @@ Do not fabricate VQC inputs from vote counts or relabel the heuristic summary as
 
 ## 3. EA-compatible deterministic Risk Gate
 
-The MT5-specific gate uses the standalone EA's current hard safety ceilings:
+The current code uses conservative provisional ceilings pending reconciliation with the owner-approved EA risk policy:
 - Daily loss >= 3% of broker-day starting equity: `ENTRY_LOCK_ONLY` for new entries.
 - Aggregate open risk > 2% of current equity: reject new entry.
 - Open positions/orders >= 5: reject new entry.
 - Market closed, account snapshot or market data older than 60 seconds, invalid/missing fields, or invalid timestamps: fail closed.
 - Existing positions are always `NO_CHANGE`; no close, amend, cancel, or broker write operation exists.
 
-This policy is scoped to the MT5 integration only. It does not alter NOVA's other risk policies. The EA's local controls remain independent and must not be weakened.
+**Policy blocker before Staging:** the 3% / 2% values are conservative provisional limits, not a verified match to the full EA policy specification. The prior owner-defined settings recorded for the standalone EA were 10% broker-day loss (Entry Lock Only) and 9% aggregate open risk, with a maximum of 5 open orders. These values conflict with the current 3% / 2% adapter ceilings. Keep the stricter implementation for local tests; do not silently change it or claim policy alignment. Reconcile the EA source and obtain explicit policy-version approval before Staging. This API does not alter any other NOVA risk policy.
 
 **Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
 
@@ -102,10 +102,11 @@ The Local Controller must sign the exact forwarded request body using `<timestam
 
 Required not-yet-provisioned configuration:
 - Decision API secret binding `MT5_M2M_CLIENTS` (JSON key registry mapping each Key ID to its secret and stable `client_id`; separate secret per client)
+- Matching Staging-only `QUANT_ADAPTER_M2M_TOKEN` secret on the Decision API Worker and Quant Adapter Worker (authenticates the private service-binding caller)
 - Decision API Service Binding `QUANT_ENGINE`
 - Durable Object namespace `EVENT_DEDUPE`
 - Quant adapter `NOVA_QUANT_RUNTIME_ORIGIN` (fixed HTTPS origin)
-- Quant adapter `NOVA_QUANT_M2M_TOKEN`
+- Quant adapter `NOVA_QUANT_M2M_TOKEN` (separate internal bearer token from Decision API → adapter runtime hop)
 - Python runtime `NOVA_QUANT_M2M_TOKEN`
 
 No Production secret, database, migration, Worker binding, route, DNS, or deployment is changed by this feature branch.
