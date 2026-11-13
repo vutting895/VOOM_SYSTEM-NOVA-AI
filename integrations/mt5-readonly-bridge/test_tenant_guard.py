@@ -98,6 +98,9 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_durable_broker_day_and_candidate_risk_are_wired(self):
         self.assertIn("MT5_RISK_STATE_DB", SOURCE)
+        self.assertIn("_broker_day_capture_loop", SOURCE)
+        self.assertIn("asyncio.sleep(2)", SOURCE)
+        self.assertIn("MT5_BROKER_DAY_ANCHOR_SYMBOL", LAUNCHER)
         self.assertIn("load_or_capture_broker_day_baseline", SOURCE)
         self.assertIn("broker_day_start", SOURCE)
         self.assertIn("candidate: str | None = Query", SOURCE)
