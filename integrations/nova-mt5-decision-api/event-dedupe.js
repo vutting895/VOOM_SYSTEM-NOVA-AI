@@ -92,14 +92,16 @@ export class EventDedupe {
 
   async alarm() {
     const now = Date.now();
+    let nextAlarm = null;
     await this.storage.transaction(async (txn) => {
       const current = await txn.get(STORAGE_KEY);
       if (!current) return;
       if (current.expires_at_ms <= now) {
         await txn.delete(STORAGE_KEY);
       } else {
-        await this.storage.setAlarm(current.expires_at_ms);
+        nextAlarm = current.expires_at_ms;
       }
     });
+    if (nextAlarm !== null) await this.storage.setAlarm(nextAlarm);
   }
 }
