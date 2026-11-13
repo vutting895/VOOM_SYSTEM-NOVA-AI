@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import hmac
+import json
 import os
 import re
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import MetaTrader5 as mt5
@@ -12,6 +14,7 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from exposure_snapshot import build_exposure_snapshot
+from risk_state import broker_day_start, load_or_capture_broker_day_baseline
 
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
@@ -26,6 +29,12 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 MAX_BARS = 500
+RISK_STATE_DB = os.environ.get(
+    "MT5_RISK_STATE_DB",
+    str(Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) /
+        "VOOM_SYSTEM" / "state" / "mt5-risk-state.sqlite3"),
+)
+BROKER_DAY_ANCHOR_SYMBOL = os.environ.get("MT5_BROKER_DAY_ANCHOR_SYMBOL", "").strip()
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -157,13 +166,44 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         }
 
 
+def _risk_anchor_symbol(candidate: dict[str, Any] | None, positions: Any, pending_orders: Any) -> str | None:
+    if BROKER_DAY_ANCHOR_SYMBOL:
+        return BROKER_DAY_ANCHOR_SYMBOL
+    if candidate and isinstance(candidate.get("symbol"), str):
+        return candidate["symbol"]
+    for item in list(positions or []) + list(pending_orders or []):
+        symbol = str(getattr(item, "symbol", "") or "")
+        if symbol:
+            return symbol
+    symbols = mt5.symbols_get()
+    if symbols:
+        for item in symbols:
+            if bool(getattr(item, "visible", False)):
+                return str(getattr(item, "name", "") or "") or None
+    return None
+
+
+def _parse_candidate(value: str | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    try:
+        candidate = json.loads(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid candidate JSON")
+    if not isinstance(candidate, dict) or set(candidate) != {"symbol", "side", "volume", "entry_price", "stop_loss"}:
+        raise HTTPException(status_code=400, detail="Candidate fields are invalid")
+    return candidate
+
+
 @app.get("/api/exposure")
 def exposure_snapshot(
     authorization: str | None = Header(default=None),
     tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+    candidate: str | None = Query(default=None, max_length=512),
 ):
-    """Return broker-originated positions, pending orders and fail-closed SL risk."""
+    """Return broker exposure, durable broker-day baseline and recalculated candidate risk."""
     require_token(authorization, tenant_id)
+    parsed_candidate = _parse_candidate(candidate)
     with LOCK:
         _terminal, account = get_terminal_and_account()
         positions = mt5.positions_get()
@@ -174,7 +214,16 @@ def exposure_snapshot(
         if pending_orders is None:
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 pending orders unavailable: {error[0]}")
-        return build_exposure_snapshot(mt5, account, list(positions), list(pending_orders))
+        anchor_symbol = _risk_anchor_symbol(parsed_candidate, positions, pending_orders)
+        day_start = broker_day_start(mt5, anchor_symbol) if anchor_symbol else None
+        baseline = load_or_capture_broker_day_baseline(
+            db_path=RISK_STATE_DB, tenant_id=TENANT_ID, account=account,
+            day_start_epoch=day_start,
+        )
+        return build_exposure_snapshot(
+            mt5, account, list(positions), list(pending_orders),
+            broker_day_baseline=baseline, candidate=parsed_candidate,
+        )
 
 
 @app.get("/api/symbols")
