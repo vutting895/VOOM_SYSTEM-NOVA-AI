@@ -273,9 +273,16 @@ export async function fetchTrustedBridgeSnapshot(env, client, event) {
         !Number.isFinite(snapshot.broker_day_start_equity) || snapshot.broker_day_start_equity <= 0 ||
         typeof snapshot.market_open !== "boolean" ||
         !Number.isFinite(Date.parse(snapshot.broker_day_start_at)) ||
+        !Number.isFinite(snapshot.broker_day_baseline_capture_delay_seconds) ||
+        snapshot.broker_day_baseline_capture_delay_seconds < 0 ||
+        snapshot.broker_day_baseline_capture_delay_seconds > 30 ||
         !Number.isFinite(Date.parse(snapshot.market_data_at)) ||
+        Date.now() - Date.parse(snapshot.market_data_at) > 60_000 ||
+        Date.parse(snapshot.market_data_at) - Date.now() > 5_000 ||
         !Number.isFinite(snapshot.proposed_entry_risk_money) || snapshot.proposed_entry_risk_money < 0 ||
         !snapshot.candidate_risk || snapshot.candidate_risk.complete !== true ||
+        !Number.isFinite(snapshot.candidate_risk.risk_money) ||
+        snapshot.proposed_entry_risk_money !== snapshot.candidate_risk.risk_money ||
         snapshot.candidate_risk.symbol !== event.candidate.symbol ||
         snapshot.candidate_risk.side !== event.candidate.side ||
         snapshot.candidate_risk.volume !== event.candidate.volume ||
