@@ -106,14 +106,15 @@ def evaluate_mt5_risk(
 
     entry_lock_only = daily_loss_pct >= DAILY_LOSS_ENTRY_LOCK_PCT
     passed = not reasons
-    if entry_lock_only:
-        action = "ENTRY_LOCK_ONLY"
-    elif reasons:
-        action = "REJECT_NEW_ENTRY"
-    else:
+    if passed:
         action = "ELIGIBLE_FOR_RESEARCH_REVIEW"
+    elif entry_lock_only and len(reasons) == 1:
+        action = "ENTRY_LOCK_ONLY"
+    else:
+        action = "REJECT_NEW_ENTRY"
 
     return {
+        "event_id": event.get("event_id"),
         "policy_version": POLICY_VERSION,
         "passed": passed,
         "action": action,
