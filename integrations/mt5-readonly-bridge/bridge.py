@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import json
 import os
@@ -35,6 +36,7 @@ RISK_STATE_DB = os.environ.get(
         "VOOM_SYSTEM" / "state" / "mt5-risk-state.sqlite3"),
 )
 BROKER_DAY_ANCHOR_SYMBOL = os.environ.get("MT5_BROKER_DAY_ANCHOR_SYMBOL", "").strip()
+BROKER_DAY_CAPTURE_TASK: asyncio.Task | None = None
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -195,6 +197,45 @@ def _parse_candidate(value: str | None) -> dict[str, Any] | None:
     return candidate
 
 
+async def _broker_day_capture_loop() -> None:
+    """Poll through the broker D1 rollover so the baseline is captured durably."""
+    while True:
+        try:
+            with LOCK:
+                _terminal, account = get_terminal_and_account()
+                positions = mt5.positions_get() or []
+                pending_orders = mt5.orders_get() or []
+                anchor = _risk_anchor_symbol(None, positions, pending_orders)
+                day_start = broker_day_start(mt5, anchor) if anchor else None
+                load_or_capture_broker_day_baseline(
+                    db_path=RISK_STATE_DB, tenant_id=TENANT_ID, account=account,
+                    day_start_epoch=day_start,
+                )
+        except Exception:
+            # A missing terminal, symbol, or broker D1 bar is not a zero-risk state.
+            pass
+        await asyncio.sleep(2)
+
+
+@app.on_event("startup")
+async def start_broker_day_capture() -> None:
+    global BROKER_DAY_CAPTURE_TASK
+    if BROKER_DAY_CAPTURE_TASK is None or BROKER_DAY_CAPTURE_TASK.done():
+        BROKER_DAY_CAPTURE_TASK = asyncio.create_task(_broker_day_capture_loop())
+
+
+@app.on_event("shutdown")
+async def stop_broker_day_capture() -> None:
+    global BROKER_DAY_CAPTURE_TASK
+    if BROKER_DAY_CAPTURE_TASK is not None:
+        BROKER_DAY_CAPTURE_TASK.cancel()
+        try:
+            await BROKER_DAY_CAPTURE_TASK
+        except asyncio.CancelledError:
+            pass
+        BROKER_DAY_CAPTURE_TASK = None
+
+
 @app.get("/api/exposure")
 def exposure_snapshot(
     authorization: str | None = Header(default=None),
@@ -220,10 +261,17 @@ def exposure_snapshot(
             db_path=RISK_STATE_DB, tenant_id=TENANT_ID, account=account,
             day_start_epoch=day_start,
         )
-        return build_exposure_snapshot(
+        snapshot = build_exposure_snapshot(
             mt5, account, list(positions), list(pending_orders),
             broker_day_baseline=baseline, candidate=parsed_candidate,
         )
+        market_symbol = parsed_candidate.get("symbol") if parsed_candidate else anchor_symbol
+        tick = mt5.symbol_info_tick(market_symbol) if market_symbol else None
+        tick_epoch = int(getattr(tick, "time", 0) or 0) if tick is not None else 0
+        now_epoch = datetime.now(timezone.utc).timestamp()
+        snapshot["market_data_at"] = datetime.fromtimestamp(tick_epoch, timezone.utc).isoformat() if tick_epoch > 0 else None
+        snapshot["market_open"] = bool(tick_epoch > 0 and -5 <= now_epoch - tick_epoch <= 60)
+        return snapshot
 
 
 @app.get("/api/symbols")
