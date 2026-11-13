@@ -64,6 +64,16 @@ jobs:
           python-version: "3.11"
       - name: Install Python test dependencies
         run: python -m pip install pytest fastapi pydantic httpx
+      - name: Set up Node.js for MT5 Worker tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate MT5 Python adapter syntax
+        run: python -m py_compile workers/quant/mt5_decision_adapter.py workers/risk/mt5_decision_gate.py
+      - name: Run MT5 Python contract tests
+        run: python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline -v
+      - name: Run MT5 Worker contract tests
+        run: node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quant-engine-adapter/*.test.mjs
       - name: Compile SMC research module
         run: python -m py_compile workers/feature/smc_wave/smc_strategy.py
       - name: Run focused SMC tests
