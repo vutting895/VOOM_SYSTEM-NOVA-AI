@@ -62,7 +62,7 @@ def build_exposure_snapshot(mt5: Any, account: Any, positions: list[Any], pendin
         for item in items:
             symbol = str(_value(item, "symbol", "") or "")
             volume = _value(item, "volume_current", _value(item, "volume", None))
-            entry = _value(item, "price_open", _value(item, "price_current", _value(item, "price", None)))
+            entry = (_value(item, "price_current", _value(item, "price_open", None)) if kind == "position" else _value(item, "price_open", _value(item, "price_current", _value(item, "price", None))))
             stop = _value(item, "sl", 0.0)
             side = _side_for_position(mt5, item) if kind == "position" else _side_for_pending(mt5, item)
             risk = None if side is None else _risk_money(mt5, symbol, side, volume, entry, stop)
