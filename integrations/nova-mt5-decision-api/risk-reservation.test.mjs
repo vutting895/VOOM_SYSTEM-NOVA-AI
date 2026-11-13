@@ -38,7 +38,7 @@ const base = (overrides = {}) => ({
   broker_day_baseline_available: true,
   candidate_risk_complete: true,
   current_equity: 9900,
-  aggregate_open_risk_money: 700,
+  aggregate_open_risk_money: 691,
   open_orders_count: 2,
   broker_day_start_equity: 10000,
   proposed_entry_risk_money: 200,
