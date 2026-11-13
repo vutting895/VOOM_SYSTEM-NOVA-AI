@@ -56,7 +56,7 @@ The gate calculates daily loss relative to broker-day starting equity and aggreg
 
 The 60-second freshness guard is an inherited conservative control and must be included in staging policy review. No close, amend, cancel, or other broker write action exists in this API.
 
-**Evidence limitation:** HMAC proves that the event was signed by a holder of the EA machine secret; it does not independently prove that the account/equity/open-risk snapshot is truthful. Before any staging result is treated as broker-verified, reconcile these values against the tenant-authorized, read-only MT5 Bridge account and open-position data. Until then, the Risk Gate test proves deterministic evaluation of supplied signed evidence, not independent broker-data verification.
+**Evidence limitation:** HMAC proves that the event was signed by a holder of the EA machine secret; it does not independently prove that the account/equity/open-risk snapshot is truthful. Before any staging result is treated as broker-verified, reconcile these values against tenant-authorized, read-only MT5 Bridge account, positions and pending-order data. `open_orders_count` must include active positions plus pending orders. `aggregate_open_risk_money` must sum remaining loss-to-stop across those positions and orders, denominated in the same account currency as equity. Until then, the Risk Gate test proves deterministic evaluation of supplied signed evidence, not independent broker-data verification.
 
 ## 4. Durable Object event deduplication
 
