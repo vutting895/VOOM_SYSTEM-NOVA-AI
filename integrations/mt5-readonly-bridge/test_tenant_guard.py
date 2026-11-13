@@ -100,6 +100,7 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect", RELAY_CLIENT)
         self.assertNotIn("voom.ai", RELAY_CLIENT.lower())
         self.assertIn("X-VOOM-TENANT-ID", RELAY_CLIENT)
+        self.assertIn('if parsed.path in {"/health", "/api/account", "/api/exposure"}:', RELAY_CLIENT)
         self.assertIn("Authorization", RELAY_CLIENT)
         self.assertIn('method="GET"', RELAY_CLIENT)
         self.assertNotIn('"/api/orders"', RELAY_CLIENT)
