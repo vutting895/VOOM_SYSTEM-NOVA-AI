@@ -99,6 +99,18 @@ class CandidateRiskTests(unittest.TestCase):
         self.assertFalse(bad_volume["complete"])
         self.assertEqual(bad_volume["reason"], "candidate_volume_step_invalid")
 
+    def test_rejects_candidate_when_broker_profit_calculation_is_not_a_loss(self):
+        class ProfitMT5(FakeMT5):
+            @staticmethod
+            def order_calc_profit(side, symbol, volume, entry, stop):
+                return 10.0
+        result = calculate_candidate_risk(ProfitMT5, {
+            "symbol": "XAUUSDm", "side": "BUY", "volume": 0.1,
+            "entry_price": 2600.0, "stop_loss": 2590.0,
+        })
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["reason"], "candidate_stop_loss_not_loss_making")
+
     def test_missing_candidate_fails_closed(self):
         result = calculate_candidate_risk(FakeMT5, None)
         self.assertFalse(result["complete"])
