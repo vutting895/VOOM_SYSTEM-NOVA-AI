@@ -63,7 +63,6 @@ const quantResult = {
 };
 const riskPass = {
   event_id: "XAUUSDm-PERIOD_M15-1794550000",
-  event_id: "XAUUSDm-PERIOD_M15-1794550000",
   policy_version: "nova-mt5-risk.ea-compatible.v1", passed: true,
   action: "ELIGIBLE_FOR_RESEARCH_REVIEW", entry_lock_only: false,
   reason_codes: [], execution_authorized: false, live_trading_enabled: false,
