@@ -30,14 +30,15 @@ The API accepts a signed wrapper:
     "open_orders_count": 2,
     "market_open": true,
     "broker_day_start_at": "2026-11-13T00:00:00Z",
-    "snapshot_at": "2026-11-13T08:59:30Z"
+    "snapshot_at": "2026-11-13T08:59:30Z",
+    "market_data_at": "2026-11-13T08:59:30Z"
   }
 }
 ```
 
 `risk_snapshot` is optional at the transport boundary so the producer can be validated independently. It is mandatory for Risk Gate evaluation. Missing or invalid risk evidence fails closed as WAIT; the API does not infer account equity or open risk from heuristic votes.
 
-The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected.
+The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected. The Risk Gate requires both account snapshot and latest market-data timestamps; the Local Controller must populate `market_data_at` from its read-only quote snapshot, not copy the closed-bar timestamp.
 
 ## 2. Quant adapter truthfulness
 
@@ -57,7 +58,7 @@ The MT5-specific gate uses the standalone EA's current hard safety ceilings:
 - Daily loss >= 3% of broker-day starting equity: `ENTRY_LOCK_ONLY` for new entries.
 - Aggregate open risk > 2% of current equity: reject new entry.
 - Open positions/orders >= 5: reject new entry.
-- Market closed, stale snapshot (>60 seconds), invalid/missing fields, or invalid timestamps: fail closed.
+- Market closed, account snapshot or market data older than 60 seconds, invalid/missing fields, or invalid timestamps: fail closed.
 - Existing positions are always `NO_CHANGE`; no close, amend, cancel, or broker write operation exists.
 
 This policy is scoped to the MT5 integration only. It does not alter NOVA's other risk policies. The EA's local controls remain independent and must not be weakened.
