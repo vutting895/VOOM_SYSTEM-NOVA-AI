@@ -50,7 +50,11 @@ def _side_for_pending(mt5: Any, item: Any) -> int | None:
     return None
 
 
-def build_exposure_snapshot(mt5: Any, account: Any, positions: list[Any], pending_orders: list[Any]) -> dict[str, Any]:
+def build_exposure_snapshot(
+    mt5: Any, account: Any, positions: list[Any], pending_orders: list[Any],
+    broker_day_baseline: dict[str, Any] | None = None,
+    candidate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build one consistent, caller-locked snapshot; no MT5 write methods are used."""
     captured_at = datetime.now(timezone.utc).isoformat()
     rows: list[dict[str, Any]] = []
@@ -94,6 +98,10 @@ def build_exposure_snapshot(mt5: Any, account: Any, positions: list[Any], pendin
         total_risk = None
         risk_pct = None
 
+    from risk_state import calculate_candidate_risk
+    candidate_result = calculate_candidate_risk(mt5, candidate)
+    baseline = broker_day_baseline or {"available": False, "reason": "broker_day_baseline_unavailable"}
+
     return {
         "snapshot_at": captured_at,
         "account_login": str(_value(account, "login", "") or ""),
@@ -110,7 +118,15 @@ def build_exposure_snapshot(mt5: Any, account: Any, positions: list[Any], pendin
         "aggregate_open_risk_money": total_risk,
         "aggregate_open_risk_pct_current_equity": risk_pct,
         "risk_calculation_complete": complete,
+        "broker_day_baseline_available": baseline.get("available") is True,
+        "broker_day_baseline_reason": baseline.get("reason"),
+        "candidate_risk_complete": candidate_result.get("complete") is True,
+        "candidate_risk_reason": candidate_result.get("reason"),
+        "candidate_risk_money": candidate_result.get("risk_money"),
+        "proposed_entry_risk_money": candidate_result.get("risk_money"),
+        "candidate_risk": candidate_result,
         "risk_calculation_basis": "broker_order_calc_profit_to_each_stop_loss_account_currency",
+        **{key: value for key, value in baseline.items() if key not in {"available", "reason"}},
         "policy_attestation": {
             "status": "not_attested",
             "policy_version": None,
