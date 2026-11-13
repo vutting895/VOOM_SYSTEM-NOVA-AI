@@ -33,6 +33,7 @@ def event_with_snapshot(**risk_overrides):
     return {
         "schema_version": "nova.mt5-event.v2",
         "event_id": "XAUUSDm-PERIOD_M15-1794550000",
+        "client_id": "tenant-demo-01",
         "symbol": "XAUUSDm",
         "timeframe": "M15",
         "occurred_at": "2026-11-13T08:59:30Z",
@@ -55,6 +56,7 @@ class TestMT5HeuristicRiskPipeline(unittest.TestCase):
 
         self.assertEqual(quant_result["engine"], "MT5HeuristicConsensusAdapter")
         self.assertEqual(quant_result["event_id"], event["event_id"])
+        self.assertEqual(quant_result["client_id"], event["client_id"])
         self.assertEqual(quant_result["evaluation_status"], "research_only")
         self.assertEqual(quant_result["directional_bias"], "BUY")
         self.assertEqual(quant_result["signal_source"], "mt5_ea_heuristic_modules")
