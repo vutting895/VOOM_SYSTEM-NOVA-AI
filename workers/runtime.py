@@ -1,6 +1,7 @@
 """Isolated NOVA research runtime. All routes are research/approval-only; no broker orders."""
 from __future__ import annotations
 import hashlib
+import hmac
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -14,6 +15,8 @@ from workers.feature.smc_wave.smc_strategy import analyze_smc, run_smc_backtest
 from workers.feature.elliott_wave.elliott_wave import analyze_elliott_wave
 from workers.backtest.walk_forward import run_walk_forward
 from workers.risk.manager_prototype import RiskWorker
+from workers.quant.mt5_decision_adapter import evaluate_mt5_event
+from workers.risk.mt5_decision_gate import evaluate_mt5_risk
 
 app = FastAPI(title="VOOM NOVA Research Worker", version="0.3.0")
 
@@ -35,6 +38,16 @@ class WalkForwardRequest(BaseModel):
     reward_risk: float = Field(default=2.0, ge=0.5, le=5.0)
     fee_rate: float = Field(default=0.001, ge=0, lt=0.05)
     slippage_rate: float = Field(default=0.0005, ge=0, lt=0.05)
+
+
+class MT5QuantDecisionRequest(BaseModel):
+    event: dict[str, Any]
+    execution_enabled: bool = False
+
+
+class MT5RiskGateRequest(BaseModel):
+    event: dict[str, Any]
+    quant_engine_result: dict[str, Any]
 
 
 class RiskApprovalRequest(BaseModel):
@@ -148,3 +161,46 @@ def risk_approval(payload: RiskApprovalRequest,
     return {"ok": True, "risk": risk, "approval_created": True,
             "approval": created, "status": "awaiting_human_review",
             "live_execution_allowed": False}
+
+
+
+def _require_quant_m2m(authorization: str | None) -> None:
+    expected = os.getenv("NOVA_QUANT_M2M_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="quant_m2m_auth_not_configured")
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="machine_authentication_required")
+    supplied = authorization[7:].strip()
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="invalid_machine_credentials")
+
+
+@app.post("/v1/mt5/decision")
+def mt5_quant_decision(
+    payload: MT5QuantDecisionRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_quant_m2m(authorization)
+    if payload.execution_enabled is not False:
+        raise HTTPException(status_code=403, detail="execution_must_remain_disabled")
+    try:
+        return evaluate_mt5_event(payload.event)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        # Avoid returning model internals or credentials in error details.
+        raise HTTPException(status_code=503, detail="quant_engine_unavailable") from exc
+
+
+@app.post("/v1/mt5/risk-gate")
+def mt5_risk_gate(
+    payload: MT5RiskGateRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    _require_quant_m2m(authorization)
+    try:
+        return evaluate_mt5_risk(payload.event, payload.quant_engine_result)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="risk_gate_unavailable") from exc
