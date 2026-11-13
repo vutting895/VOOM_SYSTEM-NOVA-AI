@@ -42,7 +42,7 @@ Event replay protection is delegated to an atomic Durable Object service binding
 }
 ```
 
-`module_id` accepts M01 through M30. Module-specific payloads remain opaque, bounded JSON until the EA's authoritative 30-module inventory and per-module schemas are supplied. Common risk evidence is required for a pass; missing or invalid values reject. The account mode is fixed to Demo by the adapter and cannot be overridden by the event.
+`module_id` accepts M01 through M30. Module-specific payloads remain opaque, bounded JSON until the EA's authoritative 30-module inventory and per-module schemas are supplied. Common risk evidence is required for a pass; missing or invalid values reject. Risk thresholds reflect the currently recorded policy: daily loss 10% (entry lock only), aggregate open risk 9%, maximum 5 open orders; prototype guardrails also cap allocation at 20%, drawdown at 7%, leverage at 1x and data age at 60 seconds. These values still require explicit policy-version review before staging. The account mode is fixed to Demo by the adapter and cannot be overridden by the event.
 
 ## Decision flow
 
@@ -51,7 +51,7 @@ Event replay protection is delegated to an atomic Durable Object service binding
 3. Validate event envelope, module ID, UTC-aware event time and payload.
 4. Atomically reserve event ID via `EVENT_DEDUPE`; duplicates return 409.
 5. Call `QUANT_ENGINE` service binding with `nova.mt5-decision.v1`.
-6. Apply deterministic risk policy (allocation <=20%, daily loss <3%, drawdown <7%, leverage =1, data age <=60s, market open).
+6. Apply deterministic risk policy (allocation <=20%, daily loss <10%, open risk <=9%, fewer than 5 open orders, drawdown <7%, leverage =1, data age <=60s, market open. Daily-loss breach applies entry lock only.).
 7. Call existing Workers AI binding for explanation only. AI failure degrades explanation, never the risk result.
 8. Return analysis/rejection and explicit execution-off flags.
 
