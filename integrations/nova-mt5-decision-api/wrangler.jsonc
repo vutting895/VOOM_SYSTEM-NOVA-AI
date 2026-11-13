@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "nova-mt5-decision-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-13",
+  "workers_dev": true,
+  "services": [
+    { "binding": "MT5_BRIDGE", "service": "voom-mt5-bridge-relay" },
+    { "binding": "QUANT_ENGINE", "service": "nova-quant-engine-adapter" }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "EVENT_DEDUPE", "class_name": "EventDedupe" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["EventDedupe"] }
+  ],
+  "observability": { "enabled": true }
+}
