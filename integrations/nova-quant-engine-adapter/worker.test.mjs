@@ -35,19 +35,19 @@ test("forwards decision request only to the configured Python endpoint", async (
   globalThis.fetch = async (url, init) => {
     observed = { url: String(url), init };
     return Response.json({
-      engine: "HybridQuantumQuantEngine",
+      engine: "MT5HeuristicConsensusAdapter",
       evaluation_status: "research_only",
       execution_enabled: false,
     });
   };
   try {
-    const payload = { event: { schema_version: "nova.mt5-event.v1" }, execution_enabled: false };
+    const payload = { event: { schema_version: "nova.mt5-event.v2", event_id: "ea-test-0001", module_votes: [] }, execution_enabled: false };
     const response = await adapter.fetch(request("/v1/mt5/decision", payload), env);
     assert.equal(response.status, 200);
     assert.equal(observed.url, "https://quant-runtime.example.test/v1/mt5/decision");
     assert.equal(observed.init.headers.Authorization, "Bearer " + TOKEN);
     assert.equal(JSON.parse(observed.init.body).execution_enabled, false);
-    assert.equal((await response.json()).engine, "HybridQuantumQuantEngine");
+    assert.equal((await response.json()).engine, "MT5HeuristicConsensusAdapter");
   } finally {
     globalThis.fetch = originalFetch;
   }
