@@ -77,6 +77,20 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
                 QUANT, now=NOW,
             )
 
+    def test_stale_market_data_fails_closed(self):
+        result = evaluate_mt5_risk(
+            make_event(market_data_at="2026-11-13T08:58:00Z"), QUANT, now=NOW
+        )
+        self.assertIn("stale_market_data", result["reason_codes"])
+        self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
+
+    def test_daily_loss_with_another_blocker_is_rejected(self):
+        result = evaluate_mt5_risk(
+            make_event(current_equity=9700.0, market_open=False), QUANT, now=NOW
+        )
+        self.assertTrue(result["entry_lock_only"])
+        self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
+
     def test_mismatched_event_or_untrusted_quant_envelope_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "verified_mt5_heuristic_result_required"):
             evaluate_mt5_risk(make_event(), {**QUANT, "event_id": "other"}, now=NOW)
