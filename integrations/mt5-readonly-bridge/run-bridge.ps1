@@ -24,6 +24,11 @@ if ($env:MT5_BRIDGE_TOKEN.Length -lt 32) {
 # Stable, authenticated WebSocket relay under workers.dev; no custom domain or named Tunnel.
 $env:MT5_BRIDGE_RELAY_URL = 'wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect'
 
+# Keep the broker D1 baseline keyed to one stable symbol across all candidate symbols.
+if (-not $env:MT5_BROKER_DAY_ANCHOR_SYMBOL) {
+    $env:MT5_BROKER_DAY_ANCHOR_SYMBOL = 'XAUUSDm'
+}
+
 Set-Location $root
 $python = Join-Path $root '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $python)) {
