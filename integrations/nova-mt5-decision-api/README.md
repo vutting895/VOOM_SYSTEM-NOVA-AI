@@ -18,34 +18,17 @@ The current EA emits one closed-bar signal event with:
 - BUY/SELL/NEUTRAL totals
 - exactly 30 `{name, vote}` entries
 
-The API accepts a signed wrapper:
+The API accepts a signed wrapper containing only the exact EA signal:
 ```json
 {
   "schema_version": "nova.mt5-request.v1",
   "signal_event": { "...": "the exact mt5ea.signal.v1 object" }
 }
-
-The Controller must not send `risk_snapshot`; the Decision Worker rejects that field. The Worker fetches broker evidence from the tenant-authorized Bridge using its private `MT5_BRIDGE` Service Binding.
-
-<!-- legacy example removed -->
-<!--
-  "risk_snapshot": {
-    "broker_day_start_equity": 10000,
-    "current_equity": 9900,
-    "aggregate_open_risk_money": 100,
-    "proposed_entry_risk_money": 25,
-    "open_orders_count": 2,
-    "market_open": true,
-    "broker_day_start_at": "2026-11-13T00:00:00Z",
-    "snapshot_at": "2026-11-13T08:59:30Z",
-    "market_data_at": "2026-11-13T08:59:30Z"
-  }
-}
 ```
 
-`risk_snapshot` is optional at the transport boundary so the producer can be validated independently. It is mandatory for Risk Gate evaluation. Missing or invalid risk evidence fails closed as WAIT; the API does not infer account equity or open risk from heuristic votes.
+The Controller must not send `risk_snapshot`; the Decision Worker rejects that field with `controller_risk_snapshot_not_trusted`. The Worker fetches broker evidence from the tenant-authorized Bridge using its private `MT5_BRIDGE` Service Binding. It does not fall back to Controller-supplied equity or exposure.
 
-The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected. The Risk Gate requires both account snapshot and latest market-data timestamps; the Local Controller must populate `market_data_at` from its read-only quote snapshot, not copy the closed-bar timestamp.
+The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected.
 
 ## 2. Quant adapter truthfulness
 
