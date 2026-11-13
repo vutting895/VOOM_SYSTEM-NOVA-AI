@@ -26,6 +26,7 @@ def event_with_snapshot(**risk_overrides):
         "market_open": True,
         "broker_day_start_at": "2026-11-13T00:00:00Z",
         "snapshot_at": "2026-11-13T08:59:30Z",
+        "market_data_at": "2026-11-13T08:59:30Z",
     }
     snapshot.update(risk_overrides)
     votes = ["BUY"] * 12 + ["SELL"] * 8 + ["NEUTRAL"] * 10
@@ -56,6 +57,7 @@ class TestMT5HeuristicRiskPipeline(unittest.TestCase):
         self.assertEqual(quant_result["event_id"], event["event_id"])
         self.assertEqual(quant_result["evaluation_status"], "research_only")
         self.assertEqual(quant_result["directional_bias"], "BUY")
+        self.assertEqual(quant_result["signal_source"], "mt5_ea_heuristic_modules")
         self.assertTrue(risk_result["passed"])
         self.assertEqual(risk_result["policy_version"], "nova-mt5-risk.ea-compatible.v1")
         self.assertFalse(risk_result["execution_authorized"])
