@@ -262,6 +262,23 @@ test("controller-supplied risk_snapshot is rejected instead of trusted", () => {
     /controller_risk_snapshot_not_trusted/);
 });
 
+test("missing EA candidate trade plan fails closed before Quant Engine", async () => {
+  const payload = requestPayload();
+  delete payload.signal_event.candidate;
+  const response = await worker.fetch(await signedRequest(JSON.stringify(payload)), makeEnv());
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).error, "candidate_trade_plan_required");
+});
+
+test("invalid candidate side or symbol mismatch is rejected by event contract", () => {
+  const wrongSide = requestPayload();
+  wrongSide.signal_event.candidate.side = "HOLD";
+  assert.throws(() => validateEvent(wrongSide), /invalid_trade_candidate/);
+  const wrongSymbol = requestPayload();
+  wrongSymbol.signal_event.candidate.symbol = "EURUSD";
+  assert.throws(() => validateEvent(wrongSymbol), /invalid_trade_candidate/);
+});
+
 test("Bridge exposure without broker-day and candidate-risk fields fails closed", async () => {
   const env = makeEnv({ MT5_BRIDGE: { fetch: async () => Response.json({
     account_login: "12345678", broker_server: "Exness-MT5Trial7", account_currency: "USD",
