@@ -75,7 +75,8 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
         self.assertIn("stale_market_data", stale_market["reason_codes"])
         with self.assertRaisesRegex(ValueError, "risk_snapshot_required"):
             evaluate_mt5_risk(
-                {"schema_version": "nova.mt5-event.v2", "event_id": "ea-risk-001"},
+                {"schema_version": "nova.mt5-event.v2", "event_id": "ea-risk-001",
+                 "client_id": "tenant-demo-01"},
                 QUANT, now=NOW,
             )
 
