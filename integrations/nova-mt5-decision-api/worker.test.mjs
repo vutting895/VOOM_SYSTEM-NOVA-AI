@@ -254,6 +254,18 @@ test("controller-supplied risk_snapshot is rejected instead of trusted", () => {
     /controller_risk_snapshot_not_trusted/);
 });
 
+test("Bridge exposure without broker-day and candidate-risk fields fails closed", async () => {
+  const env = makeEnv({ MT5_BRIDGE: { fetch: async () => Response.json({
+    account_login: "12345678", broker_server: "Exness-MT5Trial7", account_currency: "USD",
+    risk_calculation_complete: true, current_equity: 9900, aggregate_open_risk_money: 100,
+    open_orders_count: 2, snapshot_at: new Date().toISOString(),
+  }) } });
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "trusted_mt5_bridge_risk_contract_incomplete");
+  assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
+});
+
 test("Bridge identity mismatch fails closed before Quant Engine", async () => {
   const env = makeEnv({ MT5_BRIDGE: { fetch: async () => Response.json({
     account_login: "99999999", broker_server: "Exness-MT5Trial7", account_currency: "USD",
