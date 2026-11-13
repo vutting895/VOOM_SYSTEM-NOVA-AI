@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import worker, { authenticateMachine, validateEvent } from "./worker.js";
 
 const SECRET = "test-only-secret-that-is-at-least-32-bytes";
-const NOW = 1794550000;
+const NOW = Math.floor(Date.now() / 1000);
 const MODULES = [
   "SuperTrend", "KeltnerBreak", "GoldenCross", "RocSurge", "Alligator",
   "Ichimoku", "AwesomeOsc", "HeikinPower", "PsarDot", "VwapBand",
@@ -33,6 +33,7 @@ const riskSnapshot = {
   aggregate_open_risk_money: 100, open_orders_count: 2, market_open: true,
   broker_day_start_at: "2026-11-13T00:00:00Z",
   snapshot_at: "2026-11-13T08:59:30Z",
+  market_data_at: "2026-11-13T08:59:30Z",
 };
 const requestPayload = (overrides = {}) => ({
   schema_version: "nova.mt5-request.v1",
@@ -60,6 +61,7 @@ const quantResult = {
   execution_enabled: false,
 };
 const riskPass = {
+  event_id: "XAUUSDm-PERIOD_M15-1794550000",
   policy_version: "nova-mt5-risk.ea-compatible.v1", passed: true,
   action: "ELIGIBLE_FOR_RESEARCH_REVIEW", entry_lock_only: false,
   reason_codes: [], execution_authorized: false, live_trading_enabled: false,
