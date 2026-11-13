@@ -23,6 +23,7 @@ def make_event(**changes):
         "market_open": True,
         "broker_day_start_at": "2026-11-13T00:00:00Z",
         "snapshot_at": "2026-11-13T08:59:30Z",
+        "market_data_at": "2026-11-13T08:59:30Z",
     }
     snapshot.update(changes)
     return {
@@ -55,6 +56,7 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
         )
         self.assertIn("aggregate_open_risk_limit", result["reason_codes"])
         self.assertFalse(result["passed"])
+        self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
 
     def test_maximum_5_orders_rejects_new_entry(self):
         result = evaluate_mt5_risk(make_event(open_orders_count=5), QUANT, now=NOW)
@@ -65,6 +67,10 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
             make_event(snapshot_at="2026-11-13T08:58:00Z"), QUANT, now=NOW
         )
         self.assertIn("stale_risk_snapshot", stale["reason_codes"])
+        stale_market = evaluate_mt5_risk(
+            make_event(market_data_at="2026-11-13T08:58:00Z"), QUANT, now=NOW
+        )
+        self.assertIn("stale_market_data", stale_market["reason_codes"])
         with self.assertRaisesRegex(ValueError, "risk_snapshot_required"):
             evaluate_mt5_risk(
                 {"schema_version": "nova.mt5-event.v2", "event_id": "ea-risk-001"},
