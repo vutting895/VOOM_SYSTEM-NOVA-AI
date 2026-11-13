@@ -11,6 +11,7 @@ import MetaTrader5 as mt5
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from exposure_snapshot import build_exposure_snapshot
 
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
@@ -154,6 +155,26 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "mode": "read-only",
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
+
+
+@app.get("/api/exposure")
+def exposure_snapshot(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return broker-originated positions, pending orders and fail-closed SL risk."""
+    require_token(authorization, tenant_id)
+    with LOCK:
+        _terminal, account = get_terminal_and_account()
+        positions = mt5.positions_get()
+        pending_orders = mt5.orders_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        if pending_orders is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 pending orders unavailable: {error[0]}")
+        return build_exposure_snapshot(mt5, account, list(positions), list(pending_orders))
 
 
 @app.get("/api/symbols")
