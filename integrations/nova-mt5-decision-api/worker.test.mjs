@@ -74,14 +74,14 @@ function makeEnv(overrides = {}) {
     EVENT_DEDUPE: {
       idFromName: (id) => id,
       get: () => ({ fetch: async (request) => {
-        const path = new URL(request.url).pathname;
+        const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
         calls.push(path.slice(1));
         return new Response("ok", { status: path === "/reserve" ? 201 : 200 });
       } }),
     },
     QUANT_ENGINE: {
       fetch: async (request, init) => {
-        const path = new URL(request.url).pathname;
+        const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
         calls.push(path);
         if (path === "/v1/mt5/decision") {
           const body = JSON.parse(init.body);
@@ -170,7 +170,7 @@ test("orchestrates EA mapping then Quant Engine then Risk Gate then advisory AI"
 test("AI text cannot reverse a rejected Risk Gate decision", async () => {
   const env = makeEnv({
     QUANT_ENGINE: {
-      fetch: async (request) => new URL(request.url).pathname === "/v1/mt5/decision"
+      fetch: async (request) => new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname === "/v1/mt5/decision"
         ? Response.json(quantResult)
         : Response.json({ ...riskPass, passed: false, action: "ENTRY_LOCK_ONLY",
             entry_lock_only: true, reason_codes: ["daily_loss_entry_lock"] }),
@@ -185,7 +185,7 @@ test("AI text cannot reverse a rejected Risk Gate decision", async () => {
 test("missing risk snapshot fails closed as WAIT and does not call AI", async () => {
   const env = makeEnv({
     QUANT_ENGINE: {
-      fetch: async (request) => new URL(request.url).pathname === "/v1/mt5/decision"
+      fetch: async (request) => new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname === "/v1/mt5/decision"
         ? Response.json(quantResult)
         : new Response("risk_snapshot_required", { status: 422 }),
     },
@@ -201,7 +201,7 @@ test("missing risk snapshot fails closed as WAIT and does not call AI", async ()
 test("Risk Gate outage prevents AI call and releases event reservation", async () => {
   const env = makeEnv({
     QUANT_ENGINE: {
-      fetch: async (request) => new URL(request.url).pathname === "/v1/mt5/decision"
+      fetch: async (request) => new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname === "/v1/mt5/decision"
         ? Response.json(quantResult)
         : new Response("unavailable", { status: 503 }),
     },
