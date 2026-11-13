@@ -1,3 +1,6 @@
+import { EventDedupe } from "./event-dedupe.js";
+export { EventDedupe };
+
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_CLOCK_SKEW_SECONDS = 60;
 const MODULE_IDS = new Set(Array.from({ length: 30 }, (_, i) => `M${String(i + 1).padStart(2, "0")}`));
@@ -83,94 +86,106 @@ export function validateEvent(value) {
     account_mode: "demo", payload: value.payload,
   };
 }
-function riskGate(event) {
-  const p = event.payload;
-  const reasons = [];
-  const numeric = ["allocation_pct", "daily_loss_pct", "drawdown_pct", "open_risk_pct", "open_orders_count", "leverage", "data_age_seconds"];
-  for (const key of numeric) {
-    if (typeof p[key] !== "number" || !Number.isFinite(p[key])) reasons.push("missing_or_invalid_" + key);
-  }
-  if (reasons.length === 0) {
-    if (p.allocation_pct <= 0 || p.allocation_pct > 20) reasons.push("allocation_limit");
-    if (p.daily_loss_pct < 0 || p.daily_loss_pct >= 10) reasons.push("daily_loss_limit");
-    if (p.open_risk_pct < 0 || p.open_risk_pct > 9) reasons.push("open_risk_limit");
-    if (!Number.isInteger(p.open_orders_count) || p.open_orders_count < 0 || p.open_orders_count >= 5) reasons.push("max_open_orders");
-    if (p.drawdown_pct < 0 || p.drawdown_pct >= 7) reasons.push("drawdown_limit");
-    if (p.leverage < 1 || p.leverage > 1) reasons.push("leverage_limit");
-    if (p.data_age_seconds < 0 || p.data_age_seconds > 60) reasons.push("stale_market_data");
-  }
-  if (p.market_open !== true) reasons.push("market_closed_or_unknown");
-  return {
-    policy_version: "nova-risk-1.0", passed: reasons.length === 0,
-    status: reasons.length === 0 ? "allow_paper_analysis" : "reject",
-    reason_codes: reasons, live_execution_allowed: false,
-  };
-}
-async function reserveEvent(env, eventId, timestamp) {
+async function dedupeRequest(env, eventId, operation, claimId, timestamp) {
   const namespace = env.EVENT_DEDUPE;
   if (!namespace || typeof namespace.idFromName !== "function" || typeof namespace.get !== "function") {
     return { ok: false, status: 503, error: "event_dedupe_service_not_configured" };
   }
   try {
-    const id = namespace.idFromName(eventId);
-    const stub = namespace.get(id);
-    const response = await stub.fetch("https://event-dedupe.internal/reserve", {
+    const stub = namespace.get(namespace.idFromName(eventId));
+    const response = await stub.fetch("https://event-dedupe.internal/" + operation, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event_id: eventId, timestamp }),
+      body: JSON.stringify({ event_id: eventId, claim_id: claimId, timestamp }),
     });
-    if (response.status === 409) return { ok: false, status: 409, error: "duplicate_event" };
+    if (operation === "reserve" && response.status === 409) {
+      return { ok: false, status: 409, error: "duplicate_or_in_progress_event" };
+    }
     if (!response.ok) return { ok: false, status: 503, error: "event_dedupe_unavailable" };
     return { ok: true };
   } catch {
     return { ok: false, status: 503, error: "event_dedupe_unavailable" };
   }
 }
-async function callQuantEngine(env, event) {
+async function callCompute(env, path, body) {
   if (!env.QUANT_ENGINE || typeof env.QUANT_ENGINE.fetch !== "function") {
-    return { ok: false, status: 503, error: "quant_engine_binding_not_configured" };
+    return { ok: false, status: 503, error: "quant_engine_adapter_not_configured" };
   }
   try {
-    const response = await env.QUANT_ENGINE.fetch("https://quant-engine.internal/v1/mt5/decision", {
+    const response = await env.QUANT_ENGINE.fetch("https://nova-quant-engine.internal" + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-NOVA-Contract": "nova.mt5-decision.v1" },
-      body: JSON.stringify({ event, execution_enabled: false }),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
     });
-    if (!response.ok) return { ok: false, status: 502, error: "quant_engine_rejected_request" };
+    if (!response.ok) return {
+      ok: false,
+      status: response.status === 422 ? 422 : 502,
+      error: path.endsWith("/decision") ? "quant_engine_unavailable_or_rejected" : "risk_gate_unavailable_or_rejected",
+    };
     const result = await response.json();
     if (!result || typeof result !== "object" || Array.isArray(result)) {
-      return { ok: false, status: 502, error: "quant_engine_invalid_response" };
+      return { ok: false, status: 502, error: "invalid_compute_response" };
     }
     return { ok: true, result };
   } catch {
-    return { ok: false, status: 502, error: "quant_engine_unavailable" };
+    return { ok: false, status: 502, error: "compute_service_unavailable" };
   }
 }
+function validateQuantResult(result) {
+  return Boolean(result &&
+    result.engine === "HybridQuantumQuantEngine" &&
+    result.evaluation_status === "research_only" &&
+    result.execution_enabled === false &&
+    typeof result.backend === "string" &&
+    typeof result.directional_probability_up === "number" &&
+    Number.isFinite(result.directional_probability_up) &&
+    result.directional_probability_up >= 0 &&
+    result.directional_probability_up <= 1);
+}
+function validateRiskResult(result) {
+  return Boolean(result &&
+    typeof result.policy_version === "string" &&
+    typeof result.passed === "boolean" &&
+    typeof result.action === "string" &&
+    result.execution_authorized === false &&
+    result.live_trading_enabled === false);
+}
 async function explainWithWorkersAI(env, event, quant, risk) {
-  if (!env.AI || typeof env.AI.run !== "function") return { provider: "none", narrative: null };
+  if (!env.AI || typeof env.AI.run !== "function") {
+    return { provider: "none", narrative: null, advisory_only: true };
+  }
   try {
     const result = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: [
-        { role: "system", content: "You are a bounded trading research explainer. Explain only the supplied event and quantitative output. Never invent data, change risk decisions, authorize orders, or claim execution. Return concise plain text." },
-        { role: "user", content: JSON.stringify({ event, quant, risk }) },
+        { role: "system", content: "You are a bounded research explainer. Explain only supplied evidence. You are not an authorization system. Never approve, reject, change, bypass, or reinterpret the deterministic Risk Gate. Never claim broker execution. Your text is advisory only and the structured risk_gate result is authoritative." },
+        { role: "user", content: JSON.stringify({ event, quant_engine: quant, risk_gate: risk }) },
       ],
       max_tokens: 350, temperature: 0.1,
     });
     const narrative = typeof result?.response === "string" ? result.response.trim() : "";
     return { provider: "cloudflare-workers-ai", model: "@cf/meta/llama-3.2-3b-instruct",
-      narrative: narrative.slice(0, 2000) || null };
+      narrative: narrative.slice(0, 2000) || null, advisory_only: true };
   } catch {
-    return { provider: "cloudflare-workers-ai", narrative: null, degraded: true };
+    return { provider: "cloudflare-workers-ai", narrative: null, degraded: true, advisory_only: true };
   }
 }
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ ok: true, service: "nova-mt5-decision-api", contract: "nova.mt5-decision.v1",
-        workers_ai_binding: Boolean(env.AI), quant_engine_binding: Boolean(env.QUANT_ENGINE),
+      return json({
+        ok: true,
+        service: "nova-mt5-decision-api",
+        contract: "nova.mt5-decision.v1",
+        workers_ai_binding: Boolean(env.AI),
+        quant_adapter_binding: Boolean(env.QUANT_ENGINE),
+        event_dedupe_binding: Boolean(env.EVENT_DEDUPE),
         machine_auth_configured: Boolean(env.MT5_M2M_HMAC_SECRET),
-        ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false });
+        ordersEnabled: false,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      });
     }
     if (url.pathname !== "/v1/mt5/events" || request.method !== "POST") return fail("not_found", 404);
     if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
@@ -181,23 +196,53 @@ export default {
     let rawBody;
     try { rawBody = await request.text(); } catch { return fail("invalid_request_body", 400); }
     if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) return fail("request_too_large", 413);
+
     const auth = await authenticateMachine(request, rawBody, env);
     if (!auth.ok) return fail(auth.error, auth.status);
+
     let parsed;
     try { parsed = JSON.parse(rawBody); } catch { return fail("invalid_json", 400); }
     let event;
     try { event = validateEvent(parsed); } catch (error) { return fail(error.message, error.status || 400); }
-    const reserved = await reserveEvent(env, event.event_id, request.headers.get("X-NOVA-Timestamp"));
+
+    const claimId = crypto.randomUUID();
+    const timestamp = request.headers.get("X-NOVA-Timestamp");
+    const reserved = await dedupeRequest(env, event.event_id, "reserve", claimId, timestamp);
     if (!reserved.ok) return fail(reserved.error, reserved.status);
-    const quant = await callQuantEngine(env, event);
-    if (!quant.ok) return fail(quant.error, quant.status);
-    const risk = riskGate(event);
-    const ai = await explainWithWorkersAI(env, event, quant.result, risk);
+
+    const quantCall = await callCompute(env, "/v1/mt5/decision", {
+      event, execution_enabled: false,
+    });
+    if (!quantCall.ok || !validateQuantResult(quantCall.result)) {
+      await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
+      return fail(quantCall.error || "invalid_quant_engine_result", quantCall.status || 502);
+    }
+
+    const riskCall = await callCompute(env, "/v1/mt5/risk-gate", {
+      event, quant_engine_result: quantCall.result,
+    });
+    if (!riskCall.ok || !validateRiskResult(riskCall.result)) {
+      await dedupeRequest(env, event.event_id, "release", claimId, timestamp);
+      return fail(riskCall.error || "invalid_risk_gate_result", riskCall.status || 502);
+    }
+
+    const completed = await dedupeRequest(env, event.event_id, "complete", claimId, timestamp);
+    if (!completed.ok) return fail("event_dedupe_completion_failed", 503);
+
+    // AI runs only after Quant Engine and Risk Gate. Its prose is never a decision input.
+    const ai = await explainWithWorkersAI(env, event, quantCall.result, riskCall.result);
     return json({
-      ok: true, event_id: event.event_id, module_id: event.module_id,
-      quant_engine: quant.result, risk_gate: risk, ai_explanation: ai,
-      decision: risk.passed ? "research_candidate" : "rejected",
-      ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false,
+      ok: true,
+      event_id: event.event_id,
+      module_id: event.module_id,
+      quant_engine: quantCall.result,
+      risk_gate: riskCall.result,
+      ai_explanation: ai,
+      decision: riskCall.result.passed ? "research_candidate" : "rejected",
+      decision_authority: "deterministic_risk_gate",
+      ordersEnabled: false,
+      executionEnabled: false,
+      liveTradingEnabled: false,
     });
   },
 };
