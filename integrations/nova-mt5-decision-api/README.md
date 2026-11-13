@@ -100,7 +100,7 @@ node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quan
 Python tests:
 
 ```sh
-python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate
+python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline
 ```
 
 Coverage includes:
