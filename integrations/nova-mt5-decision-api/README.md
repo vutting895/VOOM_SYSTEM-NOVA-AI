@@ -45,13 +45,14 @@ The authenticated Python endpoint is `POST /v1/mt5/decision` in `workers/runtime
 - `open_orders_count`
 - `market_open`
 - `broker_day_start_at` (timezone-aware timestamp)
-- `snapshot_at` (timezone-aware timestamp)
+- `snapshot_at` (timezone-aware account/risk snapshot timestamp)
+- `market_data_at` (timezone-aware latest market-data timestamp)
 
 The gate calculates daily loss relative to broker-day starting equity and aggregate open risk relative to current equity. Policy:
 - Daily loss >= 10%: `ENTRY_LOCK_ONLY` for new entries; existing positions remain unchanged.
 - Aggregate open risk > 9%: reject new entry.
 - Open orders >= 5: reject new entry.
-- Market closed or risk snapshot older than 60 seconds: reject new entry.
+- Market closed, account/risk snapshot older than 60 seconds, or market data older than 60 seconds: reject new entry.
 - Missing, invalid, non-finite, or timezone-naive risk evidence: fail closed.
 
 The 60-second freshness guard is an inherited conservative control and must be included in staging policy review. No close, amend, cancel, or other broker write action exists in this API.
