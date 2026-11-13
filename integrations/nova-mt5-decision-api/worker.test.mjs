@@ -70,7 +70,7 @@ const quantResult = {
 const riskPass = {
   event_id: "XAUUSDm-PERIOD_M15-1794550000",
   client_id: "tenant-demo-01",
-  policy_version: "nova-mt5-risk.ea-compatible.v1", passed: true,
+  policy_version: "nova-mt5-risk.v2", passed: true,
   action: "ELIGIBLE_FOR_RESEARCH_REVIEW", entry_lock_only: false,
   reason_codes: [], execution_authorized: false, live_trading_enabled: false,
 };
