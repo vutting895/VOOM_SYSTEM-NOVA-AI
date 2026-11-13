@@ -54,7 +54,7 @@ function resolveMachineClient(env, keyId) {
   if (typeof record.secret !== "string" || record.secret.length < 32) return null;
   if (typeof record.client_id !== "string" || !/^[A-Za-z0-9._:-]{1,96}$/.test(record.client_id)) return null;
   if (typeof record.tenant_id !== "string" || !/^[A-Za-z0-9_-]{8,100}$/.test(record.tenant_id)) return null;
-  if (typeof record.account_login !== "string" || !/^\\d{3,20}$/.test(record.account_login)) return null;
+  if (typeof record.account_login !== "string" || !/^\d{3,20}$/.test(record.account_login)) return null;
   if (typeof record.broker_server !== "string" || !record.broker_server.trim() || record.broker_server.length > 128) return null;
   return {
     secret: record.secret, clientId: record.client_id, tenantId: record.tenant_id,
