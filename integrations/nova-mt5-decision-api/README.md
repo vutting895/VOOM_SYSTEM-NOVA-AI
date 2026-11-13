@@ -27,6 +27,7 @@ The API accepts a signed wrapper:
     "broker_day_start_equity": 10000,
     "current_equity": 9900,
     "aggregate_open_risk_money": 100,
+    "proposed_entry_risk_money": 25,
     "open_orders_count": 2,
     "market_open": true,
     "broker_day_start_at": "2026-11-13T00:00:00Z",
@@ -54,14 +55,16 @@ Do not fabricate VQC inputs from vote counts or relabel the heuristic summary as
 
 ## 3. EA-compatible deterministic Risk Gate
 
-The current code uses conservative provisional ceilings pending reconciliation with the owner-approved EA risk policy:
-- Daily loss >= 3% of broker-day starting equity: `ENTRY_LOCK_ONLY` for new entries.
-- Aggregate open risk > 2% of current equity: reject new entry.
-- Open positions/orders >= 5: reject new entry.
+The deterministic Risk Gate policy is:
+- Daily loss >= 10% of broker-day starting equity: `ENTRY_LOCK_ONLY` for new entries.
+- Aggregate open risk + proposed entry risk > 9% of current equity: reject the new entry.
+- Open positions/orders >= 5: reject the new entry.
 - Market closed, account snapshot or market data older than 60 seconds, invalid/missing fields, or invalid timestamps: fail closed.
 - Existing positions are always `NO_CHANGE`; no close, amend, cancel, or broker write operation exists.
 
-**Policy blocker before Staging:** the 3% / 2% values are conservative provisional limits, not a verified match to the full EA policy specification. The prior owner-defined settings recorded for the standalone EA were 10% broker-day loss (Entry Lock Only) and 9% aggregate open risk, with a maximum of 5 open orders. These values conflict with the current 3% / 2% adapter ceilings. Keep the stricter implementation for local tests; do not silently change it or claim policy alignment. Reconcile the EA source and obtain explicit policy-version approval before Staging. This API does not alter any other NOVA risk policy.
+`proposed_entry_risk_money` is mandatory at Risk Gate evaluation. It must represent the monetary loss from the candidate order's actual volume to its actual stop-loss, calculated in the broker account currency using contract size, tick size/value, and applicable conversion rates. Do not substitute a percentage, quote-currency estimate, or zero when the stop-loss or conversion data is unavailable; reject the request.
+
+**Integration blocker:** the current read-only Bridge exposes Account Summary, Symbols, Quotes, and Health, but does not yet expose Open Positions, Pending Orders, per-position Risk Exposure, or Broker-Day Starting Equity. Therefore the API cannot yet reconcile aggregate risk or daily loss against broker state. The EA/Local Controller source and this Bridge data path have not been integrated or verified. Keep all requests fail-closed until the missing Bridge fields and their account-currency semantics are implemented and tested.
 
 **Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
 
@@ -129,8 +132,8 @@ Required evidence before Staging:
 - per-client HMAC Key ID resolution, timestamp freshness, tampering, duplicate event and replay cases pass;
 - identical EA event IDs from different client scopes map to distinct Durable Object IDs;
 - real Python adapter and Risk Gate are called in order;
-- 3% / 2% / 5 risk thresholds and stale/missing snapshot fail-closed behavior pass;
-- risk snapshot reconciles against read-only MT5 Bridge account and position data;
+- 10% / 9% / 5 risk thresholds, proposed-entry aggregation, and stale/missing snapshot fail-closed behavior pass;
+- read-only MT5 Bridge supplies Account Summary, Broker-Day Starting Equity, Open Positions, Pending Orders, per-position stop-loss risk, quote timestamps, and account currency; risk snapshot reconciles against these broker-derived values;
 - Worker-to-Worker Service Binding and Durable Object behavior verified in a dedicated Staging environment;
 - no execution path exists and all execution flags remain false.
 
