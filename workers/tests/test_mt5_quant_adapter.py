@@ -25,6 +25,7 @@ def make_event(votes=None):
     return {
         "schema_version": "nova.mt5-event.v2",
         "event_id": "XAUUSDm-PERIOD_M15-1794550000",
+        "client_id": "tenant-demo-01",
         "symbol": "XAUUSDm",
         "timeframe": "M15",
         "vote_counts": counts,
@@ -41,6 +42,7 @@ class TestMT5QuantDecisionAdapter(unittest.TestCase):
         result = evaluate_mt5_event(event)
         self.assertEqual(result["engine"], "MT5HeuristicConsensusAdapter")
         self.assertEqual(result["event_id"], event["event_id"])
+        self.assertEqual(result["client_id"], event["client_id"])
         self.assertEqual(result["module_count"], 30)
         self.assertEqual(result["vote_counts"], {"buy": 12, "sell": 8, "neutral": 10})
         self.assertEqual(result["directional_bias"], "BUY")
@@ -57,6 +59,12 @@ class TestMT5QuantDecisionAdapter(unittest.TestCase):
         duplicate[1] = {**duplicate[1], "module_id": "M01"}
         with self.assertRaisesRegex(ValueError, "duplicate"):
             evaluate_mt5_event({**event, "module_votes": duplicate})
+
+    def test_requires_trusted_client_scope(self):
+        event = make_event()
+        event.pop("client_id")
+        with self.assertRaisesRegex(ValueError, "trusted_client_scope_required"):
+            evaluate_mt5_event(event)
 
     def test_rejects_vote_count_mismatch(self):
         event = make_event()
