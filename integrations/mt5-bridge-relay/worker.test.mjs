@@ -80,6 +80,24 @@ test("valid tenant request is sent only to its named Durable Object", async () =
   assert.equal(observed.headers.get("Authorization"), null);
 });
 
+test("authenticated exposure GET is routed to the same tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, method: req.method, headers: req.headers };
+    return Response.json({ account_login: "12345678", broker_server: "Exness-MT5Trial7" });
+  });
+  const response = await worker.fetch(request("/api/exposure", {
+    token: TOKEN, tenant: TENANT_ID
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.method, "GET");
+  assert.equal(observed.url.pathname, "/api/exposure");
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  assert.equal(observed.headers.get("Authorization"), null);
+});
+
 test("legacy per-route origin is ignored; relay uses only the tenant session", async () => {
   let observedOrigin;
   const env = makeEnv(async (req) => {
