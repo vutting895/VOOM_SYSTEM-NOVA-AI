@@ -26,6 +26,7 @@ const signalEvent = (votes = ["BUY", "SELL", "NEUTRAL", ...Array(27).fill("NEUTR
   bid: 2600.0,
   ask: 2600.2,
   spread_points: 20,
+  candidate: { symbol: "XAUUSDm", side: "BUY", volume: 0.1, entry_price: 2600.2, stop_loss: 2590.2 },
   buy_votes: votes.filter((v) => v === "BUY").length,
   sell_votes: votes.filter((v) => v === "SELL").length,
   neutral_votes: votes.filter((v) => v === "NEUTRAL").length,
@@ -85,7 +86,9 @@ function makeEnv(overrides = {}) {
     MT5_BRIDGE_TOKENS: JSON.stringify({ tenant_12345678: "bridge-token-for-tenant-12345678-0123456789", tenant_87654321: "bridge-token-for-tenant-87654321-0123456789" }),
     MT5_BRIDGE: { fetch: async (request, init) => {
       calls.push("bridge");
-      assert.equal(new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname, "/api/exposure");
+      const bridgeUrl = new URL(typeof request === "string" || request instanceof URL ? request : request.url);
+      assert.equal(bridgeUrl.pathname, "/api/exposure");
+      assert.deepEqual(JSON.parse(bridgeUrl.searchParams.get("candidate")), signalEvent().candidate);
       assert.equal(init.method, "GET");
       const tenant = init.headers["X-VOOM-TENANT-ID"];
       assert.equal(init.headers.Authorization, "Bearer bridge-token-for-tenant-" + (tenant === "tenant_12345678" ? "12345678" : "87654321") + "-0123456789");
@@ -96,8 +99,13 @@ function makeEnv(overrides = {}) {
         account_currency: "USD", risk_calculation_complete: true,
         current_equity: 9900, aggregate_open_risk_money: 100, open_orders_count: 2,
         snapshot_at: new Date().toISOString(), broker_day_start_equity: 10000,
-        broker_day_start_at: "2026-11-13T00:00:00Z", market_open: true,
-        market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
+        broker_day_start_at: "2026-11-13T00:00:00Z", broker_day_baseline_available: true,
+        broker_day_baseline_captured_at: new Date().toISOString(),
+        broker_day_baseline_capture_delay_seconds: 12,
+        market_open: true, market_data_at: new Date().toISOString(),
+        candidate_risk_complete: true, proposed_entry_risk_money: 100,
+        candidate_risk: { complete: true, symbol: "XAUUSDm", side: "BUY",
+          volume: 0.1, entry_price: 2600.2, stop_loss: 2590.2, risk_money: 100 },
       });
     } },
     EVENT_DEDUPE: {
@@ -272,7 +280,10 @@ test("Bridge identity mismatch fails closed before Quant Engine", async () => {
     risk_calculation_complete: true, current_equity: 9900, aggregate_open_risk_money: 100,
     open_orders_count: 2, snapshot_at: new Date().toISOString(),
     broker_day_start_equity: 10000, broker_day_start_at: "2026-11-13T00:00:00Z",
-    market_open: true, market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
+    broker_day_baseline_available: true, market_open: true, market_data_at: new Date().toISOString(),
+    candidate_risk_complete: true, proposed_entry_risk_money: 100,
+    candidate_risk: { complete: true, symbol: "XAUUSDm", side: "BUY", volume: 0.1,
+      entry_price: 2600.2, stop_loss: 2590.2, risk_money: 100 },
   }) } });
   const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   assert.equal(response.status, 503);
