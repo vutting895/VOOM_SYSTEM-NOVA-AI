@@ -30,6 +30,8 @@ The Controller must not send `risk_snapshot`; the Decision Worker rejects that f
 
 The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected.
 
+**Producer limitation:** The external `MT5-AI-Trading-EA` source is not present in this repository. The only checked-in MQL5 file, `integrations/mt5/MTRADERS_All_In_One_v1.01.mq5`, is a separate 188-line scaffold whose `OnTick()` is empty; it is not safe to retrofit the candidate contract into that file as though it were the active 30-module signal producer. The EA/Controller owner must add the candidate object to the actual producer and compile it before this path can pass end-to-end.
+
 ## 2. Quant adapter truthfulness
 
 The current EA sends votes and a bid/ask snapshot. It does not send the OHLC history, ATR, RSI, normalized return, or liquidity features required by NOVA's existing `HybridQuantumQuantEngine`.
@@ -57,7 +59,7 @@ The deterministic Risk Gate policy is:
 
 The Windows Bridge now captures a durable broker-day equity baseline from the current MT5 D1 bar and recalculates candidate risk with `order_calc_profit()`. The EA signal contract accepts a `candidate` object (`symbol`, `side`, `volume`, `entry_price`, `stop_loss`), but the current EA producer has not yet been updated in this repository to emit those fields. Requests without a candidate or a valid durable baseline therefore fail closed before Quant Engine dispatch. The Bridge still reports `policy_attestation.status=not_attested`; it cannot certify active EA inputs or the installed EX5 binary.
 
-**Evidence limitation:** HMAC authenticates the sender and protects the exact signal request body; it does not prove broker state. The Decision Worker now discards this trust model: it rejects any Controller `risk_snapshot` and independently calls the tenant-authorized Bridge. Because the current Bridge does not yet expose the complete broker-day and candidate-risk contract, the Worker rejects the request before Quant Engine dispatch. No Controller-provided fallback is allowed.
+**Evidence limitation:** HMAC authenticates the sender and protects the exact signal request body; it does not prove broker state. The Decision Worker rejects any Controller `risk_snapshot` and independently calls the tenant-authorized Bridge. The Bridge recalculates candidate loss and supplies the durable broker-day baseline; missing/stale baseline, candidate data, market tick, or incomplete open exposure fails closed. No Controller-provided fallback is allowed.
 
 ## 3B. Candidate input and broker-day baseline
 
@@ -83,9 +85,9 @@ This does not size candidate volume. Candidate volume still has to be supplied b
 - `MT5_M2M_CLIENTS` records must map each Key ID to `client_id`, `tenant_id`, `account_login`, and `broker_server`. These values are server-side registry data; callers cannot choose them.
 - `MT5_BRIDGE_TOKENS` is a Staging secret JSON map keyed by tenant ID. It contains the same tenant-scoped read-only relay token registered in the Relay Worker; do not commit token values.
 - Decision Worker calls `GET /api/exposure` only through the `MT5_BRIDGE` Service Binding. The Relay Worker routes the request to the Durable Object session for that tenant. The Bridge response's account login and broker server must exactly match the authenticated client registry.
-- Relay Worker allowlists `/api/exposure` as GET-only and rejects query parameters. The Windows Relay Client already has the endpoint in its allowlist and treats it as a query-free GET.
+- Relay Worker allowlists `/api/exposure` as GET-only. Its only optional query parameter is a size-bounded, exact-shape candidate object; arbitrary and duplicate parameters are rejected. The Windows Relay Client validates the same candidate schema before forwarding it to localhost.
 - Missing binding/credentials, wrong account/server, stale snapshot, incomplete exposure, or missing required broker-risk fields returns a fail-closed error before Quant Engine dispatch.
-- Current Bridge `/api/exposure` only supplies current equity, open/pending exposure, account currency and snapshot time. It does **not** yet supply broker-day starting equity, broker-day start timestamp, market-open state, market-data timestamp, or candidate-entry risk. Therefore the present Bridge contract intentionally cannot satisfy the full Risk Gate contract; the Decision API remains fail-closed until those fields are added from authoritative sources. Do not synthesize them from Controller input.
+- The Bridge returns current equity, open/pending exposure, account currency, durable broker-day baseline, candidate risk, and a broker-tick freshness check. The durable baseline is sampled within 30 seconds of broker D1 open by a 2-second local polling loop. If the local process misses the capture window, the baseline remains unavailable for that broker day and the Decision API fails closed.
 
 ## 4. Decision authority and AI boundary
 
@@ -154,7 +156,7 @@ Required evidence before Staging:
 - identical EA event IDs from different client scopes map to distinct Durable Object IDs;
 - real Python adapter and Risk Gate are called in order;
 - 10% / 9% / 5 risk thresholds, proposed-entry aggregation, and stale/missing snapshot fail-closed behavior pass;
-- read-only MT5 Bridge supplies Account Summary, Open Positions, Pending Orders, per-position stop-loss risk, quote timestamps, account currency, and stable account scope; Broker-Day Starting Equity and candidate-entry risk are independently captured and verified;
+- read-only MT5 Bridge supplies Account Summary, Open Positions, Pending Orders, per-position stop-loss risk, durable Broker-Day Starting Equity, candidate-entry risk recalculated by MT5, quote timestamps, account currency, and stable account scope;
 - Worker-to-Worker Service Binding and Durable Object behavior verified in a dedicated Staging environment;
 - no execution path exists and all execution flags remain false.
 
