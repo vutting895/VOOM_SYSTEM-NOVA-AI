@@ -94,7 +94,7 @@ export default {
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + token,
-          "X-NOVA-Contract": "nova.mt5-decision.v1",
+          "X-NOVA-Contract": "nova.mt5-decision.v2",
           Accept: "application/json",
         },
         body,
