@@ -83,18 +83,21 @@ function makeEnv(overrides = {}) {
       "ea-local-demo-02": { secret: SECRETS["ea-local-demo-02"], client_id: "tenant-demo-02", tenant_id: "tenant_87654321", account_login: "87654321", broker_server: "Exness-MT5Trial8" },
     }),
     MT5_BRIDGE_TOKENS: JSON.stringify({ tenant_12345678: "bridge-token-for-tenant-12345678-0123456789", tenant_87654321: "bridge-token-for-tenant-87654321-0123456789" }),
-    MT5_BRIDGE: { fetch: async (request) => {
+    MT5_BRIDGE: { fetch: async (request, init) => {
       calls.push("bridge");
       assert.equal(new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname, "/api/exposure");
-      assert.equal(request.method, "GET");
-      assert.equal(request.headers.get("X-VOOM-TENANT-ID"), "tenant_12345678");
-      assert.equal(request.headers.get("Authorization"), "Bearer bridge-token-for-tenant-12345678-0123456789");
+      assert.equal(init.method, "GET");
+      const tenant = init.headers["X-VOOM-TENANT-ID"];
+      assert.equal(init.headers.Authorization, "Bearer bridge-token-for-tenant-" + (tenant === "tenant_12345678" ? "12345678" : "87654321") + "-0123456789");
+      const second = tenant === "tenant_87654321";
       return Response.json({
-        account_login: "12345678", broker_server: "Exness-MT5Trial7", account_currency: "USD",
-        risk_calculation_complete: true, current_equity: 9900, aggregate_open_risk_money: 100,
-        open_orders_count: 2, snapshot_at: new Date().toISOString(),
-        broker_day_start_equity: 10000, broker_day_start_at: "2026-11-13T00:00:00Z",
-        market_open: true, market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
+        account_login: second ? "87654321" : "12345678",
+        broker_server: second ? "Exness-MT5Trial8" : "Exness-MT5Trial7",
+        account_currency: "USD", risk_calculation_complete: true,
+        current_equity: 9900, aggregate_open_risk_money: 100, open_orders_count: 2,
+        snapshot_at: new Date().toISOString(), broker_day_start_equity: 10000,
+        broker_day_start_at: "2026-11-13T00:00:00Z", market_open: true,
+        market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
       });
     } },
     EVENT_DEDUPE: {
@@ -170,6 +173,7 @@ test("machine authentication requires HMAC and a fresh timestamp", async () => {
   const req = await signedRequest(body);
   assert.deepEqual(await authenticateMachine(req, body, makeEnv(), NOW), {
     ok: true, keyId: "ea-local-demo-01", clientId: "tenant-demo-01",
+    tenantId: "tenant_12345678", accountLogin: "12345678", brokerServer: "Exness-MT5Trial7",
   });
   assert.equal((await authenticateMachine(req, body, makeEnv(), NOW + 120)).error,
     "invalid_or_expired_machine_timestamp");
