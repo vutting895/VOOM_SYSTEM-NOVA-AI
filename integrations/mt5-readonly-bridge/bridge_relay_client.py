@@ -58,7 +58,7 @@ def normalize_read_path(value: object) -> str:
     if any(len(items) != 1 for items in params.values()):
         raise ValueError("Duplicate query parameters are not allowed.")
 
-    if parsed.path in {"/health", "/api/account"}:
+    if parsed.path in {"/health", "/api/account", "/api/exposure"}:
         if params:
             raise ValueError("This read endpoint does not accept query parameters.")
         return parsed.path
