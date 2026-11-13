@@ -81,6 +81,8 @@ jobs:
         run: node --test tests/nova-trading-readonly-guard.test.mjs
       - name: Test NOVA training status never reports simulated metrics
         run: node --test tests/nova-training-status-honesty.test.mjs
+      - name: Test NOVA backtest endpoint fails closed without verified data
+        run: node --test tests/nova-backtest-fail-closed.test.mjs
 
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
