@@ -57,10 +57,12 @@ async function signedRequest(body, timestamp = String(NOW)) {
 const quantResult = {
   engine: "MT5HeuristicConsensusAdapter", engine_version: "1.0",
   event_id: "XAUUSDm-PERIOD_M15-1794550000", module_count: 30,
-  directional_bias: "BUY", evaluation_status: "research_only",
-  execution_enabled: false,
+  vote_counts: { buy: 1, sell: 1, neutral: 28 },
+  directional_bias: "NEUTRAL", signal_source: "mt5_ea_heuristic_modules",
+  evaluation_status: "research_only", execution_enabled: false,
 };
 const riskPass = {
+  event_id: "XAUUSDm-PERIOD_M15-1794550000",
   event_id: "XAUUSDm-PERIOD_M15-1794550000",
   policy_version: "nova-mt5-risk.ea-compatible.v1", passed: true,
   action: "ELIGIBLE_FOR_RESEARCH_REVIEW", entry_lock_only: false,
