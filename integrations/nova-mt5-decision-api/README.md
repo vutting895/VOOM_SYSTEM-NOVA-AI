@@ -64,7 +64,9 @@ The deterministic Risk Gate policy is:
 
 `proposed_entry_risk_money` is mandatory at Risk Gate evaluation. It must represent the monetary loss from the candidate order's actual volume to its actual stop-loss, calculated in the broker account currency using contract size, tick size/value, and applicable conversion rates. Do not substitute a percentage, quote-currency estimate, or zero when the stop-loss or conversion data is unavailable; reject the request.
 
-**Integration blocker:** the current read-only Bridge exposes Account Summary, Symbols, Quotes, and Health, but does not yet expose Open Positions, Pending Orders, per-position Risk Exposure, or Broker-Day Starting Equity. Therefore the API cannot yet reconcile aggregate risk or daily loss against broker state. The EA/Local Controller source and this Bridge data path have not been integrated or verified. Keep all requests fail-closed until the missing Bridge fields and their account-currency semantics are implemented and tested.
+**Bridge progress and remaining blockers:** the read-only Bridge now exposes `GET /api/exposure` with broker-sourced Open Positions, Pending Orders, per-position stop-loss risk, aggregate risk in account currency, account login/server scope, current equity, and snapshot time. It uses MT5 `positions_get()`, `orders_get()`, and `order_calc_profit()` under the terminal process lock. Unknown stop-loss risk returns `null` and `risk_calculation_complete=false`, never zero.
+
+The Bridge still does **not** provide Broker-Day Starting Equity or calculate a proposed candidate-entry risk from the EA's candidate volume, side, entry price, and stop-loss. It also deliberately reports `policy_attestation.status=not_attested`; it cannot certify active EA inputs or the installed EX5 binary. The EA / Local Controller source is not yet connected to this API contract. Daily-loss and proposed-entry checks therefore remain unverified against broker state; keep requests fail-closed until those fields and the producer mapping are implemented and tested.
 
 **Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
 
@@ -133,7 +135,7 @@ Required evidence before Staging:
 - identical EA event IDs from different client scopes map to distinct Durable Object IDs;
 - real Python adapter and Risk Gate are called in order;
 - 10% / 9% / 5 risk thresholds, proposed-entry aggregation, and stale/missing snapshot fail-closed behavior pass;
-- read-only MT5 Bridge supplies Account Summary, Broker-Day Starting Equity, Open Positions, Pending Orders, per-position stop-loss risk, quote timestamps, and account currency; risk snapshot reconciles against these broker-derived values;
+- read-only MT5 Bridge supplies Account Summary, Open Positions, Pending Orders, per-position stop-loss risk, quote timestamps, account currency, and stable account scope; Broker-Day Starting Equity and candidate-entry risk are independently captured and verified;
 - Worker-to-Worker Service Binding and Durable Object behavior verified in a dedicated Staging environment;
 - no execution path exists and all execution flags remain false.
 
