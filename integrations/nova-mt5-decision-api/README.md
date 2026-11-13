@@ -1,124 +1,141 @@
-# NOVA MT5 Decision API — Feature Branch Implementation
+# NOVA MT5 Decision API — EA-compatible integration
 
-Status: feature-branch implementation; not deployed or production-configured.
+Status: feature-branch implementation only; not deployed or production-configured.
 Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
 Branch: `feature/nova-mt5-decision-api`
 Base main SHA: `b3ba15c4e8eafc9ee839cb95d42865a0b193e114`
-Contract: `nova.mt5-decision.v1`
+External producer: standalone local workspace `MT5-AI-Trading-EA`
+Request contract: `nova.mt5-request.v1`
+Normalized internal contract: `nova.mt5-event.v2`
 
-## 1. Authority boundary
+## 1. Match the EA that exists — do not invent fields
 
-The API is an analysis and decision-evaluation path only. The required order is:
+The current EA emits one closed-bar signal event with:
+- `schema_version=mt5ea.signal.v1`
+- `event_id` generated as `<symbol>-<EnumToString(timeframe)>-<bar_epoch>`
+- symbol, timeframe, Demo account mode, UTC bar time
+- bid, ask, spread points
+- BUY/SELL/NEUTRAL totals
+- exactly 30 `{name, vote}` entries
 
-1. Validate signed MT5 EA event.
-2. Reserve the event ID with Durable Object.
-3. Call the existing Python `HybridQuantumQuantEngine`.
-4. Call the independent Python MT5 Risk Gate.
-5. Mark the event reservation complete.
-6. Optionally call the existing Cloudflare Workers AI binding for explanation only.
+The API accepts a signed wrapper:
+```json
+{
+  "schema_version": "nova.mt5-request.v1",
+  "signal_event": { "...": "the exact mt5ea.signal.v1 object" },
+  "risk_snapshot": {
+    "broker_day_start_equity": 10000,
+    "current_equity": 9900,
+    "aggregate_open_risk_money": 100,
+    "open_orders_count": 2,
+    "market_open": true,
+    "broker_day_start_at": "2026-11-13T00:00:00Z",
+    "snapshot_at": "2026-11-13T08:59:30Z"
+  }
+}
+```
 
-The API derives its structured decision only from the Risk Gate's validated `passed` field. Workers AI receives the already-computed Quant Engine and Risk Gate results after both have completed. AI text is returned with `advisory_only=true` and cannot change the structured decision. A Quant Engine or Risk Gate outage, malformed result, or missing binding fails closed and prevents AI from running.
+`risk_snapshot` is optional at the transport boundary so the producer can be validated independently. It is mandatory for Risk Gate evaluation. Missing or invalid risk evidence fails closed as WAIT; the API does not infer account equity or open risk from heuristic votes.
 
-This is not broker execution authorization. The response always sets `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
+The API validates all 30 module names against the EA's actual ordered inventory and maps them to M01–M30. Duplicate, missing, unknown, invalid or count-inconsistent votes are rejected.
 
-## 2. Real Quant Engine adapter
+## 2. Quant adapter truthfulness
 
-`workers/quant/mt5_decision_adapter.py` calls the existing `backend.quant_engine.HybridQuantumQuantEngine` implementation directly. It reuses the existing VQC forecast path, fixed seed 42, and reports the backend and telemetry. It does not call an external model provider.
+The current EA sends votes and a bid/ask snapshot. It does not send the OHLC history, ATR, RSI, normalized return, or liquidity features required by NOVA's existing `HybridQuantumQuantEngine`.
 
-Required event fields:
-- `payload.quant_features.price_return_norm`
-- `payload.quant_features.volatility_atr_norm`
-- `payload.quant_features.liquidity_imbalance`
-- `payload.quant_features.momentum_rsi_norm`
+Therefore this integration deliberately uses `MT5HeuristicConsensusAdapter` to normalize the 30 votes and calculate vote counts, directional bias, participation ratio, and consensus strength. These are descriptive heuristic summaries only:
+- not a trained model;
+- not an ML probability;
+- not independent evidence from 30 uncorrelated models;
+- not calibrated and not evidence of profitability.
 
-Each value must be finite and within [-1, 1]. The engine result is explicitly labelled `research_only`, `score_calibration=not_calibrated`, and `trained_model=false`. The repository's existing engine uses deterministic initialized circuit weights; this adapter does not claim a trained or performance-validated forecast.
+Do not fabricate VQC inputs from vote counts or relabel the heuristic summary as a HybridQuantumQuantEngine prediction. A future richer EA data contract may add separately defined market features and a separately tested model adapter.
 
-The authenticated Python endpoint is `POST /v1/mt5/decision` in `workers/runtime.py`. It requires the internal `NOVA_QUANT_M2M_TOKEN` bearer token and rejects any request that attempts to enable execution.
+## 3. EA-compatible deterministic Risk Gate
 
-## 3. Independent MT5 Risk Gate
+The MT5-specific gate uses the standalone EA's current hard safety ceilings:
+- Daily loss >= 3% of broker-day starting equity: `ENTRY_LOCK_ONLY` for new entries.
+- Aggregate open risk > 2% of current equity: reject new entry.
+- Open positions/orders >= 5: reject new entry.
+- Market closed, stale snapshot (>60 seconds), invalid/missing fields, or invalid timestamps: fail closed.
+- Existing positions are always `NO_CHANGE`; no close, amend, cancel, or broker write operation exists.
 
-`workers/risk/mt5_decision_gate.py` is a deterministic policy evaluator, called through `POST /v1/mt5/risk-gate`. It requires a validated Quant Engine result and an explicit `payload.risk_snapshot`:
+This policy is scoped to the MT5 integration only. It does not alter NOVA's other risk policies. The EA's local controls remain independent and must not be weakened.
 
-- `broker_day_start_equity`
-- `current_equity`
-- `aggregate_open_risk_money`
-- `open_orders_count`
-- `market_open`
-- `broker_day_start_at` (timezone-aware timestamp)
-- `snapshot_at` (timezone-aware account/risk snapshot timestamp)
-- `market_data_at` (timezone-aware latest market-data timestamp)
+**Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
 
-The gate calculates daily loss relative to broker-day starting equity and aggregate open risk relative to current equity. Policy:
-- Daily loss >= 10%: `ENTRY_LOCK_ONLY` for new entries; existing positions remain unchanged.
-- Aggregate open risk > 9%: reject new entry.
-- Open orders >= 5: reject new entry.
-- Market closed, account/risk snapshot older than 60 seconds, or market data older than 60 seconds: reject new entry.
-- Missing, invalid, non-finite, or timezone-naive risk evidence: fail closed.
+## 4. Decision authority and AI boundary
 
-The 60-second freshness guard is an inherited conservative control and must be included in staging policy review. No close, amend, cancel, or other broker write action exists in this API.
+Processing order:
+1. Verify HMAC-SHA256 over `<timestamp>.<exact raw request body>`; timestamp skew <=60 seconds.
+2. Validate the exact EA signal contract and all 30 module names/votes.
+3. Reserve the event ID using the Durable Object dedupe service.
+4. Normalize votes through `MT5HeuristicConsensusAdapter`.
+5. Evaluate the independent MT5 Risk Gate.
+6. Complete the event reservation.
+7. Optionally call Cloudflare Workers AI Llama 3.2 3B for an evidence-bounded explanation only.
 
-**Evidence limitation:** HMAC proves that the event was signed by a holder of the EA machine secret; it does not independently prove that the account/equity/open-risk snapshot is truthful. Before any staging result is treated as broker-verified, reconcile these values against tenant-authorized, read-only MT5 Bridge account, positions and pending-order data. `open_orders_count` must include active positions plus pending orders. `aggregate_open_risk_money` must sum remaining loss-to-stop across those positions and orders, denominated in the same account currency as equity. Until then, the Risk Gate test proves deterministic evaluation of supplied signed evidence, not independent broker-data verification.
+Workers AI cannot alter the structured result. A policy pass still returns `WAIT`, because this API is research-only and does not authorize a trade. A risk rejection returns `REJECT`. Missing services, malformed responses, authentication failures, missing risk evidence, and timeouts fail closed as `WAIT`.
 
-## 4. Durable Object event deduplication
+All responses keep `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
 
-`event-dedupe.js` exports `EventDedupe` for the `EVENT_DEDUPE` namespace. Objects are named by `event_id`. It uses storage transactions for atomic reservation and owner-checked state changes:
+## 5. Durable event lifecycle
 
-- `reserve`: new event gets a 90-second processing lease; in-progress/completed IDs return 409.
-- `complete`: matching claim becomes complete and retained for 7 days.
-- `release`: matching processing claim is removed if Quant Engine or Risk Gate fails, allowing a safe retry.
-- `alarm()`: expires abandoned processing leases and completed IDs.
+`EVENT_DEDUPE` is a SQLite-backed Durable Object namespace contract:
+- atomic reservation with a 90-second processing lease;
+- completed event retained for 7 days;
+- owner-checked complete/release;
+- abandoned processing lease cleanup through `alarm()`.
 
-The class must be provisioned as a SQLite-backed Durable Object namespace in a later approved staging configuration. No namespace, migration, or binding is created by this feature-branch change.
+The namespace and Worker binding are not provisioned by this PR. Do not use the API in Staging until the binding is explicitly configured and its deployed behavior is verified.
 
-## 5. Cloudflare-to-Python adapter
+## 6. Machine authentication and runtime boundary
 
-`integrations/nova-quant-engine-adapter/worker.js` exposes only:
-- `POST /v1/mt5/decision`
-- `POST /v1/mt5/risk-gate`
+The EA must not hold the NOVA long-lived secret. The intended flow is:
+- EA -> local Controller over localhost using the existing local controller token;
+- Local Controller -> NOVA Decision API using HMAC-SHA256;
+- Decision API -> private Quant adapter Service Binding;
+- Quant adapter -> fixed HTTPS Python runtime origin using a separate internal bearer token.
 
-It forwards to the fixed `NOVA_QUANT_RUNTIME_ORIGIN` configured by the runtime operator, over HTTPS only, using the internal `NOVA_QUANT_M2M_TOKEN`. It does not accept caller-supplied URLs, headers, or credentials. The Decision API Worker reaches this adapter through its private `QUANT_ENGINE` service binding.
+The Local Controller must sign the exact forwarded request body and keep the secret in its local environment. Do not place secrets in MQL5 source, EA inputs, `.set` files, logs, or Git.
 
-No internal token or runtime origin has been configured in Production. Both Worker and Python runtime token values must be added only for an explicitly approved Staging environment.
+Required not-yet-provisioned configuration:
+- Decision API `MT5_M2M_HMAC_SECRET`
+- Decision API Service Binding `QUANT_ENGINE`
+- Durable Object namespace `EVENT_DEDUPE`
+- Quant adapter `NOVA_QUANT_RUNTIME_ORIGIN` (fixed HTTPS origin)
+- Quant adapter `NOVA_QUANT_M2M_TOKEN`
+- Python runtime `NOVA_QUANT_M2M_TOKEN`
 
-## 6. M2M authentication
+No Production secret, database, migration, Worker binding, route, DNS, or deployment is changed by this feature branch.
 
-The EA signs the exact raw HTTP body:
-- `X-NOVA-Timestamp`: Unix seconds, exactly 10 digits, max 60-second clock skew.
-- `X-NOVA-Signature`: `sha256=<hex>`.
-- HMAC-SHA256 input: `<timestamp>.<exact raw request body>`.
-- Required secret binding: `MT5_M2M_HMAC_SECRET` (not provisioned).
-
-Replay protection is separate from timestamp validation and is enforced by the Durable Object event reservation. Use unique event IDs generated by the EA; do not reuse IDs for different module events.
-
-## 7. Contract tests
+## 7. Verification
 
 Node tests:
-
 ```sh
 node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quant-engine-adapter/*.test.mjs
 ```
 
 Python tests:
-
 ```sh
 python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline
 ```
 
-Coverage includes:
-- all 30 module identifiers M01–M30;
-- HMAC freshness and body-tampering rejection;
-- event deduplication, concurrent reservation, ownership, release and completion;
-- actual call into the existing HybridQuantumQuantEngine;
-- independent risk calculations and each configured policy limit;
-- enforced call order Quant Engine → Risk Gate → AI;
-- malicious AI text cannot reverse a rejected Risk Gate result;
-- fail-closed behavior if any required compute service is unavailable;
-- hard execution-off invariants.
+Required evidence before Staging:
+- all 30 EA module names map exactly once to M01–M30;
+- exact EA event ID format, including `PERIOD_M15` underscore, is accepted;
+- HMAC, timestamp freshness, tampering, duplicate event and replay cases pass;
+- real Python adapter and Risk Gate are called in order;
+- 3% / 2% / 5 risk thresholds and stale/missing snapshot fail-closed behavior pass;
+- risk snapshot reconciles against read-only MT5 Bridge account and position data;
+- Worker-to-Worker Service Binding and Durable Object behavior verified in a dedicated Staging environment;
+- no execution path exists and all execution flags remain false.
 
 ## 8. Explicitly not done
 
-- No Production secrets, bindings, routes, deployment, DNS, or Cloudflare resource changes.
-- No Supabase/database/migration changes.
-- No OpenAI API or additional model provider.
-- No MT5 order submission, modification, cancellation, position mutation, or Live Trading.
-- No claim of staging success, MT5 end-to-end connectivity, or broker-verified risk snapshot until approved Staging bindings and real read-only MT5 reconciliation are tested.
+- No MT5 EA source or local Controller changes.
+- No EA GitHub repository creation.
+- No Production secrets, database/migrations, Cloudflare bindings, routes, DNS, or deployment.
+- No OpenAI API or new model provider.
+- No order placement/modification/cancellation, position mutation, or Live Trading.
+- No claim of broker-verified risk, deployed health, or end-to-end MT5 connectivity.
