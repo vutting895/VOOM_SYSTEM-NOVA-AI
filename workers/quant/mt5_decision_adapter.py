@@ -18,6 +18,10 @@ def evaluate_mt5_event(event: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(event, dict) or event.get("schema_version") != "nova.mt5-event.v2":
         raise ValueError("unsupported_mt5_event_contract")
 
+    client_id = event.get("client_id")
+    if not isinstance(client_id, str) or not client_id:
+        raise ValueError("trusted_client_scope_required")
+
     votes = event.get("module_votes")
     if not isinstance(votes, list) or len(votes) != 30:
         raise ValueError("exactly_30_module_votes_required")
@@ -59,6 +63,7 @@ def evaluate_mt5_event(event: dict[str, Any]) -> dict[str, Any]:
         "engine": ENGINE_NAME,
         "engine_version": "1.0",
         "event_id": event.get("event_id"),
+        "client_id": client_id,
         "symbol": event.get("symbol"),
         "timeframe": event.get("timeframe"),
         "module_count": len(votes),
