@@ -222,10 +222,18 @@ async function callCompute(env, path, body) {
   if (!env.QUANT_ENGINE || typeof env.QUANT_ENGINE.fetch !== "function") {
     return { ok: false, status: 503, error: "quant_engine_adapter_not_configured" };
   }
+  const adapterToken = env.QUANT_ADAPTER_M2M_TOKEN;
+  if (typeof adapterToken !== "string" || adapterToken.length < 32) {
+    return { ok: false, status: 503, error: "quant_adapter_machine_auth_not_configured" };
+  }
   try {
     const response = await env.QUANT_ENGINE.fetch("https://nova-quant-engine.internal" + path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-NOVA-Contract": "nova.mt5-decision.v2" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + adapterToken,
+        "X-NOVA-Contract": "nova.mt5-decision.v2",
+      },
       body: JSON.stringify(body), signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) return {
@@ -309,6 +317,7 @@ export default {
         workers_ai_binding: Boolean(env.AI), quant_adapter_binding: Boolean(env.QUANT_ENGINE),
         event_dedupe_binding: Boolean(env.EVENT_DEDUPE),
         machine_auth_configured: Boolean(env.MT5_M2M_CLIENTS),
+        quant_adapter_auth_configured: Boolean(env.QUANT_ADAPTER_M2M_TOKEN),
         ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false,
       });
     }
