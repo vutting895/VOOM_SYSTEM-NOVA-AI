@@ -67,6 +67,7 @@ def evaluate_mt5_risk(
     open_orders_count = snapshot.get("open_orders_count")
     market_open = snapshot.get("market_open")
     snapshot_at = _timestamp(snapshot.get("snapshot_at"), "snapshot_at")
+    market_data_at = _timestamp(snapshot.get("market_data_at"), "market_data_at")
     broker_day_start_at = _timestamp(snapshot.get("broker_day_start_at"), "broker_day_start_at")
 
     if day_start_equity <= 0 or current_equity <= 0:
@@ -81,8 +82,9 @@ def evaluate_mt5_risk(
         raise ValueError("broker_day_start_after_snapshot")
 
     evaluated_at = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    age_seconds = (evaluated_at - snapshot_at).total_seconds()
-    if age_seconds < -MAX_FUTURE_SKEW_SECONDS:
+    snapshot_age_seconds = (evaluated_at - snapshot_at).total_seconds()
+    market_data_age_seconds = (evaluated_at - market_data_at).total_seconds()
+    if snapshot_age_seconds < -MAX_FUTURE_SKEW_SECONDS or market_data_age_seconds < -MAX_FUTURE_SKEW_SECONDS:
         raise ValueError("risk_snapshot_from_future")
 
     daily_loss_pct = max(0.0, (day_start_equity - current_equity) / day_start_equity * 100.0)
@@ -97,10 +99,12 @@ def evaluate_mt5_risk(
         reasons.append("max_open_orders")
     if not market_open:
         reasons.append("market_closed")
-    if age_seconds > MAX_SNAPSHOT_AGE_SECONDS:
+    if snapshot_age_seconds > MAX_SNAPSHOT_AGE_SECONDS:
         reasons.append("stale_risk_snapshot")
+    if market_data_age_seconds > MAX_SNAPSHOT_AGE_SECONDS:
+        reasons.append("stale_market_data")
 
-    entry_lock_only = reasons == ["daily_loss_entry_lock"]
+    entry_lock_only = daily_loss_pct >= DAILY_LOSS_ENTRY_LOCK_PCT
     passed = not reasons
     if entry_lock_only:
         action = "ENTRY_LOCK_ONLY"
@@ -119,7 +123,8 @@ def evaluate_mt5_risk(
             "daily_loss_pct": round(daily_loss_pct, 6),
             "aggregate_open_risk_pct": round(aggregate_open_risk_pct, 6),
             "open_orders_count": open_orders_count,
-            "risk_snapshot_age_seconds": round(max(0.0, age_seconds), 3),
+            "risk_snapshot_age_seconds": round(max(0.0, snapshot_age_seconds), 3),
+            "market_data_age_seconds": round(max(0.0, market_data_age_seconds), 3),
         },
         "limits": {
             "daily_loss_entry_lock_pct": DAILY_LOSS_ENTRY_LOCK_PCT,
