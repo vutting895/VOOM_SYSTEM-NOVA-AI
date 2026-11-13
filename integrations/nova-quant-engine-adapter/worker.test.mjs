@@ -3,13 +3,15 @@ import assert from "node:assert/strict";
 import adapter from "./worker.js";
 
 const TOKEN = "staging-only-placeholder-token-value-never-deployed";
+const ADAPTER_TOKEN = "test-only-private-adapter-token-with-32-bytes-minimum";
 const env = {
   NOVA_QUANT_RUNTIME_ORIGIN: "https://quant-runtime.example.test",
   NOVA_QUANT_M2M_TOKEN: TOKEN,
+  QUANT_ADAPTER_M2M_TOKEN: ADAPTER_TOKEN,
 };
 const request = (path, body) => new Request("https://adapter.test" + path, {
   method: "POST",
-  headers: { "Content-Type": "application/json" },
+  headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ADAPTER_TOKEN },
   body: JSON.stringify(body),
 });
 
@@ -24,6 +26,15 @@ test("rejects non-HTTPS runtime configuration", async () => {
     event: {}, execution_enabled: false,
   }), { ...env, NOVA_QUANT_RUNTIME_ORIGIN: "http://localhost:8000" });
   assert.equal(response.status, 503);
+});
+test("rejects missing private service-binding authentication", async () => {
+  const unauthenticated = new Request("https://adapter.test/v1/mt5/decision", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event: {}, execution_enabled: false }),
+  });
+  const response = await adapter.fetch(unauthenticated, env);
+  assert.equal(response.status, 401);
 });
 test("rejects routes outside the fixed allowlist", async () => {
   const response = await adapter.fetch(new Request("https://adapter.test/proxy?url=https://attacker.test"));
