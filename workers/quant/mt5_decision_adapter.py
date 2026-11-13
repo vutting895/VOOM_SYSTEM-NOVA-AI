@@ -29,9 +29,9 @@ def evaluate_mt5_event(event: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("invalid_module_vote")
         module_id = item.get("module_id")
         vote = item.get("vote")
-        if module_id not in MODULE_IDS or module_id in seen:
+        if not isinstance(module_id, str) or module_id not in MODULE_IDS or module_id in seen:
             raise ValueError("invalid_or_duplicate_module_id")
-        if vote not in VALID_VOTES:
+        if not isinstance(vote, str) or vote not in VALID_VOTES:
             raise ValueError("invalid_module_vote_value")
         seen.add(module_id)
         counts[vote] += 1
