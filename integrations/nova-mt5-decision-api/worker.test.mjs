@@ -41,7 +41,6 @@ const riskSnapshot = {
 const requestPayload = (overrides = {}) => ({
   schema_version: "nova.mt5-request.v1",
   signal_event: signalEvent(),
-  risk_snapshot: riskSnapshot,
   ...overrides,
 });
 async function signedRequest(body, timestamp = String(NOW), keyId = "ea-local-demo-01") {
@@ -80,9 +79,24 @@ function makeEnv(overrides = {}) {
   const env = {
     QUANT_ADAPTER_M2M_TOKEN: "test-only-private-adapter-token-with-32-bytes-minimum",
     MT5_M2M_CLIENTS: JSON.stringify({
-      "ea-local-demo-01": { secret: SECRETS["ea-local-demo-01"], client_id: "tenant-demo-01" },
-      "ea-local-demo-02": { secret: SECRETS["ea-local-demo-02"], client_id: "tenant-demo-02" },
+      "ea-local-demo-01": { secret: SECRETS["ea-local-demo-01"], client_id: "tenant-demo-01", tenant_id: "tenant_12345678", account_login: "12345678", broker_server: "Exness-MT5Trial7" },
+      "ea-local-demo-02": { secret: SECRETS["ea-local-demo-02"], client_id: "tenant-demo-02", tenant_id: "tenant_87654321", account_login: "87654321", broker_server: "Exness-MT5Trial8" },
     }),
+    MT5_BRIDGE_TOKENS: JSON.stringify({ tenant_12345678: "bridge-token-for-tenant-12345678-0123456789", tenant_87654321: "bridge-token-for-tenant-87654321-0123456789" }),
+    MT5_BRIDGE: { fetch: async (request) => {
+      calls.push("bridge");
+      assert.equal(new URL(request.url).pathname, "/api/exposure");
+      assert.equal(request.method, "GET");
+      assert.equal(request.headers.get("X-VOOM-TENANT-ID"), "tenant_12345678");
+      assert.equal(request.headers.get("Authorization"), "Bearer bridge-token-for-tenant-12345678-0123456789");
+      return Response.json({
+        account_login: "12345678", broker_server: "Exness-MT5Trial7", account_currency: "USD",
+        risk_calculation_complete: true, current_equity: 9900, aggregate_open_risk_money: 100,
+        open_orders_count: 2, snapshot_at: new Date().toISOString(),
+        broker_day_start_equity: 10000, broker_day_start_at: "2026-11-13T00:00:00Z",
+        market_open: true, market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
+      });
+    } },
     EVENT_DEDUPE: {
       idFromName: (id) => { dedupeIds.push(id); return id; },
       get: () => ({ fetch: async (request) => {
@@ -200,7 +214,7 @@ test("orchestrates EA mapping then Quant Engine then Risk Gate then advisory AI"
   assert.equal(result.decision, "WAIT");
   assert.equal(result.decision_authority, "deterministic_risk_gate");
   assert.deepEqual(env.__calls, [
-    "reserve", "/v1/mt5/decision", "/v1/mt5/risk-gate", "complete", "ai",
+    "bridge", "reserve", "/v1/mt5/decision", "/v1/mt5/risk-gate", "complete", "ai",
   ]);
   assert.equal(result.ordersEnabled, false);
   assert.equal(result.executionEnabled, false);
@@ -221,21 +235,33 @@ test("AI text cannot reverse a rejected Risk Gate decision", async () => {
   assert.match(result.ai_explanation.narrative, /Risk Gate approved/);
   assert.equal(result.ai_explanation.advisory_only, true);
 });
-test("missing risk snapshot fails closed as WAIT and does not call AI", async () => {
-  const env = makeEnv({
-    QUANT_ENGINE: {
-      fetch: async (request) => new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname === "/v1/mt5/decision"
-        ? Response.json(quantResult)
-        : new Response("risk_snapshot_required", { status: 422 }),
-    },
-  });
-  const payload = requestPayload();
-  delete payload.risk_snapshot;
-  const response = await worker.fetch(await signedRequest(JSON.stringify(payload)), env);
+test("missing trusted Bridge binding fails closed before Quant Engine and AI", async () => {
+  const env = makeEnv({ MT5_BRIDGE: undefined });
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   const result = await response.json();
-  assert.equal(response.status, 422);
-  assert.equal(result.decision, "WAIT");
+  assert.equal(response.status, 503);
+  assert.equal(result.error, "trusted_mt5_bridge_binding_not_configured");
+  assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
   assert.equal(env.__calls.includes("ai"), false);
+});
+
+test("controller-supplied risk_snapshot is rejected instead of trusted", () => {
+  assert.throws(() => validateEvent(requestPayload({ risk_snapshot: riskSnapshot })),
+    /controller_risk_snapshot_not_trusted/);
+});
+
+test("Bridge identity mismatch fails closed before Quant Engine", async () => {
+  const env = makeEnv({ MT5_BRIDGE: { fetch: async () => Response.json({
+    account_login: "99999999", broker_server: "Exness-MT5Trial7", account_currency: "USD",
+    risk_calculation_complete: true, current_equity: 9900, aggregate_open_risk_money: 100,
+    open_orders_count: 2, snapshot_at: new Date().toISOString(),
+    broker_day_start_equity: 10000, broker_day_start_at: "2026-11-13T00:00:00Z",
+    market_open: true, market_data_at: new Date().toISOString(), proposed_entry_risk_money: 50,
+  }) } });
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "trusted_mt5_bridge_identity_or_exposure_invalid");
+  assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
 });
 test("Risk Gate outage prevents AI call and releases event reservation", async () => {
   const env = makeEnv({
