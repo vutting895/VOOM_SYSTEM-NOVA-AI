@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import worker, { authenticateMachine, validateEvent } from "./worker.js";
 
 const SECRET = "test-only-secret-that-is-at-least-32-bytes";
-const NOW = 1794550000;
+const NOW = Math.floor(Date.now() / 1000);
 const validEvent = (overrides = {}) => ({
   event_id: "ea-event-0001", module_id: "M01", event_type: "signal",
   symbol: "XAUUSDm", timeframe: "M5", occurred_at: "2026-11-13T08:00:00Z",
