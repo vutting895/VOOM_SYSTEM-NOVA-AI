@@ -98,6 +98,25 @@ test("authenticated exposure GET is routed to the same tenant session", async ()
   assert.equal(observed.headers.get("Authorization"), null);
 });
 
+test("candidate exposure query is forwarded only within its tenant session", async () => {
+  const candidate = encodeURIComponent(JSON.stringify({
+    symbol: "XAUUSDm", side: "SELL", volume: 0.2, entry_price: 2600.0, stop_loss: 2610.0,
+  }));
+  let forwarded;
+  const env = makeEnv(async (req, id) => {
+    forwarded = { url: new URL(req.url), id };
+    return Response.json({ ok: true });
+  });
+  const response = await worker.fetch(request("/api/exposure?candidate=" + candidate, {
+    token: TOKEN, tenant: TENANT_ID,
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.id, TENANT_ID);
+  assert.deepEqual(JSON.parse(forwarded.url.searchParams.get("candidate")), {
+    symbol: "XAUUSDm", side: "SELL", volume: 0.2, entry_price: 2600.0, stop_loss: 2610.0,
+  });
+});
+
 test("legacy per-route origin is ignored; relay uses only the tenant session", async () => {
   let observedOrigin;
   const env = makeEnv(async (req) => {
@@ -132,9 +151,14 @@ test("order-like routes are denied and not proxied", async () => {
   assert.equal((await response.json()).ordersEnabled, false);
 });
 
-test("exposure route is GET-only and accepts no query parameters", () => {
+test("exposure route accepts only a validated candidate-risk query", () => {
+  const candidate = encodeURIComponent(JSON.stringify({
+    symbol: "XAUUSDm", side: "BUY", volume: 0.1, entry_price: 2600.2, stop_loss: 2590.2,
+  }));
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/exposure?candidate=" + candidate)), { ok: true });
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/exposure")), { ok: true });
   assert.equal(validateReadRequest(new URL("https://relay.test/api/exposure?account=other")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/exposure?candidate=not-json")).ok, false);
 });
 
 test("query validation only allows bounded read parameters", () => {
