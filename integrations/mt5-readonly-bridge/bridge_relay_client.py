@@ -58,10 +58,33 @@ def normalize_read_path(value: object) -> str:
     if any(len(items) != 1 for items in params.values()):
         raise ValueError("Duplicate query parameters are not allowed.")
 
-    if parsed.path in {"/health", "/api/account", "/api/exposure"}:
+    if parsed.path in {"/health", "/api/account"}:
         if params:
             raise ValueError("This read endpoint does not accept query parameters.")
         return parsed.path
+
+    if parsed.path == "/api/exposure":
+        if set(params) - {"candidate"}:
+            raise ValueError("Exposure query parameter is not allowed.")
+        candidate_text = params.get("candidate", [None])[0]
+        if candidate_text is not None:
+            if len(candidate_text) > 512:
+                raise ValueError("Candidate payload is too large.")
+            try:
+                candidate = json.loads(candidate_text)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("Candidate payload is invalid.") from exc
+            if (not isinstance(candidate, dict) or
+                    set(candidate) != {"symbol", "side", "volume", "entry_price", "stop_loss"} or
+                    candidate.get("side") not in {"BUY", "SELL"} or
+                    not isinstance(candidate.get("symbol"), str) or
+                    not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", candidate["symbol"]) or
+                    any(isinstance(candidate.get(key), bool) or
+                        not isinstance(candidate.get(key), (int, float)) or
+                        not 0 < candidate[key] < float("inf")
+                        for key in ("volume", "entry_price", "stop_loss"))):
+                raise ValueError("Candidate payload fields are invalid.")
+        return parsed.path + (("?" + urlencode({"candidate": candidate_text})) if candidate_text is not None else "")
 
     if parsed.path == "/api/symbols":
         if set(params) - {"q", "limit"}:
