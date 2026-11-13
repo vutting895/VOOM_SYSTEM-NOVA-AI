@@ -3,22 +3,41 @@ import assert from "node:assert/strict";
 import worker, { authenticateMachine, validateEvent } from "./worker.js";
 
 const SECRET = "test-only-secret-that-is-at-least-32-bytes";
-const NOW = Math.floor(Date.now() / 1000);
-const validEvent = (overrides = {}) => ({
-  event_id: "ea-event-0001", module_id: "M01", event_type: "signal",
-  symbol: "XAUUSDm", timeframe: "M5", occurred_at: "2026-11-13T08:00:00Z",
-  payload: {
-    quant_features: {
-      price_return_norm: 0.2, volatility_atr_norm: 0.3,
-      liquidity_imbalance: -0.1, momentum_rsi_norm: 0.4,
-    },
-    risk_snapshot: {
-      broker_day_start_equity: 10000, current_equity: 9900,
-      aggregate_open_risk_money: 500, open_orders_count: 2,
-      market_open: true, broker_day_start_at: "2026-11-13T00:00:00Z",
-      snapshot_at: "2026-11-13T08:59:30Z",
-    },
-  },
+const NOW = 1794550000;
+const MODULES = [
+  "SuperTrend", "KeltnerBreak", "GoldenCross", "RocSurge", "Alligator",
+  "Ichimoku", "AwesomeOsc", "HeikinPower", "PsarDot", "VwapBand",
+  "FlowMatrix", "HourBias", "PivotWheel", "SessionHeat", "StructureMap",
+  "TrendRadar", "VolRegime-Batch", "EffortResult", "ExpertQEXSweep",
+  "FootprintLite", "LiquidityPools", "NeuralPilot", "KillZoneBreak",
+  "QEX-LiqSweep", "QEX-VolST", "RangeSniper", "SessionBox", "TrendPilot",
+  "VolRegime-QEX", "WyckoffPhase",
+];
+const signalEvent = (votes = ["BUY", "SELL", "NEUTRAL", ...Array(27).fill("NEUTRAL")]) => ({
+  schema_version: "mt5ea.signal.v1",
+  event_id: "XAUUSDm-PERIOD_M15-1794550000",
+  symbol: "XAUUSDm",
+  timeframe: "M15",
+  account_mode: "DEMO",
+  bar_time_utc: "2026-11-13T08:00:00Z",
+  bid: 2600.0,
+  ask: 2600.2,
+  spread_points: 20,
+  buy_votes: votes.filter((v) => v === "BUY").length,
+  sell_votes: votes.filter((v) => v === "SELL").length,
+  neutral_votes: votes.filter((v) => v === "NEUTRAL").length,
+  module_votes: MODULES.map((name, i) => ({ name, vote: votes[i] })),
+});
+const riskSnapshot = {
+  broker_day_start_equity: 10000, current_equity: 9900,
+  aggregate_open_risk_money: 100, open_orders_count: 2, market_open: true,
+  broker_day_start_at: "2026-11-13T00:00:00Z",
+  snapshot_at: "2026-11-13T08:59:30Z",
+};
+const requestPayload = (overrides = {}) => ({
+  schema_version: "nova.mt5-request.v1",
+  signal_event: signalEvent(),
+  risk_snapshot: riskSnapshot,
   ...overrides,
 });
 async function signedRequest(body, timestamp = String(NOW)) {
@@ -35,13 +54,13 @@ async function signedRequest(body, timestamp = String(NOW)) {
   });
 }
 const quantResult = {
-  engine: "HybridQuantumQuantEngine", engine_version: "2.0",
-  backend: "statevector-sim:default.qubit", regime_classification: "research",
-  directional_probability_up: 0.62, evaluation_status: "research_only",
-  score_calibration: "not_calibrated", execution_enabled: false,
+  engine: "MT5HeuristicConsensusAdapter", engine_version: "1.0",
+  event_id: "XAUUSDm-PERIOD_M15-1794550000", module_count: 30,
+  directional_bias: "BUY", evaluation_status: "research_only",
+  execution_enabled: false,
 };
 const riskPass = {
-  policy_version: "nova-mt5-risk.v1", passed: true,
+  policy_version: "nova-mt5-risk.ea-compatible.v1", passed: true,
   action: "ELIGIBLE_FOR_RESEARCH_REVIEW", entry_lock_only: false,
   reason_codes: [], execution_authorized: false, live_trading_enabled: false,
 };
@@ -64,11 +83,12 @@ function makeEnv(overrides = {}) {
         if (path === "/v1/mt5/decision") {
           const body = JSON.parse(init.body);
           assert.equal(body.execution_enabled, false);
+          assert.equal(body.event.module_votes.length, 30);
           return Response.json(quantResult);
         }
         if (path === "/v1/mt5/risk-gate") {
           const body = JSON.parse(init.body);
-          assert.equal(body.quant_engine_result.engine, "HybridQuantumQuantEngine");
+          assert.equal(body.quant_engine_result.engine, "MT5HeuristicConsensusAdapter");
           return Response.json(riskPass);
         }
         return new Response("not found", { status: 404 });
@@ -84,38 +104,58 @@ function makeEnv(overrides = {}) {
   return env;
 }
 
-test("accepts all 30 module identifiers", () => {
-  for (let i = 1; i <= 30; i++) {
-    const id = "M" + String(i).padStart(2, "0");
-    assert.equal(validateEvent(validEvent({ module_id: id })).module_id, id);
-  }
+test("maps the EA's exact ordered 30 module names to M01-M30", () => {
+  const event = validateEvent(requestPayload());
+  assert.equal(event.schema_version, "nova.mt5-event.v2");
+  assert.equal(event.module_votes.length, 30);
+  assert.equal(event.module_votes[0].module_id, "M01");
+  assert.equal(event.module_votes[29].module_id, "M30");
+  assert.equal(event.event_id, signalEvent().event_id);
 });
-test("rejects unknown module and timezone-naive event timestamps", () => {
-  assert.throws(() => validateEvent(validEvent({ module_id: "M31" })), /unsupported_module_id/);
-  assert.throws(() => validateEvent(validEvent({ occurred_at: "2026-11-13 08:00:00" })), /timezone_aware/);
+test("rejects incomplete, duplicate, unknown module names and inconsistent totals", () => {
+  const payload = requestPayload();
+  payload.signal_event.module_votes.pop();
+  assert.throws(() => validateEvent(payload), /exactly_30/);
+  const duplicate = requestPayload();
+  duplicate.signal_event.module_votes[1].name = duplicate.signal_event.module_votes[0].name;
+  assert.throws(() => validateEvent(duplicate), /unknown_duplicate/);
+  const mismatch = requestPayload();
+  mismatch.signal_event.buy_votes = 30;
+  assert.throws(() => validateEvent(mismatch), /totals_mismatch/);
+});
+test("rejects non-Demo account, unsupported timeframe and non-UTC timestamp", () => {
+  assert.throws(() => validateEvent(requestPayload({
+    signal_event: { ...signalEvent(), account_mode: "REAL" },
+  })), /demo_account_required/);
+  assert.throws(() => validateEvent(requestPayload({
+    signal_event: { ...signalEvent(), timeframe: "H2" },
+  })), /invalid_timeframe/);
+  assert.throws(() => validateEvent(requestPayload({
+    signal_event: { ...signalEvent(), bar_time_utc: "2026-11-13T08:00:00+07:00" },
+  })), /bar_time_utc_must_be_utc/);
 });
 test("machine authentication requires HMAC and a fresh timestamp", async () => {
-  const body = JSON.stringify(validEvent());
+  const body = JSON.stringify(requestPayload());
   const req = await signedRequest(body);
   assert.deepEqual(await authenticateMachine(req, body, makeEnv(), NOW), { ok: true });
   assert.equal((await authenticateMachine(req, body, makeEnv(), NOW + 120)).error,
     "invalid_or_expired_machine_timestamp");
 });
 test("rejects missing machine secret and tampered body", async () => {
-  const body = JSON.stringify(validEvent());
+  const body = JSON.stringify(requestPayload());
   const req = await signedRequest(body);
   assert.equal((await authenticateMachine(req, body, {}, NOW)).status, 503);
   assert.equal((await authenticateMachine(req, body + " ", makeEnv(), NOW)).status, 401);
 });
-test("orchestrates Quant Engine then Risk Gate then AI, with AI advisory only", async () => {
+test("orchestrates EA mapping then Quant Engine then Risk Gate then advisory AI", async () => {
   const env = makeEnv();
-  const response = await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env);
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   const result = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(result.quant_engine.engine, "HybridQuantumQuantEngine");
+  assert.equal(result.quant_engine.engine, "MT5HeuristicConsensusAdapter");
   assert.equal(result.risk_gate.passed, true);
   assert.equal(result.ai_explanation.advisory_only, true);
-  assert.equal(result.decision, "research_candidate");
+  assert.equal(result.decision, "WAIT");
   assert.equal(result.decision_authority, "deterministic_risk_gate");
   assert.deepEqual(env.__calls, [
     "reserve", "/v1/mt5/decision", "/v1/mt5/risk-gate", "complete", "ai",
@@ -133,13 +173,29 @@ test("AI text cannot reverse a rejected Risk Gate decision", async () => {
             entry_lock_only: true, reason_codes: ["daily_loss_entry_lock"] }),
     },
   });
-  const result = await (await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env)).json();
+  const result = await (await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env)).json();
   assert.equal(result.risk_gate.passed, false);
-  assert.equal(result.decision, "rejected");
+  assert.equal(result.decision, "REJECT");
   assert.match(result.ai_explanation.narrative, /Risk Gate approved/);
   assert.equal(result.ai_explanation.advisory_only, true);
 });
-test("Risk Gate outage prevents AI call and releases the event reservation", async () => {
+test("missing risk snapshot fails closed as WAIT and does not call AI", async () => {
+  const env = makeEnv({
+    QUANT_ENGINE: {
+      fetch: async (request) => new URL(request.url).pathname === "/v1/mt5/decision"
+        ? Response.json(quantResult)
+        : new Response("risk_snapshot_required", { status: 422 }),
+    },
+  });
+  const payload = requestPayload();
+  delete payload.risk_snapshot;
+  const response = await worker.fetch(await signedRequest(JSON.stringify(payload)), env);
+  const result = await response.json();
+  assert.equal(response.status, 422);
+  assert.equal(result.decision, "WAIT");
+  assert.equal(env.__calls.includes("ai"), false);
+});
+test("Risk Gate outage prevents AI call and releases event reservation", async () => {
   const env = makeEnv({
     QUANT_ENGINE: {
       fetch: async (request) => new URL(request.url).pathname === "/v1/mt5/decision"
@@ -147,13 +203,13 @@ test("Risk Gate outage prevents AI call and releases the event reservation", asy
         : new Response("unavailable", { status: 503 }),
     },
   });
-  const response = await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env);
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   assert.equal(response.status, 502);
   assert.equal(env.__calls.includes("ai"), false);
 });
 test("fails closed when deduplication service is not configured", async () => {
   const env = makeEnv({ EVENT_DEDUPE: undefined });
-  const response = await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env);
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   assert.equal(response.status, 503);
 });
 test("duplicate event is rejected before Quant Engine dispatch", async () => {
@@ -161,7 +217,7 @@ test("duplicate event is rejected before Quant Engine dispatch", async () => {
     EVENT_DEDUPE: { idFromName: (id) => id, get: () => ({ fetch: async () =>
       new Response("duplicate", { status: 409 }) }) },
   });
-  const response = await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env);
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   assert.equal(response.status, 409);
   assert.equal(env.__calls.some((path) => String(path).includes("/v1/mt5/")), false);
 });
@@ -169,13 +225,14 @@ test("invalid Quant Engine response prevents Risk Gate and AI", async () => {
   const env = makeEnv({
     QUANT_ENGINE: { fetch: async () => Response.json({ engine: "fake", execution_enabled: false }) },
   });
-  const response = await worker.fetch(await signedRequest(JSON.stringify(validEvent())), env);
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
   assert.equal(response.status, 502);
   assert.equal(env.__calls.includes("ai"), false);
 });
 test("health reports readiness flags without exposing machine secret", async () => {
   const env = makeEnv();
   const result = await (await worker.fetch(new Request("https://decision.test/health"), env)).json();
+  assert.equal(result.contract, "nova.mt5-decision.v2");
   assert.equal(result.machine_auth_configured, true);
   assert.equal(result.ordersEnabled, false);
   assert.equal(JSON.stringify(result).includes(SECRET), false);
