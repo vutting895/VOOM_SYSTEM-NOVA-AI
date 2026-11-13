@@ -55,9 +55,28 @@ The deterministic Risk Gate policy is:
 
 **Bridge progress and remaining blockers:** the read-only Bridge now exposes `GET /api/exposure` with broker-sourced Open Positions, Pending Orders, per-position stop-loss risk, aggregate risk in account currency, account login/server scope, current equity, and snapshot time. It uses MT5 `positions_get()`, `orders_get()`, and `order_calc_profit()` under the terminal process lock. Unknown stop-loss risk returns `null` and `risk_calculation_complete=false`, never zero.
 
-The Bridge still does **not** provide Broker-Day Starting Equity or calculate a proposed candidate-entry risk from the EA's candidate volume, side, entry price, and stop-loss. It also deliberately reports `policy_attestation.status=not_attested`; it cannot certify active EA inputs or the installed EX5 binary. The EA / Local Controller source is not yet connected to this API contract. Daily-loss and proposed-entry checks therefore remain unverified against broker state; keep requests fail-closed until those fields and the producer mapping are implemented and tested.
+The Windows Bridge now captures a durable broker-day equity baseline from the current MT5 D1 bar and recalculates candidate risk with `order_calc_profit()`. The EA signal contract accepts a `candidate` object (`symbol`, `side`, `volume`, `entry_price`, `stop_loss`), but the current EA producer has not yet been updated in this repository to emit those fields. Requests without a candidate or a valid durable baseline therefore fail closed before Quant Engine dispatch. The Bridge still reports `policy_attestation.status=not_attested`; it cannot certify active EA inputs or the installed EX5 binary.
 
 **Evidence limitation:** HMAC authenticates the sender and protects the exact signal request body; it does not prove broker state. The Decision Worker now discards this trust model: it rejects any Controller `risk_snapshot` and independently calls the tenant-authorized Bridge. Because the current Bridge does not yet expose the complete broker-day and candidate-risk contract, the Worker rejects the request before Quant Engine dispatch. No Controller-provided fallback is allowed.
+
+## 3B. Candidate input and broker-day baseline
+
+The EA signal may include:
+```json
+"candidate": {
+  "symbol": "XAUUSDm",
+  "side": "BUY",
+  "volume": 0.10,
+  "entry_price": 2600.20,
+  "stop_loss": 2590.20
+}
+```
+
+The Worker validates the exact fields and symbol match, then forwards the candidate to the Bridge through the tenant-scoped Relay. The Bridge independently validates broker volume limits/step and stop geometry and recalculates loss using MT5 `order_calc_profit()`. The Risk Gate receives `proposed_entry_risk_money` from that Bridge response, in account currency.
+
+The Bridge persists the first observed equity within 30 seconds of the broker D1 bar open to a local SQLite database (WAL + FULL synchronous). A 2-second background poll attempts rollover capture. The baseline is keyed by tenant/account/server/day and is not reset on process restart. If no valid sample was captured within the 30-second window, the day remains blocked; current equity is never substituted.
+
+This does not size candidate volume. Candidate volume still has to be supplied by the EA's strategy layer. The current EA source is not yet updated to emit this candidate object, so the existing EA-to-Decision path remains blocked until that producer is updated and compiled/tested. Candidate risk excludes commission, slippage and gaps; do not treat it as guaranteed maximum loss.
 
 ## 3A. Trusted Bridge boundary (feature branch)
 
