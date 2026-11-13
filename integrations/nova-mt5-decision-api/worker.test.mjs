@@ -77,6 +77,7 @@ const riskPass = {
 function makeEnv(overrides = {}) {
   const calls = [];
   const dedupeIds = [];
+  const riskReservationIds = [];
   const env = {
     QUANT_ADAPTER_M2M_TOKEN: "test-only-private-adapter-token-with-32-bytes-minimum",
     MT5_M2M_CLIENTS: JSON.stringify({
@@ -116,6 +117,14 @@ function makeEnv(overrides = {}) {
         return new Response("ok", { status: path === "/reserve" ? 201 : 200 });
       } }),
     },
+    RISK_RESERVATIONS: {
+      idFromName: (id) => { riskReservationIds.push(id); return id; },
+      get: () => ({ fetch: async (request) => {
+        const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
+        calls.push("risk:" + path.slice(1));
+        return Response.json({ reserved: true }, { status: path === "/reserve" ? 201 : 200 });
+      } }),
+    },
     QUANT_ENGINE: {
       fetch: async (request, init) => {
         const path = new URL(typeof request === "string" || request instanceof URL ? request : request.url).pathname;
@@ -141,6 +150,7 @@ function makeEnv(overrides = {}) {
     } },
     __calls: calls,
     __dedupeIds: dedupeIds,
+    __riskReservationIds: riskReservationIds,
     ...overrides,
   };
   return env;
@@ -366,4 +376,40 @@ test("health reports readiness flags without exposing machine secret", async () 
   assert.equal(result.machine_auth_configured, true);
   assert.equal(result.ordersEnabled, false);
   assert.equal(Object.values(SECRETS).some((secret) => JSON.stringify(result).includes(secret)), false);
+});
+
+
+test("account risk reservation runs before Quant Engine and is released after research-only Risk Gate", async () => {
+  const env = makeEnv();
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 200);
+  assert.equal(env.__riskReservationIds[0], "tenant_12345678:Exness-MT5Trial7:12345678");
+  const reserveIndex = env.__calls.indexOf("risk:reserve");
+  const quantIndex = env.__calls.indexOf("/v1/mt5/decision");
+  const riskIndex = env.__calls.indexOf("/v1/mt5/risk-gate");
+  const releaseIndex = env.__calls.indexOf("risk:release");
+  assert.ok(reserveIndex >= 0 && reserveIndex < quantIndex);
+  assert.ok(quantIndex < riskIndex && riskIndex < releaseIndex);
+});
+
+test("missing account risk reservation binding fails closed before Quant Engine", async () => {
+  const env = makeEnv({ RISK_RESERVATIONS: undefined });
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "risk_reservation_service_not_configured");
+  assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
+});
+
+test("risk capacity conflict releases event dedupe claim and does not call Quant Engine", async () => {
+  const env = makeEnv({
+    RISK_RESERVATIONS: {
+      idFromName: (id) => id,
+      get: () => ({ fetch: async () => Response.json({ error: "aggregate_open_risk_limit_exceeded" }, { status: 409 }) }),
+    },
+  });
+  const response = await worker.fetch(await signedRequest(JSON.stringify(requestPayload())), env);
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).error, "aggregate_open_risk_limit_exceeded");
+  assert.equal(env.__calls.includes("/v1/mt5/decision"), false);
+  assert.ok(env.__calls.includes("release"));
 });
