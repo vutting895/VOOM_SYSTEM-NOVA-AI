@@ -1,0 +1,35 @@
+name: NOVA MT5 Contract CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/nova-mt5-decision-api/**"
+      - "integrations/nova-quant-engine-adapter/**"
+      - "workers/quant/mt5_decision_adapter.py"
+      - "workers/risk/mt5_decision_gate.py"
+      - "workers/tests/test_mt5_*.py"
+      - ".github/workflows/nova-mt5-contract-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mt5-contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate Python syntax
+        run: python -m py_compile workers/quant/mt5_decision_adapter.py workers/risk/mt5_decision_gate.py
+      - name: Run MT5 Python contract tests
+        run: python -m unittest workers.tests.test_mt5_quant_adapter workers.tests.test_mt5_risk_gate workers.tests.test_mt5_decision_pipeline -v
+      - name: Run MT5 Worker contract tests
+        run: node --test integrations/nova-mt5-decision-api/*.test.mjs integrations/nova-quant-engine-adapter/*.test.mjs
