@@ -55,10 +55,19 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 
 - `GET /health`
 - `GET /api/account`
+- `GET /api/exposure` — broker-sourced open positions and active pending orders, counts, account-currency stop-loss risk, current-equity risk percentage, and UTC snapshot time
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
+
+## Exposure and risk-policy attestation
+
+`GET /api/exposure` calls MT5 `positions_get()` and `orders_get()` under the same process lock and calculates each position/pending-order loss to its broker-reported stop loss using `order_calc_profit()` in the account currency. Pending orders are included in the total exposure and order count.
+
+If any exposure has no valid stop loss, an unsupported side, invalid volume/price, failed broker calculation, or invalid equity, the aggregate risk values are returned as `null` with `risk_calculation_complete=false`. Consumers must reject the snapshot for risk authorization; they must never treat unknown risk as zero. `snapshot_at` is UTC and applies to the complete read operation.
+
+The endpoint deliberately reports `policy_attestation.status=not_attested`. The Bridge cannot infer the active EA inputs, verify the installed EX5 binary against source, or certify a NOVA policy version. Do not set a policy version in the Bridge until a signed/verified EA-side attestation and source/binary reconciliation exist. The Bridge does not calculate Broker-Day Starting Equity; the NOVA Risk Gate must continue to fail closed when that required field is absent.
 
 ## Validation before marking a customer connected
 
