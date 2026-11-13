@@ -53,6 +53,8 @@ def evaluate_mt5_risk(
         or quant_engine_result.get("evaluation_status") != "research_only"
         or quant_engine_result.get("execution_enabled") is not False
         or quant_engine_result.get("event_id") != event.get("event_id")
+        or not isinstance(event.get("client_id"), str)
+        or quant_engine_result.get("client_id") != event.get("client_id")
         or quant_engine_result.get("module_count") != 30
     ):
         raise ValueError("verified_mt5_heuristic_result_required")
@@ -115,6 +117,7 @@ def evaluate_mt5_risk(
 
     return {
         "event_id": event.get("event_id"),
+        "client_id": event.get("client_id"),
         "policy_version": POLICY_VERSION,
         "passed": passed,
         "action": action,
