@@ -83,8 +83,28 @@ export function validateReadRequest(url) {
     return { ok: false, error: "duplicate_query_parameter" };
   }
 
-  if (url.pathname === "/health" || url.pathname === "/api/account" || url.pathname === "/api/exposure") {
+  if (url.pathname === "/health" || url.pathname === "/api/account") {
     return keys.length === 0 ? { ok: true } : { ok: false, error: "query_not_allowed" };
+  }
+  if (url.pathname === "/api/exposure") {
+    if (keys.some((key) => key !== "candidate")) return { ok: false, error: "query_parameter_not_allowed" };
+    const candidate = singleParam(url, "candidate");
+    if (candidate === undefined || (candidate !== null && candidate.length > 512)) {
+      return { ok: false, error: "invalid_candidate" };
+    }
+    if (candidate !== null) {
+      try {
+        const value = JSON.parse(candidate);
+        if (!value || typeof value !== "object" || Array.isArray(value) ||
+            Object.keys(value).sort().join(",") !== "entry_price,side,stop_loss,symbol,volume" ||
+            !["BUY", "SELL"].includes(value.side) ||
+            typeof value.symbol !== "string" || !/^[A-Za-z0-9._-]{1,40}$/.test(value.symbol) ||
+            ![value.volume, value.entry_price, value.stop_loss].every((n) => typeof n === "number" && Number.isFinite(n) && n > 0)) {
+          return { ok: false, error: "invalid_candidate" };
+        }
+      } catch { return { ok: false, error: "invalid_candidate" }; }
+    }
+    return { ok: true };
   }
 
   const allowedKeys = url.pathname === "/api/symbols"
