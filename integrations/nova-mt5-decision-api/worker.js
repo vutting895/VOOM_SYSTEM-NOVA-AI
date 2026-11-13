@@ -86,13 +86,15 @@ export function validateEvent(value) {
 function riskGate(event) {
   const p = event.payload;
   const reasons = [];
-  const numeric = ["allocation_pct", "daily_loss_pct", "drawdown_pct", "leverage", "data_age_seconds"];
+  const numeric = ["allocation_pct", "daily_loss_pct", "drawdown_pct", "open_risk_pct", "open_orders_count", "leverage", "data_age_seconds"];
   for (const key of numeric) {
     if (typeof p[key] !== "number" || !Number.isFinite(p[key])) reasons.push("missing_or_invalid_" + key);
   }
   if (reasons.length === 0) {
     if (p.allocation_pct <= 0 || p.allocation_pct > 20) reasons.push("allocation_limit");
-    if (p.daily_loss_pct < 0 || p.daily_loss_pct >= 3) reasons.push("daily_loss_limit");
+    if (p.daily_loss_pct < 0 || p.daily_loss_pct >= 10) reasons.push("daily_loss_limit");
+    if (p.open_risk_pct < 0 || p.open_risk_pct > 9) reasons.push("open_risk_limit");
+    if (!Number.isInteger(p.open_orders_count) || p.open_orders_count < 0 || p.open_orders_count >= 5) reasons.push("max_open_orders");
     if (p.drawdown_pct < 0 || p.drawdown_pct >= 7) reasons.push("drawdown_limit");
     if (p.leverage < 1 || p.leverage > 1) reasons.push("leverage_limit");
     if (p.data_age_seconds < 0 || p.data_age_seconds > 60) reasons.push("stale_market_data");
