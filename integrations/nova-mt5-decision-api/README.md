@@ -57,7 +57,7 @@ The deterministic Risk Gate policy is:
 
 The Bridge still does **not** provide Broker-Day Starting Equity or calculate a proposed candidate-entry risk from the EA's candidate volume, side, entry price, and stop-loss. It also deliberately reports `policy_attestation.status=not_attested`; it cannot certify active EA inputs or the installed EX5 binary. The EA / Local Controller source is not yet connected to this API contract. Daily-loss and proposed-entry checks therefore remain unverified against broker state; keep requests fail-closed until those fields and the producer mapping are implemented and tested.
 
-**Evidence limitation:** HMAC authenticates the sender and protects the exact request body; it does not prove the risk snapshot came from the broker. The Local Controller must obtain/reconcile risk evidence through tenant-authorized read-only MT5 Bridge data before a snapshot is considered broker-verified. Until that read-only reconciliation exists, risk calculations are only as trustworthy as the signed snapshot supplied by the controller.
+**Evidence limitation:** HMAC authenticates the sender and protects the exact signal request body; it does not prove broker state. The Decision Worker now discards this trust model: it rejects any Controller `risk_snapshot` and independently calls the tenant-authorized Bridge. Because the current Bridge does not yet expose the complete broker-day and candidate-risk contract, the Worker rejects the request before Quant Engine dispatch. No Controller-provided fallback is allowed.
 
 ## 3A. Trusted Bridge boundary (feature branch)
 
@@ -73,11 +73,11 @@ The Bridge still does **not** provide Broker-Day Starting Equity or calculate a 
 Processing order:
 1. Resolve `X-NOVA-Key-Id` against the server-side `MT5_M2M_CLIENTS` registry, then verify HMAC-SHA256 over `<timestamp>.<key-id>.<exact raw request body>`; timestamp skew <=60 seconds.
 2. Validate the exact EA signal contract and all 30 module names/votes.
-3. Add the server-resolved client scope to the normalized event and reserve `<client-id>:<event-id>` using the Durable Object dedupe service.
-4. Normalize votes through `MT5HeuristicConsensusAdapter`.
-5. Evaluate the independent MT5 Risk Gate.
-6. Complete the event reservation.
-7. Optionally call Cloudflare Workers AI Llama 3.2 3B for an evidence-bounded explanation only.
+3. Add the server-resolved client scope to the normalized event, fetch `GET /api/exposure` through `MT5_BRIDGE`, verify tenant/account/server identity and freshness, and reject incomplete broker-risk fields.\n4. Only after trusted Bridge validation, reserve `<client-id>:<event-id>` using the Durable Object dedupe service.
+5. Normalize votes through `MT5HeuristicConsensusAdapter`.
+6. Evaluate the independent MT5 Risk Gate.
+7. Complete the event reservation.
+8. Optionally call Cloudflare Workers AI Llama 3.2 3B for an evidence-bounded explanation only.
 
 Workers AI cannot alter the structured result. A policy pass still returns `WAIT`, because this API is research-only and does not authorize a trade. A risk rejection returns `REJECT`. Missing services, malformed responses, authentication failures, missing risk evidence, and timeouts fail closed as `WAIT`.
 
