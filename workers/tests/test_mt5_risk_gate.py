@@ -18,8 +18,9 @@ QUANT = {
 def make_event(**changes):
     snapshot = {
         "broker_day_start_equity": 10000.0,
-        "current_equity": 9900.0,
+        "current_equity": 10000.0,
         "aggregate_open_risk_money": 100.0,
+        "proposed_entry_risk_money": 0.0,
         "open_orders_count": 2,
         "market_open": True,
         "broker_day_start_at": "2026-11-13T00:00:00Z",
@@ -36,29 +37,88 @@ def make_event(**changes):
 
 
 class TestMT5DecisionRiskGate(unittest.TestCase):
-    def test_valid_snapshot_is_eligible_for_research_review_only(self):
+    def test_valid_snapshot_is_research_only_and_live_execution_disabled(self):
         result = evaluate_mt5_risk(make_event(), QUANT, now=NOW)
         self.assertTrue(result["passed"])
         self.assertEqual(result["action"], "ELIGIBLE_FOR_RESEARCH_REVIEW")
-        self.assertEqual(result["policy_version"], "nova-mt5-risk.ea-compatible.v1")
+        self.assertEqual(result["policy_version"], "nova-mt5-risk.v2")
+        self.assertEqual(result["limits"]["daily_loss_entry_lock_pct"], 10.0)
+        self.assertEqual(result["limits"]["max_aggregate_open_risk_pct"], 9.0)
+        self.assertEqual(result["limits"]["aggregate_open_risk_reference"], "current_equity")
         self.assertFalse(result["execution_authorized"])
+        self.assertFalse(result["live_trading_enabled"])
         self.assertEqual(result["existing_positions_action"], "NO_CHANGE")
 
-    def test_daily_loss_3_percent_locks_new_entries_only(self):
-        result = evaluate_mt5_risk(make_event(current_equity=9700.0), QUANT, now=NOW)
+    def test_daily_loss_9_99_percent_allows_entry_review(self):
+        result = evaluate_mt5_risk(
+            make_event(current_equity=9001.0), QUANT, now=NOW
+        )
+        self.assertTrue(result["passed"])
+        self.assertAlmostEqual(result["metrics"]["daily_loss_pct"], 9.99)
+
+    def test_daily_loss_at_10_percent_locks_new_entries_only(self):
+        result = evaluate_mt5_risk(
+            make_event(current_equity=9000.0), QUANT, now=NOW
+        )
         self.assertFalse(result["passed"])
         self.assertTrue(result["entry_lock_only"])
         self.assertEqual(result["action"], "ENTRY_LOCK_ONLY")
-        self.assertEqual(result["metrics"]["daily_loss_pct"], 3.0)
+        self.assertEqual(result["metrics"]["daily_loss_pct"], 10.0)
         self.assertEqual(result["existing_positions_action"], "NO_CHANGE")
 
-    def test_aggregate_open_risk_above_2_percent_rejects_new_entry(self):
+    def test_daily_loss_above_10_percent_remains_entry_locked(self):
         result = evaluate_mt5_risk(
-            make_event(aggregate_open_risk_money=200.1), QUANT, now=NOW
+            make_event(current_equity=8999.0), QUANT, now=NOW
+        )
+        self.assertTrue(result["entry_lock_only"])
+        self.assertIn("daily_loss_entry_lock", result["reason_codes"])
+
+    def test_aggregate_open_risk_8_99_percent_allows_review(self):
+        result = evaluate_mt5_risk(
+            make_event(aggregate_open_risk_money=899.0), QUANT, now=NOW
+        )
+        self.assertTrue(result["passed"])
+        self.assertAlmostEqual(result["metrics"]["aggregate_open_risk_pct"], 8.99)
+
+    def test_aggregate_open_risk_exactly_9_percent_is_at_limit(self):
+        result = evaluate_mt5_risk(
+            make_event(aggregate_open_risk_money=900.0), QUANT, now=NOW
+        )
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["metrics"]["aggregate_open_risk_pct"], 9.0)
+
+    def test_aggregate_open_risk_above_9_percent_rejects_entry(self):
+        result = evaluate_mt5_risk(
+            make_event(aggregate_open_risk_money=901.0), QUANT, now=NOW
         )
         self.assertIn("aggregate_open_risk_limit", result["reason_codes"])
         self.assertFalse(result["passed"])
         self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
+
+    def test_proposed_entry_risk_is_included_before_approval(self):
+        result = evaluate_mt5_risk(
+            make_event(
+                aggregate_open_risk_money=850.0,
+                proposed_entry_risk_money=51.0,
+            ),
+            QUANT,
+            now=NOW,
+        )
+        self.assertFalse(result["passed"])
+        self.assertIn("aggregate_open_risk_limit", result["reason_codes"])
+        self.assertEqual(result["metrics"]["total_open_risk_money"], 901.0)
+
+    def test_proposed_entry_can_use_remaining_risk_capacity(self):
+        result = evaluate_mt5_risk(
+            make_event(
+                aggregate_open_risk_money=850.0,
+                proposed_entry_risk_money=50.0,
+            ),
+            QUANT,
+            now=NOW,
+        )
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["metrics"]["total_open_risk_money"], 900.0)
 
     def test_maximum_5_orders_rejects_new_entry(self):
         result = evaluate_mt5_risk(make_event(open_orders_count=5), QUANT, now=NOW)
@@ -80,6 +140,18 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
                 QUANT, now=NOW,
             )
 
+    def test_missing_proposed_entry_risk_fails_closed(self):
+        event = make_event()
+        del event["risk_snapshot"]["proposed_entry_risk_money"]
+        with self.assertRaisesRegex(ValueError, "invalid_risk_snapshot:proposed_entry_risk_money"):
+            evaluate_mt5_risk(event, QUANT, now=NOW)
+
+    def test_negative_proposed_entry_risk_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "risk_snapshot_open_risk_must_be_non_negative"):
+            evaluate_mt5_risk(
+                make_event(proposed_entry_risk_money=-1.0), QUANT, now=NOW
+            )
+
     def test_stale_market_data_fails_closed(self):
         result = evaluate_mt5_risk(
             make_event(market_data_at="2026-11-13T08:58:00Z"), QUANT, now=NOW
@@ -89,7 +161,7 @@ class TestMT5DecisionRiskGate(unittest.TestCase):
 
     def test_daily_loss_with_another_blocker_is_rejected(self):
         result = evaluate_mt5_risk(
-            make_event(current_equity=9700.0, market_open=False), QUANT, now=NOW
+            make_event(current_equity=9000.0, market_open=False), QUANT, now=NOW
         )
         self.assertTrue(result["entry_lock_only"])
         self.assertEqual(result["action"], "REJECT_NEW_ENTRY")
