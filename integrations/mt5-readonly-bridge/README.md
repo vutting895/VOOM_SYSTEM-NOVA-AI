@@ -55,19 +55,47 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 
 - `GET /health`
 - `GET /api/account`
-- `GET /api/exposure` — broker-sourced open positions and active pending orders, counts, account-currency stop-loss risk, current-equity risk percentage, and UTC snapshot time
+- `GET /api/exposure` — broker-sourced open positions and active pending orders, durable Broker-Day Starting Equity, market tick freshness, and broker-recalculated candidate risk when a validated `candidate` query is supplied
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
-## Exposure and risk-policy attestation
+## Exposure, durable Broker-Day baseline and candidate risk
 
-`GET /api/exposure` calls MT5 `positions_get()` and `orders_get()` under the same process lock and calculates each position/pending-order loss to its broker-reported stop loss using `order_calc_profit()` in the account currency. Pending orders are included in the total exposure and order count.
+`GET /api/exposure` calls MT5 `positions_get()` and `orders_get()` under the process lock and calculates each position/pending-order loss to its broker-reported stop loss using `order_calc_profit()` in the account currency. Pending orders are included in total exposure and order count.
 
-If any exposure has no valid stop loss, an unsupported side, invalid volume/price, failed broker calculation, or invalid equity, the aggregate risk values are returned as `null` with `risk_calculation_complete=false`. Consumers must reject the snapshot for risk authorization; they must never treat unknown risk as zero. `snapshot_at` is UTC and applies to the complete read operation.
+### Durable Broker-Day Starting Equity
 
-The endpoint deliberately reports `policy_attestation.status=not_attested`. The Bridge cannot infer the active EA inputs, verify the installed EX5 binary against source, or certify a NOVA policy version. Do not set a policy version in the Bridge until a signed/verified EA-side attestation and source/binary reconciliation exist. The Bridge does not calculate Broker-Day Starting Equity; the NOVA Risk Gate must continue to fail closed when that required field is absent.
+- The Bridge polls the active MT5 account and the broker's current D1 bar every 2 seconds while the Windows process is running.
+- The D1 bar open timestamp is used as the broker-day key; the baseline is isolated by Tenant ID + Account Login + Broker Server + D1 open timestamp.
+- On the first observation within 30 seconds of that broker D1 open, the Bridge stores the observed equity in SQLite with WAL and FULL synchronous durability. The database defaults to `%LOCALAPPDATA%\\VOOM_SYSTEM\\state\\mt5-risk-state.sqlite3`; `MT5_RISK_STATE_DB` can override the path.
+- The saved value is read back after a process restart and is never overwritten during the same broker day.
+- If the Bridge was offline or first observed the D1 day more than 30 seconds after rollover, it does **not** substitute current equity. `broker_day_baseline_available=false` and Decision API fails closed until a valid baseline is captured on a later broker day.
+- This is a first-observed equity sample within a 30-second rollover window, not a mathematically exact tick at the D1 boundary. The capture delay is included in the response for audit.
+
+### Candidate Risk
+
+Decision API forwards the EA's candidate as a bounded query object:
+```json
+{
+  "symbol": "XAUUSDm",
+  "side": "BUY",
+  "volume": 0.10,
+  "entry_price": 2600.20,
+  "stop_loss": 2590.20
+}
+```
+
+The Windows Bridge validates the exact field set, broker symbol, volume minimum/maximum/step, side and stop-loss geometry, then recalculates candidate loss using MT5 `order_calc_profit()`. The returned `proposed_entry_risk_money` and `candidate_risk.risk_money` are in the broker account currency (including USC if that is the account's currency); no USD/THB conversion is applied to risk math.
+
+This is a risk calculation for the supplied candidate, **not volume sizing**. The EA/strategy must supply a valid candidate volume. The Bridge does not invent Entry, Stop Loss, side or volume. Per-trade risk-budget-based volume sizing requires a separately approved per-trade risk budget and remains unimplemented. Commission, slippage and gap loss are not included; the calculation explicitly reports those exclusions.
+
+If any open exposure has no valid stop loss, unsupported side, invalid volume/price, failed broker calculation or invalid equity, aggregate exposure is `null` with `risk_calculation_complete=false`. If candidate details are absent or invalid, candidate risk is `null` with `candidate_risk_complete=false`. Consumers must never treat unknown risk as zero.
+
+`market_data_at` is sourced from the MT5 tick timestamp for the candidate symbol. `market_open=true` only when that tick is no more than 60 seconds old and is not materially in the future; stale/no tick is fail-closed.
+
+The endpoint continues to report `policy_attestation.status=not_attested`. The Bridge cannot certify the EA's active inputs, source/EX5 equivalence, or installed policy version. Do not mark a connection production-ready from a successful snapshot alone.
 
 ## Validation before marking a customer connected
 
