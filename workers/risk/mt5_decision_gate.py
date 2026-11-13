@@ -1,8 +1,9 @@
 """Independent deterministic MT5 entry-risk gate.
 
-This adapter matches the standalone MT5 AI Trading EA's local safety ceilings:
-3% broker-day loss, 2% aggregate open risk, and at most 5 open positions/orders.
-It only evaluates new-entry eligibility and never changes existing positions.
+NOVA policy: 10% broker-day loss entry lock, 9% aggregate open risk measured
+against current equity, and at most 5 open positions/orders. The aggregate
+check includes the proposed entry's stop-loss risk. Existing positions are
+never modified by this gate.
 """
 from __future__ import annotations
 
@@ -11,9 +12,9 @@ from math import isfinite
 from typing import Any
 
 
-POLICY_VERSION = "nova-mt5-risk.ea-compatible.v1"
-DAILY_LOSS_ENTRY_LOCK_PCT = 3.0
-MAX_AGGREGATE_OPEN_RISK_PCT = 2.0
+POLICY_VERSION = "nova-mt5-risk.v2"
+DAILY_LOSS_ENTRY_LOCK_PCT = 10.0
+MAX_AGGREGATE_OPEN_RISK_PCT = 9.0
 MAX_OPEN_ORDERS = 5
 MAX_SNAPSHOT_AGE_SECONDS = 60.0
 MAX_FUTURE_SKEW_SECONDS = 5.0
@@ -66,6 +67,7 @@ def evaluate_mt5_risk(
     day_start_equity = _number(snapshot, "broker_day_start_equity")
     current_equity = _number(snapshot, "current_equity")
     aggregate_open_risk_money = _number(snapshot, "aggregate_open_risk_money")
+    proposed_entry_risk_money = _number(snapshot, "proposed_entry_risk_money")
     open_orders_count = snapshot.get("open_orders_count")
     market_open = snapshot.get("market_open")
     snapshot_at = _timestamp(snapshot.get("snapshot_at"), "snapshot_at")
@@ -74,7 +76,7 @@ def evaluate_mt5_risk(
 
     if day_start_equity <= 0 or current_equity <= 0:
         raise ValueError("risk_snapshot_equity_must_be_positive")
-    if aggregate_open_risk_money < 0:
+    if aggregate_open_risk_money < 0 or proposed_entry_risk_money < 0:
         raise ValueError("risk_snapshot_open_risk_must_be_non_negative")
     if isinstance(open_orders_count, bool) or not isinstance(open_orders_count, int) or open_orders_count < 0:
         raise ValueError("risk_snapshot_open_orders_count_invalid")
@@ -90,7 +92,8 @@ def evaluate_mt5_risk(
         raise ValueError("risk_snapshot_from_future")
 
     daily_loss_pct = max(0.0, (day_start_equity - current_equity) / day_start_equity * 100.0)
-    aggregate_open_risk_pct = aggregate_open_risk_money / current_equity * 100.0
+    total_open_risk_money = aggregate_open_risk_money + proposed_entry_risk_money
+    aggregate_open_risk_pct = total_open_risk_money / current_equity * 100.0
     reasons: list[str] = []
 
     if daily_loss_pct >= DAILY_LOSS_ENTRY_LOCK_PCT:
@@ -126,6 +129,9 @@ def evaluate_mt5_risk(
         "metrics": {
             "daily_loss_pct": round(daily_loss_pct, 6),
             "aggregate_open_risk_pct": round(aggregate_open_risk_pct, 6),
+            "aggregate_open_risk_money": round(aggregate_open_risk_money, 2),
+            "proposed_entry_risk_money": round(proposed_entry_risk_money, 2),
+            "total_open_risk_money": round(total_open_risk_money, 2),
             "open_orders_count": open_orders_count,
             "risk_snapshot_age_seconds": round(max(0.0, snapshot_age_seconds), 3),
             "market_data_age_seconds": round(max(0.0, market_data_age_seconds), 3),
@@ -135,6 +141,7 @@ def evaluate_mt5_risk(
             "max_aggregate_open_risk_pct": MAX_AGGREGATE_OPEN_RISK_PCT,
             "max_open_orders": MAX_OPEN_ORDERS,
             "max_snapshot_age_seconds": MAX_SNAPSHOT_AGE_SECONDS,
+            "aggregate_open_risk_reference": "current_equity",
         },
         "existing_positions_action": "NO_CHANGE",
         "execution_authorized": False,
