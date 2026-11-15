@@ -52,7 +52,13 @@ The current Cloudflare build image is not a Windows runner and does not document
 - Local Supabase Auth/PostgREST stack integration tests that require Docker.
 - Windows PowerShell host/runtime checks.
 
-The build script fails closed when a PR changes files that require one of these unsupported gates. These suites need a separately approved Cloudflare-compatible replacement or a non-hosted/manual acceptance process before claiming full NOVA CI coverage.
+The build script fails closed when a PR changes files that trigger any existing workflow requiring these unsupported gates. The guard covers:
+
+- PostgreSQL/Supabase: `supabase/migrations/**`, `supabase/config.toml`, `tests/sql/**`, approval API/server/session integration files, frontend lockfile changes, and the approval/video migration workflow definitions.
+- Docker-backed Quant/SMC: Quant Engine source and contract tests, SMC/Elliott Wave/backtest/alerts/risk/runtime source, SMC test suites and fixtures, Python requirements, Dockerfiles, Compose configuration, and the corresponding workflow definitions.
+- Windows Runtime: `tools/windows/**`, `integrations/mt5-readonly-bridge/**`, `README.md` (which is an explicit trigger for the Windows workflow), and the Windows workflow definition.
+
+A blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing substitute for the omitted gate. These suites need a separately approved compatible runner or acceptance process before claiming full NOVA CI coverage. Keep the original GitHub-hosted workflows enabled until each replacement has been proven on the exact PR commit.
 
 ## Migration order
 
