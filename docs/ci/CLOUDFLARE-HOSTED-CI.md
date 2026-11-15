@@ -52,7 +52,7 @@ The current Cloudflare build image is not a Windows runner and does not document
 - Local Supabase Auth/PostgREST stack integration tests that require Docker.
 - Windows PowerShell host/runtime checks.
 
-The build script requires `WORKERS_CI_COMMIT_SHA` whenever `WORKERS_CI_BRANCH` is set, verifies that it exactly equals the checked-out `git rev-parse HEAD`, and prints the verified SHA before classifying changed files. A mismatch or missing SHA exits as BLOCKED before tests run. Configure these variables from the build's actual branch and commit metadata; never set them to a stale or manually guessed value.
+The build script requires both `WORKERS_CI_BRANCH` and `WORKERS_CI_COMMIT_SHA`; if either is missing, it stops before running tests. It verifies that the supplied commit SHA exactly equals the checked-out `git rev-parse HEAD` and prints the verified SHA before classifying changed files. A mismatch exits as BLOCKED. Configure both variables from the build's actual branch and commit metadata; never set them to a stale or manually guessed value.
 
 The build script fails closed when a PR changes files that trigger any existing workflow requiring these unsupported gates. The guard covers:
 
