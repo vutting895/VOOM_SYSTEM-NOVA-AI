@@ -51,7 +51,11 @@ if (( ${#unsupported[@]} > 0 )); then
 fi
 
 run bash tests/ci/cloudflare-scope-guard.test.sh
-run npm install --no-package-lock --include=dev
+if [[ ! -f "$ROOT_DIR/package-lock.json" ]]; then
+  log "BLOCKED: root package-lock.json is required for reproducible npm ci"
+  exit 2
+fi
+run npm ci --include=dev
 
 # Frontend, API, Worker, authentication, tenant-isolation and read-only safety tests.
 run node --test tests/nova-trading-readonly-guard.test.mjs
@@ -77,9 +81,8 @@ run python -m py_compile tools/ci-inspector/inspect.py tools/ci-inspector/test_i
 run python -m unittest discover -s tools/ci-inspector -p "test_*.py" -v
 
 # Validate Cloudflare Worker bundles without deploying product Workers.
-run npm install --no-save --package-lock=false wrangler@4.156.0
-run npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
-run npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+run npx --yes wrangler@4.156.0 deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+run npx --yes wrangler@4.156.0 deploy --dry-run --config integrations/system-hub/wrangler.jsonc
 run npm run build
 
 # Preserve the existing production Netlify smoke test on main pushes.
