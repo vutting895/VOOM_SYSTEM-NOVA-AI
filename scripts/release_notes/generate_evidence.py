@@ -30,9 +30,15 @@ def pages(path: str):
         yield from data
         if len(data) < 100:
             break
+        if page == 10:
+            raise RuntimeError("Pagination safety limit reached; refusing a potentially truncated evidence pack.")
         page += 1
 
 def main():
+    default_branch = api("").get("default_branch")
+    if not default_branch:
+        raise RuntimeError("Could not resolve repository default branch.")
+    head_sha = api(f"commits/{default_branch}")["sha"]
     tags = list(pages("tags"))
     tag_candidates = []
     for candidate in tags:
@@ -42,7 +48,7 @@ def main():
     tag_candidates.sort(key=lambda row: row[0], reverse=True)
     tag = tag_candidates[0][1] if tag_candidates else None
     if tag:
-        compare = api(f"compare/{tag['name']}...HEAD")
+        compare = api(f"compare/{tag['name']}...{default_branch}")
         commits = compare.get("commits", [])
         expected = compare.get("total_commits", len(commits))
         if expected > len(commits):
@@ -76,7 +82,7 @@ def main():
         else:
             groups["Other / Needs Review"].append(record)
     payload = {"repository": REPO, "generated_at_utc": NOW.isoformat(), "base": baseline,
-               "head": api("commits/HEAD")["sha"], "commit_count": len(records),
+               "head": head_sha, "default_branch": default_branch, "commit_count": len(records),
                "classification_note": "Prefix-based triage only; AI/human review required.",
                "categories": groups, "commits": records}
     with open("release-notes-evidence.json", "w", encoding="utf-8") as f:
