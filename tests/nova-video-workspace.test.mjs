@@ -2,13 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-function source(path) {
-  return readFileSync(new URL(path, import.meta.url), "utf8");
-}
-
-const migration = source("../supabase/migrations/202610310001_nova_video_workspace.sql");
-const projects = source("../frontend/app/api/video/projects/route.js");
-const jobs = source("../frontend/app/api/video/jobs/route.js");
+const migration = readFileSync(new URL("../supabase/migrations/202610310001_nova_video_workspace.sql", import.meta.url), "utf8");
+const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
 test("video project and job tables enforce owner-scoped RLS and zero-cost requests", () => {
   assert.match(migration, /nova_video_projects ENABLE ROW LEVEL SECURITY/i);
@@ -20,48 +16,7 @@ test("video project and job tables enforce owner-scoped RLS and zero-cost reques
   assert.match(migration, /unique \(user_id,idempotency_key\)/i);
 });
 
-test("project endpoints authenticate before parsing and scope reads to the owner", () => {
-  for (const route of [projects]) {
-    const authAt = route.indexOf("await authenticateAgentRequest(request)");
-    const bodyAt = route.indexOf("await readAgentJson(request");
-    assert.notEqual(authAt, -1);
-    assert.ok(authAt < bodyAt);
-    assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
-    assert.doesNotMatch(route, /service_role|SERVICE_ROLE_KEY/i);
-  }
-});
-
-test("job endpoints only record blocked free-only work and never dispatch", () => {
-  const authAt = jobs.indexOf("await authenticateAgentRequest(request)");
-  const bodyAt = jobs.indexOf("await readAgentJson(request");
-  assert.ok(authAt !== -1 && authAt < bodyAt);
-  assert.match(jobs, /blocked_no_free_gpu/);
-  assert.match(jobs, /blocked_worker_unavailable/);
-  assert.match(jobs, /execution_mode: "free_only"/);
-  assert.match(jobs, /estimated_cost: 0/);
-  assert.match(jobs, /\.eq\("user_id", auth\.user\.id\)/);
-  assert.doesNotMatch(jobs, /\bfetch\s*\(|service_role|SERVICE_ROLE_KEY/i);
-  assert.match(migration, /nova_video_jobs_project_owner_fk/);
-});
-
-test("job payload rejects unsupported fields, invalid IDs, tasks and idempotency keys", () => {
-  assert.match(jobs, /video_job_fields_invalid/);
-  assert.match(jobs, /isUuid\(body\.project_id\)/);
-  assert.match(jobs, /TASK_TYPES\.has\(body\.task_type\)/);
-  assert.match(jobs, /video_idempotency_key_invalid/);
-  assert.match(jobs, /idempotentReplay: true/);
-  assert.match(jobs, /video_idempotency_key_reused/);
-  assert.match(jobs, /\.eq\("idempotency_key", body\.idempotency_key\)/);
-});
-
-test("workspace page is session-gated and exposes its blocked free-only state", () => {
-  const page = source("../frontend/app/video/page.jsx");
-  const navigation = source("../frontend/components/nova-navigation.jsx");
-  assert.match(page, /getSupabaseBrowserClient/);
-  assert.match(page, /onAuthStateChange/);
-  assert.match(page, /router\.replace\("\/login"\)/);
-  assert.match(page, /GPU Generation ยังไม่เปิดใช้งาน/);
-  assert.match(page, /Metadata workspace เท่านั้น/);
-  assert.match(page, /if \(!response\.ok\) throw new Error\(payload\.error \|\| "บันทึกงานไม่สำเร็จ"\)/);
-  assert.match(navigation, /href: '\/video'/);
+test("legacy video UI and API remain disabled in the current Vite application", () => {
+  assert.doesNotMatch(server, /\/api\/video\/(?:jobs|projects)/);
+  assert.doesNotMatch(app, /path=["']\/video["']|href=["']\/video["']/);
 });

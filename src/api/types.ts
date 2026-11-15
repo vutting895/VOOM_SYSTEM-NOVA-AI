@@ -1,6 +1,6 @@
 // NOVA AI - Frontend Types & API Contracts (Read-Only / Demo Architecture)
 
-export type DataFeedMode = 'HISTORICAL' | 'DEMO_READONLY' | 'SIMULATED_FEED' | 'LIVE_STREAM_READONLY';
+export type DataFeedMode = 'HISTORICAL' | 'DEMO_READONLY' | 'SIMULATED_FEED' | 'LIVE_STREAM_READONLY' | 'STATIC_SAMPLE_UNVERIFIED' | 'SIMULATED_SAMPLE_UNVERIFIED';
 
 export interface MarketAssetQuote {
   symbol: string;
@@ -87,8 +87,8 @@ export interface IntelligenceResponse {
   ok: boolean;
   engineArchitecture: string;
   models: IntelligenceModelStatus[];
-  ensembleConfidencePct: number;
-  marketRegimeDetected: string;
+  ensembleConfidencePct: number | null;
+  marketRegimeDetected: string | null;
   safetyPolicy: string;
 }
 
@@ -162,16 +162,19 @@ export interface BacktestResult {
 export interface InfrastructureHealthResponse {
   ok: boolean;
   timestamp: string;
+  dataSource: 'LOCAL_API_CONFIGURATION_ONLY';
   systemMode: 'FAIL_CLOSED_READONLY';
   liveTradingEnabled: false;
+  ordersEnabled: false;
+  executionEnabled: false;
   mt5BridgeEnabled: false;
   mt5Connection: {
-    status: 'STANDBY_DEMO_READY' | 'CONNECTED_DEMO' | 'OFFLINE';
+    status: 'NOT_CONNECTED' | 'CONNECTED_DEMO' | 'OFFLINE';
     target: string;
-    server: string;
-    latencyMs: number;
-    accountClass: 'Exness Demo (Read-Only)';
-    credentialsSecured: boolean;
+    server: string | null;
+    latencyMs: number | null;
+    accountClass: string | null;
+    credentialsSecured: boolean | null;
     orderExecutionBlocked: boolean;
   };
   brokerConnector: {
@@ -181,28 +184,32 @@ export interface InfrastructureHealthResponse {
     directApiAvailable: boolean;
   };
   riskEngine: {
-    status: 'HARD_RULES_ENFORCED';
-    maxDrawdownCapPct: number;
-    maxLotSizeLimit: number;
-    maxMarginUsageLimitPct: number;
+    status: 'FAIL_CLOSED_NOT_ENFORCED';
+    maxDrawdownCapPct: number | null;
+    maxLotSizeLimit: number | null;
+    maxMarginUsageLimitPct: number | null;
     maxRiskPerTradeLimitPct: number;
+    maxOpenRiskPct: number;
+    dailyLossLimitPct: number;
+    policyConfigured: boolean;
+    policyEnforced: boolean;
     failClosedGuardActive: boolean;
     realMoneyWritesDisabled: boolean;
   };
   dataPipeline: {
-    status: 'OPTIMAL';
-    tickIngestionRatePerSec: number;
-    redisBufferHitRatePct: number;
-    featureStoreLatencyMs: number;
-    schemaValidationPassPct: number;
+    status: 'NOT_CONFIGURED';
+    tickIngestionRatePerSec: number | null;
+    redisBufferHitRatePct: number | null;
+    featureStoreLatencyMs: number | null;
+    schemaValidationPassPct: number | null;
   };
   modelTrainingStatus: {
-    status: 'SYNCED_READY' | 'INGESTING_AND_TRAINING';
-    epoch: number;
-    activePair: string;
-    samplesIngested: number;
-    lastValidationAccPct: number;
-    lastTrainedAt: string;
+    status: 'NOT_CONNECTED';
+    epoch: number | null;
+    activePair: string | null;
+    samplesIngested: number | null;
+    lastValidationAccPct: number | null;
+    lastTrainedAt: string | null;
   };
 }
 
@@ -213,9 +220,9 @@ export interface LearningUniverseResponse {
     monitoredSymbols: string[];
     totalSamplesStored: number;
     featureCategories: string[];
-    lastDataUpdateAt: string;
-    dailyUpdateStatus: 'SUCCESS_SYNCED' | 'IN_PROGRESS' | 'SCHEDULED';
-    nextScheduledUpdateAt: string;
+    lastDataUpdateAt: string | null;
+    dailyUpdateStatus: 'SUCCESS_SYNCED' | 'IN_PROGRESS' | 'SCHEDULED' | 'NOT_CONFIGURED';
+    nextScheduledUpdateAt: string | null;
   };
   modelPerformanceByRegime: Array<{
     regimeName: string;

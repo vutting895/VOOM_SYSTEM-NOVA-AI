@@ -6,7 +6,7 @@
 //+------------------------------------------------------------------+
 #property copyright "MTRADERS original strategies; All In One integration 2026"
 #property version   "1.01"
-#property description "30 strategy modules + 5 monitoring tools on one symbol/chart"
+#property description "Research scaffold only; trade disabled by default; verified runtime gates required"
 #property description "Hedging account required. Embedded defaults, no .set preset."
 #property strict
 
@@ -16,17 +16,17 @@
 const string ENGINE_LABEL="MTRADERS All In One 1.01";
 
 input group "=== Automatic operation ==="
-input bool            InpTradeEnabled         = true;
+input bool            InpTradeEnabled         = false;
 input ENUM_TIMEFRAMES InpAnalysisTF           = PERIOD_M15;
 input long            InpMagicBase            = 690711000;
 input group "=== Speculative risk defaults ==="
-input double          InpRiskPercent          = 5.0;
-input bool            InpAllowBoundedMinLot    = true;
-input double          InpMaxSingleRiskPct      = 10.0;
-input double          InpMaxOpenRiskPct        = 30.0;
-input int             InpMaxPositions          = 30;
+input double          InpRiskPercent          = 1.0;
+input bool            InpAllowBoundedMinLot    = false;
+input double          InpMaxSingleRiskPct      = 1.0;
+input double          InpMaxOpenRiskPct        = 9.0;
+input int             InpMaxPositions          = 9;
 input double          InpMaxMarginUsedPct      = 60.0;
-input double          InpDailyLossPct          = 35.0;
+input double          InpDailyLossPct          = 10.0;
 input double          InpDailyProfitPct        = 0.0;
 input group "=== Execution and display ==="
 input double          InpMaxSpreadATR         = 0.12;

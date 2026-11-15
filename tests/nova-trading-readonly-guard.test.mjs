@@ -11,6 +11,7 @@ const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
 const novaChat = read('src/components/NovaChatOSView.tsx');
+const ea = read('integrations/mt5/MTRADERS_All_In_One_v1.01.mq5');
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -127,4 +128,31 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NOT CONFIGURED · NOT VERIFIED/);
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
+});
+
+test('infrastructure health reports only verified configuration and current fail-closed policy', () => {
+  const route = section(server, "app.get('/api/infrastructure/health'", "// 5. Learning Universe & Dataset Management");
+  assert.match(route, /dataSource: 'LOCAL_API_CONFIGURATION_ONLY'/);
+  assert.match(route, /status: 'NOT_CONNECTED'/);
+  assert.match(route, /latencyMs: null/);
+  assert.match(route, /server: null/);
+  assert.match(route, /maxRiskPerTradeLimitPct: 1/);
+  assert.match(route, /maxOpenRiskPct: 9/);
+  assert.match(route, /dailyLossLimitPct: 10/);
+  assert.match(route, /policyEnforced: false/);
+  assert.match(route, /liveTradingEnabled: false/);
+  assert.match(route, /ordersEnabled: false/);
+  assert.match(route, /executionEnabled: false/);
+  assert.doesNotMatch(route, /STANDBY_DEMO_READY|Exness-MT5Trial12|latencyMs: 14\.2|status: 'OPTIMAL'/);
+});
+
+test('MQL5 research scaffold keeps Demo risk defaults bounded and exposes no broker-write API', () => {
+  assert.match(ea, /InpTradeEnabled\s*=\s*false/);
+  assert.match(ea, /InpRiskPercent\s*=\s*1\.0/);
+  assert.match(ea, /InpMaxSingleRiskPct\s*=\s*1\.0/);
+  assert.match(ea, /InpMaxOpenRiskPct\s*=\s*9\.0/);
+  assert.match(ea, /InpMaxPositions\s*=\s*9/);
+  assert.match(ea, /InpDailyLossPct\s*=\s*10\.0/);
+  assert.match(ea, /InpAllowBoundedMinLot\s*=\s*false/);
+  assert.doesNotMatch(ea, /\bOrderSend(?:Async)?\s*\(|\bCTrade\b|\bPositionClose\s*\(|\bPositionModify\s*\(|\bOrderModify\s*\(|\bOrderDelete\s*\(/);
 });

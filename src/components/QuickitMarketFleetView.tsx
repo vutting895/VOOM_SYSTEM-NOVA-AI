@@ -244,10 +244,10 @@ const FALLBACK_BROKER_CATALOGS: Record<
   }
 > = {
   exness: {
-    brokerName: 'Exness Trader API / MT5',
-    serverLabel: 'Exness-Real14 (Ed25519 Direct API)',
-    accountId: '23908764',
-    protocol: 'Exness REST v1 / MT5 Bridge',
+    brokerName: 'Exness MT5 Demo (not connected)',
+    serverLabel: 'Not connected - intended Demo target only',
+    accountId: 'Not verified',
+    protocol: 'Read-only MT5 Bridge not connected',
     instruments: [
       { symbol: 'XAU/USDm', displayName: 'ทองคำสปอต (Gold vs USD)', group: 'Metals & Commodities', price: 2748.6, decimals: 2, spreadLabel: '1.2 pips', change24h: 1.42 },
       { symbol: 'XAG/USDm', displayName: 'แร่เงินสปอต (Silver vs USD)', group: 'Metals & Commodities', price: 33.84, decimals: 2, spreadLabel: '1.8 pips', change24h: 0.95 },
@@ -265,8 +265,8 @@ const FALLBACK_BROKER_CATALOGS: Record<
   },
   icmarkets: {
     brokerName: 'IC Markets Raw Spread (MT5 / API)',
-    serverLabel: 'ICMarketsSC-MT5-4 (Raw Spread)',
-    accountId: '51092841',
+    serverLabel: 'Not connected (Raw Spread)',
+    accountId: 'Not verified',
     protocol: 'MetaTrader 5 / cTrader FIX API',
     instruments: [
       { symbol: 'XAU/USD', displayName: 'Gold Raw Spread (IC Markets)', group: 'Metals & Commodities', price: 2748.55, decimals: 2, spreadLabel: '0.5 pips', change24h: 1.42 },
@@ -282,7 +282,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   binance: {
     brokerName: 'Binance Futures & Spot',
     serverLabel: 'Binance USDⓈ-M Perpetual Mainnet',
-    accountId: 'BN-88412',
+    accountId: 'Not verified',
     protocol: 'Binance HMAC-SHA256 REST v3',
     instruments: [
       { symbol: 'BTC/USDT', displayName: 'Bitcoin Perpetual (BTCUSDT)', group: 'Crypto Majors', price: 62931.55, decimals: 2, spreadLabel: '0.01%', change24h: 0.75 },
@@ -298,7 +298,7 @@ const FALLBACK_BROKER_CATALOGS: Record<
   bybit: {
     brokerName: 'Bybit Unified Trading',
     serverLabel: 'Bybit V5 Linear & Gold USDT',
-    accountId: 'BY-51902',
+    accountId: 'Not verified',
     protocol: 'Bybit Unified REST V5',
     instruments: [
       { symbol: 'BTCUSDT.P', displayName: 'Bitcoin Linear Perp (Bybit)', group: 'Crypto Majors', price: 62935.0, decimals: 2, spreadLabel: '0.01%', change24h: 0.76 },
@@ -484,14 +484,14 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-BTC',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'BTC/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo (not connected)',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
     requiredPlan: 'pro',
     selectedInPackage: true,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
     todayPnlBaht: 343,
     winRatePct: 51.0,
@@ -528,14 +528,14 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'โมเมนตัม AI-ETH',
     strategyBadge: 'ติดตามเทรนด์',
     pair: 'ETH/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo (not connected)',
     category: 'crypto',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.2',
     requiredPlan: 'pro',
     selectedInPackage: true,
-    running: true,
-    autoTradeEnabled: true,
+    running: false,
+    autoTradeEnabled: false,
     riskPct: 1.0,
     todayPnlBaht: -52,
     winRatePct: 46.5,
@@ -573,14 +573,14 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'คลื่นสภาพคล่อง SMC AI-XAU/USDm',
     strategyBadge: 'เก็งกำไรสภาพคล่อง',
     pair: 'XAU/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo (not connected)',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.8 / 3.5',
     requiredPlan: 'pro',
     selectedInPackage: true,
     running: false,
-    autoTradeEnabled: true,
+    autoTradeEnabled: false,
     riskPct: 1.0,
     todayPnlBaht: 895,
     winRatePct: 54.8,
@@ -618,7 +618,7 @@ const INITIAL_FLEET_BOTS: FleetBotConfig[] = [
     name: 'การปฏิเสธค่าเฉลี่ย AI-EUR/USDm',
     strategyBadge: 'ซึ่งอนุรักษนิยม',
     pair: 'EUR/USDm',
-    brokerSource: 'Exness #23908764',
+    brokerSource: 'Exness Demo (not connected)',
     category: 'forex',
     timeframe: '15 นาที',
     rrLabel: 'RR 1.5 / 3.0',
@@ -726,13 +726,13 @@ export default function QuickitMarketFleetView({
   // =========================================================================
   const [loggedInBroker, setLoggedInBroker] = useState<'exness' | 'icmarkets' | 'binance' | 'bybit'>('exness');
   const [forexConnectionMode, setForexConnectionMode] = useState<'mt5' | 'api'>('api');
-  const [mt5Server, setMt5Server] = useState<string>('Exness-MT5Real14');
-  const [brokerAccountId, setBrokerAccountId] = useState<string>('23908764');
+  const [mt5Server, setMt5Server] = useState<string>('Not connected');
+  const [brokerAccountId, setBrokerAccountId] = useState<string>('Not verified');
   const [brokerServerName, setBrokerServerName] = useState<string>(
     FALLBACK_BROKER_CATALOGS.exness.serverLabel
   );
   const [brokerProtocolLabel, setBrokerProtocolLabel] = useState<string>(
-    'Exness REST API v1 (Ed25519 Signed · No MT5)'
+    'Not connected - read-only broker session unavailable'
   );
   const [brokerInstruments, setBrokerInstruments] = useState<BrokerInstrumentItem[]>(
     FALLBACK_BROKER_CATALOGS.exness.instruments
@@ -758,71 +758,11 @@ export default function QuickitMarketFleetView({
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState<boolean>(false);
 
   const handleAutoGenerateStrategy = () => {
-    setIsGeneratingStrategy(true);
-    setTimeout(() => {
-      const archetypes: Record<string, { title: string; desc: string; winRate: number; pf: number; rr: string; headline: string }> = {
-        'smc-orderblock': {
-          title: '✨ SMC Liquidity Sweep & FVG',
-          desc: 'สร้างโดย NOVA AI: ดักจังหวะ Liquidity Sweep ในกรอบ Order Block ร่วมกับ Fair Value Gap',
-          winRate: 72.4,
-          pf: 2.58,
-          rr: 'RR 1.8 / 3.6',
-          headline: '15m FVG + 1H Order Block + Asian Sweep',
-        },
-        'quantum-vqc': {
-          title: '🔮 Quantum VQC Mean Revert',
-          desc: 'สร้างโดย NOVA AI: ประมวลผลด้วย Variational Quantum Circuit สำหรับสัญญาณ Mean Reversion',
-          winRate: 68.9,
-          pf: 2.42,
-          rr: 'RR 1.5 / 3.0',
-          headline: 'VQC P=78.5% + Kalman Z-Score -2.1σ',
-        },
-        'neural-volatility': {
-          title: '⚡ Neural Volatility Scalp',
-          desc: 'สร้างโดย NOVA AI: จับการทะลุผ่านความผันผวนระยะสั้นบนไทม์เฟรม 5m ด้วย Neural Filter',
-          winRate: 74.2,
-          pf: 2.81,
-          rr: 'RR 1.4 / 2.8',
-          headline: '5m Volatility Breakout + ATR Adaptive Stop',
-        },
-        'trend-momentum': {
-          title: '🌊 Deep Momentum BOS',
-          desc: 'สร้างโดย NOVA AI: ตามโครงสร้างราคา Break of Structure และ CHoCH ในสภาวะตลาดมีเทรนด์',
-          winRate: 65.8,
-          pf: 2.15,
-          rr: 'RR 2.0 / 4.0',
-          headline: '4H Trend Alignment + 15m BOS Trigger',
-        },
-      };
-
-      const sel = archetypes[autoGenArchetype] || archetypes['smc-orderblock'];
-      const newId = `auto-gen-${Date.now()}`;
-      const newStrat: StrategyBlueprintItem = {
-        id: newId,
-        shortTitle: sel.title,
-        badgeLabel: '✨ AI AUTO-GEN',
-        rrLabel: sel.rr,
-        winRatePct: sel.winRate,
-        profitFactor: sel.pf,
-        tp1HitPct: Math.round(sel.winRate * 1.1),
-        tp2HitPct: Math.round(sel.winRate * 0.7),
-        confluenceScore: 6,
-        setupGrade: 'การจัดเตรียมระดับ A+ (Auto-Gen)',
-        featHeadline: sel.headline,
-        featTags: ['✨ AI Generated', 'NOVA Brain v2.5', 'Auto Optimized'],
-        description: sel.desc,
-        accentColor: 'cyan',
-      };
-
-      setAvailableStrategies((prev) => [newStrat, ...prev]);
-      setSelectedStrategyId(newId);
-      setIsGeneratingStrategy(false);
-      setShowAutoGenModal(false);
-      showNotification(`🎉 สรรค์สร้างกลยุทธ์ "${sel.title}" ด้วย AI สำเร็จ! พร้อมเลือกใช้งานในพอร์ตแล้ว`);
-    }, 800);
+    setIsGeneratingStrategy(false);
+    showNotification('Strategy generation unavailable: no verified AI model inference runtime is connected.');
   };
 
-  // Market Fleet State (Image 2)
+    // Market Fleet State (Image 2)
   const [fleetBots, setFleetBots] = useState<FleetBotConfig[]>(INITIAL_FLEET_BOTS);
   const [marketFilter, setMarketFilter] = useState<'all' | 'running' | 'crypto' | 'forex'>('all');
 
@@ -830,8 +770,8 @@ export default function QuickitMarketFleetView({
   const [autoTrainTick, setAutoTrainTick] = useState(0);
 
   // Connectivity Status (MT5 Bridge and API)
-  const [bridgeStatus, setBridgeStatus] = useState<'online' | 'warning' | 'offline'>('online');
-  const [apiStatus, setApiStatus] = useState<'online' | 'warning' | 'offline'>('online');
+  const [bridgeStatus, setBridgeStatus] = useState<'online' | 'warning' | 'offline'>('warning');
+  const [apiStatus, setApiStatus] = useState<'online' | 'warning' | 'offline'>('warning');
 
   useEffect(() => {
     const pollHealth = async () => {
@@ -876,12 +816,12 @@ export default function QuickitMarketFleetView({
     const accId =
       customAccountId ||
       (targetBroker === 'exness'
-        ? '23908764'
+        ? 'Not verified'
         : targetBroker === 'icmarkets'
-        ? '51092841'
+        ? 'Not verified'
         : targetBroker === 'binance'
-        ? 'BN-88412'
-        : 'BY-51902');
+        ? 'Not verified'
+        : 'Not verified');
     try {
       const res = await fetch(
         `/api/broker/instruments?broker=${targetBroker}&accountId=${encodeURIComponent(
@@ -929,21 +869,9 @@ export default function QuickitMarketFleetView({
     syncBrokerInstruments(loggedInBroker, undefined, forexConnectionMode, mt5Server);
   }, [loggedInBroker, forexConnectionMode, mt5Server]);
 
-  // Simulate 2-second memory tick for running bots & backend auto-train status
+  // No synthetic P/L updates. Auto-training is not configured.
   useEffect(() => {
-    const timer = setInterval(() => {
-      setAutoTrainTick((t) => t + 1);
-      setFleetBots((prev) =>
-        prev.map((bot) => {
-          if (!bot.running) return bot;
-          const delta = Math.round((Math.random() - 0.44) * 18);
-          return {
-            ...bot,
-            todayPnlBaht: bot.todayPnlBaht + delta,
-          };
-        })
-      );
-    }, 2500);
+    const timer = setInterval(() => setAutoTrainTick((tick) => tick + 1), 2500);
     return () => clearInterval(timer);
   }, []);
 
@@ -977,89 +905,11 @@ export default function QuickitMarketFleetView({
   }
 
   // Handler when user finishes Step 1 (Select Pair from Broker) + Step 2 (Select Strategy)
-  function handleDeployPairWithStrategy(startImmediately: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification(
-        'กรุณาสมัครแพ็คเกจ Pro หรือ ระดับ 3 เอลีต ก่อนนำคู่เงินและกลยุทธ์เข้ากองทัพ AI'
-      );
-      return;
-    }
-
-    const levels = computePriceLevels(selectedBrokerPair.price, selectedBrokerPair.decimals);
-    const isCrypto = selectedBrokerPair.group === 'Crypto Majors';
-    const connBadge = isForexBrokerSelected
-      ? forexConnectionMode === 'mt5'
-        ? `MT5 (${mt5Server})`
-        : 'Direct API'
-      : 'REST API';
-    const brokerLabel = `${loggedInBroker.toUpperCase()} #${brokerAccountId} · ${connBadge}`;
-    const newBotName = `${selectedStrategyObj.shortTitle} AI-${selectedBrokerPair.symbol}`;
-
-    setFleetBots((prev) => {
-      const existingIdx = prev.findIndex((b) => b.pair === selectedBrokerPair.symbol);
-      const nowStr = new Date().toLocaleTimeString('th-TH', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-
-      const configuredBot: FleetBotConfig = {
-        id: existingIdx >= 0 ? prev[existingIdx].id : `bot-${Date.now()}`,
-        strategyId: selectedStrategyObj.id,
-        name: newBotName,
-        strategyBadge: selectedStrategyObj.badgeLabel,
-        pair: selectedBrokerPair.symbol,
-        brokerSource: brokerLabel,
-        connectionMode: isForexBrokerSelected ? forexConnectionMode : 'api',
-        category: isCrypto ? 'crypto' : 'forex',
-        timeframe: selectedBuilderTimeframe,
-        rrLabel: selectedStrategyObj.rrLabel,
-        requiredPlan: 'pro',
-        selectedInPackage: true,
-        running: startImmediately,
-        autoTradeEnabled: true,
-        riskPct: selectedBuilderRisk,
-        todayPnlBaht: existingIdx >= 0 ? prev[existingIdx].todayPnlBaht : 0,
-        winRatePct: selectedStrategyObj.winRatePct,
-        profitFactor: selectedStrategyObj.profitFactor,
-        totalTrades: existingIdx >= 0 ? prev[existingIdx].totalTrades : 42,
-        tp1HitPct: selectedStrategyObj.tp1HitPct,
-        tp2HitPct: selectedStrategyObj.tp2HitPct,
-        positionStateLabel: startImmediately ? 'ซื้อ +0.2R' : 'แฟลต +0.0R',
-        positionIsLong: startImmediately,
-        entryPrice: levels.entry,
-        stopLossPrice: levels.sl,
-        tp1Price: levels.tp1,
-        tp2Price: levels.tp2,
-        confluenceScore: selectedStrategyObj.confluenceScore,
-        setupGrade: selectedStrategyObj.setupGrade,
-        featHeadline: selectedStrategyObj.featHeadline,
-        featTags: selectedStrategyObj.featTags,
-        liveScanningBanner: startImmediately
-          ? `AI กำลังสแกน ${selectedBrokerPair.symbol} (${brokerLabel}) • กลยุทธ์ ${selectedStrategyObj.shortTitle} • ${selectedBuilderTimeframe}`
-          : undefined,
-        logs: [
-          `[${nowStr}] ดึงคู่เงิน ${selectedBrokerPair.symbol} ผ่านโหมด ${connBadge} (Spread ${selectedBrokerPair.spreadLabel})`,
-          `[${nowStr}] ผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" (${selectedStrategyObj.featHeadline}) สำเร็จ`,
-        ],
-        accentColor: selectedStrategyObj.accentColor,
-      };
-
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        updated[existingIdx] = configuredBot;
-        return updated;
-      }
-      return [configuredBot, ...prev];
-    });
-
-    showNotification(
-      `✓ เลือกคู่เงิน "${selectedBrokerPair.symbol}" (${connBadge}) และผูกกลยุทธ์ "${selectedStrategyObj.shortTitle}" เข้ากองทัพ AI เรียบร้อยแล้ว`
-    );
+  function handleDeployPairWithStrategy(_startImmediately: boolean) {
+    showNotification('Unavailable: no authenticated Exness Demo session is connected. No bot was deployed or started.');
   }
 
-  // Allow changing Pair or Strategy directly inside any Bot Card in the Fleet
-  function handleUpdateBotPairOrStrategy(
+    function handleUpdateBotPairOrStrategy(
     botId: string,
     newSymbol: string,
     newStrategyId: string
@@ -1205,63 +1055,33 @@ export default function QuickitMarketFleetView({
   }
 
   function handleToggleBotRun(botId: string, shouldRun: boolean) {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจก่อนสั่งเริ่มทำงานบอท AI');
+    if (shouldRun) {
+      showNotification('Auto-trading is disabled until an authenticated Demo session and runtime risk gates are verified.');
       return;
     }
-
-    setFleetBots((prev) =>
-      prev.map((bot) => {
-        if (bot.id !== botId) return bot;
-        if (shouldRun && !bot.selectedInPackage) {
-          showNotification(`ระบบเลือกบอท "${bot.name}" เข้าแพ็คเกจและเริ่มทำงานทันที`);
-        }
-        const nowStr = new Date().toLocaleTimeString('th-TH', {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        return {
-          ...bot,
-          selectedInPackage: shouldRun ? true : bot.selectedInPackage,
-          running: shouldRun,
-          logs: shouldRun
-            ? [
-                `[${nowStr}] เริ่มทำงานบอท ${bot.pair} (ความเสี่ยง ${bot.riskPct.toFixed(1)}%)`,
-                ...bot.logs.slice(0, 2),
-              ]
-            : [`[${nowStr}] หยุดการทำงานบอทชั่วคราว`, ...bot.logs.slice(0, 2)],
-        };
-      })
-    );
+    setFleetBots((prev) => prev.map((bot) => bot.id === botId
+      ? { ...bot, running: false, autoTradeEnabled: false }
+      : bot
+    ));
+    showNotification('UI state set to stopped. No broker command was sent.');
   }
 
-  function handleStartAllFleet() {
-    if (currentPlanId === 'free') {
-      setShowPlanModal(true);
-      showNotification('กรุณาสมัครแพ็คเกจ Pro หรือ เอลีต เพื่อสั่งเริ่มกองทัพ AI ทั้งหมด');
-      return;
-    }
-    setFleetBots((prev) =>
-      prev.map((bot, idx) => {
-        const canRun = idx < currentPlan.maxBots;
-        return canRun ? { ...bot, selectedInPackage: true, running: true } : bot;
-      })
-    );
-    showNotification('▷ เริ่มการทำงานกองทัพ AI Auto Trading Fleet ทั้งหมดในแพ็คเกจแล้ว');
+    function handleStartAllFleet() {
+    setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false, autoTradeEnabled: false })));
+    showNotification('Unavailable: broker session and execution runtime are not connected. No bot was started.');
   }
 
-  function handleEmergencyStopAll() {
-    setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false })));
-    showNotification('🔇 หยุดฉุกเฉินบอท AI ทุกตัวเรียบร้อยแล้ว (Emergency Stop Executed)');
+    function handleEmergencyStopAll() {
+    setFleetBots((prev) => prev.map((bot) => ({ ...bot, running: false, autoTradeEnabled: false })));
+    showNotification('Local UI state set to stopped only. No broker emergency-stop command was sent.');
   }
 
-  function handleRiskSyncAll() {
+    function handleRiskSyncAll() {
     setFleetBots((prev) => prev.map((bot) => ({ ...bot, riskPct: 1.0 })));
-    showNotification('🎚️ RISK SYNC: ปรับความเสี่ยงทุกบอทในกองทัพเป็น 1.0% (ซึ่งอนุรักษนิยม) สำเร็จ');
+    showNotification('Local UI risk display set to 1%. Runtime policy enforcement is not connected or verified.');
   }
 
-  // Compute Portfolio Analytics SVG coordinates (Image 1 middle-right chart)
+    // Compute Portfolio Analytics SVG coordinates (Image 1 middle-right chart)
   const analyticsChart = useMemo(() => {
     const data = ANALYTICS_SERIES[analyticsRange];
     const pts = data.points;
@@ -1296,6 +1116,9 @@ export default function QuickitMarketFleetView({
 
   return (
     <div className="min-h-screen bg-[#090912] text-slate-100 relative overflow-x-hidden selection:bg-purple-500/30 selection:text-white">
+      <div role="status" className="relative z-20 mx-3 mt-3 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
+        <strong>STATIC SAMPLE / NOT CONNECTED.</strong> Broker account, prices, P/L, win rates, positions, and strategy metrics shown on this legacy Fleet screen are illustrative only. Exness Demo is not authenticated here. Auto-trading, bot start, and order execution are disabled.
+      </div>
       {/* Ambient Purple / Magenta Glow Behind Main Window (Matches Image 1 Outer Frame) */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <div className="absolute top-20 left-20 w-[400px] h-[400px] rounded-full bg-cyan-500/10 blur-[150px]" />
@@ -1414,7 +1237,7 @@ export default function QuickitMarketFleetView({
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>
-                  {loggedInBroker.toUpperCase()} #{brokerAccountId} ({brokerInstruments.length} คู่เงิน)
+                  {loggedInBroker.toUpperCase()} · NOT CONNECTED · SAMPLE CATALOGUE
                 </span>
               </button>
 
@@ -2143,10 +1966,10 @@ export default function QuickitMarketFleetView({
                     <span className="text-xs text-slate-400 mr-1">บัญชี Broker ที่ Login:</span>
                     {(
                       [
-                        { id: 'exness', label: 'Exness Forex (#23908764)' },
-                        { id: 'icmarkets', label: 'IC Markets Forex (#51092841)' },
-                        { id: 'binance', label: 'Binance Crypto (#BN-88412)' },
-                        { id: 'bybit', label: 'Bybit Crypto (#BY-51902)' },
+                        { id: 'exness', label: 'Exness Demo (not connected)' },
+                        { id: 'icmarkets', label: 'IC Markets (not connected)' },
+                        { id: 'binance', label: 'Binance (not connected)' },
+                        { id: 'bybit', label: 'Bybit (not connected)' },
                       ] as const
                     ).map((brk) => (
                       <button
@@ -2154,10 +1977,10 @@ export default function QuickitMarketFleetView({
                         type="button"
                         onClick={() => {
                           setLoggedInBroker(brk.id);
-                          if (brk.id === 'icmarkets') setMt5Server('ICMarketsSC-MT5-4');
-                          if (brk.id === 'exness') setMt5Server('Exness-MT5Real14');
+                          if (brk.id === 'icmarkets') setMt5Server('Not connected');
+                          if (brk.id === 'exness') setMt5Server('Not connected');
                           showNotification(
-                            `สลับบัญชีที่ Login เป็น ${brk.label} และดึงรายชื่อคู่เงินทั้งหมดเรียบร้อยแล้ว`
+                            `เลือก ${brk.label} เป็น UI target เท่านั้น ยังไม่ได้เปิด broker session หรือดึงราคาใด ๆ`
                           );
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
@@ -2220,7 +2043,7 @@ export default function QuickitMarketFleetView({
                               body: JSON.stringify({ enabled: true }),
                             }).catch(() => {});
                             showNotification(
-                              `🖥️ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ MT5 (${mt5Server})" สำเร็จ — ดึงคู่เงินจาก MT5 Market Watch`
+                              `เลือก MT5 เป็น UI preference เท่านั้น ยังไม่ได้เชื่อมต่อ broker session หรือดึงคู่เงิน`
                             );
                           }}
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
@@ -2252,7 +2075,7 @@ export default function QuickitMarketFleetView({
                               body: JSON.stringify({ enabled: false }),
                             }).catch(() => {});
                             showNotification(
-                              `⚡ เปลี่ยนโหมดโบรกเกอร์ ${loggedInBroker.toUpperCase()} เป็น "ใช้ Direct API (REST / Ed25519)" สำเร็จ — ไม่ต้องเปิดโปรแกรม MT5`
+                              `เลือก Direct API เป็น UI preference เท่านั้น ยังไม่ได้เชื่อมต่อ broker session`
                             );
                           }}
                           className={`px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
@@ -2299,9 +2122,9 @@ export default function QuickitMarketFleetView({
                               onChange={(e) => setMt5Server(e.target.value)}
                               className="px-2.5 py-1 rounded-lg bg-[#0D0F16] border border-white/15 text-amber-300 font-mono text-xs"
                             >
-                              <option value="Exness-MT5Real14">Exness-MT5Real14 (Real)</option>
+                              <option value="Not connected">Not connected (Real)</option>
                               <option value="Exness-MT5Trial8">Exness-MT5Trial8 (Demo)</option>
-                              <option value="ICMarketsSC-MT5-4">ICMarketsSC-MT5-4 (Raw)</option>
+                              <option value="Not connected">Not connected (Raw)</option>
                               <option value="XMGlobal-MT5 2">XMGlobal-MT5 2</option>
                             </select>
                           </div>
@@ -2699,7 +2522,7 @@ export default function QuickitMarketFleetView({
                   </div>
 
                   <div className="text-[11px] font-mono text-slate-500">
-                    ⛶ LIVE ENGINE • Pine v6.2 • SMC + Wave
+                    SAMPLE STRATEGY PREVIEW • NOT CONNECTED
                   </div>
                 </div>
               </div>
@@ -3098,6 +2921,7 @@ export default function QuickitMarketFleetView({
                             <span className="text-slate-400">การซื้อขายอัตโนมัติ</span>
                             <button
                               type="button"
+                              disabled={true}
                               onClick={() =>
                                 setFleetBots((prev) =>
                                   prev.map((b) =>
