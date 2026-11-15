@@ -9,13 +9,16 @@ import urllib.parse
 import urllib.request
 
 API = os.getenv("GITHUB_API_URL", "https://api.github.com").rstrip("/")
-REPO = os.environ["GITHUB_REPOSITORY"]
-TOKEN = os.environ["GITHUB_TOKEN"]
+# Keep imports safe for offline unit tests; require credentials only when API calls run.
+REPO = os.getenv("GITHUB_REPOSITORY", "")
+TOKEN = os.getenv("GITHUB_TOKEN", "")
 NOW = dt.datetime.now(dt.timezone.utc)
 MAX_PAGES, PAGE_SIZE, MAX_COMPARE_COMMITS = 10, 100, 250
 
 
 def api(path: str):
+    if not REPO or not TOKEN:
+        raise RuntimeError("GITHUB_REPOSITORY and GITHUB_TOKEN are required for live collection.")
     req = urllib.request.Request(
         f"{API}/repos/{REPO}/{path.lstrip('/')}",
         headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {TOKEN}",
@@ -116,6 +119,8 @@ def classify(commits: list) -> tuple[dict, list]:
 
 
 def main():
+    if not REPO or not TOKEN:
+        raise RuntimeError("GITHUB_REPOSITORY and GITHUB_TOKEN are required for live collection.")
     default_branch = api("").get("default_branch")
     if not default_branch:
         raise RuntimeError("Could not resolve repository default branch.")
