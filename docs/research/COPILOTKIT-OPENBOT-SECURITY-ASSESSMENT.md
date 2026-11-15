@@ -632,3 +632,63 @@ Accordingly, the earlier suggestion that this workflow itself established proven
 - Runtime, tenant isolation, computer policy, and exploitability: **NOT TESTED**.
 
 **NO-GO remains** for NOVA runtime integration. Continue with read-only source/build mapping and request an upstream server-image rebuild plus exact-digest provenance. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
+
+
+## 17. Exact backend image publishing and attestation path — 2026-11-16 UTC
+
+### Scope of the workflow review
+
+The exact source checkout used for the image audit is commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`. The following workflow files were inspected locally in that checkout:
+
+- `.github/workflows/internal-build.yml`
+- `.github/workflows/publish-release.yml`
+- `.github/workflows/images.yml`
+- `.github/published-images.json`
+- `backend-images.env`
+
+The result is more precise than saying the workflow has provenance steps somewhere:
+
+1. `internal-build.yml` passes a `backend_tag` input (default `main`) to the reusable `images.yml` workflow. Its own comment says the OpenBot server, computer, supervisor and all-in-one images are the already-published images at the selected backend tag.
+2. `publish-release.yml` calls `images.yml` only after its release checks pass. It does not independently build the backend server image.
+3. In `images.yml`, job `backend-images` authenticates to GHCR, runs `docker buildx imagetools inspect` on the four existing `ghcr.io/copilotkit/*` tags, validates platform descriptors, and writes digest references. It has `packages: read`; it does not build or push those backend images and has no `attest-build-provenance` step.
+4. The separate `component-images` matrix builds the 13 images in `.github/published-images.json` with BuildKit `provenance: true` and `sbom: true`. The `component-manifests` job then runs `actions/attest-build-provenance` for those component manifest digests. Those are not the `openbot-server` backend image.
+
+### Consequence for the audited digest
+
+The audited image is:
+
+`ghcr.io/copilotkit/openbot-server:main-20261114-78`
+
+Registry index digest:
+
+`sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+
+Its image metadata embeds source commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`, which ties the image to a source revision. However, the inspected OpenBot repository workflows only consume/pin the already-published backend tag; they do not show which trusted workflow built and pushed this server digest.
+
+The tag shape `main-20261114-78` is consistent with a dated main-branch build, but a tag name is not provenance. No verified builder identity, workflow run, source repository/build definition, or SLSA statement has yet been linked cryptographically to this exact digest.
+
+### Documentation discrepancy
+
+The current `docs/releasing.md` description says a build provenance attestation is pushed alongside every published image. The inspected reusable workflow does not do this for the four backend images it merely pins; it attests the component images it builds. This is a documentation/supply-chain scope discrepancy that should be clarified by the upstream maintainers. The actual workflow implementation, not the broad prose description, governs this finding.
+
+### Required evidence to close the gap
+
+Request from the upstream maintainer:
+
+1. The exact workflow repository/path and run ID that built and pushed `openbot-server@sha256:13ba8a1d...`.
+2. A verifiable SLSA/in-toto provenance statement whose subject digest matches the exact OCI index or platform manifest digest, and whose builder identity is trusted.
+3. The build source commit, Dockerfile path, build context, build parameters, and dependency lockfile digest.
+4. An application-level SBOM covering the production Bun workspace dependencies in the final image, mapped to the same digest.
+
+Until those artifacts are independently verified, classify server-image provenance as **NOT VERIFIED**. The existing Cosign signature proves that the image digest verifies against the supplied upstream public key, subject to the documented transparency-log bypass; it does not by itself prove which workflow built it.
+
+### Updated assessment
+
+- Exact source revision embedded in image: **IDENTIFIED**.
+- Upstream repository workflow responsible for building this backend image: **NOT IDENTIFIED**.
+- OpenBot repo release/internal-build workflow provenance for this server image: **NOT PROVIDED by the inspected jobs**; they pin the existing image digest.
+- Server image SLSA provenance: **NOT VERIFIED**.
+- Component image provenance: **workflow config present**, but it is not transferable to the server image.
+- Runtime and tenant isolation: **NOT TESTED**.
+
+**NO-GO remains** for NOVA runtime integration. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
