@@ -55,7 +55,13 @@ if [[ ! -f "$ROOT_DIR/package-lock.json" ]]; then
   log "BLOCKED: root package-lock.json is required for reproducible npm ci"
   exit 2
 fi
-run npm ci --include=dev
+# Enforce a no-lifecycle-script install until each dependency hook is reviewed.
+# Do not add packages to npm's allow-scripts list without a package-specific review.
+run npm ci --include=dev --ignore-scripts
+
+# Fail closed on high-severity dependency advisories. This reports findings;
+# it never runs npm audit fix or changes the lockfile.
+run npm audit --audit-level=high
 
 # Frontend, API, Worker, authentication, tenant-isolation and read-only safety tests.
 run node --test tests/nova-trading-readonly-guard.test.mjs
@@ -83,6 +89,7 @@ run python -m unittest discover -s tools/ci-inspector -p "test_*.py" -v
 # Validate Cloudflare Worker bundles without deploying product Workers.
 run npx --yes wrangler@4.156.0 deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
 run npx --yes wrangler@4.156.0 deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+run npm run lint
 run npm run build
 
 # Preserve the existing production Netlify smoke test on main pushes.
