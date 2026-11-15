@@ -31,7 +31,7 @@ if [[ "$head_sha" != "$actual_head" ]]; then
 fi
 log "Verified checkout SHA: $actual_head"
 log "Checking changed-file scope for branch ${WORKERS_CI_BRANCH}"
-git fetch --no-tags origin main
+git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
 if [[ "${WORKERS_CI_BRANCH}" == "main" ]]; then
   base_sha="$(git rev-parse "${head_sha}^")"
 else
