@@ -494,3 +494,73 @@ The exact image commit now has a source scan, so the earlier source/image revisi
 5. Harden and negatively test deny-by-default computer policy and tenant isolation in a disposable environment.
 
 No NOVA production resource was touched, no runtime was started, no secrets were supplied, and no paid resource was created.
+
+
+## 15. Image signature, OCI SBOM attestation, and embedded runtime inspection — 2026-11-15 UTC
+
+### Cosign signature verification — PASS
+
+The exact immutable multi-platform image index digest was verified with the upstream repository public key:
+
+- Image: `ghcr.io/copilotkit/openbot-server@sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- Tool: Cosign `v3.1.4`; official release asset and checksum-file digests verified before execution.
+- Public key: `docs/cosign.pub` from the image-matched source checkout.
+- Public-key file SHA-256: `f8893375408700e1be6a5276ec15f1f770bc682d7b801c72ac9d420c0977aca9`
+- Verification command: `cosign verify --key docs/cosign.pub --insecure-ignore-tlog=true <image>@<digest>`
+- Result: Cosign validated the claims and verified the signature against the supplied public key; exit code **0**.
+- Verification output SHA-256: `adc350ef62fa7b8b5a43c8847bc84a4ccf71be92ee3ad589dd40650a0b58f963`.
+
+**Limitation:** upstream documentation says signatures are not recorded in a public transparency log. The required `--insecure-ignore-tlog=true` option therefore bypasses transparency-log verification. This proves the signature matches the supplied upstream key and digest, but provides less independent transparency/auditability than a logged signature.
+
+### OCI SBOM attestation — PRESENT AND DIGEST-CHECKED
+
+The GHCR OCI image index for the verified digest contains a Linux/amd64 attestation manifest:
+
+- Index digest: `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- Linux/amd64 image manifest: `sha256:249fcc737b98e6bb15cb43f1bdfcd0ccd5b265e324b78bca6d6706ad9c98a90c`
+- Attestation manifest: `sha256:8955e04c0f912bdc23210654a033391e8c5297c51afcd71a107080859dd35a83`
+- Attestation predicate: SPDX `https://spdx.dev/Document`
+- SPDX document: `SPDX-2.3`
+- Generator: Syft `v1.51.0`; BuildKit `v0.34.2`
+- Creation time: `2026-11-14T13:45:09Z`
+- Subject digest: exactly the Linux/amd64 image manifest above.
+- SBOM blob digest verified locally: `sha256:ae8d49ad05a3fbda7164930309f4f5b9393535688786ba3d285c294ced2f224f`.
+- SBOM records: **81 package records** (80 Debian package PURLs plus the SPDX document record) and **2,604 file records**.
+- Local evidence file: `openbot-server-image-sbom.spdx.json`; 1,928,377 bytes; SHA-256 equals the attestation blob digest above.
+
+**Important coverage result:** this image SBOM records Debian OS packages, but no npm/Bun/Go application package records. It does not close the application dependency inventory gap. The SPDX attestation is an OCI artifact in the signed image index; do not confuse it with a separately verified SLSA build-provenance statement.
+
+### Embedded executable inspection — correction to earlier assumption
+
+The exact Linux/amd64 image layer containing `/app/bin/openbot` was downloaded directly from GHCR and extracted without running the container or executable.
+
+- ELF64, little-endian, x86-64.
+- File size: **107,530,208 bytes**.
+- SHA-256: `b9b36329f7f1b4f3bda04c3ac485e80485699acfea30267611b78f69ddb8cff3`.
+- Strings include Bun CLI/runtime identifiers and the embedded runtime string `bun/1.4.3 npm/? node/v26.3.0 linux x64`.
+- Additional symbols and strings include V8/JavaScriptCore and Bun runtime internals, as well as bundled OpenBot application code.
+- The image-matched root `package.json` declares `packageManager: bun@1.4.3`.
+- The image-matched `app/package.json` declares the application dependencies, including `@copilotkit/react-core@1.88.0`, `@ag-ui/core@1.0.2`, `better-auth`, React 19, and related packages.
+
+**Correction:** the earlier plan to inspect this file as a Go binary was based on an unverified assumption and is withdrawn. No Go build-info marker was found in the extracted executable. The evidence identifies it as a Bun-based ELF executable with bundled JavaScript application content. Do not use `go version -m` as the appropriate inventory method for this file.
+
+### Build provenance verification — NOT VERIFIED
+
+The image workflow source at the matching commit contains BuildKit `provenance: true`, `sbom: true`, and an `actions/attest-build-provenance` step. However:
+
+- `gh attestation verify` against the exact image index digest returned GitHub API HTTP 404 for the repository attestation endpoint.
+- The OCI index contains an SPDX SBOM attestation manifest, but the inspected attestation manifest predicate is SPDX, not SLSA provenance.
+- No successful cryptographic verification of a SLSA provenance statement tied to this image digest has been obtained.
+
+Therefore **build provenance remains UNVERIFIED**, not confirmed absent. A repository-scoped GitHub attestation query with suitable access or the exact published provenance bundle is still required.
+
+### Updated decision
+
+- Image signature against upstream key: **VERIFIED**, with transparency-log bypass limitation.
+- OCI SPDX SBOM attestation: **PRESENT**, subject and blob digests verified.
+- Image SBOM application dependency coverage: **INCOMPLETE** (80 Debian packages; no application package PURLs).
+- Executable runtime identity: **Bun 1.4.3 / Node compatibility v26.3.0 evidence found**; not a Go binary.
+- SLSA build provenance: **NOT VERIFIED**.
+- Image runtime/exploitability: **NOT TESTED**.
+
+**NO-GO remains** for NOVA runtime integration. Next gates are to obtain and verify SLSA provenance for the exact digest, derive a complete application dependency SBOM from the exact build inputs or build pipeline, and triage the OS findings against Debian security status. No container was started and the executable was not run.
