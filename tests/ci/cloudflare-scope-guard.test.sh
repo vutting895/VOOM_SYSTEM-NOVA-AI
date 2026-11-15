@@ -15,7 +15,7 @@ for path in \
   fi
 done
 
-for path in "frontend/src/components/button.tsx" "docs/architecture/overview.md" "package-lock.json"; do
+for path in "frontend/src/components/button.tsx" "docs/architecture/overview.md" "package-lock.json" "workers/quant_engine/engine.py" "tests/test_quant_engine.py"; do
   if is_unsupported_path "$path"; then
     printf 'FAIL: portable path was incorrectly blocked: %s\n' "$path" >&2
     exit 1
