@@ -21,7 +21,13 @@ python --version
 # Workers Builds provides Linux, Node.js and Python, but not a Docker daemon
 # or a Windows host. Fail closed when a change requires those unsupported gates.
 if [[ -n "${WORKERS_CI_BRANCH:-}" ]]; then
-  head_sha="${WORKERS_CI_COMMIT_SHA:-HEAD}"
+  head_sha="${WORKERS_CI_COMMIT_SHA:?WORKERS_CI_COMMIT_SHA must identify the exact checkout commit}"
+  actual_head="$(git rev-parse HEAD)"
+  if [[ "$head_sha" != "$actual_head" ]]; then
+    log "BLOCKED: requested commit $head_sha does not match checked-out HEAD $actual_head"
+    exit 2
+  fi
+  log "Verified checkout SHA: $actual_head"
   log "Checking changed-file scope for branch ${WORKERS_CI_BRANCH}"
   git fetch --no-tags origin main
   if [[ "${WORKERS_CI_BRANCH}" == "main" ]]; then
@@ -39,11 +45,11 @@ if [[ -n "${WORKERS_CI_BRANCH:-}" ]]; then
         unsupported+=("$path")
         ;;
       # Docker-backed SMC research and container acceptance gates.
-      infra/docker-compose.yml|Dockerfile|workers/Dockerfile|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|workers/quant_engine/*|workers/quant_engine/**|tests/test_quant*.py|docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|package.json|server.ts|package-lock.json|integrations/remote-mcp-worker/src/index.js|integrations/remote-mcp-worker/tests/*|integrations/remote-mcp-worker/tests/**|integrations/remote-mcp-worker/package.json|.github/workflows/smc-research-ci.yml|.github/workflows/quant-engine-foundation-ci.yml)
+      infra/docker-compose.yml|infra/docker-compose.yaml|docker-compose.yml|docker-compose.yaml|compose.yml|compose.yaml|*docker-compose*.yml|*docker-compose*.yaml|*compose*.yml|*compose*.yaml|Dockerfile|*/*Dockerfile*|*Dockerfile*|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|workers/quant_engine/*|workers/quant_engine/**|tests/test_quant*.py|docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|package.json|server.ts|package-lock.json|integrations/remote-mcp-worker/src/index.js|integrations/remote-mcp-worker/tests/*|integrations/remote-mcp-worker/tests/**|integrations/remote-mcp-worker/package.json|.github/workflows/smc-research-ci.yml|.github/workflows/quant-engine-foundation-ci.yml)
         unsupported+=("$path")
         ;;
       # Windows-hosted PowerShell/runtime acceptance gates.
-      tools/windows/*|tools/windows/**|integrations/mt5-readonly-bridge/*|integrations/mt5-readonly-bridge/**|README.md|.github/workflows/windows-runtime-ci.yml)
+      tools/windows/*|tools/windows/**|integrations/mt5-readonly-bridge/*|integrations/mt5-readonly-bridge/**|*.ps1|*.psm1|*.psd1|README.md|.github/workflows/windows-runtime-ci.yml)
         unsupported+=("$path")
         ;;
     esac
