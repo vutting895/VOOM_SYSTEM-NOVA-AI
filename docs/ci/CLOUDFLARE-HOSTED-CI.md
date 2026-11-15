@@ -29,7 +29,7 @@ Connect the GitHub repository `vutting895/VOOM_SYSTEM-NOVA-AI` to the dedicated 
 | Python version | `3.11.9` |
 | Skip automatic dependency install | `1` |
 
-The build image supports Node.js and Python on Ubuntu. The script installs dependencies explicitly and pins Wrangler to 4.156.0. Cloudflare documents 3,000 build minutes/month, one concurrent build, and a 20-minute timeout on the Free plan; confirm the account's actual plan and usage before relying on these limits.
+The build image supports Node.js and Python on Ubuntu. The script installs the root dependency graph with `npm ci` from the committed root lockfile and invokes Wrangler with `npx --yes wrangler@4.156.0` without modifying the root dependency manifest. Cloudflare documents 3,000 build minutes/month, one concurrent build, and a 20-minute timeout on the Free plan; confirm the account's actual plan and usage before relying on these limits.
 
 ## Coverage included
 
@@ -66,7 +66,7 @@ A blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing
 
 ## Reproducibility limitation
 
-The root dependency manifest currently uses semver ranges and the hosted script installs with `npm install --no-package-lock`. This is not a reproducible dependency graph. Do not treat the Cloudflare pipeline as release-grade until a generated and committed root `package-lock.json` is added and the install step is changed to `npm ci`. The lockfile must be generated and validated in a network-enabled Node environment; it has not been fabricated in this PR.
+The root `package.json` contains semver ranges, so the CI requires a committed root `package-lock.json`. The script now stops with `BLOCKED` if that file is absent and uses `npm ci` when it is present. The lockfile is not yet present in this PR; generate it in a network-enabled Node 24 environment with `npm install --package-lock-only --ignore-scripts`, then validate it with `npm ci` and the full CI script. Do not create a placeholder or hand-write lockfile data. Until the lockfile is committed and validated, this CI job is intentionally blocked and is not release-ready.
 
 ## Migration order
 
