@@ -47,18 +47,22 @@ def pages(path: str):
 
 def resolve_tag_commit(tag_ref: dict) -> str:
     """Resolve lightweight or annotated (including nested) tag refs to a commit SHA."""
-    obj = tag_ref.get("commit") or {}
+    name = tag_ref.get("name")
+    if not name:
+        raise RuntimeError("Tag response did not include a name.")
+    ref_path = urllib.parse.quote(f"tags/{name}", safe="/")
+    obj = (api(f"git/ref/{ref_path}").get("object") or {})
     sha, kind = obj.get("sha"), obj.get("type")
     if not sha or kind not in ("commit", "tag"):
-        raise RuntimeError(f"Tag {tag_ref.get('name', '<unknown>')} has an unsupported target.")
+        raise RuntimeError(f"Tag {name} has an unsupported target.")
     for _ in range(5):
         if kind == "commit":
             return sha
         target = (api(f"git/tags/{sha}").get("object") or {})
         sha, kind = target.get("sha"), target.get("type")
         if not sha or kind not in ("commit", "tag"):
-            raise RuntimeError(f"Could not resolve annotated tag {tag_ref.get('name', '<unknown>')}.")
-    raise RuntimeError(f"Annotated tag nesting limit exceeded for {tag_ref.get('name', '<unknown>')}.")
+            raise RuntimeError(f"Could not resolve annotated tag {name}.")
+    raise RuntimeError(f"Annotated tag nesting limit exceeded for {name}.")
 
 
 def commit_date(data: dict) -> str:
