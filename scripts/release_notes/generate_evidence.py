@@ -34,11 +34,20 @@ def pages(path: str):
 
 def main():
     tags = list(pages("tags"))
-    tag = tags[0] if tags else None
+    tag_candidates = []
+    for candidate in tags:
+        tagged_commit = api(f"commits/{candidate['commit']['sha']}")
+        date = tagged_commit.get("commit", {}).get("committer", {}).get("date", "")
+        tag_candidates.append((date, candidate, tagged_commit))
+    tag_candidates.sort(key=lambda row: row[0], reverse=True)
+    tag = tag_candidates[0][1] if tag_candidates else None
     if tag:
         compare = api(f"compare/{tag['name']}...HEAD")
         commits = compare.get("commits", [])
-        baseline = f"latest tag {tag['name']} ({tag['commit']['sha'][:12]})"
+        expected = compare.get("total_commits", len(commits))
+        if expected > len(commits):
+            raise RuntimeError(f"Compare API returned {len(commits)} of {expected} commits; refusing an incomplete evidence pack.")
+        baseline = f"latest-by-commit-date tag {tag['name']} ({tag['commit']['sha'][:12]})"
     else:
         since = (NOW - dt.timedelta(days=7)).isoformat().replace("+00:00", "Z")
         commits = list(pages(f"commits?since={since}"))
