@@ -39,7 +39,9 @@ Cloudflare documents Free-plan limits of 3,000 build minutes/month, one concurre
 - These lifecycle scripts have not been individually reviewed and therefore none is allowlisted.
 - CI uses `npm ci --include=dev --ignore-scripts` to prevent unreviewed lifecycle scripts from executing. If the build or tests require one of these scripts, the job must fail and the package must be reviewed individually before any narrowly scoped exception is added.
 - CI runs `npm audit --audit-level=high` and fails closed on high-severity advisories. It does not run `npm audit fix`, downgrade Firebase, or modify the lockfile.
-- The current PR evidence reports four high-severity advisories involving Firebase/Firestore and transitive `@grpc/grpc-js`. Until those are remediated in a separately reviewed dependency change, the audit gate is expected to fail. Do not weaken or bypass the gate to make the build green.
+- Exact lockfile audit on commit `9bddcc94a98a48d6f898512ead6668ffe4bc02d2` reports four High-severity affected-package findings: `@grpc/grpc-js`, `@firebase/firestore`, `@firebase/firestore-compat`, and `firebase`. These are cascading records for one High advisory, `GHSA-m9gg-hp2v-232j` / `CVE-2026-101916` (CVSS 7.4), not four independent High CVEs. The lockfile resolves `@grpc/grpc-js@1.9.16`; the advisory's patched release for this version line is `1.13.6`, but `@firebase/firestore@4.20.0` declares `@grpc/grpc-js: ~1.9.0`, which excludes that fix. The upstream Firebase issue documenting this pin remained open when reviewed on 2026-11-16. `npm audit` suggests downgrading the top-level `firebase` package to `9.14.0`, a semver-major downgrade that is not an acceptable automatic remediation. Firebase Auth and Firestore are actively imported by NOVA frontend source, so removing Firebase without a replacement is not safe.
+- A local production bundle scan found no literal `@grpc`, `grpc-js`, or `getAuthContext` markers in the generated JavaScript bundle. This is evidence about the tested browser bundle only; it does not prove the vulnerable transitive package is harmless in every runtime or deployment.
+- Until upstream widens the Firestore dependency range or a compatibility-tested remediation is approved, the audit gate is expected to fail closed. Do not downgrade Firebase, add a broad npm override, suppress this advisory, or weaken the gate merely to make CI green.
 
 ## Coverage included
 
@@ -88,3 +90,19 @@ The root `package.json` uses semver ranges, so the committed root `package-lock.
 - Do not publish the CI Worker or product Workers as part of this validation-only PR.
 - Keep `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
 - Do not disable existing GitHub workflows until a real Cloudflare check is verified on an exact PR commit.
+
+
+## Exact-commit Windows validation evidence
+
+Validated in a clean clone of `fix/ci-local-test-contracts` at commit `9bddcc94a98a48d6f898512ead6668ffe4bc02d2` using Node.js `24.18.0` and the isolated Python `3.11.9` environment:
+
+- `npm ci --include=dev --ignore-scripts`: passed (350 packages installed). No dependency lifecycle scripts were executed.
+- `npm run lint`: passed.
+- `npm run build`: passed; Vite emitted the existing large-chunk advisory (957.55 kB JS output).
+- Node.js contract suites: 155 tests passed across read-only trading, Marketplace security, Vault readiness, approval migration, NOVA AI Worker, System Hub, Remote MCP, MT5 Relay, and MT5 read-only Proxy.
+- Python suites: 110 tests passed across MT5 read-only Bridge, Quant Engine, SMC strategy, SMC pytest regressions, and CI Inspector.
+- Wrangler `4.156.0` dry-runs for MT5 Relay and System Hub: both passed; neither command deployed a Worker.
+- `npm audit --audit-level=high`: failed as expected due to the single underlying High advisory described above.
+- Cloudflare scope-guard Bash test was not executed on this Windows host because Bash is unavailable. Its source and regression cases were reviewed, but a Linux/Workers Builds run is still required.
+
+These results validate the listed local suites only. They do not establish Cloudflare Workers Builds execution, Docker/PostgreSQL/Supabase integration coverage, or Production deployment health.
