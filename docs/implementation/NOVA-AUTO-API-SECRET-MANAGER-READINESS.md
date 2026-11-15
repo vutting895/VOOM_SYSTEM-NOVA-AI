@@ -3,7 +3,7 @@
 **Repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
 **Canonical branch:** `main`  
 **Control plane:** existing Cloudflare System Integration Hub  
-**Current phase:** Vault privilege verification; customer credential storage remains disabled  
+**Current phase:** Local Vault least-privilege proof passed (PR #112); signed identity assertion remains design-only; customer credential storage remains disabled  
 **Safety:** read-only broker integrations only; order submission and Live Trading remain OFF
 
 ## 1. Architecture decision
@@ -55,7 +55,16 @@ Observed results:
 
 **Decision: BLOCK credential writes and reads.**
 
-The extension being installed is not sufficient. `service_role` has broad direct access to Vault metadata and the decrypted view. The target design requires a dedicated server-side role/path with narrow function access, no direct access to `vault.decrypted_secrets`, and owner-bound lookup for one connection. Do not place this feature on the existing generic `service_role` path.
+The extension being installed is not sufficient. The inspected project grants `service_role` broad Vault privileges, including access to `vault.decrypted_secrets`. Do not use `service_role` as the customer-secret retrieval identity; use a dedicated server-side login that is not a member of `service_role`, and give it only the private accessor function needed by the existing System Hub.
+
+**Platform-managed grant limitation:** Supabase's current Vault guidance documents that the extension grants `service_role` schema usage, SELECT/DELETE on Vault tables and views, and EXECUTE on selected Vault functions. Supabase also documents that attempts by `postgres` to revoke these grants from Supabase-managed extension objects may have no effect because the objects are owned by `supabase_admin`. The exact grants vary by Vault version. The privileges matter when SQL runs as `service_role` and reaches the Vault schema, including through an exposed schema or an exposed function that reads Vault. Therefore:
+- Keep `vault` out of the Data API exposed schemas.
+- Do not create any exposed RPC/function that reads or returns Vault data.
+- Do not use a database login that is, or inherits, `service_role` for Vault access.
+- Do not claim that a migration has removed Supabase-managed `service_role` Vault privileges unless a version-specific catalog check proves it.
+- If the product's threat model requires even the privileged Supabase `service_role` identity to be intrinsically unable to read customer Secrets, Supabase Vault alone does not meet that requirement; stop and choose a separate secret-custody service rather than attempting unsupported revokes.
+
+The target design therefore requires a dedicated server-side role/path with narrow function access, no direct Vault access for that runtime login, and owner-bound lookup for one connection. Keep `service_role` outside that path.
 
 The read-only inspection SQL is committed at:
 `supabase/verification/secret-vault-readiness.sql`
@@ -67,7 +76,7 @@ Before a provider can accept credentials, all of the following must be true:
 1. The provider and environment are enabled in the server-owned registry.
 2. The customer owns the target connection; ownership is resolved from the authenticated session, never supplied by the model or trusted from a client-provided user/tenant ID.
 3. The dedicated Vault role has only the minimum function privileges required. It cannot query `vault.secrets` or `vault.decrypted_secrets` directly.
-4. The public roles cannot access the Vault schema, tables, views, or credential-returning functions.
+4. `anon`, `authenticated`, and `PUBLIC` must not have direct access to the Vault schema, tables, views, or credential-returning functions, verified against the actual project grants. Treat Supabase-managed `service_role` grants as a separate platform boundary: do not rely on revoking them; keep the role out of the Hub Vault path and keep the Vault schema unexposed.
 5. The access function binds retrieval to the authenticated owner and exact connection reference.
 6. Cross-customer retrieval, rotation, revocation, and deletion are tested with two staging users.
 7. Secret-bearing inputs, SQL errors, application logs, traces, chat, MCP payloads, audit events, and API responses are verified not to disclose credential material.
@@ -99,8 +108,8 @@ Cloudflare Workers are developed and deployed from their existing integration di
 
 ## 7. Next implementation sequence
 
-1. Review the staging Vault privilege snapshot and confirm which existing consumers, if any, rely on `service_role` Vault access.
-2. Design a dedicated non-public database role and a restricted server-only access path. Prove how authenticated user identity is bound to the exact connection owner; do not rely on a free-form user ID supplied by the request.
+1. Review the staging Vault privilege snapshot and confirm which existing consumers, if any, rely on `service_role` Vault access; decide explicitly whether the product threat model accepts Supabase's platform-managed `service_role` grants or requires a separate secret-custody service.
+2. Design a dedicated non-public database role and a restricted server-only access path. Prove how authenticated user identity is bound to the exact connection owner; do not rely on a free-form user ID supplied by the request. The current candidate is documented in [NOVA-VAULT-SIGNED-IDENTITY-ASSERTION.md](NOVA-VAULT-SIGNED-IDENTITY-ASSERTION.md); it is not yet implemented or approved.
 3. Build and test the SQL role/function design in an isolated local database first, including privilege assertions and two-owner isolation tests.
 4. Apply the reviewed migration only to staging after approval; run the read-only audit SQL again and Supabase security advisors.
 5. Integrate the approved access path into the existing System Hub, then add credential create/use/rotate/revoke APIs with strict size, provider, scope, and audit controls.
@@ -108,3 +117,43 @@ Cloudflare Workers are developed and deployed from their existing integration di
 7. Production activation remains a separate approval gate.
 
 No staging grants, secrets, production data, Cloudflare configuration, Worker deployments, broker routes, or trading flags were changed during this readiness step.
+
+
+## 8. Additional legacy credential table inspection — 2026-10-30
+
+A separate read-only catalog inspection found a legacy `public.user_brokers` table with credential-related columns: `api_key`, `api_secret_encrypted`, and `passphrase_encrypted`.
+
+Observed security metadata:
+- RLS enabled: yes.
+- FORCE ROW LEVEL SECURITY: no.
+- RLS policies: zero.
+- Column-level grants on the sensitive columns: observed for `anon`, `authenticated`, and `service_role`.
+
+The absence of policies currently filters ordinary RLS-protected access, but broad column grants remain a latent exposure if a policy is later added or a privileged access path is used. Treat this as a legacy credential surface requiring separate remediation.
+
+**Do not read credential rows, assume the table is empty, expose this table through new APIs, or drop/migrate these columns as part of this PR.** Before cleanup, identify all consumers and any existing credential records using an approved controlled process, design a customer-safe migration into the approved vault, verify backups and rollback, and obtain separate review. Never copy credential values into logs, reports, fixtures, or chat.
+
+The read-only audit reports only table existence, RLS flags, policy count, sensitive column names, and role/column/privilege metadata. It does not select from `public.user_brokers`.
+
+## 9. Local Vault proof milestone and remaining activation gates
+
+PR #112 has a successful exact-head disposable local proof:
+
+- Branch: `security/vault-local-isolation-proof-20261031`
+- Tested head: `308984a2d497443280b37e08b4e7112686346bd7`
+- GitHub Actions run: [Vault Local Isolation Proof #14](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41129449854)
+- Result: local-only Node contract checks 5/5 and pgTAP 42/42 passed; local stack stopped successfully.
+- Scope: synthetic local fixtures and local database role/function grants only.
+
+This milestone does not prove caller identity. The local accessor still accepts owner and tenant identifiers as SQL parameters; a holder of the database login could attempt to assert another customer's full identifiers. The Signed Identity Assertion document is the next design/proof gate. The candidate currently uses HMAC-SHA-256, a fixed canonical message, a short expiry, key IDs, nonce replay protection, and re-checks against the current connection registry. It remains a design candidate, not an approved protocol or implementation.
+
+Still not completed:
+- Cross-runtime HMAC known-answer proof and claim-tampering/replay/expiry tests.
+- Actual tenant resolution from the canonical repository schema; do not invent a tenant ID where the schema has only owner_id.
+- Worker signer and database verifier integration.
+- Cache-disabled Hyperdrive configuration and Supabase Free network compatibility.
+- Hosted role/grant review, independent staging Customer A/B acceptance, sanitized runtime audit/log/trace checks, and independent security review.
+- Provider-specific rotation/revoke and recovery tests.
+
+Do not enable customer credential reads/writes or create customer credential intake routes until these gates pass. Keep Exness MT5 Demo read-only; Order Submission and Live Trading remain OFF.
+
