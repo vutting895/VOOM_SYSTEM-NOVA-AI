@@ -1,0 +1,30 @@
+name: NOVA Agent Orchestration Contracts
+
+on:
+  pull_request:
+    paths:
+      - "workers/agent_orchestration/**"
+      - "tests/test_agent_*.py"
+      - ".github/workflows/agent-orchestration-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "workers/agent_orchestration/**"
+      - "tests/test_agent_orchestration_contracts.py"
+      - ".github/workflows/agent-orchestration-contracts.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile contracts
+        run: python -m compileall -q workers/agent_orchestration tests/test_agent_*.py
+      - name: Run contract tests
+        run: python -m unittest discover -s tests -p 'test_agent_*.py' -v
