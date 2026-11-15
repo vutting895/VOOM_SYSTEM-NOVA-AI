@@ -52,12 +52,12 @@ The current Cloudflare build image is not a Windows runner and does not document
 - Local Supabase Auth/PostgREST stack integration tests that require Docker.
 - Windows PowerShell host/runtime checks.
 
-The build script requires both `WORKERS_CI_BRANCH` and `WORKERS_CI_COMMIT_SHA`; if either is missing, it stops before running tests. It verifies that the supplied commit SHA exactly equals the checked-out `git rev-parse HEAD` and prints the verified SHA before classifying changed files. A mismatch exits as BLOCKED. Configure both variables from the build's actual branch and commit metadata; never set them to a stale or manually guessed value.
+The build script requires both `WORKERS_CI_BRANCH` and `WORKERS_CI_COMMIT_SHA`; if either is missing, it stops before running tests. It fetches `main` into the explicit `refs/remotes/origin/main` tracking ref, verifies that the supplied commit SHA exactly equals the checked-out `git rev-parse HEAD`, and prints the verified SHA before classifying changed files. A mismatch exits as BLOCKED. Configure both variables from the build's actual branch and commit metadata; never set them to a stale or manually guessed value.
 
-The build script fails closed when a PR changes files that trigger any existing workflow requiring these unsupported gates. The guard covers:
+The build script fails closed when a PR changes files that trigger any existing workflow requiring these unsupported gates. The Quant Engine Foundation workflow is Python-only and is included in the portable CI checks; it is not classified as a Docker gate. The guard covers:
 
 - PostgreSQL/Supabase: `supabase/migrations/**`, `supabase/config.toml`, `tests/sql/**`, approval API/server/session integration files, frontend lockfile changes, and the approval/video migration workflow definitions.
-- Docker-backed Quant/SMC: Quant Engine source and contract tests, SMC/Elliott Wave/backtest/alerts/risk/runtime source, SMC test suites and fixtures, Python requirements, Dockerfiles at any directory depth, Docker Compose/Compose YAML variants, and the corresponding workflow definitions.
+- Docker-backed SMC/research: SMC/Elliott Wave/backtest/alerts/risk/runtime source, SMC test suites and fixtures, Python requirements, Dockerfiles at any directory depth, Docker Compose/Compose YAML variants, and the SMC workflow definition.
 - Windows Runtime: `tools/windows/**`, `integrations/mt5-readonly-bridge/**`, PowerShell scripts/modules/data files (`.ps1`, `.psm1`, `.psd1`) at any directory depth, `README.md` (which is an explicit trigger for the Windows workflow), and the Windows workflow definition.
 
 The scope matcher has regression cases for nested Dockerfiles, Compose YAML, PowerShell scripts/modules, Supabase migrations, and representative portable paths. The CI script runs these cases before its other checks.
@@ -66,7 +66,7 @@ A blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing
 
 ## Reproducibility limitation
 
-The root `package.json` contains semver ranges, so the CI requires a committed root `package-lock.json`. The script now stops with `BLOCKED` if that file is absent and uses `npm ci` when it is present. The lockfile is not yet present in this PR; generate it in a network-enabled Node 24 environment with `npm install --package-lock-only --ignore-scripts`, then validate it with `npm ci` and the full CI script. Do not create a placeholder or hand-write lockfile data. Until the lockfile is committed and validated, this CI job is intentionally blocked and is not release-ready.
+The root `package.json` contains semver ranges, so the CI requires a committed root `package-lock.json`. The script stops with `BLOCKED` if that file is absent and uses `npm ci` when it is present. Generate the lockfile from the exact PR commit in a Node 24 environment, then validate it with `npm ci` and the full CI script before treating the hosted job as release-ready. Do not create a placeholder or hand-write lockfile data.
 
 ## Migration order
 
