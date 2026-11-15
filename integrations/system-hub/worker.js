@@ -161,11 +161,15 @@ async function queryOwnConnections(env, user, connectionId = "") {
 }
 
 async function createConnection(request, env, user, origin) {
+  const environment = new URL(request.url).searchParams.get("environment") || "demo";
+  if (!["demo", "live"].includes(environment)) {
+    return json({ error: "unsupported_mt5_environment" }, 400, origin, env);
+  }
   const existingResult = await queryOwnConnections(env, user);
   if (!existingResult.ok) {
     return json({ error: existingResult.error }, existingResult.status, origin, env);
   }
-  const existing = existingResult.rows.find((row) => row.provider === "exness_mt5" && row.environment === "demo");
+  const existing = existingResult.rows.find((row) => row.provider === "exness_mt5" && row.environment === environment);
   if (existing) {
     return json({
       connection: publicConnection(existing),
@@ -194,9 +198,9 @@ async function createConnection(request, env, user, origin) {
       },
       body: JSON.stringify({
         provider: "exness_mt5",
-        environment: "demo",
+        environment,
         status: "pending",
-        account_label: "Exness MT5 Demo"
+        account_label: "Exness MT5 " + (environment === "live" ? "Live" : "Demo")
       }),
       cache: "no-store",
       // Do not automatically forward the user token across redirects.
@@ -224,7 +228,7 @@ async function createConnection(request, env, user, origin) {
   // rather than returning a duplicate or retrying an uncertain write.
   const raced = await queryOwnConnections(env, user);
   if (raced.ok) {
-    const row = raced.rows.find((item) => item.provider === "exness_mt5" && item.environment === "demo");
+    const row = raced.rows.find((item) => item.provider === "exness_mt5" && item.environment === environment);
     if (row) {
       return json({
         connection: publicConnection(row),
@@ -238,7 +242,7 @@ async function createConnection(request, env, user, origin) {
 }
 
 function publicConnection(row) {
-  const providerAllowed = row.provider === "exness_mt5" && row.environment === "demo";
+  const providerAllowed = row.provider === "exness_mt5" && ["demo", "live"].includes(row.environment);
   return {
     connectionId: row.id,
     provider: row.provider,
@@ -279,6 +283,14 @@ function integrationRegistry(env) {
       verification: "per-connection"
     },
     {
+      id: "exness-mt5-live",
+      adapter: "voom-mt5-readonly-proxy",
+      environment: "live",
+      mode: "read-only",
+      configured: true,
+      verification: "per-connection"
+    },
+    {
       id: "nova-ai",
       endpoint: "https://voom-system-nova-ai.suwapat787.workers.dev",
       mode: "analysis-only",
@@ -300,7 +312,7 @@ async function getConnection(request, env, user, id, origin) {
   if (!result.ok) return { response: json({ error: result.error }, result.status, origin, env) };
   const row = result.rows[0];
   if (!row) return { response: json({ error: "connection_not_found" }, 404, origin, env) };
-  if (row.provider !== "exness_mt5" || row.environment !== "demo") {
+  if (row.provider !== "exness_mt5" || !["demo", "live"].includes(row.environment)) {
     return { response: json({ error: "integration_not_allowed" }, 403, origin, env) };
   }
   return { row };
@@ -383,7 +395,7 @@ async function checkConnection(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, result.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (result.body.connected !== true) {
     return json({
       connectionId: row.id,
       state: "bridge_unavailable",
@@ -392,7 +404,16 @@ async function checkConnection(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, 502, origin, env);
   }
-  // Intentionally discard account payload: this endpoint verifies reachability only.
+  if (result.body.environment !== row.environment) {
+    return json({
+      connectionId: row.id,
+      state: "account_environment_mismatch",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 409, origin, env);
+  }
+  // Intentionally discard account payload: this endpoint verifies reachability and environment only.
   return json({
     connectionId: row.id,
     state: "data_verified",
@@ -425,6 +446,15 @@ async function readAccount(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, 502, origin, env);
   }
+  if (data.environment !== row.environment) {
+    return json({
+      connectionId: row.id,
+      state: "account_environment_mismatch",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 409, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
@@ -434,7 +464,7 @@ async function readAccount(request, env, user, row, origin) {
       connected: true,
       broker: "Exness",
       platform: "MT5",
-      environment: "demo",
+      environment: row.environment,
       server: typeof data.server === "string" ? data.server : null,
       currency: typeof data.currency === "string" ? data.currency : null,
       balance: safeNumber(data.balance),
@@ -473,11 +503,21 @@ async function readQuotes(request, env, user, row, origin) {
     }, result.status, origin, env);
   }
   const data = result.body;
+  if (data.environment !== row.environment) {
+    return json({
+      connectionId: row.id,
+      state: "account_environment_mismatch",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 409, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     quote: {
+      environment: row.environment,
       symbol: typeof data.symbol === "string" ? data.symbol : symbol,
       timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
       digits: safeNumber(data.digits),

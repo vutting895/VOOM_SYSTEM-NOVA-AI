@@ -196,7 +196,7 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === proxyUrl && url.pathname === "/api/account") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ balance: "999999", account_number: "private" });
+      return Response.json({ connected: true, environment: "demo", balance: "999999", account_number: "private" });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -307,7 +307,7 @@ test("account endpoint returns a minimal read-only account summary through the u
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       return Response.json({
-        connected: true, server: "Exness-Demo", currency: "USD", balance: 1000,
+        connected: true, environment: "demo", server: "Exness-Demo", currency: "USD", balance: 1000,
         equity: 1002, margin: 10, free_margin: 992, margin_level: 10020,
         account_number: "private-test-value", terminal_trade_allowed: true,
         order_submission_enabled: false, mode: "read-only", as_of: "2026-10-29T04:00:00Z"
@@ -359,7 +359,7 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
         authorization: init.headers.Authorization
       };
       return Response.json({
-        symbol: "XAUUSDm", timeframe: "M1", digits: 3,
+        symbol: "XAUUSDm", environment: "demo", timeframe: "M1", digits: 3,
         tick: { bid: 4038.9, ask: 4039.1, last: 0, time: "2026-10-29T04:55:00Z" },
         bars: [{ time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 }],
         count: 1, order_submission_enabled: false, mode: "read-only", as_of: "2026-10-29T04:55:00Z"
@@ -436,4 +436,142 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+
+test("signed-in user can create one pending Exness MT5 Live connection request", async () => {
+  const original = globalThis.fetch;
+  let insertPayload = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      if (init.method === "POST") {
+        assert.equal(url.searchParams.get("on_conflict"), "user_id,provider,environment");
+        insertPayload = JSON.parse(init.body);
+        assert.equal(insertPayload.provider, "exness_mt5");
+        assert.equal(insertPayload.environment, "live");
+        assert.equal(insertPayload.status, "pending");
+        assert.equal(insertPayload.account_label, "Exness MT5 Live");
+        assert.equal(Object.hasOwn(insertPayload, "bridge_route_id"), false);
+        return Response.json([{
+          id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5",
+          environment: "live", status: "pending", account_label: "Exness MT5 Live",
+          bridge_route_id: null, created_at: "2026-10-31T00:00:00Z"
+        }], { status: 201 });
+      }
+      return Response.json([]);
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections?environment=live", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 201);
+    assert.equal(body.connection.environment, "live");
+    assert.equal(body.connection.recordStatus, "pending");
+    assert.equal(body.connection.readiness, "pending_provisioning");
+    assert.equal(body.connection.capabilities.accountRead, true);
+    assert.equal(body.connection.capabilities.orderSubmission, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+    assert.ok(insertPayload);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("MT5 Live account read is verified only when the terminal reports real mode", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "live",
+        status: "connected", account_label: "Exness MT5 Live", bridge_route_id: "tenant-live-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/account") {
+      return Response.json({
+        connected: true, environment: "live", server: "Exness-Real", currency: "USD",
+        balance: 1000, equity: 1002, margin: 10, free_margin: 992, margin_level: 10020,
+        terminal_trade_allowed: true, order_submission_enabled: false,
+        mode: "read-only", as_of: "2026-10-31T04:00:00Z"
+      });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/account", {
+      headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.state, "data_verified");
+    assert.equal(body.dataVerified, true);
+    assert.equal(body.account.environment, "live");
+    assert.equal(body.account.balance, 1000);
+    assert.equal(body.account.order_submission_enabled, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("MT5 Live connection rejects a Demo terminal and never marks it data verified", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "live",
+        status: "connected", bridge_route_id: "tenant-live-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/account") {
+      return Response.json({ connected: true, environment: "demo", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/account", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 409);
+    assert.equal(body.state, "account_environment_mismatch");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("unsupported MT5 environment cannot create a connection", async () => {
+  const original = globalThis.fetch;
+  let externalCalls = 0;
+  globalThis.fetch = async () => { externalCalls += 1; throw new Error("must not call external service"); };
+  try {
+    const response = await worker.fetch(request("/v1/connections?environment=contest", {
+      method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, "unsupported_mt5_environment");
+    assert.equal(externalCalls, 0);
+  } finally {
+    globalThis.fetch = original;
+  }
 });

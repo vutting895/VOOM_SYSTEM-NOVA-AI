@@ -141,7 +141,7 @@ async function loadConnection(request, env, user) {
     const rows = await response.json();
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row) return { ok: false, status: 404, error: "connection_not_found" };
-    if (row.provider !== "exness_mt5" || row.environment !== "demo") {
+    if (row.provider !== "exness_mt5" || !["demo", "live"].includes(row.environment)) {
       return { ok: false, status: 403, error: "broker_or_environment_not_allowed" };
     }
     if (row.status !== "connected" || !row.bridge_route_id) {
@@ -168,7 +168,7 @@ async function loadConnection(request, env, user) {
     // no custom DNS zone or public Windows origin is involved.
     return {
       ok: true,
-      route: { url: RELAY_ORIGIN, token: route.token, tenantId: route.tenantId }
+      route: { url: RELAY_ORIGIN, token: route.token, tenantId: route.tenantId, environment: row.environment }
     };
   } catch {
     return { ok: false, status: 503, error: "connection_lookup_unavailable" };
@@ -195,7 +195,19 @@ async function forward(request, route, path, origin) {
       redirect: "error",
       signal: AbortSignal.timeout(8000)
     });
-    return new Response(await response.text(), {
+    const bodyText = await response.text();
+    if (response.ok && ["/health", "/api/account", "/api/quotes"].includes(path)) {
+      let payload;
+      try {
+        payload = JSON.parse(bodyText);
+      } catch {
+        return json({ error: "bridge_environment_response_invalid", mode: "read-only", ordersEnabled: false, liveTradingEnabled: false }, 502, origin);
+      }
+      if (!payload || typeof payload !== "object" || payload.environment !== route.environment) {
+        return json({ error: "account_environment_mismatch", mode: "read-only", ordersEnabled: false, liveTradingEnabled: false }, 409, origin);
+      }
+    }
+    return new Response(bodyText, {
       status: response.status,
       headers: {
         ...BASE,

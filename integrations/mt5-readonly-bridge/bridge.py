@@ -7,6 +7,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from account_environment import account_environment
 import MetaTrader5 as mt5
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -129,6 +130,7 @@ def health(authorization: str | None = Header(default=None), tenant_id: str | No
             "status": "ok",
             "terminal_connected": bool(terminal.connected),
             "account_session_available": account is not None,
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "mode": "read-only",
             "order_submission_enabled": False,
             "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -142,6 +144,7 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         terminal, account = get_terminal_and_account()
         return {
             "connected": bool(terminal.connected),
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "server": str(getattr(account, "server", "")),
             "currency": str(getattr(account, "currency", "")),
             "balance": float(account.balance),
@@ -198,7 +201,7 @@ def quotes(
 ):
     require_token(authorization, tenant_id)
     with LOCK:
-        get_terminal_and_account()
+        _, account = get_terminal_and_account()
         info = mt5.symbol_info(symbol)
         if info is None:
             raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
@@ -223,6 +226,7 @@ def quotes(
             })
         return {
             "symbol": symbol,
+            "environment": account_environment(getattr(account, "trade_mode", None)),
             "timeframe": timeframe.upper(),
             "digits": int(info.digits),
             "tick": None if tick is None else {
