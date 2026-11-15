@@ -16,7 +16,6 @@ export NEXT_PUBLIC_TURNSTILE_SITE_KEY="${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAA
 export NEXT_TELEMETRY_DISABLED=1
 
 log "NOVA portable CI starting"
-run bash tests/ci/cloudflare-scope-guard.test.sh
 node --version
 python --version
 
@@ -51,6 +50,7 @@ if (( ${#unsupported[@]} > 0 )); then
   exit 2
 fi
 
+run bash tests/ci/cloudflare-scope-guard.test.sh
 run npm install --no-package-lock --include=dev
 
 # Frontend, API, Worker, authentication, tenant-isolation and read-only safety tests.
