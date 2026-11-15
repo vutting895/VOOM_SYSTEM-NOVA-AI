@@ -392,7 +392,7 @@ The published server image was scanned directly from GHCR using Trivy remote-ima
 - Trivy detected 80 Debian OS packages.
 - Only 3 match rows had a fixed version listed in this scan output (2 High and 1 Medium); the remaining rows did not report a fixed version. This is not proof that no vendor backport or later fix exists: Debian advisory status and package changelogs must be checked before remediation.
 - No Critical findings were reported by this Trivy database for this image digest.
-- No language-specific package files were detected (`num=0`). This is a significant coverage boundary because the image includes a compiled `/app/bin/openbot` binary and copied application assets; this scan does not establish that all application-level dependencies inside those artifacts are free of vulnerabilities.
+- No language-specific package files were detected (`num=0`). This is a significant coverage boundary because the image includes a compiled Bun/JavaScript `/app/bin/openbot` executable and copied application assets; this scan does not establish that all application-level dependencies inside those artifacts are free of vulnerabilities.
 
 Examples of High OS-package matches include ncurses, SQLite, systemd, util-linux, and ACL-related packages. Some advisories affect multiple binary/library package records from the same OS component; do not interpret the 48 High rows as 48 independent exploit paths.
 
@@ -487,7 +487,7 @@ These totals are scanner-database and source-revision dependent. The reduction i
 The exact image commit now has a source scan, so the earlier source/image revision mismatch is **RESOLVED for the source scan**. It is not resolved for application-level image dependency coverage: Trivy did not identify language package manifests in the image, and the compiled `/app/bin/openbot` still needs embedded Go build/dependency metadata inspection or a reproducible build-to-SBOM mapping.
 
 **NO-GO remains** for runtime integration. Remaining gates:
-1. Inspect the compiled Go binary and establish its module/dependency inventory.
+1. Inspect the Bun executable and bundled JavaScript to derive an application dependency inventory; Go build-info inspection is not applicable.
 2. Verify Cosign signature against the exact immutable image digest using the upstream public key; verify available build provenance/attestation.
 3. Check Debian OS findings against Debian security tracker/backports.
 4. Resolve the application image SBOM gap and map source dependencies to the image.
@@ -546,13 +546,17 @@ The exact Linux/amd64 image layer containing `/app/bin/openbot` was downloaded d
 
 ### Build provenance verification — NOT VERIFIED
 
-The image workflow source at the matching commit contains BuildKit `provenance: true`, `sbom: true`, and an `actions/attest-build-provenance` step. However:
+A deeper review of `.github/workflows/images.yml` and `.github/published-images.json` corrects the earlier interpretation of the workflow:
 
-- `gh attestation verify` against the exact image index digest returned GitHub API HTTP 404 for the repository attestation endpoint.
-- The OCI index contains an SPDX SBOM attestation manifest, but the inspected attestation manifest predicate is SPDX, not SLSA provenance.
-- No successful cryptographic verification of a SLSA provenance statement tied to this image digest has been obtained.
+- The `backend-images` job resolves and pins digests for `openbot`, `openbot-server`, `openbot-agent-computer`, and `openbot-supervisor` from GHCR. It inspects existing registry images; it does not build the server image.
+- The `provenance: true` and `sbom: true` BuildKit options are in the separate `component-images` matrix. `.github/published-images.json` lists 13 `agent-*` images, not the `openbot-server` backend image under audit.
+- The `actions/attest-build-provenance` step is in `component-manifests`, which creates manifests for those component images. It is not evidence that the target `openbot-server` digest was built or attested by that workflow.
+- `gh attestation verify` against the exact server image index digest returned GitHub API HTTP 404 for the repository attestation endpoint.
+- The OCI index does contain an SPDX SBOM attestation manifest, but its predicate is SPDX, not SLSA provenance.
 
-Therefore **build provenance remains UNVERIFIED**, not confirmed absent. A repository-scoped GitHub attestation query with suitable access or the exact published provenance bundle is still required.
+**Correction:** the presence of BuildKit provenance/SBOM options and an attestation action somewhere in the same workflow does not establish provenance for the server image. That inference was too broad and is withdrawn. No successful cryptographic verification of a SLSA provenance statement tied to this server image digest has been obtained.
+
+Therefore **server-image build provenance remains UNVERIFIED**, not confirmed absent. The required next step is to identify the actual upstream workflow/repository that builds `ghcr.io/copilotkit/openbot-server` and obtain a provenance statement or verifiable attestation bundle for this exact digest.
 
 ### Updated decision
 
@@ -564,3 +568,67 @@ Therefore **build provenance remains UNVERIFIED**, not confirmed absent. A repos
 - Image runtime/exploitability: **NOT TESTED**.
 
 **NO-GO remains** for NOVA runtime integration. Next gates are to obtain and verify SLSA provenance for the exact digest, derive a complete application dependency SBOM from the exact build inputs or build pipeline, and triage the OS findings against Debian security status. No container was started and the executable was not run.
+
+
+## 16. Debian OS advisory triage and provenance-scope correction — 2026-11-16 UTC
+
+### Debian tracker validation of Trivy findings
+
+The Trivy JSON was parsed directly from the retained image scan artifact:
+
+- Trivy: `0.76.2`
+- Target: `ghcr.io/copilotkit/openbot-server@sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- Vulnerability match rows: **207**
+- Severity rows: High **48**, Medium **90**, Low **64**, Unknown **5**
+- Unique advisory IDs: **95**
+- Rows with a Trivy `FixedVersion`: **3**; rows without one: **204**
+
+The 207 rows are not 207 unique vulnerabilities or independent exploit paths. Multiple binary packages and shared libraries can map to the same source package/CVE. The 95 unique advisory IDs are the better count for distinct advisory identifiers, but still do not establish reachability.
+
+The image package versions were compared with Debian Security Tracker entries for Debian 13/Trixie. The following matches are confirmed as **vulnerable** in the tracker at audit time:
+
+| Image package(s) | Installed version | Advisory | Debian Trixie status | Qualification |
+|---|---|---|---|---|
+| `util-linux`, `mount`, `bsdutils`, `libmount1`, `libblkid1`, `libuuid1`, `libsmartcols1`, `liblastlog2-2`, `login` | `2.41.5-0+deb13u1` (related binary package revisions as in image) | CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410 | Vulnerable; some marked `no-dsa` | Mount-helper/post-hook, cgroup authority, detached-tree path and restricted-bind-mount issues. Do not assume the tools are reachable from the OpenBot server process. |
+| `libsqlite3-0` | `3.46.1-7+deb13u2` | CVE-2026-119373, CVE-2026-119374, CVE-2026-119379 | Vulnerable; `no-dsa` | FTS5/session-extension preconditions apply; application use of those features and attacker control of database content are not established. |
+| `libacl1` | `2.3.2-2+b1` | CVE-2026-54369 | Vulnerable | Local privilege escalation requires a privileged caller to process attacker-controlled path components; reachability not established. |
+| `libsystemd0`, `libudev1` | `257.13-1~deb13u1` | CVE-2026-16742 | Vulnerable; `no-dsa` | systemd-homed local privilege-escalation issue; whether systemd-homed is present/enabled/used in this container is not established. |
+| `libtinfo6`, `ncurses-base`, `ncurses-bin` | `6.5+20250216-2` | CVE-2025-69720 | Vulnerable; `no-dsa` | Stack overflow in `infocmp`; presence of package does not prove that the affected CLI path is invoked. |
+| `perl-base` | `5.40.1-6+deb13u1` | CVE-2026-9538 | Vulnerable; postponed | Archive::Tar memory exhaustion on crafted tar headers; application invocation and untrusted archive handling are not established. |
+
+Debian tracker sources checked:
+
+- https://security-tracker.debian.org/tracker/source-package/util-linux
+- https://security-tracker.debian.org/tracker/source-package/sqlite3
+- https://security-tracker.debian.org/tracker/CVE-2026-76642
+- https://security-tracker.debian.org/tracker/CVE-2026-78408
+- https://security-tracker.debian.org/tracker/CVE-2026-119373
+- https://security-tracker.debian.org/tracker/CVE-2026-54369
+- https://security-tracker.debian.org/tracker/CVE-2026-16742
+- https://security-tracker.debian.org/tracker/CVE-2025-69720
+- https://security-tracker.debian.org/tracker/CVE-2026-9538
+
+**Interpretation:** `no-dsa` and `postponed` are Debian triage decisions, not statements that a package is fixed or unaffected. These statuses must not be translated into “false positive.” Conversely, “vulnerable” at the OS package level is not proof that an exploitable path is exposed by this application. A runtime reachability review is still needed before assigning application-level severity.
+
+### Remediation direction
+
+1. Ask the upstream image maintainer for a rebuilt server image based on Debian package versions that address the applicable Trixie advisories, or a documented reason for retaining each package version.
+2. Do not blindly upgrade the image's OS packages independently; use the upstream reproducible build and test its entrypoint, Chromium, Bun runtime, and database migrations.
+3. For each advisory, record package source name, installed binary package version, Debian tracker status, fixed version/backport evidence, and whether the vulnerable executable/library path is used.
+4. Re-scan the replacement image by immutable digest and compare unique CVE IDs and package versions. A reduced Trivy row count alone is not an acceptance criterion.
+
+### Corrected build-provenance scope
+
+The upstream `.github/workflows/images.yml` review shows that its BuildKit `provenance: true`/`sbom: true` settings and `actions/attest-build-provenance` step apply to the 13 agent component images listed in `.github/published-images.json`, not to the `openbot-server` backend image. The workflow's `backend-images` job only inspects existing GHCR tags and records their digests.
+
+Accordingly, the earlier suggestion that this workflow itself established provenance for the server image is withdrawn. The SPDX attestation observed on the server image index remains valid evidence of an attached SBOM; it is not SLSA provenance. **SLSA provenance for the exact server image digest remains NOT VERIFIED.**
+
+### Updated assessment
+
+- Debian OS advisories: **CONFIRMED VULNERABLE PACKAGE MATCHES** across multiple Trixie packages; application reachability remains untested.
+- Trivy: **207 match rows / 95 unique advisory IDs**; do not treat match rows as unique exploitable flaws.
+- Application dependency SBOM: **INCOMPLETE**; image SPDX records Debian packages only.
+- Server-image SLSA provenance: **NOT VERIFIED**; workflow provenance steps were scoped to agent component images, not the server image.
+- Runtime, tenant isolation, computer policy, and exploitability: **NOT TESTED**.
+
+**NO-GO remains** for NOVA runtime integration. Continue with read-only source/build mapping and request an upstream server-image rebuild plus exact-digest provenance. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
