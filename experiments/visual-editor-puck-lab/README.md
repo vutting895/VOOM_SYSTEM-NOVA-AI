@@ -16,10 +16,10 @@ Status: **Typed build and browser rendering passed; drag/drop and export click r
 - Editable visual layout with Section Heading, Status Card, Safety Notice, and Activity Row blocks.
 - Defaults explicitly indicate READ-ONLY, LIVE TRADING OFF, and NOT CONNECTED.
 - No controls to place orders, change runtime policy, connect accounts, or modify production settings.
-- `@types/node` pinned to `22.18.6` to avoid an incomplete / incompatible Node 26 type declaration pulled transitively during the first install.
+- Direct dependencies are pinned to exact versions in `package.json`; the experiment does not commit a generated lockfile.
 
 ## Validation evidence
-- `npm install --no-audit --no-fund`: completed.
+- `npm install --no-audit --no-fund`: completed for local validation.
 - `npm run typecheck`: passed with strict TypeScript config.
 - `npm run build`: passed; Vite transformed 200 modules.
 - Local Vite preview returned HTTP 200 at `http://127.0.0.1:4178/`.
