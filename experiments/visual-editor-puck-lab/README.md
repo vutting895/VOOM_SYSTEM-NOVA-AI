@@ -1,6 +1,6 @@
-﻿# NOVA Puck Dashboard Prototype
+# NOVA Puck Dashboard Prototype
 
-Status: **Build and field-edit/export-JSON logic passed; drag/drop and actual browser file download remain unverified**
+Status: **Build, field editing and pointer drag/drop passed; browser file download remains unverified**
 
 ## Isolation
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
@@ -28,13 +28,13 @@ Status: **Build and field-edit/export-JSON logic passed; drag/drop and actual br
 - Field-edit interaction: selected the Runtime Status Card, changed `SANDBOX` to `INTERACTION_TEST_OK`, and confirmed the preview reflected the new value. **PASS**
 - Export action: invoked the visible `Export local JSON` control, intercepted the browser-local Blob, parsed it as valid JSON, and confirmed all 7 fixture components plus the safety notice were present. **BLOB GENERATION PASS; actual file download not verified**
 - Network observation: page/module requests were limited to `127.0.0.1:4178`; other observed URLs were a data URI and a same-origin Blob URL. No external/production request observed during this test.
-- Drag/drop: keyboard and pointer-driven attempts did not add a layer. This is **NOT VERIFIED**, not proof that all user-driven drag/drop paths fail; requires manual browser validation.
+- Pointer drag/drop: dragged an Activity Row from the Blocks palette into the root canvas using Chrome pointer events; a new `ActivityRow-*` component appeared in the canvas and its fields opened in the editor. **PASS**. Keyboard drag was not verified.
 - Largest minified JS chunk ~833 KB (243.7 KB gzip); code splitting remains an optimization item.
 
 ## Acceptance criteria
 1. Strict TypeScript check and production build pass. **PASS**
 2. Browser loads the editor and dashboard canvas. **PASS**
 3. Field editing updates the preview. **PASS**
-4. Drag/drop adds a component to the canvas. **NOT VERIFIED — automated attempts did not add a layer**
-5. Export creates valid local JSON without external network requests. **BLOB PASS; browser file download NOT VERIFIED**
+4. Pointer drag/drop adds a component to the canvas. **PASS**
+5. Export creates valid local JSON without external network requests. **BLOB PASS; actual browser download NOT VERIFIED**
 6. Production remains untouched. **PASS — main SHA unchanged; no merge/deploy**
