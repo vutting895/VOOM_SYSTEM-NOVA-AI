@@ -692,3 +692,58 @@ Until those artifacts are independently verified, classify server-image provenan
 - Runtime and tenant isolation: **NOT TESTED**.
 
 **NO-GO remains** for NOVA runtime integration. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
+
+
+## 18. Cost and licensing gate — 2026-11-16 UTC
+
+### Verified plan facts
+
+The official CopilotKit pricing page currently lists:
+
+- **Developer:** Free forever for one developer; cloud hosting included; limits include 3-day thread retention, 200 maximum threads, 1 GB multimodal storage, and 500 total channel credits.
+- **Pro:** USD 39/month.
+- **Team:** USD 100/seat/month, up to 5 seats; self-hosting including the database is listed at this tier.
+- **Enterprise:** custom pricing.
+
+Official documentation distinguishes cloud-hosted Intelligence from self-hosting. Cloud-hosted use still requires the customer's runtime, agent, and model-provider credentials. Self-hosted Intelligence access is listed for Team self-hosted or Enterprise plans.
+
+The local Intelligence evaluation guide states that the local CLI preview is not a production installation, is currently supported on macOS with Docker Desktop, and requires an evaluation license. The Developer plan qualifies, but non-Enterprise evaluation licenses last 30 days and require online renewal. It also states that model credentials are not included and calls to online model providers still need internet access.
+
+Sources:
+- https://www.copilotkit.ai/pricing
+- https://docs.copilotkit.ai/agent-spec/intelligence/overview
+- https://docs.copilotkit.ai/intelligence/self-hosting-local
+- https://docs.copilotkit.ai/a2a/intelligence/self-hosting-local
+
+### Implications for NOVA's zero-cost requirement
+
+1. **Cloud-hosted Developer tier** may allow a no-subscription evaluation, but it is not unlimited: the listed retention, thread, storage, and channel limits apply.
+2. **Production self-hosted CopilotKit Intelligence** is not established as a zero-cost option; official plan documentation places self-hosted access at Team self-hosted or Enterprise.
+3. OpenBot's run-from-source instructions require a CopilotKit Intelligence project/license and a model key for its proof-of-concept Bot. The provider's model usage is outside the Developer plan's stated included features and may incur separate charges; no provider billing account or quota has been inspected.
+4. Local Intelligence preview is not a viable NOVA production assumption: the official guide says macOS-only preview and not production. The user's existing Windows workflow does not meet that documented support scope.
+5. OpenBot's optional Composio provisioning, any third-party connectors, storage, egress, and runtime hosting costs have not been measured or proven free.
+
+### Cost decision
+
+- Zero-subscription proof of concept using the hosted Developer plan: **POTENTIALLY FEASIBLE WITH STRICT QUOTAS**, subject to model-provider and integration costs.
+- Zero-cost, self-hosted production Intelligence: **NOT ESTABLISHED; official plan gate indicates paid Team/Enterprise**.
+- Fully zero-cost OpenBot production: **NOT VERIFIED**.
+
+### Required cost controls before any trial
+
+- Do not enter a payment method or upgrade plan without explicit approval.
+- Use a dedicated evaluation project, not a NOVA production project.
+- Set provider-side spending caps/alerts before enabling model calls; confirm the provider supports hard limits rather than relying on alerts alone.
+- Disable optional Composio provisioning, channels, learning, and multimodal uploads unless the feature is required and its cost/terms are verified.
+- Record quotas, retention, renewal date, data export/deletion process, and service shutdown procedure.
+- Do not treat "free Developer plan" as proof that the complete OpenBot stack or its model calls are free.
+
+### Updated cost status
+
+- CopilotKit Developer tier: **FREE WITH QUOTAS**.
+- Self-hosted Intelligence production entitlement: **PAID PLAN GATE**.
+- Model provider spend: **UNASSESSED / POTENTIAL VARIABLE COST**.
+- Composio/third-party integrations: **UNASSESSED**.
+- Total OpenBot cost at NOVA's required zero-cost operating model: **NOT VERIFIED**.
+
+**NO-GO remains** for NOVA runtime integration. No billing account, payment method, project, or resource was created or changed. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
