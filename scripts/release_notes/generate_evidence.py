@@ -5,12 +5,15 @@ import datetime as dt
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 
 API = os.getenv("GITHUB_API_URL", "https://api.github.com").rstrip("/")
 REPO = os.environ["GITHUB_REPOSITORY"]
 TOKEN = os.environ["GITHUB_TOKEN"]
 NOW = dt.datetime.now(dt.timezone.utc)
+MAX_PAGES, PAGE_SIZE, MAX_COMPARE_COMMITS = 10, 100, 250
+
 
 def api(path: str):
     req = urllib.request.Request(
@@ -18,61 +21,85 @@ def api(path: str):
         headers={"Accept": "application/vnd.github+json", "Authorization": f"Bearer {TOKEN}",
                  "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "nova-release-notes-agent"},
     )
-    with urllib.request.urlopen(req, timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2048).decode("utf-8", errors="replace")
+        raise RuntimeError(f"GitHub API request failed ({exc.code}) for {path}: {detail}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise RuntimeError(f"GitHub API request failed for {path}: {exc}") from exc
+
 
 def pages(path: str):
-    page = 1
-    while page <= 10:
-        data = api(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}")
+    for page in range(1, MAX_PAGES + 1):
+        separator = "&" if "?" in path else "?"
+        data = api(f"{path}{separator}per_page={PAGE_SIZE}&page={page}")
+        if not isinstance(data, list):
+            raise RuntimeError(f"Expected a list response while paging {path}.")
         if not data:
-            break
+            return
         yield from data
-        if len(data) < 100:
-            break
-        if page == 10:
-            raise RuntimeError("Pagination safety limit reached; refusing a potentially truncated evidence pack.")
-        page += 1
+        if len(data) < PAGE_SIZE:
+            return
+    raise RuntimeError(f"Pagination safety limit ({MAX_PAGES} pages) reached; refusing a potentially truncated evidence pack.")
 
-def main():
-    default_branch = api("").get("default_branch")
-    if not default_branch:
-        raise RuntimeError("Could not resolve repository default branch.")
-    head_sha = api(f"commits/{default_branch}")["sha"]
-    tags = list(pages("tags"))
-    tag_candidates = []
-    for candidate in tags:
-        tagged_commit = api(f"commits/{candidate['commit']['sha']}")
-        date = tagged_commit.get("commit", {}).get("committer", {}).get("date", "")
-        tag_candidates.append((date, candidate, tagged_commit))
-    tag_candidates.sort(key=lambda row: row[0], reverse=True)
-    tag = tag_candidates[0][1] if tag_candidates else None
-    if tag:
-        compare = api(f"compare/{tag['name']}...{default_branch}")
-        commits = compare.get("commits", [])
-        expected = compare.get("total_commits", len(commits))
-        if expected > len(commits):
-            raise RuntimeError(f"Compare API returned {len(commits)} of {expected} commits; refusing an incomplete evidence pack.")
-        baseline = f"latest-by-commit-date tag {tag['name']} ({tag['commit']['sha'][:12]})"
-    else:
-        since = (NOW - dt.timedelta(days=7)).isoformat().replace("+00:00", "Z")
-        commits = list(pages(f"commits?since={since}"))
-        baseline = f"rolling 7-day window since {since}; no Git tag found"
+
+def resolve_tag_commit(tag_ref: dict) -> str:
+    """Resolve lightweight or annotated (including nested) tag refs to a commit SHA."""
+    obj = tag_ref.get("commit") or {}
+    sha, kind = obj.get("sha"), obj.get("type")
+    if not sha or kind not in ("commit", "tag"):
+        raise RuntimeError(f"Tag {tag_ref.get('name', '<unknown>')} has an unsupported target.")
+    for _ in range(5):
+        if kind == "commit":
+            return sha
+        target = (api(f"git/tags/{sha}").get("object") or {})
+        sha, kind = target.get("sha"), target.get("type")
+        if not sha or kind not in ("commit", "tag"):
+            raise RuntimeError(f"Could not resolve annotated tag {tag_ref.get('name', '<unknown>')}.")
+    raise RuntimeError(f"Annotated tag nesting limit exceeded for {tag_ref.get('name', '<unknown>')}.")
+
+
+def commit_date(data: dict) -> str:
+    commit = data.get("commit") or {}
+    return (commit.get("committer") or {}).get("date") or (commit.get("author") or {}).get("date") or ""
+
+
+def compare_commits(base: str, head: str) -> list:
+    """Fetch compare pages up to GitHub's documented 250-commit response limit."""
+    path = f"compare/{urllib.parse.quote(base, safe='')}...{urllib.parse.quote(head, safe='')}"
+    first = api(f"{path}?per_page={PAGE_SIZE}&page=1")
+    total = first.get("total_commits")
+    if not isinstance(total, int) or total < 0:
+        raise RuntimeError("Compare API did not return a valid total_commits value.")
+    if total > MAX_COMPARE_COMMITS:
+        raise RuntimeError(f"Compare contains {total} commits, above the API safety limit of {MAX_COMPARE_COMMITS}; refusing an incomplete evidence pack.")
+    commits = list(first.get("commits") or [])
+    expected_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    for page in range(2, expected_pages + 1):
+        response = api(f"{path}?per_page={PAGE_SIZE}&page={page}")
+        commits.extend(response.get("commits") or [])
+    if len(commits) != total:
+        raise RuntimeError(f"Compare API returned {len(commits)} of {total} commits; refusing an incomplete evidence pack.")
+    return commits
+
+
+def classify(commits: list) -> tuple[dict, list]:
     groups = {"Features": [], "Bug Fixes": [], "Improvements": [], "Other / Needs Review": []}
-    records = []
-    seen = set()
+    records, seen = [], set()
     for item in commits:
         sha = item.get("sha", "")
         if not sha or sha in seen:
             continue
         seen.add(sha)
-        msg = item.get("commit", {}).get("message", "").splitlines()[0].strip()
-        if not msg:
+        message = item.get("commit", {}).get("message", "").splitlines()[0].strip()
+        if not message:
             continue
-        record = {"sha": sha, "short_sha": sha[:12], "message": msg,
+        record = {"sha": sha, "short_sha": sha[:12], "message": message,
                   "url": item.get("html_url", ""), "author": (item.get("author") or {}).get("login")}
         records.append(record)
-        lower = msg.lower()
+        lower = message.lower()
         if lower.startswith(("feat", "feature")):
             groups["Features"].append(record)
         elif lower.startswith(("fix", "bugfix", "hotfix")):
@@ -81,29 +108,57 @@ def main():
             groups["Improvements"].append(record)
         else:
             groups["Other / Needs Review"].append(record)
+    return groups, records
+
+
+def main():
+    default_branch = api("").get("default_branch")
+    if not default_branch:
+        raise RuntimeError("Could not resolve repository default branch.")
+    head_sha = api(f"commits/{urllib.parse.quote(default_branch, safe='')}")["sha"]
+    candidates = []
+    for tag in pages("tags"):
+        commit_sha = resolve_tag_commit(tag)
+        tagged_commit = api(f"commits/{commit_sha}")
+        date = commit_date(tagged_commit)
+        if date:
+            candidates.append((date, tag, commit_sha))
+    candidates.sort(key=lambda row: row[0], reverse=True)
+
+    if candidates:
+        _, tag, tag_commit_sha = candidates[0]
+        commits = compare_commits(tag["name"], default_branch)
+        baseline = f"latest-by-commit-date tag {tag['name']} ({tag_commit_sha[:12]})"
+    else:
+        since = (NOW - dt.timedelta(days=7)).isoformat().replace("+00:00", "Z")
+        commits = list(pages(f"commits?since={urllib.parse.quote(since, safe=':')}"))
+        baseline = f"rolling 7-day window since {since}; no resolvable Git tag found"
+
+    groups, records = classify(commits)
     payload = {"repository": REPO, "generated_at_utc": NOW.isoformat(), "base": baseline,
                "head": head_sha, "default_branch": default_branch, "commit_count": len(records),
                "classification_note": "Prefix-based triage only; AI/human review required.",
                "categories": groups, "commits": records}
-    with open("release-notes-evidence.json", "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    with open("release-notes-evidence.json", "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
     lines = ["# Release Notes — Evidence Pack", "", f"- Repository: `{REPO}`",
              f"- Generated (UTC): {payload['generated_at_utc']}", f"- Baseline: {baseline}",
              f"- Head SHA: `{payload['head']}`", f"- Commits: {len(records)}",
              "- Status: DRAFT INPUT — not approved for publication", "",
              "> Categories below are heuristic commit-prefix groupings, not verified product claims.", ""]
     for category, items in groups.items():
-        lines += [f"## {category}", ""]
-        lines += ([f"- [{x['short_sha']}]({x['url']}) {x['message']}" for x in items] or ["- None"])
+        lines.extend([f"## {category}", ""])
+        lines.extend([f"- [{item['short_sha']}]({item['url']}) {item['message']}" for item in items] if items else ["- None"])
         lines.append("")
-    lines += ["## Review requirements", "", "- Verify each item against its PR and diff.",
-              "- Exclude merged/reverted work that does not affect the shipped build.",
-              "- Identify breaking changes, migrations, security changes, and user-visible impact only when evidenced.",
-              "- Do not infer completion from commit messages alone.",
-              "- Human approval is required before creating or publishing a GitHub Release."]
-    with open("release-notes-evidence.md", "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
+    lines.extend(["## Review requirements", "", "- Verify each item against its PR and diff.",
+                  "- Exclude merged/reverted work that does not affect the shipped build.",
+                  "- Identify breaking changes, migrations, security changes, and user-visible impact only when evidenced.",
+                  "- Do not infer completion from commit messages alone.",
+                  "- Human approval is required before creating or publishing a GitHub Release."])
+    with open("release-notes-evidence.md", "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
     print(f"Generated evidence for {len(records)} commits from {baseline}; no repository files were changed.")
+
 
 if __name__ == "__main__":
     main()
