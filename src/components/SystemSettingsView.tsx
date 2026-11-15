@@ -212,20 +212,28 @@ export default function SystemSettingsView() {
 
   function handleTriggerBackendTrain(symbol: string) {
     setSyncingBackend(true);
-    setAutoTrainNotice(`🔄 Backend Auto-Train: กำลังดึงกราฟสด ${symbol} มาเทรนโมเดลอัตโนมัติที่ Backend...`);
+    setAutoTrainNotice(`กำลังตรวจสอบ Training Runtime สำหรับ ${symbol}...`);
     fetch('/api/auto-train/trigger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) {
-          setAutoTrainNotice(data.statusNotification);
+      .then(async (response) => ({
+        ok: response.ok,
+        data: await response.json(),
+      }))
+      .then(({ ok, data }) => {
+        setAutoTrainNotice(
+          data?.statusNotification ||
+          (ok ? 'Training Runtime ตอบกลับแล้ว แต่ยังไม่มีหลักฐานผลการฝึก' : 'Training Runtime ยังไม่พร้อมใช้งาน')
+        );
+        if (ok && data?.ok === true && data?.available === true) {
+          notifySaved(`ยืนยันสถานะ Training Runtime สำหรับ ${symbol} แล้ว`);
         }
-        notifySaved(`สั่งซิงค์ข้อมูลและเทรนโมเดล ${symbol} ที่ Backend เรียบร้อยแล้ว`);
       })
-      .catch(() => {})
+      .catch(() => {
+        setAutoTrainNotice('ไม่สามารถตรวจสอบ Training Runtime ได้ — ไม่มีการยืนยันว่ามีการฝึกโมเดล');
+      })
       .finally(() => setSyncingBackend(false));
   }
 
