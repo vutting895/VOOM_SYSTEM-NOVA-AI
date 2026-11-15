@@ -52,7 +52,7 @@ The current Cloudflare build image is not a Windows runner and does not document
 - Local Supabase Auth/PostgREST stack integration tests that require Docker.
 - Windows PowerShell host/runtime checks.
 
-The build script requires both `WORKERS_CI_BRANCH` and `WORKERS_CI_COMMIT_SHA`; if either is missing, it stops before running tests. It fetches `main` into the explicit `refs/remotes/origin/main` tracking ref, verifies that the supplied commit SHA exactly equals the checked-out `git rev-parse HEAD`, and prints the verified SHA before classifying changed files. A mismatch exits as BLOCKED. Configure both variables from the build's actual branch and commit metadata; never set them to a stale or manually guessed value.
+Cloudflare Workers Builds automatically injects `WORKERS_CI_BRANCH` and `WORKERS_CI_COMMIT_SHA`. The script requires both and stops before tests if either is missing. It fetches `main` into the explicit `refs/remotes/origin/main` tracking ref, verifies that the injected commit SHA exactly equals the checked-out `git rev-parse HEAD`, and prints the verified SHA before classifying changed files. A mismatch exits as BLOCKED. Do not hardcode or override these build-provided values.
 
 The build script fails closed when a PR changes files that trigger any existing workflow requiring these unsupported gates. The Quant Engine Foundation workflow is Python-only and is included in the portable CI checks; it is not classified as a Docker gate. The guard covers:
 
@@ -66,7 +66,7 @@ A blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing
 
 ## Reproducibility limitation
 
-The root `package.json` contains semver ranges, so the CI requires a committed root `package-lock.json`. The script stops with `BLOCKED` if that file is absent and uses `npm ci` when it is present. Generate the lockfile from the exact PR commit in a Node 24 environment, then validate it with `npm ci` and the full CI script before treating the hosted job as release-ready. Do not create a placeholder or hand-write lockfile data.
+The root `package.json` contains semver ranges, so the CI requires the committed root `package-lock.json`. The lockfile is now committed and validated with `npm ci` and the full portable CI script on the exact PR commit. The script stops with `BLOCKED` if the lockfile is absent; do not create a placeholder or hand-write lockfile data.
 
 ## Migration order
 
