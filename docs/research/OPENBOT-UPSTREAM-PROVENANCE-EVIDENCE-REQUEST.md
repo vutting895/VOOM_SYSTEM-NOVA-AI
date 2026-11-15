@@ -1,10 +1,20 @@
 # Upstream evidence request — OpenBot backend image provenance
 
-**Purpose:** Request the minimum verifiable evidence needed to assess the OpenBot backend image before any NOVA integration.  
-**Status:** Draft only — not sent, not opened as an issue.  
-**Audited image:** `ghcr.io/copilotkit/openbot-server:main-20261114-78`  
-**OCI index digest:** `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`  
-**Linux/amd64 manifest digest:** `sha256:249fcc737b98e6bb15cb43f1bdfcd0ccd5b265e324b78bca6d6706ad9c98a90c`
+> **Internal draft for review only — not production policy, not sent, and not an opened issue.** Do not contact the upstream maintainers without explicit approval.
+
+## Snapshot and evidence checklist
+
+- **Draft prepared:** 2026-11-16 UTC
+- **Upstream source workflow checked:** OpenBot commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`
+- **Audited image:** `ghcr.io/copilotkit/openbot-server:main-20261114-78`
+- **OCI index digest:** `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- **Linux/amd64 manifest digest:** `sha256:249fcc737b98e6bb15cb43f1bdfcd0ccd5b265e324b78bca6d6706ad9c98a90c`
+
+| Checked | Not verified / pending |
+|---|---|
+| OpenBot workflow reviewed; backend job appears to inspect/pin existing images | Builder repository and immutable workflow/run identity |
+| Image signature and OS-package SPDX attestation checked, with limitations | Digest-bound SLSA provenance and application dependency SBOM |
+| Request text drafted | Maintainer contact, issue creation, and any external action (explicit approval required) |
 
 ## Ready-to-send request
 
@@ -48,4 +58,4 @@ Do not mark provenance verified until all applicable items are received and vali
 
 A response that only names a repository, points to a mutable tag, supplies an SBOM without digest binding, or provides a signature without source/build provenance is **not sufficient** to close the source-to-image gap.
 
-Until the evidence is validated, retain **NO-GO for NOVA Runtime integration**. This request does not authorize running containers, connecting credentials, granting access, creating external resources, or changing Production.
+Until the evidence is validated, retain **NO-GO for NOVA Runtime integration**. This request does not authorize running containers, connecting credentials, granting access, creating external resources, or changing production.

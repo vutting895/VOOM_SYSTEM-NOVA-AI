@@ -1,78 +1,73 @@
 # OpenBot backend image publisher follow-up
 
-**Audit date:** 2026-11-16 UTC  
-**NOVA repository:** `vutting895/VOOM_SYSTEM-NOVA-AI`  
-**Branch:** `experiment/copilotkit-openbot-security-audit`  
-**NOVA main SHA checked before this write:** `02480d48c421dab573ac976be6d90d9efb46fa17`  
-**Upstream OpenBot source commit used for the audited image:** `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`  
-**Audited image:** `ghcr.io/copilotkit/openbot-server:main-20261114-78`  
-**Audited OCI index digest:** `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+> **Internal research follow-up — not production policy or a security certification.** This document focuses on backend image publishing/provenance; the broader security and dependency findings are summarized in [the main assessment](COPILOTKIT-OPENBOT-SECURITY-ASSESSMENT.md).
 
-## 1. Historical workflow at the audited image's embedded commit
+## Snapshot and evidence checklist
 
-The exact `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3` version of `.github/workflows/images.yml` has a `backend-images` job that inspects and pins existing registry images. It includes `ghcr.io/copilotkit/openbot-server`, `openbot-agent-computer`, `openbot-supervisor`, and the all-in-one `openbot` image. It checks manifest digests and platform coverage; it does not build or push those backend images.
+- **Reviewed:** 2026-11-16 UTC
+- **Audited image:** `ghcr.io/copilotkit/openbot-server:main-20261114-78`
+- **OCI index digest:** `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- **Linux/amd64 manifest:** `sha256:249fcc737b98e6bb15cb43f1bdfcd0ccd5b265e324b78bca6d6706ad9c98a90c`
+- **Historical OpenBot checkout inspected:** `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`
 
-The same workflow separately builds the component images listed in `.github/published-images.json` and applies BuildKit provenance/SBOM options and GitHub build-provenance attestations to those component images. Those attestations cannot be attributed to the separately pre-published `openbot-server` digest.
+| Checked / verified | Not verified / incomplete |
+|---|---|
+| Historical and later OpenBot image workflow files inspected | Actual backend image builder repository/workflow and immutable run identity |
+| Signature checked against upstream public key; OCI SPDX attestation subject/blob digests checked | SLSA/in-toto build provenance for this backend digest |
+| Image SBOM attests to Debian package inventory | Application dependency SBOM and source-to-image mapping |
+| Public repository searches performed | Whether a private, unindexed, or external builder exists |
 
-At that exact source commit, `backend-images.env` sets `OPENBOT_BACKEND_TAG=main`. The release/internal-build workflow passes this tag to the reusable image workflow. This is evidence that the checked-out OpenBot repo consumes an existing backend image, not evidence of which workflow created it.
+## Findings
 
-## 2. Current upstream workflow cross-check
+### What the inspected OpenBot workflow does
 
-A later public OpenBot commit, `e52146a8aac708cca3065ef0b8eb3304bc06b7a8`, was also inspected to detect an architectural rename or changed publisher path.
+At commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`, `.github/workflows/images.yml` has a `backend-images` job that inspects existing GHCR tags, validates platform descriptors, and records image digests. It authenticates with `packages: read`; it does not build or push the backend images. `internal-build.yml` passes a backend tag (default `main`) to this reusable workflow, and `publish-release.yml` also calls it without independently building the backend server image.
 
-The current workflow comments explicitly say the server/computer/supervisor images are the already-published OpenBot images at a selected backend tag. The backend job still authenticates with `packages: read`, inspects the existing image tags, validates platform descriptors, and records digests. The provenance and SBOM steps remain under the separate component image build jobs.
+The separate `component-images` matrix builds the 13 images in `.github/published-images.json` with BuildKit provenance/SBOM options. `component-manifests` attests those component-image manifests. That workflow evidence does not establish provenance for `openbot-server`.
 
-The later checkout's `backend-images.env` now points to `ghcr.io/copilotkit/openbot:main`; the Compose configuration describes the server and computer as commands running from this shared image. This is a later naming/packaging evolution. It does not retroactively establish provenance for the older `openbot-server:main-20261114-78` digest audited above.
+A later public checkout (`e52146a8aac708cca3065ef0b8eb3304bc06b7a8`) still treats backend images as pre-published. It uses a shared `ghcr.io/copilotkit/openbot:main` image for server/computer commands; this later packaging change does not establish provenance for the audited older digest.
 
-Relevant upstream evidence:
-- Historical backend image workflow at the audited source commit: https://github.com/CopilotKit/OpenBot/blob/7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3/.github/workflows/images.yml
-- Historical backend tag: https://github.com/CopilotKit/OpenBot/blob/7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3/backend-images.env
-- Later backend image workflow: https://github.com/CopilotKit/OpenBot/blob/e52146a8aac708cca3065ef0b8eb3304bc06b7a8/.github/workflows/images.yml
-- Later Compose configuration: https://github.com/CopilotKit/OpenBot/blob/e52146a8aac708cca3065ef0b8eb3304bc06b7a8/docker-compose.yml
-- Later backend tag: https://github.com/CopilotKit/OpenBot/blob/e52146a8aac708cca3065ef0b8eb3304bc06b7a8/backend-images.env
+### Source mapping and bounded discovery
 
-## 3. Public repository discovery
+The audited image contains a commit-like string `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`, but the matching OpenBot checkout has no `server/` source directory, server Dockerfile, or root Dockerfile for building `openbot-server`. Its Compose configuration describes the server image as pulled rather than built there. Treat the embedded value as metadata only; a source-to-binary relationship has not been demonstrated.
 
-Read-only GitHub searches were performed for repositories and code matching:
-- `openbot-server` within the CopilotKit organization;
-- `openbot backend` within the CopilotKit organization;
-- the exact image name `ghcr.io/copilotkit/openbot-server`;
-- `openbot-server Dockerfile` and backend tag references.
+Read-only public repository/code searches did not identify a clear separate public CopilotKit builder repository. This is a bounded search result, not proof that no builder exists: the publisher may use a private/unindexed repository or an external CI system.
 
-No separate public CopilotKit repository clearly identifiable as the server image builder was returned by the organization repository searches. Global code results did not establish a trusted build repository or workflow for the exact audited digest.
+### Signature, SBOM, and provenance status
 
-This is a bounded search result, **not proof that no builder exists**. The image may be built in a private repository, an unindexed repository, an external build system, or a workflow not discoverable through the public search surface.
+- **Cosign signature:** verified against `docs/cosign.pub` from the inspected checkout for the exact image index digest. Verification used `--insecure-ignore-tlog=true`, so transparency-log inclusion was not checked.
+- **OCI SPDX SBOM:** present; its subject is the Linux/amd64 manifest digest and the SBOM blob digest was verified. It records Debian OS packages (80 package PURLs), not application dependencies.
+- **SLSA/in-toto build provenance:** NOT VERIFIED. The OpenBot workflow's component-image attestations do not apply to this backend image. A signature and SBOM are not substitutes for source/build provenance.
+- **Documentation discrepancy:** `docs/releasing.md` broadly describes provenance alongside published images, while the inspected workflow only attests the component images it builds. The backend job consumes/pins existing images. Maintainer clarification is needed.
 
-## 4. Corrected conclusion
+## Required upstream evidence
 
-- The audited OpenBot repository commit consumes/pins a pre-published backend image.
-- The later OpenBot workflow continues to consume/pin pre-published backend images; it does not show a build of the backend image in that workflow.
-- The component image provenance workflow is not provenance for the backend image.
-- The actual builder repository, Dockerfile/build context, workflow run ID, and source-to-image relationship for `sha256:13ba8a1d...` remain **NOT IDENTIFIED / NOT VERIFIED**.
-- The embedded commit-like string remains metadata only; it is not sufficient to prove source-to-binary mapping.
-- The image's verified Cosign signature and OCI SPDX SBOM remain valid evidence within their previously stated limitations, but neither substitutes for SLSA build provenance.
+Request the following for the exact digest:
 
-## 5. Required upstream evidence request
+1. Builder repository, workflow path, immutable run URL/ID, and builder identity.
+2. Source repository and exact commit, Dockerfile path, build context, and build parameters.
+3. Verifiable in-toto/SLSA provenance whose subject matches the audited OCI index or platform manifest.
+4. Application/runtime SBOM tied to the same digest, plus the dependency lockfile/build input reference.
+5. Rebuild and vulnerability patch/promotion policy for backend images.
 
-Ask the CopilotKit image maintainer to provide:
-1. The repository and workflow path that built and pushed `openbot-server:main-20261114-78`.
-2. The immutable workflow run URL/run ID and builder identity.
-3. The exact source commit, Dockerfile, build context, and build parameters.
-4. A verifiable in-toto/SLSA provenance statement whose subject digest matches the audited OCI index or platform manifest.
-5. A production application dependency SBOM tied to the same image digest.
+The ready-to-send request is drafted in [OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-REQUEST.md](OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-REQUEST.md); it has **not** been sent and no upstream issue has been opened.
 
-Do not open an upstream issue or send a message without explicit approval.
-
-## 6. Status and safety boundary
+## Status and safety boundary
 
 | Item | Status |
 |---|---|
-| Historical OpenBot backend workflow inspected | DONE |
-| Later upstream workflow cross-check | DONE |
-| Public builder-repository search | DONE — no clear public builder identified |
-| Exact backend builder identity | BLOCKED — not identified |
+| Historical and later backend workflow review | DONE |
+| Public search for a clear builder repository | DONE — no public builder identified in this bounded search |
+| Exact backend builder identity | NOT IDENTIFIED |
 | Exact digest SLSA provenance | NOT VERIFIED |
 | Application dependency SBOM | INCOMPLETE |
-| NOVA Runtime integration | NO-GO |
+| NOVA runtime integration | NO-GO |
 
-No OpenBot container was started, no executable was run, no secrets or billing accounts were accessed, and no NOVA Production resource was changed. This follow-up is documentation-only on the existing audit branch; no PR or merge was created.
+No OpenBot container was started, no executable was run, no secrets or billing accounts were accessed, and no NOVA production resource was changed.
+
+## Upstream source references
+
+- [Historical image workflow](https://github.com/CopilotKit/OpenBot/blob/7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3/.github/workflows/images.yml)
+- [Historical backend tag](https://github.com/CopilotKit/OpenBot/blob/7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3/backend-images.env)
+- [Later image workflow](https://github.com/CopilotKit/OpenBot/blob/e52146a8aac708cca3065ef0b8eb3304bc06b7a8/.github/workflows/images.yml)
+- [Later Compose configuration](https://github.com/CopilotKit/OpenBot/blob/e52146a8aac708cca3065ef0b8eb3304bc06b7a8/docker-compose.yml)
