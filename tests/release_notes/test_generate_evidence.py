@@ -11,25 +11,30 @@ SPEC.loader.exec_module(agent)
 
 class ReleaseNotesEvidenceTests(unittest.TestCase):
     def test_lightweight_tag_resolves_to_commit(self):
-        tag = {"name": "v1.0", "commit": {"sha": "abc123", "type": "commit"}}
-        self.assertEqual(agent.resolve_tag_commit(tag), "abc123")
+        tag = {"name": "v1.0", "commit": {"sha": "abc123", "url": "https://api.github.com/commits/abc123"}}
+        with patch.object(agent, "api", return_value={"object": {"sha": "abc123", "type": "commit"}}):
+            self.assertEqual(agent.resolve_tag_commit(tag), "abc123")
 
     def test_annotated_tag_resolves_to_target_commit(self):
-        tag = {"name": "v1.1", "commit": {"sha": "tag-object", "type": "tag"}}
-        with patch.object(agent, "api", return_value={"object": {"sha": "commit-sha", "type": "commit"}}):
+        tag = {"name": "v1.1", "commit": {"sha": "tag-object"}}
+        responses = [{"object": {"sha": "tag-object", "type": "tag"}},
+                     {"object": {"sha": "commit-sha", "type": "commit"}}]
+        with patch.object(agent, "api", side_effect=responses):
             self.assertEqual(agent.resolve_tag_commit(tag), "commit-sha")
 
     def test_nested_annotated_tag_resolves(self):
-        tag = {"name": "v1.2", "commit": {"sha": "outer-tag", "type": "tag"}}
-        responses = [{"object": {"sha": "inner-tag", "type": "tag"}},
+        tag = {"name": "v1.2", "commit": {"sha": "outer-tag"}}
+        responses = [{"object": {"sha": "outer-tag", "type": "tag"}},
+                     {"object": {"sha": "inner-tag", "type": "tag"}},
                      {"object": {"sha": "final-commit", "type": "commit"}}]
         with patch.object(agent, "api", side_effect=responses):
             self.assertEqual(agent.resolve_tag_commit(tag), "final-commit")
 
     def test_unsupported_tag_target_fails_closed(self):
-        tag = {"name": "bad-tag", "commit": {"sha": "blob-sha", "type": "blob"}}
-        with self.assertRaises(RuntimeError):
-            agent.resolve_tag_commit(tag)
+        tag = {"name": "bad-tag", "commit": {"sha": "blob-sha"}}
+        with patch.object(agent, "api", return_value={"object": {"sha": "blob-sha", "type": "blob"}}):
+            with self.assertRaises(RuntimeError):
+                agent.resolve_tag_commit(tag)
 
     def test_compare_rejects_truncated_response(self):
         with patch.object(agent, "api", return_value={"total_commits": 2, "commits": [{"sha": "one"}]}):
