@@ -251,3 +251,153 @@ test("Cloudflare rollback UI origin remains allowed", async () => {
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+const LIVE_CONNECTION_ID = "00000000-0000-4000-8000-000000000001";
+function verifiedBars(now = Date.now(), count = 120) {
+  const start = now - (count - 1) * 60_000;
+  let previous = 2000;
+  return Array.from({ length: count }, (_, index) => {
+    const close = 2000 + index * 0.4;
+    const open = previous;
+    previous = close;
+    return {
+      time: new Date(start + index * 60_000).toISOString(),
+      open,
+      high: Math.max(open, close) + 0.2,
+      low: Math.min(open, close) - 0.2,
+      close
+    };
+  });
+}
+
+test("market analysis uses only authenticated System Hub candles and returns research-only features", async () => {
+  const now = Date.now();
+  const bars = verifiedBars(now);
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.example" && url.pathname === "/auth/v1/user") {
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      return Response.json({ id: "user-test" });
+    }
+    if (url.origin === "https://voom-system-hub.suwapat787.workers.dev") {
+      assert.equal(url.pathname, "/v1/connections/" + LIVE_CONNECTION_ID + "/quotes");
+      assert.equal(url.searchParams.get("symbol"), "XAUUSDm");
+      assert.equal(url.searchParams.get("timeframe"), "M5");
+      assert.equal(url.searchParams.get("count"), "120");
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      assert.equal(init.redirect, "error");
+      return Response.json({
+        dataVerified: true,
+        quote: {
+          symbol: "XAUUSDm", environment: "live", timeframe: "M5",
+          tick: { bid: 2047.8, ask: 2048.0, time: new Date(now).toISOString() },
+          as_of: new Date(now).toISOString(),
+          bars
+        }
+      });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (model, input) => {
+        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
+        assert.match(input.messages[0].content, /Do not tell the user to buy or sell/);
+        return { response: "EMA20 อยู่เหนือ EMA50 และ RSI สนับสนุนโมเมนตัมขาขึ้น แต่ยังเป็นเพียง research watch" };
+      }
+    }
+  };
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/market/analyze", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ connectionId: LIVE_CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M5", count: 120 })
+    }), aiEnv);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.source.provider, "exness_mt5");
+    assert.equal(body.source.environment, "live");
+    assert.equal(body.source.dataVerified, true);
+    assert.equal(body.analysis.signal, "bullish_watch");
+    assert.equal(body.analysis.riskStatus, "not_evaluated");
+    assert.equal(body.analysis.currentBarExcluded, true);
+    assert.equal(body.analysis.smc.ok, true);
+    assert.equal(body.analysis.smc.ordersSubmitted, false);
+    assert.match(body.analysis.rationale, /research watch/);
+    assert.equal(body.executionEnabled, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("market analysis rejects stale broker ticks before running model inference", async () => {
+  const oldTime = Date.now() - 5 * 60_000;
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.example") return Response.json({ id: "user-test" });
+    if (url.origin === "https://voom-system-hub.suwapat787.workers.dev") {
+      return Response.json({
+        dataVerified: true,
+        quote: {
+          symbol: "XAUUSDm", environment: "demo", timeframe: "M5",
+          tick: { time: new Date(oldTime).toISOString() },
+          bars: verifiedBars(Date.now())
+        }
+      });
+    }
+    throw new Error("Unexpected outbound request");
+  };
+  let aiCalled = false;
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/market/analyze", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ connectionId: LIVE_CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M5", count: 120 })
+    }), { ...env, AI: { run: async () => { aiCalled = true; return { response: "must not run" }; } } });
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error, "market_data_stale");
+    assert.equal(aiCalled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("market analysis rejects data that System Hub has not verified", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.example") return Response.json({ id: "user-test" });
+    if (url.origin === "https://voom-system-hub.suwapat787.workers.dev") {
+      return Response.json({ dataVerified: false, quote: { symbol: "XAUUSDm", timeframe: "M5", bars: verifiedBars() } });
+    }
+    throw new Error("Unexpected outbound request");
+  };
+  try {
+    const response = await worker.fetch(new Request("https://worker.test/api/market/analyze", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ connectionId: LIVE_CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M5", count: 120 })
+    }), env);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).error, "market_data_not_verified");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("market analysis rejects arbitrary fields and invalid connection identifiers", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/market/analyze", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ connectionId: LIVE_CONNECTION_ID, symbol: "XAUUSDm", timeframe: "M5", count: 120, tenantId: "attacker" })
+  }), env);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "unknown_market_analysis_field");
+});
