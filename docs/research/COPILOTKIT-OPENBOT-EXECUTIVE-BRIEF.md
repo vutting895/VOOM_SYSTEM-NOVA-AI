@@ -1,10 +1,10 @@
 # OpenBot Security Review — Executive Brief
 
-> **Internal research summary only. This is not production policy, a security certification, or approval to deploy.** It condenses the detailed [security assessment](COPILOTKIT-OPENBOT-SECURITY-ASSESSMENT.md); consult that report for evidence, scope, limitations, and sources.
+> **Internal research summary only. This is not production policy, a security certification, a NOVA-wide release decision, or approval to deploy.** It condenses the detailed [security assessment](COPILOTKIT-OPENBOT-SECURITY-ASSESSMENT.md); consult that report for evidence, scope, limitations, and sources.
 
-## Decision
+## Internal research recommendation
 
-**NO-GO for NOVA runtime installation or production integration.** Continue read-only review only. Any future isolated evaluation requires closing the evidence and safety gates below.
+**Do not proceed with OpenBot runtime installation or NOVA integration based on the evidence currently available.** This is a preliminary recommendation for this OpenBot evaluation only, pending upstream evidence and separate formal platform/security approval. It does not independently assess or resolve NOVA's other release blockers.
 
 ## What was reviewed
 
@@ -29,12 +29,13 @@
 - Image scan: Trivy v0.76.2; 207 match rows / 95 unique advisory IDs, with no Critical matches in that database snapshot.
 - Source scan: OSV-Scanner v2.7.1 at the referenced checkout; see the detailed assessment for counts and coverage qualifications.
 
-## Gates before reconsideration
+## Conditions before reconsideration
 
 1. Verify trusted builder identity and in-toto/SLSA provenance bound to the exact image digest.
 2. Obtain a complete application/runtime SBOM for that digest and map dependencies to the actual build inputs.
 3. Triage and remediate applicable dependency and OS findings for the intended deployment.
 4. Test deny-by-default computer policy, isolation, and network restrictions in a disposable environment.
 5. Confirm entitlements, quotas, and provider-side spending limits before enabling model calls.
+6. Obtain separate formal platform/security approval before any runtime integration or deployment.
 
 No OpenBot runtime was installed or executed, no upstream request was sent, and no NOVA production resource or configuration was changed.
