@@ -347,3 +347,84 @@ Still not performed:
 - Runtime reachability and exploitability validation.
 - Deny-by-default policy negative tests.
 - Any OpenBot runtime test or NOVA integration.
+
+
+## 13. Remote registry image scan — 2026-11-15 UTC
+
+### Image selected and immutable identity
+
+The published server image was scanned directly from GHCR using Trivy remote-image mode. No Docker daemon, local container runtime, container start, or application execution was used.
+
+- Reference: `ghcr.io/copilotkit/openbot-server:main-20261114-78`
+- Registry digest: `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- Linux/amd64 platform manifest digest: `sha256:249fcc737b98e6bb15cb43f1bdfcd0ccd5b265e324b78bca6d6706ad9c98a90c`
+- Image config ID: `sha256:27a53cb929817ad818f70922da56638db15446e598fef95456974777b0d6200b`
+- Image OS: Debian 13.7
+- Image config user: `openbot:openbot` (non-root)
+- Exposed port: `3001/tcp`
+- Embedded build commit: `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`
+- Embedded build timestamp: `2026-11-14T13:45:07Z`
+- Compressed layer total: 78,651,833 bytes; Trivy reports uncompressed image size 245,474,816 bytes.
+
+**Important source/image mismatch:** the disposable source checkout used for the earlier OSV source scan is commit `dff27a3b5baebe36c6e7503532eaba57956ca95d`, while this published image embeds commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`. The source scan and this image scan therefore describe different source revisions. Do not use one as a complete substitute for the other; a commit-matched source and image scan is still required.
+
+### Scanner provenance
+
+- Tool: Aqua Security Trivy `v0.76.2`
+- Official Windows release archive SHA-256 checked against the release checksum file:
+  `691f737a7e5566a673c3a74dab9160552ec32101e953b659e5c77443d16dddb6`
+- Scan mode: `--image-src remote --platform linux/amd64`
+- Vulnerability DB and misconfiguration checks bundle were downloaded by Trivy.
+- No container runtime was installed.
+
+### Image vulnerability results
+
+| Severity | Match rows | Unique advisory IDs |
+|---|---:|---:|
+| Critical | 0 | 0 |
+| High | 48 | 13 |
+| Medium | 90 | 44 |
+| Low | 64 | 35 |
+| Unknown | 5 | 3 |
+| **Total** | **207** | **95** |
+
+- 43 unique OS package/version tuples were affected.
+- Trivy detected 80 Debian OS packages.
+- Only 3 match rows had a fixed version listed in this scan output (2 High and 1 Medium); the remaining rows did not report a fixed version. This is not proof that no vendor backport or later fix exists: Debian advisory status and package changelogs must be checked before remediation.
+- No Critical findings were reported by this Trivy database for this image digest.
+- No language-specific package files were detected (`num=0`). This is a significant coverage boundary because the image includes a compiled `/app/bin/openbot` binary and copied application assets; this scan does not establish that all application-level dependencies inside those artifacts are free of vulnerabilities.
+
+Examples of High OS-package matches include ncurses, SQLite, systemd, util-linux, and ACL-related packages. Some advisories affect multiple binary/library package records from the same OS component; do not interpret the 48 High rows as 48 independent exploit paths.
+
+### Image configuration and secret scan
+
+A second Trivy run enabled vulnerability, secret, and image-configuration misconfiguration scanners:
+
+- Secret findings: **0**
+- Image configuration misconfigurations: **1 Low**
+- Finding: `DS-0026 — No HEALTHCHECK defined`
+- The image config declares the process user as `openbot:openbot`, not root.
+- No runtime secrets were detected in the scanned image layers. This does not inspect deployment environment variables or external secret stores.
+
+The absence of a Docker HEALTHCHECK is an operational resilience/health-reporting gap, not evidence of a direct compromise. Add a health check only after confirming a reliable health endpoint and ensuring it does not expose sensitive information.
+
+### Local image scan evidence
+
+All artifacts remain in the isolated audit folder, outside the NOVA repository:
+
+- `openbot-server-image-trivy.json` — vulnerability-only report; 1,070,404 bytes; SHA-256 `d0d0f563d17ac580df732066b8ee48e2063d9d42dfe60c2ac1c16d1b131ae64a`
+- `openbot-server-image-security.json` — vulnerability + secret + image configuration report; 1,071,600 bytes; SHA-256 `8a956403e609e911f9b2a44ef8fe4c31ca395c503e6de298a24aaf446d7d39f5`
+
+### Updated assessment
+
+The actual published server image has now been scanned remotely. This confirms an OS-package vulnerability backlog in the selected digest, but does not prove exploitability or reachability. The non-root image user is a positive control; the missing HEALTHCHECK is a low-severity operational issue. The absence of language-specific files means application dependency coverage remains incomplete.
+
+**NO-GO remains** for NOVA runtime integration. Do not bulk-update Debian packages or application dependencies inside the image without matching the image's exact source commit, rebuilding in an isolated pipeline, and re-running source + image scans. The next required gates are:
+1. Match the published image to exact source commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3` and run source scanning on that commit.
+2. Inspect the compiled Go binary and application assets for embedded dependency metadata; establish application dependency coverage.
+3. Verify the image signature/provenance and confirm the release's pinned digest.
+4. Triage Debian advisories against Debian security tracker/backports and identify fixed package versions.
+5. Repeat the same Trivy scan after any upstream remediation; compare results by digest.
+6. Test deny-by-default computer policy and tenant isolation in a disposable environment before considering runtime evaluation.
+
+No OpenBot runtime was started, no secrets were supplied, no paid service was created, and no NOVA Production resource was touched.
