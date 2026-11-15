@@ -39,7 +39,7 @@ if [[ -n "${WORKERS_CI_BRANCH:-}" ]]; then
         unsupported+=("$path")
         ;;
       # Docker-backed SMC research and container acceptance gates.
-      infra/docker-compose.yml|Dockerfile|workers/Dockerfile|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|tests/test_quant_engine.py|tests/test_quant_experiment_contract.py|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|.github/workflows/smc-research-ci.yml|.github/workflows/quant-engine-foundation-ci.yml)
+      infra/docker-compose.yml|Dockerfile|workers/Dockerfile|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|workers/quant_engine/*|workers/quant_engine/**|tests/test_quant*.py|docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|.github/workflows/smc-research-ci.yml|.github/workflows/quant-engine-foundation-ci.yml)
         unsupported+=("$path")
         ;;
       # Windows-hosted PowerShell/runtime acceptance gates.
