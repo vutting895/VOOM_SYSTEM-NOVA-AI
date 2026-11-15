@@ -79,6 +79,8 @@ jobs:
         run: npm install --no-package-lock --include=dev
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
+      - name: Test NOVA fail-closed risk governor proposal contract
+        run: python -m unittest discover -s tests -p "test_nova_risk_governor.py"
 
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
