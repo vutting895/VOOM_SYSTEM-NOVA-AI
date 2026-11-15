@@ -46,8 +46,6 @@ if [[ -n "${WORKERS_CI_BRANCH:-}" ]]; then
       tools/windows/*|tools/windows/**|integrations/mt5-readonly-bridge/*|integrations/mt5-readonly-bridge/**|README.md|.github/workflows/windows-runtime-ci.yml)
         unsupported+=("$path")
         ;;
-        unsupported+=("$path")
-        ;;
     esac
   done <<< "$changed_files"
   if (( ${#unsupported[@]} > 0 )); then
