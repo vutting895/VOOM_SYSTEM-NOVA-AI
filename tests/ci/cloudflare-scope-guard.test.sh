@@ -8,14 +8,15 @@ for path in \
   "infra/docker-compose.yaml" \
   "integrations/mt5-readonly-bridge/run-bridge.ps1" \
   "scripts/windows/provision.psm1" \
-  "supabase/migrations/20261115000100_test.sql"; do
+  "supabase/migrations/20261115000100_test.sql" \
+  "package-lock.json"; do
   if ! is_unsupported_path "$path"; then
     printf 'FAIL: expected unsupported path to be blocked: %s\n' "$path" >&2
     exit 1
   fi
 done
 
-for path in "frontend/src/components/button.tsx" "docs/architecture/overview.md" "package-lock.json" "workers/quant_engine/engine.py" "tests/test_quant_engine.py"; do
+for path in "frontend/src/components/button.tsx" "docs/architecture/overview.md" "workers/quant_engine/engine.py" "tests/test_quant_engine.py"; do
   if is_unsupported_path "$path"; then
     printf 'FAIL: portable path was incorrectly blocked: %s\n' "$path" >&2
     exit 1
