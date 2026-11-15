@@ -421,7 +421,7 @@ The actual published server image has now been scanned remotely. This confirms a
 
 **NO-GO remains** for NOVA runtime integration. Do not bulk-update Debian packages or application dependencies inside the image without matching the image's exact source commit, rebuilding in an isolated pipeline, and re-running source + image scans. The next required gates are:
 1. Match the published image to exact source commit `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3` and run source scanning on that commit.
-2. Inspect the compiled Go binary and application assets for embedded dependency metadata; establish application dependency coverage.
+2. Inspect the Bun executable and bundled JavaScript application assets for dependency metadata; establish application dependency coverage.
 3. Verify the image signature/provenance and confirm the release's pinned digest.
 4. Triage Debian advisories against Debian security tracker/backports and identify fixed package versions.
 5. Repeat the same Trivy scan after any upstream remediation; compare results by digest.
@@ -484,7 +484,7 @@ These totals are scanner-database and source-revision dependent. The reduction i
 
 ### Updated decision and remaining work
 
-The exact image commit now has a source scan, so the earlier source/image revision mismatch is **RESOLVED for the source scan**. It is not resolved for application-level image dependency coverage: Trivy did not identify language package manifests in the image, and the compiled `/app/bin/openbot` still needs embedded Go build/dependency metadata inspection or a reproducible build-to-SBOM mapping.
+The exact image commit now has a source scan, so the earlier source/image revision mismatch is **RESOLVED for the source scan**. It is not resolved for application-level image dependency coverage: Trivy did not identify language package manifests in the image, and the Bun executable plus bundled JavaScript still need a reproducible build-to-SBOM mapping.
 
 **NO-GO remains** for runtime integration. Remaining gates:
 1. Inspect the Bun executable and bundled JavaScript to derive an application dependency inventory; Go build-info inspection is not applicable.
