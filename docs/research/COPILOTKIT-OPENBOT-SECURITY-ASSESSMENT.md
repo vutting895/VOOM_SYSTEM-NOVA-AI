@@ -215,3 +215,50 @@ Initial test must be local loopback only, disposable, synthetic-data-only, and w
 - GHSA-jqcg-44mw-7w3h / CVE-2026-90711: https://github.com/advisories/GHSA-jqcg-44mw-7w3h
 - OSV proxy-addr advisory: https://osv.dev/vulnerability/GHSA-jqcg-44mw-7w3h
 - RUSTSEC-2026-0369: https://rustsec.org/advisories/RUSTSEC-2026-0369
+
+
+## 11. Expanded repository inventory — 2026-11-15 follow-up
+
+A second read-only pass enumerated the upstream tree at the same pinned tree SHA `93e1d5dbc57960682b9b1168ed98ceb66d755379`.
+
+- **32 dependency input files** matching lockfile or requirements-file patterns were found.
+- **36 dependency manifests / requirements inputs** were found when including package manifests and Cargo/Python project manifests.
+- The inventory spans the root Bun workspace, desktop Bun + Cargo, mobile npm, agent-specific Python requirements, Mastra agent, API tooling, and example agents.
+- Additional independent lockfiles confirmed in the tree include `desktop/bun.lock`, `mobile/package-lock.json`, `agent-mastra/bun.lock`, `api/asyncapi-tools/bun.lock`, `examples/langgraph-bot/bun.lock`, and `examples/mastra-bot/bun.lock`.
+
+This is an **inventory count**, not a statement that every one of the 32 inputs has been scanned against OSV. The GitHub integration used for this review does not expose an executable OSV-Scanner, cargo-audit, pip-audit, or SBOM generator. Attempts to read the upstream Dependabot and code-scanning alert endpoints were rejected by the GitHub fetch integration as unsupported endpoints; this does not mean those alert lists are empty.
+
+The expanded inventory confirms that the earlier two-advisory result is a **minimum confirmed set**, not a complete vulnerability count. Do not treat it as a full scan.
+
+### Recommended offline/CI scan commands (run only in an isolated disposable checkout)
+
+The following are proposed commands, not commands already executed:
+
+```bash
+# Scan all supported lockfiles/manifests in the source tree
+osv-scanner scan source -r .
+
+# Produce an SPDX SBOM for the repository (requires a compatible generator)
+syft dir:. -o spdx-json=sbom.spdx.json
+
+# Rust desktop dependency audit
+cargo audit --file desktop/src-tauri/Cargo.lock
+
+# Python: resolve each harness in its own clean environment, freeze exact versions,
+# then run pip-audit against the resolved environment.
+```
+
+For each published container image, scan the exact immutable digest rather than a floating tag:
+
+```bash
+osv-scanner scan image <image>@sha256:<digest>
+```
+
+Do not run these commands against NOVA's working directory or production environment. The checkout and toolchain should be disposable and isolated; preserve raw JSON/SBOM outputs and tool versions for reproducibility.
+
+### Updated audit confidence
+
+- Two advisory/version matches: **confirmed in source lockfiles**.
+- Remaining dependency inventory: **enumerated but not vulnerability-scanned**.
+- Exact runtime/container exposure: **unknown**.
+- Overall security posture: **NO-GO remains unchanged**.
