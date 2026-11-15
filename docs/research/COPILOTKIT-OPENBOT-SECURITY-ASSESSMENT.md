@@ -262,3 +262,88 @@ Do not run these commands against NOVA's working directory or production environ
 - Remaining dependency inventory: **enumerated but not vulnerability-scanned**.
 - Exact runtime/container exposure: **unknown**.
 - Overall security posture: **NO-GO remains unchanged**.
+
+
+## 12. Executed OSV-Scanner source scan and SPDX inventory — 2026-11-15
+
+### Scanner provenance
+
+- Tool: Google OSV-Scanner `v2.7.1`
+- Official release asset: `osv-scanner_windows_amd64.exe`
+- GitHub release API digest: `sha256:7121dcf420aefbbf89a7f0050c4d3094e079ff93afd334dfc96f16b02ec85800`
+- Local SHA-256: `7121dcf420aefbbf89a7f0050c4d3094e079ff93afd334dfc96f16b02ec85800`
+- **Release asset checksum verified before execution.**
+- Source checkout: `CopilotKit/OpenBot`, local checkout commit `dff27a3b5baebe36c6e7503532eaba57956ca95d`
+- Scanner was run against a disposable source checkout under the user's Downloads folder. No package installation, build, runtime start, or Docker operation was performed.
+
+### Scan command
+
+```powershell
+osv-scanner scan source -r <OpenBot-checkout> --format json --output-file osv-scan-results.json --all-packages
+```
+
+### Results
+
+- 32 lockfile/requirements inputs were parsed by the scanner.
+- Scanner emitted 47 source result groups: 32 lockfile groups and 15 additional `unknown`/manifest-derived groups.
+- **Lockfile-backed results:** 290 package/advisory match rows, 87 unique package-version tuples, 199 raw advisory IDs; 191 groups after merging IDs connected by published aliases.
+- 20 of the 32 lockfile input files contained at least one lockfile-backed advisory match.
+- The root `bun.lock` alone contained 33 affected package-version tuples and 117 distinct advisory IDs (133 package/advisory rows across versions).
+- The desktop Cargo lockfile, mobile npm lockfile, API tooling lockfile, examples, and optional agent workspaces also contain affected packages.
+- The scanner filtered 65 local/unscannable package entries. Record this as a coverage limitation.
+- The 15 `unknown` groups produced additional manifest-derived results (212 rows, 9 unique package-version tuples, 51 advisory IDs). These are **not included** in the lockfile-backed totals because the Python requirements inputs do not provide a complete resolved environment lock. Treat them as indicative until each harness is independently resolved and scanned.
+
+The scanner returned exit code 1 because vulnerability findings were present. The JSON output was created and parsed successfully; exit code 1 is not represented as a clean scan.
+
+### Confirmed lockfile-backed examples requiring triage
+
+| Input | Package/version | Advisory evidence |
+|---|---|---|
+| Root `bun.lock` | `proxy-addr@2.0.7` | GHSA-jqcg-44mw-7w3h |
+| Root `bun.lock` | `@modelcontextprotocol/sdk@1.30.0` | Multiple GHSA matches, including OAuth redirect/credential handling and request resource-exhaustion advisories |
+| Root `bun.lock` | `better-auth@1.7.1` | OAuth state / OAuth proxy advisories |
+| Root `bun.lock` | `axios@1.19.0` | Multiple SSRF, proxy/DNS policy, header and prototype-pollution advisories |
+| Root `bun.lock` | `undici@5.29.0`, `6.28.0`, `7.29.0` | Multiple TLS, redirect, cache, HTTP parsing and resource-exhaustion advisories |
+| API tooling `bun.lock` | `jsonpath-plus@7.2.0` | RCE advisories GHSA-hw8r-x6gr-fq4f and GHSA-pppg-cpfq-h7wr |
+| Desktop `Cargo.lock` | `zip@2.4.2` | RUSTSEC-2026-0367, -0368, -0369, -0429 and GHSA matches |
+| Mobile `package-lock.json` | `node-forge@1.4.0` | Multiple cryptography, TLS, certificate-validation and denial-of-service advisories |
+| 12 agent test requirement files | `pytest@9.0.2` | GHSA-6w46-j5rx-g56g / PYSEC-2026-1845; test-only inputs, not proof of production runtime exposure |
+
+These are dependency-version matches, not exploitability determinations. The scanner output includes transitive packages and separate optional workspaces (desktop, mobile, examples, API tooling, and agents). No claim is made that every listed component is included in the primary OpenBot production image or reachable at runtime. A deployment-specific dependency/image mapping is still required.
+
+### SPDX SBOM
+
+An SPDX 2.3 JSON inventory was generated from the same source checkout:
+
+- File: `openbot-source-sbom.spdx.json`
+- Package records: **4,892**
+- File records: **32**
+- Size: **7,060,132 bytes**
+- SHA-256: `0ac0df27be890e5e6912c29141f8dfb7442cd465176a3e12968c813842eb5cdf`
+
+This is a source/lockfile-derived inventory. It is not an SBOM of the published runtime images and is not a complete license-compliance report.
+
+### Local evidence artifacts
+
+Stored outside the NOVA repository in:
+
+`C:\Users\Administrator\Downloads\OpenBot-Audit-20261115\`
+
+- `osv-scan-results.json` — 4,401,944 bytes; SHA-256 `f9dd67c25eda3b1b9ddaec6ff874bdec1bf446cec2454405825cd7d2af7aa3f5`
+- `openbot-source-sbom.spdx.json` — 7,060,132 bytes; SHA-256 as above
+- `osv-scanner_windows_amd64.exe` — official v2.7.1 binary, checksum verified
+- `OpenBot\` — disposable source checkout
+
+The first interrupted scanner download did not match the official digest and was not executed. Only the subsequently downloaded binary with the exact release digest was executed.
+
+### Updated decision
+
+**NO-GO remains.** The source scan materially increases the confirmed dependency risk. The root Bun lockfile contains many more advisory matches than the two initially identified. Before any runtime test, prioritize the root Bun lockfile and security-sensitive packages (MCP SDK, auth, HTTP clients, proxy/IP parsing, and Hono), then separately remediate optional desktop/mobile/API/example/agent workspaces. Do not bulk-upgrade dependencies without compatibility tests and per-workspace change isolation.
+
+Still not performed:
+- Published backend/container image scan and image-to-lockfile mapping.
+- Cargo audit / Python environment-specific pip-audit.
+- Complete license policy evaluation.
+- Runtime reachability and exploitability validation.
+- Deny-by-default policy negative tests.
+- Any OpenBot runtime test or NOVA integration.
