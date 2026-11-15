@@ -1,10 +1,10 @@
 # CopilotKit OpenBot — NOVA Security & Dependency Audit
 
-> **Internal research artifact — not production policy, a security certification, or authorization to deploy.** Findings are limited to the evidence and versions listed below. Runtime reachability and exploitability were not tested.
+> **Internal research artifact — not production policy, a security certification, a NOVA-wide release decision, or authorization to deploy.** Findings are limited to the evidence and versions listed below. Runtime reachability and exploitability were not tested.
 
 ## Executive summary
 
-**Decision: NO-GO for NOVA runtime installation or production integration.** Continue only read-only review. Reconsider an isolated evaluation only after the open supply-chain, dependency, policy, and cost gates below are addressed.
+**Preliminary recommendation for this OpenBot evaluation only: do not proceed with runtime installation or NOVA integration on the current evidence.** Any reconsideration requires upstream supply-chain evidence and separate formal platform/security approval. This report does not assess or resolve unrelated NOVA release blockers.
 
 The review identified vulnerability matches in OpenBot source lockfiles and Debian OS packages in the selected backend image. These are evidence of affected package versions, not proof that vulnerable code paths are reachable or exploitable in a particular deployment. The backend image's signing key verification and OCI SPDX SBOM were checked, but its trusted builder/source-to-image provenance and application dependency inventory remain unverified/incomplete.
 
@@ -47,7 +47,7 @@ Cosign v3.1.4 verified the image digest against the upstream public key, but use
 
 The reviewed upstream docs describe a permissive computer-action default unless replaced by an explicit policy; dry-run records decisions but does not enforce them. Shared computer instances are not tenant-isolation boundaries, and the supervisor requires Docker socket access. Approval cards are not a complete authorization boundary.
 
-Any future isolated test must use synthetic/read-only data, loopback-only access, disposable credentials, deny-by-default computer policy, and network allowlisting. Do not expose broker/trading operations, NOVA production secrets, unrestricted MCP, public ingress, or production data.
+Any future isolated OpenBot test must use synthetic/read-only data, loopback-only access, disposable credentials, deny-by-default computer policy, and network allowlisting. Do not expose broker/trading operations, NOVA production secrets, unrestricted MCP, public ingress, or production data.
 
 ### Cost and platform caveat
 
@@ -55,16 +55,19 @@ The reviewed pricing/docs describe a free Developer tier with quotas, while self
 
 ## Upstream evidence required
 
-Before reconsidering runtime use, request the actual backend image builder repository/workflow and immutable run identity; exact build source, Dockerfile/context and parameters; verifiable provenance bound to the audited digest; and a production application SBOM tied to that digest. The detailed findings and evidence request are in [the backend publisher follow-up](COPILOTKIT-OPENBOT-BACKEND-PUBLISHER-FOLLOWUP.md) and [the draft maintainer request](OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-REQUEST.md). The request has not been sent.
+Before reconsidering this OpenBot evaluation, request the actual backend image builder repository/workflow and immutable run identity; exact build source, Dockerfile/context and parameters; verifiable provenance bound to the audited digest; and a production application SBOM tied to that digest. The detailed findings and evidence request are in [the backend publisher follow-up](COPILOTKIT-OPENBOT-BACKEND-PUBLISHER-FOLLOWUP.md) and [the draft maintainer request](OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-REQUEST.md). The request has not been sent.
 
-## Final recommendation and gates
+## Final recommendation for this evaluation
 
-**NO-GO remains for NOVA runtime integration.** Do not install or deploy the image based on this audit alone. Reconsider only after:
+**Do not install or integrate the audited OpenBot image based on this report alone.** Reconsider only after:
 
 1. Upstream supplies and the reviewer verifies digest-bound build provenance and the backend builder identity.
 2. The image has a complete application/runtime SBOM, and OS and source dependency findings have been triaged/remediated for the intended deployment.
 3. Explicit deny-by-default controls and isolation are tested negatively in a disposable environment.
 4. Provider entitlements, quotas, and hard spending limits are confirmed before any model calls.
+5. Formal platform/security approval is obtained separately.
+
+This recommendation applies only to the OpenBot evaluation. It is not a NOVA-wide release decision; CI, dataset, risk-policy, hosting, Supabase migration/restore, and MT5 runtime readiness require separate evidence and approval.
 
 No OpenBot runtime was installed or executed. No dependency was modified, no external request was sent, and no NOVA production resource or configuration was changed.
 

@@ -1,6 +1,6 @@
 # Upstream evidence request — OpenBot backend image provenance
 
-> **Internal draft for review only — not production policy, not sent, and not an opened issue.** Do not contact the upstream maintainers without explicit approval.
+> **Internal draft for review only — not production policy, not sent, and not an opened issue.** Do not contact the upstream maintainers without explicit approval. This request concerns the audited OpenBot image only; it is not a NOVA-wide release decision.
 
 ## Snapshot and evidence checklist
 
@@ -58,4 +58,4 @@ Do not mark provenance verified until all applicable items are received and vali
 
 A response that only names a repository, points to a mutable tag, supplies an SBOM without digest binding, or provides a signature without source/build provenance is **not sufficient** to close the source-to-image gap.
 
-Until the evidence is validated, retain **NO-GO for NOVA Runtime integration**. This request does not authorize running containers, connecting credentials, granting access, creating external resources, or changing production.
+Until the evidence is validated, do not approve this OpenBot runtime evaluation. This draft does not authorize running containers, connecting credentials, granting access, creating external resources, or changing production. Any broader NOVA release decision requires its own independent evidence and approval.

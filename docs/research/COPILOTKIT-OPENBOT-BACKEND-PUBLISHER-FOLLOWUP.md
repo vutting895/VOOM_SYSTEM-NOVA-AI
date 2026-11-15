@@ -1,6 +1,6 @@
 # OpenBot backend image publisher follow-up
 
-> **Internal research follow-up — not production policy or a security certification.** This document focuses on backend image publishing/provenance; the broader security and dependency findings are summarized in [the main assessment](COPILOTKIT-OPENBOT-SECURITY-ASSESSMENT.md).
+> **Internal research follow-up — not production policy or a security certification.** This document focuses on backend image publishing/provenance; the broader security and dependency findings are summarized in [the main assessment](COPILOTKIT-OPENBOT-SECURITY-ASSESSMENT.md). Its status applies to this OpenBot image evaluation only and is not a NOVA-wide release decision.
 
 ## Snapshot and evidence checklist
 
@@ -61,7 +61,8 @@ The ready-to-send request is drafted in [OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-RE
 | Exact backend builder identity | NOT IDENTIFIED |
 | Exact digest SLSA provenance | NOT VERIFIED |
 | Application dependency SBOM | INCOMPLETE |
-| NOVA runtime integration | NO-GO |
+| OpenBot runtime evaluation | NOT APPROVED pending evidence and separate formal approval |
+| NOVA-wide release readiness | OUT OF SCOPE |
 
 No OpenBot container was started, no executable was run, no secrets or billing accounts were accessed, and no NOVA production resource was changed.
 
