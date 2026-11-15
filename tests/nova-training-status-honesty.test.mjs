@@ -20,3 +20,23 @@ test('training status and trigger fail closed until a verified runtime exists', 
   assert.match(block, /app.post\('\/api\/auto-train\/trigger'[\s\S]*status\(503\)/);
   assert.doesNotMatch(block, /autoTrainEpoch|autoTrainSamples|lastValidationAcc|runBackendTrainingCycle|setInterval/);
 });
+
+test('infrastructure and learning telemetry fail closed without verified sources', () => {
+  const infraStart = server.indexOf("app.get('/api/infrastructure/health'");
+  const learningStart = server.indexOf("app.get('/api/learning/universe'");
+  const hybridStart = server.indexOf('// Hybrid Architecture Endpoint:', learningStart);
+  assert.notEqual(infraStart, -1);
+  assert.notEqual(learningStart, -1);
+  assert.notEqual(hybridStart, -1);
+  const infra = server.slice(infraStart, learningStart);
+  const learning = server.slice(learningStart, hybridStart);
+  assert.match(infra, /status\(503\)/);
+  assert.match(infra, /INFRASTRUCTURE_TELEMETRY_NOT_CONFIGURED/);
+  assert.match(infra, /liveTradingEnabled: false/);
+  assert.match(infra, /mt5BridgeEnabled: false/);
+  assert.doesNotMatch(infra, /latencyMs:|tickIngestionRatePerSec:|credentialsSecured: true|autoTrainEpoch/);
+  assert.match(learning, /status\(503\)/);
+  assert.match(learning, /LEARNING_DATA_RUNTIME_NOT_CONFIGURED/);
+  assert.match(learning, /featureStore: null/);
+  assert.doesNotMatch(learning, /accuracyPct:|f1Score:|sampleCount:|totalSamplesStored:/);
+});
