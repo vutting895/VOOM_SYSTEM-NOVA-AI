@@ -1,0 +1,23 @@
+name: NOVA Dataset Integrity
+
+on:
+  pull_request:
+    paths:
+      - "datasets/exness/demo/xauusdm_m15/**"
+      - "scripts/validate_exness_dataset.py"
+      - ".github/workflows/nova-dataset-integrity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-exness-demo-dataset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate committed dataset and manifest
+        run: python scripts/validate_exness_dataset.py
