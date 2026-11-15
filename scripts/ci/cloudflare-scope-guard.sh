@@ -7,8 +7,9 @@ is_unsupported_path() {
     supabase/migrations/*|supabase/config.toml|tests/sql/*|frontend/app/api/agent/*|frontend/app/api/agent/**|frontend/lib/agent-approval-server.js|frontend/scripts/nova-approval-local-supabase.integration.mjs|frontend/package-lock.json|.github/workflows/nova-approval-migration-ci.yml|.github/workflows/nova-video-migration-ci.yml)
       return 0
       ;;
-    # Docker-backed SMC/research gates: catch Dockerfiles and Compose files at any depth.
-    Dockerfile|*Dockerfile*|*docker-compose*.yml|*docker-compose*.yaml|*compose*.yml|*compose*.yaml|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|package.json|server.ts|integrations/remote-mcp-worker/src/index.js|integrations/remote-mcp-worker/tests/*|integrations/remote-mcp-worker/tests/**|integrations/remote-mcp-worker/package.json|.github/workflows/smc-research-ci.yml)
+    # Docker-backed SMC/research gates. The root lockfile also triggers this
+    # workflow, which runs Docker Compose validation and Docker image builds.
+    Dockerfile|*Dockerfile*|*docker-compose*.yml|*docker-compose*.yaml|*compose*.yml|*compose*.yaml|workers/requirements.txt|workers/feature/smc_wave/*|workers/feature/smc_wave/**|workers/feature/elliott_wave/*|workers/feature/elliott_wave/**|workers/backtest/*|workers/backtest/**|workers/alerts/*|workers/alerts/**|workers/risk/*|workers/risk/**|workers/runtime.py|tests/test_smc_strategy.py|tests/test_smc_pytest.py|tests/test_telegram_alerts.py|tests/test_runtime_api.py|tests/test_research_pipeline.py|tests/fixtures/btcusdt_1h_binance_sample.json|package.json|package-lock.json|server.ts|integrations/remote-mcp-worker/src/index.js|integrations/remote-mcp-worker/tests/*|integrations/remote-mcp-worker/tests/**|integrations/remote-mcp-worker/package.json|.github/workflows/smc-research-ci.yml)
       return 0
       ;;
     # Windows-hosted PowerShell/runtime acceptance gates.
