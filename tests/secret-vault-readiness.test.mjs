@@ -34,3 +34,21 @@ test("readiness document keeps credential operations disabled until every Vault 
   assert.match(readinessDoc, /two staging users/);
   assert.match(readinessDoc, /Live Trading/);
 });
+
+
+test("read-only Vault audit reports legacy credential metadata without reading user_brokers rows", () => {
+  const executableSql = sql.replace(/^\s*--.*$/gm, "");
+  assert.match(executableSql, /role_column_grants/);
+  assert.match(executableSql, /pg_policies/);
+  assert.match(executableSql, /legacy_user_brokers_credential_surface/);
+  assert.match(executableSql, /api_key/);
+  assert.match(executableSql, /api_secret_encrypted/);
+  assert.match(executableSql, /passphrase_encrypted/);
+  assert.doesNotMatch(executableSql, /select\s+.+\s+from\s+public\.user_brokers/i);
+});
+
+test("readiness document records legacy credential surface as a blocked cleanup item", () => {
+  assert.match(readinessDoc, /legacy `public\.user_brokers` table/);
+  assert.match(readinessDoc, /RLS policies/);
+  assert.match(readinessDoc, /Do not read credential rows/);
+});
