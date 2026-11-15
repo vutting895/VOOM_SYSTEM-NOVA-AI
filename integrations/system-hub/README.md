@@ -48,3 +48,19 @@ Security boundary:
 - The current pilot is not deployed or registered in the active Worker. Do not report it as live until a separately reviewed integration PR and staging smoke test pass.
 
 Tests: `node --test integrations/system-hub/tests/binance-spot-readonly.test.mjs`
+
+
+## Exness dual-adapter direction
+
+Exness integrations are intentionally split into two independent adapters:
+
+- `exness-mt5-demo`: existing Windows MT5 Demo Bridge → Relay → read-only Proxy path. It retains its own tenant route and Bridge authentication.
+- `exness-trader-api`: planned separate signed REST adapter using Exness API Key + Ed25519 request signing, Gateway/Access Point discovery, and a compiled GET-only endpoint allowlist.
+
+Do not share credentials, connection state, or transport assumptions between these adapters. The Trader API adapter is not implemented, configured, or registered in the active Worker. No Exness API Key has been supplied. Credential intake remains blocked until the OpenBao (or separately approved) server-only signing-key custody path and two-owner isolation gates pass.
+
+Important eligibility constraint: Exness states that standard MetaTrader accounts cannot connect to its current API. An existing MT5 Demo login must not be assumed to be Trader API eligible. Confirm account eligibility and API Key Management access in the Exness Personal Area before implementation activation.
+
+Implementation contract: `docs/architecture/NOVA-EXNESS-DUAL-READONLY-ADAPTERS.md`.
+
+All order/execution/live flags remain false. The MT5 path remains separate and is not removed by the Trader API work.
