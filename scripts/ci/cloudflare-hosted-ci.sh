@@ -22,37 +22,33 @@ python --version
 
 # Workers Builds provides Linux, Node.js and Python, but not a Docker daemon
 # or a Windows host. Fail closed when a change requires those unsupported gates.
-if [[ -n "${WORKERS_CI_BRANCH:-}" ]]; then
-  head_sha="${WORKERS_CI_COMMIT_SHA:?WORKERS_CI_COMMIT_SHA must identify the exact checkout commit}"
-  actual_head="$(git rev-parse HEAD)"
-  if [[ "$head_sha" != "$actual_head" ]]; then
-    log "BLOCKED: requested commit $head_sha does not match checked-out HEAD $actual_head"
-    exit 2
-  fi
-  log "Verified checkout SHA: $actual_head"
-  log "Checking changed-file scope for branch ${WORKERS_CI_BRANCH}"
-  git fetch --no-tags origin main
-  if [[ "${WORKERS_CI_BRANCH}" == "main" ]]; then
-    base_sha="$(git rev-parse "${head_sha}^")"
-  else
-    base_sha="$(git merge-base origin/main "$head_sha")"
-  fi
-  changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
-  unsupported=()
-  while IFS= read -r path; do
-    [[ -z "$path" ]] && continue
-    case "$path" in
-      *)
-        if is_unsupported_path "$path"; then unsupported+=("$path"); fi
-        ;;
-    esac
-  done <<< "$changed_files"
-  if (( ${#unsupported[@]} > 0 )); then
-    printf '\n[NOVA-CF-CI] BLOCKED: this change requires gates not available in Workers Builds:\n'
-    printf '  - %s\n' "${unsupported[@]}"
-    printf '%s\n' "Required separate gates: PostgreSQL/Supabase integration, Docker builds, and/or Windows PowerShell runtime checks."
-    exit 2
-  fi
+: "${WORKERS_CI_BRANCH:?WORKERS_CI_BRANCH must identify the Cloudflare build branch}"
+: "${WORKERS_CI_COMMIT_SHA:?WORKERS_CI_COMMIT_SHA must identify the exact checkout commit}"
+head_sha="$WORKERS_CI_COMMIT_SHA"
+actual_head="$(git rev-parse HEAD)"
+if [[ "$head_sha" != "$actual_head" ]]; then
+  log "BLOCKED: requested commit $head_sha does not match checked-out HEAD $actual_head"
+  exit 2
+fi
+log "Verified checkout SHA: $actual_head"
+log "Checking changed-file scope for branch ${WORKERS_CI_BRANCH}"
+git fetch --no-tags origin main
+if [[ "${WORKERS_CI_BRANCH}" == "main" ]]; then
+  base_sha="$(git rev-parse "${head_sha}^")"
+else
+  base_sha="$(git merge-base origin/main "$head_sha")"
+fi
+changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+unsupported=()
+while IFS= read -r path; do
+  [[ -z "$path" ]] && continue
+  if is_unsupported_path "$path"; then unsupported+=("$path"); fi
+done <<< "$changed_files"
+if (( ${#unsupported[@]} > 0 )); then
+  printf '\n[NOVA-CF-CI] BLOCKED: this change requires gates not available in Workers Builds:\n'
+  printf '  - %s\n' "${unsupported[@]}"
+  printf '%s\n' "Required separate gates: PostgreSQL/Supabase integration, Docker builds, and/or Windows PowerShell runtime checks."
+  exit 2
 fi
 
 run npm install --no-package-lock --include=dev
