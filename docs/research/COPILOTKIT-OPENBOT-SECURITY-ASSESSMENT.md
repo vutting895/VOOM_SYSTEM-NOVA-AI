@@ -747,3 +747,49 @@ Sources:
 - Total OpenBot cost at NOVA's required zero-cost operating model: **NOT VERIFIED**.
 
 **NO-GO remains** for NOVA runtime integration. No billing account, payment method, project, or resource was created or changed. No container was started, no executable was run, no secrets were supplied, and no NOVA Production resource was changed.
+
+
+## 19. Source-tree coverage check — 2026-11-16 UTC
+
+### Exact checkout inspected
+
+The local OpenBot checkout was verified at:
+
+`7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`
+
+A Git tree inventory (`git ls-tree -r --name-only HEAD`) was run against this exact commit. It contains the root `package.json`, `bun.lock`, `app/package.json`, `shared/package.json`, `extension/package.json`, and the agent component Dockerfiles. It does **not** contain:
+
+- a `server/` source directory;
+- a server Dockerfile;
+- a root Dockerfile for building the audited `openbot-server` image.
+
+The root `package.json` at this commit declares only `app`, `shared`, and `extension` as Bun workspaces. The app manifest includes frontend dependencies such as React, TanStack, CopilotKit React SDK, Better Auth and related UI/runtime libraries. These manifests cannot stand in for the missing server dependency manifest.
+
+The same checkout's `docker-compose.yml` explicitly describes the server image as **PULLED, NEVER BUILT HERE**. Its `backend-images.env` points to a published tag, and the inspected `images.yml` backend job only reads existing registry digests.
+
+### Effect on the earlier source-commit claim
+
+The extracted server binary contains the string/metadata value `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`. This proves that the value is embedded in the binary; it does **not** prove that this checkout supplied the server source or Docker build context.
+
+The exact checkout lacks the server implementation and its Docker build definition. Therefore the earlier wording that the server image's embedded commit identifies the image's source revision was too strong. It is now reclassified as **embedded source-reference metadata only**. A source-to-binary build relationship has not been demonstrated.
+
+### SBOM consequence
+
+- The repository's `bun.lock` and app workspace manifests can support a frontend/workspace dependency inventory.
+- They do not cover the compiled server binary's production dependencies.
+- The OCI SPDX SBOM remains an OS-package inventory for the audited image and does not close the application dependency gap.
+- A complete server SBOM requires the actual server build source, production lockfile/manifests, and build-to-image evidence from the upstream publisher.
+
+### Required upstream evidence
+
+Request the actual server build repository/source archive, Dockerfile and build context, exact source commit, lockfile, builder workflow/run ID, and an application SBOM attested to the audited digest. Do not infer source identity from a label or embedded string alone.
+
+### Updated assessment
+
+- Embedded commit-like string: **PRESENT**.
+- Matching server source tree in inspected OpenBot commit: **NOT PRESENT**.
+- Server Dockerfile/build context in inspected OpenBot commit: **NOT PRESENT**.
+- Source-to-binary reproducible mapping: **NOT ESTABLISHED**.
+- Server application dependency SBOM: **NOT AVAILABLE FROM THIS CHECKOUT**.
+
+**NO-GO remains** for NOVA runtime integration. No dependency installation, image rebuild, container start, executable execution, secret use, billing action, or NOVA Production change occurred.
