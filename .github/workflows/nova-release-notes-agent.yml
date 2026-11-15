@@ -1,9 +1,15 @@
 name: NOVA Release Notes Evidence Pack
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/nova-release-notes-agent.yml"
+      - "scripts/release_notes/**"
+      - "tests/release_notes/**"
   workflow_dispatch:
   schedule:
-    - cron: "0 2 * * 1" # Every Monday at 02:00 UTC
+    - cron: "0 2 * * 1"
 
 permissions:
   contents: read
@@ -17,20 +23,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout default branch
+      - name: Checkout workflow revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - name: Validate collector syntax
         run: python3 -m py_compile scripts/release_notes/generate_evidence.py
+      - name: Run offline unit tests
+        run: python3 -m unittest discover -s tests/release_notes -v
       - name: Collect commit evidence
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_API_URL: ${{ github.api_url }}
         run: python3 scripts/release_notes/generate_evidence.py
       - name: Upload review pack
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: nova-release-notes-evidence-${{ github.run_number }}
