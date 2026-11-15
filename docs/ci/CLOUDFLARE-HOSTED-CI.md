@@ -60,9 +60,15 @@ The build script fails closed when a PR changes files that trigger any existing 
 - Docker-backed Quant/SMC: Quant Engine source and contract tests, SMC/Elliott Wave/backtest/alerts/risk/runtime source, SMC test suites and fixtures, Python requirements, Dockerfiles at any directory depth, Docker Compose/Compose YAML variants, and the corresponding workflow definitions.
 - Windows Runtime: `tools/windows/**`, `integrations/mt5-readonly-bridge/**`, PowerShell scripts/modules/data files (`.ps1`, `.psm1`, `.psd1`) at any directory depth, `README.md` (which is an explicit trigger for the Windows workflow), and the Windows workflow definition.
 
-The scope matcher has regression cases for nested Dockerfiles, Compose YAML, PowerShell scripts/modules, Supabase migrations, and representative portable paths. The CI script runs these cases before its other checks.\n\nA blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing substitute for the omitted gate. These suites need a separately approved compatible runner or acceptance process before claiming full NOVA CI coverage. Keep the original GitHub-hosted workflows enabled until each replacement has been proven on the exact PR commit.
+The scope matcher has regression cases for nested Dockerfiles, Compose YAML, PowerShell scripts/modules, Supabase migrations, and representative portable paths. The CI script runs these cases before its other checks.
 
-## Reproducibility limitation\n\nThe root dependency manifest currently uses semver ranges and the hosted script installs with `npm install --no-package-lock`. This is not a reproducible dependency graph. Do not treat the Cloudflare pipeline as release-grade until a generated and committed root `package-lock.json` is added and the install step is changed to `npm ci`. The lockfile must be generated and validated in a network-enabled Node environment; it has not been fabricated in this PR.\n\n## Migration order
+A blocked Cloudflare build is an intentional NOT-VALIDATED result, not a passing substitute for the omitted gate. These suites need a separately approved compatible runner or acceptance process before claiming full NOVA CI coverage. Keep the original GitHub-hosted workflows enabled until each replacement has been proven on the exact PR commit.
+
+## Reproducibility limitation
+
+The root dependency manifest currently uses semver ranges and the hosted script installs with `npm install --no-package-lock`. This is not a reproducible dependency graph. Do not treat the Cloudflare pipeline as release-grade until a generated and committed root `package-lock.json` is added and the install step is changed to `npm ci`. The lockfile must be generated and validated in a network-enabled Node environment; it has not been fabricated in this PR.
+
+## Migration order
 
 1. Add and review this dedicated CI Worker and portable test script.
 2. Connect the repository through Cloudflare Workers Builds and enable PR previews.
