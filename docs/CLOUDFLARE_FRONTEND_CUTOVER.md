@@ -26,7 +26,6 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 3. The Cloudflare account lists both `voom-system-nova-ui` and `voom-system-nova-ai` Workers.
 4. The Cloudflare settings API returned successfully for both Worker names.
 5. The frontend Worker's inspected settings reported compatibility date `2026-10-24` and an empty compatibility-flags list. The committed `frontend/wrangler.jsonc` specifies compatibility date `2026-10-27` and `nodejs_compat`.
-6. The latest Vercel deployments inspected for the separate `voom_system_nova` project were `CANCELED`. Vercel is not the intended frontend host, but the existence of that project/integration has not been removed.
 7. A live browser check of the Cloudflare URL could not be completed with the available web inspection. The Worker listing/settings responses do not prove that the expected pages render or that frontend API calls succeed.
 
 ## Current verdict
@@ -54,7 +53,7 @@ Safety mode: Read-only + AI Analysis; Live Trading remains OFF.
 
 - Do not enable Live Trading or introduce order submission during this cutover.
 - Do not paste secrets into source files, commits, issues, logs, or chat.
-- Do not delete the old Vercel project or integrations as part of this code update; disconnect them separately only after confirming they are no longer needed.
+- Repository source contains no alternate hosting-provider deployment configuration or CI workflow. Provider-side GitHub App authorization and any separately retained hosting projects are managed outside this repository and are not changed by source commits.
 - Do not report a build, deployment, browser check, or broker connection as successful without observable evidence.
 
 
