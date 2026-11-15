@@ -428,3 +428,69 @@ The actual published server image has now been scanned remotely. This confirms a
 6. Test deny-by-default computer policy and tenant isolation in a disposable environment before considering runtime evaluation.
 
 No OpenBot runtime was started, no secrets were supplied, no paid service was created, and no NOVA Production resource was touched.
+
+
+## 14. Commit-matched OSV source scan — 2026-11-15 UTC
+
+### Commit and image correlation
+
+The previous source/image mismatch has been closed for source scanning: the disposable OpenBot checkout was fetched and checked out detached at the exact commit embedded in the scanned GHCR image.
+
+- Image reference: `ghcr.io/copilotkit/openbot-server:main-20261114-78`
+- Image registry digest: `sha256:13ba8a1d8b123af597742a0d1f9ee8d2a9de1d7f676240a1d167b8ba9f0a26aa`
+- Embedded source commit: `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`
+- Git checkout verification: `git rev-parse HEAD` returned exactly `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3`.
+- Checkout state: detached HEAD; clean working tree before scan.
+- Location: existing disposable audit checkout under `C:\Users\Administrator\Downloads\OpenBot-Audit-20261115\OpenBot\`.
+- No dependencies were installed, no build or runtime was run, and no container was started.
+
+### Exact-commit scan
+
+The same previously checksum-verified OSV-Scanner v2.7.1 executable was used:
+
+```powershell
+osv-scanner scan source -r <OpenBot-checkout> --format json --output-file osv-image-commit-7d1d96c-results.json --all-packages
+```
+
+- Scanner exit code: **1** (findings present; not a clean scan).
+- Result groups: **46** (31 lockfile groups and 15 additional unknown/manifest-derived groups).
+- Lockfile-backed affected package records: **102**.
+- Unique affected package URLs (PURLs): **84**.
+- Lockfile-backed package/advisory rows: **275**.
+- Unique raw advisory IDs: **190**.
+- The root `bun.lock` still contains **33 affected package/version entries, 133 package/advisory rows and 117 distinct advisory IDs**.
+- The 15 unknown/manifest-derived groups remain separate from lockfile-backed totals; requirements files are not fully resolved environments.
+
+### Comparison with the earlier source revision
+
+| Metric | Earlier checkout `dff27a3b5baebe36c6e7503532eaba57956ca95d` | Image-matched checkout `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f3` |
+|---|---:|---:|
+| Lockfile groups | 32 | 31 |
+| Affected package records | 112 | 102 |
+| Unique affected PURLs | 93 | 84 |
+| Package/advisory rows | 290 | 275 |
+| Unique raw advisory IDs | 199 | 190 |
+| Root bun.lock advisory rows | 133 | 133 |
+| Root bun.lock distinct advisory IDs | 117 | 117 |
+
+These totals are scanner-database and source-revision dependent. The reduction in aggregate findings does **not** mean the published image is safe: the root Bun lockfile's advisory counts did not change, and findings across optional workspaces may not be shipped in this server image. This remains a source/lockfile scan, not runtime reachability proof.
+
+### Evidence artifact
+
+- File: `osv-image-commit-7d1d96c-results.json`
+- Size: **4,075,294 bytes**
+- SHA-256: `54ddf0471a38bca0800f8ce40bd63ea2df614efa8b33a63686fba39a42c5de67`
+- Stored in the isolated audit folder outside the NOVA repository.
+
+### Updated decision and remaining work
+
+The exact image commit now has a source scan, so the earlier source/image revision mismatch is **RESOLVED for the source scan**. It is not resolved for application-level image dependency coverage: Trivy did not identify language package manifests in the image, and the compiled `/app/bin/openbot` still needs embedded Go build/dependency metadata inspection or a reproducible build-to-SBOM mapping.
+
+**NO-GO remains** for runtime integration. Remaining gates:
+1. Inspect the compiled Go binary and establish its module/dependency inventory.
+2. Verify Cosign signature against the exact immutable image digest using the upstream public key; verify available build provenance/attestation.
+3. Check Debian OS findings against Debian security tracker/backports.
+4. Resolve the application image SBOM gap and map source dependencies to the image.
+5. Harden and negatively test deny-by-default computer policy and tenant isolation in a disposable environment.
+
+No NOVA production resource was touched, no runtime was started, no secrets were supplied, and no paid resource was created.
