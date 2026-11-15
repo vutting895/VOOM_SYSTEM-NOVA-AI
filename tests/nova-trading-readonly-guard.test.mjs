@@ -128,3 +128,17 @@ test('customer-facing NOVA Chat is research-only and never suggests broker execu
   assert.match(novaChat, /NON-EXECUTABLE/);
   assert.match(novaChat, /RESEARCH CALENDAR/);
 });
+
+
+test('unverified automatic training and synthetic training telemetry are disabled', () => {
+  assert.doesNotMatch(server, /runBackendTrainingCycle|setInterval\s*\(/);
+  assert.match(server, /req\.path === '\/api\/auto-train\/trigger'/);
+  const route = section(server, "app.get('/api/auto-train/status'", "app.get('/api/mt5-bridge/status'");
+  assert.match(route, /status\(503\)/);
+  assert.match(route, /trainingEnabled: false/);
+  assert.match(route, /dataVerified: false/);
+  assert.match(route, /trainingEligible: false/);
+  assert.match(server, /dailyUpdateStatus: 'DISABLED_UNVERIFIED_SOURCE'/);
+  assert.match(server, /modelPerformanceByRegime: \[\]/);
+  assert.match(server, /trainingHistory: \[\]/);
+});
