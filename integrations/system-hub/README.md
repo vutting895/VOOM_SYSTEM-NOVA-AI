@@ -30,3 +30,21 @@ Before the control plane can report an Exness connection as data-verified, the a
 - No order-placement endpoint is implemented.
 - No broker password, access token, account payload, or bridge token is returned by the Hub.
 - The former `voom-alpaca-oauth` implementation is not used by this Hub and its source folder is retired by a separate reviewed repository cleanup. This does not delete/disable a Worker in the Cloudflare account or drop any Supabase table/data; confirm provider-side consumers and retention before decommissioning. Keep applied Alpaca migration files as historical schema records.
+
+## Multi-broker API adapter pilot — Binance public market data
+
+A first isolated adapter prototype is available at `adapters/binance-spot-readonly.js`. It is intentionally not wired into the production Worker routes yet.
+
+Supported public capabilities:
+- `getTickerPrice`: fixed `data-api.binance.vision/api/v3/ticker/price`
+- `getCandles`: fixed `data-api.binance.vision/api/v3/klines`, bounded to 1–500 candles and an explicit interval allowlist
+- `getExchangeInfo`: fixed `data-api.binance.vision/api/v3/exchangeInfo`
+
+Security boundary:
+- GET only; fixed HTTPS host; redirects rejected; no API key or Authorization header; 8-second timeout.
+- No account, wallet, order, trade, transfer, deposit, withdrawal, or funding methods exist in this adapter.
+- Decimal price/volume values are retained as strings. Candle timestamps and OHLC consistency are validated.
+- This is a public-data adapter only; it does not prove private account access or customer connection readiness.
+- The current pilot is not deployed or registered in the active Worker. Do not report it as live until a separately reviewed integration PR and staging smoke test pass.
+
+Tests: `node --test integrations/system-hub/tests/binance-spot-readonly.test.mjs`

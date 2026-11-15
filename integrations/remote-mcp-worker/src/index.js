@@ -1,8 +1,10 @@
+import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
+
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 function isAllowedOrigin(origin) {
-  return origin === NETLIFY_UI_ORIGIN || origin === CLOUDFLARE_FALLBACK_ORIGIN || origin === "https://app.base44.com" || Boolean(origin && /^https:\/\/[a-z0-9-]+\.base44\.app$/i.test(origin));
+  return origin === NETLIFY_UI_ORIGIN || origin === CLOUDFLARE_FALLBACK_ORIGIN;
 }
 function json(data,status=200,headers={}) { return new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}}); }
 function cors(origin) {
@@ -313,6 +315,8 @@ async function callTool(name,args,request,env,user) {
     return await runMt5ReadonlyTool(name, args, request, env, user);
   }
   if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",liveTradingEnabled:false,executionEnabled:false,userId:user.id};
+  if(name==="list_nova_skills") return listNovaSkills(args.domain);
+  if(name==="get_nova_skill") return getNovaSkill(args.skill_id);
   if(name==="list_workers") return {workers:["data-ingestion","feature","gen-ai","backtest","tuning","risk","portfolio","execution"].map(worker=>({worker,status:worker==="execution"?"disabled": "prototype_or_local_module",liveExecutionEnabled:false})),note:"Python worker modules are not individually deployed as Cloudflare Workers."};
   if(name==="list_strategy_registry") {
     const r=await fetch(env.SUPABASE_URL+"/rest/v1/ai_strategies?select=strategy_key,display_name,version,lifecycle_status,trading_mode,backtest_passed,out_of_sample_passed,demo_passed,risk_review_passed&order=created_at.desc&limit=100",{headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY,Authorization:request.headers.get("Authorization"),Accept:"application/json"}});
@@ -368,6 +372,8 @@ async function callTool(name,args,request,env,user) {
 export const tools=[
  {name:"system_status",description:"Read authenticated service status; never sends orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_workers",description:"List NOVA modules and clearly label local prototypes; execution remains disabled.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
+ {name:"list_nova_skills",description:"List the NOVA skill capability catalog. Metadata only; skills are not executable and grant no permissions.",inputSchema:{type:"object",properties:{domain:{type:"string",enum:["market_data","trading_research","engineering","security","platform","frontend","operations"]}},additionalProperties:false}},
+ {name:"get_nova_skill",description:"Read one NOVA skill definition by ID. Metadata only; no skill execution, code writes or trading actions.",inputSchema:{type:"object",properties:{skill_id:{type:"string",minLength:3,maxLength:64,pattern:"^[a-z0-9_]+$"}},required:["skill_id"],additionalProperties:false}},
  {name:"list_strategy_registry",description:"Read strategy registry rows visible to this signed-in user under Supabase RLS.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"read_market_candles",description:"Read public Binance OHLCV candles. Research only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"}},additionalProperties:false}},
  {name:"analyze_smc_strategy",description:"Analyze confirmed swing structure, BOS/CHoCH and fair value gaps on public Binance candles. Research only; never sends orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},swing_left:{type:"integer"},swing_right:{type:"integer"}},additionalProperties:false}},

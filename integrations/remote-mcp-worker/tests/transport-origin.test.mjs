@@ -46,6 +46,14 @@ test("rejects an untrusted Origin on the public health route too", async () => {
   assert.deepEqual(await response.json(), { error: "origin_not_allowed" });
 });
 
+test("rejects retired Base44 origins", async () => {
+  for (const origin of ["https://app.base44.com", "https://voom-studio-ai.base44.app"]) {
+    const response = await worker.fetch(makeRequest({ origin, token: "test-token-not-a-secret" }), {});
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: "origin_not_allowed" });
+  }
+});
+
 test("allows non-browser clients without Origin but still requires authentication", async () => {
   const response = await worker.fetch(makeRequest(), {});
 

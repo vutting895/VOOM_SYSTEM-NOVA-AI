@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile entity storing user settings and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "PortfolioTrade": {
+      "title": "Portfolio Trade Record",
+      "description": "Tracked trades and simulated positions in the Nova AI Quant platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "side": { "type": "string", "enum": ["BUY", "SELL"] },
+        "lots": { "type": "number" },
+        "entryPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["OPEN", "CLOSED", "PENDING"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "symbol", "side", "lots", "entryPrice", "status", "createdAt"]
+    },
+    "BacktestReport": {
+      "title": "Backtest Report",
+      "description": "Saved quantitative backtest results and metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "strategyId": { "type": "string", "maxLength": 64 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "timeframe": { "type": "string", "maxLength": 16 },
+        "initialBalance": { "type": "number" },
+        "finalBalance": { "type": "number" },
+        "netProfit": { "type": "number" },
+        "winRatePct": { "type": "number" },
+        "profitFactor": { "type": "number" },
+        "maxDrawdownPct": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "strategyId", "symbol", "createdAt"]
+    },
+    "ModuleTelemetry": {
+      "title": "MTRADERS Module Telemetry",
+      "description": "Real-time performance state of the 30 MTRADERS strategy modules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "moduleId": { "type": "integer" },
+        "moduleName": { "type": "string", "maxLength": 64 },
+        "winRate": { "type": "number" },
+        "realizedProfit": { "type": "number" },
+        "status": { "type": "string", "maxLength": 32 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "moduleId", "moduleName", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profile document"
+    },
+    "/users/{userId}/trades/{tradeId}": {
+      "schema": { "$ref": "PortfolioTrade" },
+      "description": "User portfolio trades subcollection"
+    },
+    "/users/{userId}/backtests/{backtestId}": {
+      "schema": { "$ref": "BacktestReport" },
+      "description": "User saved backtest reports subcollection"
+    },
+    "/users/{userId}/telemetry/{telemetryId}": {
+      "schema": { "$ref": "ModuleTelemetry" },
+      "description": "User MTRADERS module telemetry subcollection"
+    }
+  }
+}
