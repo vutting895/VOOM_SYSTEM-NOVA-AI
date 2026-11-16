@@ -67,6 +67,19 @@ test("video listing is bounded and uses the supplied uploads playlist", async ()
   assert.equal(result.nextPageToken, "next_page_token");
 });
 
+test("opaque Google page tokens are forwarded without interpreting their contents", async () => {
+  const opaqueToken = "opaque.page-token.v1+/=";
+  const result = await youtubeDataReadonly.listVideos({
+    accessToken: TOKEN,
+    playlistId: "UU12345678901234567890",
+    pageToken: opaqueToken,
+    fetchImpl: fakeFetch({ items: [] }, 200, (url) => {
+      assert.equal(url.searchParams.get("pageToken"), opaqueToken);
+    })
+  });
+  assert.equal(result.resultCount, 0);
+});
+
 test("video statistics batches up to 50 IDs in a read-only request", async () => {
   const result = await youtubeDataReadonly.getVideoStats({
     accessToken: TOKEN,
