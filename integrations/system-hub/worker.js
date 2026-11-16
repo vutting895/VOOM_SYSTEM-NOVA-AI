@@ -19,6 +19,7 @@ function corsHeaders(origin, env) {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+    "Access-Control-Expose-Headers": "X-Request-ID",
     "Access-Control-Max-Age": "300",
     "Vary": "Origin"
   };
@@ -498,8 +499,7 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
-export default {
-  async fetch(request, env = {}) {
+async function handleRequest(request, env = {}) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
 
@@ -580,5 +580,18 @@ export default {
     }
 
     return json({ error: "not_found" }, 404, origin, env);
+}
+
+export default {
+  async fetch(request, env = {}) {
+    const requestId = crypto.randomUUID();
+    const response = await handleRequest(request, env);
+    const headers = new Headers(response.headers);
+    headers.set("X-Request-ID", requestId);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
   }
 };
