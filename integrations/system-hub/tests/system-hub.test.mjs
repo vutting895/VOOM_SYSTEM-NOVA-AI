@@ -422,6 +422,39 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
   }
 });
 
+test("quotes reject malformed or mismatched upstream market data", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({ timeframe: "M1", bars: [] });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=3",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "bridge_unavailable");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("quotes with invalid bounds fail before making an upstream request", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
