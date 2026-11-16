@@ -249,6 +249,15 @@ components:
             as_of: { type: [string, 'null'], format: date-time }
         ordersEnabled: { const: false }
         liveTradingEnabled: { const: false }
+    OHLCBar:
+      type: object
+      required: [time, open, high, low, close]
+      properties:
+        time: { type: string, format: date-time }
+        open: { type: number, exclusiveMinimum: 0 }
+        high: { type: number, exclusiveMinimum: 0 }
+        low: { type: number, exclusiveMinimum: 0 }
+        close: { type: number, exclusiveMinimum: 0 }
     QuotesResult:
       type: object
       required: [connectionId, state, dataVerified, quote, ordersEnabled, liveTradingEnabled]
@@ -264,7 +273,10 @@ components:
             timeframe: { type: string }
             digits: { type: [number, 'null'] }
             tick: { type: [object, 'null'] }
-            bars: { type: array, items: { type: object } }
+            bars:
+              type: array
+              minItems: 1
+              items: { $ref: '#/components/schemas/OHLCBar' }
             count: { type: integer, minimum: 0 }
             mode: { const: read-only }
             order_submission_enabled: { const: false }
