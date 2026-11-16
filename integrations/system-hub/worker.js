@@ -474,13 +474,28 @@ async function readQuotes(request, env, user, row, origin) {
     }, result.status, origin, env);
   }
   const data = result.body;
+  // A successful HTTP response is not sufficient evidence of valid market data.
+  // Require the bridge to echo the requested instrument/timeframe and return a bounded bars array.
+  if (
+    typeof data.symbol !== "string" || data.symbol !== symbol ||
+    typeof data.timeframe !== "string" || data.timeframe.toUpperCase() !== timeframe ||
+    !Array.isArray(data.bars) || data.bars.length > count
+  ) {
+    return json({
+      connectionId: row.id,
+      state: "bridge_unavailable",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     quote: {
-      symbol: typeof data.symbol === "string" ? data.symbol : symbol,
-      timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
+      symbol: data.symbol,
+      timeframe: data.timeframe,
       digits: safeNumber(data.digits),
       tick: data.tick && typeof data.tick === "object" ? {
         bid: safeNumber(data.tick.bid),
