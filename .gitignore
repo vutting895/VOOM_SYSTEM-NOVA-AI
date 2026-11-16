@@ -24,3 +24,7 @@ data/
 Thumbs.db
 .vscode/
 frontend/next-env.d.ts
+
+# Playwright / Endform output
+test-results/
+playwright-report/
