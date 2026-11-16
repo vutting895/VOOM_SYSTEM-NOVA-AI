@@ -437,3 +437,20 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+test("every response receives a unique server-generated request ID", async () => {
+  const health = await worker.fetch(request("/health", {
+    headers: { Origin: UI_ORIGIN, "X-Request-ID": "client-controlled-value" }
+  }), env);
+  const healthId = health.headers.get("X-Request-ID");
+  assert.match(healthId || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.notEqual(healthId, "client-controlled-value");
+  assert.match(health.headers.get("Access-Control-Expose-Headers") || "", /X-Request-ID/);
+
+  const unauthorized = await worker.fetch(request("/v1/integrations"), env);
+  const unauthorizedId = unauthorized.headers.get("X-Request-ID");
+  assert.match(unauthorizedId || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.notEqual(healthId, unauthorizedId);
+  assert.equal(unauthorized.status, 401);
+});
