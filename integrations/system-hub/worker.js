@@ -310,6 +310,47 @@ async function getConnection(request, env, user, id, origin) {
 const MT5_TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
 
+function isIsoTimestamp(value) {
+  return typeof value === "string" &&
+    /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})$/.test(value) &&
+    Number.isFinite(Date.parse(value));
+}
+function validQuotePayload(data, requestedCount) {
+  if (!Array.isArray(data.bars) || data.bars.length < 1 || data.bars.length > requestedCount) return false;
+  if (data.count !== undefined && (!Number.isInteger(data.count) || data.count !== data.bars.length)) return false;
+  if (data.digits !== undefined && (!Number.isInteger(data.digits) || data.digits < 0 || data.digits > 10)) return false;
+
+  let direction = 0;
+  let previousTime = null;
+  for (const bar of data.bars) {
+    if (!bar || typeof bar !== "object" || Array.isArray(bar) || !isIsoTimestamp(bar.time)) return false;
+    const values = [bar.open, bar.high, bar.low, bar.close];
+    if (values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value <= 0)) return false;
+    const [open, high, low, close] = values;
+    if (high < low || high < open || high < close || low > open || low > close) return false;
+
+    const timestamp = Date.parse(bar.time);
+    if (previousTime !== null) {
+      const delta = timestamp - previousTime;
+      if (delta === 0) return false;
+      const currentDirection = Math.sign(delta);
+      if (direction !== 0 && currentDirection !== direction) return false;
+      direction = currentDirection;
+    }
+    previousTime = timestamp;
+  }
+
+  if (data.tick !== undefined && data.tick !== null) {
+    const tick = data.tick;
+    if (!tick || typeof tick !== "object" || Array.isArray(tick)) return false;
+    if (typeof tick.bid !== "number" || !Number.isFinite(tick.bid) || tick.bid <= 0) return false;
+    if (typeof tick.ask !== "number" || !Number.isFinite(tick.ask) || tick.ask < tick.bid) return false;
+    if (tick.last !== undefined && (typeof tick.last !== "number" || !Number.isFinite(tick.last) || tick.last < 0)) return false;
+    if (tick.time !== undefined && tick.time !== null && !isIsoTimestamp(tick.time)) return false;
+  }
+  return true;
+}
+
 function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -479,7 +520,7 @@ async function readQuotes(request, env, user, row, origin) {
   if (
     typeof data.symbol !== "string" || data.symbol !== symbol ||
     typeof data.timeframe !== "string" || data.timeframe.toUpperCase() !== timeframe ||
-    !Array.isArray(data.bars) || data.bars.length > count
+    !validQuotePayload(data, count)
   ) {
     return json({
       connectionId: row.id,
