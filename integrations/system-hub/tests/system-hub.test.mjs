@@ -494,3 +494,22 @@ test("POST routes reject caller-supplied bodies before any connection database a
   assert.equal((await checkResponse.json()).error, "request_body_not_supported");
   assert.equal(connectionDatabaseCalls, 0);
 });
+
+
+test("unexpected handler errors return a redacted 500 with a request ID", async () => {
+  const brokenEnv = new Proxy(env, {
+    get(target, property, receiver) {
+      if (property === "SUPABASE_URL") throw new Error("sensitive internal diagnostic");
+      return Reflect.get(target, property, receiver);
+    }
+  });
+  const response = await worker.fetch(request("/v1/integrations", {
+    headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN }
+  }), brokenEnv);
+  const bodyText = await response.text();
+  assert.equal(response.status, 500);
+  assert.deepEqual(JSON.parse(bodyText), { error: "internal_error" });
+  assert.doesNotMatch(bodyText, /sensitive internal diagnostic/);
+  assert.match(response.headers.get("X-Request-ID") || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+});
