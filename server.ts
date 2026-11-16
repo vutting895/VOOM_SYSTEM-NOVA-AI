@@ -979,291 +979,53 @@ async function startServer() {
     });
   });
 
-  // 3. Backtest Simulation Engine (Simulated Historical Strategy Tester)
-  app.post('/api/backtest/run', (req, res) => {
-    const {
-      strategyId = 'smc-mean-rejection',
-      symbol = 'XAU/USDm',
-      timeframe = '15m',
-      historicalPeriod = '1Y',
-      initialBalance = 10000,
-      riskPerTradePct = 1.0,
-    } = req.body || {};
-
-    const strategyNames: Record<string, string> = {
-      'smc-mean-rejection': 'SMC Mean Rejection & 4H Order Block Strategy',
-      'momentum-bos-ob': 'Momentum BOS + Liquidity Sweep Strategy',
-      'elliott-wave-impulse': 'Elliott Wave 3 Trend Extension Strategy',
-      'xgboost-volatility': 'XGBoost Multi-Factor Volatility Breakout',
-    };
-
-    const isHighYield = strategyId === 'smc-mean-rejection' || strategyId === 'momentum-bos-ob';
-    const totalTrades = isHighYield ? 138 : 112;
-    const winRatePct = isHighYield ? 63.8 : 58.4;
-    const profitFactor = isHighYield ? 2.18 : 1.84;
-    const netProfitPct = isHighYield ? 48.6 : 32.4;
-    const maxDrawdownPct = isHighYield ? 4.4 : 5.8;
-    const sharpeRatio = isHighYield ? 2.34 : 1.92;
-
-    const netProfit = Math.round(initialBalance * (netProfitPct / 100));
-    const finalBalance = initialBalance + netProfit;
-    const winningTrades = Math.round((totalTrades * winRatePct) / 100);
-    const losingTrades = totalTrades - winningTrades;
-
-    // Generate realistic simulated equity curve points
-    const equityCurve = [];
-    const pointsCount = 32;
-    let runningEquity = initialBalance;
-    let peakEquity = initialBalance;
-
-    for (let i = 0; i < pointsCount; i++) {
-      const progress = i / (pointsCount - 1);
-      const simulatedGain = (netProfit * progress) + Math.sin(i * 1.3) * (initialBalance * 0.015);
-      runningEquity = Math.round(initialBalance + simulatedGain);
-      if (runningEquity > peakEquity) peakEquity = runningEquity;
-      const dd = Math.max(0, Number((((peakEquity - runningEquity) / peakEquity) * 100).toFixed(2)));
-      const benchmark = Math.round(initialBalance * (1 + 0.12 * progress));
-
-      equityCurve.push({
-        date: `2026-M${Math.floor(i / 3) + 1}-D${(i % 28) + 1}`,
-        equity: runningEquity,
-        drawdownPct: dd,
-        benchmarkEquity: benchmark,
-      });
-    }
-
-    res.json({
-      ok: true,
-      strategyId,
-      strategyName: strategyNames[strategyId] || 'NOVA Adaptive Quant Strategy',
-      symbol,
-      timeframe,
-      initialBalance,
-      finalBalance,
-      netProfit,
-      netProfitPct,
-      profitFactor,
-      winRatePct,
-      maxDrawdownPct,
-      sharpeRatio,
-      totalTrades,
-      winningTrades,
-      losingTrades,
-      avgTradeDuration: '3 ชั่วโมง 45 นาที',
-      inSampleResults: {
-        datasetPct: 70,
-        winRatePct: Number((winRatePct + 1.8).toFixed(1)),
-        profitFactor: Number((profitFactor + 0.12).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct - 0.4).toFixed(1)),
-        trades: Math.round(totalTrades * 0.7),
-      },
-      outOfSampleResults: {
-        datasetPct: 30,
-        winRatePct: Number((winRatePct - 1.6).toFixed(1)),
-        profitFactor: Number((profitFactor - 0.14).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct + 0.5).toFixed(1)),
-        trades: Math.round(totalTrades * 0.3),
-        generalizationScorePct: 94.2,
-      },
-      equityCurve,
-      recentTrades: [
-        {
-          id: 'bt-tr-01',
-          timestamp: '2026-11-06 14:30',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2742.5,
-          exitPrice: 2758.0,
-          pnl: +465.0,
-          returnPct: +4.65,
-          holdTime: '4h 15m',
-          reason: 'Take Profit 2 (161.8% Fib Extension)',
-        },
-        {
-          id: 'bt-tr-02',
-          timestamp: '2026-11-05 09:15',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2736.0,
-          exitPrice: 2748.2,
-          pnl: +366.0,
-          returnPct: +3.66,
-          holdTime: '2h 50m',
-          reason: 'Take Profit 1 (SMC Liquidity Grab)',
-        },
-        {
-          id: 'bt-tr-03',
-          timestamp: '2026-11-04 18:40',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2741.0,
-          exitPrice: 2734.5,
-          pnl: -195.0,
-          returnPct: -1.95,
-          holdTime: '1h 10m',
-          reason: 'Stop Loss Hit (Risk Rule Enforced)',
-        },
-      ],
-      dataNotice: 'SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH',
+  // Backtests remain unavailable until a provenance-backed dataset, cost model,
+  // and deterministic strategy runner have passed reproducible validation.
+  app.post('/api/backtest/run', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      available: false,
+      status: 'NOT_CONFIGURED',
+      error: 'BACKTEST_ENGINE_NOT_CONFIGURED',
+      metrics: null,
+      equityCurve: null,
+      recentTrades: null,
+      detail: 'No verified historical dataset, execution-cost model, or deterministic backtest runner is configured.',
     });
   });
 
   // 4. Trading Infrastructure & Health
   app.get('/api/infrastructure/health', (_req, res) => {
-    res.json({
-      ok: true,
-      timestamp: new Date().toISOString(),
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      available: false,
+      status: 'NOT_CONFIGURED',
+      error: 'INFRASTRUCTURE_TELEMETRY_NOT_CONFIGURED',
       systemMode: 'FAIL_CLOSED_READONLY',
+      ordersEnabled: false,
+      executionEnabled: false,
       liveTradingEnabled: false,
-      mt5BridgeEnabled: false,
-      mt5Connection: {
-        status: 'STANDBY_DEMO_READY',
-        target: 'Exness MT5 Demo Terminal',
-        server: 'Exness-MT5Trial12 (Read-Only Catalogue)',
-        latencyMs: 14.2,
-        accountClass: 'Exness Demo (Read-Only)',
-        credentialsSecured: true,
-        orderExecutionBlocked: true,
-      },
-      brokerConnector: {
-        selectedBroker: 'Exness (MT5 Demo & REST Feed)',
-        protocol: 'Ed25519 Signed / Secure Gateway (Read-Only)',
-        supportedBrokers: ['Exness MT5 Demo', 'IC Markets REST', 'Binance Spot Read-Only', 'Bybit V5 Linear'],
-        directApiAvailable: true,
-      },
-      riskEngine: {
-        status: 'HARD_RULES_ENFORCED',
-        maxDrawdownCapPct: 5.0,
-        maxLotSizeLimit: 2.0,
-        maxMarginUsageLimitPct: 35.0,
-        maxRiskPerTradeLimitPct: 2.0,
-        failClosedGuardActive: true,
-        realMoneyWritesDisabled: true,
-      },
-      dataPipeline: {
-        status: 'OPTIMAL',
-        tickIngestionRatePerSec: 145,
-        redisBufferHitRatePct: 98.7,
-        featureStoreLatencyMs: 24.5,
-        schemaValidationPassPct: 100.0,
-      },
-      modelTrainingStatus: {
-        status: autoTrainState,
-        epoch: autoTrainEpoch,
-        activePair: activeTrainedPair,
-        samplesIngested: autoTrainSamples,
-        lastValidationAccPct: lastValidationAcc,
-        lastTrainedAt,
-      },
+      detail: 'Infrastructure health is unavailable until authenticated runtime probes provide verifiable telemetry.',
     });
   });
 
   // 5. Learning Universe & Dataset Management
   app.get('/api/learning/universe', (_req, res) => {
-    res.json({
-      ok: true,
-      featureStore: {
-        provider: 'Feast Feature Store on Apache Parquet',
-        monitoredSymbols: [
-          'XAU/USDm',
-          'BTC/USDm',
-          'EUR/USDm',
-          'GBP/USDm',
-          'USD/JPYm',
-          'ETH/USDm',
-          'SOL/USDm',
-          'AUD/USDm',
-          'USD/CADm',
-          'GBP/JPYm',
-          'XAG/USDm',
-          'TON/USDm',
-          'BNB/USDm',
-          'NZD/USDm',
-          'USD/CHFm',
-          'DOGE/USDm',
-        ],
-        totalSamplesStored: 1485000,
-        featureCategories: [
-          'Microstructure (VPIN, Order Book Imbalance, Tick Intensity)',
-          'SMC Signals (OB Distance, FVG Gap Width, BOS Flags)',
-          'Wave & Momentum (Fibonacci Extensions, Wavelet Energy, ATR)',
-          'Deep Latent Embeddings (Bi-LSTM 128-d, Attention Weights)',
-        ],
-        lastDataUpdateAt: new Date(Date.now() - 35 * 60000).toISOString(),
-        dailyUpdateStatus: 'SUCCESS_SYNCED',
-        nextScheduledUpdateAt: new Date(Date.now() + 4.5 * 3600000).toISOString(),
-      },
-      modelPerformanceByRegime: [
-        {
-          regimeName: 'Trending Bullish / Expansion',
-          description: 'ช่วงตลาดมีทิศทางชัดเจน ขับเคลื่อนด้วยคลื่นขยายตัว',
-          accuracyPct: 83.2,
-          f1Score: 0.84,
-          sampleCount: 524000,
-        },
-        {
-          regimeName: 'Range-bound / Asian Sideway',
-          description: 'ตลาดเคลื่อนไหวในกรอบแคบ รอการกวาดสภาพคล่อง',
-          accuracyPct: 78.5,
-          f1Score: 0.79,
-          sampleCount: 612000,
-        },
-        {
-          regimeName: 'High Volatility / News Event',
-          description: 'ช่วงประกาศตัวเลขเศรษฐกิจ ข่าว Fed/CPI ปรับลดความเสี่ยง',
-          accuracyPct: 74.6,
-          f1Score: 0.73,
-          sampleCount: 349000,
-        },
-      ],
-      trainingHistory: [
-        {
-          id: 'th-01',
-          timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-          pair: activeTrainedPair,
-          epoch: autoTrainEpoch,
-          trainingLoss: 0.0124,
-          validationAccuracyPct: lastValidationAcc,
-          durationSec: 14,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-02',
-          timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
-          pair: 'BTC/USDm',
-          epoch: autoTrainEpoch - 1,
-          trainingLoss: 0.0148,
-          validationAccuracyPct: 81.5,
-          durationSec: 16,
-          status: 'COMPLETED',
-        },
-        {
-          id: 'th-03',
-          timestamp: new Date(Date.now() - 75 * 60000).toISOString(),
-          pair: 'EUR/USDm',
-          epoch: autoTrainEpoch - 2,
-          trainingLoss: 0.0152,
-          validationAccuracyPct: 79.8,
-          durationSec: 12,
-          status: 'COMPLETED',
-        },
-      ],
-      autoUpdateJob: {
-        cadence: 'Daily at 00:00 UTC + Continuous Micro-updates every 18s',
-        automated: true,
-        healthPct: 100.0,
-        logs: [
-          'Feature Pipeline: 16 คู่หลักซิงค์ข้อมูลลง Parquet สำเร็จ',
-          'Schema Invariant: ผ่านการตรวจสอบ 0 corrupt frames',
-          'Auto-Train Daemon: ทำงานปกติ เชื่อมต่อ Real-Time WebSocket',
-        ],
-      },
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      available: false,
+      status: 'NOT_CONFIGURED',
+      error: 'LEARNING_UNIVERSE_NOT_CONFIGURED',
+      featureStore: null,
+      modelPerformanceByRegime: null,
+      trainingHistory: null,
+      autoUpdateJob: null,
+      detail: 'Learning data and model metrics are unavailable until a provenance-backed feature store and validated model registry are connected.',
     });
   });
-
-  // Hybrid Architecture Endpoint:
-  // 1. Outer Brain (Cloud LLM - Gemini): Extracts intent & synthesizes Generative UI explanation
-  // 2. Inner Brain (Internal Quant Engine - TFT / FinRL / Quantum): Computes regime, VPIN, and lot sizing
   app.post('/api/chat', async (req, res) => {
     const { messages, message, symbol } = req.body || {};
     const lastMessage =
