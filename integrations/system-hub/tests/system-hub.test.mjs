@@ -455,6 +455,49 @@ test("quotes reject malformed or mismatched upstream market data", async () => {
   }
 });
 
+test("quotes reject invalid OHLC bars, duplicate timestamps, and inconsistent count metadata", async () => {
+  const original = globalThis.fetch;
+  const validBar = { time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 };
+  const invalidPayloads = [
+    { name: "invalid timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, time: "not-a-time" }] } },
+    { name: "impossible OHLC range", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, high: 4038.7 }] } },
+    { name: "duplicate bar timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, validBar] } },
+    { name: "inconsistent bar order", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, { ...validBar, time: "2026-10-29T04:56:00Z" }, { ...validBar, time: "2026-10-29T04:54:00Z" }] } },
+    { name: "count does not match bars", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar], count: 2 } },
+    { name: "crossed tick", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar], tick: { bid: 4039.2, ask: 4039.1 } } }
+  ];
+
+  try {
+    for (const item of invalidPayloads) {
+      globalThis.fetch = async (input) => {
+        const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+        if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+        if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+          return Response.json([{
+            id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+            status: "connected", bridge_route_id: "tenant-a"
+          }]);
+        }
+        if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+          return Response.json(item.payload);
+        }
+        throw new Error("Unexpected external request: " + url.origin + url.pathname);
+      };
+      const response = await worker.fetch(request(
+        "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=5",
+        { headers: { Authorization: "Bearer " + USER_TOKEN } }
+      ), env);
+      const body = await response.json();
+      assert.equal(response.status, 502, item.name);
+      assert.equal(body.dataVerified, false, item.name);
+      assert.equal(body.ordersEnabled, false, item.name);
+      assert.equal(body.liveTradingEnabled, false, item.name);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("quotes with invalid bounds fail before making an upstream request", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
