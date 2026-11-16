@@ -541,6 +541,9 @@ async function handleRequest(request, env = {}) {
     if (url.pathname === "/v1/connections" && (request.method === "GET" || request.method === "POST")) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (request.method === "POST" && request.body !== null) {
+        return json({ error: "request_body_not_supported" }, 400, origin, env);
+      }
       if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
@@ -559,6 +562,9 @@ async function handleRequest(request, env = {}) {
     )) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (request.method === "POST" && request.body !== null) {
+        return json({ error: "request_body_not_supported" }, 400, origin, env);
+      }
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
