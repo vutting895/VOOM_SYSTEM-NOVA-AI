@@ -74,10 +74,11 @@ paths:
         '503': { $ref: '#/components/responses/Unavailable' }
     post:
       summary: Create or reuse the authenticated user's Exness MT5 Demo connection record
-      description: Creates a pending record only; it does not provision a bridge or enable trading.
+      description: Creates a pending record only; request bodies are rejected, and the server fixes provider/environment/status. It does not provision a bridge or enable trading.
       responses:
         '200': { description: Existing owner-scoped Demo connection reused }
         '201': { description: Pending Demo connection record created }
+        '400': { description: Request body is not supported }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/status:
@@ -107,13 +108,14 @@ paths:
       - $ref: '#/components/parameters/ConnectionId'
     post:
       summary: Verify the read-only Demo account path without returning account data
+      description: This endpoint accepts no request body; caller-supplied payloads are rejected.
       responses:
         '200':
           description: Account path verified
           content:
             application/json:
               schema: { $ref: '#/components/schemas/VerificationResult' }
-        '400': { description: Invalid connection UUID }
+        '400': { description: Invalid connection UUID or unsupported request body }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Integration type is not allowed for this connection }
         '404': { description: No connection record exists for the authenticated user }
