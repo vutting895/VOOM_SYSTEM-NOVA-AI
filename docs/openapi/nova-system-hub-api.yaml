@@ -6,9 +6,6 @@ info:
     Contract snapshot for the existing NOVA System Hub control-plane routes.
     This file documents source-level behavior; it is not evidence that a deployed
     endpoint is reachable. Protected operations require a verified Supabase access token.
-servers:
-  - url: https://voom-system-hub.suwapat787.workers.dev
-    description: Source-configured Worker host; verify deployment before use.
 security:
   - SupabaseBearer: []
 paths:
@@ -107,8 +104,8 @@ paths:
                       state: { type: string }
                       dataVerified: { const: false }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: Connection is not owned by the authenticated user }
-        '404': { description: Connection not found }
+        '400': { description: Invalid connection UUID }
+        '403': { description: Integration is not allowed for this connection }\n        '404': { description: No connection record exists for the authenticated user }\n        '409': { description: Connection or bridge is not ready }\n        '502': { description: Read-only broker adapter or bridge unavailable }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/check:
     parameters:
@@ -117,7 +114,7 @@ paths:
       summary: Check the read-only Demo connection path
       description: Checks readiness only; it does not submit or modify orders.
       responses:
-        '200': { description: Connection check result }
+        '200':\n          description: Read-only account path verified; no account payload is returned\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/VerificationResult'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Connection is not owned by the authenticated user }
         '404': { description: Connection not found }
@@ -128,8 +125,7 @@ paths:
     get:
       summary: Read account summary through the tenant-isolated read-only adapter
       responses:
-        '200':
-          description: Read-only account summary
+        '200':\n          description: Read-only account summary\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/AccountResult'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Connection is not owned by the authenticated user }
         '404': { description: Connection not found }
@@ -140,8 +136,7 @@ paths:
     get:
       summary: Read market quotes through the tenant-isolated read-only adapter
       responses:
-        '200':
-          description: Read-only quote data
+        '200':\n          description: Read-only quote data\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/QuotesResult'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Connection is not owned by the authenticated user }
         '404': { description: Connection not found }
@@ -164,7 +159,7 @@ components:
     Unavailable:
       description: Authentication provider, tenant store or downstream adapter unavailable
   schemas:
-    Connection:
+    VerificationResult:\n      type: object\n      required: [connectionId, state, dataVerified, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { type: string }\n        dataVerified: { type: boolean }\n        accountReadSucceeded: { type: boolean }\n        checkedAt: { type: string, format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    AccountResult:\n      type: object\n      required: [connectionId, state, dataVerified, account, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { const: data_verified }\n        dataVerified: { const: true }\n        checkedAt: { type: string, format: date-time }\n        account:\n          type: object\n          required: [connected, broker, platform, environment, mode, order_submission_enabled]\n          properties:\n            connected: { const: true }\n            broker: { const: Exness }\n            platform: { const: MT5 }\n            environment: { const: demo }\n            server: { type: [string, 'null'] }\n            currency: { type: [string, 'null'] }\n            balance: { type: [number, 'null'] }\n            equity: { type: [number, 'null'] }\n            margin: { type: [number, 'null'] }\n            free_margin: { type: [number, 'null'] }\n            margin_level: { type: [number, 'null'] }\n            mode: { const: read-only }\n            order_submission_enabled: { const: false }\n            as_of: { type: [string, 'null'], format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    QuotesResult:\n      type: object\n      required: [connectionId, state, dataVerified, quote, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { const: data_verified }\n        dataVerified: { const: true }\n        quote:\n          type: object\n          required: [symbol, timeframe, tick, bars, count, mode, order_submission_enabled]\n          properties:\n            symbol: { type: string }\n            timeframe: { type: string }\n            digits: { type: [number, 'null'] }\n            tick: { type: [object, 'null'] }\n            bars: { type: array, items: { type: object } }\n            count: { type: integer, minimum: 0 }\n            mode: { const: read-only }\n            order_submission_enabled: { const: false }\n            as_of: { type: [string, 'null'], format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    Connection:
       type: object
       required: [connectionId, provider, environment, recordStatus, readiness, dataVerified, capabilities, ordersEnabled, liveTradingEnabled]
       properties:
