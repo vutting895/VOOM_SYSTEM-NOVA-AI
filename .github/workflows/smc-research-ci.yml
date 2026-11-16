@@ -78,3 +78,32 @@ jobs:
         run: docker build -f workers/Dockerfile -t nova-research-worker:ci .
       - name: Build frontend container
         run: docker build -f Dockerfile -t nova-frontend:ci .
+      - name: Publish SMC CI diagnostic summary
+        if: always()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-diagnostics
+          printf '%s\n' "$STEPS_JSON" > ci-diagnostics/steps.json
+          {
+            echo "# SMC CI diagnostic summary"
+            echo "- Run ID: $RUN_ID"
+            echo "- Attempt: $RUN_ATTEMPT"
+            echo "- Job status at diagnostic step: $JOB_STATUS"
+            echo
+            echo 'See the attached steps.json for per-step outcome and conclusion metadata.'
+          } > ci-diagnostics/summary.md
+          cat ci-diagnostics/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload SMC CI diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smc-ci-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-diagnostics/
+          if-no-files-found: error
+          retention-days: 7
+
