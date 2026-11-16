@@ -591,7 +591,14 @@ async function handleRequest(request, env = {}) {
 export default {
   async fetch(request, env = {}) {
     const requestId = crypto.randomUUID();
-    const response = await handleRequest(request, env);
+    let response;
+    try {
+      response = await handleRequest(request, env);
+    } catch {
+      // Return a redacted error response while preserving correlation and allowed CORS.
+      const origin = request.headers.get("Origin") || "";
+      response = json({ error: "internal_error" }, 500, origin, env);
+    }
     const headers = new Headers(response.headers);
     headers.set("X-Request-ID", requestId);
     return new Response(response.body, {
