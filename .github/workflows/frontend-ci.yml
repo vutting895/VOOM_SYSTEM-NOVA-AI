@@ -133,7 +133,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ci-diagnostics
-          printf '%s\\n' "$STEPS_JSON" > ci-diagnostics/steps.json
+          printf '%s\n' "$STEPS_JSON" > ci-diagnostics/steps.json
           {
             echo "# Frontend CI diagnostic summary"
             echo "- Run ID: $RUN_ID"
