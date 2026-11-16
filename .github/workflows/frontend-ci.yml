@@ -140,9 +140,7 @@ jobs:
             echo "- Attempt: $RUN_ATTEMPT"
             echo "- Job status at diagnostic step: $JOB_STATUS"
             echo
-            echo '| Step | Outcome | Conclusion |'
-            echo '|---|---|---|'
-            jq -r 'to_entries[] | "| \\(.key) | \\(.value.outcome // \\"unknown\\") | \\(.value.conclusion // \\"unknown\\") |"' ci-diagnostics/steps.json
+            echo 'See the attached steps.json for per-step outcome and conclusion metadata.'
           } > ci-diagnostics/summary.md
           cat ci-diagnostics/summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload Frontend CI diagnostic artifact
