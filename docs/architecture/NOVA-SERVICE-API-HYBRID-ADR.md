@@ -120,11 +120,13 @@ Each service owns its request/response schema and error semantics. Shared identi
 - Reject request bodies on the two existing POST routes that do not accept bodies (`POST /v1/connections` and `POST /v1/connections/{id}/check`). This is endpoint-specific rejection, not a general ingress/body-size limit.
 - Remaining: structured audit events, standardized error envelope, distributed rate limits, general request/body limits for future body-accepting routes, and exact-head passing CI/test evidence.
 
-### Phase 1 — gateway hardening
-- Add request ID propagation and structured redacted audit events.
-- Standardize error envelope and route-level rate/body limits.
+### Phase 1 — remaining gateway hardening
+- Add structured, redacted audit events with stable event names and request correlation.
+- Define and migrate to the standard error envelope without breaking existing clients; current runtime errors are not yet standardized to the ADR envelope.
+- Design and implement distributed per-tenant/per-route rate limits with an explicit zero-cost-compatible mechanism, failure behavior and abuse controls.
+- Define general ingress/body-size limits before introducing any body-accepting endpoint; the two existing POST routes currently reject all bodies.
 - Add contract tests for authentication order, tenant isolation, origin handling, unknown routes and fail-closed dependency errors.
-- Verify existing behavior before changing any response shape.
+- Require exact-head passing CI, dedicated Node tests and OpenAPI validation before calling this phase release-ready.
 
 ### Phase 2 — service registry and adapters
 - Define typed service registry and allow-listed routing adapters.
@@ -167,4 +169,4 @@ Each service owns its request/response schema and error semantics. Shared identi
 
 ## 10. Next implementation slice
 
-Start with Gateway contract tests and request/error envelope design on this feature branch. Do not extract or deploy a domain service until the Gateway's tenant isolation, auth failure behavior, route allow-list and cost controls are proven by tests.
+Continue with the remaining Gateway hardening items above, beginning with reproducible exact-head test/CI diagnostics. Do not extract or deploy a domain service until tenant isolation, auth failure behavior, route allow-list and cost controls are proven by tests.
