@@ -258,6 +258,9 @@ components:
         high: { type: number, exclusiveMinimum: 0 }
         low: { type: number, exclusiveMinimum: 0 }
         close: { type: number, exclusiveMinimum: 0 }
+        tick_volume: { type: integer, minimum: 0 }
+        spread: { type: integer, minimum: 0 }
+        real_volume: { type: integer, minimum: 0 }
     QuotesResult:
       type: object
       required: [connectionId, state, dataVerified, quote, ordersEnabled, liveTradingEnabled]
@@ -271,13 +274,20 @@ components:
           properties:
             symbol: { type: string }
             timeframe: { type: string }
-            digits: { type: [number, 'null'] }
-            tick: { type: [object, 'null'] }
+            digits: { type: [integer, 'null'], minimum: 0, maximum: 10 }
+            tick:
+              type: [object, 'null']
+              required: [bid, ask, last, time]
+              properties:
+                bid: { type: number, exclusiveMinimum: 0 }
+                ask: { type: number, exclusiveMinimum: 0 }
+                last: { type: number, minimum: 0 }
+                time: { type: string, format: date-time }
             bars:
               type: array
               minItems: 1
               items: { $ref: '#/components/schemas/OHLCBar' }
-            count: { type: integer, minimum: 0 }
+            count: { type: integer, minimum: 1 }
             mode: { const: read-only }
             order_submission_enabled: { const: false }
             as_of: { type: [string, 'null'], format: date-time }
