@@ -1,3 +1,5 @@
+import { NOVA_DEMO_RISK_POLICY, getRiskPolicyReadiness } from "./risk-policy.js";
+
 const SERVICE = "nova-execution-service";
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
@@ -30,7 +32,8 @@ function json(data, status = 200, origin = "", env = {}) {
   });
 }
 function supabaseBase(env) {
-  const raw = String(env.SUPABASE_URL || "").replace(/\\/+$/, "");
+  let raw = String(env.SUPABASE_URL || "").trim();
+  while (raw.endsWith("/")) raw = raw.slice(0, -1);
   if (!raw) return "";
   try {
     const url = new URL(raw);
@@ -41,8 +44,10 @@ function supabaseBase(env) {
   }
 }
 function bearer(request) {
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
-  return match ? match[1] : "";
+  const header = request.headers.get("Authorization") || "";
+  if (header.slice(0, 7).toLowerCase() !== "bearer ") return "";
+  const token = header.slice(7).trim();
+  return token && !token.includes(" ") ? token : "";
 }
 async function authenticate(request, env) {
   const token = bearer(request);
@@ -78,6 +83,7 @@ async function authenticate(request, env) {
 }
 function capabilityStatus() {
   // Hard-coded fail-closed: request fields and runtime variables cannot enable trading.
+  const policyReadiness = getRiskPolicyReadiness(NOVA_DEMO_RISK_POLICY);
   return {
     service: SERVICE,
     state: "disabled",
@@ -88,7 +94,11 @@ function capabilityStatus() {
     liveTradingEnabled: false,
     brokerAdapterConfigured: false,
     riskGatewayConfigured: false,
-    intentStoreConfigured: false
+    intentStoreConfigured: false,
+    riskPolicyVersion: NOVA_DEMO_RISK_POLICY.version,
+    riskPolicyState: policyReadiness.state,
+    missingRiskSettings: policyReadiness.missingRequiredSettings,
+    invalidRiskSettings: policyReadiness.invalidSettings
   };
 }
 
@@ -135,7 +145,7 @@ export default {
 
     const intentPrefix = "/v1/trading/intents/";
     const intentId = url.pathname.startsWith(intentPrefix) ? url.pathname.slice(intentPrefix.length) : "";
-    if (request.method === "GET" && /^[A-Za-z0-9_-]{1,80}$/.test(intentId)) {
+    if (request.method === "GET" && intentId && intentId.length <= 80 && !intentId.includes("/")) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
       return json({ error: "intent_store_not_configured", state: "unavailable" }, 503, origin, env);
