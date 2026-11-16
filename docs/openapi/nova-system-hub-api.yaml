@@ -281,8 +281,8 @@ components:
               properties:
                 bid: { type: number, exclusiveMinimum: 0 }
                 ask: { type: number, exclusiveMinimum: 0 }
-                last: { type: number, minimum: 0 }
-                time: { type: string, format: date-time }
+                last: { type: [number, 'null'], minimum: 0 }
+                time: { type: [string, 'null'], format: date-time }
             bars:
               type: array
               minItems: 1
