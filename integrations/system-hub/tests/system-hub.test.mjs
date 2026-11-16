@@ -460,6 +460,7 @@ test("quotes reject invalid OHLC bars, duplicate timestamps, and inconsistent co
   const validBar = { time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 };
   const invalidPayloads = [
     { name: "invalid timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, time: "not-a-time" }] } },
+    { name: "impossible calendar date", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, time: "2026-02-30T04:55:00Z" }] } },
     { name: "impossible OHLC range", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, high: 4038.7 }] } },
     { name: "duplicate bar timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, validBar] } },
     { name: "inconsistent bar order", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, { ...validBar, time: "2026-10-29T04:56:00Z" }, { ...validBar, time: "2026-10-29T04:54:00Z" }] } },
