@@ -2,7 +2,7 @@ const DATA_API_BASE = "https://youtube.googleapis.com/youtube/v3/";
 const ANALYTICS_API_BASE = "https://youtubeanalytics.googleapis.com/v2/reports";
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const PLAYLIST_ID = /^[A-Za-z0-9_-]{10,80}$/;
-const PAGE_TOKEN = /^[A-Za-z0-9_=-]{1,2048}$/;
+const PAGE_TOKEN_MAX_LENGTH = 2048;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ANALYTICS_METRICS = new Set([
   "views",
@@ -149,7 +149,9 @@ export const youtubeDataReadonly = Object.freeze({
     if (typeof playlistId !== "string" || !PLAYLIST_ID.test(playlistId)) {
       throw new TypeError("invalid_uploads_playlist_id");
     }
-    if (pageToken !== undefined && (typeof pageToken !== "string" || !PAGE_TOKEN.test(pageToken))) {
+    if (pageToken !== undefined &&
+        (typeof pageToken !== "string" || pageToken.length < 1 ||
+         pageToken.length > PAGE_TOKEN_MAX_LENGTH || /\s/.test(pageToken))) {
       throw new TypeError("invalid_page_token");
     }
     const limit = boundedInteger(maxResults, 25, 1, 50, "max_results_out_of_range");
