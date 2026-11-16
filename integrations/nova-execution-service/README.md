@@ -6,8 +6,8 @@ This is a separate Cloudflare Worker boundary for the future Automated Demo exec
 
 ## Endpoints
 
-- `GET /health` — public process status and hard-disabled capability flags. This is not execution readiness.
-- `GET /v1/trading/execution/status` — Supabase-authenticated capability status.
+- `GET /health` — public process status, hard-disabled capability flags, and risk-policy readiness. This is not execution readiness.
+- `GET /v1/trading/execution/status` — Supabase-authenticated capability and risk-policy status.
 - `POST /v1/trading/intents` — Supabase-authenticated contract stub. Always returns HTTP 423 with `intentAccepted=false`; it does not parse, persist, queue, forward or execute the candidate.
 - `GET /v1/trading/intents/{intentId}` — authenticated response `503 intent_store_not_configured`; no intent is stored or retrievable yet.
 - Unknown routes return 404.
@@ -24,20 +24,26 @@ This is a separate Cloudflare Worker boundary for the future Automated Demo exec
 - CORS allows only origins explicitly listed in `ALLOWED_ORIGINS`.
 - Authentication, origin, and upstream failures fail closed.
 
+## Risk policy
+
+The policy records the previously specified Demo constraints: 10% daily-loss threshold from broker-day starting equity with entry-lock-only behavior, 9% aggregate open-risk cap, and a maximum of 5 orders. Other execution-critical settings remain null and block policy readiness. The readiness validator also rejects malformed values, empty symbol/session allowlists, per-trade risk above aggregate open risk, and disabled protective SL/TP requirements.
+
+A structurally complete policy is only `configured_pending_verification`; it is not execution approval and cannot enable this Worker.
+
 ## Local tests
 
 Run from the repository root:
 
 ```sh
-node --test integrations/nova-execution-service/tests/worker.test.mjs
+node --test integrations/nova-execution-service/tests/*.test.mjs
 ```
 
-Tests cover disabled flags, auth-required behavior, invalid sessions, CORS rejection, intent submission rejection, absence of broker calls, and unavailable intent storage. Passing these tests does not prove Risk Gateway correctness, Demo account identity, broker connectivity, or safe order execution.
+Tests cover disabled flags, auth-required behavior, invalid sessions, CORS rejection, intent submission rejection, absence of broker calls, unavailable intent storage, and risk-policy validation. Passing these tests does not prove Risk Gateway correctness, Demo account identity, broker connectivity, or safe order execution.
 
 ## Not implemented
 
 - Durable tenant-scoped intent ledger and RLS
-- Deterministic Risk Gateway with explicit reviewed policy values
+- Deterministic Risk Gateway enforcement on every intent
 - Idempotency and concurrent-request control
 - Execution audit store and secret redaction validation
 - Demo broker/server identity verification
