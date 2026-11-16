@@ -457,6 +457,7 @@ test("every response receives a unique server-generated request ID", async () =>
 
 
 test("POST routes reject caller-supplied bodies before any connection database access", async () => {
+  const originalFetch = globalThis.fetch;
   let connectionDatabaseCalls = 0;
   globalThis.fetch = async (input) => {
     const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
@@ -470,29 +471,33 @@ test("POST routes reject caller-supplied bodies before any connection database a
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
 
-  const forgedPayload = JSON.stringify({
-    provider: "untrusted-provider",
-    environment: "live",
-    status: "connected",
-    bridge_route_id: "attacker-controlled",
-    password: "must-never-be-accepted"
-  });
-  const createResponse = await worker.fetch(request("/v1/connections", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
-    body: forgedPayload
-  }), env);
-  assert.equal(createResponse.status, 400);
-  assert.equal((await createResponse.json()).error, "request_body_not_supported");
+  try {
+    const forgedPayload = JSON.stringify({
+      provider: "untrusted-provider",
+      environment: "live",
+      status: "connected",
+      bridge_route_id: "attacker-controlled",
+      password: "must-never-be-accepted"
+    });
+    const createResponse = await worker.fetch(request("/v1/connections", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+      body: forgedPayload
+    }), env);
+    assert.equal(createResponse.status, 400);
+    assert.equal((await createResponse.json()).error, "request_body_not_supported");
 
-  const checkResponse = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
-    body: forgedPayload
-  }), env);
-  assert.equal(checkResponse.status, 400);
-  assert.equal((await checkResponse.json()).error, "request_body_not_supported");
-  assert.equal(connectionDatabaseCalls, 0);
+    const checkResponse = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+      body: forgedPayload
+    }), env);
+    assert.equal(checkResponse.status, 400);
+    assert.equal((await checkResponse.json()).error, "request_body_not_supported");
+    assert.equal(connectionDatabaseCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 
