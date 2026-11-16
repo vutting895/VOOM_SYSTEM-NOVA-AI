@@ -3,9 +3,9 @@ info:
   title: NOVA System Hub API
   version: 1.0.0
   description: >
-    Contract snapshot for the existing NOVA System Hub control-plane routes.
-    This file documents source-level behavior; it is not evidence that a deployed
-    endpoint is reachable. Protected operations require a verified Supabase access token.
+    Contract snapshot for the existing NOVA System Hub source routes.
+    This contract is not evidence that a deployed endpoint is reachable.
+    Protected operations require a verified Supabase access token.
 security:
   - SupabaseBearer: []
 paths:
@@ -15,7 +15,7 @@ paths:
       summary: Minimal public service health
       responses:
         '200':
-          description: Health and non-sensitive readiness flags
+          description: Health flags; not a full dependency readiness check
           content:
             application/json:
               schema:
@@ -33,7 +33,7 @@ paths:
                   liveTradingEnabled: { const: false }
   /v1/integrations:
     get:
-      summary: List integration capabilities for the authenticated user
+      summary: List the integration registry for the authenticated user
       responses:
         '200':
           description: Integration registry snapshot
@@ -46,9 +46,7 @@ paths:
                   service: { const: voom-system-hub }
                   integrations:
                     type: array
-                    items:
-                      type: object
-                      additionalProperties: true
+                    items: { type: object, additionalProperties: true }
                   mode: { const: read-only }
                   ordersEnabled: { const: false }
                   liveTradingEnabled: { const: false }
@@ -75,15 +73,11 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/Unavailable' }
     post:
-      summary: Request an Exness MT5 Demo connection record
-      description: >
-        Creates or reuses a pending Demo connection for the authenticated user.
-        This does not provision a bridge, authenticate a broker terminal, or enable trading.
+      summary: Create or reuse the authenticated user's Exness MT5 Demo connection record
+      description: Creates a pending record only; it does not provision a bridge or enable trading.
       responses:
-        '200':
-          description: Existing owner-scoped Demo connection reused
-        '201':
-          description: Pending Demo connection record created
+        '200': { description: Existing owner-scoped Demo connection reused }
+        '201': { description: Pending Demo connection record created }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/status:
@@ -93,7 +87,7 @@ paths:
       summary: Read owner-scoped connection record status
       responses:
         '200':
-          description: Connection metadata; not proof of broker data verification
+          description: Connection metadata only; this route always reports dataVerified false
           content:
             application/json:
               schema:
@@ -102,22 +96,29 @@ paths:
                   - type: object
                     properties:
                       state: { type: string }
-                      dataVerified: { const: false }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+                      note: { type: string }
         '400': { description: Invalid connection UUID }
-        '403': { description: Integration is not allowed for this connection }\n        '404': { description: No connection record exists for the authenticated user }\n        '409': { description: Connection or bridge is not ready }\n        '502': { description: Read-only broker adapter or bridge unavailable }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Integration type is not allowed for this connection }
+        '404': { description: No connection record exists for the authenticated user }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/check:
     parameters:
       - $ref: '#/components/parameters/ConnectionId'
     post:
-      summary: Check the read-only Demo connection path
-      description: Checks readiness only; it does not submit or modify orders.
+      summary: Verify the read-only Demo account path without returning account data
       responses:
-        '200':\n          description: Read-only account path verified; no account payload is returned\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/VerificationResult'
+        '200':
+          description: Account path verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationResult' }
+        '400': { description: Invalid connection UUID }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: Connection is not owned by the authenticated user }
-        '404': { description: Connection not found }
+        '403': { description: Integration type is not allowed for this connection }
+        '404': { description: No connection record exists for the authenticated user }
+        '409': { description: Connection or bridge is not ready }
+        '502': { description: Read-only broker adapter or bridge unavailable }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/account:
     parameters:
@@ -125,21 +126,46 @@ paths:
     get:
       summary: Read account summary through the tenant-isolated read-only adapter
       responses:
-        '200':\n          description: Read-only account summary\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/AccountResult'
+        '200':
+          description: Read-only account summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountResult' }
+        '400': { description: Invalid connection UUID }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: Connection is not owned by the authenticated user }
-        '404': { description: Connection not found }
+        '403': { description: Integration type is not allowed for this connection }
+        '404': { description: No connection record exists for the authenticated user }
+        '409': { description: Connection or bridge is not ready }
+        '502': { description: Read-only broker adapter or bridge unavailable }
         '503': { $ref: '#/components/responses/Unavailable' }
   /v1/connections/{connectionId}/quotes:
     parameters:
       - $ref: '#/components/parameters/ConnectionId'
     get:
-      summary: Read market quotes through the tenant-isolated read-only adapter
+      summary: Read bounded market quotes through the tenant-isolated read-only adapter
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[A-Za-z0-9._-]{1,40}$' }
+        - name: timeframe
+          in: query
+          schema: { type: string, enum: [M1, M5, M15, M30, H1, H4, D1], default: M5 }
+        - name: count
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
       responses:
-        '200':\n          description: Read-only quote data\n          content:\n            application/json:\n              schema:\n                $ref: '#/components/schemas/QuotesResult'
+        '200':
+          description: Read-only quote data
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QuotesResult' }
+        '400': { description: Invalid UUID, symbol, timeframe, or count }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: Connection is not owned by the authenticated user }
-        '404': { description: Connection not found }
+        '403': { description: Integration type is not allowed for this connection }
+        '404': { description: No connection record exists for the authenticated user }
+        '409': { description: Connection or bridge is not ready }
+        '502': { description: Read-only broker adapter or bridge unavailable }
         '503': { $ref: '#/components/responses/Unavailable' }
 components:
   securitySchemes:
@@ -159,7 +185,7 @@ components:
     Unavailable:
       description: Authentication provider, tenant store or downstream adapter unavailable
   schemas:
-    VerificationResult:\n      type: object\n      required: [connectionId, state, dataVerified, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { type: string }\n        dataVerified: { type: boolean }\n        accountReadSucceeded: { type: boolean }\n        checkedAt: { type: string, format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    AccountResult:\n      type: object\n      required: [connectionId, state, dataVerified, account, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { const: data_verified }\n        dataVerified: { const: true }\n        checkedAt: { type: string, format: date-time }\n        account:\n          type: object\n          required: [connected, broker, platform, environment, mode, order_submission_enabled]\n          properties:\n            connected: { const: true }\n            broker: { const: Exness }\n            platform: { const: MT5 }\n            environment: { const: demo }\n            server: { type: [string, 'null'] }\n            currency: { type: [string, 'null'] }\n            balance: { type: [number, 'null'] }\n            equity: { type: [number, 'null'] }\n            margin: { type: [number, 'null'] }\n            free_margin: { type: [number, 'null'] }\n            margin_level: { type: [number, 'null'] }\n            mode: { const: read-only }\n            order_submission_enabled: { const: false }\n            as_of: { type: [string, 'null'], format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    QuotesResult:\n      type: object\n      required: [connectionId, state, dataVerified, quote, ordersEnabled, liveTradingEnabled]\n      properties:\n        connectionId: { type: string, format: uuid }\n        state: { const: data_verified }\n        dataVerified: { const: true }\n        quote:\n          type: object\n          required: [symbol, timeframe, tick, bars, count, mode, order_submission_enabled]\n          properties:\n            symbol: { type: string }\n            timeframe: { type: string }\n            digits: { type: [number, 'null'] }\n            tick: { type: [object, 'null'] }\n            bars: { type: array, items: { type: object } }\n            count: { type: integer, minimum: 0 }\n            mode: { const: read-only }\n            order_submission_enabled: { const: false }\n            as_of: { type: [string, 'null'], format: date-time }\n        ordersEnabled: { const: false }\n        liveTradingEnabled: { const: false }\n    Connection:
+    Connection:
       type: object
       required: [connectionId, provider, environment, recordStatus, readiness, dataVerified, capabilities, ordersEnabled, liveTradingEnabled]
       properties:
@@ -180,5 +206,66 @@ components:
             accountRead: { type: boolean }
             marketDataRead: { type: boolean }
             orderSubmission: { const: false }
+        ordersEnabled: { const: false }
+        liveTradingEnabled: { const: false }
+    VerificationResult:
+      type: object
+      required: [connectionId, state, dataVerified, ordersEnabled, liveTradingEnabled]
+      properties:
+        connectionId: { type: string, format: uuid }
+        state: { const: data_verified }
+        dataVerified: { const: true }
+        accountReadSucceeded: { const: true }
+        checkedAt: { type: string, format: date-time }
+        ordersEnabled: { const: false }
+        liveTradingEnabled: { const: false }
+    AccountResult:
+      type: object
+      required: [connectionId, state, dataVerified, account, ordersEnabled, liveTradingEnabled]
+      properties:
+        connectionId: { type: string, format: uuid }
+        state: { const: data_verified }
+        dataVerified: { const: true }
+        checkedAt: { type: string, format: date-time }
+        account:
+          type: object
+          required: [connected, broker, platform, environment, mode, order_submission_enabled]
+          properties:
+            connected: { const: true }
+            broker: { const: Exness }
+            platform: { const: MT5 }
+            environment: { const: demo }
+            server: { type: [string, 'null'] }
+            currency: { type: [string, 'null'] }
+            balance: { type: [number, 'null'] }
+            equity: { type: [number, 'null'] }
+            margin: { type: [number, 'null'] }
+            free_margin: { type: [number, 'null'] }
+            margin_level: { type: [number, 'null'] }
+            mode: { const: read-only }
+            order_submission_enabled: { const: false }
+            as_of: { type: [string, 'null'], format: date-time }
+        ordersEnabled: { const: false }
+        liveTradingEnabled: { const: false }
+    QuotesResult:
+      type: object
+      required: [connectionId, state, dataVerified, quote, ordersEnabled, liveTradingEnabled]
+      properties:
+        connectionId: { type: string, format: uuid }
+        state: { const: data_verified }
+        dataVerified: { const: true }
+        quote:
+          type: object
+          required: [symbol, timeframe, tick, bars, count, mode, order_submission_enabled]
+          properties:
+            symbol: { type: string }
+            timeframe: { type: string }
+            digits: { type: [number, 'null'] }
+            tick: { type: [object, 'null'] }
+            bars: { type: array, items: { type: object } }
+            count: { type: integer, minimum: 0 }
+            mode: { const: read-only }
+            order_submission_enabled: { const: false }
+            as_of: { type: [string, 'null'], format: date-time }
         ordersEnabled: { const: false }
         liveTradingEnabled: { const: false }
