@@ -1,0 +1,189 @@
+openapi: 3.1.0
+info:
+  title: NOVA System Hub API
+  version: 1.0.0
+  description: >
+    Contract snapshot for the existing NOVA System Hub control-plane routes.
+    This file documents source-level behavior; it is not evidence that a deployed
+    endpoint is reachable. Protected operations require a verified Supabase access token.
+servers:
+  - url: https://voom-system-hub.suwapat787.workers.dev
+    description: Source-configured Worker host; verify deployment before use.
+security:
+  - SupabaseBearer: []
+paths:
+  /health:
+    get:
+      security: []
+      summary: Minimal public service health
+      responses:
+        '200':
+          description: Health and non-sensitive readiness flags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, service, status, mode, ordersEnabled, executionEnabled, liveTradingEnabled]
+                properties:
+                  ok: { type: boolean }
+                  service: { const: voom-system-hub }
+                  status: { type: string }
+                  mode: { const: control-plane-read-only }
+                  authConfigured: { type: boolean }
+                  mt5ProxyConfigured: { type: boolean }
+                  ordersEnabled: { const: false }
+                  executionEnabled: { const: false }
+                  liveTradingEnabled: { const: false }
+  /v1/integrations:
+    get:
+      summary: List integration capabilities for the authenticated user
+      responses:
+        '200':
+          description: Integration registry snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [service, integrations, mode, ordersEnabled, liveTradingEnabled]
+                properties:
+                  service: { const: voom-system-hub }
+                  integrations:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  mode: { const: read-only }
+                  ordersEnabled: { const: false }
+                  liveTradingEnabled: { const: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/connections:
+    get:
+      summary: List only the authenticated user's broker connection records
+      responses:
+        '200':
+          description: Owner-scoped connection metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connections, count, ordersEnabled, liveTradingEnabled]
+                properties:
+                  connections:
+                    type: array
+                    items: { $ref: '#/components/schemas/Connection' }
+                  count: { type: integer, minimum: 0 }
+                  ordersEnabled: { const: false }
+                  liveTradingEnabled: { const: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+    post:
+      summary: Request an Exness MT5 Demo connection record
+      description: >
+        Creates or reuses a pending Demo connection for the authenticated user.
+        This does not provision a bridge, authenticate a broker terminal, or enable trading.
+      responses:
+        '200':
+          description: Existing owner-scoped Demo connection reused
+        '201':
+          description: Pending Demo connection record created
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/connections/{connectionId}/status:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    get:
+      summary: Read owner-scoped connection record status
+      responses:
+        '200':
+          description: Connection metadata; not proof of broker data verification
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Connection'
+                  - type: object
+                    properties:
+                      state: { type: string }
+                      dataVerified: { const: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Connection is not owned by the authenticated user }
+        '404': { description: Connection not found }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/connections/{connectionId}/check:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    post:
+      summary: Check the read-only Demo connection path
+      description: Checks readiness only; it does not submit or modify orders.
+      responses:
+        '200': { description: Connection check result }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Connection is not owned by the authenticated user }
+        '404': { description: Connection not found }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/connections/{connectionId}/account:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    get:
+      summary: Read account summary through the tenant-isolated read-only adapter
+      responses:
+        '200':
+          description: Read-only account summary
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Connection is not owned by the authenticated user }
+        '404': { description: Connection not found }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /v1/connections/{connectionId}/quotes:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionId'
+    get:
+      summary: Read market quotes through the tenant-isolated read-only adapter
+      responses:
+        '200':
+          description: Read-only quote data
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Connection is not owned by the authenticated user }
+        '404': { description: Connection not found }
+        '503': { $ref: '#/components/responses/Unavailable' }
+components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase access token
+  parameters:
+    ConnectionId:
+      name: connectionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: Missing, invalid or expired Supabase access token
+    Unavailable:
+      description: Authentication provider, tenant store or downstream adapter unavailable
+  schemas:
+    Connection:
+      type: object
+      required: [connectionId, provider, environment, recordStatus, readiness, dataVerified, capabilities, ordersEnabled, liveTradingEnabled]
+      properties:
+        connectionId: { type: string, format: uuid }
+        provider: { const: exness_mt5 }
+        environment: { const: demo }
+        recordStatus: { type: string }
+        accountLabel: { type: [string, 'null'] }
+        lastVerifiedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: [string, 'null'], format: date-time }
+        bridgeAllocated: { type: boolean }
+        readiness: { type: string }
+        dataVerified: { const: false }
+        capabilities:
+          type: object
+          required: [accountRead, marketDataRead, orderSubmission]
+          properties:
+            accountRead: { type: boolean }
+            marketDataRead: { type: boolean }
+            orderSubmission: { const: false }
+        ordersEnabled: { const: false }
+        liveTradingEnabled: { const: false }
