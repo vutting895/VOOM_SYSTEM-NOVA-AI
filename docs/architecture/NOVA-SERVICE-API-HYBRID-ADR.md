@@ -5,7 +5,7 @@
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
 - Baseline: `b11b46420b5056fea1c1570c4382e6097928c771` (`main`, checked 2026-11-16)
 - Delivery branch: `feature/nova-service-api-hybrid-architecture-20261116`
-- Production impact: none; documentation and contract only in this phase
+- Production impact: none; this branch contains architecture/OpenAPI documentation plus limited System Hub runtime hardening (server-generated request IDs, redacted unexpected-error responses, and body rejection on two existing POST routes). No deployment, secrets, bindings, database migrations or Production settings are changed.
 
 ## 1. Decision
 
@@ -110,11 +110,15 @@ Each service owns its request/response schema and error semantics. Shared identi
 
 ## 7. Migration plan
 
-### Phase 0 — baseline and contract (this branch)
+### Phase 0 — baseline and contract (completed as branch work)
 - Freeze exact Main SHA.
 - Inventory existing API/Worker surfaces and security boundaries.
 - Publish this ADR and the first OpenAPI contract for the existing System Hub surface.
-- No runtime or infrastructure changes.
+
+### Phase 1 — gateway hardening (partial; not release-ready)
+- Implement server-generated request IDs and a redacted 500 response for unexpected handler errors.
+- Reject request bodies on the two existing POST routes that do not accept bodies (`POST /v1/connections` and `POST /v1/connections/{id}/check`). This is endpoint-specific rejection, not a general ingress/body-size limit.
+- Remaining: structured audit events, standardized error envelope, distributed rate limits, general request/body limits for future body-accepting routes, and exact-head passing CI/test evidence.
 
 ### Phase 1 — gateway hardening
 - Add request ID propagation and structured redacted audit events.
