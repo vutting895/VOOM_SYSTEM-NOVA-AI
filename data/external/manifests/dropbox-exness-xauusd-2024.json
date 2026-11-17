@@ -20,6 +20,7 @@
   "row_count": null,
   "size_bytes": 318500736,
   "sha256": null,
-  "validation_status": "pending_archive_inspection",
-  "notes": "Dropbox metadata only; archive members and coverage not inspected."
+  "validation_status": "pending_download_and_archive_inspection",
+  "notes": "Dropbox metadata only; archive members and coverage not inspected. Dropbox content_hash recorded from Dropbox metadata; this is not claimed to be SHA-256.",
+  "dropbox_content_hash": "4465764fd11f77b91435369b3aabd67e704937a49d933d1106bac1cc1f1fa48c"
 }
