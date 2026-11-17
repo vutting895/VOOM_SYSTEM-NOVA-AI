@@ -1,6 +1,6 @@
 """Canonical, execution-free contracts for NOVA v1.0."""
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 
@@ -32,8 +32,8 @@ class Candle:
     def validate(self) -> None:
         if self.symbol not in {"XAUUSD", "XAUUSDm"}:
             raise ValueError("NOVA v1.0 supports XAUUSD only")
-        if self.timestamp.tzinfo is None:
-            raise ValueError("Candle timestamp must be timezone-aware UTC")
+        if self.timestamp.tzinfo is None or self.timestamp.utcoffset() != timedelta(0):
+            raise ValueError("Candle timestamp must be UTC")
         if min(self.open, self.high, self.low, self.close) <= 0:
             raise ValueError("OHLC values must be positive")
         if self.high < max(self.open, self.close, self.low):
@@ -59,5 +59,5 @@ class StrategySignal:
             raise ValueError("NOVA v1.0 supports XAUUSD only")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be in [0, 1]")
-        if self.generated_at.tzinfo is None:
-            raise ValueError("generated_at must be timezone-aware")
+        if self.generated_at.tzinfo is None or self.generated_at.utcoffset() != timedelta(0):
+            raise ValueError("generated_at must be UTC")
