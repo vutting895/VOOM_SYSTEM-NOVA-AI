@@ -5,6 +5,8 @@ import { handler as portfolioHandler } from "../netlify/functions/portfolio.js";
 import { handler as historyHandler } from "../netlify/functions/history.js";
 import { handler as tradeHandler } from "../netlify/functions/trade.js";
 import { handler as authConfigHandler } from "../netlify/functions/auth-config.js";
+import { handler as aiProxyHandler } from "../netlify/functions/ai-proxy.js";
+import { handler as apiNotFoundHandler } from "../netlify/functions/api-not-found.js";
 
 const originalFetch = globalThis.fetch;
 test.afterEach(() => { globalThis.fetch = originalFetch; });
@@ -33,6 +35,37 @@ test("auth config proxies only public Supabase client settings", async () => {
     if (previous === undefined) delete process.env.NOVA_SYSTEM_HUB_URL;
     else process.env.NOVA_SYSTEM_HUB_URL = previous;
   }
+});
+
+test("AI proxy forwards only allowlisted research routes with the caller's bearer token", async () => {
+  let observed;
+  globalThis.fetch = async (input, init = {}) => {
+    observed = { url: new URL(String(input)), init };
+    return Response.json({ ok: true, executionEnabled: false });
+  };
+  const response = await aiProxyHandler({
+    httpMethod: "POST",
+    headers: { authorization: "Bearer supabase-session-token" },
+    queryStringParameters: { target: "chat" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "test" }] })
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(observed.url.origin, "https://voom-system-nova-ai.suwapat787.workers.dev");
+  assert.equal(observed.url.pathname, "/api/chat");
+  assert.equal(observed.init.headers.Authorization, "Bearer supabase-session-token");
+  assert.equal(observed.init.redirect, "error");
+});
+
+test("unsupported API paths return JSON 501 instead of the SPA HTML fallback", async () => {
+  const response = await apiNotFoundHandler({
+    httpMethod: "GET",
+    queryStringParameters: { path: "intelligence/models" }
+  });
+  const body = JSON.parse(response.body);
+  assert.equal(response.statusCode, 501);
+  assert.equal(body.error, "API_ROUTE_NOT_IMPLEMENTED");
+  assert.equal(body.route, "/api/intelligence/models");
+  assert.equal(body.liveTradingEnabled, false);
 });
 
 test("Binance public price route returns public market data without credentials", async () => {

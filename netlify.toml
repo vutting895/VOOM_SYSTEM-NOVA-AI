@@ -52,6 +52,31 @@
   status = 200
 
 [[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/ai-proxy?target=chat"
+  status = 200
+
+[[redirects]]
+  from = "/api/gen-ai/generate"
+  to = "/.netlify/functions/ai-proxy?target=generate"
+  status = 200
+
+[[redirects]]
+  from = "/api/marketplace"
+  to = "/.netlify/functions/ai-proxy?target=marketplace"
+  status = 200
+
+[[redirects]]
+  from = "/api/backtest/run"
+  to = "/.netlify/functions/ai-proxy?target=backtest"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api-not-found?path=:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

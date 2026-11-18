@@ -14,14 +14,19 @@ This slice adds same-origin Netlify Functions for public Binance prices and auth
 | `GET /api/broker/status` | Current user's Exness Demo connection record |
 | `GET /api/portfolio` | Account summary and open positions from the user's connected Demo terminal |
 | `GET /api/history` | Closed deal history; maximum 90-day range and 500 rows |
+| `POST /api/chat` | Authenticated proxy to the Cloudflare NOVA AI Worker |
+| `POST /api/gen-ai/generate` | Authenticated research-only strategy generation proxy |
+| `GET /api/marketplace` | Authenticated Worker catalog |
+| `POST /api/backtest/run` | Authenticated research backtest proxy |
 | `POST /api/trade` | Always returns HTTP 403; never forwards to a broker |
+| Other unimplemented `/api/*` routes | Return JSON HTTP 501 instead of the SPA HTML fallback |
 
 ## Authentication and routing
 
 - Private routes require a valid Supabase access token in the incoming `Authorization: Bearer` header.
 - The `/login` route signs in with Supabase Auth. The public auth-config endpoint returns only the project URL and publishable key from the System Hub.
 - The Supabase client persists the session and synchronizes its access token to `localStorage.nova_auth_token` for the existing Axios client; the Fetch API client also reads the active Supabase session directly.
-- Netlify Functions forward the user token to the fixed NOVA System Hub URL. The Hub validates the session and scopes all connection lookups to the authenticated owner.
+- Netlify Functions forward the user token to the fixed NOVA System Hub URL or the fixed NOVA AI Worker URL. Both Workers validate the session; the Hub scopes connection lookups to the authenticated owner.
 - `NOVA_SYSTEM_HUB_URL` defaults to `https://voom-system-hub.suwapat787.workers.dev`; only this HTTPS Worker host is accepted.
 - Exness account data travels through System Hub → MT5 Read-only Proxy → tenant-specific Bridge Relay → local Windows MT5 Bridge.
 - The tenant route and bridge token remain in the existing Cloudflare/Windows secret boundary. They are not copied into Netlify or the browser.
