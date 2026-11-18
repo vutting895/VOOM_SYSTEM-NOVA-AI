@@ -1,0 +1,26 @@
+name: Exness M15 Candidate Validation
+
+on:
+  pull_request:
+    paths:
+      - "scripts/validate_exness_m15_candidate.py"
+      - "tests/test_exness_m15_candidate.py"
+      - ".github/workflows/exness-m15-candidate-validation.yml"
+  push:
+    branches:
+      - "fix/exness-m15-tick-volume-gap-validation-20261108"
+
+permissions:
+  contents: read
+
+jobs:
+  validator-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run isolated validator tests
+        run: python -m unittest tests.test_exness_m15_candidate -v
