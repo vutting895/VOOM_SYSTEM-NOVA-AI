@@ -82,16 +82,26 @@ def fetch_data(symbol: str, start: str, end: str) -> tuple[pd.DataFrame, pd.Data
     return df_4h, df_5m
 
 def find_swing_points(df: pd.DataFrame, lookback: int = 10) -> pd.DataFrame:
+    """Mark pivots only when their right-side confirmation bars have closed."""
+    if isinstance(lookback, bool) or not isinstance(lookback, int) or lookback < 1:
+        raise ValueError("lookback must be a positive integer")
+    if not {"high", "low"}.issubset(df.columns):
+        raise ValueError("dataframe must contain high and low columns")
     df = df.copy()
     df["swing_high"] = np.nan
     df["swing_low"] = np.nan
-    for i in range(lookback, len(df) - lookback):
-        window_h = df["high"].iloc[i - lookback : i + lookback + 1]
-        window_l = df["low"].iloc[i - lookback : i + lookback + 1]
-        if df["high"].iloc[i] == window_h.max():
-            df.iloc[i, df.columns.get_loc("swing_high")] = df["high"].iloc[i]
-        if df["low"].iloc[i] == window_l.min():
-            df.iloc[i, df.columns.get_loc("swing_low")] = df["low"].iloc[i]
+    df["swing_high_origin"] = np.nan
+    df["swing_low_origin"] = np.nan
+    for pivot_index in range(lookback, len(df) - lookback):
+        window_h = df["high"].iloc[pivot_index - lookback : pivot_index + lookback + 1]
+        window_l = df["low"].iloc[pivot_index - lookback : pivot_index + lookback + 1]
+        confirmed_index = pivot_index + lookback
+        if df["high"].iloc[pivot_index] == window_h.max() and (window_h == df["high"].iloc[pivot_index]).sum() == 1:
+            df.iloc[confirmed_index, df.columns.get_loc("swing_high")] = df["high"].iloc[pivot_index]
+            df.iloc[confirmed_index, df.columns.get_loc("swing_high_origin")] = pivot_index
+        if df["low"].iloc[pivot_index] == window_l.min() and (window_l == df["low"].iloc[pivot_index]).sum() == 1:
+            df.iloc[confirmed_index, df.columns.get_loc("swing_low")] = df["low"].iloc[pivot_index]
+            df.iloc[confirmed_index, df.columns.get_loc("swing_low_origin")] = pivot_index
     return df
 
 def detect_market_structure(df: pd.DataFrame) -> pd.DataFrame:
@@ -181,7 +191,7 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
     trades = []
     equity_curve = [equity]
     open_trade = None
-    df4_ts = df4.index.tolist()
+    df4_ts = df4.index
 
     for i in range(2, len(df_5m)):
         ts_now = df_5m.index[i]
@@ -205,15 +215,15 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
             hit_sl = (d == "long" and bar["low"] <= sl) or (d == "short" and bar["high"] >= sl)
 
             exit_price, result = None, None
-            if hit_sl and not hit_tp1:
+            # OHLC bars do not reveal intrabar event order. If a bar touches
+            # both stop and target, assume the adverse stop was reached first.
+            if hit_sl:
                 exit_price = sl
                 pnl = size * (sl - en) if d == "long" else size * (en - sl)
                 result = "SL"
-            elif hit_tp2:
-                exit_price = tp2
-                pnl = size * (tp2 - en) if d == "long" else size * (en - tp2)
-                result = "TP2"
             elif hit_tp1:
+                # TP1 is the first target. A single bar spanning TP1 and TP2
+                # cannot prove the path, so do not award the more favorable TP2.
                 exit_price = tp1
                 pnl = size * (tp1 - en) if d == "long" else size * (en - tp1)
                 result = "TP1"
@@ -239,7 +249,9 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
 
             # Check if price is inside recent bullish/bearish OB
             price = bar["close"]
-            for ob in obs[-10:]:  # check recent OBs
+            # Exclude order blocks discovered after this 5M bar.
+            recent_obs = [ob for ob in obs if ob["ts"] <= ts_now][-10:]
+            for ob in recent_obs:
                 if ob["type"] == "bullish" and trend == 1:
                     if ob["bottom"] <= price <= ob["top"] and is_rejection_candle(bar, "bullish"):
                         sl = ob["bottom"] - (ob["top"] - ob["bottom"]) * 0.2
