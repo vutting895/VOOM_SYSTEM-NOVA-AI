@@ -48,7 +48,7 @@ patch does not enable broker execution.
 3. `workers/quant_engine/smc_mean_rejection_backtest.py` marked centered-window swing pivots at the pivot bar, leaking future bars. Pivot events now become available only at the right-side confirmation bar.
 4. The same backtest called `searchsorted` on a Python list, which has no such method. It now retains the pandas index.
 5. The same backtest considered the last ten order blocks from the entire future dataset. It now filters order blocks to timestamps at or before the current entry bar.
-6. Intrabar OHLC ambiguity previously awarded a target when stop and target could both have been touched. The simulation now assumes stop-first and does not award TP2 when a single bar also spans TP1.
+6. Intrabar OHLC ambiguity previously awarded a target when stop and target could both have been touched. The simulation now assumes stop-first and does not award TP2 when a single bar also spans TP1.\n7. Open positions at the end of the sample were omitted from the result. The backtest now reports the open trade and unrealized PnL separately from realized equity.
 
 ## Known unresolved blockers
 
