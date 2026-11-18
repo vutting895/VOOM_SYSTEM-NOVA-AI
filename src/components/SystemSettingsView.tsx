@@ -151,7 +151,12 @@ export default function SystemSettingsView() {
       })
       .catch((error) => {
         setKaggleNotebooks([]);
-        setAutoTrainNotice(`Kaggle search unavailable: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
+        setKaggleStatus((current: any) => ({
+          ...current,
+          available: false,
+          status: 'not_configured',
+          lastError: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+        }));
       })
       .finally(() => setKaggleSearching(false));
   }
