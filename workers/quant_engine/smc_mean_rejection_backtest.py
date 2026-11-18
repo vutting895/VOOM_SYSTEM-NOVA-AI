@@ -293,7 +293,23 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
                             }
                             break
 
-    return {"trades": trades, "equity_curve": equity_curve, "final_equity": equity}
+    unrealized_pnl = 0.0
+    if open_trade is not None and len(df_5m):
+        last_price = float(df_5m["close"].iloc[-1])
+        if open_trade["direction"] == "long":
+            unrealized_pnl = open_trade["size"] * (last_price - open_trade["entry"])
+        else:
+            unrealized_pnl = open_trade["size"] * (open_trade["entry"] - last_price)
+    # Keep realized and mark-to-market equity separate. An unfinished trade is
+    # never silently counted as a closed trade or silently discarded.
+    return {
+        "trades": trades,
+        "equity_curve": equity_curve,
+        "realized_equity": equity,
+        "unrealized_pnl": unrealized_pnl,
+        "open_trade": open_trade,
+        "final_equity": equity + unrealized_pnl,
+    }
 
 def print_performance(results: dict, cfg: dict):
     trades = results["trades"]
