@@ -1,0 +1,33 @@
+name: NOVA Project Contract CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "shared/nova-project-contract.mjs"
+      - "tests/nova-project-contract.test.mjs"
+      - ".github/workflows/nova-project-contract-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "shared/nova-project-contract.mjs"
+      - "tests/nova-project-contract.test.mjs"
+      - ".github/workflows/nova-project-contract-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check project contract
+        run: node --check shared/nova-project-contract.mjs
+      - name: Run project contract tests
+        run: node --test tests/nova-project-contract.test.mjs
