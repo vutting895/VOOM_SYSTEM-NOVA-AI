@@ -1,0 +1,27 @@
+name: Kaggle Workflow Contract CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/kaggle-api-readonly-check.yml"
+      - ".github/workflows/kaggle-workflow-contract-ci.yml"
+      - "docs/KAGGLE_GITHUB_ACTIONS.md"
+      - "tests/test_kaggle_workflow_contract.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  kaggle-workflow-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewed pull request source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Kaggle workflow security contract tests
+        run: python -m unittest discover -s tests -p "test_kaggle_workflow_contract.py" -v
