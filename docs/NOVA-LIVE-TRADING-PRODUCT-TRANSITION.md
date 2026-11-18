@@ -81,7 +81,7 @@ Before any live-account test, complete the full lifecycle in an isolated Exness 
 - The Hub derives owner and tenant from a verified session and trusted registry. Client-supplied IDs never prove authorization.
 - Verify RLS and API authorization with at least two independent users and two broker connections; include cross-owner negative tests.
 - Keep MT5 Bridge and Trader API credential custody/lifecycle separate.
-- No customer real credential intake until custody and two-owner isolation have passed independent review.
+- No customer real credential intake until custody and two-owner isolation have passed documented internal security review. External reviewer approval is not required per owner directive (2026-11-05).
 
 ## 8. Dashboard implementation requirements
 
@@ -123,7 +123,7 @@ Dashboard states must distinguish demo vs live, paper vs broker execution, conne
 
 ### P4 — Production controls and operations
 - Complete custody, rotation/revocation, monitoring, alerting, incident response, rollback, rate limits, step-up auth and operational runbooks.
-- Acceptance: independent security review and full staging evidence on exact deployment SHA.
+- Acceptance: documented internal security review and full staging evidence on the exact deployment SHA. External reviewer approval is not required per owner directive (2026-11-05).
 
 ### P5 — Live activation decision
 Requires a separate owner approval that names:
@@ -153,6 +153,7 @@ No automatic activation follows from passing CI, merging a PR, demo fills or das
 - No production migrations, credentials, broker routes, deployments or order submissions without their own explicit approval.
 - All order mutations are disabled by default and enforced server-side until P5 activation approval.
 - The AI cannot authorize itself or modify risk/tenant/capability policy.
+- Security review may be completed internally and must be documented; no third-party reviewer is a release gate.
 - Never claim AI, dashboard, broker connectivity, strategy profitability or live trading is ready without exact-head code, CI, runtime and provider evidence.
 
 
