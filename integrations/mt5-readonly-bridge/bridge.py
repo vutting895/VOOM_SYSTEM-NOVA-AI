@@ -156,6 +156,43 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         }
 
 
+@app.get("/api/exposure")
+def account_exposure(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Authenticated, read-only account-wide positions and active pending-order snapshot."""
+    require_token(authorization, tenant_id)
+    with LOCK:
+        terminal, account = get_terminal_and_account()
+        snapshot_started_at = datetime.now(timezone.utc)
+        positions = mt5.positions_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions snapshot unavailable: {error[0]}")
+        pending_orders = mt5.orders_get()
+        if pending_orders is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 pending-orders snapshot unavailable: {error[0]}")
+
+        position_tickets = [str(int(item.ticket)) for item in positions]
+        pending_tickets = [str(int(item.ticket)) for item in pending_orders]
+        return {
+            "account_login": int(account.login),
+            "server": str(getattr(account, "server", "")),
+            "open_positions": len(position_tickets),
+            "open_pending_orders": len(pending_tickets),
+            "position_tickets": position_tickets,
+            "pending_order_tickets": pending_tickets,
+            "as_of": snapshot_started_at.isoformat(),
+            "snapshot_completed_at": datetime.now(timezone.utc).isoformat(),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+            "liveTradingEnabled": False,
+            "ordersEnabled": False,
+        }
+
+
 @app.get("/api/symbols")
 def symbols(
     q: str = Query(default="", max_length=40),

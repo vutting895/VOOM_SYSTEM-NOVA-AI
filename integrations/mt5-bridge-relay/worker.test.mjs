@@ -80,6 +80,39 @@ test("valid tenant request is sent only to its named Durable Object", async () =
   assert.equal(observed.headers.get("Authorization"), null);
 });
 
+test("exposure route is tenant-authenticated and forwarded only to its Durable Object", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id };
+    return Response.json({
+      account_login: 12345678,
+      open_positions: 2,
+      open_pending_orders: 1,
+      position_tickets: ["101", "102"],
+      pending_order_tickets: ["201"],
+      mode: "read-only",
+      order_submission_enabled: false
+    });
+  });
+  const response = await worker.fetch(request("/api/exposure", {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.url.pathname, "/api/exposure");
+  assert.equal(body.open_positions + body.open_pending_orders, 3);
+  assert.equal(body.order_submission_enabled, false);
+});
+
+test("exposure route rejects query parameters", () => {
+  assert.deepEqual(
+    validateReadRequest(new URL("https://relay.test/api/exposure?account=other")),
+    { ok: false, error: "query_not_allowed" }
+  );
+});
+
 test("legacy per-route origin is ignored; relay uses only the tenant session", async () => {
   let observedOrigin;
   const env = makeEnv(async (req) => {
