@@ -235,14 +235,14 @@ export default function TradingDashboardView() {
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-slate-400 block">Market Regime</span>
                 <div className="mt-1 p-2.5 rounded-lg bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-200 font-medium">
-                  {overviewData.analysis.marketRegime}
+                  {overviewData.analysis?.marketRegime || 'Unavailable — no verified AI analysis'}
                 </div>
               </div>
 
               <div>
                 <span className="text-[11px] uppercase tracking-wider text-slate-400 block">Macro Driver</span>
                 <p className="text-xs text-slate-300 mt-1 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
-                  {overviewData.analysis.macroDriver}
+                  {overviewData.analysis?.macroDriver || 'AI analysis is not connected. No synthetic analysis is displayed.'}
                 </p>
               </div>
 
@@ -250,13 +250,13 @@ export default function TradingDashboardView() {
                 <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider">Key Support</span>
                   <div className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
-                    ${overviewData.analysis.keySupport.toLocaleString()}
+                    {overviewData.analysis?.keySupport != null ? 'USD ' + overviewData.analysis.keySupport.toLocaleString() : 'Unavailable'}
                   </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800">
                   <span className="text-[10px] text-slate-500 uppercase tracking-wider">Key Resistance</span>
                   <div className="text-xs font-mono font-bold text-rose-400 mt-0.5">
-                    ${overviewData.analysis.keyResistance.toLocaleString()}
+                    {overviewData.analysis?.keyResistance != null ? 'USD ' + overviewData.analysis.keyResistance.toLocaleString() : 'Unavailable'}
                   </div>
                 </div>
               </div>
@@ -264,23 +264,29 @@ export default function TradingDashboardView() {
               <div className="pt-2">
                 <div className="flex justify-between text-xs mb-1">
                   <span className="text-slate-400">Model Consensus (ความเห็นพ้องของ AI)</span>
-                  <span className="text-cyan-400 font-bold">{overviewData.analysis.confidencePct}%</span>
+                  <span className="text-cyan-400 font-bold">{overviewData.analysis?.confidencePct ?? 'Unavailable'}%</span>
                 </div>
                 <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full"
-                    style={{ width: `${overviewData.analysis.confidencePct}%` }}
+                    style={{ width: `${overviewData.analysis?.confidencePct ?? 0}%` }}
                   />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1.5 font-mono">{overviewData.analysis.modelConsensus}</p>
+                <p className="text-[11px] text-slate-400 mt-1.5 font-mono">{overviewData.analysis?.modelConsensus || 'No verified model output'}</p>
               </div>
             </div>
           </div>
 
-          <MarketSentimentWidget
-            sentimentScore={overviewData.analysis.sentimentScore}
-            volatilityScore={overviewData.analysis.volatilityScore}
-          />
+          {overviewData.analysis ? (
+            <MarketSentimentWidget
+              sentimentScore={overviewData.analysis.sentimentScore}
+              volatilityScore={overviewData.analysis.volatilityScore}
+            />
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+              Sentiment and volatility scores are unavailable until a verified model output is connected.
+            </div>
+          )}
 
           <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -306,7 +312,9 @@ export default function TradingDashboardView() {
         </div>
 
         <div className="divide-y divide-slate-800/80 mt-2">
-          {overviewData.signals.map((signal) => {
+          {(overviewData.signals || []).length === 0 ? (
+            <p className="py-5 text-sm text-slate-400">No verified trading signals are available. No simulated signals are shown.</p>
+          ) : (overviewData.signals || []).map((signal) => {
             const isBuy = signal.type === 'BUY';
             return (
               <div key={signal.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">

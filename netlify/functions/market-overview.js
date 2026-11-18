@@ -53,6 +53,7 @@ export const handler = async (event) => {
   return json(200, {
     ok: true, timestamp: new Date().toISOString(), dataMode: "DEMO_READONLY",
     safetyNotice: "AUTHENTICATED EXNESS DEMO MARKET DATA · READ-ONLY · LIVE TRADING OFF",
-    assets, unavailable, ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
+    assets, unavailable, signals: [], analysis: null,
+    ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
   });
 };

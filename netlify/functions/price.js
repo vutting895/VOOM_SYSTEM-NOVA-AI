@@ -6,7 +6,7 @@ export const handler = async (event) => {
   const provider = String(query.provider || (String(query.symbol || "").toUpperCase().endsWith("USDT") ? "binance" : "exness")).toLowerCase();
 
   if (provider === "binance") {
-    const symbol = String(query.symbol || "BTCUSDT").trim().toUpperCase();
+    const symbol = String(query.symbol || "BTCUSDT").trim().replaceAll("/", "").toUpperCase();
     if (!/^[A-Z0-9]{5,20}$/.test(symbol)) return json(400, { error: "invalid_symbol" });
     try {
       const url = new URL("https://data-api.binance.vision/api/v3/ticker/price");

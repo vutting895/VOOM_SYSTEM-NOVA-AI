@@ -16,10 +16,21 @@ export const handler = async (event) => {
   const result = await hubRequest(event, "/v1/connections/" + resolved.connection.connectionId + "/quotes?" + params);
   if (!result.ok) return result.response;
   const quote = result.data.quote || {};
-  const bars = Array.isArray(quote.bars) ? quote.bars.map((bar) => ({
-    time: bar.time, open: Number(bar.open), high: Number(bar.high), low: Number(bar.low),
-    close: Number(bar.close), volume: Number(bar.tick_volume) || 0
-  })) : [];
+  const bars = Array.isArray(quote.bars) ? quote.bars.map((bar) => {
+    const rawTime = bar.time;
+    const timeMs = typeof rawTime === "number"
+      ? (rawTime > 1e12 ? rawTime : rawTime * 1000)
+      : Date.parse(String(rawTime));
+    const open = Number(bar.open);
+    const close = Number(bar.close);
+    return {
+      time: Number.isFinite(timeMs) ? new Date(timeMs).toISOString() : String(rawTime || ""),
+      timestamp: Number.isFinite(timeMs) ? Math.floor(timeMs / 1000) : 0,
+      open, high: Number(bar.high), low: Number(bar.low), close,
+      volume: Number(bar.tick_volume) || 0,
+      isBullish: Number.isFinite(open) && Number.isFinite(close) && close >= open
+    };
+  }) : [];
   if (!bars.length) return json(502, { error: "candles_unavailable", dataVerified: false });
   return json(200, {
     ok: true, symbol, timeframe, dataMode: "DEMO_READONLY", bars,
