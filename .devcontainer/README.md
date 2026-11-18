@@ -5,7 +5,7 @@ This environment is for local development and CI-style checks. It is not a produ
 ## Included
 
 - Node.js 22 for the existing TypeScript/React application
-- Bun for the repository's `bun.lock`
+- Bun installed through the Dev Container Feature
 - Python 3 and an isolated `.venv` for backend and research tooling
 - Git and common native build tools
 - Forwarded development ports: 3000, 5173, 8000 and 8787
@@ -35,7 +35,7 @@ Activate Python:
 source .venv/bin/activate
 ```
 
-Install Python dependencies only after confirming the applicable requirements/lock file for the task. Large ML libraries and GPU-specific builds are deliberately excluded from the base image.
+Install Python dependencies only after confirming the applicable requirements/lock file for the task. VS Code uses `.venv/bin/python`. Large ML libraries and GPU-specific builds are deliberately excluded from the base image.
 
 ## Secrets and safety
 
