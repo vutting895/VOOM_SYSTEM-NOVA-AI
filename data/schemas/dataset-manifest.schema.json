@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voomsystem.netlify.app/schemas/nova.dataset-manifest.v1.json",
+  "title": "NOVA Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_id", "status", "source", "instrument", "provider_symbol", "timeframe", "timezone", "timestamp_type", "format", "object_uri", "sha256", "row_count", "start_timestamp", "end_timestamp", "ingested_at", "adapter_version", "quality"],
+  "properties": {
+    "schema_version": { "const": "nova.dataset-manifest.v1" },
+    "dataset_id": { "type": "string", "pattern": "^ds_[A-Za-z0-9_-]{8,80}$" },
+    "status": { "enum": ["quarantined", "pending_review", "approved", "rejected", "deprecated"] },
+    "source": { "type": "string", "minLength": 1 },
+    "source_license": { "type": ["string", "null"] },
+    "instrument": { "type": "string", "minLength": 1 },
+    "provider_symbol": { "type": "string", "minLength": 1 },
+    "timeframe": { "enum": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"] },
+    "timezone": { "const": "UTC" },
+    "timestamp_type": { "enum": ["bar_open", "bar_close"] },
+    "volume_type": { "enum": ["tick", "real", "unknown"] },
+    "format": { "enum": ["parquet", "jsonl", "csv"] },
+    "object_uri": { "type": "string", "pattern": "^r2://[A-Za-z0-9._/-]+$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "bytes": { "type": "integer", "minimum": 1 },
+    "row_count": { "type": "integer", "minimum": 1 },
+    "start_timestamp": { "type": "string", "format": "date-time" },
+    "end_timestamp": { "type": "string", "format": "date-time" },
+    "ingested_at": { "type": "string", "format": "date-time" },
+    "adapter_version": { "type": "string", "minLength": 1 },
+    "normalization_version": { "type": ["string", "null"] },
+    "feature_set_version": { "type": ["string", "null"] },
+    "label_version": { "type": ["string", "null"] },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "duplicate_count", "missing_interval_count", "warnings"],
+      "properties": {
+        "status": { "enum": ["PASS", "WARN", "FAIL"] },
+        "duplicate_count": { "type": "integer", "minimum": 0 },
+        "missing_interval_count": { "type": "integer", "minimum": 0 },
+        "irregular_interval_count": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "split_policy": { "type": ["object", "null"] },
+    "created_by": { "type": ["string", "null"] }
+  }
+}

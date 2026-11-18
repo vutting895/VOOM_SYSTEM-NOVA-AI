@@ -1,0 +1,67 @@
+schema_version: nova.training-config.v1
+profile: hybrid_continuous
+
+execution:
+  control_plane: cloudflare_workers
+  compute:
+    local_cpu:
+      enabled: true
+      purpose: [unit_tests, data_validation, smoke_training]
+    kaggle:
+      enabled: true
+      purpose: [bounded_batch_training]
+    colab:
+      enabled: true
+      purpose: [bounded_batch_training]
+  max_concurrent_runs: 1
+  max_runtime_minutes: 180
+  require_explicit_job_approval: true
+
+data:
+  require_approved_manifest: true
+  require_sha256: true
+  timezone: UTC
+  reject_duplicates: true
+  reject_unresolved_gaps: true
+  allow_synthetic_candles: false
+  default_instrument: XAUUSD
+  provider_symbol_must_be_explicit: true
+
+splits:
+  method: chronological_walk_forward
+  final_oos_start: "2026-07-01"
+  final_oos_frozen: true
+  tune_on_final_oos: false
+  require_explicit_purge_bars: true
+  require_embargo_policy: true
+  allow_overlapping_test_folds: false
+
+models:
+  enabled_initially: [xgboost]
+  planned: [lstm, pytorch_deep_learning, vision]
+  meta_decision_requires_oof: true
+
+evaluation:
+  minimum_closed_oos_trades: 30
+  require_positive_net_profit: true
+  minimum_profit_factor: 1.0
+  require_walk_forward: true
+  require_baseline_comparison: true
+  include_spread_commission_swap_slippage: true
+  require_drawdown_and_expectancy: true
+
+promotion:
+  automatic_promotion: false
+  require_human_approval: true
+  first_target: demo_shadow
+  live_trading_enabled: false
+  orders_enabled: false
+  execution_enabled: false
+
+artifacts:
+  canonical_store: cloudflare_r2
+  metadata_store: supabase
+  immutable_dataset_snapshots: true
+  immutable_model_versions: true
+  store_training_logs: true
+  store_checkpoint_sha256: true

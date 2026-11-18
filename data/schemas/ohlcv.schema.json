@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voomsystem.netlify.app/schemas/nova.ohlcv.v1.json",
+  "title": "NOVA Canonical OHLCV Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "instrument", "provider_symbol", "timeframe", "timestamp", "timestamp_type", "timezone", "open", "high", "low", "close", "volume", "volume_type", "source"],
+  "properties": {
+    "schema_version": { "const": "nova.ohlcv.v1" },
+    "instrument": { "type": "string", "minLength": 1, "examples": ["XAUUSD"] },
+    "provider_symbol": { "type": "string", "minLength": 1, "examples": ["XAUUSDm"] },
+    "timeframe": { "enum": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "timestamp_type": { "enum": ["bar_open", "bar_close"] },
+    "timezone": { "const": "UTC" },
+    "open": { "type": "number", "exclusiveMinimum": 0 },
+    "high": { "type": "number", "exclusiveMinimum": 0 },
+    "low": { "type": "number", "exclusiveMinimum": 0 },
+    "close": { "type": "number", "exclusiveMinimum": 0 },
+    "volume": { "type": "number", "minimum": 0 },
+    "volume_type": { "enum": ["tick", "real", "unknown"] },
+    "spread": { "type": ["number", "null"], "minimum": 0 },
+    "source": { "type": "string", "minLength": 1 },
+    "source_record_id": { "type": ["string", "null"] }
+  }
+}
