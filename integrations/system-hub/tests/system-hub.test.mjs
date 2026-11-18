@@ -485,6 +485,19 @@ test("portfolio and history routes return only authenticated owner-scoped read d
   }
 });
 
+test("public auth config exposes only the Supabase publishable client settings", async () => {
+  const response = await worker.fetch(request("/v1/public/auth-config", {
+    headers: { Origin: UI_ORIGIN }
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.supabaseUrl, "https://supabase.test");
+  assert.equal(body.publishableKey, env.SUPABASE_PUBLISHABLE_KEY);
+  assert.equal(body.keyType, "publishable");
+  assert.equal(body.serviceRoleKey, undefined);
+  assert.equal(body.privateKey, undefined);
+});
+
 test("Cloudflare fallback frontend origin remains allowed during Netlify cutover", async () => {
   const response = await worker.fetch(request("/health", {
     headers: { Origin: FALLBACK_UI_ORIGIN }

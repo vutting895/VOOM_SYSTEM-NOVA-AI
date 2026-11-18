@@ -598,6 +598,20 @@ export default {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
     }
 
+    if (url.pathname === "/v1/public/auth-config" && request.method === "GET") {
+      const projectUrl = supabaseBase(env);
+      const publishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || "");
+      if (!projectUrl || !publishableKey) {
+        return json({ error: "public_auth_config_unavailable" }, 503, origin, env);
+      }
+      return json({
+        supabaseUrl: projectUrl,
+        publishableKey,
+        authProvider: "supabase",
+        keyType: "publishable"
+      }, 200, origin, env);
+    }
+
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);

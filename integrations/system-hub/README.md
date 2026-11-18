@@ -7,6 +7,7 @@ This is the control plane for viewing integration metadata, listing the signed-i
 ## Endpoints
 
 - `GET /health` — public process/readiness status only. It does not prove Supabase, a bridge, or a broker terminal is reachable.
+- `GET /v1/public/auth-config` — public Supabase project URL and publishable key only; never returns service-role or broker secrets.
 - `GET /v1/integrations` — authenticated registry of known integration adapters and declared capabilities.
 - `GET /v1/connections` — authenticated list of connection records visible to the current user through Supabase RLS.
 - `POST /v1/connections` — create an idempotent pending Exness Demo request for the authenticated user; the caller cannot choose or assign a tenant route.
@@ -14,6 +15,8 @@ This is the control plane for viewing integration metadata, listing the signed-i
 - `POST /v1/connections/:connectionId/check` — verifies a read-only account request through the MT5 proxy. The account response is discarded; only a sanitized status is returned.
 - `GET /v1/connections/:connectionId/account` — returns a small, credential-free account summary only after the authenticated Proxy read succeeds.
 - `GET /v1/connections/:connectionId/quotes?symbol=XAUUSDm&timeframe=M1&count=3` — reads bounded quotes/candles from the user's connected Demo terminal through the MT5 Proxy.
+- `GET /v1/connections/:connectionId/portfolio` — returns account summary and open positions from the user's connected Demo terminal.
+- `GET /v1/connections/:connectionId/history?from_ts=...&to_ts=...&limit=...` — returns up to 500 deals over a maximum 90-day range.
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
 

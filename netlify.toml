@@ -12,6 +12,11 @@
 
 # Explicit API rewrites must precede the SPA fallback.
 [[redirects]]
+  from = "/api/auth/config"
+  to = "/.netlify/functions/auth-config"
+  status = 200
+
+[[redirects]]
   from = "/api/price"
   to = "/.netlify/functions/price"
   status = 200

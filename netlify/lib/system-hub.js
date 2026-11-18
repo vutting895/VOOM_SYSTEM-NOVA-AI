@@ -35,6 +35,34 @@ function hubBaseUrl() {
   return url;
 }
 
+export async function publicHubRequest(pathname) {
+  let url;
+  try {
+    if (typeof pathname !== "string" || !pathname.startsWith("/v1/public/") || pathname.includes("..")) {
+      throw new Error("system_hub_path_invalid");
+    }
+    url = new URL(pathname, hubBaseUrl());
+  } catch (error) {
+    return { ok: false, response: json(503, { error: error.message || "system_hub_not_configured" }) };
+  }
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(8000)
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return { ok: false, response: json(response.status === 503 ? 503 : 502, {
+      error: typeof payload.error === "string" ? payload.error : "public_system_hub_request_failed"
+    }) };
+    return { ok: true, data: payload };
+  } catch {
+    return { ok: false, response: json(502, { error: "system_hub_unavailable" }) };
+  }
+}
+
 export async function hubRequest(event, pathname, { method = "GET", body } = {}) {
   const token = getBearer(event);
   if (!token) return { ok: false, response: json(401, { error: "authentication_required" }) };

@@ -4,9 +4,36 @@ import { handler as priceHandler } from "../netlify/functions/price.js";
 import { handler as portfolioHandler } from "../netlify/functions/portfolio.js";
 import { handler as historyHandler } from "../netlify/functions/history.js";
 import { handler as tradeHandler } from "../netlify/functions/trade.js";
+import { handler as authConfigHandler } from "../netlify/functions/auth-config.js";
 
 const originalFetch = globalThis.fetch;
 test.afterEach(() => { globalThis.fetch = originalFetch; });
+
+test("auth config proxies only public Supabase client settings", async () => {
+  const previous = process.env.NOVA_SYSTEM_HUB_URL;
+  process.env.NOVA_SYSTEM_HUB_URL = "https://voom-system-hub.suwapat787.workers.dev";
+  let observed;
+  globalThis.fetch = async (input, init = {}) => {
+    observed = { url: new URL(String(input)), init };
+    return Response.json({
+      supabaseUrl: "https://nova-project.supabase.co",
+      publishableKey: "sb_publishable_test_key_with_sufficient_length",
+      keyType: "publishable"
+    });
+  };
+  try {
+    const response = await authConfigHandler({ httpMethod: "GET", headers: {} });
+    const body = JSON.parse(response.body);
+    assert.equal(response.statusCode, 200);
+    assert.equal(body.supabaseUrl, "https://nova-project.supabase.co");
+    assert.equal(body.keyType, "publishable");
+    assert.equal(observed.url.pathname, "/v1/public/auth-config");
+    assert.equal(observed.init.headers.authorization, undefined);
+  } finally {
+    if (previous === undefined) delete process.env.NOVA_SYSTEM_HUB_URL;
+    else process.env.NOVA_SYSTEM_HUB_URL = previous;
+  }
+});
 
 test("Binance public price route returns public market data without credentials", async () => {
   let observed;

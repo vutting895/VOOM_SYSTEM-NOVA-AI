@@ -6,6 +6,7 @@ This slice adds same-origin Netlify Functions for public Binance prices and auth
 
 | Route | Behavior |
 |---|---|
+| `GET /api/auth/config` | Public Supabase URL and publishable client key only |
 | `GET /api/price?provider=binance&symbol=BTCUSDT` | Binance public ticker price; no API key required |
 | `GET /api/price?provider=exness&symbol=XAUUSDm` | Authenticated Exness MT5 Demo quote through System Hub |
 | `GET /api/market/overview` | Authenticated Exness Demo quotes for XAUUSDm, BTCUSDm and EURUSDm |
@@ -18,7 +19,8 @@ This slice adds same-origin Netlify Functions for public Binance prices and auth
 ## Authentication and routing
 
 - Private routes require a valid Supabase access token in the incoming `Authorization: Bearer` header.
-- The Frontend Fetch API client reads the token from `localStorage.nova_auth_token` or `localStorage.sb-access-token`.
+- The `/login` route signs in with Supabase Auth. The public auth-config endpoint returns only the project URL and publishable key from the System Hub.
+- The Supabase client persists the session and synchronizes its access token to `localStorage.nova_auth_token` for the existing Axios client; the Fetch API client also reads the active Supabase session directly.
 - Netlify Functions forward the user token to the fixed NOVA System Hub URL. The Hub validates the session and scopes all connection lookups to the authenticated owner.
 - `NOVA_SYSTEM_HUB_URL` defaults to `https://voom-system-hub.suwapat787.workers.dev`; only this HTTPS Worker host is accepted.
 - Exness account data travels through System Hub → MT5 Read-only Proxy → tenant-specific Bridge Relay → local Windows MT5 Bridge.

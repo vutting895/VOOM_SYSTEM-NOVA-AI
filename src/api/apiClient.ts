@@ -9,6 +9,7 @@ import {
   InfrastructureHealthResponse,
   LearningUniverseResponse,
 } from './types';
+import { getSupabaseClient } from '../lib/supabase';
 
 export interface ApiMetricRecord {
   id: string;
@@ -57,7 +58,16 @@ class NovaApiClient {
     });
   }
 
-  private getAuthHeaders(): Record<string, string> {
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    try {
+      const supabase = await getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        return { Authorization: `Bearer ${data.session.access_token}` };
+      }
+    } catch {
+      // Keep public market-data routes available if auth configuration is unavailable.
+    }
     try {
       const token =
         localStorage.getItem('nova_auth_token') ||
@@ -76,13 +86,14 @@ class NovaApiClient {
     let statusCode = 200;
 
     try {
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}${url}`, {
         ...options,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          ...this.getAuthHeaders(),
+          ...authHeaders,
           ...options?.headers,
         },
       });
