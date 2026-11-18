@@ -179,6 +179,61 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Kaggle integration is intentionally unavailable until credentials and a
+  // verified, cost-controlled runtime are provisioned. These routes expose
+  // truthful status and fail closed; they never claim to search or start compute.
+  const kaggleUnavailable = {
+    ok: true,
+    provider: 'kaggle',
+    serverUrl: 'https://www.kaggle.com/mcp',
+    transport: 'streamable-http',
+    configured: false,
+    available: false,
+    status: 'not_configured',
+    auth: { configured: false },
+    compute: { enabled: false, costIncurringActionsAllowed: false },
+    toolsCount: 0,
+    tools: [],
+    message: 'Kaggle credentials and a verified runtime are not configured.',
+  };
+
+  app.get('/api/mcp/kaggle/status', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json(kaggleUnavailable);
+  });
+
+  app.post('/api/mcp/kaggle/search', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+    if (!query || query.length > 200) {
+      return res.status(400).json({
+        ok: false,
+        error: 'INVALID_KAGGLE_SEARCH_QUERY',
+        message: 'query must be a non-empty string of at most 200 characters.',
+        notebooks: [],
+      });
+    }
+    return res.status(503).json({
+      ok: false,
+      error: 'KAGGLE_RUNTIME_NOT_CONFIGURED',
+      message: 'Notebook search is unavailable until Kaggle authentication and a verified provider runtime are configured.',
+      notebooks: [],
+    });
+  });
+
+  app.post('/api/mcp/kaggle/session/trigger', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(403).json({
+      ok: false,
+      error: 'KAGGLE_SESSION_EXECUTION_DISABLED',
+      status: 'disabled',
+      executionEnabled: false,
+      costIncurringActionAllowed: false,
+      message: 'Kaggle compute sessions cannot be started from NOVA. This remains disabled until credentials, quota controls, cost approval, and runtime verification are reviewed.',
+    });
+  });
+
+
   // Hard fail-closed defaults. No runtime API may enable broker writes.
   const mt5BridgeEnabled = false as const;
   const liveTradingEnabled = false as const;
