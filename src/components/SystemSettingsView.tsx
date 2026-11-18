@@ -134,7 +134,7 @@ export default function SystemSettingsView() {
       })
       .catch(() => {});
 
-    handleSearchKaggleNotebooks('Forex SMC');
+    // Do not issue a search request while the provider is known to be unavailable.
   }, []);
 
   function handleSearchKaggleNotebooks(q: string) {
@@ -191,24 +191,10 @@ export default function SystemSettingsView() {
   }
 
 
-  function handleTriggerBackendTrain(symbol: string) {
-    setSyncingBackend(true);
-    setAutoTrainNotice(`🔄 Backend Auto-Train: กำลังดึงกราฟสด ${symbol} มาเทรนโมเดลอัตโนมัติที่ Backend...`);
-    fetch('/api/auto-train/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol }),
-    })
-      .then(async (r) => {
-        const data = await r.json();
-        if (data?.statusNotification) setAutoTrainNotice(data.statusNotification);
-        if (!r.ok) throw new Error(data?.error || 'TRAINING_UNAVAILABLE');
-        notifySaved(`Backend accepted the training request for ${symbol}.`);
-      })
-      .catch((error) => {
-        setAutoTrainNotice(`Auto-Train unavailable: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
-      })
-      .finally(() => setSyncingBackend(false));
+  function handleTriggerBackendTrain(_symbol: string) {
+    // Defense in depth: never imply or request training without a verified runtime.
+    setSyncingBackend(false);
+    setAutoTrainNotice('Auto-Train unavailable: TRAINING_RUNTIME_NOT_CONFIGURED');
   }
 
   const activeProvider =
