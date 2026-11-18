@@ -1,0 +1,60 @@
+services:
+  redis:
+    image: redis:8.2-alpine
+    command: >-
+      redis-server --appendonly yes --appendfsync everysec
+      --maxmemory-policy noeviction
+    volumes:
+      - nova_async_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  analysis-api:
+    build:
+      context: ../..
+      dockerfile: backend/async_runtime/Dockerfile
+    environment:
+      REDIS_BROKER_URL: redis://redis:6379/0
+      REDIS_STATE_URL: redis://redis:6379/1
+      REDIS_RESULT_BACKEND_URL: redis://redis:6379/2
+      NOVA_ANALYSIS_INTERNAL_TOKEN: ${NOVA_ANALYSIS_INTERNAL_TOKEN:?Set a high-entropy internal dispatch token}
+      SUPABASE_URL: ${SUPABASE_URL:?Set Supabase project URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set server-only Supabase service role key}
+      TZ: UTC
+    command: >-
+      uvicorn dispatcher_api:app --host 0.0.0.0 --port 8000
+      --workers 2 --no-server-header
+    # Loopback only. Remote System Hub traffic must use an authenticated
+    # private ingress/tunnel; never publish this service directly to the Internet.
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  smc-worker:
+    build:
+      context: ../..
+      dockerfile: backend/async_runtime/Dockerfile
+    environment:
+      REDIS_BROKER_URL: redis://redis:6379/0
+      REDIS_STATE_URL: redis://redis:6379/1
+      REDIS_RESULT_BACKEND_URL: redis://redis:6379/2
+      SUPABASE_URL: ${SUPABASE_URL:?Set Supabase project URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:?Set server-only Supabase service role key}
+      TZ: UTC
+    command: >-
+      celery -A tasks worker --loglevel=info --events
+      --queues=smc_analysis --concurrency=2
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  nova_async_redis:

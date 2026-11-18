@@ -23,6 +23,57 @@ Protected endpoints validate the Supabase access token with Supabase Auth, then 
 
 Before the control plane can report an Exness connection as data-verified, the account record must be owned by the user, status must be connected, a tenant bridge route must be allocated, and the real MT5 proxy account-read request must succeed. Until that happens, status remains pending/configured/unavailable rather than reporting a false positive.
 
+
+## NOVA asynchronous SMC analysis dispatch
+
+The authenticated endpoint `POST /v1/connections/{connectionId}/analyze` starts a research-only SMC + Elliott task from the connected user's Exness MT5 Demo feed.
+
+Example request body:
+
+```json
+{
+  "symbol": "EURUSD",
+  "timeframe": "M5",
+  "count": 200
+}
+```
+
+- Supabase Auth derives the owner; the caller cannot submit a tenant or owner ID.
+- The Hub resolves the connection under that owner and requires a connected Demo record with a provisioned Bridge route.
+- The Hub fetches `count + 1` MT5 bars and drops the final, still-forming candle before dispatch.
+- Closed OHLCV is normalized and checked for chronology, finite positive prices, OHLC consistency and volume validity.
+- The Hub sends the normalized snapshot to the fixed internal dispatcher using a separate service token. The Supabase session token is not forwarded.
+- The response is HTTP 202 with a Celery task ID. OHLC data and account details are not echoed to the browser.
+
+Required Worker configuration (set outside source control):
+
+- `NOVA_ANALYSIS_DISPATCH_URL`: exact HTTPS URL ending in `/internal/v1/analysis/smc`.
+- `NOVA_ANALYSIS_DISPATCH_HOST`: exact hostname of that URL; the Worker rejects host mismatches.
+- `NOVA_ANALYSIS_DISPATCH_TOKEN`: high-entropy secret (at least 32 characters), stored as a Worker secret.
+
+The private dispatcher service requires the same value in `NOVA_ANALYSIS_INTERNAL_TOKEN`. It is bound to loopback by Docker Compose and must be exposed to the Hub only through a separately approved authenticated private ingress/tunnel. Do not publish port 8000 directly to the Internet. The endpoint has no browser CORS route and no public task-submission route.
+
+The dispatcher accepts only Exness MT5 Demo market snapshots, UUID owner/connection references, supported symbols/timeframes, 25–500 closed bars, and a strict payload schema. It queues a tenant-scoped research task; bot-bound tasks still require the bot state to be ACTIVE. No broker credential, Supabase bearer token, bridge token or order payload enters Redis/Celery.
+
+Example response:
+
+```json
+{
+  "connectionId": "22222222-2222-4222-8222-222222222222",
+  "taskId": "celery-task-id",
+  "status": "QUEUED",
+  "symbol": "EURUSD",
+  "timeframe": "M5",
+  "analyzedBarCount": 200,
+  "dataVerified": true,
+  "ordersEnabled": false,
+  "executionEnabled": false,
+  "liveTradingEnabled": false
+}
+```
+
+A queued response confirms task acceptance only; it does not claim analysis completion. Result retrieval/persistence and a durable job-status API are separate follow-up work.
+
 ## Safety
 
 - Read-only only.
