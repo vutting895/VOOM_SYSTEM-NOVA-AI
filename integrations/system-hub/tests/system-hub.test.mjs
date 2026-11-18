@@ -196,7 +196,7 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === proxyUrl && url.pathname === "/api/account") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ balance: "999999", account_number: "private" });
+      return Response.json({ connected: true, balance: "999999", account_number: "private" });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -436,4 +436,38 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+
+test("account verification rejects upstream payloads without connected=true", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/account") {
+      return Response.json({ balance: 1000, currency: "USD", as_of: "2026-11-09T00:00:00Z" });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "bridge_unavailable");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
+    assert.equal(body.liveTradingEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
 });
