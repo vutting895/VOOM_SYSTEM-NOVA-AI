@@ -40,68 +40,7 @@ interface CalendarWeekRow {
   weekCloses: number;
 }
 
-const OCTOBER_CALENDAR_WEEKS: CalendarWeekRow[] = [
-  {
-    weekId: 1,
-    days: [
-      { day: 28, pnl: null, closes: 0 },
-      { day: 29, pnl: null, closes: 0 },
-      { day: 30, pnl: null, closes: 0 },
-      { day: 1, pnl: 2383.05, closes: 80 },
-      { day: 2, pnl: 1239.05, closes: 23 },
-    ],
-    weekTotal: 3622.1,
-    weekCloses: 103,
-  },
-  {
-    weekId: 2,
-    days: [
-      { day: 5, pnl: 0, closes: 0 },
-      { day: 6, pnl: -23.57, closes: 27 },
-      { day: 7, pnl: 134.17, closes: 29 },
-      { day: 8, pnl: 33.26, closes: 7 },
-      { day: 9, pnl: 35.81, closes: 9 },
-    ],
-    weekTotal: 179.67,
-    weekCloses: 72,
-  },
-  {
-    weekId: 3,
-    days: [
-      { day: 12, pnl: 100.59, closes: 28 },
-      { day: 13, pnl: 71.33, closes: 13 },
-      { day: 14, pnl: 132.79, closes: 33 },
-      { day: 15, pnl: 65.52, closes: 14 },
-      { day: 16, pnl: 126.59, closes: 28 },
-    ],
-    weekTotal: 496.82,
-    weekCloses: 116,
-  },
-  {
-    weekId: 4,
-    days: [
-      { day: 19, pnl: 85.99, closes: 29 },
-      { day: 20, pnl: 121.96, closes: 35 },
-      { day: 21, pnl: 374.3, closes: 37 },
-      { day: 22, pnl: 538.34, closes: 77 },
-      { day: 23, pnl: 195.02, closes: 53 },
-    ],
-    weekTotal: 1315.61,
-    weekCloses: 231,
-  },
-  {
-    weekId: 5,
-    days: [
-      { day: 26, pnl: 191.19, closes: 37 },
-      { day: 27, pnl: 185.23, closes: 32 },
-      { day: 28, pnl: 263.77, closes: 30 },
-      { day: 29, pnl: 753.99, closes: 24 },
-      { day: 30, pnl: 342.15, closes: 19, isToday: true },
-    ],
-    weekTotal: 1736.33,
-    weekCloses: 142,
-  },
-];
+const OCTOBER_CALENDAR_WEEKS: CalendarWeekRow[] = [];
 
 export default function NovaProWorkspaceView() {
   const navigate = useNavigate();
@@ -111,9 +50,6 @@ export default function NovaProWorkspaceView() {
 
   // Exness Connect Modal (Image 4 style)
   const [showExnessModal, setShowExnessModal] = useState(false);
-  const [exnessLoginId, setExnessLoginId] = useState('');
-  const [exnessPass, setExnessPass] = useState('');
-  const [exnessServer, setExnessServer] = useState('Exness MT5 Demo (Read-only)');
   const [exnessConnected, setExnessConnected] = useState(false);
 
   // Portfolio Performance Timeframe (Image 6 & Image 3)
@@ -124,8 +60,8 @@ export default function NovaProWorkspaceView() {
   const [gridRunning, setGridRunning] = useState<boolean>(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<CalendarDayItem>({
     day: 29,
-    pnl: 753.99,
-    closes: 24,
+    pnl: null,
+    closes: 0,
   });
   const [floatingPnl, setFloatingPnl] = useState<number>(0);
   const [openGridPos, setOpenGridPos] = useState<number>(0);
@@ -141,6 +77,7 @@ export default function NovaProWorkspaceView() {
   // Live API Market Data Integration
   const [liveAssets, setLiveAssets] = useState<MarketAssetQuote[]>([]);
   const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -163,6 +100,11 @@ export default function NovaProWorkspaceView() {
       setFloatingPnl(0);
       setOpenGridPos(0);
     });
+    novaApi.getTradeHistory().then((result) => {
+      if (isMounted) setTradeHistory(Array.isArray(result.deals) ? result.deals : []);
+    }).catch(() => {
+      if (isMounted) setTradeHistory([]);
+    });
     return () => { isMounted = false; };
   }, []);
 
@@ -177,7 +119,7 @@ export default function NovaProWorkspaceView() {
     {
       id: 'Q-101',
       title: 'XAU/USDm Liquidity Sweep Long',
-      subtitle: 'Exness Account #23908764 · 0.45 Lots ($1,237 Margin)',
+      subtitle: 'Exness MT5 Demo · Account status pending verification',
       status: 'Needs Review',
     },
     {
@@ -189,7 +131,7 @@ export default function NovaProWorkspaceView() {
     {
       id: 'Q-103',
       title: 'EUR/USDm Ornstein-Uhlenbeck Mean Revert',
-      subtitle: 'Kalman Z-Score -2.34σ · 1.00 Lot',
+      subtitle: 'Model output unavailable · no verified position',
       status: 'Needs Review',
     },
   ]);
@@ -231,11 +173,11 @@ export default function NovaProWorkspaceView() {
                 VOOM SYSTEM · NOVA OS v2.5
               </span>
               <span className="text-xs font-mono text-emerald-400">
-                ● Live · Account #{exnessLoginId}
+                ● Demo · {portfolioData?.account ? 'Verified' : 'Unverified'}
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              AI Trading & Investment Platform · Hybrid Cloud LLM + Quantum/TFT Execution + Dynamic Grid
+              AI Research Platform · Demo Read-only · Live Trading OFF
             </p>
           </div>
         </div>
@@ -317,31 +259,31 @@ export default function NovaProWorkspaceView() {
             {[
               {
                 label: 'Total Value',
-                val: '$51,695.58',
-                sub: '+$5,732.10 vs last month',
+                val: 'Unavailable',
+                sub: 'No verified account history',
                 color: '#06b6d4',
-                points: '0,28 20,24 40,26 60,18 80,14 100,6',
+                points: '',
               },
               {
                 label: 'Daily P/L',
-                val: '+$1,239.05',
-                sub: '+2.45% Today (23 closes)',
+                val: 'Unavailable',
+                sub: 'No verified deal history',
                 color: '#10b981',
-                points: '0,26 20,22 40,19 60,21 80,11 100,4',
+                points: '',
               },
               {
                 label: 'Total Return',
-                val: '+395.72%',
-                sub: '+$7,008.38 Dynamic Grid Yield',
+                val: 'Unavailable',
+                sub: 'No verified performance calculation',
                 color: '#3b82f6',
-                points: '0,30 20,25 40,20 60,16 80,10 100,3',
+                points: '',
               },
               {
                 label: 'Risk Level',
-                val: '23% Low',
-                sub: 'VaR(1D) 1.32% · Sharpe 2.64',
+                val: 'Unavailable',
+                sub: 'Risk metrics unavailable',
                 color: '#10b981',
-                points: '0,18 20,16 40,20 60,15 80,12 100,10',
+                points: '',
               },
             ].map((kpi) => (
               <div
@@ -486,7 +428,7 @@ export default function NovaProWorkspaceView() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs font-mono text-slate-400">
-                <span>All Portfolio Value: $51,695.58 (+12.48% 30D)</span>
+                <span>Portfolio value: Unavailable until authenticated Demo account read</span>
                 <button
                   type="button"
                   onClick={() => setActiveSubView('dynamic-grid-calendar')}
@@ -517,7 +459,7 @@ export default function NovaProWorkspaceView() {
                       symbol: 'XAUUSDm',
                       sub: 'Gold / US Dollar (Exness)',
                       price: '2,749.40',
-                      chg: '+0.94%',
+                      chg: 'Unavailable',
                       up: true,
                       pts: '0,22 25,18 50,20 75,10 100,4',
                     },
@@ -525,7 +467,7 @@ export default function NovaProWorkspaceView() {
                       symbol: 'EURUSDm',
                       sub: 'Euro / US Dollar (Exness)',
                       price: '1.0864',
-                      chg: '+0.38%',
+                      chg: 'Unavailable',
                       up: true,
                       pts: '0,20 25,19 50,15 75,12 100,7',
                     },
@@ -533,7 +475,7 @@ export default function NovaProWorkspaceView() {
                       symbol: 'BTCUSDT',
                       sub: 'Bitcoin / US Dollar',
                       price: '89,420.50',
-                      chg: '+2.84%',
+                      chg: 'Unavailable',
                       up: true,
                       pts: '0,25 25,21 50,14 75,9 100,3',
                     },
@@ -541,7 +483,7 @@ export default function NovaProWorkspaceView() {
                       symbol: 'SOLUSDT',
                       sub: 'Solana High-Freq Feed',
                       price: '194.65',
-                      chg: '+4.56%',
+                      chg: 'Unavailable',
                       up: true,
                       pts: '0,26 25,22 50,18 75,11 100,4',
                     },
@@ -549,7 +491,7 @@ export default function NovaProWorkspaceView() {
                       symbol: 'BNBUSD',
                       sub: 'BNB Ecosystem Feed',
                       price: '642.10',
-                      chg: '-0.42%',
+                      chg: 'Unavailable',
                       up: false,
                       pts: '0,8 25,12 50,14 75,19 100,24',
                     },
@@ -822,27 +764,22 @@ export default function NovaProWorkspaceView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {[
-                      { time: '2026-10-30 14:32', sym: 'XAUUSDm', side: 'Buy', vol: '0.35', price: '2,749.40', pnl: '+374.30', up: true },
-                      { time: '2026-10-30 11:17', sym: 'EURUSDm', side: 'Sell', vol: '1.00', price: '1.0864', pnl: '+126.59', up: true },
-                      { time: '2026-10-29 19:03', sym: 'BTCUSDT', side: 'Buy', vol: '0.25', price: '89,420.50', pnl: '+753.99', up: true },
-                      { time: '2026-10-28 16:45', sym: 'XAUUSDm', side: 'Buy', vol: '0.20', price: '2,731.10', pnl: '-23.57', up: false },
-                    ].map((tr, i) => (
-                      <tr key={i} className="hover:bg-slate-900/50">
-                        <td className="py-2.5 pr-3 text-slate-400">{tr.time}</td>
-                        <td className="py-2.5 px-2 font-bold text-white">{tr.sym}</td>
-                        <td className="py-2.5 px-2">
-                          <span className={tr.side === 'Buy' ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                            {tr.side}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-2 text-right text-slate-300">{tr.vol}</td>
-                        <td className="py-2.5 px-2 text-right text-slate-300">{tr.price}</td>
-                        <td className={`py-2.5 pl-2 text-right font-bold ${tr.up ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {tr.pnl}
-                        </td>
-                      </tr>
-                    ))}
+                    {tradeHistory.length === 0 ? (
+                      <tr><td colSpan={6} className="py-5 text-center text-slate-400">No verified trade history is available.</td></tr>
+                    ) : tradeHistory.slice(0, 50).map((deal, i) => {
+                      const side = Number(deal.type) === 0 ? 'Buy' : Number(deal.type) === 1 ? 'Sell' : 'Other';
+                      const profit = Number(deal.profit) || 0;
+                      return (
+                        <tr key={deal.ticket || i} className="hover:bg-slate-900/50">
+                          <td className="py-2.5 pr-3 text-slate-400">{deal.time ? new Date(deal.time).toLocaleString() : 'Unavailable'}</td>
+                          <td className="py-2.5 px-2 font-bold text-white">{deal.symbol || '—'}</td>
+                          <td className="py-2.5 px-2"><span className={side === 'Buy' ? 'text-emerald-400 font-bold' : side === 'Sell' ? 'text-rose-400 font-bold' : 'text-slate-400'}>{side}</span></td>
+                          <td className="py-2.5 px-2 text-right text-slate-300">{Number(deal.volume || 0).toFixed(2)}</td>
+                          <td className="py-2.5 px-2 text-right text-slate-300">{Number(deal.price || 0).toLocaleString()}</td>
+                          <td className={`py-2.5 pl-2 text-right font-bold ${profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{profit.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -861,7 +798,7 @@ export default function NovaProWorkspaceView() {
                       <p className="text-xs text-cyan-300">Your Intelligent Quantum Trading Assistant</p>
                     </div>
                   </div>
-                  <span className="text-xs font-mono text-emerald-400">● Online</span>
+                  <span className="text-xs font-mono text-slate-400">● Status unverified</span>
                 </div>
 
                 <div className="mt-4 space-y-2 text-xs text-slate-200">
@@ -930,7 +867,7 @@ export default function NovaProWorkspaceView() {
                   LICENSED · EXNESS API
                 </div>
                 <div className="text-[11px] font-mono text-slate-600 dark:text-slate-300">
-                  Account {exnessLoginId} - active
+                  Account status: {portfolioData?.account ? 'verified' : 'unverified'}
                 </div>
               </div>
             </div>
@@ -956,22 +893,22 @@ export default function NovaProWorkspaceView() {
               {/* THIS MONTH Big Profit Box */}
               <div className="p-4 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                 <div className="text-[11px] font-semibold text-slate-400">
-                  THIS MONTH · October 2026
+                  THIS MONTH · No verified deal history
                 </div>
                 <div className="mt-1 flex items-baseline gap-2 font-mono tabular-nums">
                   <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                    +7,008.38
+                    Unavailable
                   </span>
                   <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    +395.72%
+                    Unavailable
                   </span>
                 </div>
                 <div className="mt-3 w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-sky-500 w-[94%]" />
+                  <div className="h-full bg-sky-500 w-0" />
                 </div>
                 <div className="mt-2 flex justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
-                  <span>19 of 20 days in profit</span>
-                  <span>645 closes</span>
+                  <span>No verified closed-deal data</span>
+                  <span>0 verified closes</span>
                 </div>
               </div>
 
@@ -980,7 +917,7 @@ export default function NovaProWorkspaceView() {
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">BALANCE</div>
                   <div className="text-base font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    8,779.41
+                    {portfolioData?.account?.balance != null ? Number(portfolioData.account.balance).toLocaleString('en-US', { minimumFractionDigits: 2 }) : 'Unavailable'}
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
@@ -992,7 +929,7 @@ export default function NovaProWorkspaceView() {
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">TODAY</div>
                   <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    +342.15 <span className="text-xs font-normal">+3.89%</span>
+                    Unavailable
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
@@ -1005,25 +942,25 @@ export default function NovaProWorkspaceView() {
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-l-4 border-slate-200 dark:border-slate-800 border-l-sky-500">
                   <div className="text-[10px] font-sans text-slate-400">BUY GRID</div>
                   <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    +98.40 <span className="text-xs font-normal text-slate-400">2 · 0.35 lot</span>
+                    Unavailable
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-l-4 border-slate-200 dark:border-slate-800 border-l-amber-500">
                   <div className="text-[10px] font-sans text-slate-400">SELL GRID</div>
                   <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    +44.45 <span className="text-xs font-normal text-slate-400">1 · 0.20 lot</span>
+                    Unavailable
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">SINCE INSTALL</div>
                   <div className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    +7,008.38 <span className="text-xs">+395.72%</span>
+                    Unavailable
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">MAX DRAWDOWN</div>
                   <div className="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    1.85% <span className="text-xs font-normal text-slate-400">this EA</span>
+                    Unavailable
                   </div>
                 </div>
               </div>
@@ -1072,7 +1009,7 @@ export default function NovaProWorkspaceView() {
                     October 2026
                   </h3>
                   <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
-                    best day <strong className="text-emerald-600 dark:text-emerald-400">+2,383.05</strong>
+                    best day <strong className="text-slate-400">Unavailable</strong>
                   </div>
                 </div>
 
@@ -1088,6 +1025,7 @@ export default function NovaProWorkspaceView() {
 
                 {/* Calendar Rows */}
                 <div className="space-y-2">
+                  <p className="text-xs text-slate-400">No verified daily closed-deal history is available.</p>
                   {OCTOBER_CALENDAR_WEEKS.map((week) => (
                     <div key={week.weekId} className="grid grid-cols-6 gap-2">
                       {week.days.map((d, idx) => {
@@ -1152,16 +1090,13 @@ export default function NovaProWorkspaceView() {
               {/* Bottom Status Strip of Dynamic Grid */}
               <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-500 dark:text-slate-400">
                 <div>
-                  Spread: <strong className="text-slate-900 dark:text-white">0.26</strong> · Margin:{' '}
-                  <strong className="text-slate-900 dark:text-white">1,240.00</strong> · Server: 20:21 UTC
+                  Spread: <strong className="text-slate-900 dark:text-white">Unavailable</strong> · Margin:{' '}
+                  <strong className="text-slate-900 dark:text-white">Unavailable</strong> · Server: Unverified
                 </div>
                 <div>
-                  Selected Day Oct {selectedDayDetail.day}:{' '}
-                  <strong className="text-emerald-600 dark:text-emerald-400">
-                    {(selectedDayDetail.pnl || 0) >= 0 ? '+' : ''}$
-                    {(selectedDayDetail.pnl || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </strong>{' '}
-                  ({selectedDayDetail.closes} closes)
+                  Selected Day:{' '}
+                  <strong className="text-slate-400">Unavailable</strong>
+                  {' '} (no verified daily history)
                 </div>
               </div>
             </div>
@@ -1444,69 +1379,30 @@ export default function NovaProWorkspaceView() {
 
             <div className="p-5 rounded-2xl bg-[#070A14] border border-slate-800 text-left space-y-3.5">
               <div className="text-center text-xs font-mono text-slate-400">
-                ─── เข้าสู่ระบบ Exness ───
+                EXNESS MT5 DEMO · READ-ONLY
               </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">รหัสเข้าสู่ระบบ (Account ID)</label>
-                <input
-                  type="text"
-                  value={exnessLoginId}
-                  onChange={(e) => setExnessLoginId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B1020] border border-slate-800 text-sm font-mono text-white focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">
-                  รหัสผ่าน / Ed25519 API Token
-                </label>
-                <input
-                  type="password"
-                  value={exnessPass}
-                  onChange={(e) => setExnessPass(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B1020] border border-slate-800 text-sm font-mono text-white focus:outline-none focus:border-cyan-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">เซิร์ฟเวอร์</label>
-                <select
-                  value={exnessServer}
-                  onChange={(e) => setExnessServer(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B1020] border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-400"
-                >
-                  <option value="จริง (Exness-Real / Ed25519 API)">จริง (Exness-Real / Ed25519 API)</option>
-                  <option value="ทดลอง (Exness-Trial / Demo API)">ทดลอง (Exness-Trial / Demo API)</option>
-                </select>
-              </div>
-
+              <p className="text-xs leading-relaxed text-slate-300">
+                NOVA จะไม่รับ Account Password หรือ Ed25519 Secret ในหน้าเว็บ การอ่านข้อมูลบัญชีทำผ่าน Supabase session และ Tenant MT5 Bridge ที่ provision ไว้แล้วเท่านั้น
+              </p>
+              <p className="text-xs leading-relaxed text-amber-300">
+                หาก Bridge หรือ Demo connection ยังไม่พร้อม ระบบจะแสดงสถานะ unavailable และจะไม่สร้างข้อมูลจำลอง
+              </p>
               <button
                 type="button"
                 onClick={() => {
-                  setExnessConnected(true);
                   setShowExnessModal(false);
+                  navigate('/login');
                 }}
-                className="w-full py-3 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 hover:opacity-95 transition-opacity shadow-lg shadow-cyan-500/25"
+                className="w-full py-3 rounded-2xl text-sm font-extrabold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
               >
-                [ เชื่อมต่อ ]
+                เข้าสู่ระบบ NOVA เพื่อยืนยันบัญชี Demo
               </button>
             </div>
 
             <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowExnessModal(false);
-                  setActiveSubView('dynamic-grid-calendar');
-                }}
-                className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 underline underline-offset-4"
-              >
-                แสดงกำไรเดือนนี้ (+7,008.38 USD) →
-              </button>
               <div className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span>การเชื่อมต่อความดันที่ปลอดภัย · ใช้ AI & Ed25519 API</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                <span>Broker credentials remain in the tenant-scoped Bridge boundary.</span>
               </div>
             </div>
           </div>
