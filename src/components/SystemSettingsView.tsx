@@ -89,11 +89,11 @@ export default function SystemSettingsView() {
   const [defaultBotMode, setDefaultBotMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
 
-  // 3. Backend Auto-Train Settings State
-  const [autoTrainEnabled, setAutoTrainEnabled] = useState<boolean>(true);
+  // 3. Backend Auto-Train Settings State — no training runtime is configured.
+  const [autoTrainEnabled, setAutoTrainEnabled] = useState<boolean>(false);
   const [autoTrainIntervalSec, setAutoTrainIntervalSec] = useState<number>(18);
   const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
-    '🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้านสำเร็จ (Epoch #148 · ความแม่นยำ 94.8%)'
+    'Auto-Train unavailable: TRAINING_RUNTIME_NOT_CONFIGURED'
   );
   const [syncingBackend, setSyncingBackend] = useState<boolean>(false);
 
@@ -101,45 +101,16 @@ export default function SystemSettingsView() {
   const [maxDailyDrawdownPct, setMaxDailyDrawdownPct] = useState<string>('3.0');
   const [defaultLotSize, setDefaultLotSize] = useState<string>('0.35');
 
-  // 3.1 Kaggle MCP Server State
+  // Kaggle integration status is sourced from the backend; never fabricate credentials or quota.
   const [kaggleStatus, setKaggleStatus] = useState<any>({
-    serverUrl: 'https://www.kaggle.com/mcp',
-    transport: 'streamable-http',
-    protocolVersion: '2025-03-26',
-    auth: {
-      type: 'OAuth 2.0 & Token (KGAT)',
-      configured: true,
-      tokenMasked: 'KGAT-••••••••••••••••••••••••••••••••',
-    },
-    computeQuota: {
-      gpu: {
-        type: 'NVIDIA Tesla T4 x2 (16GB VRAM)',
-        totalWeeklyHours: 30,
-        remainingHours: 26.5,
-        status: 'READY',
-      },
-      tpu: {
-        type: 'Google Cloud TPU v3-8 Pods',
-        totalWeeklyHours: 20,
-        remainingHours: 18.2,
-        status: 'READY',
-      },
-      internetAccess: true,
-    },
-    toolsCount: 10,
-    tools: [
-      { name: 'search_notebooks', desc: 'ค้นหา Quant & ML Notebooks บน Kaggle ตามคีย์เวิร์ด' },
-      { name: 'get_notebook_info', desc: 'ดึงซอร์สโค้ดและ Metadata ของ Notebook' },
-      { name: 'create_notebook_session', desc: 'เปิด Interactive Session บน Cloud GPU' },
-      { name: 'get_notebook_session_status', desc: 'เช็คสถานะการเทรน (QUEUED, RUNNING, COMPLETE)' },
-      { name: 'save_notebook', desc: 'บันทึกและรัน Notebook ทั้งไฟล์ (Commit & Run)' },
-      { name: 'list_notebook_files', desc: 'ดูรายการไฟล์ข้อมูลและ Model Weights ใน Notebook' },
-      { name: 'list_notebook_session_output', desc: 'ดูไฟล์ Output และ Logs การเทรน' },
-      { name: 'download_notebook_output', desc: 'ขอ URL ดาวน์โหลดไฟล์ผลลัพธ์' },
-      { name: 'download_notebook_output_zip', desc: 'ดาวน์โหลด Checkpoints ทั้งหมดเป็น ZIP' },
-      { name: 'cancel_notebook_session', desc: 'ยกเลิก Session เพื่อประหยัดโควตา GPU' },
-    ],
-    lastPingMs: 42,
+    provider: 'kaggle',
+    configured: false,
+    available: false,
+    status: 'not_configured',
+    auth: { configured: false },
+    compute: { enabled: false, costIncurringActionsAllowed: false },
+    toolsCount: 0,
+    tools: [],
   });
   const [kaggleQuery, setKaggleQuery] = useState('Forex SMC');
   const [kaggleNotebooks, setKaggleNotebooks] = useState<any[]>([]);
@@ -173,11 +144,15 @@ export default function SystemSettingsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: q }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.notebooks) setKaggleNotebooks(data.notebooks);
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || 'KAGGLE_SEARCH_UNAVAILABLE');
+        setKaggleNotebooks(Array.isArray(data?.notebooks) ? data.notebooks : []);
       })
-      .catch(() => {})
+      .catch((error) => {
+        setKaggleNotebooks([]);
+        setAutoTrainNotice(`Kaggle search unavailable: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
+      })
       .finally(() => setKaggleSearching(false));
   }
 
@@ -188,13 +163,14 @@ export default function SystemSettingsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, machine_shape: machine }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.message) {
-          notifySaved(`🚀 Kaggle MCP: ${data.message}`);
-        }
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || 'KAGGLE_SESSION_DISABLED');
+        notifySaved(data?.message || 'Kaggle session request accepted.');
       })
-      .catch(() => {})
+      .catch((error) => {
+        notifySaved(`Kaggle session not started: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
+      })
       .finally(() => setKaggleTriggering(null));
   }
 
@@ -218,14 +194,15 @@ export default function SystemSettingsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) {
-          setAutoTrainNotice(data.statusNotification);
-        }
-        notifySaved(`สั่งซิงค์ข้อมูลและเทรนโมเดล ${symbol} ที่ Backend เรียบร้อยแล้ว`);
+      .then(async (r) => {
+        const data = await r.json();
+        if (data?.statusNotification) setAutoTrainNotice(data.statusNotification);
+        if (!r.ok) throw new Error(data?.error || 'TRAINING_UNAVAILABLE');
+        notifySaved(`Backend accepted the training request for ${symbol}.`);
       })
-      .catch(() => {})
+      .catch((error) => {
+        setAutoTrainNotice(`Auto-Train unavailable: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
+      })
       .finally(() => setSyncingBackend(false));
   }
 
