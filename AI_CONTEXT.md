@@ -30,6 +30,7 @@
 
 ## Current verified backend constraints
 - Root Express Auto-Train endpoints return HTTP 503 with `TRAINING_RUNTIME_NOT_CONFIGURED`.
+- Auto-Train controls in the frontend are disabled; no local UI toggle may imply that training is active.
 - Root broker status is intentionally unverified; the broker status GET is intercepted with HTTP 503.
 - Trading mutation routes are blocked by fail-closed middleware.
 - Kaggle status reports not configured; Kaggle search returns unavailable; Kaggle session trigger is forbidden.
