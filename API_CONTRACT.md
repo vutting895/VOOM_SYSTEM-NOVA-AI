@@ -140,5 +140,5 @@ The following must remain true in every change and deployment:
 ## Frontend route alignment
 
 - The three Kaggle paths in `src/api/apiClient.ts`, `src/services/modelService.ts`, and `SystemSettingsView.tsx` now have matching Root Express handlers.
-- Auto-Train paths already existed. Frontend messaging was corrected to reflect the backend's 503 unavailable response instead of reporting successful training.
+- Auto-Train paths already existed. Frontend messaging now reflects the backend's 503 unavailable response. All Auto-Train controls are disabled until a real runtime is configured; displayed intervals are informational only.
 - No production deployment or runtime connectivity is claimed by the existence of these route definitions.
