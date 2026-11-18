@@ -168,7 +168,7 @@ def portfolio(authorization: str | None = Header(default=None), tenant_id: str |
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
         rows = []
-        for item in positions:
+        for item in positions[:500]:
             position_type = "buy" if item.type == mt5.POSITION_TYPE_BUY else "sell" if item.type == mt5.POSITION_TYPE_SELL else "unknown"
             rows.append({
                 "ticket": int(item.ticket),
@@ -198,6 +198,7 @@ def portfolio(authorization: str | None = Header(default=None), tenant_id: str |
             },
             "positions": rows,
             "count": len(rows),
+            "truncated": len(positions) > 500,
             "mode": "read-only",
             "order_submission_enabled": False,
         }

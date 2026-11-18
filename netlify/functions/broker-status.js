@@ -1,20 +1,24 @@
-import { json, methodNotAllowed, hubRequest } from "../lib/system-hub.js";
+import { json, methodNotAllowed, resolveDemoConnection, hubRequest } from "../lib/system-hub.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "GET") return methodNotAllowed(["GET"]);
-  const result = await hubRequest(event, "/v1/connections");
+  const resolved = await resolveDemoConnection(event);
+  if (!resolved.ok) return resolved.response;
+  const result = await hubRequest(
+    event,
+    "/v1/connections/" + resolved.connection.connectionId + "/check",
+    { method: "POST" }
+  );
   if (!result.ok) return result.response;
-  const connections = Array.isArray(result.data.connections) ? result.data.connections : [];
-  const demo = connections.find((row) => row?.provider === "exness_mt5" && row?.environment === "demo");
   return json(200, {
     broker: "exness",
-    status: demo?.status || "not_configured",
-    connected: demo?.status === "connected",
-    accountConnected: demo?.status === "connected",
+    status: result.data.state || "unavailable",
+    connected: result.data.dataVerified === true,
+    accountConnected: result.data.dataVerified === true,
     environment: "demo",
     mode: "read-only",
-    dataVerified: false,
-    connectionId: demo?.connectionId || null,
+    dataVerified: result.data.dataVerified === true,
+    connectionId: resolved.connection.connectionId,
     ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
   });
 };
