@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import NovaChatOSView from './NovaChatOSView';
 import { marketService } from '../services/marketService';
+import { novaApi } from '../api/apiClient';
 import { MarketAssetQuote } from '../api/types';
 
 interface CalendarDayItem {
@@ -110,71 +111,63 @@ export default function NovaProWorkspaceView() {
 
   // Exness Connect Modal (Image 4 style)
   const [showExnessModal, setShowExnessModal] = useState(false);
-  const [exnessLoginId, setExnessLoginId] = useState('23908764');
-  const [exnessPass, setExnessPass] = useState('••••••••••••••••');
-  const [exnessServer, setExnessServer] = useState('จริง (Exness-Real / Ed25519 API)');
-  const [exnessConnected, setExnessConnected] = useState(true);
+  const [exnessLoginId, setExnessLoginId] = useState('');
+  const [exnessPass, setExnessPass] = useState('');
+  const [exnessServer, setExnessServer] = useState('Exness MT5 Demo (Read-only)');
+  const [exnessConnected, setExnessConnected] = useState(false);
 
   // Portfolio Performance Timeframe (Image 6 & Image 3)
   const [perfRange, setPerfRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL'>('1M');
 
   // Dynamic Grid State (Image 1)
   const [gridDirection, setGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
-  const [gridRunning, setGridRunning] = useState<boolean>(true);
+  const [gridRunning, setGridRunning] = useState<boolean>(false);
   const [selectedDayDetail, setSelectedDayDetail] = useState<CalendarDayItem>({
     day: 29,
     pnl: 753.99,
     closes: 24,
   });
-  const [floatingPnl, setFloatingPnl] = useState<number>(142.85);
-  const [openGridPos, setOpenGridPos] = useState<number>(3);
-  const [todayPnl, setTodayPnl] = useState<number>(342.15);
-  const [todayCloses, setTodayCloses] = useState<number>(19);
+  const [floatingPnl, setFloatingPnl] = useState<number>(0);
+  const [openGridPos, setOpenGridPos] = useState<number>(0);
+  const [todayPnl, setTodayPnl] = useState<number>(0);
+  const [todayCloses, setTodayCloses] = useState<number>(0);
 
   // 3-Mode Execution Architecture: Full Auto vs Semi-Auto vs Manual
-  const [executionMode, setExecutionMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
+  const [executionMode, setExecutionMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('manual');
   const [autoBotLastAction, setAutoBotLastAction] = useState<string>(
-    'Auto-Bot ทำงานอยู่: สแกน XAU/USDm H1 (VQC P=74.2%, VPIN=0.71) · เปิด/ปิดออเดอร์อัตโนมัติโดยไม่ต้องกดมือ'
+    'Auto execution is disabled. Read-only Demo data and AI research only.'
   );
 
   // Live API Market Data Integration
   const [liveAssets, setLiveAssets] = useState<MarketAssetQuote[]>([]);
+  const [portfolioData, setPortfolioData] = useState<any>(null);
 
   useEffect(() => {
     let isMounted = true;
     marketService.getMarketOverview().then((res) => {
-      if (isMounted && res && res.assets) {
-        setLiveAssets(res.assets);
-      }
+      if (isMounted && res && res.assets) setLiveAssets(res.assets);
     }).catch(() => {
-      // Fallback silently if offline
+      if (isMounted) setLiveAssets([]);
     });
-    return () => {
-      isMounted = false;
-    };
+    novaApi.getPortfolio().then((result) => {
+      if (!isMounted) return;
+      setPortfolioData(result);
+      setExnessConnected(true);
+      const positions = Array.isArray(result.positions) ? result.positions : [];
+      setFloatingPnl(positions.reduce((sum: number, item: any) => sum + (Number(item.profit) || 0), 0));
+      setOpenGridPos(positions.length);
+    }).catch(() => {
+      if (!isMounted) return;
+      setPortfolioData(null);
+      setExnessConnected(false);
+      setFloatingPnl(0);
+      setOpenGridPos(0);
+    });
+    return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    if (executionMode !== 'full-auto' || !gridRunning) return;
-    const timer = setInterval(() => {
-      setFloatingPnl((prev) => {
-        const delta = (Math.random() - 0.42) * 14.5;
-        const next = Number((prev + delta).toFixed(2));
-        if (next > 185) {
-          // Auto Take-Profit Harvest
-          const harvested = Number((next * 0.45).toFixed(2));
-          setTodayPnl((t) => Number((t + harvested).toFixed(2)));
-          setTodayCloses((c) => c + 1);
-          setAutoBotLastAction(
-            `[Full Auto Harvest ${new Date().toLocaleTimeString('th-TH')}]: ปิดรวบกำไรอัตโนมัติ +$${harvested.toFixed(2)} บน XAUUSD.sc (0.35 Lot) · ไม่ต้องกดมือ`
-          );
-          return Number((next - harvested).toFixed(2));
-        }
-        return next;
-      });
-    }, 2800);
-    return () => clearInterval(timer);
-  }, [executionMode, gridRunning]);
+  // No client-side PnL simulation or automatic execution loop is permitted.
+
 
   // AI Workflow & Command Layer State (Image 2 & Image 5)
   const [commandInput, setCommandInput] = useState('');
@@ -993,7 +986,7 @@ export default function NovaProWorkspaceView() {
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">EQUITY</div>
                   <div className="text-base font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    {(8779.41 + floatingPnl).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {portfolioData?.account?.equity != null ? Number(portfolioData.account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 }) : 'Unavailable'}
                   </div>
                 </div>
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
@@ -1005,7 +998,7 @@ export default function NovaProWorkspaceView() {
                 <div className="p-3 rounded-xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-sans text-slate-400">FLOATING</div>
                   <div className="text-base font-extrabold text-slate-900 dark:text-white mt-0.5">
-                    {floatingPnl.toFixed(2)}{' '}
+                    {portfolioData ? floatingPnl.toFixed(2) : 'Unavailable'}{' '}
                     <span className="text-xs font-normal text-slate-400">· {openGridPos} pos</span>
                   </div>
                 </div>

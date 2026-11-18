@@ -25,6 +25,8 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 MAX_BARS = 500
+MAX_HISTORY_DAYS = 90
+MAX_HISTORY_DEALS = 500
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -156,6 +158,51 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
         }
 
 
+@app.get("/api/portfolio")
+def portfolio(authorization: str | None = Header(default=None), tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID")):
+    require_token(authorization, tenant_id)
+    with LOCK:
+        terminal, account = get_terminal_and_account()
+        positions = mt5.positions_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        rows = []
+        for item in positions:
+            position_type = "buy" if item.type == mt5.POSITION_TYPE_BUY else "sell" if item.type == mt5.POSITION_TYPE_SELL else "unknown"
+            rows.append({
+                "ticket": int(item.ticket),
+                "position_id": int(item.identifier),
+                "time": datetime.fromtimestamp(int(item.time), timezone.utc).isoformat(),
+                "type": position_type,
+                "symbol": str(item.symbol),
+                "volume": float(item.volume),
+                "price_open": float(item.price_open),
+                "price_current": float(item.price_current),
+                "stop_loss": float(item.sl),
+                "take_profit": float(item.tp),
+                "swap": float(item.swap),
+                "profit": float(item.profit),
+            })
+        return {
+            "connected": bool(terminal.connected),
+            "account": {
+                "server": str(getattr(account, "server", "")),
+                "currency": str(getattr(account, "currency", "")),
+                "balance": float(account.balance),
+                "equity": float(account.equity),
+                "margin": float(account.margin),
+                "free_margin": float(account.margin_free),
+                "margin_level": float(account.margin_level) if account.margin_level else None,
+                "as_of": datetime.now(timezone.utc).isoformat(),
+            },
+            "positions": rows,
+            "count": len(rows),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+        }
+
+
 @app.get("/api/symbols")
 def symbols(
     q: str = Query(default="", max_length=40),
@@ -233,6 +280,52 @@ def quotes(
             },
             "bars": bars,
             "count": len(bars),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/history")
+def history(
+    from_ts: int = Query(ge=1),
+    to_ts: int = Query(ge=1),
+    limit: int = Query(default=200, ge=1, le=MAX_HISTORY_DEALS),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    require_token(authorization, tenant_id)
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if to_ts <= from_ts or to_ts > now_ts + 60 or to_ts - from_ts > MAX_HISTORY_DAYS * 86400:
+        raise HTTPException(status_code=400, detail="History range must be chronological and no longer than 90 days.")
+    with LOCK:
+        get_terminal_and_account()
+        start = datetime.fromtimestamp(from_ts, timezone.utc)
+        end = datetime.fromtimestamp(to_ts, timezone.utc)
+        deals = mt5.history_deals_get(start, end)
+        if deals is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
+        ordered = sorted(deals, key=lambda item: int(item.time), reverse=True)[:limit]
+        rows = [{
+            "ticket": int(item.ticket),
+            "order": int(item.order),
+            "position_id": int(item.position_id),
+            "time": datetime.fromtimestamp(int(item.time), timezone.utc).isoformat(),
+            "type": int(item.type),
+            "entry": int(item.entry),
+            "symbol": str(item.symbol),
+            "volume": float(item.volume),
+            "price": float(item.price),
+            "commission": float(item.commission),
+            "swap": float(item.swap),
+            "profit": float(item.profit),
+            "fee": float(getattr(item, "fee", 0.0)),
+        } for item in ordered]
+        return {
+            "deals": rows,
+            "count": len(rows),
+            "range": {"from_ts": from_ts, "to_ts": to_ts},
             "mode": "read-only",
             "order_submission_enabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),

@@ -430,6 +430,61 @@ test("account read does not reach proxy while a connection remains pending", asy
   }
 });
 
+test("portfolio and history routes return only authenticated owner-scoped read data", async () => {
+  const original = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/portfolio") {
+      seen.push("portfolio");
+      assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
+      return Response.json({
+        connected: true,
+        account: { server: "Exness-Demo", currency: "USD", balance: 1000, equity: 1010, margin: 20, free_margin: 990, margin_level: 5050 },
+        positions: [{ ticket: 10, position_id: 10, type: "buy", symbol: "XAUUSDm", volume: 0.01, price_open: 4000, price_current: 4010, profit: 10 }]
+      });
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/history") {
+      seen.push("history");
+      assert.equal(url.searchParams.get("from_ts"), "1790000000");
+      assert.equal(url.searchParams.get("to_ts"), "1790003600");
+      return Response.json({ deals: [{ ticket: 11, symbol: "XAUUSDm", profit: 5 }], count: 1 });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const portfolio = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/portfolio", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const portfolioBody = await portfolio.json();
+    assert.equal(portfolio.status, 200);
+    assert.equal(portfolioBody.dataVerified, true);
+    assert.equal(portfolioBody.account.balance, 1000);
+    assert.equal(portfolioBody.positions.length, 1);
+    assert.equal(portfolioBody.ordersEnabled, false);
+
+    const history = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/history?from_ts=1790000000&to_ts=1790003600&limit=50", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const historyBody = await history.json();
+    assert.equal(history.status, 200);
+    assert.equal(historyBody.dataVerified, true);
+    assert.equal(historyBody.deals.length, 1);
+    assert.equal(historyBody.liveTradingEnabled, false);
+    assert.deepEqual(seen, ["portfolio", "history"]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("Cloudflare fallback frontend origin remains allowed during Netlify cutover", async () => {
   const response = await worker.fetch(request("/health", {
     headers: { Origin: FALLBACK_UI_ORIGIN }

@@ -62,7 +62,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "portfolio", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
