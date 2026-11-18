@@ -5,12 +5,30 @@ import worker from "./worker.js";
 const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
-function authFetch(status = 200, payload = { id: "user-test" }) {
+function authFetch(status = 200, payload = { id: "11111111-1111-4111-8111-111111111111" }) {
   globalThis.fetch = async (url, init) => {
     assert.equal(String(url), "https://supabase.example/auth/v1/user");
     assert.equal(init.headers.apikey, "public-test-key");
     assert.match(init.headers.Authorization, /^Bearer /);
     return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } });
+  };
+}
+
+function authAndGeminiFetch(geminiPayload) {
+  let authCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      authCalls += 1;
+      assert.equal(init.headers.apikey, "public-test-key");
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      return Response.json({ id: "11111111-1111-4111-8111-111111111111" });
+    }
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
+    assert.equal(init.headers["x-goog-api-key"], "test-only-not-a-real-key");
+    assert.equal(init.redirect, "manual");
+    const body = JSON.parse(init.body);
+    assert.ok(body.systemInstruction?.parts?.[0]?.text);
+    return Response.json(geminiPayload);
   };
 }
 test.afterEach(() => { globalThis.fetch = originalFetch; });
@@ -21,6 +39,24 @@ test("health is public but explicitly reports execution disabled", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
+});
+
+test("health reports only Gemini secret presence and never returns its value", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/health"), {
+    GEMINI_API_KEY: "test-only-secret-value",
+  });
+  const body = await response.json();
+  const serialized = JSON.stringify(body);
+  assert.equal(body.geminiConfigured, true);
+  assert.doesNotMatch(serialized, /test-only-secret-value/);
+});
+
+test("health does not treat a placeholder as a configured Gemini key", async () => {
+  const response = await worker.fetch(new Request("https://worker.test/health"), {
+    GEMINI_API_KEY: "MY_GEMINI_API_KEY",
+  });
+  const body = await response.json();
+  assert.equal(body.geminiConfigured, false);
 });
 
 test("direct generation without bearer token is rejected", async () => {
@@ -40,6 +76,41 @@ test("invalid or expired Supabase session is rejected as 401", async () => {
   }), env);
   assert.equal(response.status, 401);
   assert.equal((await response.json()).error, "invalid_or_expired_session");
+});
+
+test("Supabase Auth configuration must use HTTPS and a credential-free origin", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; return Response.json({ id: "11111111-1111-4111-8111-111111111111" }); };
+  for (const supabaseUrl of [
+    "http://supabase.example",
+    "https://user:password@supabase.example",
+    "not-a-url",
+  ]) {
+    const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] }),
+    }), { ...env, SUPABASE_URL: supabaseUrl });
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "authentication_not_configured");
+  }
+  assert.equal(calls, 0);
+});
+
+test("rejects malformed and anonymous identities returned by Supabase Auth", async () => {
+  for (const payload of [
+    { id: "not-a-uuid" },
+    { id: "11111111-1111-4111-8111-111111111111", is_anonymous: true },
+  ]) {
+    globalThis.fetch = async () => Response.json(payload);
+    const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] }),
+    }), env);
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, "invalid_or_expired_session");
+  }
 });
 
 test("missing Supabase Auth configuration fails closed with 503", async () => {
@@ -165,29 +236,21 @@ test("chat requires a valid bearer session", async () => {
   assert.equal((await response.json()).error, "authentication_required");
 });
 
-test("chat returns a model response only when the AI binding succeeds", async () => {
-  authFetch();
-  const aiEnv = {
-    ...env,
-    AI: {
-      run: async (model, input) => {
-        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
-        assert.equal(input.messages[0].role, "system");
-        assert.match(input.messages[0].content, /Live trading and order submission are disabled/);
-        assert.equal(input.messages.at(-1).content, "Explain EMA and RSI in Thai");
-        return { response: "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม" };
-      },
-    },
-  };
+test("chat uses Gemini with server-owned model and untrusted conversation content", async () => {
+  authAndGeminiFetch({
+    candidates: [{ content: { parts: [{ text: "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม" }] } }],
+  });
+  const geminiEnv = { ...env, GEMINI_API_KEY: "test-only-not-a-real-key" };
   const response = await worker.fetch(new Request("https://worker.test/api/chat", {
     method: "POST",
     headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
     body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA and RSI in Thai" }] }),
-  }), aiEnv);
+  }), geminiEnv);
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.message, "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม");
-  assert.equal(body.provider, "cloudflare-workers-ai");
+  assert.equal(body.provider, "gemini");
+  assert.equal(body.model, "gemini-3.8-flash");
   assert.equal(body.intent.schemaVersion, "nova.intent.v1");
   assert.equal(body.intent.intent, "explain_indicators");
   assert.equal(body.intent.component.type, "indicator_guide");
@@ -197,7 +260,7 @@ test("chat returns a model response only when the AI binding succeeds", async ()
   assert.equal(body.liveTradingEnabled, false);
 });
 
-test("chat fails closed when Cloudflare AI binding is unavailable", async () => {
+test("chat fails closed when Gemini Authorization Key is not configured", async () => {
   authFetch();
   const response = await worker.fetch(new Request("https://worker.test/api/chat", {
     method: "POST",
@@ -206,9 +269,49 @@ test("chat fails closed when Cloudflare AI binding is unavailable", async () => 
   }), env);
   const body = await response.json();
   assert.equal(response.status, 503);
-  assert.equal(body.error, "ai_unavailable");
+  assert.equal(body.error, "gemini_not_configured");
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
+});
+
+test("strategy generation uses Gemini JSON output and validates its allow-listed fields", async () => {
+  authAndGeminiFetch({
+    candidates: [{ content: { parts: [{ text: JSON.stringify({
+      name: "NOVA Test Draft",
+      entryWorkers: ["EMATrendWorker", "RSIWorker", "unapproved-tool"],
+      exit: { takeProfitPct: 2, stopLossPct: 1 },
+      rationale: "Research-only trend hypothesis",
+    }) }] } }],
+  });
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "Draft a trend hypothesis", market: "XAU/USD", timeframe: "1h", risk: "low" }),
+  }), { ...env, GEMINI_API_KEY: "test-only-not-a-real-key" });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.strategy.source, "gemini-api");
+  assert.equal(body.strategy.modelUsed, "gemini-3.8-flash");
+  assert.deepEqual(body.strategy.entryWorkers, ["EMATrendWorker", "RSIWorker"]);
+  assert.equal(body.strategy.executionEnabled, false);
+  assert.equal(body.strategy.backtestStatus, "not_run");
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("Gemini provider errors are sanitized and do not expose response bodies", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") return Response.json({ id: "11111111-1111-4111-8111-111111111111" });
+    return new Response("secret=do-not-leak", { status: 403 });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Hello" }] }),
+  }), { ...env, GEMINI_API_KEY: "test-only-not-a-real-key" });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error, "ai_provider_unavailable");
+  assert.doesNotMatch(JSON.stringify(body), /do-not-leak|secret=/);
 });
 
 test("chat rejects system-role messages and oversized conversations", async () => {
