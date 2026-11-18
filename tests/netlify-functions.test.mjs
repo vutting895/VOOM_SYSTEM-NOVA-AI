@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handler as priceHandler } from "../price.js";
-import { handler as portfolioHandler } from "../portfolio.js";
-import { handler as historyHandler } from "../history.js";
-import { handler as tradeHandler } from "../trade.js";
+import { handler as priceHandler } from "../netlify/functions/price.js";
+import { handler as portfolioHandler } from "../netlify/functions/portfolio.js";
+import { handler as historyHandler } from "../netlify/functions/history.js";
+import { handler as tradeHandler } from "../netlify/functions/trade.js";
 
 const originalFetch = globalThis.fetch;
 test.afterEach(() => { globalThis.fetch = originalFetch; });
