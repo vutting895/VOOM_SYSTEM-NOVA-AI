@@ -1,0 +1,39 @@
+name: NOVA System Core CI
+
+concurrency:
+  group: nova-system-core-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "shared/nova-system-core-contract.mjs"
+      - "tests/nova-system-core-contract.test.mjs"
+      - "docs/architecture/NOVA-SYSTEM-CORE-V1.md"
+      - ".github/workflows/nova-system-core-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "shared/nova-system-core-contract.mjs"
+      - "tests/nova-system-core-contract.test.mjs"
+      - "docs/architecture/NOVA-SYSTEM-CORE-V1.md"
+      - ".github/workflows/nova-system-core-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax-check Core policy module
+        run: node --check shared/nova-system-core-contract.mjs
+      - name: Run NOVA System Core v1 contract tests
+        run: node --test tests/nova-system-core-contract.test.mjs
