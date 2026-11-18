@@ -62,3 +62,12 @@ test("lists only the requested prefix", async () => {
   assert.equal(result.objects.length, 1);
   assert.equal(result.objects[0].key, "raw/exness/a.jsonl");
 });
+
+test("enforces a bounded single-object upload size", async () => {
+  const bucket = new MemoryBucket();
+  await assert.rejects(
+    () => putImmutableObject({ bucket, key: "raw/exness/large.bin", body: "12345", maxBytes: 4 }),
+    RangeError
+  );
+  assert.equal(bucket.objects.size, 0);
+});

@@ -41,11 +41,11 @@ export async function sha256Hex(body) {
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 
-export async function putImmutableObject({ bucket, key, body, contentType = "application/octet-stream", metadata = {} }) {
+export async function putImmutableObject({ bucket, key, body, contentType = "application/octet-stream", metadata = {}, maxBytes = 100 * 1024 * 1024 }) {
   if (!bucket || typeof bucket.put !== "function") throw new TypeError("R2 bucket binding is required");
   validateObjectKey(key);
   const bytes = await toBytes(body);
-  const sha256 = await sha256Hex(bytes);
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || bytes.byteLength > maxBytes) {\n    throw new RangeError(`Object exceeds the configured upload limit of ${maxBytes} bytes`);\n  }\n  const sha256 = await sha256Hex(bytes);
   const result = await bucket.put(key, bytes, {
     httpMetadata: { contentType },
     customMetadata: { ...metadata, sha256, immutable: "true" },
