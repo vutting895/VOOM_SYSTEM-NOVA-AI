@@ -30,7 +30,8 @@ function Invoke-ReleaseStep {
 
 Write-Host "NOVA Local Verification — no hosted CI/CD, no deployment commands." -ForegroundColor Green
 Write-Host ("Repository: " + $repoRoot)
-Write-Host ("Commit: " + (& $gitExe rev-parse HEAD))
+$commitSha = & $gitExe rev-parse HEAD
+Write-Host ("Commit: " + $commitSha)
 Write-Host ("Node: " + (node --version))
 Write-Host ("npm: " + (npm --version))
 Write-Host ("Python: " + (python --version))
@@ -46,8 +47,11 @@ if (Test-Path "bun.lock") {
 }
 Invoke-ReleaseStep "Install locked Node dependencies without lifecycle scripts" "npm" @("ci", "--ignore-scripts", "--no-audit", "--no-fund")
 
-$lockCheck = "const p=require('./package-lock.json'); if(p.lockfileVersion!==3) { console.error('Expected npm lockfileVersion 3'); process.exit(1); }"
-Invoke-ReleaseStep "Verify npm lockfile v3" "node" @("-e", $lockCheck)
+$lockMetadata = Get-Content -Raw "package-lock.json" | ConvertFrom-Json
+if ($lockMetadata.lockfileVersion -ne 3) {
+    throw "BLOCKED: package-lock.json must use npm lockfileVersion 3."
+}
+Write-Host "npm lockfile v3 verified."
 
 $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path $venvPython)) {
@@ -89,5 +93,6 @@ Invoke-ReleaseStep "CI Inspector unit tests (local utility only)" $venvPython @(
 
 Invoke-ReleaseStep "High-severity npm dependency audit" "npm" @("audit", "--audit-level=high")
 
-Write-Host "`nLOCAL PORTABLE CHECKS PASSED for commit $(& $gitExe rev-parse HEAD)." -ForegroundColor Green
+$verifiedSha = & $gitExe rev-parse HEAD
+Write-Host "`nLOCAL PORTABLE CHECKS PASSED for commit $verifiedSha." -ForegroundColor Green
 Write-Warning "This is not full-system acceptance. Docker/PostgreSQL/Supabase integration, Cloudflare Worker deployment verification, MT5 terminal checks and production smoke tests must be recorded separately. No deployment was performed."
