@@ -28,6 +28,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "!tests/test_quant_*.py"
       - "infra/**"
       - "supabase/verification/**"
   push:
@@ -54,6 +55,7 @@ on:
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
       - "tests/**"
+      - "!tests/test_quant_*.py"
       - "infra/**"
       - "supabase/verification/**"
 
