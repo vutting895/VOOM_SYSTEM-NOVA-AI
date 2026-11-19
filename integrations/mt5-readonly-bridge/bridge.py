@@ -15,6 +15,9 @@ from fastapi.responses import JSONResponse
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
 TENANT_ID = os.environ.get("MT5_TENANT_ID", "").strip()
+# Provision these values locally for this dedicated tenant bridge; never accept them from a client.
+EXPECTED_ACCOUNT_LOGIN = os.environ.get("MT5_EXPECTED_ACCOUNT_LOGIN", "")
+EXPECTED_SERVER = os.environ.get("MT5_EXPECTED_SERVER", "")
 TERMINAL_PATH = os.environ.get("MT5_TERMINAL_PATH", "").strip() or None
 CORS_ORIGINS = [
     origin.strip()
@@ -80,6 +83,25 @@ def initialize_mt5() -> None:
     if not initialized:
         error = mt5.last_error()
         raise HTTPException(status_code=503, detail=f"MT5 initialize failed: {error[0]}")
+
+
+def validate_expected_account_identity(account: Any) -> None:
+    # Identity is provisioned out-of-band on this tenant-dedicated Windows Bridge.
+    # Missing configuration is an infrastructure error; mismatch is a hard authorization failure.
+    if (
+        not re.fullmatch(r"[1-9][0-9]{0,19}", EXPECTED_ACCOUNT_LOGIN)
+        or not EXPECTED_SERVER
+        or EXPECTED_SERVER != EXPECTED_SERVER.strip()
+    ):
+        raise HTTPException(status_code=503, detail="Expected MT5 account identity is not configured.")
+
+    actual_login = str(getattr(account, "login", "") or "")
+    actual_server = str(getattr(account, "server", "") or "")
+    if (
+        not hmac.compare_digest(actual_login, EXPECTED_ACCOUNT_LOGIN)
+        or not hmac.compare_digest(actual_server, EXPECTED_SERVER)
+    ):
+        raise HTTPException(status_code=403, detail="Connected MT5 account does not match the provisioned Demo identity.")
 
 
 def get_terminal_and_account() -> tuple[Any, Any]:
