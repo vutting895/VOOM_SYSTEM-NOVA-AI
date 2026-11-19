@@ -44,6 +44,7 @@ class UniverseRegistryTests(unittest.TestCase):
             self.assertEqual(result["accepted_manifest_count"], 1)
             self.assertFalse(result["combined_training_eligible"])
             self.assertEqual(result["manifest_verification_mode"], "FILE_AND_SHA256")
+            self.assertEqual(result["training_block_reason"], "OHLCV_CONTENT_AUDIT_AND_TRAINING_AUTHORIZATION_NOT_IMPLEMENTED")
 
     def test_hash_mismatch_blocks_manifest(self):
         asset = UNIVERSE_16[0]
