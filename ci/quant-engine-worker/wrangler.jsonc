@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.cloudflare.com/wrangler/config-schema.json",
+  "name": "nova-quant-ci-pilot",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "preview_urls": true
+}
