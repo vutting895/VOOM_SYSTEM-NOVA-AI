@@ -184,19 +184,24 @@ def validate_dataset_manifests(
         })
 
     ready_assets = sum(item["status"] == "READY" for item in per_asset)
-    combined_ready = (
+    manifest_preflight_passed = (
         verify_files
         and ready_assets == len(UNIVERSE_16)
         and not rejected
         and len(accepted) == len(UNIVERSE_16) * len(normalized_tfs)
     )
+    # This module does not parse and validate the OHLCV contents. Manifest
+    # claims alone must never authorize model fitting.
+    combined_ready = False
     return {
         "schema_version": "nova.universe-dataset-gate.v1",
         "universe_asset_count": len(UNIVERSE_16),
         "required_timeframes": list(normalized_tfs),
         "ready_asset_count": ready_assets,
         "blocked_asset_count": len(UNIVERSE_16) - ready_assets,
+        "manifest_preflight_passed": manifest_preflight_passed,
         "combined_training_eligible": combined_ready,
+        "training_block_reason": "OHLCV_CONTENT_AUDIT_AND_TRAINING_AUTHORIZATION_NOT_IMPLEMENTED",
         "accepted_manifest_count": len(accepted),
         "rejected_manifest_count": len(rejected),
         "manifest_verification_mode": "FILE_AND_SHA256" if verify_files else "METADATA_ONLY",
