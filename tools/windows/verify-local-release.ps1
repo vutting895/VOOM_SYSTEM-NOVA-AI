@@ -20,7 +20,7 @@ Set-Location $repoRoot
 
 function Invoke-ReleaseStep {
     param([string]$Name, [string]$File, [string[]]$Arguments)
-    Write-Host "`n=== $Name ===" -ForegroundColor Cyan
+    Write-Host ("=== " + $Name + " ===") -ForegroundColor Cyan
     & $File @Arguments
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
@@ -28,7 +28,7 @@ function Invoke-ReleaseStep {
     }
 }
 
-Write-Host "NOVA Local Verification — no hosted CI/CD, no deployment commands." -ForegroundColor Green
+Write-Host "NOVA Local Verification - no hosted CI/CD, no deployment commands." -ForegroundColor Green
 Write-Host ("Repository: " + $repoRoot)
 $commitSha = & $gitExe rev-parse HEAD
 Write-Host ("Commit: " + $commitSha)
@@ -68,7 +68,7 @@ Invoke-ReleaseStep "Frontend production build" "npm" @("run", "build")
 $nodeTests = Get-ChildItem -Path "tests" -Filter "*.test.mjs" -File | Sort-Object -Property Name
 if (-not $nodeTests) { throw "BLOCKED: no Node test files found." }
 foreach ($testFile in $nodeTests) {
-    Invoke-ReleaseStep "Node test: $($testFile.Name)" "node" @("--test", $testFile.FullName)
+    Invoke-ReleaseStep ("Node test: " + $testFile.Name) "node" @("--test", $testFile.FullName)
 }
 
 $pythonCompile = @(
@@ -94,5 +94,6 @@ Invoke-ReleaseStep "CI Inspector unit tests (local utility only)" $venvPython @(
 Invoke-ReleaseStep "High-severity npm dependency audit" "npm" @("audit", "--audit-level=high")
 
 $verifiedSha = & $gitExe rev-parse HEAD
-Write-Host "`nLOCAL PORTABLE CHECKS PASSED for commit $verifiedSha." -ForegroundColor Green
-Write-Warning "This is not full-system acceptance. Docker/PostgreSQL/Supabase integration, Cloudflare Worker deployment verification, MT5 terminal checks and production smoke tests must be recorded separately. No deployment was performed."
+Write-Host ""
+Write-Host ("LOCAL PORTABLE CHECKS PASSED for commit " + $verifiedSha) -ForegroundColor Green
+Write-Warning "Full-system acceptance remains separate. No deployment was performed."
