@@ -30,7 +30,7 @@ class UniverseAsset:
 UNIVERSE_16: tuple[UniverseAsset, ...] = (
     UniverseAsset("xau_usdm", "XAU/USDm", "metal", ("exness_mt5_demo_readonly",), "fx_metals"),
     UniverseAsset("eur_usdm", "EUR/USDm", "forex", ("exness_mt5_demo_readonly",), "fx_metals"),
-    UniverseAsset("gbp_usdm", "GBP/USDm", ("exness_mt5_demo_readonly",), "fx_metals"),
+    UniverseAsset("gbp_usdm", "GBP/USDm", "forex", ("exness_mt5_demo_readonly",), "fx_metals"),
     UniverseAsset("usd_jpym", "USD/JPYm", "forex", ("exness_mt5_demo_readonly",), "fx_metals"),
     UniverseAsset("usd_chfm", "USD/CHFm", "forex", ("exness_mt5_demo_readonly",), "fx_metals"),
     UniverseAsset("aud_usdm", "AUD/USDm", "forex", ("exness_mt5_demo_readonly",), "fx_metals"),
