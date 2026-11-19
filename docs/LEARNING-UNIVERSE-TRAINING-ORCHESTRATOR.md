@@ -30,7 +30,7 @@ Symbols are identifiers only. Hardcoded UI prices, sample metrics, and simulated
 - Added a canonical 16-asset registry.
 - Added fail-closed per-asset/per-timeframe manifest checks.
 - Requires real local data files, exact SHA-256, approved source, quality PASS and COMPLETE coverage.
-- Combined training is eligible only when all 16 assets satisfy all required timeframes.
+- Manifest preflight passes only when all 16 assets satisfy all required timeframes; this module deliberately never authorizes model fitting because it does not parse and validate OHLCV file contents. A separate content audit and explicit training authorization are still required.
 - Known gaps, missing files, unapproved sources, duplicate manifests and hash mismatches block the combined run.
 - This phase does not fetch data or train models.
 
