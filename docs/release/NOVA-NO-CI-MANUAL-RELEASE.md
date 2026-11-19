@@ -17,7 +17,7 @@ Every release candidate must record:
 
 1. Repository and exact commit SHA tested.
 2. Clean working tree and reviewed diff.
-3. Node.js, npm, Python and (when applicable) PowerShell versions.
+3. Node.js, Bun, Python and (when applicable) PowerShell versions.
 4. Exact commands executed and complete exit codes.
 5. Unit, integration, migration and security test results, including tests not run and why.
 6. Build output and dependency-audit result.
@@ -25,6 +25,13 @@ Every release candidate must record:
 8. Post-deploy health/safety checks and rollback reference.
 
 A skipped test is NOT PASS. A local frontend build does not prove Supabase migration, Docker, Cloudflare Worker, MT5 Bridge or production health.
+
+## Dependency and environment contract
+
+- The repository's Node dependency lockfile is `bun.lock` (lockfile version 2). Use Bun with `bun install --frozen-lockfile --ignore-scripts`; do not call `npm ci` unless an npm `package-lock.json` is added and reviewed.
+- Python dependencies are declared in `workers/requirements.txt` and `integrations/mt5-readonly-bridge/requirements.txt`. The local verifier creates an isolated `.venv` and installs both sets there; it does not install packages globally.
+- The Bridge contract tests are static and do not connect to an MT5 terminal. Installing its declared requirements prepares the documented runtime environment; it does not establish broker connectivity.
+- `npm audit` requires an npm lockfile. Since this repository currently has only `bun.lock`, the verifier fails closed at the security-audit stage until an npm lockfile is added and reviewed, or an equivalent audit procedure is explicitly approved. Do not skip the audit and report PASS.
 
 ## Local verification on Windows
 
@@ -34,21 +41,21 @@ Run from the repository root in PowerShell:
 git status --short
 git rev-parse HEAD
 node --version
-npm --version
+bun --version
 python --version
-.`tools\windows\verify-local-release.ps1`
+.\tools\windows\verify-local-release.ps1
 ```
 
-The script runs the portable frontend, Node, Python, Quant, SMC and CI Inspector checks that are available in the checkout. It is not a substitute for Docker-backed PostgreSQL/Supabase integration tests or a live production smoke test. Any failed command blocks release. Capture the full terminal output and tested SHA.
+The script runs the locked frontend install, TypeScript check, frontend build, all Node `*.test.mjs` tests, Python syntax checks, Bridge contract tests, Quant Engine tests, SMC tests, research/runtime pytest regressions and CI Inspector unit tests. It then enforces the dependency-audit gate. Any failed command or missing audit evidence blocks release. Capture the complete terminal output and tested SHA.
 
-Known issue at the time this policy was drafted: the repository's dependency audit documented a High-severity transitive Firebase/gRPC advisory. Do not suppress it, force a semver-major downgrade, add an unreviewed override, or claim the security gate passed. A release touching the affected dependency chain remains blocked until a compatibility-tested remediation is documented.
+Known dependency concern: the previous dependency review reported a High-severity transitive Firebase/gRPC advisory. That finding must be rechecked against the exact lockfile and current advisory database. Do not suppress it, force a semver-major downgrade, add an unreviewed override, or claim the security gate passed. A release touching the affected dependency chain remains blocked until a compatibility-tested remediation is documented.
 
 ## Manual deployment boundaries
 
 ### Netlify frontend
 
 1. Verify the exact approved commit and complete local release evidence.
-2. Run `npm run build`; confirm the `dist/` output exists.
+2. Run the successful local production build; confirm the `dist/` output exists.
 3. Upload the built `dist/` directory using the Netlify site's manual deploy interface.
 4. Record the resulting deploy ID/URL and verify the production routes.
 5. If verification fails, use the Netlify deploy history to restore the last known-good deploy.
