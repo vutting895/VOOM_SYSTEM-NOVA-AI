@@ -7,6 +7,9 @@ on:
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
+      - "ci/quant_engine/**"
+      - "ci/quant-engine-worker/**"
+      - "docs/ci/CLOUDFLARE-QUANT-ENGINE-PILOT.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
 
 permissions:
@@ -19,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
       - name: Compile Quant Engine package and focused tests
@@ -28,3 +31,13 @@ jobs:
         env:
           PYTHONPATH: .
         run: python -m unittest discover -s tests -p "test_quant*.py" -v
+      - name: Run Cloudflare pilot runner on the same commit
+        run: python ci/quant_engine/run.py
+      - name: Upload pilot CI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-quant-engine-ci-report
+          path: artifacts/quant-engine-ci-report.json
+          if-no-files-found: warn
+          retention-days: 7
