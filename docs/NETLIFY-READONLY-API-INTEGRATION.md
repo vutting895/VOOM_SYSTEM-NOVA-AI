@@ -42,6 +42,15 @@ The source code alone does not provision an Exness account. A private read succe
 
 A pending/unverified connection returns a non-success response; the API does not fabricate prices, balances, positions or history.
 
+## MT5 Demo account identity binding
+
+- Every tenant-dedicated Windows MT5 Bridge must be provisioned locally with `MT5_EXPECTED_ACCOUNT_LOGIN` and `MT5_EXPECTED_SERVER` before it can serve private reads.
+- `MT5_EXPECTED_ACCOUNT_LOGIN` must be the exact numeric MT5 login; `MT5_EXPECTED_SERVER` must be the exact server string shown by the intended Demo terminal.
+- The Bridge compares both values against `mt5.account_info()` on every protected read. Missing identity configuration returns HTTP 503; either mismatch returns HTTP 403.
+- These values are provisioned out-of-band for the dedicated tenant Bridge. They must never come from browser input, request query parameters, Netlify variables, or user-editable connection labels.
+- A tenant route must point to exactly one dedicated Bridge configured for that connection. Do not share one Windows terminal/Bridge across different account identities.
+- Keep the values in the local protected Bridge environment, outside source control. After changing either value, restart the Bridge and verify the expected Demo account before allowing data reads.
+
 ## Environment
 
 - `NOVA_SYSTEM_HUB_URL` is optional because the allowlisted default is compiled into the function.
