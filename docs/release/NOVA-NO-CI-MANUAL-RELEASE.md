@@ -1,6 +1,6 @@
 # NOVA No-CI/CD Manual Release Policy
 
-Status: Proposed on feature branch; not active on `main` until reviewed and merged.
+Status: Proposed on feature branches; not active on `main` until reviewed and merged.
 Policy: No CI/CD. Zero-cost strict. No billing linkage or paid services.
 
 ## Scope
@@ -17,7 +17,7 @@ Every release candidate must record:
 
 1. Repository and exact commit SHA tested.
 2. Clean working tree and reviewed diff.
-3. Node.js, Bun, Python and (when applicable) PowerShell versions.
+3. Node.js, npm, Python and (when applicable) PowerShell versions.
 4. Exact commands executed and complete exit codes.
 5. Unit, integration, migration and security test results, including tests not run and why.
 6. Build output and dependency-audit result.
@@ -28,10 +28,12 @@ A skipped test is NOT PASS. A local frontend build does not prove Supabase migra
 
 ## Dependency and environment contract
 
-- The repository's Node dependency lockfile is `bun.lock` (lockfile version 2). Use Bun with `bun install --frozen-lockfile --ignore-scripts`; do not call `npm ci` unless an npm `package-lock.json` is added and reviewed.
+- The repository's Node dependency lockfile is `package-lock.json` (npm lockfile version 3). Use `npm ci --ignore-scripts --no-audit --no-fund` for deterministic installs. Do not run `npm install` during routine verification because it may rewrite the lockfile.
+- `package.json` retains the existing semver ranges. The lockfile preserves the direct dependency versions previously resolved by the Bun lock while using npm's lock format.
+- The npm override pins transitive `@grpc/grpc-js` to `1.13.6`, above the affected versions reported by the npm advisory database during migration testing. Do not remove or lower this override without a fresh audit and compatibility review.
 - Python dependencies are declared in `workers/requirements.txt` and `integrations/mt5-readonly-bridge/requirements.txt`. The local verifier creates an isolated `.venv` and installs both sets there; it does not install packages globally.
 - The Bridge contract tests are static and do not connect to an MT5 terminal. Installing its declared requirements prepares the documented runtime environment; it does not establish broker connectivity.
-- `npm audit` requires an npm lockfile. Since this repository currently has only `bun.lock`, the verifier fails closed at the security-audit stage until an npm lockfile is added and reviewed, or an equivalent audit procedure is explicitly approved. Do not skip the audit and report PASS.
+- Run `npm audit --audit-level=high` against the committed lockfile. Do not suppress advisories, use `--force`, or report PASS when the command fails.
 
 ## Local verification on Windows
 
@@ -41,14 +43,14 @@ Run from the repository root in PowerShell:
 git status --short
 git rev-parse HEAD
 node --version
-bun --version
+npm --version
 python --version
 .\tools\windows\verify-local-release.ps1
 ```
 
-The script runs the locked frontend install, TypeScript check, frontend build, all Node `*.test.mjs` tests, Python syntax checks, Bridge contract tests, Quant Engine tests, SMC tests, research/runtime pytest regressions and CI Inspector unit tests. It then enforces the dependency-audit gate. Any failed command or missing audit evidence blocks release. Capture the complete terminal output and tested SHA.
+The script runs the frozen npm install, TypeScript check, frontend build, all Node `*.test.mjs` tests, Python syntax checks, Bridge contract tests, Quant Engine tests, SMC tests, research/runtime pytest regressions, CI Inspector unit tests and the npm high-severity audit gate. Any failed command or missing evidence blocks release. Capture the complete terminal output and tested SHA.
 
-Known dependency concern: the previous dependency review reported a High-severity transitive Firebase/gRPC advisory. That finding must be rechecked against the exact lockfile and current advisory database. Do not suppress it, force a semver-major downgrade, add an unreviewed override, or claim the security gate passed. A release touching the affected dependency chain remains blocked until a compatibility-tested remediation is documented.
+Migration evidence: a clean-install probe using the committed manifest ranges and npm lockfile v3 completed `npm ci --ignore-scripts --no-audit --no-fund` on Windows Server 2016. The same probe reported zero vulnerabilities after the `@grpc/grpc-js@1.13.6` override. This does NOT establish that the complete NOVA source build or test suites pass; those require a full repository checkout and must be recorded separately.
 
 ## Manual deployment boundaries
 
@@ -107,4 +109,4 @@ Before deployment, identify the previous known-good Netlify deploy and Worker ve
 
 ## Activation
 
-This policy becomes active only after this feature branch is reviewed and merged by the repository owner. Until then, current `main` workflows remain unchanged. This feature branch itself must not trigger any product deployment.
+This policy becomes active only after its feature branches are reviewed and merged by the repository owner. Until then, current `main` workflows remain unchanged. No change in this migration branch authorizes a product deployment.
