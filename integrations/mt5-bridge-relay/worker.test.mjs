@@ -80,6 +80,43 @@ test("valid tenant request is sent only to its named Durable Object", async () =
   assert.equal(observed.headers.get("Authorization"), null);
 });
 
+test("authenticated exposure GET is routed to the same tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, method: req.method, headers: req.headers };
+    return Response.json({ account_login: "12345678", broker_server: "Exness-MT5Trial7" });
+  });
+  const response = await worker.fetch(request("/api/exposure", {
+    token: TOKEN, tenant: TENANT_ID
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.method, "GET");
+  assert.equal(observed.url.pathname, "/api/exposure");
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  assert.equal(observed.headers.get("Authorization"), null);
+});
+
+test("candidate exposure query is forwarded only within its tenant session", async () => {
+  const candidate = encodeURIComponent(JSON.stringify({
+    symbol: "XAUUSDm", side: "SELL", volume: 0.2, entry_price: 2600.0, stop_loss: 2610.0,
+  }));
+  let forwarded;
+  const env = makeEnv(async (req, id) => {
+    forwarded = { url: new URL(req.url), id };
+    return Response.json({ ok: true });
+  });
+  const response = await worker.fetch(request("/api/exposure?candidate=" + candidate, {
+    token: TOKEN, tenant: TENANT_ID,
+  }), env);
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.id, TENANT_ID);
+  assert.deepEqual(JSON.parse(forwarded.url.searchParams.get("candidate")), {
+    symbol: "XAUUSDm", side: "SELL", volume: 0.2, entry_price: 2600.0, stop_loss: 2610.0,
+  });
+});
+
 test("legacy per-route origin is ignored; relay uses only the tenant session", async () => {
   let observedOrigin;
   const env = makeEnv(async (req) => {
@@ -112,6 +149,16 @@ test("order-like routes are denied and not proxied", async () => {
   }), makeEnv());
   assert.equal(response.status, 403);
   assert.equal((await response.json()).ordersEnabled, false);
+});
+
+test("exposure route accepts only a validated candidate-risk query", () => {
+  const candidate = encodeURIComponent(JSON.stringify({
+    symbol: "XAUUSDm", side: "BUY", volume: 0.1, entry_price: 2600.2, stop_loss: 2590.2,
+  }));
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/exposure?candidate=" + candidate)), { ok: true });
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/exposure")), { ok: true });
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/exposure?account=other")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/exposure?candidate=not-json")).ok, false);
 });
 
 test("query validation only allows bounded read parameters", () => {

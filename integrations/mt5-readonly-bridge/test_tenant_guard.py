@@ -62,7 +62,7 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "exposure_snapshot", "symbols", "quotes"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
@@ -96,10 +96,25 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertNotIn("voom.ai", LAUNCHER.lower())
         self.assertNotIn("C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe", LAUNCHER)
 
+    def test_durable_broker_day_and_candidate_risk_are_wired(self):
+        self.assertIn("MT5_RISK_STATE_DB", SOURCE)
+        self.assertIn("_broker_day_capture_loop", SOURCE)
+        self.assertIn("asyncio.sleep(2)", SOURCE)
+        self.assertIn("MT5_BROKER_DAY_ANCHOR_SYMBOL", LAUNCHER)
+        self.assertIn("load_or_capture_broker_day_baseline", SOURCE)
+        self.assertIn("broker_day_start", SOURCE)
+        self.assertIn("candidate: str | None = Query", SOURCE)
+        risk_state = Path(__file__).with_name("risk_state.py").read_text(encoding="utf-8")
+        self.assertIn("sqlite3.connect", risk_state)
+        self.assertIn("order_calc_profit", risk_state)
+
     def test_outbound_relay_uses_stable_workers_dev_and_no_custom_domain(self):
         self.assertIn("wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect", RELAY_CLIENT)
         self.assertNotIn("voom.ai", RELAY_CLIENT.lower())
         self.assertIn("X-VOOM-TENANT-ID", RELAY_CLIENT)
+        self.assertIn('if parsed.path in {"/health", "/api/account"}:', RELAY_CLIENT)
+        self.assertIn('if parsed.path == "/api/exposure":', RELAY_CLIENT)
+        self.assertIn('candidate_text = params.get("candidate", [None])[0]', RELAY_CLIENT)
         self.assertIn("Authorization", RELAY_CLIENT)
         self.assertIn('method="GET"', RELAY_CLIENT)
         self.assertNotIn('"/api/orders"', RELAY_CLIENT)

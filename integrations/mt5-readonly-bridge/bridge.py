@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
+import json
 import os
 import re
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import MetaTrader5 as mt5
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from exposure_snapshot import build_exposure_snapshot
+from risk_state import broker_day_start, load_or_capture_broker_day_baseline
 
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
@@ -25,6 +30,13 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 MAX_BARS = 500
+RISK_STATE_DB = os.environ.get(
+    "MT5_RISK_STATE_DB",
+    str(Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) /
+        "VOOM_SYSTEM" / "state" / "mt5-risk-state.sqlite3"),
+)
+BROKER_DAY_ANCHOR_SYMBOL = os.environ.get("MT5_BROKER_DAY_ANCHOR_SYMBOL", "").strip()
+BROKER_DAY_CAPTURE_TASK: asyncio.Task | None = None
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -154,6 +166,112 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "mode": "read-only",
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
+
+
+def _risk_anchor_symbol(candidate: dict[str, Any] | None, positions: Any, pending_orders: Any) -> str | None:
+    if BROKER_DAY_ANCHOR_SYMBOL:
+        return BROKER_DAY_ANCHOR_SYMBOL
+    if candidate and isinstance(candidate.get("symbol"), str):
+        return candidate["symbol"]
+    for item in list(positions or []) + list(pending_orders or []):
+        symbol = str(getattr(item, "symbol", "") or "")
+        if symbol:
+            return symbol
+    symbols = mt5.symbols_get()
+    if symbols:
+        for item in symbols:
+            if bool(getattr(item, "visible", False)):
+                return str(getattr(item, "name", "") or "") or None
+    return None
+
+
+def _parse_candidate(value: str | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    try:
+        candidate = json.loads(value)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid candidate JSON")
+    if not isinstance(candidate, dict) or set(candidate) != {"symbol", "side", "volume", "entry_price", "stop_loss"}:
+        raise HTTPException(status_code=400, detail="Candidate fields are invalid")
+    return candidate
+
+
+async def _broker_day_capture_loop() -> None:
+    """Poll through the broker D1 rollover so the baseline is captured durably."""
+    while True:
+        try:
+            with LOCK:
+                _terminal, account = get_terminal_and_account()
+                positions = mt5.positions_get() or []
+                pending_orders = mt5.orders_get() or []
+                anchor = _risk_anchor_symbol(None, positions, pending_orders)
+                day_start = broker_day_start(mt5, anchor) if anchor else None
+                load_or_capture_broker_day_baseline(
+                    db_path=RISK_STATE_DB, tenant_id=TENANT_ID, account=account,
+                    day_start_epoch=day_start,
+                )
+        except Exception:
+            # A missing terminal, symbol, or broker D1 bar is not a zero-risk state.
+            pass
+        await asyncio.sleep(2)
+
+
+@app.on_event("startup")
+async def start_broker_day_capture() -> None:
+    global BROKER_DAY_CAPTURE_TASK
+    if BROKER_DAY_CAPTURE_TASK is None or BROKER_DAY_CAPTURE_TASK.done():
+        BROKER_DAY_CAPTURE_TASK = asyncio.create_task(_broker_day_capture_loop())
+
+
+@app.on_event("shutdown")
+async def stop_broker_day_capture() -> None:
+    global BROKER_DAY_CAPTURE_TASK
+    if BROKER_DAY_CAPTURE_TASK is not None:
+        BROKER_DAY_CAPTURE_TASK.cancel()
+        try:
+            await BROKER_DAY_CAPTURE_TASK
+        except asyncio.CancelledError:
+            pass
+        BROKER_DAY_CAPTURE_TASK = None
+
+
+@app.get("/api/exposure")
+def exposure_snapshot(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+    candidate: str | None = Query(default=None, max_length=512),
+):
+    """Return broker exposure, durable broker-day baseline and recalculated candidate risk."""
+    require_token(authorization, tenant_id)
+    parsed_candidate = _parse_candidate(candidate)
+    with LOCK:
+        _terminal, account = get_terminal_and_account()
+        positions = mt5.positions_get()
+        pending_orders = mt5.orders_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        if pending_orders is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 pending orders unavailable: {error[0]}")
+        anchor_symbol = _risk_anchor_symbol(parsed_candidate, positions, pending_orders)
+        day_start = broker_day_start(mt5, anchor_symbol) if anchor_symbol else None
+        baseline = load_or_capture_broker_day_baseline(
+            db_path=RISK_STATE_DB, tenant_id=TENANT_ID, account=account,
+            day_start_epoch=day_start,
+        )
+        snapshot = build_exposure_snapshot(
+            mt5, account, list(positions), list(pending_orders),
+            broker_day_baseline=baseline, candidate=parsed_candidate,
+        )
+        market_symbol = parsed_candidate.get("symbol") if parsed_candidate else anchor_symbol
+        tick = mt5.symbol_info_tick(market_symbol) if market_symbol else None
+        tick_epoch = int(getattr(tick, "time", 0) or 0) if tick is not None else 0
+        now_epoch = datetime.now(timezone.utc).timestamp()
+        snapshot["market_data_at"] = datetime.fromtimestamp(tick_epoch, timezone.utc).isoformat() if tick_epoch > 0 else None
+        snapshot["market_open"] = bool(tick_epoch > 0 and -5 <= now_epoch - tick_epoch <= 60)
+        return snapshot
 
 
 @app.get("/api/symbols")

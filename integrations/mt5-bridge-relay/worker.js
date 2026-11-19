@@ -4,7 +4,7 @@ const BASE = {
   "Referrer-Policy": "no-referrer"
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
-const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/exposure", "/api/symbols", "/api/quotes"]);
 const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
@@ -85,6 +85,26 @@ export function validateReadRequest(url) {
 
   if (url.pathname === "/health" || url.pathname === "/api/account") {
     return keys.length === 0 ? { ok: true } : { ok: false, error: "query_not_allowed" };
+  }
+  if (url.pathname === "/api/exposure") {
+    if (keys.some((key) => key !== "candidate")) return { ok: false, error: "query_parameter_not_allowed" };
+    const candidate = singleParam(url, "candidate");
+    if (candidate === undefined || (candidate !== null && candidate.length > 512)) {
+      return { ok: false, error: "invalid_candidate" };
+    }
+    if (candidate !== null) {
+      try {
+        const value = JSON.parse(candidate);
+        if (!value || typeof value !== "object" || Array.isArray(value) ||
+            Object.keys(value).sort().join(",") !== "entry_price,side,stop_loss,symbol,volume" ||
+            !["BUY", "SELL"].includes(value.side) ||
+            typeof value.symbol !== "string" || !/^[A-Za-z0-9._-]{1,40}$/.test(value.symbol) ||
+            ![value.volume, value.entry_price, value.stop_loss].every((n) => typeof n === "number" && Number.isFinite(n) && n > 0)) {
+          return { ok: false, error: "invalid_candidate" };
+        }
+      } catch { return { ok: false, error: "invalid_candidate" }; }
+    }
+    return { ok: true };
   }
 
   const allowedKeys = url.pathname === "/api/symbols"
