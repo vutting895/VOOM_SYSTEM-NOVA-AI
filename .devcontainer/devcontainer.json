@@ -57,8 +57,5 @@
         "files.trimTrailingWhitespace": true
       }
     }
-  },
-  "features": {
-    "ghcr.io/devcontainers/features/bun:1": {}
   }
 }
