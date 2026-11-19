@@ -1,7 +1,7 @@
 # Exness Demo Automated Execution Policy
 
 **Status:** Owner-approved policy intent; implementation and runtime activation are NOT yet approved as complete.  
-**Policy version:** 2026-11-11  
+**Policy version:** 2026-11-19  
 **Applies to:** NOVA Exness MT5 Demo implementation and future Live-readiness planning. Live account connection and execution remain disabled.
 
 ## 1. Authorization boundary
@@ -80,9 +80,11 @@ Automated account normalization is a risk-critical component, not a cosmetic dis
 
 ### Owner-selected daily loss ceiling
 
-**Maximum daily loss: 10% of the approved Equity baseline, with all risk values normalized to USD.** The 10% ceiling and Entry Lock Only response are approved. The exact baseline semantics (current Equity versus broker-day opening Equity) are not yet reconciled to the production implementation; do not silently substitute Broker Day Start Equity.
+**Maximum daily loss: 10% of immutable broker-day opening normalized USD Equity.** The owner-confirmed baseline is captured once from authenticated broker data at the broker-server day boundary, using the broker-reported opening Equity and verified USD normalization. It is immutable for that broker day and must persist across process restarts, Bridge reconnects, and service failover. Never recompute it from current intraday Equity or accept a client-supplied replacement.
 
-The implementation must persist the selected baseline value, account identity, native currency/denomination, normalized USD value, capture timestamp, FX provenance, and policy version. If the approved baseline cannot be loaded or reconciled, fail closed for new entries. Do not code a Broker Day Start Equity formula until the baseline is explicitly resolved against the approved policy and runtime evidence.
+Persist the opening baseline value, account login/server/tenant identity, native currency and denomination, normalized USD value, broker-day identifier/boundary, capture timestamp, FX rate/source, conversion version, and policy version. The baseline must be created atomically once per broker day and recovered unchanged after restart/reconnect. If it is missing, stale, duplicated, inconsistent, or cannot be verified against authenticated broker data, fail closed for new entries; do not estimate or substitute a baseline.
+
+Calculate daily net P/L in USD as realized P/L + floating P/L + commission + swap, using broker-native signs and separately verified component semantics. Prevent double counting when a broker field already includes commission or swap; if the components cannot be reconciled, fail closed. `daily_loss_usd = max(0, -daily_net_pnl_usd)` and `daily_loss_pct = 100 × daily_loss_usd / opening_equity_usd`. The 10% threshold is evaluated against this immutable opening baseline.
 
 **At or above the 10% threshold, apply Entry Lock Only:** set `DAILY_LOSS_LOCKED`, reject all new entries and risk-increasing actions, and cancel all pending entry orders. Keep existing open positions unchanged under this Daily Loss Guard; do not automatically close them. Preserve protective Stop Loss / Take Profit and other orders that reduce or protect existing exposure. Continue monitoring and reporting the risk breach. The lock persists until the next broker trading day and a fresh, valid baseline is captured. This is an entry-stop threshold, not a guaranteed maximum-loss cap; retained positions can continue to lose beyond 10%.
 
@@ -90,7 +92,7 @@ At the 1% Demo per-trade ceiling, multiple positions can still accumulate correl
 
 Before every new order or risk-increasing modification, the Risk Engine must evaluate at least:
 - Demo per-trade risk not exceeding 1% of current Equity in USD, calculated to initial Stop Loss including estimated costs. The 5% future Real profile is isolated and inactive.
-- Daily loss not exceeding 10% of the approved Equity baseline in USD, with Entry Lock Only and pending-entry cancellation at the threshold. The baseline semantics must be explicitly resolved; do not silently substitute Broker Day Start Equity.
+- Daily loss not exceeding 10% of immutable broker-day opening normalized USD Equity, using realized P/L + floating P/L + commission + swap without double counting. Preserve the baseline unchanged across restarts/reconnects; missing or unverifiable baseline/components fail closed. At the threshold, Entry Lock Only and pending-entry cancellation apply.
 - Aggregate open risk and exposure by symbol/direction not exceeding 9% of Equity in USD, including pending entry exposure.
 - Maximum concurrent positions and pending orders, subject to approved limits.
 - Maximum drawdown, subject to an approved limit.
