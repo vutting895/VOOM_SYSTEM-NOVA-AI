@@ -7,7 +7,8 @@
     "dev": "tsx server.ts",
     "build": "vite build",
     "lint": "tsc --noEmit",
-    "start": "node server.ts"
+    "start": "node server.ts",
+    "test:storage": "node --test workers/data-ingestion/r2_storage.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

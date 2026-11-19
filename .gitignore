@@ -15,10 +15,21 @@ dist/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
-# Local logs and generated data
-*.log
-*.sqlite3
-data/
+# Local/generated market data and model artifacts (never commit bulk data)
+data/raw/
+data/processed/
+data/features/
+data/datasets/
+data/cache/
+data/exports/
+data/**/*.parquet
+data/**/*.feather
+data/**/*.arrow
+data/**/*.csv
+data/**/*.jsonl
+checkpoints/
+trained-models/
+model_artifacts/
 # OS/editor
 .DS_Store
 Thumbs.db
