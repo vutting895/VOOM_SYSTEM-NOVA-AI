@@ -124,6 +124,7 @@ def get_terminal_and_account() -> tuple[Any, Any]:
                 status_code=403,
                 detail="Only an Exness Demo MT5 terminal is permitted.",
             )
+        validate_expected_account_identity(account)
         return terminal, account
 
 
