@@ -60,6 +60,17 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('status_code=401, detail="Invalid bearer token"', guard_source)
         self.assertIn('status_code=403, detail="Bridge tenant mismatch"', guard_source)
 
+    def test_expected_account_login_and_exact_server_are_required(self):
+        self.assertIn('os.environ.get("MT5_EXPECTED_ACCOUNT_LOGIN", "")', SOURCE)
+        self.assertIn('os.environ.get("MT5_EXPECTED_SERVER", "")', SOURCE)
+        functions = function_nodes()
+        identity_guard = functions["validate_expected_account_identity"]
+        self.assertTrue(has_call(identity_guard, "compare_digest", ["actual_login", "EXPECTED_ACCOUNT_LOGIN"]))
+        self.assertTrue(has_call(identity_guard, "compare_digest", ["actual_server", "EXPECTED_SERVER"]))
+        self.assertTrue(has_call(functions["get_terminal_and_account"], "validate_expected_account_identity", ["account"]))
+        self.assertIn("status_code=503, detail=\"Expected MT5 account identity is not configured.\"", SOURCE)
+        self.assertIn("status_code=403, detail=\"Connected MT5 account does not match the provisioned Demo identity.\"", SOURCE)
+
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
         for name in ("health", "account_summary", "portfolio", "symbols", "quotes", "history"):
