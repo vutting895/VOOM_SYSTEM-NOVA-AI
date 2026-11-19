@@ -7,8 +7,11 @@ cd "$ROOT_DIR"
 echo "== NOVA development environment =="
 echo "Node: $(node --version)"
 echo "npm:  $(npm --version)"
-echo "Bun:  $(bun --version)"
 echo "Python: $(python3 --version)"
+
+echo
+echo "Installing the committed Node dependency tree..."
+npm ci --ignore-scripts --no-audit --no-fund
 
 if [ ! -x ".venv/bin/python" ]; then
   python3 -m venv .venv
