@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import MetaTrader5 as mt5
+from account_identity import matches_expected_identity
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -95,12 +96,9 @@ def validate_expected_account_identity(account: Any) -> None:
     ):
         raise HTTPException(status_code=503, detail="Expected MT5 account identity is not configured.")
 
-    actual_login = str(getattr(account, "login", "") or "")
-    actual_server = str(getattr(account, "server", "") or "")
-    if (
-        not hmac.compare_digest(actual_login, EXPECTED_ACCOUNT_LOGIN)
-        or not hmac.compare_digest(actual_server, EXPECTED_SERVER)
-    ):
+    actual_login = getattr(account, "login", "")
+    actual_server = getattr(account, "server", "")
+    if not matches_expected_identity(actual_login, actual_server, EXPECTED_ACCOUNT_LOGIN, EXPECTED_SERVER):
         raise HTTPException(status_code=403, detail="Connected MT5 account does not match the provisioned Demo identity.")
 
 
