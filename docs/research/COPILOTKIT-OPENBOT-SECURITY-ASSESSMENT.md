@@ -1,5 +1,7 @@
 # CopilotKit OpenBot — NOVA Security & Dependency Audit
 
+> **Historical lockfile note:** This report is a snapshot of the exact tree and dependency files reviewed during 2026-11-15 to 2026-11-16. On the NOVA Bun-to-npm migration branch, the root `bun.lock` is replaced by `package-lock.json`; references and counts for `bun.lock` below remain historical evidence and must not be interpreted as the current npm dependency audit.
+
 > **Internal research artifact — not production policy, a security certification, a NOVA-wide release decision, or authorization to deploy.** Findings are limited to the evidence and versions listed below. Runtime reachability and exploitability were not tested.
 
 ## Executive summary
@@ -42,39 +44,3 @@ A subsequent OSV-Scanner v2.7.1 scan at `7d1d96c0a38f9b46a2f73179fb00b3bd34f4b2f
 Trivy v0.76.2 scanned the immutable GHCR image remotely for Linux/amd64: **207 match rows / 95 unique advisory IDs** (48 High, 90 Medium, 64 Low, 5 Unknown; no Critical matches in that database snapshot). Debian tracker review confirmed vulnerable package-version matches for selected packages including util-linux, SQLite, ACL, systemd, ncurses, and Perl. Application reachability was not established. The image config identifies user `openbot:openbot` (non-root); the config scan found no secrets and one Low finding for missing HEALTHCHECK.
 
 Cosign v3.1.4 verified the image digest against the upstream public key, but used `--insecure-ignore-tlog=true`; this verifies the signature against the supplied key, not transparency-log inclusion or the build process. An OCI SPDX 2.3 attestation is present and digest-checked, but it contains Debian OS package records and does not provide an application dependency SBOM or SLSA build provenance.
-
-### Security posture and operating boundaries
-
-The reviewed upstream docs describe a permissive computer-action default unless replaced by an explicit policy; dry-run records decisions but does not enforce them. Shared computer instances are not tenant-isolation boundaries, and the supervisor requires Docker socket access. Approval cards are not a complete authorization boundary.
-
-Any future isolated OpenBot test must use synthetic/read-only data, loopback-only access, disposable credentials, deny-by-default computer policy, and network allowlisting. Do not expose broker/trading operations, NOVA production secrets, unrestricted MCP, public ingress, or production data.
-
-### Cost and platform caveat
-
-The reviewed pricing/docs describe a free Developer tier with quotas, while self-hosted Intelligence is listed under paid Team self-hosted or Enterprise plans. Model-provider and optional integration charges are separate and were not measured. Therefore zero total cost is **not verified**.
-
-## Upstream evidence required
-
-Before reconsidering this OpenBot evaluation, request the actual backend image builder repository/workflow and immutable run identity; exact build source, Dockerfile/context and parameters; verifiable provenance bound to the audited digest; and a production application SBOM tied to that digest. The detailed findings and evidence request are in [the backend publisher follow-up](COPILOTKIT-OPENBOT-BACKEND-PUBLISHER-FOLLOWUP.md) and [the draft maintainer request](OPENBOT-UPSTREAM-PROVENANCE-EVIDENCE-REQUEST.md). The request has not been sent.
-
-## Final recommendation for this evaluation
-
-**Do not install or integrate the audited OpenBot image based on this report alone.** Reconsider only after:
-
-1. Upstream supplies and the reviewer verifies digest-bound build provenance and the backend builder identity.
-2. The image has a complete application/runtime SBOM, and OS and source dependency findings have been triaged/remediated for the intended deployment.
-3. Explicit deny-by-default controls and isolation are tested negatively in a disposable environment.
-4. Provider entitlements, quotas, and hard spending limits are confirmed before any model calls.
-5. Formal platform/security approval is obtained separately.
-
-This recommendation applies only to the OpenBot evaluation. It is not a NOVA-wide release decision; CI, dataset, risk-policy, hosting, Supabase migration/restore, and MT5 runtime readiness require separate evidence and approval.
-
-No OpenBot runtime was installed or executed. No dependency was modified, no external request was sent, and no NOVA production resource or configuration was changed.
-
-## Source references
-
-- [OpenBot repository](https://github.com/CopilotKit/OpenBot)
-- [OpenBot architecture](https://github.com/CopilotKit/OpenBot/blob/main/docs/architecture.md), [approvals](https://github.com/CopilotKit/OpenBot/blob/main/docs/approvals.md), [configuration](https://github.com/CopilotKit/OpenBot/blob/main/docs/configuration.md), [deployment](https://github.com/CopilotKit/OpenBot/blob/main/docs/deployment.md)
-- [GHSA-jqcg-44mw-7w3h](https://github.com/advisories/GHSA-jqcg-44mw-7w3h), [RUSTSEC-2026-0369](https://rustsec.org/advisories/RUSTSEC-2026-0369)
-- Debian Security Tracker: [util-linux](https://security-tracker.debian.org/tracker/source-package/util-linux), [sqlite3](https://security-tracker.debian.org/tracker/source-package/sqlite3), [CVE-2026-76642](https://security-tracker.debian.org/tracker/CVE-2026-76642), [CVE-2026-78408](https://security-tracker.debian.org/tracker/CVE-2026-78408), [CVE-2026-119373](https://security-tracker.debian.org/tracker/CVE-2026-119373), [CVE-2026-54369](https://security-tracker.debian.org/tracker/CVE-2026-54369), [CVE-2026-16742](https://security-tracker.debian.org/tracker/CVE-2026-16742), [CVE-2025-69720](https://security-tracker.debian.org/tracker/CVE-2025-69720), [CVE-2026-9538](https://security-tracker.debian.org/tracker/CVE-2026-9538)
-- [CopilotKit pricing](https://www.copilotkit.ai/pricing), [Intelligence overview](https://docs.copilotkit.ai/agent-spec/intelligence/overview), [local self-hosting guide](https://docs.copilotkit.ai/intelligence/self-hosting-local)
