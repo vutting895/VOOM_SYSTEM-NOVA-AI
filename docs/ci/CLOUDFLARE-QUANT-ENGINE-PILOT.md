@@ -12,7 +12,7 @@ Pilot only the checks currently defined in `.github/workflows/quant-engine-found
 2. Run `python -m unittest discover -s tests -p "test_quant*.py" -v`.
 3. Write a machine-readable report to `artifacts/quant-engine-ci-report.json`.
 
-The existing GitHub Actions workflow is intentionally unchanged and remains the reference implementation during parity testing.
+The existing GitHub Actions workflow remains enabled and retains its original compile and unittest reference checks. The pilot adds a second invocation through the new runner and uploads its report so both paths can be compared on the same PR commit.
 
 ## Cloudflare Workers Builds configuration
 
@@ -34,7 +34,8 @@ The Worker entrypoint is a minimal GET-only preview status endpoint. It has no b
 
 ## Safety constraints
 
-- Do not change or disable `.github/workflows/quant-engine-foundation-ci.yml` during the pilot.
+- Do not disable, remove, or replace `.github/workflows/quant-engine-foundation-ci.yml` during the pilot.
+- Keep the original compile and unittest checks as the reference implementation.
 - Do not connect this project to any existing production NOVA Worker.
 - Do not add Cloudflare secrets, Supabase bindings, broker credentials, or trading capabilities.
 - The production deploy command is deliberately a no-op. Verify this setting in the Cloudflare dashboard before connecting the repository.
