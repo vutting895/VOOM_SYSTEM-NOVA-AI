@@ -5,6 +5,7 @@ These tests intentionally do not import MetaTrader5 or connect to a terminal.
 import ast
 import re
 import unittest
+from account_identity import matches_expected_identity
 from pathlib import Path
 
 BRIDGE_PATH = Path(__file__).with_name("bridge.py")
@@ -59,6 +60,14 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('status_code=401, detail="Missing bearer token"', guard_source)
         self.assertIn('status_code=401, detail="Invalid bearer token"', guard_source)
         self.assertIn('status_code=403, detail="Bridge tenant mismatch"', guard_source)
+
+    def test_account_identity_accepts_only_the_provisioned_login_and_exact_server(self):
+        self.assertTrue(matches_expected_identity(12345678, "Exness-MT5Trial9", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(87654321, "Exness-MT5Trial9", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial8", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9 ", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9", "", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9", "12345678", ""))
 
     def test_expected_account_login_and_exact_server_are_required(self):
         self.assertIn('os.environ.get("MT5_EXPECTED_ACCOUNT_LOGIN", "")', SOURCE)
