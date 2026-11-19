@@ -13,6 +13,10 @@ SOURCE = BRIDGE_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE, filename=str(BRIDGE_PATH))
 LAUNCHER = Path(__file__).with_name("run-bridge.ps1").read_text(encoding="utf-8")
 RELAY_CLIENT = Path(__file__).with_name("bridge_relay_client.py").read_text(encoding="utf-8")
+HELPER_PATH = Path(__file__).with_name("account_identity.py")
+HELPER_SOURCE = HELPER_PATH.read_text(encoding="utf-8")
+HELPER_TREE = ast.parse(HELPER_SOURCE, filename=str(HELPER_PATH))
+
 
 
 def called_name(node):
@@ -74,8 +78,10 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('os.environ.get("MT5_EXPECTED_SERVER", "")', SOURCE)
         functions = function_nodes()
         identity_guard = functions["validate_expected_account_identity"]
-        self.assertTrue(has_call(identity_guard, "compare_digest", ["actual_login", "EXPECTED_ACCOUNT_LOGIN"]))
-        self.assertTrue(has_call(identity_guard, "compare_digest", ["actual_server", "EXPECTED_SERVER"]))
+        self.assertTrue(has_call(identity_guard, "matches_expected_identity", ["actual_login", "actual_server", "EXPECTED_ACCOUNT_LOGIN", "EXPECTED_SERVER"]))
+        helper = next(node for node in HELPER_TREE.body if isinstance(node, ast.FunctionDef) and node.name == "matches_expected_identity")
+        self.assertTrue(has_call(helper, "compare_digest", ["login", "expected_login"]))
+        self.assertTrue(has_call(helper, "compare_digest", ["server", "expected_server"]))
         self.assertTrue(has_call(functions["get_terminal_and_account"], "validate_expected_account_identity", ["account"]))
         self.assertIn("status_code=503, detail=\"Expected MT5 account identity is not configured.\"", SOURCE)
         self.assertIn("status_code=403, detail=\"Connected MT5 account does not match the provisioned Demo identity.\"", SOURCE)
