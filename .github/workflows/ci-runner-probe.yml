@@ -1,0 +1,46 @@
+name: NOVA CI Runner Probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ci-runner-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-ci-runner-probe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ubuntu-runner:
+    name: Probe GitHub-hosted Ubuntu runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner was provisioned
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner_os=${RUNNER_OS:-missing}"
+          echo "runner_arch=${RUNNER_ARCH:-missing}"
+          echo "runner_name=${RUNNER_NAME:-missing}"
+          echo "github_sha=${GITHUB_SHA:-missing}"
+          test -n "${RUNNER_NAME:-}"
+
+  windows-runner:
+    name: Probe GitHub-hosted Windows runner
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm runner was provisioned
+        shell: pwsh
+        run: |
+          Write-Host "runner_os=$env:RUNNER_OS"
+          Write-Host "runner_arch=$env:RUNNER_ARCH"
+          Write-Host "runner_name=$env:RUNNER_NAME"
+          Write-Host "github_sha=$env:GITHUB_SHA"
+          if ([string]::IsNullOrWhiteSpace($env:RUNNER_NAME)) {
+            throw "GitHub-hosted runner name was not assigned."
+          }
