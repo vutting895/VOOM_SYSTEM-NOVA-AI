@@ -96,6 +96,16 @@ jobs:
           }
           Write-Host "Both Worker route-map provisioning checks passed."
 
+      - name: Set up Python for Bridge contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run MT5 Bridge identity and tenant contract tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py" -v
+
       - name: Assert Bridge stays read-only
         shell: pwsh
         run: |
