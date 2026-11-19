@@ -6,6 +6,7 @@ import LearningWorksheetView from './components/learning/LearningWorksheetView';
 import NovaNeuralStudioView from './components/strategy/NovaNeuralStudioView';
 import GoogleWorkspaceExportView from './components/workspace/GoogleWorkspaceExportView';
 import IndependentAuditView from './components/workspace/IndependentAuditView';
+import SupabaseLoginView from './components/auth/SupabaseLoginView';
 
 export default function App() {
   return (
@@ -27,7 +28,7 @@ export default function App() {
       <Route path="/settings" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/broker" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/profile" element={<QuickitMarketFleetView initialTab="settings" />} />
-      <Route path="/login" element={<QuickitMarketFleetView initialTab="settings" />} />
+      <Route path="/login" element={<SupabaseLoginView />} />
       <Route path="/studio" element={<NovaNeuralStudioView />} />
       <Route path="/neural" element={<NovaNeuralStudioView />} />
       <Route path="/workspace" element={<GoogleWorkspaceExportView />} />

@@ -65,8 +65,8 @@ export interface MarketOverviewResponse {
   safetyNotice: string;
   dataMode: DataFeedMode;
   assets: MarketAssetQuote[];
-  signals: TradingSignal[];
-  analysis: AIMarketAnalysis;
+  signals?: TradingSignal[];
+  analysis?: AIMarketAnalysis | null;
 }
 
 export interface IntelligenceModelStatus {

@@ -5,6 +5,7 @@ These tests intentionally do not import MetaTrader5 or connect to a terminal.
 import ast
 import re
 import unittest
+from account_identity import matches_expected_identity
 from pathlib import Path
 
 BRIDGE_PATH = Path(__file__).with_name("bridge.py")
@@ -12,6 +13,10 @@ SOURCE = BRIDGE_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE, filename=str(BRIDGE_PATH))
 LAUNCHER = Path(__file__).with_name("run-bridge.ps1").read_text(encoding="utf-8")
 RELAY_CLIENT = Path(__file__).with_name("bridge_relay_client.py").read_text(encoding="utf-8")
+HELPER_PATH = Path(__file__).with_name("account_identity.py")
+HELPER_SOURCE = HELPER_PATH.read_text(encoding="utf-8")
+HELPER_TREE = ast.parse(HELPER_SOURCE, filename=str(HELPER_PATH))
+
 
 
 def called_name(node):
@@ -60,9 +65,30 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('status_code=401, detail="Invalid bearer token"', guard_source)
         self.assertIn('status_code=403, detail="Bridge tenant mismatch"', guard_source)
 
+    def test_account_identity_accepts_only_the_provisioned_login_and_exact_server(self):
+        self.assertTrue(matches_expected_identity(12345678, "Exness-MT5Trial9", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(87654321, "Exness-MT5Trial9", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial8", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9 ", "12345678", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9", "", "Exness-MT5Trial9"))
+        self.assertFalse(matches_expected_identity(12345678, "Exness-MT5Trial9", "12345678", ""))
+
+    def test_expected_account_login_and_exact_server_are_required(self):
+        self.assertIn('os.environ.get("MT5_EXPECTED_ACCOUNT_LOGIN", "")', SOURCE)
+        self.assertIn('os.environ.get("MT5_EXPECTED_SERVER", "")', SOURCE)
+        functions = function_nodes()
+        identity_guard = functions["validate_expected_account_identity"]
+        self.assertTrue(has_call(identity_guard, "matches_expected_identity", ["actual_login", "actual_server", "EXPECTED_ACCOUNT_LOGIN", "EXPECTED_SERVER"]))
+        helper = next(node for node in HELPER_TREE.body if isinstance(node, ast.FunctionDef) and node.name == "matches_expected_identity")
+        self.assertTrue(has_call(helper, "compare_digest", ["login", "expected_login"]))
+        self.assertTrue(has_call(helper, "compare_digest", ["server", "expected_server"]))
+        self.assertTrue(has_call(functions["get_terminal_and_account"], "validate_expected_account_identity", ["account"]))
+        self.assertIn("status_code=503, detail=\"Expected MT5 account identity is not configured.\"", SOURCE)
+        self.assertIn("status_code=403, detail=\"Connected MT5 account does not match the provisioned Demo identity.\"", SOURCE)
+
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "portfolio", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}

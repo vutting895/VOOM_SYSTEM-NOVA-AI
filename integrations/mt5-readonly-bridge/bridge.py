@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import MetaTrader5 as mt5
+from account_identity import matches_expected_identity
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +16,9 @@ from fastapi.responses import JSONResponse
 APP_NAME = "voom-mt5-readonly-bridge"
 BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN", "")
 TENANT_ID = os.environ.get("MT5_TENANT_ID", "").strip()
+# Provision these values locally for this dedicated tenant bridge; never accept them from a client.
+EXPECTED_ACCOUNT_LOGIN = os.environ.get("MT5_EXPECTED_ACCOUNT_LOGIN", "")
+EXPECTED_SERVER = os.environ.get("MT5_EXPECTED_SERVER", "")
 TERMINAL_PATH = os.environ.get("MT5_TERMINAL_PATH", "").strip() or None
 CORS_ORIGINS = [
     origin.strip()
@@ -25,6 +29,8 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 MAX_BARS = 500
+MAX_HISTORY_DAYS = 90
+MAX_HISTORY_DEALS = 500
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -80,6 +86,22 @@ def initialize_mt5() -> None:
         raise HTTPException(status_code=503, detail=f"MT5 initialize failed: {error[0]}")
 
 
+def validate_expected_account_identity(account: Any) -> None:
+    # Identity is provisioned out-of-band on this tenant-dedicated Windows Bridge.
+    # Missing configuration is an infrastructure error; mismatch is a hard authorization failure.
+    if (
+        not re.fullmatch(r"[1-9][0-9]{0,19}", EXPECTED_ACCOUNT_LOGIN)
+        or not EXPECTED_SERVER
+        or EXPECTED_SERVER != EXPECTED_SERVER.strip()
+    ):
+        raise HTTPException(status_code=503, detail="Expected MT5 account identity is not configured.")
+
+    actual_login = getattr(account, "login", "")
+    actual_server = getattr(account, "server", "")
+    if not matches_expected_identity(actual_login, actual_server, EXPECTED_ACCOUNT_LOGIN, EXPECTED_SERVER):
+        raise HTTPException(status_code=403, detail="Connected MT5 account does not match the provisioned Demo identity.")
+
+
 def get_terminal_and_account() -> tuple[Any, Any]:
     with LOCK:
         initialize_mt5()
@@ -100,6 +122,7 @@ def get_terminal_and_account() -> tuple[Any, Any]:
                 status_code=403,
                 detail="Only an Exness Demo MT5 terminal is permitted.",
             )
+        validate_expected_account_identity(account)
         return terminal, account
 
 
@@ -153,6 +176,52 @@ def account_summary(authorization: str | None = Header(default=None), tenant_id:
             "order_submission_enabled": False,
             "mode": "read-only",
             "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/portfolio")
+def portfolio(authorization: str | None = Header(default=None), tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID")):
+    require_token(authorization, tenant_id)
+    with LOCK:
+        terminal, account = get_terminal_and_account()
+        positions = mt5.positions_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        rows = []
+        for item in positions[:500]:
+            position_type = "buy" if item.type == mt5.POSITION_TYPE_BUY else "sell" if item.type == mt5.POSITION_TYPE_SELL else "unknown"
+            rows.append({
+                "ticket": int(item.ticket),
+                "position_id": int(item.identifier),
+                "time": datetime.fromtimestamp(int(item.time), timezone.utc).isoformat(),
+                "type": position_type,
+                "symbol": str(item.symbol),
+                "volume": float(item.volume),
+                "price_open": float(item.price_open),
+                "price_current": float(item.price_current),
+                "stop_loss": float(item.sl),
+                "take_profit": float(item.tp),
+                "swap": float(item.swap),
+                "profit": float(item.profit),
+            })
+        return {
+            "connected": bool(terminal.connected),
+            "account": {
+                "server": str(getattr(account, "server", "")),
+                "currency": str(getattr(account, "currency", "")),
+                "balance": float(account.balance),
+                "equity": float(account.equity),
+                "margin": float(account.margin),
+                "free_margin": float(account.margin_free),
+                "margin_level": float(account.margin_level) if account.margin_level else None,
+                "as_of": datetime.now(timezone.utc).isoformat(),
+            },
+            "positions": rows,
+            "count": len(rows),
+            "truncated": len(positions) > 500,
+            "mode": "read-only",
+            "order_submission_enabled": False,
         }
 
 
@@ -233,6 +302,52 @@ def quotes(
             },
             "bars": bars,
             "count": len(bars),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/history")
+def history(
+    from_ts: int = Query(ge=1),
+    to_ts: int = Query(ge=1),
+    limit: int = Query(default=200, ge=1, le=MAX_HISTORY_DEALS),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    require_token(authorization, tenant_id)
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    if to_ts <= from_ts or to_ts > now_ts + 60 or to_ts - from_ts > MAX_HISTORY_DAYS * 86400:
+        raise HTTPException(status_code=400, detail="History range must be chronological and no longer than 90 days.")
+    with LOCK:
+        get_terminal_and_account()
+        start = datetime.fromtimestamp(from_ts, timezone.utc)
+        end = datetime.fromtimestamp(to_ts, timezone.utc)
+        deals = mt5.history_deals_get(start, end)
+        if deals is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
+        ordered = sorted(deals, key=lambda item: int(item.time), reverse=True)[:limit]
+        rows = [{
+            "ticket": int(item.ticket),
+            "order": int(item.order),
+            "position_id": int(item.position_id),
+            "time": datetime.fromtimestamp(int(item.time), timezone.utc).isoformat(),
+            "type": int(item.type),
+            "entry": int(item.entry),
+            "symbol": str(item.symbol),
+            "volume": float(item.volume),
+            "price": float(item.price),
+            "commission": float(item.commission),
+            "swap": float(item.swap),
+            "profit": float(item.profit),
+            "fee": float(getattr(item, "fee", 0.0)),
+        } for item in ordered]
+        return {
+            "deals": rows,
+            "count": len(rows),
+            "range": {"from_ts": from_ts, "to_ts": to_ts},
             "mode": "read-only",
             "order_submission_enabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),

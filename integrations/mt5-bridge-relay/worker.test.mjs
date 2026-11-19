@@ -122,6 +122,18 @@ test("query validation only allows bounded read parameters", () => {
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&symbol=OTHER")).ok, false);
 });
 
+test("portfolio is an authenticated read-only route with no query parameters", () => {
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/portfolio")), { ok: true });
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/portfolio?symbol=XAUUSDm")).ok, false);
+});
+
+test("history accepts bounded 90-day ranges and rejects oversized or malformed ranges", () => {
+  const now = Math.floor(Date.now() / 1000);
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/history?from_ts=" + (now - 3600) + "&to_ts=" + now + "&limit=100")), { ok: true });
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?from_ts=" + (now - 91 * 86400) + "&to_ts=" + now + "&limit=100")).ok, false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?from_ts=1&to_ts=2&limit=501")).ok, false);
+});
+
 test("token comparison rejects missing, unequal, and non-string values", () => {
   assert.equal(constantTimeEqual(TOKEN, TOKEN), true);
   assert.equal(constantTimeEqual(TOKEN, TOKEN + "x"), false);

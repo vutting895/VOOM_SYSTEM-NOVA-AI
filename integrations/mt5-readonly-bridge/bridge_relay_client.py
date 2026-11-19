@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
@@ -24,7 +25,7 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/portfolio", "/api/history", "/api/symbols", "/api/quotes"}
 TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
 
 
@@ -58,12 +59,26 @@ def normalize_read_path(value: object) -> str:
     if any(len(items) != 1 for items in params.values()):
         raise ValueError("Duplicate query parameters are not allowed.")
 
-    if parsed.path in {"/health", "/api/account"}:
+    if parsed.path in {"/health", "/api/account", "/api/portfolio"}:
         if params:
             raise ValueError("This read endpoint does not accept query parameters.")
         return parsed.path
 
-    if parsed.path == "/api/symbols":
+    if parsed.path == "/api/history":
+        if set(params) - {"from_ts", "to_ts", "limit"}:
+            raise ValueError("Query parameter is not allowed.")
+        from_ts = params.get("from_ts", [""])[0]
+        to_ts = params.get("to_ts", [""])[0]
+        limit = params.get("limit", ["200"])[0]
+        if not from_ts.isdigit() or not to_ts.isdigit() or not limit.isdigit():
+            raise ValueError("History range is invalid.")
+        start, end, rows = int(from_ts), int(to_ts), int(limit)
+        now = int(time.time())
+        if start < 1 or end <= start or end > now + 60 or end - start > 90 * 86400:
+            raise ValueError("History range must be chronological and at most 90 days.")
+        if not 1 <= rows <= 500:
+            raise ValueError("History limit is invalid.")
+    elif parsed.path == "/api/symbols":
         if set(params) - {"q", "limit"}:
             raise ValueError("Query parameter is not allowed.")
         q = params.get("q", [""])[0]

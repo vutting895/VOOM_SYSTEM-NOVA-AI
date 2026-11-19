@@ -16,6 +16,7 @@ on:
       - "index.html"
       - "server.ts"
       - "netlify.toml"
+      - "netlify/**"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/cloudflare-deploy.yml"
       - ".github/workflows/ai-worker-deploy.yml"
@@ -77,6 +78,8 @@ jobs:
           node-version: "22"
       - name: Install root Vite dependencies
         run: npm install --no-package-lock --include=dev
+      - name: Test Netlify read-only API functions
+        run: npm run test:netlify
       - name: Test NOVA Demo-only read-only execution guard
         run: node --test tests/nova-trading-readonly-guard.test.mjs
       - name: Test NOVA training status never reports simulated metrics

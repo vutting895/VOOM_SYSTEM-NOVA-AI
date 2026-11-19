@@ -4,7 +4,7 @@ const BASE = {
   "Referrer-Policy": "no-referrer"
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
-const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/portfolio", "/api/history", "/api/symbols", "/api/quotes"]);
 const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
@@ -83,8 +83,26 @@ export function validateReadRequest(url) {
     return { ok: false, error: "duplicate_query_parameter" };
   }
 
-  if (url.pathname === "/health" || url.pathname === "/api/account") {
+  if (url.pathname === "/health" || url.pathname === "/api/account" || url.pathname === "/api/portfolio") {
     return keys.length === 0 ? { ok: true } : { ok: false, error: "query_not_allowed" };
+  }
+
+  if (url.pathname === "/api/history") {
+    const allowed = new Set(["from_ts", "to_ts", "limit"]);
+    if (keys.some((key) => !allowed.has(key))) return { ok: false, error: "query_parameter_not_allowed" };
+    const fromTs = singleParam(url, "from_ts");
+    const toTs = singleParam(url, "to_ts");
+    const limit = singleParam(url, "limit") ?? "200";
+    const now = Math.floor(Date.now() / 1000);
+    if (!/^\d+$/.test(fromTs || "") || !/^\d+$/.test(toTs || "") || !/^\d+$/.test(limit)) {
+      return { ok: false, error: "invalid_history_range" };
+    }
+    const start = Number(fromTs), end = Number(toTs), rows = Number(limit);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end <= start ||
+        end > now + 60 || end - start > 90 * 86400 || !Number.isInteger(rows) || rows < 1 || rows > 500) {
+      return { ok: false, error: "invalid_history_range" };
+    }
+    return { ok: true };
   }
 
   const allowedKeys = url.pathname === "/api/symbols"

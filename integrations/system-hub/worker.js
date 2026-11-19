@@ -332,7 +332,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/portfolio", "/api/history", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
@@ -498,6 +498,78 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+
+async function readPortfolio(request, env, user, row, origin) {
+  const result = await requestMt5Proxy(env, user, row, "/api/portfolio");
+  if (!result.ok) {
+    return json({
+      connectionId: row.id, state: result.error, detail: result.detail,
+      dataVerified: false, ordersEnabled: false, liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  const data = result.body;
+  if (data.connected !== true || !data.account || !Array.isArray(data.positions)) {
+    return json({ connectionId: row.id, error: "portfolio_response_invalid", dataVerified: false,
+      ordersEnabled: false, liveTradingEnabled: false }, 502, origin, env);
+  }
+  return json({
+    connectionId: row.id, state: "data_verified", dataVerified: true,
+    checkedAt: new Date().toISOString(),
+    account: {
+      broker: "Exness", platform: "MT5", environment: "demo",
+      server: typeof data.account.server === "string" ? data.account.server : null,
+      currency: typeof data.account.currency === "string" ? data.account.currency : null,
+      balance: safeNumber(data.account.balance), equity: safeNumber(data.account.equity),
+      margin: safeNumber(data.account.margin), free_margin: safeNumber(data.account.free_margin),
+      margin_level: safeNumber(data.account.margin_level), mode: "read-only",
+      as_of: typeof data.account.as_of === "string" ? data.account.as_of : null
+    },
+    positions: data.positions.slice(0, 500).map((item) => ({
+      ticket: Number.isSafeInteger(item.ticket) ? item.ticket : null,
+      position_id: Number.isSafeInteger(item.position_id) ? item.position_id : null,
+      time: typeof item.time === "string" ? item.time : null,
+      type: ["buy", "sell"].includes(item.type) ? item.type : "unknown",
+      symbol: typeof item.symbol === "string" ? item.symbol : null,
+      volume: safeNumber(item.volume), price_open: safeNumber(item.price_open),
+      price_current: safeNumber(item.price_current), stop_loss: safeNumber(item.stop_loss),
+      take_profit: safeNumber(item.take_profit), swap: safeNumber(item.swap), profit: safeNumber(item.profit)
+    })),
+    count: Math.min(data.positions.length, 500),
+    ordersEnabled: false, liveTradingEnabled: false
+  }, 200, origin, env);
+}
+async function readHistory(request, env, user, row, origin) {
+  const url = new URL(request.url);
+  const fromTs = Number(url.searchParams.get("from_ts"));
+  const toTs = Number(url.searchParams.get("to_ts"));
+  const limit = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : 200;
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(fromTs) || !Number.isSafeInteger(toTs) ||
+      fromTs < 1 || toTs <= fromTs || toTs > now + 60 ||
+      toTs - fromTs > 90 * 86400 || !Number.isInteger(limit) || limit < 1 || limit > 500) {
+    return json({ error: "invalid_history_range", ordersEnabled: false, liveTradingEnabled: false }, 400, origin, env);
+  }
+  const result = await requestMt5Proxy(env, user, row, "/api/history", {
+    from_ts: String(fromTs), to_ts: String(toTs), limit: String(limit)
+  });
+  if (!result.ok) {
+    return json({
+      connectionId: row.id, state: result.error, detail: result.detail,
+      dataVerified: false, ordersEnabled: false, liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  if (!Array.isArray(result.body.deals)) {
+    return json({ error: "history_response_invalid", dataVerified: false,
+      ordersEnabled: false, liveTradingEnabled: false }, 502, origin, env);
+  }
+  return json({
+    connectionId: row.id, state: "data_verified", dataVerified: true,
+    deals: result.body.deals.slice(0, limit), count: Math.min(result.body.deals.length, limit),
+    range: { from_ts: fromTs, to_ts: toTs }, checkedAt: new Date().toISOString(),
+    ordersEnabled: false, liveTradingEnabled: false
+  }, 200, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -526,6 +598,20 @@ export default {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
     }
 
+    if (url.pathname === "/v1/public/auth-config" && request.method === "GET") {
+      const projectUrl = supabaseBase(env);
+      const publishableKey = String(env.SUPABASE_PUBLISHABLE_KEY || "");
+      if (!projectUrl || !publishableKey) {
+        return json({ error: "public_auth_config_unavailable" }, 503, origin, env);
+      }
+      return json({
+        supabaseUrl: projectUrl,
+        publishableKey,
+        authProvider: "supabase",
+        keyType: "publishable"
+      }, 200, origin, env);
+    }
+
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
@@ -552,9 +638,9 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes|portfolio|history)$/.exec(url.pathname);
     if (match && (
-      (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
+      (["status", "account", "quotes", "portfolio", "history"].includes(match[2]) && request.method === "GET") ||
       (match[2] === "check" && request.method === "POST")
     )) {
       const auth = await authenticate(request, env);
@@ -569,6 +655,14 @@ export default {
       if (match[2] === "quotes") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
         return readQuotes(request, env, auth, result.row, origin);
+      }
+      if (match[2] === "portfolio") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readPortfolio(request, env, auth, result.row, origin);
+      }
+      if (match[2] === "history") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readHistory(request, env, auth, result.row, origin);
       }
       const connection = publicConnection(result.row);
       return json({

@@ -9,6 +9,7 @@ import {
   InfrastructureHealthResponse,
   LearningUniverseResponse,
 } from './types';
+import { getSupabaseClient } from '../lib/supabase';
 
 export interface ApiMetricRecord {
   id: string;
@@ -57,6 +58,26 @@ class NovaApiClient {
     });
   }
 
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    try {
+      const supabase = await getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        return { Authorization: `Bearer ${data.session.access_token}` };
+      }
+    } catch {
+      // Keep public market-data routes available if auth configuration is unavailable.
+    }
+    try {
+      const token =
+        localStorage.getItem('nova_auth_token') ||
+        localStorage.getItem('sb-access-token');
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch {
+      return {};
+    }
+  }
+
   private async fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -65,12 +86,14 @@ class NovaApiClient {
     let statusCode = 200;
 
     try {
+      const authHeaders = await this.getAuthHeaders();
       const response = await fetch(`${this.baseUrl}${url}`, {
         ...options,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          ...authHeaders,
           ...options?.headers,
         },
       });
@@ -227,7 +250,33 @@ class NovaApiClient {
     });
   }
 
-  // 11. Live Trading & Read-Only Invariants
+  // 11. Account data APIs — authenticated, read-only Demo scope
+  async getPrice(symbol: string = 'XAUUSDm', provider: 'exness' | 'binance' = 'exness'): Promise<any> {
+    const query = new URLSearchParams({ symbol, provider });
+    return this.fetchJson(`/api/price?${query.toString()}`);
+  }
+
+  async getPortfolio(): Promise<any> {
+    return this.fetchJson('/api/portfolio');
+  }
+
+  async getTradeHistory(fromTs?: number, toTs?: number, limit: number = 200): Promise<any> {
+    const query = new URLSearchParams({
+      ...(fromTs ? { from_ts: String(fromTs) } : {}),
+      ...(toTs ? { to_ts: String(toTs) } : {}),
+      limit: String(limit),
+    });
+    return this.fetchJson(`/api/history?${query.toString()}`);
+  }
+
+  async submitTradeIntent(payload: Record<string, unknown>): Promise<any> {
+    return this.fetchJson('/api/trade', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // 12. Live Trading & Read-Only Invariants
   async getLiveTradingStatus(): Promise<any> {
     return this.fetchJson('/api/live-trading/status');
   }
