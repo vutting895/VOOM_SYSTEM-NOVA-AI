@@ -8,9 +8,7 @@ import {
   FlaskConical,
   Layers3,
   Network,
-  RadioTower,
   Settings2,
-  ShieldCheck,
   Sparkles,
   Wallet,
 } from 'lucide-react';
@@ -107,10 +105,7 @@ export default function AllInOneNovaHome() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:min-w-64">
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-              <ShieldCheck className="mr-2 inline h-4 w-4" />
-              READ-ONLY · LIVE TRADING OFF
-            </div>
+            <ReadonlySafetyBadge compact />
             <Link
               to="/dashboard"
               className="rounded-xl bg-violet-600 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-violet-700"
