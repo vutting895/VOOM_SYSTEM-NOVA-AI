@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import AllInOneNovaHome from './components/AllInOneNovaHome';
 import QuickitMarketFleetView from './components/QuickitMarketFleetView';
 import QuantumEngineView from './components/QuantumEngineView';
 import LearningWorksheetView from './components/learning/LearningWorksheetView';
@@ -10,7 +11,8 @@ import IndependentAuditView from './components/workspace/IndependentAuditView';
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<QuickitMarketFleetView initialTab="dashboard" />} />
+      <Route path="/" element={<AllInOneNovaHome />} />
+      <Route path="/home" element={<AllInOneNovaHome />} />
       <Route path="/dashboard" element={<QuickitMarketFleetView initialTab="dashboard" />} />
       <Route path="/overview" element={<QuickitMarketFleetView initialTab="dashboard" />} />
       <Route path="/intelligence" element={<QuickitMarketFleetView initialTab="intelligence" />} />
@@ -37,14 +39,14 @@ export default function App() {
       <Route
         path="/quantum"
         element={
-          <div className="min-h-screen bg-[#090912] text-slate-100 p-6">
-            <div className="max-w-7xl mx-auto">
+          <div className="min-h-screen bg-[#090912] p-6 text-slate-100">
+            <div className="mx-auto max-w-7xl">
               <QuantumEngineView />
             </div>
           </div>
         }
       />
-      <Route path="*" element={<QuickitMarketFleetView initialTab="dashboard" />} />
+      <Route path="*" element={<AllInOneNovaHome />} />
     </Routes>
   );
 }
