@@ -29,6 +29,15 @@ frontend/out/
 *.log
 *.sqlite3
 data/
+# Private tenant route maps and local provisioning artifacts (never commit raw mappings)
+.tenant-routes*
+.mt5-tenant-routes*
+tenant-routes*.json
+mt5-tenant-routes*.json
+*tenant*route-map*.json
+*tenant*route-map*.yaml
+*tenant*route-map*.yml
+*tenant*route-map*.toml
 # OS/editor
 .DS_Store
 Thumbs.db
