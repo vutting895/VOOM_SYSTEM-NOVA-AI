@@ -126,6 +126,11 @@ class StarterContractTests(unittest.TestCase):
         self.assertEqual(requests[0].headers["apikey"], "public-key")
         client.close()
 
+    def test_research_worker_approval_route_is_disabled_by_default(self):
+        runtime_source = (ROOT / "workers" / "runtime.py").read_text(encoding="utf-8")
+        self.assertIn('os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true"', runtime_source)
+        self.assertIn('detail="approval_workflow_disabled"', runtime_source)
+
     def test_approval_client_never_accepts_execution_decisions(self):
         guard = ApprovalGuard(supabase_url="https://project.supabase.co",
                               publishable_key="public-key")

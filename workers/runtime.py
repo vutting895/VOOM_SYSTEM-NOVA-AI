@@ -107,6 +107,8 @@ def walk_forward(payload: WalkForwardRequest) -> dict[str, Any]:
 @app.post("/v1/risk/approval")
 def risk_approval(payload: RiskApprovalRequest,
                   authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    if os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true":
+        raise HTTPException(status_code=503, detail="approval_workflow_disabled")
     # This gate only creates an authenticated draft-review request. Approval never
     # authorizes broker writes; execution must remain separately disabled.
     risk = RiskWorker().check(allocation_pct=payload.allocation_pct,
