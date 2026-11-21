@@ -1,12 +1,7 @@
 """Isolated NOVA research runtime. All routes are research/approval-only; no broker orders."""
 from __future__ import annotations
-import hashlib
-import json
 import os
-from datetime import datetime, timedelta, timezone
 from typing import Any
-
-import httpx
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
@@ -14,6 +9,7 @@ from workers.feature.smc_wave.smc_strategy import analyze_smc, run_smc_backtest
 from workers.feature.elliott_wave.elliott_wave import analyze_elliott_wave
 from workers.backtest.walk_forward import run_walk_forward
 from workers.risk.manager_prototype import RiskWorker
+from integrations.notifications.approval_guard import ApprovalGuard
 
 app = FastAPI(title="VOOM NOVA Research Worker", version="0.3.0")
 
@@ -122,29 +118,25 @@ def risk_approval(payload: RiskApprovalRequest,
                 "status": "rejected_by_risk", "live_execution_allowed": False}
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="authenticated_user_token_required")
+    access_token = authorization[7:].strip()
+    if not access_token:
+        raise HTTPException(status_code=401, detail="authenticated_user_token_required")
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    anon_key = os.getenv("SUPABASE_ANON_KEY", "")
-    if not supabase_url or not anon_key:
+    publishable_key = (os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or
+                       os.getenv("SUPABASE_ANON_KEY", ""))
+    if not supabase_url or not publishable_key:
         raise HTTPException(status_code=503, detail="approval_service_not_configured")
-    proposal = payload.proposal
-    digest = hashlib.sha256(json.dumps(proposal, sort_keys=True, separators=(",", ":"),
-                                      ensure_ascii=False).encode("utf-8")).hexdigest()
-    expires_at = (datetime.now(timezone.utc) +
-                  timedelta(minutes=payload.expires_in_minutes)).isoformat()
-    headers = {"apikey": anon_key, "Authorization": authorization,
-               "Content-Type": "application/json"}
-    body = {"p_thread_id": payload.thread_id, "p_request_type": "strategy_draft_review",
-            "p_proposal": proposal, "p_proposal_hash": digest,
-            "p_policy_version": "nova-approval.v1", "p_expires_at": expires_at}
     try:
-        response = httpx.post(f"{supabase_url}/rest/v1/rpc/nova_create_approval",
-                              headers=headers, json=body, timeout=10.0)
-        response.raise_for_status()
-        created = response.json()
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=422, detail="approval_request_rejected_by_policy") from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=503, detail="approval_service_unavailable") from exc
+        guard = ApprovalGuard(supabase_url=supabase_url,
+                              publishable_key=publishable_key,
+                              policy_version="nova-approval.v1")
+        created = guard.create(thread_id=payload.thread_id, proposal=payload.proposal,
+                               access_token=access_token,
+                               expires_in_minutes=payload.expires_in_minutes)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="approval_request_rejected_by_policy") from None
+    except (RuntimeError, PermissionError):
+        raise HTTPException(status_code=503, detail="approval_service_unavailable") from None
     return {"ok": True, "risk": risk, "approval_created": True,
             "approval": created, "status": "awaiting_human_review",
             "live_execution_allowed": False}

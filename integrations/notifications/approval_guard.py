@@ -63,7 +63,8 @@ class ApprovalGuard:
         try:
             if self._client is not None:
                 response = self._client.post(url, headers=headers, json=body,
-                                              timeout=self.timeout_seconds)
+                                              timeout=self.timeout_seconds,
+                                              follow_redirects=False)
             else:
                 response = httpx.post(url, headers=headers, json=body,
                                       timeout=self.timeout_seconds, follow_redirects=False)
