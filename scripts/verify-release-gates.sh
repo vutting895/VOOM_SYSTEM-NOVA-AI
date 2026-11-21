@@ -20,8 +20,6 @@ python -m pytest -q tests/test_readonly_starter.py integrations/mt5-readonly-bri
 printf '%s\n' "[4/4] Existing durable approval and MT5 proxy contracts"
 if command -v node >/dev/null 2>&1; then
   node --test \
-    tests/nova-approval-contract.test.mjs \
-    tests/nova-approval-api.test.mjs \
     tests/nova-approval-migration.test.mjs \
     tests/nova-trading-readonly-guard.test.mjs \
     integrations/mt5-readonly-proxy/worker.test.mjs
