@@ -1,4 +1,4 @@
-"""Bounded, timeout-aware job execution helpers with secret-safe diagnostics."""
+"""Bounded retries, explicit timeouts, freshness and secret-safe context handling."""
 import concurrent.futures
 import random
 import re
@@ -21,7 +21,7 @@ class RetryPolicy:
     jitter_ratio: float = 0.2
 
     def __post_init__(self) -> None:
-        if self.max_attempts < 1 or self.max_attempts > 5:
+        if not 1 <= self.max_attempts <= 5:
             raise ValueError("max_attempts must be between 1 and 5")
         if self.base_delay_seconds < 0 or self.max_delay_seconds < 0:
             raise ValueError("retry delays must be non-negative")
@@ -37,7 +37,8 @@ def mask_sensitive_context(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [mask_sensitive_context(v) for v in value]
     if isinstance(value, str):
-        return _ASSIGNMENT.sub(lambda m: m.group(1) + "=[REDACTED]", _BEARER.sub("Bearer [REDACTED]", value))
+        return _ASSIGNMENT.sub(lambda m: m.group(1) + "=[REDACTED]",
+                               _BEARER.sub("Bearer [REDACTED]", value))
     return value
 
 
@@ -58,11 +59,12 @@ def run_with_retry(fn: Callable[[], Any], *, timeout_seconds: float,
                    policy: RetryPolicy = RetryPolicy(),
                    sleep: Callable[[float], None] = time.sleep,
                    random_uniform: Callable[[float, float], float] = random.uniform) -> Any:
-    """Run a callable with an explicit per-attempt timeout and bounded backoff.
+    """Retry ordinary failures with bounded exponential backoff and jitter.
 
-    Exceptions are intentionally not logged or interpolated into diagnostics.
-    A timed-out worker thread may finish in the background; callables must therefore
-    be side-effect-free or independently idempotent.
+    Python cannot safely terminate an arbitrary running thread. Therefore a timeout
+    cancels only work that has not started and is NOT retried: retrying could overlap
+    an uncancellable side effect. For hard termination, run the job in an isolated
+    process/container with an explicit kill policy.
     """
     if timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive")
@@ -71,14 +73,21 @@ def run_with_retry(fn: Callable[[], Any], *, timeout_seconds: float,
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         future = executor.submit(fn)
         try:
-            return future.result(timeout=timeout_seconds)
-        except (concurrent.futures.TimeoutError, Exception) as exc:
-            last_error = exc
+            result = future.result(timeout=timeout_seconds)
+        except concurrent.futures.TimeoutError:
             future.cancel()
+            executor.shutdown(wait=False, cancel_futures=True)
+            raise TimeoutError("job timed out; automatic retry suppressed to prevent overlap") from None
+        except Exception as exc:
+            last_error = exc
+            executor.shutdown(wait=True, cancel_futures=True)
             if attempt + 1 >= policy.max_attempts:
                 break
-            ceiling = min(policy.max_delay_seconds, policy.base_delay_seconds * (2 ** attempt))
-            sleep(ceiling + random_uniform(0.0, ceiling * policy.jitter_ratio))
-        finally:
-            executor.shutdown(wait=False, cancel_futures=True)
-    raise RuntimeError("job failed after bounded retries; details suppressed") from last_error
+            ceiling = min(policy.max_delay_seconds,
+                          policy.base_delay_seconds * (2 ** attempt))
+            delay = ceiling + random_uniform(0.0, ceiling * policy.jitter_ratio)
+            sleep(delay)
+        else:
+            executor.shutdown(wait=True)
+            return result
+    raise RuntimeError("job failed after bounded retries; details suppressed") from None
