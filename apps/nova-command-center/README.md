@@ -21,6 +21,11 @@ Admin / Operator / Viewer from `app_metadata.nova_role` in the signed JWT. The U
 ## Modules
 Overview · AI Assistant · Trading (DEMO) · MT5 Bridge · Risk Center · Approvals · Users & Roles · Audit Logs · Settings.
 
+## Product UX contracts
+- `DESIGN.md` — visual identity, tokens, typography and layout rules
+- `UX-CONTRACT.md` — navigation, safety, async states, accessibility and verification behavior
+- `premium-ui.json` — machine-readable audit profile and evidence paths
+
 ## Docs
 - `docs/worker-api-contract.md` — Cloudflare Worker API contract
 - `docs/deployment.md` — local dev, build, deploy, rollback, Supabase steps
