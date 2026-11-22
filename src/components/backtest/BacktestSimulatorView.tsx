@@ -78,7 +78,7 @@ export default function BacktestSimulatorView() {
               </h2>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              ทดสอบกลยุทธ์ย้อนหลังบนข้อมูลจริงของ Exness Demo พร้อมการตรวจสอบ Out-of-Sample เพื่อป้องกัน Overfitting
+              ทดสอบ Flow ด้วยข้อมูลจำลองจาก NOVA API เท่านั้น — ยังไม่เชื่อม Historical Market Data จริงของ Exness และผลลัพธ์ยังไม่ใช่หลักฐานประสิทธิภาพกลยุทธ์
             </p>
           </div>
 
