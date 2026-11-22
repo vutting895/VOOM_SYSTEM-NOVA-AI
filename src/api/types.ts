@@ -169,40 +169,41 @@ export interface InfrastructureHealthResponse {
     status: 'STANDBY_DEMO_READY' | 'CONNECTED_DEMO' | 'OFFLINE';
     target: string;
     server: string;
-    latencyMs: number;
-    accountClass: 'Exness Demo (Read-Only)';
-    credentialsSecured: boolean;
+    latencyMs: number | null;
+    accountClass: string;
+    credentialsSecured: boolean | null;
     orderExecutionBlocked: boolean;
   };
   brokerConnector: {
     selectedBroker: string;
     protocol: string;
     supportedBrokers: string[];
-    directApiAvailable: boolean;
+    directApiAvailable: boolean | null;
   };
   riskEngine: {
-    status: 'HARD_RULES_ENFORCED';
-    maxDrawdownCapPct: number;
-    maxLotSizeLimit: number;
-    maxMarginUsageLimitPct: number;
-    maxRiskPerTradeLimitPct: number;
+    status: 'HARD_RULES_ENFORCED' | 'NOT_VERIFIED';
+    maxDrawdownCapPct: number | null;
+    maxLotSizeLimit: number | null;
+    maxMarginUsageLimitPct: number | null;
+    maxRiskPerTradeLimitPct: number | null;
     failClosedGuardActive: boolean;
     realMoneyWritesDisabled: boolean;
   };
   dataPipeline: {
-    status: 'OPTIMAL';
-    tickIngestionRatePerSec: number;
-    redisBufferHitRatePct: number;
-    featureStoreLatencyMs: number;
-    schemaValidationPassPct: number;
+    status: 'OPTIMAL' | 'NOT_CONFIGURED';
+    tickIngestionRatePerSec: number | null;
+    redisBufferHitRatePct: number | null;
+    featureStoreLatencyMs: number | null;
+    schemaValidationPassPct: number | null;
   };
   modelTrainingStatus: {
-    status: 'SYNCED_READY' | 'INGESTING_AND_TRAINING';
-    epoch: number;
-    activePair: string;
-    samplesIngested: number;
-    lastValidationAccPct: number;
-    lastTrainedAt: string;
+    status: 'NOT_CONFIGURED' | 'SYNCED_READY' | 'INGESTING_AND_TRAINING';
+    available: boolean;
+    epoch: number | null;
+    activePair: string | null;
+    samplesIngested: number | null;
+    lastValidationAccPct: number | null;
+    lastTrainedAt: string | null;
   };
 }
 
