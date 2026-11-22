@@ -294,16 +294,6 @@ export default function LiveTradingTerminalView() {
     setPendingApproval(null);
   }
 
-  function closePosition(id: string) {
-    const target = livePositions.find((p) => p.id === id);
-    setPositions((prev) => prev.filter((p) => p.id !== id));
-    if (target) {
-      setExecutionLog((prev) => [
-        `[${new Date().toISOString().slice(11, 19)}] Closed Position ${target.id} (${target.symbol}) · Realized PnL: ${target.pnlUsd >= 0 ? '+' : ''}$${target.pnlUsd.toFixed(2)}`,
-        ...prev.slice(0, 8),
-      ]);
-    }
-  }
 
   // Interactive SVG Chart for the Live Terminal
   const series = useMemo(() => {
@@ -368,7 +358,7 @@ export default function LiveTradingTerminalView() {
             </div>
           </div>
           <div>
-            <div className="text-[11px] font-sans text-slate-400">Active Positions</div>
+            <div className="text-[11px] font-sans text-slate-400">Sample Positions</div>
             <div className="text-sm font-bold text-slate-900 dark:text-white">{livePositions.length} Open</div>
           </div>
         </div>
@@ -779,12 +769,12 @@ export default function LiveTradingTerminalView() {
         </div>
       )}
 
-      {/* Active Positions Blotter & Real-Time Execution Log */}
+      {/* Broker Position Snapshot & Research Log */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         <div className="lg:col-span-8 p-4 rounded-xl bg-white dark:bg-[#0B111E] border border-slate-200 dark:border-slate-800/80">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Broker Positions (verified only · {livePositions.length})
+              Broker Position Snapshot (unverified · {livePositions.length})
             </h2>
             <span className="text-xs font-mono text-slate-400">ไม่มี verified broker feed</span>
           </div>
@@ -798,7 +788,6 @@ export default function LiveTradingTerminalView() {
                   <th className="py-2 px-2 text-right">Entry → Live</th>
                   <th className="py-2 px-2 text-right">SL / TP</th>
                   <th className="py-2 px-2 text-right">Sample PnL · not account data</th>
-                  <th className="py-2 pl-2 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/60 font-mono tabular-nums">
@@ -842,15 +831,7 @@ export default function LiveTradingTerminalView() {
                         {win ? '+' : ''}${pos.pnlUsd.toFixed(2)} ({win ? '+' : ''}
                         {pos.pnlPct}%)
                       </td>
-                      <td className="py-2.5 pl-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => closePosition(pos.id)}
-                          className="px-2.5 py-1 text-[11px] font-sans font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-md transition-colors"
-                        >
-                          Close
-                        </button>
-                      </td>
+                      
                     </tr>
                   );
                 })}
@@ -863,7 +844,7 @@ export default function LiveTradingTerminalView() {
         <div className="lg:col-span-4 p-4 rounded-xl bg-white dark:bg-[#0B111E] border border-slate-200 dark:border-slate-800/80 flex flex-col justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-200 dark:border-slate-800">
-              Hybrid Execution Audit Stream
+              Read-only Research Analysis Log
             </h2>
             <div className="mt-3 space-y-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">
               {executionLog.map((line, idx) => (
