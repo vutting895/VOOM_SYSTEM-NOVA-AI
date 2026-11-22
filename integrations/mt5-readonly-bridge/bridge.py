@@ -202,8 +202,10 @@ def quotes(
         info = mt5.symbol_info(symbol)
         if info is None:
             raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
-        if not info.visible and not mt5.symbol_select(symbol, True):
-            raise HTTPException(status_code=503, detail="Could not select requested symbol")
+        # Reading quotes must not mutate MT5 Market Watch state. Ask the user
+        # to select hidden symbols manually in the terminal before retrying.
+        if not info.visible:
+            raise HTTPException(status_code=409, detail="symbol_not_selected_in_terminal")
         tick = mt5.symbol_info_tick(symbol)
         rates = mt5.copy_rates_from_pos(symbol, timeframe_value(timeframe), 0, count)
         if rates is None:
