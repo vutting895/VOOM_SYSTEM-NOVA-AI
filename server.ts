@@ -136,18 +136,20 @@ async function startServer() {
 
   const requireSupabaseUser: express.RequestHandler = async (_req, res, next) => {
     const authorization = _req.headers.authorization || '';
-    if (!/^Bearer\\s+\\S+$/i.test(authorization)) {
-      return res.status(401).json({ ok: false, error: 'authentication_required' });
+    if (!/^Bearer\s+\S+$/i.test(authorization)) {
+      res.status(401).json({ ok: false, error: 'authentication_required' });
+      return;
     }
     const supabaseUrl = (process.env.SUPABASE_URL ||
       process.env.VITE_SUPABASE_URL ||
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\\/$/, '');
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
     const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ||
       process.env.SUPABASE_ANON_KEY ||
       process.env.VITE_SUPABASE_ANON_KEY ||
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     if (!supabaseUrl.startsWith('https://') || !publishableKey) {
-      return res.status(503).json({ ok: false, error: 'authentication_service_not_configured' });
+      res.status(503).json({ ok: false, error: 'authentication_service_not_configured' });
+      return;
     }
     try {
       const response = await fetch(supabaseUrl + '/auth/v1/user', {
@@ -158,19 +160,22 @@ async function startServer() {
         signal: AbortSignal.timeout(5000),
       });
       if (response.status === 401 || response.status === 403) {
-        return res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+        res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+        return;
       }
       if (!response.ok) {
-        return res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
+        res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
+        return;
       }
       const user = await response.json() as { id?: unknown };
       if (typeof user?.id !== 'string' || !user.id) {
-        return res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+        res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+        return;
       }
       res.locals.novaUserId = user.id;
-      return next();
+      next();
     } catch {
-      return res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
+      res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
     }
   };
 
