@@ -24,6 +24,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/nova-execution-service/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
@@ -50,6 +51,7 @@ on:
       - "integrations/mt5-readonly-bridge/**"
       - "integrations/remote-mcp-worker/**"
       - "integrations/nova-ai-worker/**"
+      - "integrations/nova-execution-service/**"
       - "shared/nova-intent-envelope.schema.json"
       - "integrations/system-hub/**"
       - "supabase/migrations/**"
@@ -81,6 +83,8 @@ jobs:
         run: node --test tests/nova-trading-readonly-guard.test.mjs
       - name: Test NOVA training status never reports simulated metrics
         run: node --test tests/nova-training-status-honesty.test.mjs
+      - name: Test NOVA Automated Demo execution scaffold
+        run: node --test integrations/nova-execution-service/tests/*.test.mjs
 
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
@@ -122,8 +126,6 @@ jobs:
         run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
       - name: Build root Vite frontend
         run: npm run build
-
-
 
   # Secret-bearing preview and staging acceptance jobs are intentionally excluded from pull_request CI.
   # PR-controlled code must never receive Cloudflare deployment or Supabase service-role secrets.
