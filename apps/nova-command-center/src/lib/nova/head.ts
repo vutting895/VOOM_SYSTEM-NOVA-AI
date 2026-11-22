@@ -1,6 +1,4 @@
-import type { HeadConfig } from "@tanstack/react-router";
-
-export function pageHead(title: string, description: string): HeadConfig {
+export function pageHead(title: string, description: string) {
   const fullTitle = `${title} — NOVA AI`;
   return {
     meta: [
