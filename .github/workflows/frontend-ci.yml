@@ -10,6 +10,7 @@ on:
       - "src/**"
       - "public/**"
       - "backend/**"
+      - "workers/**"
       - ".env.example"
       - "package.json"
       - "vite.config.ts"
@@ -36,6 +37,7 @@ on:
       - "src/**"
       - "public/**"
       - "backend/**"
+      - "workers/**"
       - ".env.example"
       - "package.json"
       - "vite.config.ts"
@@ -106,6 +108,10 @@ jobs:
       - name: Test tenant-isolated MT5 Bridge relay and proxy
         working-directory: .
         run: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+      - name: Install NOVA research worker test dependencies
+        run: python -m pip install -r workers/requirements.txt
+      - name: Test NOVA research worker Supabase authentication
+        run: python -m pytest -q workers/test_runtime_auth.py
       - name: Syntax-check MT5 Bridge and outbound relay client
         working-directory: .
         run: python -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getSupabaseClient } from '../lib/supabase';
+
 import {
   ArrowRight,
   Bot,
@@ -27,6 +29,14 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
+
+async function getNovaAuthorizationHeader(): Promise<string> {
+  const { data, error } = await getSupabaseClient().auth.getSession();
+  if (error || !data.session?.access_token) {
+    throw new Error('A signed-in Supabase session is required for NOVA chat.');
+  }
+  return `Bearer ${data.session.access_token}`;
+}
 
 export type ChatWidgetType =
   | 'welcome-overview'
@@ -488,8 +498,12 @@ export default function NovaChatOSView({
 
   // Restore legacy checkpoints for display only; never resume or approve a broker action.
   useEffect(() => {
-    fetch(`/api/intent/thread/${encodeURIComponent(threadId)}`)
-      .then((r) => r.json())
+    void getNovaAuthorizationHeader()
+      .then((authorization) => fetch(`/api/intent/thread/${encodeURIComponent(threadId)}`, {
+        headers: { Authorization: authorization },
+        cache: 'no-store',
+      }))
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (Array.isArray(data?.pendingInterrupts)) {
           const waiting = data.pendingInterrupts.filter(
@@ -593,7 +607,10 @@ export default function NovaChatOSView({
     try {
       const res = await fetch('/api/intent/dispatch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: await getNovaAuthorizationHeader(),
+        },
         body: JSON.stringify({
           prompt: query,
           symbol: selectedPair,

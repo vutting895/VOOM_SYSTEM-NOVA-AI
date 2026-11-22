@@ -32,6 +32,9 @@ async function withSupabaseAuth(responseFactory, run) {
     const url = new URL(typeof input === "string" ? input : input.url);
     assert.equal(url.origin, ENV.SUPABASE_URL);
     assert.equal(url.pathname, "/auth/v1/user");
+    assert.equal(init?.redirect, "error");
+    assert.equal(init?.cache, "no-store");
+    assert.ok(init?.signal instanceof AbortSignal);
     return responseFactory(new Headers(init?.headers));
   };
   try {
@@ -98,4 +101,27 @@ test("authenticated MCP skill lookup rejects invalid IDs as tool errors", async 
     assert.equal(payload.result.isError, true);
     assert.match(payload.result.content[0].text, /nova_skill_id_invalid/);
   });
+});
+
+
+test("Supabase auth outage fails closed with 503", async () => {
+  await withSupabaseAuth(() => { throw new Error("network unavailable"); }, async () => {
+    const response = await worker.fetch(toolRequest("list_nova_skills"), ENV);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "auth_service_unavailable" });
+  });
+});
+
+test("Supabase non-auth server errors fail closed with 503", async () => {
+  await withSupabaseAuth(() => new Response("temporarily unavailable", { status: 503 }), async () => {
+    const response = await worker.fetch(toolRequest("list_nova_skills"), ENV);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "auth_service_unavailable" });
+  });
+});
+
+test("missing Supabase runtime configuration fails closed", async () => {
+  const response = await worker.fetch(toolRequest("list_nova_skills"), { SUPABASE_URL: ENV.SUPABASE_URL });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "auth_service_unavailable" });
 });

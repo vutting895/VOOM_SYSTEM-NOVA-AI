@@ -12,10 +12,27 @@ function cors(origin) {
   return ok ? {"access-control-allow-origin":origin,"vary":"Origin","access-control-allow-methods":"POST, GET, OPTIONS","access-control-allow-headers":"Authorization, Content-Type, Accept, apikey, MCP-Protocol-Version, Mcp-Method, Mcp-Name"} : {};
 }
 async function getUser(request,env) {
-  const auth=request.headers.get("Authorization")||"";
-  if(!/^Bearer\s+\S+$/i.test(auth)) return null;
-  const r=await fetch(env.SUPABASE_URL+"/auth/v1/user",{headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY,Authorization:auth}});
-  if(!r.ok) return null; try{return await r.json()}catch{return null}
+  const auth = request.headers.get("Authorization") || "";
+  const supabaseUrl = String(env.SUPABASE_URL || "").replace(/\/$/, "");
+  const publishableKey = env.SUPABASE_PUBLISHABLE_KEY || "";
+  if (!/^Bearer\s+\S+$/i.test(auth)) return { ok: false, status: 401 };
+  if (!supabaseUrl.startsWith("https://") || !publishableKey) return { ok: false, status: 503 };
+  try {
+    const response = await fetch(supabaseUrl + "/auth/v1/user", {
+      method: "GET",
+      headers: { apikey: publishableKey, Authorization: auth, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(5000)
+    });
+    if (response.status === 401 || response.status === 403) return { ok: false, status: 401 };
+    if (!response.ok) return { ok: false, status: 503 };
+    const user = await response.json();
+    if (!user || typeof user.id !== "string" || !user.id) return { ok: false, status: 401 };
+    return { ok: true, user };
+  } catch {
+    return { ok: false, status: 503 };
+  }
 }
 function rpc(id,result,error){return error?{jsonrpc:"2.0",id,error}:{jsonrpc:"2.0",id,result}}
 function ema(values,period){const k=2/(period+1);let v=values[0];const out=[v];for(let i=1;i<values.length;i++){v=values[i]*k+v*(1-k);out.push(v)}return out}
@@ -561,8 +578,12 @@ async function handleModernMcp(body, request, env, user, origin) {
 }
 
 async function handleMcp(request, env, origin) {
-  const user = await getUser(request, env);
-  if (!user?.id) return json({ error: "unauthorized" }, 401, cors(origin));
+  const authResult = await getUser(request, env);
+  if (!authResult.ok) {
+    const status = authResult.status;
+    return json({ error: status === 401 ? "unauthorized" : "auth_service_unavailable" }, status, cors(origin));
+  }
+  const user = authResult.user;
 
   let body;
   try { body = await request.json(); }
@@ -617,8 +638,11 @@ export default { async fetch(request, env) {
   }
   if (url.pathname === "/mcp" && request.method === "POST") return handleMcp(request, env, origin);
   if (url.pathname === "/api/status" && request.method === "GET") {
-    const user = await getUser(request, env);
-    if (!user?.id) return json({ error: "unauthorized" }, 401, cors(origin));
+    const authResult = await getUser(request, env);
+    if (!authResult.ok) {
+      const status = authResult.status;
+      return json({ error: status === 401 ? "unauthorized" : "auth_service_unavailable" }, status, cors(origin));
+    }
     return json({ service: "voom-system-mcp", authenticated: true, mode: "read-only", tradingExecution: false }, 200, cors(origin));
   }
   return json({ error: "not_found" }, 404);

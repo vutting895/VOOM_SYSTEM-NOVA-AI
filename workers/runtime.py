@@ -2,7 +2,9 @@
 from __future__ import annotations
 import os
 from typing import Any
-from fastapi import FastAPI, Header, HTTPException
+import httpx
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from workers.feature.smc_wave.smc_strategy import analyze_smc, run_smc_backtest
@@ -12,6 +14,51 @@ from workers.risk.manager_prototype import RiskWorker
 from integrations.notifications.approval_guard import ApprovalGuard
 
 app = FastAPI(title="VOOM NOVA Research Worker", version="0.3.0")
+
+
+@app.middleware("http")
+async def require_supabase_session(request: Request, call_next):
+    # Health is the only unauthenticated route. Research and approval APIs
+    # require a user JWT verified by Supabase Auth; no service-role key is used.
+    if request.url.path == "/health":
+        return await call_next(request)
+
+    authorization = request.headers.get("authorization", "")
+    if not authorization.lower().startswith("bearer ") or not authorization[7:].strip():
+        return JSONResponse({"detail": "authenticated_user_token_required"}, status_code=401)
+
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    publishable_key = (os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or
+                       os.getenv("SUPABASE_ANON_KEY", ""))
+    if not supabase_url.startswith("https://") or not publishable_key:
+        return JSONResponse({"detail": "authentication_service_not_configured"}, status_code=503)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+            response = await client.get(
+                supabase_url + "/auth/v1/user",
+                headers={
+                    "apikey": publishable_key,
+                    "Authorization": authorization,
+                    "Accept": "application/json",
+                },
+            )
+    except httpx.HTTPError:
+        return JSONResponse({"detail": "authentication_service_unavailable"}, status_code=503)
+
+    if response.status_code in (401, 403):
+        return JSONResponse({"detail": "invalid_or_expired_session"}, status_code=401)
+    if not response.is_success:
+        return JSONResponse({"detail": "authentication_service_unavailable"}, status_code=503)
+    try:
+        user = response.json()
+    except ValueError:
+        return JSONResponse({"detail": "authentication_service_unavailable"}, status_code=503)
+    if not isinstance(user, dict) or not isinstance(user.get("id"), str) or not user["id"]:
+        return JSONResponse({"detail": "invalid_or_expired_session"}, status_code=401)
+
+    request.state.nova_user_id = user["id"]
+    return await call_next(request)
 
 
 class BacktestRequest(BaseModel):
