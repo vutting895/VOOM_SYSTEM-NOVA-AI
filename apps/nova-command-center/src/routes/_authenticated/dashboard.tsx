@@ -219,13 +219,13 @@ function Dashboard() {
               These controls are enforced by the application and backend policy. They are not user-adjustable from this console.
             </p>
             <ul className="space-y-3">
-              {[
+              {([
                 ["Live trading", SAFETY.LIVE_TRADING_ENABLED],
                 ["Broker writes", SAFETY.BROKER_WRITES_ENABLED],
                 ["Order placement", SAFETY.ORDER_PLACEMENT_ENABLED],
                 ["Funds movement", SAFETY.FUNDS_MOVEMENT_ENABLED],
                 ["Account mutations", SAFETY.ACCOUNT_MUTATIONS_ENABLED],
-              ].map(([label, enabled]) => (
+              ] as const).map(([label, enabled]) => (
                 <li key={String(label)} className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">{label}</span>
                   <Badge variant={enabled ? "destructive" : "online"}>{enabled ? "ENABLED" : "DISABLED"}</Badge>
