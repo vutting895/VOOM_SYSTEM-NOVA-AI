@@ -2,13 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSupabaseClient } from '../lib/supabase';
 
-async function getNovaAuthorizationHeader(): Promise<string> {
-  const { data, error } = await getSupabaseClient().auth.getSession();
-  if (error || !data.session?.access_token) {
-    throw new Error('A signed-in Supabase session is required for NOVA chat.');
-  }
-  return `Bearer ${data.session.access_token}`;
-}
 import {
   ArrowRight,
   Bot,
@@ -36,6 +29,14 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
+
+async function getNovaAuthorizationHeader(): Promise<string> {
+  const { data, error } = await getSupabaseClient().auth.getSession();
+  if (error || !data.session?.access_token) {
+    throw new Error('A signed-in Supabase session is required for NOVA chat.');
+  }
+  return `Bearer ${data.session.access_token}`;
+}
 
 export type ChatWidgetType =
   | 'welcome-overview'
