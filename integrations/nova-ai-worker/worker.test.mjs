@@ -171,9 +171,9 @@ test("chat returns a model response only when the AI binding succeeds", async ()
     ...env,
     AI: {
       run: async (model, input) => {
-        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
+        assert.equal(model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
         assert.equal(input.messages[0].role, "system");
-        assert.match(input.messages[0].content, /Live trading and order submission are disabled/);
+        assert.match(input.messages[0].content, /Live Trading and all order submission are disabled/);
         assert.equal(input.messages.at(-1).content, "Explain EMA and RSI in Thai");
         return { response: "EMA ใช้ติดตามแนวโน้ม ส่วน RSI ช่วยประเมินโมเมนตัม" };
       },
@@ -195,6 +195,368 @@ test("chat returns a model response only when the AI binding succeeds", async ()
   assert.equal(body.intent.component.liveTradingEnabled, false);
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
+});
+
+test("chat agent discovers only the authenticated user's connections through System Hub", async () => {
+  let hubCalls = 0;
+  let aiCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    assert.equal(init.redirect, "manual");
+    if (target === "https://supabase.example/auth/v1/user") {
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    if (target === "https://voom-system-hub.suwapat787.workers.dev/v1/connections") {
+      hubCalls += 1;
+      assert.equal(init.method, "GET");
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      assert.equal(init.headers.apikey, "public-test-key");
+      assert.equal(init.headers.Accept, "application/json");
+      return new Response(JSON.stringify({
+        count: 1,
+        connections: [{
+          connectionId: "123e4567-e89b-42d3-a456-426614174000",
+          provider: "exness_mt5",
+          environment: "demo",
+          recordStatus: "connected",
+          accountLabel: "Exness Demo",
+          readiness: "configured",
+          capabilities: { accountRead: true, marketDataRead: true, orderSubmission: false },
+        }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error("unexpected outbound request: " + target);
+  };
+
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (model, input) => {
+        assert.equal(model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+        assert.equal(input.tools.length, 4);
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{ name: "list_my_broker_connections", arguments: {} }] };
+        }
+        const toolMessage = input.messages.at(-1);
+        assert.equal(toolMessage.role, "tool");
+        const toolResult = JSON.parse(toolMessage.content);
+        assert.equal(toolResult.success, true);
+        assert.equal(toolResult.data.connections[0].provider, "exness_mt5");
+        assert.equal(toolResult.data.connections[0].orderSubmission, undefined);
+        return { response: "พบการเชื่อมต่อ Exness Demo ของบัญชีที่ลงชื่อเข้าใช้หนึ่งรายการ สถานะพร้อมอ่านข้อมูล" };
+      },
+    },
+  };
+
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Show my broker connections." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.message.includes("Exness Demo"), true);
+  assert.equal(body.agent.runtime, "workers-ai-function-calling");
+  assert.equal(body.agent.toolCallCount, 1);
+  assert.equal(body.agent.toolCalls[0].tool, "list_my_broker_connections");
+  assert.equal(body.agent.toolCalls[0].status, "succeeded");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal("accessToken" in body, false);
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
+});
+
+test("agent refuses trade instructions before calling AI or System Hub", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  authFetch();
+  const aiEnv = {
+    ...env,
+    AI: { run: async () => { aiCalls += 1; throw new Error("AI must not run"); } },
+  };
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    hubCalls += 1;
+    throw new Error("Hub must not be called");
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "ซื้อเลย XAUUSD" }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.provider, "nova-policy-guard");
+  assert.equal(body.intent.intent, "blocked_action");
+  assert.equal(body.agent.toolCallCount, 0);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(aiCalls, 0);
+  assert.equal(hubCalls, 0);
+});
+
+test("agent rejects unknown tools and malformed connection identifiers without Hub access", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    hubCalls += 1;
+    throw new Error("Hub must not be called for invalid tool requests");
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{ name: "place_trade_order", arguments: { symbol: "XAUUSD" } }] };
+        }
+        assert.match(input.messages.at(-1).content, /unknown_tool/);
+        return { response: "คำขอใช้เครื่องมือนี้ไม่อยู่ในรายการที่ระบบอนุญาต" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check this account." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].tool, "unknown");
+  assert.equal(body.agent.toolCalls[0].status, "rejected");
+  assert.equal(body.agent.toolCalls[0].error, "unknown_tool");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(hubCalls, 0);
+  assert.equal(aiCalls, 2);
+});
+
+test("agent rejects malformed connection UUIDs before contacting System Hub", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    hubCalls += 1;
+    throw new Error("Hub must not receive malformed identifiers");
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_demo_account_snapshot",
+            arguments: { connection_id: "../../another-tenant" },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.success, false);
+        assert.equal(toolResult.error, "invalid_tool_arguments");
+        return { response: "รูปแบบรหัสการเชื่อมต่อไม่ถูกต้อง จึงไม่ได้ส่งคำขอไปยัง System Hub" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check this connection." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].status, "rejected");
+  assert.equal(body.agent.toolCalls[0].error, "invalid_tool_arguments");
+  assert.equal(hubCalls, 0);
+  assert.equal(aiCalls, 2);
+});
+
+test("account snapshot tool uses Hub ownership checks and returns provider-supplied values only", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    if (target === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    if (target === "https://voom-system-hub.suwapat787.workers.dev/v1/connections/123e4567-e89b-42d3-a456-426614174000/account") {
+      hubCalls += 1;
+      assert.equal(init.headers.Authorization, "Bearer valid-token");
+      return new Response(JSON.stringify({
+        connectionId: "123e4567-e89b-42d3-a456-426614174000",
+        state: "data_verified",
+        dataVerified: true,
+        account: {
+          connected: true, broker: "Exness", platform: "MT5", environment: "demo",
+          currency: "USD", balance: 1250.25, equity: 1275.5, margin: 25,
+          free_margin: 1250.5, margin_level: 5102, mode: "read-only",
+          order_submission_enabled: false, as_of: "2026-11-07T02:00:00Z",
+        },
+        ordersEnabled: false,
+        liveTradingEnabled: false,
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    throw new Error("unexpected outbound request: " + target);
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_demo_account_snapshot",
+            arguments: { connection_id: "123e4567-e89b-42d3-a456-426614174000" },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.data.account.balance, 1250.25);
+        assert.equal(toolResult.data.account.currency, "USD");
+        assert.equal(toolResult.data.account.order_submission_enabled, false);
+        return { response: "บัญชี Exness MT5 Demo มียอดคงเหลือ 1,250.25 USD ตามข้อมูลจริงที่ Hub ส่งกลับ" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check my demo account balance." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCallCount, 1);
+  assert.equal(body.agent.toolCalls[0].tool, "get_my_demo_account_snapshot");
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("agent reads Demo market quotes through the authenticated Hub and constrains returned bars", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    if (target === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    assert.equal(
+      target,
+      "https://voom-system-hub.suwapat787.workers.dev/v1/connections/123e4567-e89b-42d3-a456-426614174000/quotes?symbol=XAUUSD&timeframe=M5&count=2",
+    );
+    assert.equal(init.method, "GET");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    hubCalls += 1;
+    return new Response(JSON.stringify({
+      connectionId: "123e4567-e89b-42d3-a456-426614174000",
+      state: "data_verified",
+      dataVerified: true,
+      quote: {
+        symbol: "XAUUSD", timeframe: "M5", digits: 2,
+        tick: { bid: 2700.1, ask: 2700.3, last: 2700.2, time: "2026-11-07T02:00:00Z" },
+        bars: [
+          { time: "2026-11-07T01:55:00Z", open: 2699.1, high: 2701, low: 2698, close: 2700.2, volume: 12 },
+          { time: "2026-11-07T02:00:00Z", open: 2700.2, high: 2701.2, low: 2699.9, close: 2700.8, volume: 10, private_field: "must-not-leak" },
+        ],
+        count: 2, mode: "read-only", order_submission_enabled: false,
+        as_of: "2026-11-07T02:00:00Z",
+      },
+      ordersEnabled: false, liveTradingEnabled: false,
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_demo_market_quotes",
+            arguments: {
+              connection_id: "123e4567-e89b-42d3-a456-426614174000",
+              symbol: "XAUUSD",
+              timeframe: "M5",
+              count: 2,
+            },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.data.quote.tick.bid, 2700.1);
+        assert.equal(toolResult.data.quote.bars.length, 2);
+        assert.equal("private_field" in toolResult.data.quote.bars[1], false);
+        assert.equal(toolResult.data.quote.order_submission_enabled, false);
+        return { response: "ราคา XAUUSD ล่าสุดที่ Demo feed ส่งมา: Bid 2700.10 / Ask 2700.30" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "ขอราคา XAUUSD และแท่ง M5 ล่าสุด" }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].tool, "get_my_demo_market_quotes");
+  assert.equal(body.agent.toolCallCount, 1);
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
+  assert.equal(body.executionEnabled, false);
+});
+
+test("Hub ownership denial is returned to the Agent without exposing upstream details", async () => {
+  let aiCalls = 0;
+  let hubCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    const target = String(url);
+    if (target === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    assert.equal(target, "https://voom-system-hub.suwapat787.workers.dev/v1/connections/123e4567-e89b-42d3-a456-426614174000/status");
+    assert.equal(init.headers.Authorization, "Bearer valid-token");
+    hubCalls += 1;
+    return new Response(JSON.stringify({
+      error: "connection_not_found",
+      detail: "private upstream diagnostic that must not reach the model",
+    }), { status: 404, headers: { "Content-Type": "application/json" } });
+  };
+  const aiEnv = {
+    ...env,
+    AI: {
+      run: async (_model, input) => {
+        aiCalls += 1;
+        if (aiCalls === 1) {
+          return { tool_calls: [{
+            name: "get_my_connection_status",
+            arguments: { connection_id: "123e4567-e89b-42d3-a456-426614174000" },
+          }] };
+        }
+        const toolResult = JSON.parse(input.messages.at(-1).content);
+        assert.equal(toolResult.success, false);
+        assert.equal(toolResult.error, "connection_not_found");
+        assert.equal("detail" in toolResult, false);
+        assert.equal(toolResult.httpStatus, 404);
+        return { response: "ไม่พบบัญชีเชื่อมต่อที่เข้าถึงได้ในพื้นที่ผู้ใช้นี้" };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Check connection status." }] }),
+  }), aiEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.agent.toolCalls[0].status, "rejected");
+  assert.equal(body.agent.toolCalls[0].error, "connection_not_found");
+  assert.equal(hubCalls, 1);
+  assert.equal(aiCalls, 2);
 });
 
 test("chat fails closed when Cloudflare AI binding is unavailable", async () => {
