@@ -106,7 +106,7 @@ export function AppShell() {
           onClick={(event) => {
             if (event.target === event.currentTarget) setOpen(false);
           }}
-          className="mobile-nav-dialog m-0 h-dvh max-h-dvh w-[min(21rem,calc(100vw-2rem))] max-w-none border-0 border-r border-sidebar-border bg-sidebar p-0 text-foreground shadow-2xl backdrop:bg-background/75 lg:hidden"
+          className="mobile-nav-dialog fixed inset-y-0 left-0 right-auto m-0 h-dvh max-h-dvh w-[min(21rem,calc(100vw-2rem))] max-w-none border-0 border-r border-sidebar-border bg-sidebar p-0 text-foreground shadow-2xl backdrop:bg-background/75 lg:hidden"
         >
           <div className="flex items-center justify-between">
             {brand}
