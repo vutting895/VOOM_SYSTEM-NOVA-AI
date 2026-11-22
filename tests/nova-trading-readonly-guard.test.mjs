@@ -10,6 +10,9 @@ const relay = read('integrations/mt5-readonly-bridge/bridge_relay_client.py');
 const envExample = read('.env.example');
 const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
+const mcpWorker = read('integrations/remote-mcp-worker/src/index.js');
+const skillRegistry = read('integrations/remote-mcp-worker/src/skill-registry.js');
+
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
 function section(source, startMarker, endMarker) {
@@ -92,6 +95,20 @@ test('settings and trading terminal disclose unverified status and expose no bro
   assert.doesNotMatch(terminal, /Math\.random|setInterval|POS-904|FILLED_LIVE|Live Execution Desk/i);
   assert.match(terminal, /NO VERIFIED BROKER SESSION/i);
   assert.match(terminal, /Order submission disabled \(Read-only\)/);
+});
+
+test('read-only terminal cannot simulate closing a broker position', () => {
+  assert.doesNotMatch(terminal, /function closePosition|closePosition\(|>\s*Close\s*</);
+  assert.match(terminal, /NO VERIFIED BROKER SESSION/i);
+  assert.match(terminal, /Order submission disabled \(Read-only\)/);
+});
+
+test('MCP tool and skill registries expose no broker-write capability', () => {
+  const toolCatalog = section(mcpWorker, 'export const tools=[', '\n];');
+  assert.doesNotMatch(toolCatalog, /place_order|modify_order|close_position|execute_broker_order|withdraw_funds|transfer_funds/i);
+  assert.match(toolCatalog, /mt5_quotes/);
+  assert.match(skillRegistry, /executionEnabled: false/);
+  assert.match(skillRegistry, /mode: "catalog-only"/);
 });
 
 test('server blocks high-impact API mutations before parsing request bodies', () => {
