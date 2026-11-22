@@ -1,3 +1,4 @@
+import { analyzeCandles, readAnalysisRequest } from "./analysis.js";
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -577,6 +578,20 @@ export default {
         dataVerified: false,
         note: "Status reflects the user's connection record only. Use POST /v1/connections/{id}/check or GET /account to verify the live read-only account path.",
       }, 200, origin, env);
+    }
+
+    if (url.pathname === "/v1/analysis/candles" && request.method === "POST") {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      try {
+        const payload = await readAnalysisRequest(request);
+        return json(analyzeCandles(payload), 200, origin, env);
+      } catch (error) {
+        const status = Number.isInteger(error?.status) ? error.status : 400;
+        const allowed = new Set([400, 413, 415]);
+        return json({ error: allowed.has(status) ? error.message : "analysis_request_failed" },
+          allowed.has(status) ? status : 400, origin, env);
+      }
     }
 
     return json({ error: "not_found" }, 404, origin, env);
