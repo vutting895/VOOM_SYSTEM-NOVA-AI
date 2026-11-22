@@ -1160,72 +1160,16 @@ async function startServer() {
   });
 
   // 5. Learning Universe & Dataset Management
+  // No provenance-backed dataset or training runtime is connected. Do not emit sample metrics as live data.
   app.get('/api/learning/universe', (_req, res) => {
-    res.json({
-      ok: true,
-      featureStore: {
-        provider: 'Feast Feature Store on Apache Parquet',
-        monitoredSymbols: [
-          'XAU/USDm',
-          'BTC/USDm',
-          'EUR/USDm',
-          'GBP/USDm',
-          'USD/JPYm',
-          'ETH/USDm',
-          'SOL/USDm',
-          'AUD/USDm',
-          'USD/CADm',
-          'GBP/JPYm',
-          'XAG/USDm',
-          'TON/USDm',
-          'BNB/USDm',
-          'NZD/USDm',
-          'USD/CHFm',
-          'DOGE/USDm',
-        ],
-        totalSamplesStored: 1485000,
-        featureCategories: [
-          'Microstructure (VPIN, Order Book Imbalance, Tick Intensity)',
-          'SMC Signals (OB Distance, FVG Gap Width, BOS Flags)',
-          'Wave & Momentum (Fibonacci Extensions, Wavelet Energy, ATR)',
-          'Deep Latent Embeddings (Bi-LSTM 128-d, Attention Weights)',
-        ],
-        lastDataUpdateAt: new Date(Date.now() - 35 * 60000).toISOString(),
-        dailyUpdateStatus: 'SUCCESS_SYNCED',
-        nextScheduledUpdateAt: new Date(Date.now() + 4.5 * 3600000).toISOString(),
-      },
-      modelPerformanceByRegime: [
-        {
-          regimeName: 'Trending Bullish / Expansion',
-          description: 'ช่วงตลาดมีทิศทางชัดเจน ขับเคลื่อนด้วยคลื่นขยายตัว',
-          accuracyPct: 83.2,
-          f1Score: 0.84,
-          sampleCount: 524000,
-        },
-        {
-          regimeName: 'Range-bound / Asian Sideway',
-          description: 'ตลาดเคลื่อนไหวในกรอบแคบ รอการกวาดสภาพคล่อง',
-          accuracyPct: 78.5,
-          f1Score: 0.79,
-          sampleCount: 612000,
-        },
-        {
-          regimeName: 'High Volatility / News Event',
-          description: 'ช่วงประกาศตัวเลขเศรษฐกิจ ข่าว Fed/CPI ปรับลดความเสี่ยง',
-          accuracyPct: 74.6,
-          f1Score: 0.73,
-          sampleCount: 349000,
-        },
-      ],
-      // No provenance-backed training runs or scheduled pipeline are available.
-      trainingHistory: [],
-      autoUpdateJob: {
-        status: 'NOT_CONFIGURED',
-        cadence: null,
-        automated: false,
-        healthPct: null,
-        logs: [trainingUnavailable.statusNotification],
-      },
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).json({
+      ok: false,
+      error: 'learning_runtime_not_configured',
+      mode: 'read-only',
+      dataAvailable: false,
+      trainingEnabled: false,
+      message: 'No verified dataset or model-training runtime is configured.',
     });
   });
 
