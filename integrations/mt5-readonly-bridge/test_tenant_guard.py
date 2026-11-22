@@ -106,5 +106,11 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("127.0.0.1:8787", RELAY_CLIENT)
 
 
+    def test_quotes_do_not_mutate_market_watch_symbol_visibility(self):
+        quotes = function_nodes()["quotes"]
+        self.assertFalse(has_call(quotes, "symbol_select"))
+        self.assertIn('detail="symbol_not_selected_in_terminal"', SOURCE)
+        self.assertIn("if not info.visible:", SOURCE)
+
 if __name__ == "__main__":
     unittest.main()
