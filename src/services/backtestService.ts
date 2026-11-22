@@ -1,50 +1,64 @@
-// Dedicated Backtest Simulation Service for NOVA AI Platform
+// Backtest simulation service with optional owner-scoped Supabase persistence.
 import { apiClient } from './apiClient';
-import { BacktestParams, BacktestResult } from '../api/types';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
+import type { BacktestParams, BacktestResult } from '../api/types';
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 
 export class BacktestService {
   async runBacktest(params: BacktestParams): Promise<BacktestResult> {
     const result = await apiClient.post<BacktestResult>('/api/backtest/run', params);
 
-    // Automatically persist backtest result to Firestore if user is authenticated
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        const backtestId = `bt-${Date.now()}`;
-        const docRef = doc(db, 'users', user.uid, 'backtests', backtestId);
-        await setDoc(docRef, {
-          id: backtestId,
-          userId: user.uid,
-          strategyId: params.strategyId,
-          symbol: params.symbol,
-          timeframe: params.timeframe,
-          initialBalance: params.initialBalance,
-          finalBalance: result.finalBalance,
-          netProfit: result.netProfit,
-          winRatePct: result.winRatePct,
-          profitFactor: result.profitFactor,
-          maxDrawdownPct: result.maxDrawdownPct,
-          createdAt: new Date().toISOString(),
-        });
+    // Saving is best-effort: a missing Supabase config/table must not break a read-only simulation.
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = getSupabaseClient();
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+
+        const user = authData.user;
+        if (user) {
+          const { error } = await supabase.from('nova_backtest_reports').insert({
+            user_id: user.id,
+            strategy_id: params.strategyId,
+            symbol: params.symbol,
+            timeframe: params.timeframe,
+            historical_period: params.historicalPeriod,
+            initial_balance: params.initialBalance,
+            final_balance: result.finalBalance,
+            net_profit: result.netProfit,
+            profit_factor: result.profitFactor,
+            win_rate_pct: result.winRatePct,
+            max_drawdown_pct: result.maxDrawdownPct,
+            result,
+          });
+          if (error) throw error;
+        }
+      } catch (error) {
+        console.warn('[BacktestService] Result returned but persistence was unavailable.', error);
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'backtests');
     }
 
     return result;
   }
 
-  async getSavedBacktests(): Promise<any[]> {
+  async getSavedBacktests(): Promise<BacktestResult[]> {
+    if (!isSupabaseConfigured) return [];
+
     try {
-      const user = auth.currentUser;
-      if (!user) return [];
-      const q = query(collection(db, 'users', user.uid, 'backtests'), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => d.data());
+      const supabase = getSupabaseClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) return [];
+
+      const { data, error } = await supabase
+        .from('nova_backtest_reports')
+        .select('result')
+        .eq('user_id', authData.user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return (data ?? []).map((row) => row.result as BacktestResult);
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'backtests');
+      console.warn('[BacktestService] Saved reports are unavailable.', error);
       return [];
     }
   }

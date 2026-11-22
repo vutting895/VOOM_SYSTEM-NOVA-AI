@@ -1,8 +1,14 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
+import { createServer as createViteServer, loadEnv } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+
+// Load local .env files for the Express process as well as Vite middleware.
+const fileEnv = loadEnv(process.env.NODE_ENV || 'development', process.cwd(), '');
+for (const [key, value] of Object.entries(fileEnv)) {
+  if (process.env[key] === undefined) process.env[key] = value;
+}
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -1869,7 +1875,7 @@ async function startServer() {
     });
   }
 
-  const port = Number(process.env.PORT) || 3000;
+  const port = Number(process.env.PORT) || 8080;
   app.listen(port, '0.0.0.0', () => {
     console.log(`VOOM NOVA Server running on http://0.0.0.0:${port}`);
   });
