@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
-import { createSupabaseAuthMiddleware } from './server/supabase-auth';
+import { createSupabaseAuthMiddleware, scopedThreadId } from './server/supabase-auth';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -1641,7 +1641,7 @@ async function startServer() {
 
   // GET Thread State & Pending Interrupts (Phase 1 & 2: threads, checkpoints, trade_logs, user_configs)
   app.get('/api/intent/thread/:threadId', requireSupabaseUser, (req, res) => {
-    const state = getOrCreateThreadCheckpoint(`${res.locals.novaUserId}:${req.params.threadId}`);
+    const state = getOrCreateThreadCheckpoint(scopedThreadId(res.locals.novaUserId, req.params.threadId));
     res.json({
       ok: true,
       threadId: state.threadId,
@@ -1658,7 +1658,7 @@ async function startServer() {
   app.post('/api/intent/dispatch', requireSupabaseUser, (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
     const externalThreadId = typeof threadId === 'string' && threadId.trim() ? threadId.trim() : 'thread-nova-session-01';
-    const safeThreadId = `${res.locals.novaUserId}:${externalThreadId}`;
+    const safeThreadId = scopedThreadId(res.locals.novaUserId, externalThreadId);
     const rawPrompt = String(prompt || '').trim();
 
     // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
