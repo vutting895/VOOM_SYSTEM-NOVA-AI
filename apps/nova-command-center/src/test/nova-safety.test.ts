@@ -22,9 +22,19 @@ describe("safety invariants", () => {
     for (const p of ["/v1/orders", "/v1/withdraw", "/v1/transfer", "/v1/trade/execute"])
       expect(() => assertReadOnlyRequest("GET", p)).toThrow();
   });
-  it("allow-listed paths contain no forbidden endpoints", () =>
-    expect(ALLOWED_API_PATHS.some(isForbiddenPath)).toBe(false));
-  it("api client refuses forbidden path before any network call", async () => {
+  it("allows only exact API paths", () => {
+    for (const p of ALLOWED_API_PATHS) expect(() => assertReadOnlyRequest("GET", p)).not.toThrow();
+    for (const p of [
+      "/v1/unknown",
+      "/v1/services?admin=true",
+      "/v1/services/",
+      "/v1/%73ervices",
+      "/v1/../orders",
+      "//v1/services",
+    ]) expect(() => assertReadOnlyRequest("GET", p)).toThrow();
+    expect(ALLOWED_API_PATHS.some(isForbiddenPath)).toBe(false);
+  });
+  it("api client refuses paths outside exact allow-list before network call", async () => {
     let called = false;
     const c = createApiClient({
       baseUrl: "https://x",
@@ -35,6 +45,7 @@ describe("safety invariants", () => {
       },
     });
     await expect(c.get("/v1/orders")).rejects.toMatchObject({ kind: "blocked" });
+    await expect(c.get("/v1/unknown")).rejects.toMatchObject({ kind: "blocked" });
     expect(called).toBe(false);
   });
 });
