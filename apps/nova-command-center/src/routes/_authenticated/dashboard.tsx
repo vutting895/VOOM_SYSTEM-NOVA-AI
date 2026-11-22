@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Activity, ArrowUpRight, CheckCircle2, CircleHelp, Clock3, Database,
+  Activity, ArrowUpRight, CircleHelp, Clock3,
   RefreshCw, ShieldCheck, Wifi, WifiOff,
 } from "lucide-react";
 import {
