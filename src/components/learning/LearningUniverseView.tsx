@@ -32,7 +32,10 @@ export default function LearningUniverseView() {
       const res = await novaApi.getLearningUniverse();
       setLearningData(res);
     } catch (err: any) {
-      setError(err?.message || 'Failed to fetch learning universe data');
+      const message = String(err?.message || '');
+      setError(message.includes('learning_runtime_not_configured')
+        ? 'Learning data source is not configured. Dataset and model metrics are intentionally unavailable.'
+        : message || 'Failed to fetch learning universe data');
     } finally {
       setLoading(false);
     }
