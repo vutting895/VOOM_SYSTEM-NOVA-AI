@@ -12,6 +12,7 @@ const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
 const mcpWorker = read('integrations/remote-mcp-worker/src/index.js');
 const skillRegistry = read('integrations/remote-mcp-worker/src/skill-registry.js');
+const ea = read('integrations/mt5/MTRADERS_All_In_One_v1.01.mq5');
 
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
@@ -109,6 +110,13 @@ test('MCP tool and skill registries expose no broker-write capability', () => {
   assert.match(toolCatalog, /mt5_quotes/);
   assert.match(skillRegistry, /executionEnabled: false/);
   assert.match(skillRegistry, /mode: "catalog-only"/);
+});
+
+test('MT5 EA remains hard-disabled in NOVA read-only mode', () => {
+  assert.match(ea, /#define NOVA_READ_ONLY_MODE true/);
+  assert.match(ea, /InpTradeEnabled\s*=\s*false/);
+  const onTick = section(ea, 'void OnTick()', '}');
+  assert.match(onTick, /if\(NOVA_READ_ONLY_MODE\) return;/);
 });
 
 test('server blocks high-impact API mutations before parsing request bodies', () => {
