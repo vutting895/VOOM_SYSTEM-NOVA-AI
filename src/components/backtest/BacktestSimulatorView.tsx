@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { novaApi } from '../../api/apiClient';
+import { backtestService } from '../../services/backtestService';
 import { BacktestParams, BacktestResult, EquityDataPoint } from '../../api/types';
 import ReadonlySafetyBadge from '../common/ReadonlySafetyBadge';
 import { LoadingSpinner, ErrorView } from '../common/StateViews';
@@ -38,7 +38,7 @@ export default function BacktestSimulatorView() {
     try {
       setLoading(true);
       setError(null);
-      const res = await novaApi.runBacktest(params);
+      const res = await backtestService.runBacktest(params);
       setResult(res);
     } catch (err: any) {
       setError(err?.message || 'Backtest simulation failed');
