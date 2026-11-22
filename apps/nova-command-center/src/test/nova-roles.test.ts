@@ -8,6 +8,8 @@ describe("parseRole", () => {
     expect(
       parseRole({ app_metadata: {}, user_metadata: { nova_role: "admin" } } as never),
     ).toBeNull());
+  it("does not accept the legacy app_metadata.role fallback", () =>
+    expect(parseRole({ app_metadata: { role: "admin" } })).toBeNull());
   it("rejects unknown roles", () =>
     expect(parseRole({ app_metadata: { nova_role: "superuser" } })).toBeNull());
   it("fails closed on missing user", () => expect(parseRole(null)).toBeNull());
