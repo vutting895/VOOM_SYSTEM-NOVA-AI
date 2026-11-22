@@ -67,7 +67,7 @@ function Dashboard() {
   const failedCount = services.data?.services.filter((service) => service.status === "down").length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={refreshing}>
       <PageHeader
         title="Command overview"
         subtitle="A verified view of NOVA service health, connectivity and safety posture."
@@ -78,6 +78,7 @@ function Dashboard() {
             onClick={refreshOverview}
             disabled={!isApiConfigured || refreshing}
             aria-label="Refresh overview data"
+            title={isApiConfigured ? "Refresh read-only system telemetry" : "Configure the NOVA API before refreshing"}
           >
             <RefreshCw aria-hidden="true" className={refreshing ? "size-4 animate-spin" : "size-4"} />
             Refresh
@@ -227,13 +228,13 @@ function Dashboard() {
               ].map(([label, enabled]) => (
                 <li key={String(label)} className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">{label}</span>
-                  <Badge variant={enabled ? "destructive" : "warn"}>{enabled ? "ENABLED" : "DISABLED"}</Badge>
+                  <Badge variant={enabled ? "destructive" : "online"}>{enabled ? "ENABLED" : "DISABLED"}</Badge>
                 </li>
               ))}
             </ul>
           </Panel>
 
-          <Panel title="Bridge connection" right={bridge.data?.connected ? <Badge variant="online">CONNECTED</Badge> : <NotConnected />}>
+          <Panel title="Bridge connection" right={bridge.isError ? <Badge variant="offline">UNAVAILABLE</Badge> : bridge.isLoading ? <Badge variant="outline">CHECKING</Badge> : bridge.data?.connected ? <Badge variant="online">CONNECTED</Badge> : <NotConnected />}>
             {bridge.isError ? (
               <div className="flex gap-3 text-sm">
                 <WifiOff aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
