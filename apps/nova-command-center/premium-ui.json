@@ -1,0 +1,23 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["src"],
+  "locale": "en",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Scrollbar", "Toast"],
+  "ownership": {
+    "Scrollbar": "global stylesheet",
+    "Toast": "shared Sonner provider"
+  },
+  "requiredCommands": ["typecheck", "lint", "unit", "build"],
+  "commands": {
+    "typecheck": "bun run typecheck",
+    "lint": "bun run lint",
+    "unit": "bun run test",
+    "build": "bun run build"
+  },
+  "evidence": {
+    "safetyInvariants": "src/test/nova-safety.test.ts",
+    "apiBehavior": "src/test/nova-api.test.ts",
+    "authState": "src/test/nova-auth-state.test.ts"
+  }
+}
