@@ -46,4 +46,3 @@ workflows:
   nova-command-center-ci:
     jobs:
       - validate
-
