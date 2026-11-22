@@ -1,0 +1,49 @@
+version: 2.1
+
+jobs:
+  validate:
+    docker:
+      - image: cimg/node:22.16
+    resource_class: small
+    working_directory: ~/project
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - nova-command-center-npm-v1-{{ checksum "apps/nova-command-center/package-lock.json" }}
+            - nova-command-center-npm-v1-
+      - run:
+          name: Install locked dependencies
+          command: npm ci --prefix apps/nova-command-center
+      - save_cache:
+          key: nova-command-center-npm-v1-{{ checksum "apps/nova-command-center/package-lock.json" }}
+          paths:
+            - ~/.npm
+      - run:
+          name: ESLint changed frontend files
+          shell: /bin/bash
+          command: |
+            set -euo pipefail
+            git fetch origin main --depth=1
+            mapfile -t files < <(git diff --name-only origin/main...HEAD -- apps/nova-command-center/ | grep -E '\.(js|jsx|ts|tsx)$' | sed 's#^apps/nova-command-center/##' || true)
+            if (( ${#files[@]} )); then
+              cd apps/nova-command-center
+              npx eslint "${files[@]}"
+            else
+              echo "No changed JavaScript/TypeScript files to lint."
+            fi
+      - run:
+          name: TypeScript
+          command: npm run typecheck --prefix apps/nova-command-center
+      - run:
+          name: Unit tests
+          command: npm run test --prefix apps/nova-command-center
+      - run:
+          name: Production build
+          command: npm run build --prefix apps/nova-command-center
+
+workflows:
+  nova-command-center-ci:
+    jobs:
+      - validate
+
