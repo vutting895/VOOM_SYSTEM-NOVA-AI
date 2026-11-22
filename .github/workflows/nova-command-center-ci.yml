@@ -1,0 +1,60 @@
+name: NOVA Command Center CI
+
+concurrency:
+  group: nova-command-center-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - "apps/nova-command-center/**"
+      - ".github/workflows/nova-command-center-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Install, typecheck, lint, test and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/nova-command-center
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Generate an app-local lockfile during CI until the first reviewed lockfile
+      # is committed. This keeps the root NOVA application's dependency graph untouched.
+      - name: Resolve app dependencies and generate temporary lockfile
+        run: bun install --lockfile-only
+
+      - name: Install from resolved lockfile
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript
+        run: bun run typecheck
+
+      - name: ESLint
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Production build
+        run: bun run build
+
+      - name: Upload app-local lockfile for review
+        if: always() && hashFiles('apps/nova-command-center/bun.lock') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-command-center-bun-lock
+          path: apps/nova-command-center/bun.lock
+          if-no-files-found: ignore
+          retention-days: 7
