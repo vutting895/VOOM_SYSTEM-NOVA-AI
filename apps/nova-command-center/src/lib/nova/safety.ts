@@ -13,7 +13,10 @@ export const SAFETY = Object.freeze({
 
 export type SafetyFlags = typeof SAFETY;
 
-/** API paths the client is allowed to call. All read-only except local-intent endpoints. */
+/**
+ * Exact browser API allow-list. This is defense-in-depth only; the Worker must
+ * independently authenticate, authorize, and route every request.
+ */
 export const ALLOWED_API_PATHS = Object.freeze([
   "/v1/health",
   "/v1/services",
@@ -31,8 +34,8 @@ const FORBIDDEN_PATTERNS = [
   /withdraw/i,
   /transfer/i,
   /deposit/i,
-  /trade\/execute/i,
-  /position\/close/i,
+  /trade\\/execute/i,
+  /position\\/close/i,
 ];
 
 export function isForbiddenPath(path: string): boolean {
@@ -45,5 +48,8 @@ export function assertReadOnlyRequest(method: string, path: string): void {
   }
   if (isForbiddenPath(path)) {
     throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
+  }
+  if (!(ALLOWED_API_PATHS as readonly string[]).includes(path)) {
+    throw new Error(`Blocked by safety policy: ${path} is not an exact allow-listed API path`);
   }
 }
