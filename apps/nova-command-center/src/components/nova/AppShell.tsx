@@ -1,8 +1,19 @@
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Activity, Bot, CandlestickChart, Cable, ShieldCheck, ClipboardCheck,
-  Users, Settings, ScrollText, LogOut, Menu, X, Command,
+  Activity,
+  Bot,
+  CandlestickChart,
+  Cable,
+  ShieldCheck,
+  ClipboardCheck,
+  Users,
+  Settings,
+  ScrollText,
+  LogOut,
+  Menu,
+  X,
+  Command,
 } from "lucide-react";
 import { useAuth } from "@/lib/nova/auth";
 import { ROLE_LABEL } from "@/lib/nova/roles";
@@ -15,10 +26,20 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Overview", icon: Activity, group: "WORKSPACE" },
   { to: "/assistant", label: "AI Assistant", icon: Bot, group: "WORKSPACE" },
-  { to: "/trading", label: "Trading", icon: CandlestickChart, group: "INTELLIGENCE" },
+  {
+    to: "/trading",
+    label: "Trading",
+    icon: CandlestickChart,
+    group: "INTELLIGENCE",
+  },
   { to: "/bridge", label: "MT5 Bridge", icon: Cable, group: "INTELLIGENCE" },
   { to: "/risk", label: "Risk Center", icon: ShieldCheck, group: "GOVERNANCE" },
-  { to: "/approvals", label: "Approvals", icon: ClipboardCheck, group: "GOVERNANCE" },
+  {
+    to: "/approvals",
+    label: "Approvals",
+    icon: ClipboardCheck,
+    group: "GOVERNANCE",
+  },
   { to: "/users", label: "Users & Roles", icon: Users, group: "GOVERNANCE" },
   { to: "/logs", label: "Audit Logs", icon: ScrollText, group: "SYSTEM" },
   { to: "/settings", label: "Settings", icon: Settings, group: "SYSTEM" },
@@ -39,29 +60,35 @@ export function AppShell() {
 
   const navigation = (
     <nav aria-label="Primary navigation" className="space-y-5 px-3 py-4">
-      {(["WORKSPACE", "INTELLIGENCE", "GOVERNANCE", "SYSTEM"] as const).map((group) => (
-        <section key={group} aria-label={group}>
-          <h2 className="px-3 pb-2 font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70">
-            {group}
-          </h2>
-          <div className="space-y-1">
-            {NAV.filter((item) => item.group === group).map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className="group flex min-h-10 items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                activeProps={{
-                  className: "border-primary/20 bg-primary/10 text-primary shadow-[inset_2px_0_0_var(--primary)]",
-                }}
-              >
-                <item.icon aria-hidden="true" className="size-4 shrink-0 opacity-80" />
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ))}
+      {(["WORKSPACE", "INTELLIGENCE", "GOVERNANCE", "SYSTEM"] as const).map(
+        (group) => (
+          <section key={group} aria-label={group}>
+            <h2 className="px-3 pb-2 font-mono text-[10px] font-semibold tracking-[0.18em] text-muted-foreground/70">
+              {group}
+            </h2>
+            <div className="space-y-1">
+              {NAV.filter((item) => item.group === group).map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className="group flex min-h-10 items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:border-sidebar-border hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  activeProps={{
+                    className:
+                      "border-primary/20 bg-primary/10 text-primary shadow-[inset_2px_0_0_var(--primary)]",
+                  }}
+                >
+                  <item.icon
+                    aria-hidden="true"
+                    className="size-4 shrink-0 opacity-80"
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ),
+      )}
     </nav>
   );
 
@@ -71,7 +98,9 @@ export function AppShell() {
         <Command aria-hidden="true" className="size-5" />
       </div>
       <div className="min-w-0">
-        <div className="font-mono text-sm font-bold tracking-[0.2em] text-foreground">NOVA AI</div>
+        <div className="font-mono text-sm font-bold tracking-[0.2em] text-foreground">
+          NOVA AI
+        </div>
         <div className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Command Center
         </div>
@@ -89,7 +118,9 @@ export function AppShell() {
           {navigation}
           <div className="mx-5 mt-8 border-t border-sidebar-border pt-4">
             <div className="flex items-center justify-between px-1">
-              <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">RUNTIME MODE</span>
+              <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">
+                RUNTIME MODE
+              </span>
               <Badge variant="warn">READ ONLY</Badge>
             </div>
             <p className="mt-2 px-1 text-xs leading-relaxed text-muted-foreground">
@@ -124,7 +155,9 @@ export function AppShell() {
           {navigation}
           <div className="mx-5 mt-4 border-t border-sidebar-border pt-4">
             <Badge variant="warn">READ ONLY</Badge>
-            <p className="mt-2 text-xs text-muted-foreground">Broker execution is disabled.</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Broker execution is disabled.
+            </p>
           </div>
         </dialog>
 
@@ -156,7 +189,10 @@ export function AppShell() {
                 {auth.email}
               </span>
               {auth.role && (
-                <Badge variant="online" title="Display metadata only — the server enforces permissions">
+                <Badge
+                  variant="online"
+                  title="Display metadata only — the server enforces permissions"
+                >
                   {ROLE_LABEL[auth.role]}
                 </Badge>
               )}
@@ -173,7 +209,11 @@ export function AppShell() {
               </Button>
             </div>
           </header>
-          <main className={cn("mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6 xl:p-8")}>
+          <main
+            className={cn(
+              "mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6 xl:p-8",
+            )}
+          >
             <Outlet />
           </main>
           <footer className="border-t border-border/70 px-4 py-3 text-center font-mono text-[10px] tracking-[0.12em] text-muted-foreground/70 md:px-6">
