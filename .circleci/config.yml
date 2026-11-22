@@ -21,6 +21,11 @@ jobs:
           name: Install root Vite dependencies without writing a lockfile
           command: npm install --no-package-lock --include=dev
       - run:
+          name: Validate NOVA Node test suite with CircleCI testsuite doctor
+          command: circleci testsuite doctor "nova node tests"
+      - store_test_results:
+          path: test-reports
+      - run:
           name: Test NOVA Demo-only read-only execution guard
           command: node --test tests/nova-trading-readonly-guard.test.mjs
       - run:
