@@ -1,5 +1,6 @@
 // Unified API Client for NOVA AI Frontend with Performance & Latency Instrumentation
 
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabase';
 import {
   MarketOverviewResponse,
   CandlestickBar,
@@ -65,12 +66,20 @@ class NovaApiClient {
     let statusCode = 200;
 
     try {
+      const authHeaders: Record<string, string> = {};
+      if (isSupabaseConfigured) {
+        const { data, error } = await getSupabaseClient().auth.getSession();
+        if (!error && data.session?.access_token) {
+          authHeaders.Authorization = `Bearer ${data.session.access_token}`;
+        }
+      }
       const response = await fetch(`${this.baseUrl}${url}`, {
         ...options,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          ...authHeaders,
           ...options?.headers,
         },
       });
