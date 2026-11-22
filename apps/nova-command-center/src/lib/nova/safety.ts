@@ -34,8 +34,8 @@ const FORBIDDEN_PATTERNS = [
   /withdraw/i,
   /transfer/i,
   /deposit/i,
-  /trade\\/execute/i,
-  /position\\/close/i,
+  /trade\/execute/i,
+  /position\/close/i,
 ];
 
 export function isForbiddenPath(path: string): boolean {
@@ -44,12 +44,12 @@ export function isForbiddenPath(path: string): boolean {
 
 export function assertReadOnlyRequest(method: string, path: string): void {
   if (method.toUpperCase() !== "GET") {
-    throw new Error(`Blocked by safety policy: ${method} ${path} (client is read-only)`);
+    throw new Error(\`Blocked by safety policy: \${method} \${path} (client is read-only)\`);
   }
   if (isForbiddenPath(path)) {
-    throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
+    throw new Error(\`Blocked by safety policy: \${path} is a trading/funds endpoint\`);
   }
   if (!(ALLOWED_API_PATHS as readonly string[]).includes(path)) {
-    throw new Error(`Blocked by safety policy: ${path} is not an exact allow-listed API path`);
+    throw new Error(\`Blocked by safety policy: \${path} is not an exact allow-listed API path\`);
   }
 }
