@@ -119,6 +119,18 @@ test('MT5 EA remains hard-disabled in NOVA read-only mode', () => {
   assert.match(onTick, /if\(NOVA_READ_ONLY_MODE\) return;/);
 });
 
+test('infrastructure health reports offline and unverified services without fabricated metrics', () => {
+  const health = section(server, "app.get('/api/infrastructure/health'", '// 5. Learning Universe');
+  assert.match(health, /status: 'OFFLINE'/);
+  assert.match(health, /latencyMs: null/);
+  assert.match(health, /credentialsSecured: null/);
+  assert.match(health, /directApiAvailable: null/);
+  assert.match(health, /status: 'NOT_VERIFIED'/);
+  assert.match(health, /status: 'NOT_CONFIGURED'/);
+  assert.match(health, /tickIngestionRatePerSec: null/);
+  assert.doesNotMatch(health, /14\.2|145|98\.7|24\.5|100\.0|STANDBY_DEMO_READY/);
+});
+
 test('server blocks high-impact API mutations before parsing request bodies', () => {
   const jsonParserAt = server.indexOf('app.use(express.json())');
   const guardAt = server.indexOf('const blockedMutation =');
