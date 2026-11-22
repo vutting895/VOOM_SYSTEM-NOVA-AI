@@ -134,6 +134,46 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
 async function startServer() {
   const app = express();
 
+  const requireSupabaseUser: express.RequestHandler = async (_req, res, next) => {
+    const authorization = _req.headers.authorization || '';
+    if (!/^Bearer\\s+\\S+$/i.test(authorization)) {
+      return res.status(401).json({ ok: false, error: 'authentication_required' });
+    }
+    const supabaseUrl = (process.env.SUPABASE_URL ||
+      process.env.VITE_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\\/$/, '');
+    const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    if (!supabaseUrl.startsWith('https://') || !publishableKey) {
+      return res.status(503).json({ ok: false, error: 'authentication_service_not_configured' });
+    }
+    try {
+      const response = await fetch(supabaseUrl + '/auth/v1/user', {
+        method: 'GET',
+        headers: { apikey: publishableKey, Authorization: authorization, Accept: 'application/json' },
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.status === 401 || response.status === 403) {
+        return res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+      }
+      if (!response.ok) {
+        return res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
+      }
+      const user = await response.json() as { id?: unknown };
+      if (typeof user?.id !== 'string' || !user.id) {
+        return res.status(401).json({ ok: false, error: 'invalid_or_expired_session' });
+      }
+      res.locals.novaUserId = user.id;
+      return next();
+    } catch {
+      return res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
+    }
+  };
+
   // Fail closed before request-body parsing. This app has no approved broker-write runtime.
   app.use((req, res, next) => {
     if (req.method === 'GET' && req.path === '/api/broker/status') {
@@ -1176,7 +1216,7 @@ async function startServer() {
   // Hybrid Architecture Endpoint:
   // 1. Outer Brain (Cloud LLM - Gemini): Extracts intent & synthesizes Generative UI explanation
   // 2. Inner Brain (Internal Quant Engine - TFT / FinRL / Quantum): Computes regime, VPIN, and lot sizing
-  app.post('/api/chat', async (req, res) => {
+  app.post('/api/chat', requireSupabaseUser, async (req, res) => {
     const { messages, message, symbol } = req.body || {};
     const lastMessage =
       typeof message === 'string' && message.trim()
@@ -1256,7 +1296,7 @@ async function startServer() {
     });
   });
 
-  app.post('/api/gen-ai/generate', async (req, res) => {
+  app.post('/api/gen-ai/generate', requireSupabaseUser, async (req, res) => {
     const { prompt, market, timeframe, risk } = req.body || {};
     const quantResult = runInternalQuantExecutionEngine(`${prompt || ''} ${market || ''}`);
 
@@ -1638,11 +1678,11 @@ async function startServer() {
   }
 
   // GET Thread State & Pending Interrupts (Phase 1 & 2: threads, checkpoints, trade_logs, user_configs)
-  app.get('/api/intent/thread/:threadId', (req, res) => {
-    const state = getOrCreateThreadCheckpoint(req.params.threadId);
+  app.get('/api/intent/thread/:threadId', requireSupabaseUser, (req, res) => {
+    const state = getOrCreateThreadCheckpoint(`${res.locals.novaUserId}:${req.params.threadId}`);
     res.json({
       ok: true,
-      threadId: state.threadId,
+      threadId: req.params.threadId,
       updatedAt: state.updatedAt,
       riskRules: state.riskRules,
       gridStatus: state.gridStatus,
@@ -1653,9 +1693,12 @@ async function startServer() {
   });
 
   // POST Main 5-Layer Zero-Menu Intent Dispatcher
-  app.post('/api/intent/dispatch', (req, res) => {
+  app.post('/api/intent/dispatch', requireSupabaseUser, (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
-    const safeThreadId = threadId || 'thread-nova-session-01';
+    const externalThreadId = typeof threadId === 'string' && threadId.trim()
+      ? threadId.trim()
+      : 'thread-nova-session-01';
+    const safeThreadId = `${res.locals.novaUserId}:${externalThreadId}`;
     const rawPrompt = String(prompt || '').trim();
 
     // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
@@ -1663,7 +1706,7 @@ async function startServer() {
     if (!guardrail.passed) {
       res.json({
         ok: false,
-        threadId: safeThreadId,
+        threadId: externalThreadId,
         layerTriggered: 'LAYER_3_NEMO_GUARDRAILS',
         declarativeUiType: 'nemo-guardrail-blocked-card',
         guardrail,
@@ -1677,7 +1720,7 @@ async function startServer() {
     if (clarification.needsClarification) {
       res.json({
         ok: true,
-        threadId: safeThreadId,
+        threadId: externalThreadId,
         layerTriggered: 'MIDDLEWARE_POLITE_CLARIFICATION_FALLBACK',
         declarativeUiType: 'clarification-fallback-card',
         clarification,
@@ -1722,7 +1765,7 @@ async function startServer() {
     if (structuredIntent.requiresInterrupt && !riskCheck.passed) {
       res.json({
         ok: false,
-        threadId: state.threadId,
+        threadId: externalThreadId,
         layerTriggered: 'LAYER_2_RULE_BASED_RISK_ENGINE',
         declarativeUiType: 'risk-guard-rejected-card',
         structuredIntent,
@@ -1745,7 +1788,7 @@ async function startServer() {
       const quant = runInternalQuantExecutionEngine(rawPrompt, structuredIntent.params.symbol);
       res.json({
         ok: true,
-        threadId: state.threadId,
+        threadId: externalThreadId,
         layerTriggered: 'LAYER_4_FASTMCP_READ_NO_INTERRUPT',
         declarativeUiType: uiMap[structuredIntent.intentType] || 'balance-summary-card',
         structuredIntent,
@@ -1787,9 +1830,12 @@ async function startServer() {
   });
 
   // Approval resolution is research-only. Broker execution is a separately gated capability.
-  app.post('/api/intent/interrupt/resolve', (req, res) => {
+  app.post('/api/intent/interrupt/resolve', requireSupabaseUser, (req, res) => {
     const { threadId, interruptId, action } = req.body || {};
-    const state = getOrCreateThreadCheckpoint(threadId || 'thread-nova-session-01');
+    const externalThreadId = typeof threadId === 'string' && threadId.trim()
+      ? threadId.trim()
+      : 'thread-nova-session-01';
+    const state = getOrCreateThreadCheckpoint(`${res.locals.novaUserId}:${externalThreadId}`);
     const item = state.pendingInterrupts[interruptId];
 
     if (action !== 'REJECT') {
@@ -1825,7 +1871,7 @@ async function startServer() {
 
     return res.json({
       ok: true,
-      threadId: state.threadId,
+      threadId: externalThreadId,
       interruptCheckpoint: item,
       detail: 'Intent rejected. No credentials were revalidated and no broker action was attempted.',
     });
