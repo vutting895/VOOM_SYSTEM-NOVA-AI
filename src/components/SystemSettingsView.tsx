@@ -89,11 +89,11 @@ export default function SystemSettingsView() {
   const [defaultBotMode, setDefaultBotMode] = useState<'full-auto' | 'semi-auto' | 'manual'>('full-auto');
   const [defaultGridDirection, setDefaultGridDirection] = useState<'BOTH' | 'BUY' | 'SELL'>('BOTH');
 
-  // 3. Backend Auto-Train Settings State
-  const [autoTrainEnabled, setAutoTrainEnabled] = useState<boolean>(true);
-  const [autoTrainIntervalSec, setAutoTrainIntervalSec] = useState<number>(18);
+  // 3. Backend Auto-Train Settings State — no training runtime is configured.
+  const autoTrainEnabled = false;
+  const autoTrainIntervalSec = 18;
   const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
-    '🟢 Backend Auto-Train: ดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้านสำเร็จ (Epoch #148 · ความแม่นยำ 94.8%)'
+    'Auto-Train unavailable: TRAINING_RUNTIME_NOT_CONFIGURED'
   );
   const [syncingBackend, setSyncingBackend] = useState<boolean>(false);
 
@@ -101,45 +101,16 @@ export default function SystemSettingsView() {
   const [maxDailyDrawdownPct, setMaxDailyDrawdownPct] = useState<string>('3.0');
   const [defaultLotSize, setDefaultLotSize] = useState<string>('0.35');
 
-  // 3.1 Kaggle MCP Server State
+  // Kaggle integration status is sourced from the backend; never fabricate credentials or quota.
   const [kaggleStatus, setKaggleStatus] = useState<any>({
-    serverUrl: 'https://www.kaggle.com/mcp',
-    transport: 'streamable-http',
-    protocolVersion: '2025-03-26',
-    auth: {
-      type: 'OAuth 2.0 & Token (KGAT)',
-      configured: true,
-      tokenMasked: 'KGAT-••••••••••••••••••••••••••••••••',
-    },
-    computeQuota: {
-      gpu: {
-        type: 'NVIDIA Tesla T4 x2 (16GB VRAM)',
-        totalWeeklyHours: 30,
-        remainingHours: 26.5,
-        status: 'READY',
-      },
-      tpu: {
-        type: 'Google Cloud TPU v3-8 Pods',
-        totalWeeklyHours: 20,
-        remainingHours: 18.2,
-        status: 'READY',
-      },
-      internetAccess: true,
-    },
-    toolsCount: 10,
-    tools: [
-      { name: 'search_notebooks', desc: 'ค้นหา Quant & ML Notebooks บน Kaggle ตามคีย์เวิร์ด' },
-      { name: 'get_notebook_info', desc: 'ดึงซอร์สโค้ดและ Metadata ของ Notebook' },
-      { name: 'create_notebook_session', desc: 'เปิด Interactive Session บน Cloud GPU' },
-      { name: 'get_notebook_session_status', desc: 'เช็คสถานะการเทรน (QUEUED, RUNNING, COMPLETE)' },
-      { name: 'save_notebook', desc: 'บันทึกและรัน Notebook ทั้งไฟล์ (Commit & Run)' },
-      { name: 'list_notebook_files', desc: 'ดูรายการไฟล์ข้อมูลและ Model Weights ใน Notebook' },
-      { name: 'list_notebook_session_output', desc: 'ดูไฟล์ Output และ Logs การเทรน' },
-      { name: 'download_notebook_output', desc: 'ขอ URL ดาวน์โหลดไฟล์ผลลัพธ์' },
-      { name: 'download_notebook_output_zip', desc: 'ดาวน์โหลด Checkpoints ทั้งหมดเป็น ZIP' },
-      { name: 'cancel_notebook_session', desc: 'ยกเลิก Session เพื่อประหยัดโควตา GPU' },
-    ],
-    lastPingMs: 42,
+    provider: 'kaggle',
+    configured: false,
+    available: false,
+    status: 'not_configured',
+    auth: { configured: false },
+    compute: { enabled: false, costIncurringActionsAllowed: false },
+    toolsCount: 0,
+    tools: [],
   });
   const [kaggleQuery, setKaggleQuery] = useState('Forex SMC');
   const [kaggleNotebooks, setKaggleNotebooks] = useState<any[]>([]);
@@ -163,7 +134,7 @@ export default function SystemSettingsView() {
       })
       .catch(() => {});
 
-    handleSearchKaggleNotebooks('Forex SMC');
+    // Do not issue a search request while the provider is known to be unavailable.
   }, []);
 
   function handleSearchKaggleNotebooks(q: string) {
@@ -173,11 +144,20 @@ export default function SystemSettingsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: q }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.notebooks) setKaggleNotebooks(data.notebooks);
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || 'KAGGLE_SEARCH_UNAVAILABLE');
+        setKaggleNotebooks(Array.isArray(data?.notebooks) ? data.notebooks : []);
       })
-      .catch(() => {})
+      .catch((error) => {
+        setKaggleNotebooks([]);
+        setKaggleStatus((current: any) => ({
+          ...current,
+          available: false,
+          status: 'not_configured',
+          lastError: error instanceof Error ? error.message : 'UNKNOWN_ERROR',
+        }));
+      })
       .finally(() => setKaggleSearching(false));
   }
 
@@ -188,13 +168,14 @@ export default function SystemSettingsView() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, machine_shape: machine }),
     })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.message) {
-          notifySaved(`🚀 Kaggle MCP: ${data.message}`);
-        }
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || 'KAGGLE_SESSION_DISABLED');
+        notifySaved(data?.message || 'Kaggle session request accepted.');
       })
-      .catch(() => {})
+      .catch((error) => {
+        notifySaved(`Kaggle session not started: ${error instanceof Error ? error.message : 'UNKNOWN_ERROR'}`);
+      })
       .finally(() => setKaggleTriggering(null));
   }
 
@@ -210,23 +191,10 @@ export default function SystemSettingsView() {
   }
 
 
-  function handleTriggerBackendTrain(symbol: string) {
-    setSyncingBackend(true);
-    setAutoTrainNotice(`🔄 Backend Auto-Train: กำลังดึงกราฟสด ${symbol} มาเทรนโมเดลอัตโนมัติที่ Backend...`);
-    fetch('/api/auto-train/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) {
-          setAutoTrainNotice(data.statusNotification);
-        }
-        notifySaved(`สั่งซิงค์ข้อมูลและเทรนโมเดล ${symbol} ที่ Backend เรียบร้อยแล้ว`);
-      })
-      .catch(() => {})
-      .finally(() => setSyncingBackend(false));
+  function handleTriggerBackendTrain(_symbol: string) {
+    // Defense in depth: never imply or request training without a verified runtime.
+    setSyncingBackend(false);
+    setAutoTrainNotice('Auto-Train unavailable: TRAINING_RUNTIME_NOT_CONFIGURED');
   }
 
   const activeProvider =
@@ -504,39 +472,31 @@ export default function SystemSettingsView() {
         <div className="p-6 rounded-3xl bg-[#0A101F] border border-cyan-500/30 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
             <div>
-              <span className="text-[11px] font-mono text-cyan-400 uppercase">
-                Backend Autonomous Data Ingestion &amp; Model Training
+              <span className="text-[11px] font-mono text-amber-400 uppercase">
+                Backend Training Runtime — Not Configured
               </span>
               <h2 className="text-base font-bold text-white mt-0.5">
-                ตั้งค่าระบบดึงข้อมูลตลาดและเทรนโมเดลอัตโนมัติหลังบ้าน (Backend 100%)
+                ระบบฝึกโมเดลหลังบ้านยังไม่พร้อมใช้งาน
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                ทำงานอัตโนมัติในเซิร์ฟเวอร์ Backend โดยไม่ต้องเปิดหน้ากราฟเทรนบน Frontend และแจ้งเฉพาะสถานะความพร้อมใช้งาน
+                Backend ตอบ TRAINING_RUNTIME_NOT_CONFIGURED จึงยังไม่มีการดึงข้อมูลหรือฝึกโมเดลจริง
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setAutoTrainEnabled(!autoTrainEnabled)}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all ${
-                autoTrainEnabled
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              {autoTrainEnabled ? '🟢 เปิด Auto-Train หลังบ้าน (ON)' : 'ปิดชั่วคราว (OFF)'}
-            </button>
+            <span className="px-4 py-2 rounded-xl text-xs font-mono font-bold bg-slate-800 text-rose-300" aria-disabled="true">
+              Auto-Train OFF — Runtime Not Configured
+            </span>
           </div>
 
           {/* Current Backend Status Notification Bar */}
-          <div className="p-4 rounded-2xl bg-[#060A14] border border-emerald-500/35 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 text-xs font-mono text-emerald-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <div className="p-4 rounded-2xl bg-[#060A14] border border-amber-500/35 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-xs font-mono text-amber-300">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
               <span>{autoTrainNotice}</span>
             </div>
             <button
               type="button"
-              disabled={syncingBackend}
+              disabled={true}
               onClick={() => handleTriggerBackendTrain('XAU/USDm')}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-cyan-400 hover:bg-cyan-300 transition-colors"
             >
@@ -550,9 +510,9 @@ export default function SystemSettingsView() {
             <div className="p-4 rounded-2xl bg-[#060A14] border border-slate-800 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-white">
-                  🌍 คู่หลัก Forex &amp; ทองคำที่ดึงข้อมูลเทรนอัตโนมัติ (8 คู่)
+                  Forex &amp; ทองคำ — รายการที่ยังไม่เปิดใช้งาน
                 </span>
-                <span className="font-mono text-cyan-400">Exness Direct Feed</span>
+                <span className="font-mono text-amber-400">Feed Not Connected</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {MAJOR_FOREX_LIST.map((sym) => (
@@ -560,6 +520,7 @@ export default function SystemSettingsView() {
                     key={sym}
                     type="button"
                     onClick={() => handleTriggerBackendTrain(sym)}
+                    disabled={true}
                     className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#0D1528] hover:bg-cyan-500/20 text-slate-200 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-colors"
                   >
                     {sym} · เทรนซ้ำ
@@ -572,9 +533,9 @@ export default function SystemSettingsView() {
             <div className="p-4 rounded-2xl bg-[#060A14] border border-slate-800 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-white">
-                  🪙 คู่หลัก Crypto ที่ดึงข้อมูลเทรนอัตโนมัติ (8 คู่)
+                  Crypto — รายการที่ยังไม่เปิดใช้งาน
                 </span>
-                <span className="font-mono text-indigo-400">Binance / Bybit Feed</span>
+                <span className="font-mono text-amber-400">Feed Not Connected</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {MAJOR_CRYPTO_LIST.map((sym) => (
@@ -582,6 +543,7 @@ export default function SystemSettingsView() {
                     key={sym}
                     type="button"
                     onClick={() => handleTriggerBackendTrain(sym)}
+                    disabled={true}
                     className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#0D1528] hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 border border-slate-800 hover:border-indigo-500/40 transition-colors"
                   >
                     {sym} · เทรนซ้ำ
@@ -593,7 +555,7 @@ export default function SystemSettingsView() {
 
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 text-xs text-slate-400">
             <div>
-              ความถี่ในการดึงแท่งเทียนและอัปเดตพารามิเตอร์โมเดลหลังบ้าน (VQC + TFT + FinRL): ทุกๆ{' '}
+              ความถี่ที่เคยตั้งไว้ (ยังไม่มีผล เพราะ Runtime ไม่พร้อม):{' '}
               <strong className="text-white font-mono">{autoTrainIntervalSec} วินาที</strong>
             </div>
             <div className="flex items-center gap-2">
@@ -601,10 +563,8 @@ export default function SystemSettingsView() {
                 <button
                   key={sec}
                   type="button"
-                  onClick={() => {
-                    setAutoTrainIntervalSec(sec);
-                    notifySaved(`ตั้งค่ารอบการดึงข้อมูลเทรนหลังบ้านเป็นทุกๆ ${sec} วินาที`);
-                  }}
+                  disabled={true}
+                  onClick={() => {}}
                   className={`px-2.5 py-1 rounded-lg font-mono text-xs border ${
                     autoTrainIntervalSec === sec
                       ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
@@ -689,7 +649,7 @@ export default function SystemSettingsView() {
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-400">ระบบเทรนโมเดล AI</span>
-                <span className="font-mono text-emerald-400">รันเบื้องหลังที่ Backend อัตโนมัติ</span>
+                <span className="font-mono text-rose-400">ยังไม่พร้อมใช้งาน (TRAINING_RUNTIME_NOT_CONFIGURED)</span>
               </div>
             </div>
           </div>
