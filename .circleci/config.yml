@@ -21,40 +21,13 @@ jobs:
           name: Install root Vite dependencies without writing a lockfile
           command: npm install --no-package-lock --include=dev
       - run:
-          name: Validate NOVA Node test suite with CircleCI testsuite doctor
-          command: circleci testsuite doctor "nova node tests"
+          name: Run NOVA Node tests with CircleCI Smarter Testing
+          command: circleci testsuite run "nova node tests"
       - store_test_results:
           path: test-reports
       - run:
-          name: Test NOVA Demo-only read-only execution guard
-          command: node --test tests/nova-trading-readonly-guard.test.mjs
-      - run:
-          name: Test NOVA training status honesty
-          command: node --test tests/nova-training-status-honesty.test.mjs
-      - run:
-          name: Test Supabase Marketplace security migration contract
-          command: node --test tests/supabase-marketplace-security-migration.test.mjs
-      - run:
-          name: Test Supabase Vault readiness and local secret boundaries
-          command: node --test tests/secret-vault-readiness.test.mjs
-      - run:
-          name: Test NOVA durable approval lifecycle contracts
-          command: node --test tests/nova-approval-migration.test.mjs
-      - run:
           name: Syntax-check staging customer isolation harness
           command: node --check tests/staging-customer-isolation.mjs
-      - run:
-          name: Test NOVA AI Worker authentication and safety contract
-          command: node --test integrations/nova-ai-worker/*.test.mjs
-      - run:
-          name: Test NOVA System Integration Hub authorization and tenant boundaries
-          command: node --test integrations/system-hub/tests/*.test.mjs
-      - run:
-          name: Test Remote MCP Exness MT5 read-only tools
-          command: node --test integrations/remote-mcp-worker/tests/*.test.mjs
-      - run:
-          name: Test tenant-isolated MT5 Bridge relay and proxy
-          command: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
       - run:
           name: Compile MT5 bridge Python sources without connecting to a terminal
           command: python3 -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
