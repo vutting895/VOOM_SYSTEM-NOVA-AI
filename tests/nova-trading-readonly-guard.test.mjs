@@ -131,6 +131,17 @@ test('infrastructure health reports offline and unverified services without fabr
   assert.doesNotMatch(health, /14\.2|145|98\.7|24\.5|100\.0|STANDBY_DEMO_READY/);
 });
 
+test('learning and training endpoints do not fabricate data or start unverified jobs', () => {
+  const learning = section(server, "app.get('/api/learning/universe'", '// Hybrid Architecture Endpoint');
+  const status = section(server, "app.get('/api/auto-train/status'", "app.post('/api/auto-train/trigger'");
+  const trigger = section(server, "app.post('/api/auto-train/trigger'", "app.get('/api/mt5-bridge/status'");
+  assert.match(learning, /status\(503\)/);
+  assert.match(learning, /learning_runtime_not_configured/);
+  assert.doesNotMatch(learning, /accuracyPct: 83\.2|totalSamplesStored: 1485000|healthPct: 100/);
+  assert.match(status, /status\(503\)/);
+  assert.match(trigger, /status\(503\)/);
+});
+
 test('server blocks high-impact API mutations before parsing request bodies', () => {
   const jsonParserAt = server.indexOf('app.use(express.json())');
   const guardAt = server.indexOf('const blockedMutation =');
