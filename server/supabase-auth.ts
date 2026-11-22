@@ -6,11 +6,11 @@ export function createSupabaseAuthMiddleware(
 ): RequestHandler {
   return async (_req, res, next) => {
     const authorization = _req.headers.authorization || '';
-    if (!/^Bearer\\s+\\S+$/i.test(authorization)) {
+    if (!/^Bearer\s+\S+$/i.test(authorization)) {
       res.status(401).json({ ok: false, error: 'authentication_required' });
       return;
     }
-    const supabaseUrl = (env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\\/$/, '');
+    const supabaseUrl = (env.SUPABASE_URL || env.VITE_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
     const publishableKey = env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     if (!supabaseUrl.startsWith('https://') || !publishableKey) {
       res.status(503).json({ ok: false, error: 'authentication_service_not_configured' });
@@ -33,4 +33,8 @@ export function createSupabaseAuthMiddleware(
       res.status(503).json({ ok: false, error: 'authentication_service_unavailable' });
     }
   };
+}
+
+export function scopedThreadId(userId: string, threadId: string): string {
+  return `${userId}:${threadId}`;
 }
