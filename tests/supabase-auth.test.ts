@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import express from 'express';
 import { createServer } from 'node:http';
-import { createSupabaseAuthMiddleware } from '../server/supabase-auth';
+import { createSupabaseAuthMiddleware, scopedThreadId } from '../server/supabase-auth';
 
 async function requestWith(fetcher: typeof fetch, authorization?: string, env: Record<string,string|undefined> = { SUPABASE_URL: 'https://nova-test.supabase.co', SUPABASE_PUBLISHABLE_KEY: 'test-key' }) {
   const app = express();
@@ -38,4 +38,8 @@ test('verified user identity is attached to request', async () => {
 test('missing auth configuration returns 503', async () => {
   const response = await requestWith(async () => { throw new Error('must not call'); }, 'Bearer valid', {});
   assert.equal(response.status, 503);
+});
+
+test('thread identifiers are isolated per authenticated user', () => {
+  assert.notEqual(scopedThreadId('user-A', 'same-thread'), scopedThreadId('user-B', 'same-thread'));
 });
