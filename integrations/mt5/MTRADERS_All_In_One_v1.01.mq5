@@ -10,13 +10,14 @@
 #property description "Hedging account required. Embedded defaults, no .set preset."
 #property strict
 
+#define NOVA_READ_ONLY_MODE true
 #define MODULES 30
 #define STATE_SIGNATURE 1095323465
 #define STATE_VERSION 100
 const string ENGINE_LABEL="MTRADERS All In One 1.01";
 
 input group "=== Automatic operation ==="
-input bool            InpTradeEnabled         = true;
+input bool            InpTradeEnabled         = false; // Ignored while NOVA_READ_ONLY_MODE is true.
 input ENUM_TIMEFRAMES InpAnalysisTF           = PERIOD_M15;
 input long            InpMagicBase            = 690711000;
 input group "=== Speculative risk defaults ==="
@@ -172,7 +173,9 @@ bool DirectionAllowed(const int dir)
 int OnInit()
 {
    RegisterModules();
-   Print(ENGINE_LABEL," initialized successfully for symbol ",_Symbol);
+   if(NOVA_READ_ONLY_MODE && InpTradeEnabled)
+      Print(ENGINE_LABEL," WARNING: InpTradeEnabled is ignored; NOVA V1 is READ-ONLY.");
+   Print(ENGINE_LABEL," initialized in READ-ONLY mode for symbol ",_Symbol);
    return(INIT_SUCCEEDED);
 }
 
@@ -183,5 +186,7 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
+   // Hard fail-closed boundary: this EA may not process ticks for trading in NOVA V1.
+   if(NOVA_READ_ONLY_MODE) return;
    // Core tick evaluation handler for 30 modules
 }
