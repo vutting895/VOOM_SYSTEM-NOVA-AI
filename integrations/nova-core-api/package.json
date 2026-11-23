@@ -5,6 +5,9 @@
   "scripts": {
     "test": "node --test worker.test.mjs"
   },
+  "dependencies": {
+    "jose": "^5.9.6"
+  },
   "engines": {
     "node": ">=22"
   }
