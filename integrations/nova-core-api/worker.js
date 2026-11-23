@@ -150,14 +150,16 @@ async function loadJwks(url, forceRefresh = false) {
   return imported;
 }
 
-async function authProviderReady(env) {
+async function authProviderStatus(env) {
   const config = supabaseConfig(env);
-  if (!config) return false;
+  if (!config) return { ready: false, reason: "invalid_supabase_url", keyCount: 0 };
   try {
     const keys = await loadJwks(config.jwksUrl);
-    return keys.size > 0;
-  } catch {
-    return false;
+    return { ready: keys.size > 0, reason: keys.size > 0 ? null : "no_usable_signing_keys", keyCount: keys.size };
+  } catch (error) {
+    const allowed = new Set(["jwks_provider_unavailable", "jwks_response_too_large", "empty_jwks_response", "invalid_jwks_document"]);
+    const reason = allowed.has(error?.message) ? error.message : "jwks_parse_or_import_failed";
+    return { ready: false, reason, keyCount: 0 };
   }
 }
 
@@ -248,9 +250,11 @@ export default {
     if (request.method !== "GET") return fail("method_not_allowed", 405, origin, env);
 
     if (url.pathname === "/v1/health") {
-      const providerReady = await authProviderReady(env);
+      const provider = await authProviderStatus(env);
       return json({
-        status: providerReady ? "ok" : "degraded",
+        status: provider.ready ? "ok" : "degraded",
+        providerReason: provider.reason,
+        jwksKeyCount: provider.keyCount,
         version: VERSION,
         time: new Date().toISOString(),
         liveTrading: false,
