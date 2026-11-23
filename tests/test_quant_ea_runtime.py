@@ -26,6 +26,18 @@ class EaRuntimeTests(unittest.TestCase):
         self.assertEqual(result["final_decision"], "NO_TRADE")
         self.assertIn("STALE_MARKET_DATA", result["final_decision_blockers"])
 
+    def test_freshness_uses_completed_bar_close_time_not_open_time(self):
+        market = self.market("2026-11-23T11:35:00+00:00")
+        market["bars"][-1]["bar_close_time"] = "2026-11-23T11:40:00+00:00"
+        with patch.object(ea_runtime, "evaluate_all_nova_ea_v182_strategies", return_value=[]):
+            result = ea_runtime.analyze_nova_ea_v182(
+                market_data=market,
+                current_time="2026-11-23T11:49:59+00:00",
+                premium_discount={"zone": "EQUILIBRIUM"},
+            )
+        self.assertEqual(result["data_age_seconds"], 599.0)
+        self.assertNotEqual(result["reason"], "STALE_COMPLETED_BAR_DATA")
+
     def test_future_bar_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "future"):
             ea_runtime.analyze_nova_ea_v182(
