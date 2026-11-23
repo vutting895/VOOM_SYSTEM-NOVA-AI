@@ -185,7 +185,7 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
                 ping_timeout=20,
                 max_size=MAX_MESSAGE_BYTES
             ) as websocket:
-                print("[mt5-relay] authenticated outbound connection established; read-only mode")
+                print("[mt5-relay] authenticated outbound connection established; read-only mode", flush=True)
                 backoff = 2
                 send_lock = asyncio.Lock()
                 async for raw in websocket:
@@ -199,7 +199,7 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
         except asyncio.CancelledError:
             raise
         except Exception:
-            print("[mt5-relay] outbound connection unavailable; retrying with backoff")
+            print(f"[mt5-relay] outbound connection unavailable ({type(exc).__name__}); retrying with backoff", flush=True)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30)
 
@@ -229,7 +229,7 @@ async def main() -> None:
     )
     try:
         await wait_for_local_bridge(bridge_process, tenant_id, token)
-        print("[mt5-relay] local Bridge health verified; no public local port is opened")
+        print("[mt5-relay] local Bridge health verified; no public local port is opened", flush=True)
         await run_relay(relay_url, tenant_id, token)
     finally:
         if bridge_process.returncode is None:
@@ -245,4 +245,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("[mt5-relay] stopped")
+        print("[mt5-relay] stopped", flush=True)
