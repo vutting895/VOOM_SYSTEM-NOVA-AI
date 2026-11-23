@@ -19,7 +19,7 @@ STRATEGY_NAMES = [
     "RangeSniper", "SessionBox", "TrendPilot", "VolRegime-QEX", "WyckoffPhase",
 ]
 # Explicitly disabled in the v1.82 source comments.
-DISABLED_IDS = {0, 12, 18, 23, 24, 25}
+DISABLED_IDS = {0, 12, 18, 24, 25}
 # These IDs are still dispatched by EvaluateClosedModule / SignalSATMA in v1.82.
 ACTIVE_DISPATCH_IDS = {0, 10, 13, 14, 16, 20, 21, 23, 24, 25, 26, 27, 29}
 IMPLEMENTED_IDS = {14, 20, 26, 27, 29}
@@ -329,7 +329,7 @@ def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, A
     if strategy_id not in IMPLEMENTED_IDS:
         status = "NOT_PORTED" if strategy_id in ACTIVE_DISPATCH_IDS else "RETIRED_OR_NOT_DISPATCHED"
         return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": status, "reason": "no_signal_emitted_until_source_parity_is_implemented"}
-    bars = _bars(market_data)
+    bars = _bars(market_data, minimum=210 if strategy_id == 27 else 110)
     if strategy_id == 14:
         result, next_state = _smc_full(bars, state)
         result["state"] = next_state
