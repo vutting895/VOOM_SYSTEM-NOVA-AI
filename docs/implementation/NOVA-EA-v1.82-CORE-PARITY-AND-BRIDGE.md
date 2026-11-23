@@ -12,21 +12,24 @@ The original EA is not safe to execute as-is: it contains broker execution paths
 
 ## What is in Core now
 
-The first source-grounded Python parity slice implements five strategy modules:
+The first source-grounded Python parity slice implements eight active signal modules:
 
 | EA module ID | Strategy | Port status |
 |---:|---|---|
 | 13 | SMC Full — confirmed swing BOS, OB/FVG retrace, Premium/Discount and wick confirmation | Implemented as stateful research signal |
-| 4 | LiquidityPools — confirmed pivot clusters, sweep/reclaim, ATR stop and 1:2 reference target | Implemented as research signal |
+| 4 | LiquidityPools — confirmed pivot clusters, sweep/reclaim, ATR stop and 1:2 reference target | Implemented with 10-bar cooldown and consumed-pool state key |
 | 9 | SessionBox — London / New York completed-session range breakout | Implemented; requires explicit broker server UTC offset and bar duration |
 | 1 | TrendPilot — EMA50/EMA200 trend plus RSI 45/55 crossing | Implemented; requires at least 210 completed bars |
 | 6 | WyckoffPhase — range, spring/upthrust, displacement and LPS state machine | Implemented as stateful research signal |
+| 2 | VolRegime-QEX — ATR percentile / Bollinger-width squeeze and range breakout | Implemented with state and 15-bar entry cooldown |
+| 10 | FlowMatrix — normalized bounded-delta share and EMA50/EMA200 alignment | Implemented; requires the multi-symbol bar universe |
+| 8 | SessionHeat — 30-day server-hour H1 statistics and H1 breakout | Implemented as intrabar research candidate; requires H1 history, server time and current bid |
 
 All other IDs abstain with an explicit status. They do not receive synthetic direction/confidence scores.
 
-The source has 20 module IDs. Its v1.22 audit marks six modules disabled/removed: SuperTrend (0), QEX-VolST (3), QEX-LiqSweep (5), RangeSniper (7), WickReject (12), and Trend_Trail (16). The 14 kept modules are IDs 1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, and 19. Remaining kept modules still requiring source-parity work include VolRegime-QEX, SessionHeat, FlowMatrix, SATMAFlow, ZigZag_BreakPull, Martingale_Avg, Intraday_VolBreak, Trend_Adding, and GOLD_Breakout.
+The source has 20 module IDs. Its v1.22 audit marks six modules disabled/removed: SuperTrend (0), QEX-VolST (3), QEX-LiqSweep (5), RangeSniper (7), WickReject (12), and Trend_Trail (16). The 14 kept modules are IDs 1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, and 19. The remaining kept registry entries are SATMAFlow (11), ZigZag_BreakPull (14), Martingale_Avg (15), Intraday_VolBreak (17), Trend_Adding (18), and GOLD_Breakout (19). These are marked DORMANT_NOT_DISPATCHED because no active call path was found in the inspected v1.82 MainWork/dispatch flow; they are not silently reactivated. The SATMA function exists, but its MainWork call is commented out.
 
-This is not full 20-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence and exact broker-server session/DST behavior still need parity tests against MT5 outputs before these candidates are used in a production backtest.
+This is not full 20-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence is returned explicitly for the caller to persist after accepted entries. Exact broker-server session/DST behavior, multi-symbol universe ordering, and intrabar tick-vs-bar parity still need comparison tests against MT5 before these candidates are used in a production backtest.
 
 ## Core integration rules
 
