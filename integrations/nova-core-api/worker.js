@@ -1,4 +1,4 @@
-const VERSION = "0.2.3";
+const VERSION = "0.2.4";
 const ROLE_LEVEL = Object.freeze({ viewer: 1, operator: 2, admin: 3 });
 const jwksCache = new Map();
 const JWKS_TTL_MS = 5 * 60 * 1000;
@@ -136,17 +136,18 @@ async function loadJwks(url, forceRefresh = false) {
   }
 
   const imported = new Map();
+  let importErrorName = null;
   for (const jwk of document.keys) {
     for (const alg of ["RS256", "ES256"]) {
       try {
         const key = await importVerificationKey(jwk, alg);
         imported.set(jwk.kid + ":" + alg, key);
-      } catch {
-        // Ignore unusable keys; the JWT header must still match a usable key.
+      } catch (error) {
+        importErrorName = typeof error?.name === "string" ? error.name : "Error";
       }
     }
   }
-  jwksCache.set(cacheKey, { keys: imported, expiresAt: Date.now() + JWKS_TTL_MS });
+  jwksCache.set(cacheKey, { keys: imported, importErrorName, expiresAt: Date.now() + JWKS_TTL_MS });
   return imported;
 }
 
@@ -155,11 +156,17 @@ async function authProviderStatus(env) {
   if (!config) return { ready: false, reason: "invalid_supabase_url", keyCount: 0 };
   try {
     const keys = await loadJwks(config.jwksUrl);
-    return { ready: keys.size > 0, reason: keys.size > 0 ? null : "no_usable_signing_keys", keyCount: keys.size };
+    const diagnostic = jwksCache.get(config.jwksUrl.toString());
+    return {
+      ready: keys.size > 0,
+      reason: keys.size > 0 ? null : diagnostic?.importErrorName ? "jwks_key_import_failed" : "no_usable_signing_keys",
+      keyCount: keys.size,
+      importErrorName: keys.size > 0 ? null : diagnostic?.importErrorName || null,
+    };
   } catch (error) {
     const allowed = new Set(["jwks_provider_unavailable", "jwks_response_too_large", "empty_jwks_response", "invalid_jwks_document"]);
     const reason = allowed.has(error?.message) ? error.message : "jwks_parse_or_import_failed";
-    return { ready: false, reason, keyCount: 0 };
+    return { ready: false, reason, keyCount: 0, importErrorName: null };
   }
 }
 
@@ -255,6 +262,7 @@ export default {
         status: provider.ready ? "ok" : "degraded",
         providerReason: provider.reason,
         jwksKeyCount: provider.keyCount,
+        jwksImportError: provider.importErrorName,
         version: VERSION,
         time: new Date().toISOString(),
         liveTrading: false,

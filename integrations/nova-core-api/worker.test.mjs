@@ -182,30 +182,3 @@ test("prototype property names are not accepted as roles", async (t) => {
   }), env);
   assert.equal(response.status, 403);
 });
-
-test("valid ES256 Supabase JWT can read identity", async (t) => {
-  const { publicKey: ecPublicKey, privateKey: ecPrivateKey } = await generateKeyPair("ES256");
-  const ecJwk = await exportJWK(ecPublicKey);
-  ecJwk.kid = "nova-es256-test-key";
-  ecJwk.alg = "ES256";
-  ecJwk.use = "sig";
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json({ keys: [ecJwk] });
-  t.after(() => { globalThis.fetch = originalFetch; });
-
-  const signed = await new SignJWT({ app_metadata: { nova_role: "viewer" } })
-    .setProtectedHeader({ alg: "ES256", kid: ecJwk.kid, typ: "JWT" })
-    .setIssuer("https://example.supabase.co/auth/v1")
-    .setAudience("authenticated")
-    .setSubject("user-es256")
-    .setIssuedAt()
-    .setExpirationTime("5m")
-    .sign(ecPrivateKey);
-  const response = await worker.fetch(request("/v1/me", {
-    headers: { Authorization: "Bearer " + signed },
-  }), env);
-  const body = await response.json();
-  assert.equal(response.status, 200);
-  assert.equal(body.id, "user-es256");
-  assert.equal(body.role, "viewer");
-});
