@@ -50,7 +50,11 @@ def analyze_nova_ea_v182(
     if not isinstance(bars, list) or len(bars) < 110:
         raise ValueError("at_least_110_completed_bars_required")
     now = _aware_time(current_time, "current_time")
-    last_bar_time = _aware_time(bars[-1].get("time") if isinstance(bars[-1], Mapping) else None, "last_completed_bar_time")
+    last_bar = bars[-1] if isinstance(bars[-1], Mapping) else None
+    last_bar_time = _aware_time(
+        (last_bar.get("bar_close_time") or last_bar.get("time")) if last_bar else None,
+        "last_completed_bar_time",
+    )
     if last_bar_time > now:
         raise ValueError("last_completed_bar_is_in_the_future")
     age = (now - last_bar_time).total_seconds()
