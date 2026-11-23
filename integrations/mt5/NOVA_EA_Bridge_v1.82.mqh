@@ -25,13 +25,27 @@ string NovaEABridgeIsoUtc(const datetime value)
 string NovaEABridgeTimeframe()
 {
    if(_Period==PERIOD_M1) return "M1";
+   if(_Period==PERIOD_M2) return "M2";
+   if(_Period==PERIOD_M3) return "M3";
+   if(_Period==PERIOD_M4) return "M4";
    if(_Period==PERIOD_M5) return "M5";
+   if(_Period==PERIOD_M6) return "M6";
+   if(_Period==PERIOD_M10) return "M10";
+   if(_Period==PERIOD_M12) return "M12";
    if(_Period==PERIOD_M15) return "M15";
+   if(_Period==PERIOD_M20) return "M20";
    if(_Period==PERIOD_M30) return "M30";
    if(_Period==PERIOD_H1) return "H1";
+   if(_Period==PERIOD_H2) return "H2";
+   if(_Period==PERIOD_H3) return "H3";
    if(_Period==PERIOD_H4) return "H4";
+   if(_Period==PERIOD_H6) return "H6";
+   if(_Period==PERIOD_H8) return "H8";
+   if(_Period==PERIOD_H12) return "H12";
    if(_Period==PERIOD_D1) return "D1";
-   return "M15";
+   if(_Period==PERIOD_W1) return "W1";
+   if(_Period==PERIOD_MN1) return "MN1";
+   return "UNSUPPORTED";
 }
 
 bool NovaEABridgeInit()
