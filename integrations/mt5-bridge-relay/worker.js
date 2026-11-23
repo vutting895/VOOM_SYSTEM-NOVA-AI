@@ -5,7 +5,7 @@ const BASE = {
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
 const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes", "/api/ea/status"]);
-const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
+const TIMEFRAMES = new Set(["M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30", "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
 

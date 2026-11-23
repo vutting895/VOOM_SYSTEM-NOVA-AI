@@ -10,6 +10,7 @@ PY_BRIDGE = (ROOT / "integrations/mt5-readonly-bridge/bridge.py").read_text(enco
 RELAY = (ROOT / "integrations/mt5-bridge-relay/worker.js").read_text(encoding="utf-8")
 CLIENT = (ROOT / "integrations/mt5-readonly-bridge/bridge_relay_client.py").read_text(encoding="utf-8")
 PROXY = (ROOT / "integrations/mt5-readonly-proxy/worker.js").read_text(encoding="utf-8")
+READONLY_EA = (ROOT / "integrations/mt5/Nova_EA_v1.82_READONLY.mq5").read_text(encoding="utf-8")
 
 
 class NovaEABridgeTests(unittest.TestCase):
@@ -57,6 +58,29 @@ class NovaEABridgeTests(unittest.TestCase):
             self.assertIn('"' + field + '"', PY_BRIDGE)
         self.assertIn('request.method == "POST" and request.url.path == "/api/ea/heartbeat"', PY_BRIDGE)
         self.assertIn('request.method not in {"GET", "OPTIONS"}', PY_BRIDGE)
+
+
+    def test_original_v182_readonly_copy_has_no_broker_write_capability(self):
+        self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', READONLY_EA)
+        self.assertIn("NovaEABridgeInit()", READONLY_EA)
+        self.assertIn("NovaEABridgeHeartbeat(0)", READONLY_EA)
+        self.assertIn("NovaEABridgeDeinit()", READONLY_EA)
+        self.assertIn('string status = "READ-ONLY - NO EXECUTION";', READONLY_EA)
+        self.assertIn("g_V162_Live = false;", READONLY_EA)
+        self.assertNotIn(r"#include <Trade\Trade.mqh>", READONLY_EA)
+        code = re.sub(r'"(?:\\.|[^"\\])*"', '""', READONLY_EA)
+        code = re.sub(r'//[^\r\n]*|/\*.*?\*/', "", code, flags=re.S)
+        forbidden = (
+            r"\bOrderSend(?:Async)?\s*\(",
+            r"\bOrderDelete\s*\(",
+            r"\bPositionClose(?:By)?\s*\(",
+            r"\bPositionModify\s*\(",
+            r"\bgTrade\s*\.",
+            r"\.(?:Buy|Sell)(?:Limit|Stop)?\s*\(",
+        )
+        for pattern in forbidden:
+            with self.subTest(pattern=pattern):
+                self.assertNotRegex(code, pattern)
 
 
 if __name__ == "__main__":

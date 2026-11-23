@@ -56,17 +56,20 @@ The local endpoint:
 
 Cloud access is read-only: authenticated `GET /api/ea/status` flows through Supabase Auth → MT5 proxy → tenant-scoped Cloudflare relay → local bridge. Heartbeat status is online only for six seconds after the last accepted heartbeat. The heartbeat is held in memory by the local bridge; it is not yet durable database history.
 
-**Integration is not yet complete:** this PR deliberately does not ship an EA entrypoint, because the existing safe entrypoint in prior PR #367 was a v1.83-derived clean-room strategy, not the user's v1.82 source. The original v1.82 file contains live order and position-management code. A separate READ-ONLY copy of that exact source must be produced and verified before adding the include or attaching it to MT5.
+Deployment caveat observed on 2026-11-23: the currently deployed Cloudflare relay returns HTTP 404 for GET /api/ea/status; this PR adds the route in source, but the production Worker/proxy update remains pending review and deployment. Local Bridge status is available; customer-facing cloud EA status is not yet verified.
+
+A source-grounded READ-ONLY entrypoint is now included at integrations/mt5/Nova_EA_v1.82_READONLY.mq5. It is derived from the exact local v1.82 source SHA F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A, includes the bridge, and wires NovaEABridgeInit, NovaEABridgeHeartbeat(0), and NovaEABridgeDeinit into the EA lifecycle. Every native broker write call site was compiled out; the CTrade include/object was removed; the Live UI is hard-locked OFF and the dashboard labels the build READ-ONLY. Native MetaEditor 5 compile: 0 errors, 3 warnings. The original source remains untouched.
 
 ## Installation / verification gate
 
-1. Keep the original live-capable v1.82 EA detached; do not attach it as a bridge sender.
-2. Produce and review a READ-ONLY copy of the exact v1.82 source, with all order/position write paths removed or unreachable.
-3. Add this include to that reviewed copy and wire `NovaEABridgeInit`, `EventSetTimer`, `NovaEABridgeHeartbeat`, `EventKillTimer`, and `NovaEABridgeDeinit` into its lifecycle.
-4. Run `tools/windows/provision-nova-ea-bridge-token.ps1` once on the intended Windows MT5 host.
-5. Start the tenant-authenticated Python Bridge with `tools/windows/run-bridge-from-git.ps1` after review/deployment.
-6. Add `http://127.0.0.1:8787` to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL.
-7. Verify local heartbeat HTTP 200 and authenticated `GET /api/ea/status` reports `online`; then verify bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
-8. Compile with native MetaEditor and run read-only MT5 Strategy Tester validation.
+1. Keep the original live-capable v1.82 EA detached; use only Nova_EA_v1.82_READONLY.mq5.
+2. Confirm its source safety scan has no broker write APIs and compile it with native MetaEditor 5.
+3. Run tools/windows/provision-nova-ea-bridge-token.ps1 once on the intended Windows MT5 host.
+4. Start the tenant-authenticated Python Bridge with tools/windows/run-bridge-from-git.ps1 after review/deployment.
+5. Add http://127.0.0.1:8787 to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL.
+6. Attach only the compiled READ-ONLY EA to the intended Exness Demo chart; keep Algo Trading disabled.
+7. Verify local heartbeat HTTP 200 and authenticated GET /api/ea/status reports online; then verify bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
+8. Deploy the updated Cloudflare relay/proxy Worker only after PR review; current production relay returns 404 for /api/ea/status, while the branch source includes that route.
+9. Run read-only MT5 Strategy Tester validation.
 
-No deployment, local EA installation, merge, or live trading activation is implied by this source change. Algo Trading must remain disabled and Live Trading OFF.
+The READ-ONLY source and compiled EX5 are installed in the local MT5 Experts/NOVA_READONLY folder but are not attached to a chart. No production deployment, chart attachment, merge, or live trading activation is implied. Algo Trading must remain disabled and Live Trading OFF.

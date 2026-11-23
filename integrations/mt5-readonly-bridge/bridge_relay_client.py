@@ -25,7 +25,7 @@ MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/ea/status"}
-TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
+TIMEFRAMES = {"M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30", "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1"}
 
 
 def validate_relay_url(value: str) -> str:

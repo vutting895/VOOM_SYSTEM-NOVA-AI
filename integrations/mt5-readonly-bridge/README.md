@@ -71,9 +71,11 @@ Provision the local token once from the repository root:
 
 The provisioner writes a random token to MetaTrader Common Files and never prints its value. The bridge launcher reads the same file into its private process environment. The EA reads the token locally from Common Files; it is not embedded in source code.
 
-The include is not yet wired into the original EA. Do not attach the original live-capable v1.82 source as a telemetry sender. First produce and verify a READ-ONLY copy of that exact source, then add `NOVA_EA_Bridge_v1.82.mqh` and wire its lifecycle calls. In MT5, add `http://127.0.0.1:8787` to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Keep Algo Trading disabled.
+A source-grounded READ-ONLY copy is provided at integrations/mt5/Nova_EA_v1.82_READONLY.mq5. It is derived from the exact v1.82 source, includes NOVA_EA_Bridge_v1.82.mqh, sends a two-second local heartbeat, and compiles out every OrderSend, OrderDelete, PositionClose, PositionModify, and CTrade call site. Native MetaEditor 5 compile on the Windows host: 0 errors, 3 warnings (two deprecated POSITION_COMMISSION references and one long-to-double conversion warning). Do not attach the original live-capable source. Copy the READ-ONLY .mq5 and .mqh into the MT5 Experts directory, compile, then attach only the READ-ONLY build. In MT5, add http://127.0.0.1:8787 to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Keep Algo Trading disabled.
 
 A connected status requires all of the following: the local Python Bridge passes tenant-authenticated health; the EA heartbeat is accepted; the outbound WSS relay is active; and the signed-in user's own Supabase connection row is provisioned. Worker health alone is not proof of EA connectivity.
+
+Deployment caveat: the currently deployed Cloudflare relay returns HTTP 404 for GET /api/ea/status. The branch source includes the route, but the production Worker/proxy update is still pending PR review and deployment. Do not mark the cloud EA status as connected until that route is deployed and verified through the authenticated customer proxy.
 
 ## Endpoints
 
@@ -82,7 +84,7 @@ A connected status requires all of the following: the local Python Bridge passes
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
 
-Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
+Supported timeframes: M1, M2, M3, M4, M5, M6, M10, M12, M15, M20, M30, H1, H2, H3, H4, H6, H8, H12, D1, W1, MN1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
 ## Validation before marking a customer connected
 
