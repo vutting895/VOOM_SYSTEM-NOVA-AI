@@ -101,7 +101,7 @@ async function resolveSigningKey(url, header) {
 }
 
 export async function authenticate(request, env) {
-  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
+  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
 
   const config = supabaseConfig(env);
