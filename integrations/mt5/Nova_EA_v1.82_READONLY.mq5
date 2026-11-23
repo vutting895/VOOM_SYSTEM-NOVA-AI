@@ -7729,7 +7729,7 @@ void OnDeinit(const int reason)
    gInitialized=false;
 }
 void OnTick() { gLastMarketTickMs=GetTickCount64();gUiTickSeen=true;UpdateTickDelta();NovaEABridgeHeartbeat(0);MainWork(); }
-void OnTimer() { MainWork(); }
+void OnTimer() { NovaEABridgeHeartbeat(0); MainWork(); }
 void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result)
 {
    // Keep the transaction handler short: event order is not guaranteed by MT5.

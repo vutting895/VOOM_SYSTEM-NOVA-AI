@@ -17,6 +17,8 @@ class NovaEABridgeTests(unittest.TestCase):
     def test_bridge_include_exposes_two_second_heartbeat_function(self):
         self.assertIn("#define NOVA_EA_BRIDGE_INTERVAL_SEC 2", BRIDGE)
         self.assertIn("void NovaEABridgeHeartbeat(", BRIDGE)
+        self.assertIn("gNovaEABridgeLastTickUtc", BRIDGE)
+        self.assertIn("if(tickTime<=0) return;", BRIDGE)
 
     def test_ea_uses_only_loopback_telemetry_endpoint(self):
         self.assertIn('http://127.0.0.1:8787/api/ea/heartbeat', BRIDGE)
@@ -64,6 +66,7 @@ class NovaEABridgeTests(unittest.TestCase):
         self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', READONLY_EA)
         self.assertIn("NovaEABridgeInit()", READONLY_EA)
         self.assertIn("NovaEABridgeHeartbeat(0)", READONLY_EA)
+        self.assertIn("void OnTimer() { NovaEABridgeHeartbeat(0); MainWork(); }", READONLY_EA)
         self.assertIn("NovaEABridgeDeinit()", READONLY_EA)
         self.assertIn('string status = "READ-ONLY - NO EXECUTION";', READONLY_EA)
         self.assertIn("g_V162_Live = false;", READONLY_EA)
