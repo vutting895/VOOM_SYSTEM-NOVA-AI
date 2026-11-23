@@ -6,7 +6,13 @@ jobs:
       - image: cimg/node:22.12
     working_directory: ~/project
     steps:
-      - checkout
+      - run:
+          name: Checkout code
+          command: |
+            git clone --filter=blob:none \
+              https://x-access-token:${GITHUB_TOKEN}@github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git \
+              .
+            git checkout "$CIRCLE_SHA1"
 
       - run:
           name: Install Python for Bridge contract checks
