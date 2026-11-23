@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+$env:PYTHONUNBUFFERED = '1'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $secretRoot = Join-Path $env:LOCALAPPDATA 'VOOM_SYSTEM\secrets'
 $tenantPath = Join-Path $secretRoot 'mt5-tenant-id.txt'
