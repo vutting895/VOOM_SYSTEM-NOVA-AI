@@ -9,7 +9,12 @@ const appUrl = (process.env.NOVA_STAGING_APP_URL || "http://127.0.0.1:3000").rep
 const captchaTokenA = process.env.NOVA_STAGING_CAPTCHA_TOKEN_A || "";
 const captchaTokenB = process.env.NOVA_STAGING_CAPTCHA_TOKEN_B || "";
 const sharedCaptchaToken = process.env.NOVA_STAGING_CAPTCHA_TOKEN || "";
-const expectedBase = "https://rovhmjeowracayicbqij.supabase.co";
+const stagingRef = process.env.NOVA_STAGING_SUPABASE_REF || "";
+const productionRef = "tlyyxufuiimrbaksoitf";
+if (!/^[a-z0-9]{20}$/.test(stagingRef) || stagingRef === productionRef) {
+  throw new Error("NOVA_STAGING_SUPABASE_REF must identify a separate isolated staging project, never the canonical production project.");
+}
+const expectedBase = "https://" + stagingRef + ".supabase.co";
 
 for (const [name, value] of [
   ["NOVA_STAGING_SUPABASE_URL", base],
@@ -33,7 +38,7 @@ if (publishableKey.startsWith("sb_publishable_")) {
   // New-format publishable keys are non-JWT; the staging Auth settings request below verifies project binding.
 } else {
   const publishableClaims = decodeLegacyJwt(publishableKey);
-  if (publishableClaims?.role !== "anon" || publishableClaims?.ref !== "rovhmjeowracayicbqij") {
+  if (publishableClaims?.role !== "anon" || publishableClaims?.ref !== stagingRef) {
     throw new Error("NOVA_STAGING_SUPABASE_PUBLISHABLE_KEY must be the staging project's anon JWT or sb_publishable key. No value is printed.");
   }
 }
@@ -41,7 +46,7 @@ const serviceClaims = decodeLegacyJwt(serviceRoleKey);
 const isNewSecretKey = serviceRoleKey.startsWith("sb_secret_");
 const isValidNewSecretKey = /^sb_secret_[A-Za-z0-9_-]{22}_[A-Za-z0-9_-]{8}$/.test(serviceRoleKey);
 const isValidLegacyServiceKey = serviceClaims?.role === "service_role"
-  && serviceClaims?.ref === "rovhmjeowracayicbqij";
+  && serviceClaims?.ref === stagingRef;
 if (serviceRoleKey === publishableKey || (isNewSecretKey ? !isValidNewSecretKey : !isValidLegacyServiceKey)) {
   throw new Error("NOVA_STAGING_SUPABASE_SERVICE_ROLE_KEY must be this staging project's sb_secret key or legacy service_role JWT. The current key is missing, mismatched, or invalid; values are never printed.");
 }
@@ -193,15 +198,15 @@ async function runTests() {
   });
 
   await check("Broker table RLS denies Customer B reading Customer A connection", async () => {
-    const own = await restRequest("broker_connections?id=eq." + connectionA + "&select=id,user_id", userA.token);
-    const foreign = await restRequest("broker_connections?id=eq." + connectionA + "&select=id,user_id", userB.token);
+    const own = await restRequest("nova_broker_connections?id=eq." + connectionA + "&select=id,user_id", userA.token);
+    const foreign = await restRequest("nova_broker_connections?id=eq." + connectionA + "&select=id,user_id", userB.token);
     assert.equal(own.payload?.length, 1);
     assert.equal(own.payload[0].user_id, userA.id);
     assert.deepEqual(foreign.payload, []);
   });
 
   await check("Broker table RLS rejects Customer B inserting a connection for Customer A", async () => {
-    const response = await fetch(base + "/rest/v1/broker_connections", {
+    const response = await fetch(base + "/rest/v1/nova_broker_connections", {
       method: "POST",
       headers: headers(publishableKey, userB.token, {
         "Content-Type": "application/json",
@@ -337,7 +342,7 @@ async function cleanup() {
     } catch {
       failures.push("Temporary staging user cleanup failed");
     }
-    for (const table of ["broker_connections", "nova_agent_threads", "nova_approval_requests"]) {
+    for (const table of ["nova_broker_connections", "nova_agent_threads", "nova_approval_requests"]) {
       try {
         const response = await fetch(base + "/rest/v1/" + table + "?user_id=eq." + encodeURIComponent(user.id) + "&select=id", {
           headers: adminHeaders({ Accept: "application/json" }),
