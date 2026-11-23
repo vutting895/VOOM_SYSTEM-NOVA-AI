@@ -106,10 +106,20 @@ class NovaEA182StrategyTests(unittest.TestCase):
         result = evaluate_mtraders_strategy(8, {
             "h1_bars": h1, "server_time": server_dt.isoformat(),
             "current_bid": h1[-1]["high"]+0.5,
+            "current_ask": h1[-1]["high"]+0.7,
         })
         self.assertEqual(result["status"], "RESEARCH_CANDIDATE")
         self.assertEqual(result["strategy_id"], 8)
+        self.assertEqual(result["entry_reference"], h1[-1]["high"]+0.7)
         self.assertEqual(result["rr"], 2.0)
+
+    def test_sessionheat_requires_both_sides_of_quote(self):
+        with self.assertRaisesRegex(StrategyInputError, "current_ask"):
+            evaluate_mtraders_strategy(8, {
+                "h1_bars": bars(30),
+                "server_time": "2026-01-02T06:00:00+00:00",
+                "current_bid": 2100.0,
+            })
 
     def test_sessionbox_requires_explicit_broker_server_timezone(self):
         with self.assertRaisesRegex(StrategyInputError, "server_utc_offset_minutes"):
