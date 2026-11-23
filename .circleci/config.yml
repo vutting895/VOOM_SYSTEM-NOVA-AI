@@ -15,4 +15,4 @@ workflows:
           config-path: .circleci/continue_config.yml
           mapping: |
             ^apps/nova-command-center/.* run_nova_command_center true
-            ^\\.circleci/.* run_nova_command_center true
+            ^\.circleci/.* run_nova_command_center true
