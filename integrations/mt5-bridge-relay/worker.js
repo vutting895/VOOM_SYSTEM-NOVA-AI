@@ -216,9 +216,6 @@ export class BridgeSession {
       return unavailable("internal_route_only", 403);
     }
     if (request.method !== "GET") return unavailable("method_not_allowed", 405);
-    const validation = validateReadRequest(url);
-    if (!validation.ok) return unavailable(validation.error, 400);
-
     const tenantId = request.headers.get("X-VOOM-TENANT-ID") || "";
     if (url.pathname === "/status") {
       const activeSocket = this.ctx.getWebSockets().find((item) => {
@@ -242,6 +239,9 @@ export class BridgeSession {
         ordersEnabled: false
       });
     }
+
+    const validation = validateReadRequest(url);
+    if (!validation.ok) return unavailable(validation.error, 400);
 
     const socket = this.ctx.getWebSockets().find((item) => {
       if (item.readyState !== 1) return false;
