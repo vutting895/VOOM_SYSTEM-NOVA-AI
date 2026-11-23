@@ -72,7 +72,7 @@ export async function authenticate(request, env) {
       return { ok: false, status: 401, error: "invalid_or_expired_session" };
     }
     const role = payload.app_metadata?.nova_role;
-    if (typeof role !== "string" || !(role in ROLE_LEVEL)) {
+    if (typeof role !== "string" || !Object.hasOwn(ROLE_LEVEL, role)) {
       return { ok: false, status: 403, error: "role_not_authorized" };
     }
     return {
