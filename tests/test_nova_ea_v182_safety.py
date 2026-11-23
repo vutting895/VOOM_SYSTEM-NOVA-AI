@@ -2,13 +2,18 @@ import pathlib
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-EA = (ROOT / "integrations/mt5/NOVA_EA_v1.82.mq5").read_text(encoding="utf-8")
+EA_PATH = ROOT / "integrations/mt5/NOVA_EA_v1.82.mq5"
+CORE_PATH = ROOT / "integrations/mt5/NOVA_CoreStrategy_v1.82.mqh"
+EA = EA_PATH.read_text(encoding="utf-8")
+CORE = CORE_PATH.read_text(encoding="utf-8")
+
 
 class TestNovaEA182Safety(unittest.TestCase):
     def test_identity_and_read_only_are_fixed(self):
         self.assertIn('#property version   "1.82"', EA)
         self.assertIn('#define NOVA_READ_ONLY_MODE true', EA)
-        self.assertIn('if(NOVA_READ_ONLY_MODE) return;', EA)
+        self.assertIn('if(NOVA_READ_ONLY_MODE)', EA)
+        self.assertIn('NovaCoreOnTick();', EA)
 
     def test_legacy_trade_enable_fails_initialization(self):
         self.assertIn('if(InpTradeEnabled)', EA)
@@ -27,6 +32,56 @@ class TestNovaEA182Safety(unittest.TestCase):
 
     def test_exposure_snapshot_not_atomic(self):
         self.assertIn('not an atomic reservation', EA)
+
+    def test_core_strategy_is_closed_bar_signal_only(self):
+        for token in ('CopyRates(_Symbol,NOVA_CORE_TF,0,96,rates)',
+                      'rates[0].time==gNovaCoreLastBar',
+                      'NovaCoreDetectBos(rates,atr[1])',
+                      'NovaCoreBullWick', 'NovaCoreBearWick',
+                      'NOVA_CORE_RR 2.5', 'mode=READ-ONLY / NO ORDER'):
+            self.assertIn(token, CORE)
+
+    def test_core_strategy_has_mtf_and_volatility_gates(self):
+        for token in ('PERIOD_H1', 'PERIOD_H4', 'PERIOD_M15',
+                      'h1Up && h4Up && m15Up', 'h1Down && h4Down && m15Down',
+                      'volRatio<0.55 || volRatio>1.80'):
+            self.assertIn(token, CORE)
+
+    def test_core_strategy_contains_no_execution_api(self):
+        forbidden = ('OrderSend(', 'CTrade', '.Buy(', '.Sell(', 'PositionClose(',
+                     'PositionModify(', 'OrderModify(', 'OrderDelete(')
+        for token in forbidden:
+            self.assertNotIn(token, CORE)
+        self.assertNotIn('Trade.mqh', CORE)
+
+
+    def test_indicator_buffers_require_calculated_finite_values(self):
+        self.assertIn("BarsCalculated(handle)<MathMax(count,64)", CORE)
+        self.assertIn("out[i]==EMPTY_VALUE", CORE)
+        self.assertIn("MathIsValidNumber(out[i])", CORE)
+
+    def test_core_stop_reference_uses_rejection_wick_and_keeps_atr_cap(self):
+        self.assertIn("low-0.20*atr[1]", CORE)
+        self.assertIn("high+0.20*atr[1]", CORE)
+        self.assertIn("risk>3.0*atr[1]", CORE)
+        self.assertNotIn("gNovaCoreSwingExtreme", CORE)
+
+    def test_core_diagnostics_are_opt_in_and_read_only(self):
+        self.assertIn("InpCoreDiagnostics       = false", EA)
+        self.assertIn("gNovaCoreDiagnostics=InpCoreDiagnostics;", EA)
+        self.assertIn("NovaCorePrintDiagnostics();", EA)
+        self.assertIn("if(!gNovaCoreDiagnostics) return;", CORE)
+        for token in ("gNovaCoreDiagBars", "gNovaCoreDiagBos",
+                      "gNovaCoreDiagAligned", "gNovaCoreDiagLocation",
+                      "gNovaCoreDiagRejection", "gNovaCoreDiagCandidates"):
+            self.assertIn(token, CORE)
+
+    def test_transient_indicator_data_does_not_consume_the_bar(self):
+        copy_ok = CORE.index("!NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;")
+        mark_bar = CORE.index("gNovaCoreLastBar=rates[0].time;")
+        self.assertGreater(mark_bar, copy_ok)
+        self.assertIn("later ticks retry transient CopyBuffer/history synchronization failures", CORE)
+
 
 if __name__ == '__main__':
     unittest.main()
