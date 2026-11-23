@@ -21,6 +21,16 @@ KEPT_IDS = {1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19}
 DISABLED_IDS = {0, 3, 5, 7, 12, 16}
 IMPLEMENTED_IDS = {1, 2, 4, 6, 8, 9, 10, 13}
 DORMANT_IDS = {11, 14, 15, 17, 18, 19}
+STRATEGY_FAMILIES = {
+    1: "trend",
+    2: "volatility",
+    4: "liquidity",
+    6: "structure",
+    8: "session",
+    9: "session",
+    10: "flow",
+    13: "structure",
+}
 
 
 class StrategyInputError(ValueError):
@@ -553,40 +563,65 @@ def _wyckoff(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tup
     return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_WAITING","reason":"Wyckoff_phase_not_complete"}, out)
 
 
+def _with_source_metadata(result: dict[str, Any], market_data: Mapping[str, Any], strategy_id: int) -> dict[str, Any]:
+    result = dict(result)
+    result["source"] = "NOVA_EA_v1.82"
+    result["source_ea_version"] = "1.82"
+    family = STRATEGY_FAMILIES.get(strategy_id)
+    if family:
+        result["strategy_family"] = family
+    symbol = market_data.get("symbol")
+    timeframe = market_data.get("timeframe")
+    if isinstance(symbol, str) and symbol.strip():
+        result["symbol"] = symbol.strip()
+    if isinstance(timeframe, str) and timeframe.strip():
+        result["timeframe"] = timeframe.strip().upper()
+    as_of = result.get("signal_time") or market_data.get("server_time")
+    if not isinstance(as_of, str):
+        raw_bars = market_data.get("bars")
+        if isinstance(raw_bars, Sequence) and not isinstance(raw_bars, (str, bytes)) and raw_bars:
+            last_bar = raw_bars[-1]
+            if isinstance(last_bar, Mapping):
+                as_of = last_bar.get("time")
+    if isinstance(as_of, str):
+        result["as_of_timestamp"] = as_of
+    return result
+
+
 def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, Any], state: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if isinstance(strategy_id, bool) or not isinstance(strategy_id, int) or not 0 <= strategy_id < len(STRATEGY_NAMES):
         raise StrategyInputError("strategy_id must be an integer from 0 through 19")
     if not isinstance(market_data, Mapping):
         raise StrategyInputError("market_data must be an object")
     if strategy_id in DISABLED_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DISABLED_IN_EA_V1_82", "reason": "source_v122_disabled_module"}
+        return _with_source_metadata({"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DISABLED_IN_EA_V1_82", "reason": "source_v122_disabled_module"}, market_data, strategy_id)
     if strategy_id not in KEPT_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "REMOVED_FROM_KEPT_MODULE_SET", "reason": "not_in_v122_kept_modules"}
+        return _with_source_metadata({"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "REMOVED_FROM_KEPT_MODULE_SET", "reason": "not_in_v122_kept_modules"}, market_data, strategy_id)
     if strategy_id in DORMANT_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DORMANT_NOT_DISPATCHED", "reason": "registry_entry_has_no_active_signal_dispatch_in_v1_82"}
+        return _with_source_metadata({"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DORMANT_NOT_DISPATCHED", "reason": "registry_entry_has_no_active_signal_dispatch_in_v1_82"}, market_data, strategy_id)
     if strategy_id not in IMPLEMENTED_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "NOT_PORTED", "reason": "active_source_signal_parity_not_yet_implemented"}
+        return _with_source_metadata({"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "NOT_PORTED", "reason": "active_source_signal_parity_not_yet_implemented"}, market_data, strategy_id)
     if strategy_id == 8:
-        return _session_heat(market_data, state)
+        return _with_source_metadata(_session_heat(market_data, state), market_data, strategy_id)
     bars = _bars(market_data, minimum=220 if strategy_id == 2 else 210 if strategy_id in {1, 10} else 110)
     if strategy_id == 2:
-        return _vol_qex(bars, state)
+        return _with_source_metadata(_vol_qex(bars, state), market_data, strategy_id)
     if strategy_id == 10:
-        return _flow_matrix(bars, market_data)
+        return _with_source_metadata(_flow_matrix(bars, market_data), market_data, strategy_id)
     if strategy_id == 13:
         result, next_state = _smc_full(bars, state)
         result["state"] = next_state
-        return result
+        return _with_source_metadata(result, market_data, strategy_id)
     if strategy_id == 4:
-        return _liquidity_pools(bars, state)
+        return _with_source_metadata(_liquidity_pools(bars, state), market_data, strategy_id)
     if strategy_id == 9:
-        return _session_box(bars, market_data, state)
+        return _with_source_metadata(_session_box(bars, market_data, state), market_data, strategy_id)
     if strategy_id == 1:
-        return _trend_pilot(bars)
+        return _with_source_metadata(_trend_pilot(bars), market_data, strategy_id)
     if strategy_id == 6:
         result, next_state = _wyckoff(bars, state)
         result["state"] = next_state
-        return result
+        return _with_source_metadata(result, market_data, strategy_id)
     raise StrategyInputError("strategy implementation dispatch is inconsistent")
 
 
