@@ -1,5 +1,6 @@
 -- NOVA MT5 customer connections isolated from VOOM Studio Affiliate state.
 begin;
+create schema if not exists nova;
 create table if not exists nova.mt5_broker_connections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -26,9 +27,9 @@ create policy mt5_broker_connections_insert_own_pending on nova.mt5_broker_conne
 create or replace function nova.set_mt5_broker_connections_updated_at() returns trigger language plpgsql set search_path = '' as $$ begin new.updated_at = now(); return new; end; $$;
 drop trigger if exists mt5_broker_connections_updated_at on nova.mt5_broker_connections;
 create trigger mt5_broker_connections_updated_at before update on nova.mt5_broker_connections for each row execute function nova.set_mt5_broker_connections_updated_at();
-create or replace view public.nova_broker_connections with (security_invoker = true) as select id, user_id, provider, environment, status, bridge_route_id from nova.mt5_broker_connections;
+create or replace view public.nova_broker_connections with (security_invoker = true) as select id, user_id, provider, environment, status, bridge_route_id, account_label, last_verified_at, created_at from nova.mt5_broker_connections;
 revoke all on public.nova_broker_connections from public, anon, authenticated;
-grant select on public.nova_broker_connections to authenticated;
+grant select, insert on public.nova_broker_connections to authenticated;
 comment on table nova.mt5_broker_connections is 'NOVA-only Exness MT5 Demo customer connections. Separate from VOOM Studio Affiliate tables.';
 comment on view public.nova_broker_connections is 'Narrow security-invoker REST view for NOVA MT5 read-only proxy; owner-scoped by nova.mt5_broker_connections RLS.';
 notify pgrst, 'reload schema';
