@@ -173,7 +173,7 @@ async def ingest_ea_heartbeat(
         raise HTTPException(status_code=400, detail="Invalid EA version")
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", str(payload["symbol"])):
         raise HTTPException(status_code=400, detail="Invalid symbol")
-    if payload["timeframe"] not in {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}:
+    if payload["timeframe"] not in {"M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30", "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1"}:
         raise HTTPException(status_code=400, detail="Invalid timeframe")
     if payload["mode"] != "read-only" or payload["orders_enabled"] is not False or payload["live_trading_enabled"] is not False:
         raise HTTPException(status_code=403, detail="Only READ-ONLY telemetry is accepted")
