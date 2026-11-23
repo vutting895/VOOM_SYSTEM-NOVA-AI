@@ -302,7 +302,8 @@ def quotes(
         if not info.visible:
             raise HTTPException(status_code=409, detail="symbol_not_selected_in_terminal")
         tick = mt5.symbol_info_tick(symbol)
-        # Position 0 is the still-forming candle in MT5. Quant Core only accepts completed bars.\n        rates = mt5.copy_rates_from_pos(symbol, timeframe_value(timeframe), 1, count)
+        # Position 0 is the still-forming candle in MT5. Quant Core only accepts completed bars.
+        rates = mt5.copy_rates_from_pos(symbol, timeframe_value(timeframe), 1, count)
         if rates is None:
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 rates unavailable: {error[0]}")
