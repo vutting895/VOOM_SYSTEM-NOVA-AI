@@ -157,23 +157,66 @@ def _trend_pilot(bars: list[dict[str, Any]]) -> dict[str, Any]:
     return _candidate(direction, closes[i], closes[i] - direction * 1.5 * atr, 2.5, 1, bars[i]["time"], "EA_v1.82_TrendPilot_EMA50_200_RSI45_55")
 
 
-def _liquidity_pools(bars: list[dict[str, Any]]) -> dict[str, Any]:
+def _liquidity_pools(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> dict[str, Any]:
+    state_out = dict(state or {})
     atr = _atr(bars)
     last = bars[-1]
-    highs = _confirmed_pivots(bars[:-1], "high")
-    lows = _confirmed_pivots(bars[:-1], "low")
+    interval = (bars[-1]["time"] - bars[-2]["time"]).total_seconds()
+    if interval <= 0:
+        raise StrategyInputError("LiquidityPools requires increasing bar timestamps")
+    last_entry = state_out.get("last_entry_time")
+    if last_entry:
+        try:
+            last_entry_dt = datetime.fromisoformat(str(last_entry).replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise StrategyInputError("state.last_entry_time must be ISO timestamp") from exc
+        if last_entry_dt.tzinfo is None:
+            raise StrategyInputError("state.last_entry_time must include timezone")
+        prior_index = next((i for i, bar in enumerate(bars) if bar["time"] == last_entry_dt), None)
+        bars_since = len(bars) - 1 - prior_index if prior_index is not None else int((last["time"] - last_entry_dt).total_seconds() / interval)
+        if bars_since < 10:
+            return {"strategy_id": 4, "name": STRATEGY_NAMES[4], "direction": 0, "status": "COOLDOWN", "reason": "EA_v1.82_LiquidityPools_10_bar_entry_cooldown", "state": state_out}
     tolerance, pierce = 0.25 * atr, 0.02 * atr
-    for pivots, side in ((lows, "low"), (highs, "high")):
-        for index, level in pivots:
-            touches = [price for _, price in pivots if abs(price - level) <= tolerance]
-            if len(touches) < 2:
+    for side, key in (("low", "pool_buy_used"), ("high", "pool_sell_used")):
+        pivots = list(reversed(_confirmed_pivots(bars[:-1], side)))
+        used_time = state_out.get(key)
+        if used_time:
+            try:
+                used_dt = datetime.fromisoformat(str(used_time).replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise StrategyInputError(f"state.{key} must be ISO timestamp") from exc
+            if used_dt.tzinfo is None:
+                raise StrategyInputError(f"state.{key} must include timezone")
+        else:
+            used_dt = None
+        consumed = [False] * len(pivots)
+        for i, (pivot_index, level) in enumerate(pivots):
+            if consumed[i]:
                 continue
-            pool = sum(touches) / len(touches)
+            cluster = [(pivot_index, level)]
+            consumed[i] = True
+            for j in range(i + 1, len(pivots)):
+                if not consumed[j] and abs(pivots[j][1] - level) <= tolerance:
+                    consumed[j] = True
+                    cluster.append(pivots[j])
+            if len(cluster) < 2:
+                continue
+            pool = sum(price for _, price in cluster) / len(cluster)
+            oldest_time = min(bars[index]["time"] for index, _ in cluster)
+            if used_dt is not None and oldest_time <= used_dt:
+                continue
             if side == "low" and last["low"] < pool - pierce and last["close"] > pool and last["close"] > last["open"]:
-                return _candidate(1, last["close"], last["low"] - 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
+                result = _candidate(1, last["close"], last["low"] - 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
+                result["candidate_pool_key"] = oldest_time.isoformat()
+                result["state"] = state_out
+                return result
             if side == "high" and last["high"] > pool + pierce and last["close"] < pool and last["close"] < last["open"]:
-                return _candidate(-1, last["close"], last["high"] + 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
-    return {"strategy_id": 4, "name": STRATEGY_NAMES[4], "direction": 0, "status": "NO_SIGNAL", "reason": "no_confirmed_liquidity_cluster_sweep"}
+                result = _candidate(-1, last["close"], last["high"] + 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
+                result["candidate_pool_key"] = oldest_time.isoformat()
+                result["state"] = state_out
+                return result
+    return {"strategy_id": 4, "name": STRATEGY_NAMES[4], "direction": 0, "status": "NO_SIGNAL", "reason": "no_confirmed_liquidity_cluster_sweep", "state": state_out}
+
 
 
 def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
