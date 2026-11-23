@@ -223,8 +223,8 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
     state_out = dict(state or {})
     atr = _atr(bars)
     last = bars[-1]
-    highs = _confirmed_pivots(bars[:-1], "high")
-    lows = _confirmed_pivots(bars[:-1], "low")
+    highs = _confirmed_pivots(bars, "high")
+    lows = _confirmed_pivots(bars, "low")
     if len(highs) < 2 or len(lows) < 2:
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
     last_sh, prev_sh = highs[-1][1], highs[-2][1]
