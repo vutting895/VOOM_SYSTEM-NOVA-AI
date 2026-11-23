@@ -45,17 +45,17 @@ These are not enforced for order placement because this build has no order execu
 
 ## Validation status
 
-Confirmed for PR head `79a5da73d6daa4121b11e5dc9ce287b08ae366ef`:
+Confirmed for PR head `7dc2c72c34a69dcc6006b79eae09281b709fbbc9`:
 
-- Python source-contract tests: **9/9 passed** on the remote Windows validation workspace.
-- Native MetaEditor compile: **0 errors, 0 warnings** using `C:\MT5\metaeditor64.exe`; compiled from the isolated temporary validation workspace, not installed into the active MT5 Experts folder.
-- GitHub Actions Frontend CI run `45130322675` (#2268): **success**. All build job steps passed; the production smoke-test job was skipped.
+- Python source-contract tests: **10/10 passed** on the exact branch files in the isolated Windows validation workspace.
+- Native MetaEditor compile: **0 errors, 0 warnings** using `C:\\MT5\\metaeditor64.exe`; the exact EA and Core include were compiled in a temporary validation directory, not installed as an active chart EA.
+- GitHub Actions Frontend CI run `45132475626` (#2272): **success**; all 20 build steps passed. Netlify production smoke-test job was skipped and is not part of this validation.
 
 Still required before treating the strategy as empirically validated:
 
-- MT5 Strategy Tester runs using the intended broker symbol specification and real commission, swap, spread, and slippage assumptions.
-- Walk-forward and untouched OOS evaluation; do not tune on final OOS.
-- Verify candidate timestamps and levels against MT5 chart data.
+- Run MT5 Strategy Tester on an isolated test profile using the intended broker symbol specification and realistic spread, commission, swap, and slippage assumptions.
+- Verify candidate timestamps and reference levels against MT5 chart data.
+- Complete walk-forward and untouched OOS evaluation; do not tune on final OOS.
 - Exness Demo read-only observation only.
 
-No profitability claim is made. The source-level tests and compile do not establish trading edge. Do not merge, deploy, install as an active EA, or enable Live Trading on the basis of these checks alone.
+No profitability claim is made. Source-contract tests, native compilation, and CI do not establish trading edge. Do not merge, deploy, install as an active chart EA, or enable Live Trading on the basis of these checks alone.
