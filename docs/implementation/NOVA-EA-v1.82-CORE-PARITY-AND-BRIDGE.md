@@ -29,7 +29,7 @@ All other IDs abstain with an explicit status. They do not receive synthetic dir
 
 The source has 20 module IDs. Its v1.22 audit marks six modules disabled/removed: SuperTrend (0), QEX-VolST (3), QEX-LiqSweep (5), RangeSniper (7), WickReject (12), and Trend_Trail (16). The 14 kept modules are IDs 1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, and 19. The remaining kept registry entries are SATMAFlow (11), ZigZag_BreakPull (14), Martingale_Avg (15), Intraday_VolBreak (17), Trend_Adding (18), and GOLD_Breakout (19). These are marked DORMANT_NOT_DISPATCHED because no active call path was found in the inspected v1.82 MainWork/dispatch flow; they are not silently reactivated. The SATMA function exists, but its MainWork call is commented out.
 
-This is not full 20-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence is returned explicitly for the caller to persist after accepted entries. Exact broker-server session/DST behavior, multi-symbol universe ordering, and intrabar tick-vs-bar parity still need comparison tests against MT5 before these candidates are used in a production backtest.
+This is not full 20-module parity. The former deterministic placeholder in `mtraders_strategies.py` is now a compatibility facade over the source-grounded v1.82 evaluator; unsupported and dormant modules abstain rather than fabricate votes. Each result carries source/version, strategy family, symbol, timeframe and timestamp provenance. Stateful setup/cooldown persistence is returned explicitly for the caller to persist after accepted entries. Exact broker-server session/DST behavior, multi-symbol universe ordering, and intrabar tick-vs-bar parity still need comparison tests against MT5 before these candidates are used in a production backtest.
 
 ## Core integration rules
 
@@ -56,20 +56,20 @@ The local endpoint:
 
 Cloud access is read-only: authenticated `GET /api/ea/status` flows through Supabase Auth → MT5 proxy → tenant-scoped Cloudflare relay → local bridge. Heartbeat status is online only for six seconds after the last accepted heartbeat. The heartbeat is held in memory by the local bridge; it is not yet durable database history.
 
-Deployment caveat observed on 2026-11-23: the currently deployed Cloudflare relay returns HTTP 404 for GET /api/ea/status; this PR adds the route in source, but the production Worker/proxy update remains pending review and deployment. Local Bridge status is available; customer-facing cloud EA status is not yet verified.
+Deployment/verification status on 2026-11-23: the Windows local Bridge returns authenticated health 200 and the outbound tenant-authenticated WSS connection to the Cloudflare relay is established. The EA is loaded on XAUUSDm M15, but its heartbeat is still blocked by MT5 WebRequest error 4014 until `http://127.0.0.1:8787` is added manually to the MT5 WebRequest allowlist. Consequently the local `/api/ea/status` remains disconnected; customer-facing Supabase-authenticated proxy status is not yet verified.
 
-A source-grounded READ-ONLY entrypoint is now included at integrations/mt5/Nova_EA_v1.82_READONLY.mq5. It is derived from the exact local v1.82 source SHA F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A, includes the bridge, and wires NovaEABridgeInit, NovaEABridgeHeartbeat(0) on both OnTick and OnTimer, and NovaEABridgeDeinit into the EA lifecycle. Timer heartbeats retain the last real tick timestamp and do not fabricate a current tick during idle periods. Every native broker write call site was compiled out; the CTrade include/object was removed; the Live UI is hard-locked OFF and the dashboard labels the build READ-ONLY. Native MetaEditor 5 compile: 0 errors, 3 warnings. The original source remains untouched.
+A source-grounded READ-ONLY entrypoint is included at `integrations/mt5/Nova_EA_v1.82_READONLY.mq5`. It is derived from the exact local v1.82 source SHA `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`, includes the Bridge and wires init/heartbeat/deinit into the EA lifecycle. Heartbeats run from OnTick and OnTimer; idle periods retain the last actual tick timestamp. Broker write call sites are compiled out, the CTrade include/object is removed, MagicBase and Sniper magic are isolated, and the EA hard-locks `g_V162_Live=false` plus `manual_pause=1` on every Tick/Timer. The READ-ONLY build also disables EA-side model inference, local training, ONNX export, auto-learning, auto-tune and optimization; NOVA Core is authoritative for those functions. The stale 30-module status label is corrected to 20 registered / 14 kept / 8 active dispatch. Native MetaEditor 5 compile: 0 errors, 3 warnings. The original source remains untouched.
 
 ## Installation / verification gate
 
-1. Keep the original live-capable v1.82 EA detached; use only Nova_EA_v1.82_READONLY.mq5.
-2. Confirm its source safety scan has no broker write APIs and compile it with native MetaEditor 5.
-3. Run tools/windows/provision-nova-ea-bridge-token.ps1 once on the intended Windows MT5 host.
-4. Start the tenant-authenticated Python Bridge with tools/windows/run-bridge-from-git.ps1 after review/deployment.
-5. Add http://127.0.0.1:8787 to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL.
-6. Attach only the compiled READ-ONLY EA to the intended Exness Demo chart; keep Algo Trading disabled.
-7. Verify local heartbeat HTTP 200 and authenticated GET /api/ea/status reports online; then verify bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
-8. Deploy the updated Cloudflare relay/proxy Worker only after PR review; current production relay returns 404 for /api/ea/status, while the branch source includes that route.
-9. Run read-only MT5 Strategy Tester validation.
+1. Keep the original live-capable v1.82 EA detached; use only `Nova_EA_v1.82_READONLY_PR.ex5` built from the reviewed source.
+2. Confirm the source safety scan has no broker write APIs and compile it with native MetaEditor 5.
+3. Run `tools/windows/provision-nova-ea-bridge-token.ps1` once on the intended Windows MT5 host.
+4. Start the tenant-authenticated Python Bridge; confirm local health 200 and authenticated outbound WSS connection.
+5. Add `http://127.0.0.1:8787` to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL. This is the current manual blocker; error 4014 means no heartbeat has been accepted yet.
+6. Keep the global Algo Trading control disabled. The current terminal reports `terminal_trade_allowed=false`; the EA source is also hard-locked READ-ONLY.
+7. Verify local heartbeat HTTP 200 and authenticated GET `/api/ea/status` reports online; then verify bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
+8. Deploy the reviewed Cloudflare relay/proxy Worker only after PR review; verify the customer Supabase-authenticated proxy path before marking a connection connected.
+9. Run read-only MT5 Strategy Tester parity validation.
 
-The READ-ONLY source and compiled EX5 are installed in the local MT5 Experts/NOVA_READONLY folder but are not attached to a chart. No production deployment, chart attachment, merge, or live trading activation is implied. Algo Trading must remain disabled and Live Trading OFF.
+Current Windows-host evidence: `Nova_EA_v1.82_READONLY_PR` is attached to `XAUUSDm,M15`; MetaEditor 5 compile passed with 0 errors / 3 warnings; local Bridge health is 200; authenticated outbound WSS relay is established; `terminal_trade_allowed=false`; EA heartbeat remains BLOCKED by WebRequest error 4014 pending the user allowlist step. No production deployment or merge has occurred. Live Trading remains OFF.
