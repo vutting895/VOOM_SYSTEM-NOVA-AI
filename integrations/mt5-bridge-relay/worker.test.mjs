@@ -116,6 +116,8 @@ test("order-like routes are denied and not proxied", async () => {
 
 test("query validation only allows bounded read parameters", () => {
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/symbols?q=XAU&limit=100")), { ok: true });
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/ea/status")), { ok: true });
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/ea/status?symbol=XAUUSDm")).ok, false);
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&timeframe=M5&count=50")), { ok: true });
   assert.equal(validateReadRequest(new URL("https://relay.test/api/account?connection_id=abc")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&count=9999")).ok, false);
