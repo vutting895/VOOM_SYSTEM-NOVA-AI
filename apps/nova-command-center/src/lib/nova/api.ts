@@ -71,6 +71,12 @@ export interface ApiClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+function isJsonContentType(contentType: string): boolean {
+  return /(?:application|text)\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i.test(
+    contentType,
+  );
+}
+
 export function createApiClient(opts: ApiClientOptions) {
   const timeoutMs = opts.timeoutMs ?? 8000;
   const chatTimeoutMs = opts.chatTimeoutMs ?? 25000;
@@ -199,8 +205,18 @@ export function createApiClient(opts: ApiClientOptions) {
         "Chat history is too large or does not end with a user message",
       );
     }
-    const token = await opts.getToken();
+
+    let token: string | null;
+    try {
+      token = await opts.getToken();
+    } catch {
+      throw new ApiError(
+        "unauthenticated",
+        "Could not read or refresh the Supabase session. Sign out and sign in again.",
+      );
+    }
     if (!token) throw new ApiError("unauthenticated", "No session token");
+
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), chatTimeoutMs);
     let res: Response;
@@ -222,6 +238,7 @@ export function createApiClient(opts: ApiClientOptions) {
     } finally {
       clearTimeout(timer);
     }
+
     if (res.status === 401)
       throw new ApiError(
         "unauthenticated",
@@ -230,34 +247,75 @@ export function createApiClient(opts: ApiClientOptions) {
       );
     if (res.status === 403)
       throw new ApiError("forbidden", "Chat request is not allowed", 403);
-    if (!res.ok) {
-      let reason = `NOVA Chat returned HTTP ${res.status}`;
-      try {
-        const body = (await res.json()) as { error?: string };
-        if (typeof body.error === "string") reason = body.error;
-      } catch {
-        /* Keep the generic HTTP error. */
-      }
-      throw new ApiError("http", reason, res.status);
-    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    let raw: string;
     try {
-      const body = (await res.json()) as ChatResponse;
-      if (
-        typeof body.message !== "string" ||
-        !body.message.trim() ||
-        body.executionEnabled !== false ||
-        body.liveTradingEnabled !== false
-      ) {
-        throw new Error("invalid_chat_response");
-      }
-      return body;
+      raw = await res.text();
     } catch {
+      throw new ApiError(
+        "parse",
+        `Could not read Chat Worker response (HTTP ${res.status})`,
+        res.status,
+      );
+    }
+
+    const jsonResponse = isJsonContentType(contentType);
+    let body: unknown;
+    if (jsonResponse) {
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        throw new ApiError(
+          "parse",
+          `Chat Worker returned malformed JSON (HTTP ${res.status})`,
+          res.status,
+        );
+      }
+    }
+
+    if (!res.ok) {
+      const error =
+        body &&
+        typeof body === "object" &&
+        "error" in body &&
+        typeof body.error === "string"
+          ? body.error
+          : null;
+      throw new ApiError(
+        "http",
+        error ??
+          `NOVA Chat returned HTTP ${res.status} (Content-Type: ${contentType || "missing"})`,
+        res.status,
+      );
+    }
+
+    if (!jsonResponse) {
+      throw new ApiError(
+        "parse",
+        `Chat Worker returned non-JSON content (HTTP ${res.status}; Content-Type: ${contentType || "missing"}). Check the Worker route, CORS, and deployment.`,
+        res.status,
+      );
+    }
+
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !("message" in body) ||
+      typeof body.message !== "string" ||
+      !body.message.trim() ||
+      !("executionEnabled" in body) ||
+      body.executionEnabled !== false ||
+      !("liveTradingEnabled" in body) ||
+      body.liveTradingEnabled !== false
+    ) {
       throw new ApiError(
         "parse",
         "Chat Worker returned an invalid or unsafe response",
         res.status,
       );
     }
+    return body as ChatResponse;
   }
 
   return {

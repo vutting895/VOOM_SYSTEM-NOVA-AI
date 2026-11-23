@@ -4,7 +4,10 @@ import { createApiClient, ApiError } from "@/lib/nova/api";
 const ok =
   (body: unknown, status = 200) =>
   async () =>
-    new Response(JSON.stringify(body), { status });
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
 const kind = async (p: Promise<unknown>) => {
   try {
     await p;
@@ -90,7 +93,9 @@ describe("api client", () => {
       getToken: async () => "tok",
       fetchImpl: async (_u, i) => {
         auth = new Headers(i?.headers).get("authorization");
-        return new Response('{"a":1}');
+        return new Response('{"a":1}', {
+          headers: { "content-type": "application/json" },
+        });
       },
     });
     expect(await c.get("/v1/me")).toEqual({ a: 1 });
@@ -122,6 +127,7 @@ describe("api client", () => {
             executionEnabled: false,
             liveTradingEnabled: false,
           }),
+          { headers: { "content-type": "application/json" } },
         );
       },
     });
@@ -160,6 +166,42 @@ describe("api client", () => {
       kind: "blocked",
     });
     expect(called).toBe(false);
+  });
+  it("maps a failed Supabase session refresh to an actionable auth error", async () => {
+    const c = createApiClient({
+      baseUrl: "https://system-hub.example",
+      chatBaseUrl: "https://chat-worker.example",
+      getToken: async () => {
+        throw new SyntaxError("Unexpected token '<'");
+      },
+      fetchImpl: ok({}),
+    });
+    await expect(
+      c.sendChat([{ role: "user", content: "hello" }]),
+    ).rejects.toMatchObject({
+      kind: "unauthenticated",
+      message:
+        "Could not read or refresh the Supabase session. Sign out and sign in again.",
+    });
+  });
+  it("classifies an HTML response without trying to parse it as JSON", async () => {
+    const c = createApiClient({
+      baseUrl: "https://system-hub.example",
+      chatBaseUrl: "https://chat-worker.example",
+      getToken: async () => "t",
+      fetchImpl: async () =>
+        new Response("<!doctype html><title>Not Found</title>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+    });
+    await expect(
+      c.sendChat([{ role: "user", content: "hello" }]),
+    ).rejects.toMatchObject({
+      kind: "parse",
+      status: 200,
+      message: expect.stringContaining("Content-Type: text/html"),
+    });
   });
   it("rejects unsafe worker response flags", async () => {
     const c = createApiClient({
