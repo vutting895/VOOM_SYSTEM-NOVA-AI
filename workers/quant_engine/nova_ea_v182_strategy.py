@@ -242,7 +242,7 @@ def _flow_matrix(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[st
     flows: dict[str, float] = {}
     for name, rows in symbol_bars.items():
         try:
-            history = _bars({"bars": rows}, minimum=22)
+            history = _bars({"bars": rows}, minimum=210)
         except StrategyInputError:
             continue
         sample = history[-20:]
@@ -422,12 +422,12 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
         prior = bars[-21:-1]
         opposing = next((b for b in reversed(prior) if (b["close"] < b["open"] if direction > 0 else b["close"] > b["open"])), prior[-1])
         state_out = {
-            "phase": direction, "anchor_index": len(bars)-1, "ob_high": opposing["high"],
+            "phase": direction, "anchor_time": last["time"].isoformat(), "ob_high": opposing["high"],
             "ob_low": opposing["low"], "equilibrium": equilibrium,
             "range_high": range_high, "range_low": range_low,
         }
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_ARMED", "reason": "EA_v1.82_SMC_BOS_wait_retrace"}, state_out)
-    age = len(bars) - 1 - int(state_out.get("anchor_index", -1000))
+    age = _bars_since(bars, state_out.get("anchor_time"))
     max_retrace = int(state_out.get("max_retrace_bars", 30))
     if age > max_retrace or (phase > 0 and last["close"] < float(state_out["range_low"]) - 0.2*atr) or (phase < 0 and last["close"] > float(state_out["range_high"]) + 0.2*atr):
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "SMC_setup_expired_or_invalidated"}, {"phase": 0})
