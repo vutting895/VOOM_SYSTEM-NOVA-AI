@@ -6,7 +6,7 @@ The source for this migration is the user's local MT5 file:
 
 `MQL5/Experts/nova v.1.82/Nova_EA_v1.82.mq5`
 
-The source reports `#property version "1.82"` and contains a 30-ID strategy registry. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
+The source reports `#property version "1.82"` and contains a 30-ID strategy registry. Its inspected local copy is 522,707 bytes / 7,840 lines, SHA-256 `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
 
 The original EA is not safe to execute as-is: it contains broker execution paths including `OrderSend`, `CTrade`, position close/modify operations, and live-operation inputs. The Core port extracts signal logic only. Those execution paths are deliberately excluded.
 
@@ -26,14 +26,14 @@ All other IDs abstain with an explicit status. They do not receive synthetic dir
 
 The source explicitly marks SuperTrend (0), WickReject (12), LiquiditySweep/ExpertQEXSweep (18), VolST (24), and RangeSniper (25) as disabled. Those remain disabled. Other active/auxiliary modules still requiring source-parity work include FlowMatrix, SessionHeat/SATMA, QEX volatility, Neural/SATMA, and QEX intrabar sweep. Modules absent from the source dispatch path remain retired/not-dispatched rather than being silently revived.
 
-This is not full 30-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes.
+This is not full 30-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence and exact broker-server session/DST behavior still need parity tests against MT5 outputs before these candidates are used in a production backtest.
 
 ## Core integration rules
 
 - Input bars are strictly chronological, timezone-aware, validated OHLC, and completed candles only.
 - Swing pivots are not visible until their right-side confirmation bars have closed.
 - Stateful strategies return their state explicitly for persistence by the caller.
-- Strategy output is a research candidate, never an execution instruction.
+- Strategy output is a research candidate, never an execution instruction.\n- The evaluator is exported from `workers.quant_engine` and replaces the former MTRADERS compatibility stub. It is not yet wired into the live NOVA API route or Meta Decision Layer arbitration; that is a separate integration gate.
 - Meta Decision Layer and Shared Risk Governor remain separate; ML outputs cannot authorize execution.
 - The existing point-in-time backtest helpers remain separate and must be integrated into any backtest that consumes these candidates.
 - Commission, slippage, spread, broker contract/tick-value conversion and untouched OOS validation remain mandatory before performance claims.
