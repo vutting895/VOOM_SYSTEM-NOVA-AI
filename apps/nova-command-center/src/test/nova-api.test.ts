@@ -100,4 +100,66 @@ describe("api client", () => {
     });
     expect((await c.health()).status).toBe("ok");
   });
+  it("posts only bounded user/assistant history with bearer auth", async () => {
+    let url = "";
+    let init: RequestInit | undefined;
+    const c = createApiClient({
+      baseUrl: "https://system-hub.example",
+      chatBaseUrl: "https://chat-worker.example",
+      getToken: async () => "user-access-token",
+      fetchImpl: async (input, options) => {
+        url = String(input);
+        init = options;
+        return new Response(JSON.stringify({
+          message: "Research answer",
+          provider: "cloudflare-workers-ai",
+          model: "@cf/meta/llama-3.2-3b-instruct",
+          executionEnabled: false,
+          liveTradingEnabled: false,
+        }));
+      },
+    });
+    const response = await c.sendChat([{ role: "user", content: "Explain SMC" }]);
+    expect(response.message).toBe("Research answer");
+    expect(url).toBe("https://chat-worker.example/api/chat");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer user-access-token");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      messages: [{ role: "user", content: "Explain SMC" }],
+    });
+  });
+  it("rejects invalid chat history before network access", async () => {
+    let called = false;
+    const c = createApiClient({
+      baseUrl: "https://system-hub.example",
+      chatBaseUrl: "https://chat-worker.example",
+      getToken: async () => "t",
+      fetchImpl: async () => {
+        called = true;
+        return new Response("{}");
+      },
+    });
+    await expect(c.sendChat([{ role: "user", content: "x".repeat(1201) }])).rejects.toMatchObject({
+      kind: "blocked",
+    });
+    await expect(c.sendChat([{ role: "assistant", content: "orphan assistant" }])).rejects.toMatchObject({
+      kind: "blocked",
+    });
+    expect(called).toBe(false);
+  });
+  it("rejects unsafe worker response flags", async () => {
+    const c = createApiClient({
+      baseUrl: "https://system-hub.example",
+      chatBaseUrl: "https://chat-worker.example",
+      getToken: async () => "t",
+      fetchImpl: ok({
+        message: "unsafe",
+        executionEnabled: true,
+        liveTradingEnabled: false,
+      }),
+    });
+    await expect(c.sendChat([{ role: "user", content: "hello" }])).rejects.toMatchObject({
+      kind: "parse",
+    });
+  });
 });
