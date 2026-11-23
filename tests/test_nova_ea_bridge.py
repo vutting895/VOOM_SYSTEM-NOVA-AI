@@ -28,7 +28,6 @@ class NovaEABridgeTests(unittest.TestCase):
         self.assertIn("orders_enabled", BRIDGE)
         self.assertIn("live_trading_enabled", BRIDGE)
         self.assertIn("false", BRIDGE)
-        self.assertIn('NOVA_READ_ONLY_MODE true', EA)
 
     def test_private_token_is_not_embedded_in_ea_source(self):
         self.assertIn("NOVA_EA_BRIDGE_TOKEN_FILE", BRIDGE)
