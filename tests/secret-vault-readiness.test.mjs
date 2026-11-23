@@ -38,11 +38,11 @@ test("readiness document keeps credential operations disabled until every Vault 
 
 
 test("Netlify maps only public Supabase and System Hub values into Vite", () => {
-  assert.match(netlify, /test -n "\$NEXT_PUBLIC_SUPABASE_URL"/);
-  assert.match(netlify, /test -n "\$NEXT_PUBLIC_SUPABASE_ANON_KEY"/);
-  assert.match(netlify, /test -n "\$NEXT_PUBLIC_SYSTEM_HUB_URL"/);
-  assert.match(netlify, /export VITE_SUPABASE_URL="\$NEXT_PUBLIC_SUPABASE_URL"/);
-  assert.match(netlify, /VITE_SUPABASE_ANON_KEY="\$NEXT_PUBLIC_SUPABASE_ANON_KEY"/);
-  assert.match(netlify, /VITE_NOVA_API_BASE_URL="\$NEXT_PUBLIC_SYSTEM_HUB_URL"/);
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SUPABASE_URL\\"'));
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SUPABASE_ANON_KEY\\"'));
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SYSTEM_HUB_URL\\"'));
+  assert.ok(netlify.includes('export VITE_SUPABASE_URL=\\"$NEXT_PUBLIC_SUPABASE_URL\\"'));
+  assert.ok(netlify.includes('VITE_SUPABASE_ANON_KEY=\\"$NEXT_PUBLIC_SUPABASE_ANON_KEY\\"'));
+  assert.ok(netlify.includes('VITE_NOVA_API_BASE_URL=\\"$NEXT_PUBLIC_SYSTEM_HUB_URL\\"'));
   assert.doesNotMatch(netlify, /SUPABASE_SERVICE_ROLE|DATABASE_URL|GEMINI_API_KEY|MT5_BRIDGE_TOKEN/i);
 });
