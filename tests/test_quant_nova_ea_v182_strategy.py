@@ -52,7 +52,7 @@ class NovaEA182StrategyTests(unittest.TestCase):
 
     def test_trendpilot_runs_on_closed_bar_data_without_fake_defaults(self):
         result = evaluate_mtraders_strategy(1, {"bars": bars()})
-        self.assertEqual(result["strategy_id"], 27)
+        self.assertEqual(result["strategy_id"], 1)
         self.assertEqual(result["status"], "NO_SIGNAL")
         self.assertEqual(result["direction"], 0)
 
