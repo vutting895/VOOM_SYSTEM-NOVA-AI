@@ -5,6 +5,12 @@ or submit orders. Heavy backtests and model training belong in an isolated worke
 """
 
 from .identity import build_run_fingerprint
+from .meta_decision import (
+    MetaDecisionInputError,
+    evaluate_ea_strategy_consensus,
+    evaluate_hybrid_meta_decision,
+    evaluate_meta_decision,
+)
 from .nova_ea_v182_strategy import (
     StrategyInputError,
     evaluate_all_nova_ea_v182_strategies,
@@ -26,6 +32,7 @@ __all__ = [
     "DatasetQualityReport",
     "DatasetValidationError",
     "ExperimentValidationError",
+    "MetaDecisionInputError",
     "PurgePolicy",
     "StrategyInputError",
     "WalkForwardWindow",
@@ -34,6 +41,9 @@ __all__ = [
     "chronological_split",
     "derive_purge_policy",
     "evaluate_all_nova_ea_v182_strategies",
+    "evaluate_ea_strategy_consensus",
+    "evaluate_hybrid_meta_decision",
+    "evaluate_meta_decision",
     "evaluate_nova_ea_v182_strategy",
     "validate_ohlcv",
     "validate_quant_experiment",
