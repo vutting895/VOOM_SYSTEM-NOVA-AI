@@ -29,7 +29,6 @@ double   gNovaCoreObHigh=0.0;
 double   gNovaCoreFvgLow=0.0;
 double   gNovaCoreFvgHigh=0.0;
 double   gNovaCoreEq=0.0;
-double   gNovaCoreSwingExtreme=0.0;
 bool     gNovaCoreDiagnostics=false;
 ulong    gNovaCoreDiagBars=0;
 ulong    gNovaCoreDiagDataReady=0;
@@ -183,7 +182,6 @@ void NovaCoreDetectBos(const MqlRates &rates[],const double atr)
    double rangeHigh=NovaCoreHighest(rates,2,51);
    double rangeLow=NovaCoreLowest(rates,2,51);
    gNovaCoreEq=(rangeHigh+rangeLow)*0.5;
-   gNovaCoreSwingExtreme=(dir>0?rangeLow:rangeHigh);
    gNovaCoreObLow=0.0; gNovaCoreObHigh=0.0;
    gNovaCoreFvgLow=0.0; gNovaCoreFvgHigh=0.0;
 
