@@ -9,7 +9,10 @@ import { pageHead } from "@/lib/nova/head";
 import { useAuth } from "@/lib/nova/auth";
 
 export const Route = createFileRoute("/_authenticated/assistant")({
-  head: pageHead("NOVA Trading AI Chat", "Authenticated, read-only trading research assistant."),
+  head: pageHead(
+    "NOVA Trading AI Chat",
+    "Authenticated, read-only trading research assistant.",
+  ),
   component: Assistant,
 });
 
@@ -29,12 +32,20 @@ function Assistant() {
 
   useEffect(() => {
     let active = true;
-    api.chatHealth()
-      .then((health) => { if (active) setStatus(health); })
+    api
+      .chatHealth()
+      .then((health) => {
+        if (active) setStatus(health);
+      })
       .catch((error: unknown) => {
-        if (active) setStatusError(error instanceof Error ? error.message : "Chat Worker unavailable");
+        if (active)
+          setStatusError(
+            error instanceof Error ? error.message : "Chat Worker unavailable",
+          );
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -44,7 +55,9 @@ function Assistant() {
     setSending(false);
   }, [userId]);
 
-  const ready = Boolean(userId && status?.ok && status.aiBinding && status.authConfigured);
+  const ready = Boolean(
+    userId && status?.ok && status.aiBinding && status.authConfigured,
+  );
   const canSend = ready && !sending && text.trim().length > 0;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -63,12 +76,19 @@ function Assistant() {
     try {
       const result = await api.sendChat(history);
       if (requestVersion.current === activeRequest) {
-        setMsgs((current) => [...current, { role: "assistant", text: result.message }]);
+        setMsgs((current) => [
+          ...current,
+          { role: "assistant", text: result.message },
+        ]);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Chat request failed";
+      const message =
+        error instanceof Error ? error.message : "Chat request failed";
       if (requestVersion.current === activeRequest) {
-        setMsgs((current) => [...current, { role: "assistant", text: `ส่งข้อความไม่สำเร็จ: ${message}` }]);
+        setMsgs((current) => [
+          ...current,
+          { role: "assistant", text: `ส่งข้อความไม่สำเร็จ: ${message}` },
+        ]);
       }
     } finally {
       if (requestVersion.current === activeRequest) setSending(false);
@@ -84,27 +104,39 @@ function Assistant() {
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <Panel
           title="Research conversation"
-          right={ready ? undefined : <NotConnected label={statusError ?? "AI Worker unavailable"} />}
+          right={
+            ready ? undefined : (
+              <NotConnected label={statusError ?? "AI Worker unavailable"} />
+            )
+          }
         >
           <div className="flex h-[60vh] min-h-[420px] flex-col">
-            <div className="flex-1 space-y-3 overflow-y-auto pr-1" aria-live="polite">
+            <div
+              className="flex-1 space-y-3 overflow-y-auto pr-1"
+              aria-live="polite"
+            >
               {msgs.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  เริ่มถามเกี่ยวกับ SMC, Multi-Timeframe, XAUUSD, กลยุทธ์, Backtest หรือ Risk Management ได้
-                  <p className="mt-2 text-xs">ระบบจะไม่อ้างว่ามีราคา/บัญชีสด หากยังไม่มีข้อมูลที่ตรวจสอบแหล่งที่มาได้</p>
+                  เริ่มถามเกี่ยวกับ SMC, Multi-Timeframe, XAUUSD, กลยุทธ์, Backtest หรือ
+                  Risk Management ได้
+                  <p className="mt-2 text-xs">
+                    ระบบจะไม่อ้างว่ามีราคา/บัญชีสด หากยังไม่มีข้อมูลที่ตรวจสอบแหล่งที่มาได้
+                  </p>
                 </div>
-              ) : msgs.map((m, i) => (
-                <div
-                  key={i}
-                  className={
-                    m.role === "user"
-                      ? "ml-auto max-w-[85%] rounded-lg bg-primary/15 p-3 text-sm"
-                      : "max-w-[90%] whitespace-pre-wrap rounded-lg border border-border bg-background/60 p-3 text-sm"
-                  }
-                >
-                  {m.text}
-                </div>
-              ))}
+              ) : (
+                msgs.map((m, i) => (
+                  <div
+                    key={i}
+                    className={
+                      m.role === "user"
+                        ? "ml-auto max-w-[85%] rounded-lg bg-primary/15 p-3 text-sm"
+                        : "max-w-[90%] whitespace-pre-wrap rounded-lg border border-border bg-background/60 p-3 text-sm"
+                    }
+                  >
+                    {m.text}
+                  </div>
+                ))
+              )}
               {sending && (
                 <div className="max-w-[85%] rounded-lg border border-border bg-background/60 p-3 text-xs text-muted-foreground">
                   NOVA กำลังวิเคราะห์…
@@ -134,11 +166,17 @@ function Assistant() {
           <dl className="space-y-2 font-mono text-sm">
             <div>
               <dt className="terminal-label">Provider</dt>
-              <dd>{status?.aiBinding ? "Cloudflare Workers AI" : "Unavailable"}</dd>
+              <dd>
+                {status?.aiBinding ? "Cloudflare Workers AI" : "Unavailable"}
+              </dd>
             </div>
             <div>
               <dt className="terminal-label">Model</dt>
-              <dd>{status?.aiBinding ? "@cf/meta/llama-3.2-3b-instruct" : "Not connected"}</dd>
+              <dd>
+                {status?.aiBinding
+                  ? "@cf/meta/llama-3.2-3b-instruct"
+                  : "Not connected"}
+              </dd>
             </div>
             <div>
               <dt className="terminal-label">Authentication</dt>
@@ -158,10 +196,12 @@ function Assistant() {
             </div>
           </dl>
           <p className="mt-3 text-xs text-muted-foreground">
-            ใช้ Supabase access token ของผู้ใช้ที่เข้าสู่ระบบ ตรวจสอบซ้ำที่ AI Worker; ไม่มี API key ของโมเดลใน Browser
+            ใช้ Supabase access token ของผู้ใช้ที่เข้าสู่ระบบ ตรวจสอบซ้ำที่ AI Worker; ไม่มี
+            API key ของโมเดลใน Browser
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            {statusError ?? (status ? "Worker health checked." : "Checking AI Worker…")}
+            {statusError ??
+              (status ? "Worker health checked." : "Checking AI Worker…")}
           </p>
         </Panel>
       </div>

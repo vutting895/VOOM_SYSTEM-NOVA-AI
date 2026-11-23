@@ -17,7 +17,11 @@ const kind = async (p: Promise<unknown>) => {
 describe("api client", () => {
   it("not_configured without base URL", async () =>
     expect(
-      await kind(createApiClient({ baseUrl: null, getToken: async () => "t" }).get("/v1/me")),
+      await kind(
+        createApiClient({ baseUrl: null, getToken: async () => "t" }).get(
+          "/v1/me",
+        ),
+      ),
     ).toBe("not_configured"));
   it("unauthenticated without token", async () =>
     expect(
@@ -110,20 +114,26 @@ describe("api client", () => {
       fetchImpl: async (input, options) => {
         url = String(input);
         init = options;
-        return new Response(JSON.stringify({
-          message: "Research answer",
-          provider: "cloudflare-workers-ai",
-          model: "@cf/meta/llama-3.2-3b-instruct",
-          executionEnabled: false,
-          liveTradingEnabled: false,
-        }));
+        return new Response(
+          JSON.stringify({
+            message: "Research answer",
+            provider: "cloudflare-workers-ai",
+            model: "@cf/meta/llama-3.2-3b-instruct",
+            executionEnabled: false,
+            liveTradingEnabled: false,
+          }),
+        );
       },
     });
-    const response = await c.sendChat([{ role: "user", content: "Explain SMC" }]);
+    const response = await c.sendChat([
+      { role: "user", content: "Explain SMC" },
+    ]);
     expect(response.message).toBe("Research answer");
     expect(url).toBe("https://chat-worker.example/api/chat");
     expect(init?.method).toBe("POST");
-    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer user-access-token");
+    expect(new Headers(init?.headers).get("authorization")).toBe(
+      "Bearer user-access-token",
+    );
     expect(JSON.parse(String(init?.body))).toEqual({
       messages: [{ role: "user", content: "Explain SMC" }],
     });
@@ -139,10 +149,14 @@ describe("api client", () => {
         return new Response("{}");
       },
     });
-    await expect(c.sendChat([{ role: "user", content: "x".repeat(1201) }])).rejects.toMatchObject({
+    await expect(
+      c.sendChat([{ role: "user", content: "x".repeat(1201) }]),
+    ).rejects.toMatchObject({
       kind: "blocked",
     });
-    await expect(c.sendChat([{ role: "assistant", content: "orphan assistant" }])).rejects.toMatchObject({
+    await expect(
+      c.sendChat([{ role: "assistant", content: "orphan assistant" }]),
+    ).rejects.toMatchObject({
       kind: "blocked",
     });
     expect(called).toBe(false);
@@ -158,7 +172,9 @@ describe("api client", () => {
         liveTradingEnabled: false,
       }),
     });
-    await expect(c.sendChat([{ role: "user", content: "hello" }])).rejects.toMatchObject({
+    await expect(
+      c.sendChat([{ role: "user", content: "hello" }]),
+    ).rejects.toMatchObject({
       kind: "parse",
     });
   });

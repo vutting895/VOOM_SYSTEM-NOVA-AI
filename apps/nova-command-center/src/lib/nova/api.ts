@@ -52,7 +52,11 @@ export interface ChatResponse {
   intent?: {
     schemaVersion: string;
     intent: string;
-    component?: { type?: string; executionEnabled?: false; liveTradingEnabled?: false };
+    component?: {
+      type?: string;
+      executionEnabled?: false;
+      liveTradingEnabled?: false;
+    };
   };
   executionEnabled: false;
   liveTradingEnabled: false;
@@ -72,13 +76,20 @@ export function createApiClient(opts: ApiClientOptions) {
   const chatTimeoutMs = opts.chatTimeoutMs ?? 25000;
   const f = opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
 
-  async function get<T>(path: string, { auth = true }: { auth?: boolean } = {}): Promise<T> {
+  async function get<T>(
+    path: string,
+    { auth = true }: { auth?: boolean } = {},
+  ): Promise<T> {
     try {
       assertReadOnlyRequest("GET", path);
     } catch (e) {
       throw new ApiError("blocked", (e as Error).message);
     }
-    if (!opts.baseUrl) throw new ApiError("not_configured", "NOVA API base URL is not configured");
+    if (!opts.baseUrl)
+      throw new ApiError(
+        "not_configured",
+        "NOVA API base URL is not configured",
+      );
     const headers: Record<string, string> = { accept: "application/json" };
     if (auth) {
       const token = await opts.getToken();
@@ -89,7 +100,11 @@ export function createApiClient(opts: ApiClientOptions) {
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     let res: Response;
     try {
-      res = await f(`${opts.baseUrl}${path}`, { method: "GET", headers, signal: ctrl.signal });
+      res = await f(`${opts.baseUrl}${path}`, {
+        method: "GET",
+        headers,
+        signal: ctrl.signal,
+      });
     } catch (e) {
       if ((e as Error).name === "AbortError")
         throw new ApiError("timeout", `Request timed out after ${timeoutMs}ms`);
@@ -97,10 +112,16 @@ export function createApiClient(opts: ApiClientOptions) {
     } finally {
       clearTimeout(timer);
     }
-    if (res.status === 401) throw new ApiError("unauthenticated", "Session rejected by API", 401);
+    if (res.status === 401)
+      throw new ApiError("unauthenticated", "Session rejected by API", 401);
     if (res.status === 403)
-      throw new ApiError("forbidden", "Insufficient role for this resource", 403);
-    if (!res.ok) throw new ApiError("http", `API error ${res.status}`, res.status);
+      throw new ApiError(
+        "forbidden",
+        "Insufficient role for this resource",
+        403,
+      );
+    if (!res.ok)
+      throw new ApiError("http", `API error ${res.status}`, res.status);
     try {
       return (await res.json()) as T;
     } catch {
@@ -109,7 +130,11 @@ export function createApiClient(opts: ApiClientOptions) {
   }
 
   async function chatHealth(): Promise<ChatWorkerHealth> {
-    if (!opts.chatBaseUrl) throw new ApiError("not_configured", "NOVA Chat Worker URL is not configured");
+    if (!opts.chatBaseUrl)
+      throw new ApiError(
+        "not_configured",
+        "NOVA Chat Worker URL is not configured",
+      );
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -118,11 +143,17 @@ export function createApiClient(opts: ApiClientOptions) {
         headers: { accept: "application/json" },
         signal: ctrl.signal,
       });
-      if (!res.ok) throw new ApiError("http", `Chat Worker health returned HTTP ${res.status}`, res.status);
+      if (!res.ok)
+        throw new ApiError(
+          "http",
+          `Chat Worker health returned HTTP ${res.status}`,
+          res.status,
+        );
       return (await res.json()) as ChatWorkerHealth;
     } catch (e) {
       if (e instanceof ApiError) throw e;
-      if ((e as Error).name === "AbortError") throw new ApiError("timeout", "Chat Worker health check timed out");
+      if ((e as Error).name === "AbortError")
+        throw new ApiError("timeout", "Chat Worker health check timed out");
       throw new ApiError("network", "NOVA Chat Worker is unreachable");
     } finally {
       clearTimeout(timer);
@@ -130,22 +161,43 @@ export function createApiClient(opts: ApiClientOptions) {
   }
 
   async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
-    if (!opts.chatBaseUrl) throw new ApiError("not_configured", "NOVA Chat Worker URL is not configured");
-    if (!Array.isArray(messages) || messages.length < 1 || messages.length > 8) {
-      throw new ApiError("blocked", "Chat must contain between 1 and 8 recent messages");
+    if (!opts.chatBaseUrl)
+      throw new ApiError(
+        "not_configured",
+        "NOVA Chat Worker URL is not configured",
+      );
+    if (
+      !Array.isArray(messages) ||
+      messages.length < 1 ||
+      messages.length > 8
+    ) {
+      throw new ApiError(
+        "blocked",
+        "Chat must contain between 1 and 8 recent messages",
+      );
     }
     let total = 0;
     for (const message of messages) {
-      if (!message || !["user", "assistant"].includes(message.role) ||
-          typeof message.content !== "string" || !message.content.trim() ||
-          message.content.trim().length > 1200) {
-        throw new ApiError("blocked", "Chat message is invalid or exceeds the 1,200 character limit");
+      if (
+        !message ||
+        !["user", "assistant"].includes(message.role) ||
+        typeof message.content !== "string" ||
+        !message.content.trim() ||
+        message.content.trim().length > 1200
+      ) {
+        throw new ApiError(
+          "blocked",
+          "Chat message is invalid or exceeds the 1,200 character limit",
+        );
       }
       total += message.content.trim().length;
     }
     const lastMessage = messages[messages.length - 1];
     if (total > 8000 || !lastMessage || lastMessage.role !== "user") {
-      throw new ApiError("blocked", "Chat history is too large or does not end with a user message");
+      throw new ApiError(
+        "blocked",
+        "Chat history is too large or does not end with a user message",
+      );
     }
     const token = await opts.getToken();
     if (!token) throw new ApiError("unauthenticated", "No session token");
@@ -164,30 +216,47 @@ export function createApiClient(opts: ApiClientOptions) {
         signal: ctrl.signal,
       });
     } catch (e) {
-      if ((e as Error).name === "AbortError") throw new ApiError("timeout", "NOVA Chat request timed out");
+      if ((e as Error).name === "AbortError")
+        throw new ApiError("timeout", "NOVA Chat request timed out");
       throw new ApiError("network", "NOVA Chat Worker is unreachable");
     } finally {
       clearTimeout(timer);
     }
-    if (res.status === 401) throw new ApiError("unauthenticated", "Session rejected by Chat Worker", 401);
-    if (res.status === 403) throw new ApiError("forbidden", "Chat request is not allowed", 403);
+    if (res.status === 401)
+      throw new ApiError(
+        "unauthenticated",
+        "Session rejected by Chat Worker",
+        401,
+      );
+    if (res.status === 403)
+      throw new ApiError("forbidden", "Chat request is not allowed", 403);
     if (!res.ok) {
       let reason = `NOVA Chat returned HTTP ${res.status}`;
       try {
-        const body = await res.json() as { error?: string };
+        const body = (await res.json()) as { error?: string };
         if (typeof body.error === "string") reason = body.error;
-      } catch { /* Keep the generic HTTP error. */ }
+      } catch {
+        /* Keep the generic HTTP error. */
+      }
       throw new ApiError("http", reason, res.status);
     }
     try {
-      const body = await res.json() as ChatResponse;
-      if (typeof body.message !== "string" || !body.message.trim() ||
-          body.executionEnabled !== false || body.liveTradingEnabled !== false) {
+      const body = (await res.json()) as ChatResponse;
+      if (
+        typeof body.message !== "string" ||
+        !body.message.trim() ||
+        body.executionEnabled !== false ||
+        body.liveTradingEnabled !== false
+      ) {
         throw new Error("invalid_chat_response");
       }
       return body;
     } catch {
-      throw new ApiError("parse", "Chat Worker returned an invalid or unsafe response", res.status);
+      throw new ApiError(
+        "parse",
+        "Chat Worker returned an invalid or unsafe response",
+        res.status,
+      );
     }
   }
 
