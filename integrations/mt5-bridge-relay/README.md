@@ -15,6 +15,11 @@ The Windows process opens an outbound authenticated WSS connection to /connect. 
 - Missing route configuration, no active bridge session, timeout, invalid tenant, or invalid token fail closed.
 - The relay does not enable order placement, position changes, transfers, withdrawals, or live trading.
 
+
+## NOVA EA heartbeat status
+
+The relay additionally permits authenticated `GET /api/ea/status` for the same tenant session. The EA itself sends its heartbeat only to the loopback Python Bridge; the relay never accepts or forwards a public POST telemetry request. The status endpoint reports online only while the last valid heartbeat is no more than six seconds old.
+
 ## Deployment and secret provisioning
 
 The relay code is deployed by the repository Cloudflare backend workflow after the reviewed change is merged and CI passes. Its Worker has a Durable Object binding named BRIDGE_SESSIONS. The public health endpoint verifies the Worker is deployed, not that a Windows bridge is connected.
