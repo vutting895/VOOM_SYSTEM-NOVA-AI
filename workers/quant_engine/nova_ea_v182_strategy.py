@@ -293,18 +293,26 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
 
 
 
-def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[str, Any]:
+def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any], state: Mapping[str, Any] | None) -> dict[str, Any]:
+    state_out = dict(state or {})
     offset = data.get("server_utc_offset_minutes")
     bar_seconds = data.get("bar_seconds")
     if isinstance(offset, bool) or not isinstance(offset, int) or not -720 <= offset <= 840:
         raise StrategyInputError("SessionBox requires server_utc_offset_minutes in [-720, 840]")
     if isinstance(bar_seconds, bool) or not isinstance(bar_seconds, int) or bar_seconds <= 0:
         raise StrategyInputError("SessionBox requires positive bar_seconds")
+    raw_flags = state_out.get("session_flags", [])
+    if not isinstance(raw_flags, list) or any(not isinstance(x, str) for x in raw_flags):
+        raise StrategyInputError("state.session_flags must be a list of session keys")
+    flags = set(raw_flags)
     last = bars[-1]
     server_time = last["time"] + timedelta(seconds=bar_seconds, minutes=offset)
     day = server_time.date()
     atr = _atr(bars)
     for start_hour, end_hour, tag in ((9, 15, "LONDON"), (15, 20, "NEW_YORK")):
+        session_key = f"{day.isoformat()}:{tag}"
+        if session_key in flags or not end_hour:
+            continue
         start = datetime.combine(day, datetime.min.time(), tzinfo=server_time.tzinfo) + timedelta(hours=start_hour)
         end = datetime.combine(day, datetime.min.time(), tzinfo=server_time.tzinfo) + timedelta(hours=end_hour)
         if not end <= server_time:
@@ -322,8 +330,12 @@ def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[st
         stop = lo if direction > 0 else hi
         if direction*(last["close"]-stop) > 3*atr:
             stop = (last["close"]+stop)/2
-        return _candidate(direction, last["close"], stop, 2.0, 9, last["time"], f"EA_v1.82_SessionBox_{tag}_breakout")
-    return {"strategy_id": 9, "name": STRATEGY_NAMES[9], "direction": 0, "status": "NO_SIGNAL", "reason": "no_completed_session_box_breakout"}
+        result = _candidate(direction, last["close"], stop, 2.0, 9, last["time"], f"EA_v1.82_SessionBox_{tag}_breakout")
+        result["candidate_session_key"] = session_key
+        result["state"] = state_out
+        return result
+    return {"strategy_id": 9, "name": STRATEGY_NAMES[9], "direction": 0, "status": "NO_SIGNAL", "reason": "no_completed_session_box_breakout", "state": state_out}
+
 
 
 def _wyckoff(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -391,7 +403,7 @@ def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, A
     if strategy_id == 4:
         return _liquidity_pools(bars, state)
     if strategy_id == 9:
-        return _session_box(bars, market_data)
+        return _session_box(bars, market_data, state)
     if strategy_id == 1:
         return _trend_pilot(bars)
     if strategy_id == 6:
