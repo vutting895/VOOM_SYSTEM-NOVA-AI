@@ -204,7 +204,7 @@ async function callGemini(env, system, messages, options) {
         })),
         generationConfig: {
           maxOutputTokens: options.maxOutputTokens,
-          temperature: options.temperature,
+          thinkingConfig: { thinkingLevel: "LOW" },
         },
       }),
       // Never forward the API key to a redirect target.
