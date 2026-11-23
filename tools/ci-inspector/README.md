@@ -22,8 +22,8 @@ export CIRCLECI_TOKEN='...'
 export NETLIFY_AUTH_TOKEN='...'
 export NETLIFY_SITE_ID='...'
 
-python3 tools/ci-inspector/inspect.py --pr 272
-python3 tools/ci-inspector/inspect.py --pr 265 --serve
+python3 tools/ci-inspector/nova_ci_inspector.py --pr 272
+python3 tools/ci-inspector/nova_ci_inspector.py --pr 265 --serve
 ```
 
 Then open http://127.0.0.1:8765. The dashboard binds to loopback only. Press Ctrl+C to stop it. The JSON report is written outside the repository at `~/.cache/nova-ci-inspector/report.json` by default. Override with `--output /path/to/report.json`.
@@ -54,7 +54,7 @@ A global PASS means every collected check passed; missing provider credentials p
 
 ```bash
 python3 -m unittest discover -s tools/ci-inspector -p 'test_*.py' -v
-python3 -m py_compile tools/ci-inspector/inspect.py tools/ci-inspector/test_inspect.py
+python3 -m py_compile tools/ci-inspector/nova_ci_inspector.py tools/ci-inspector/test_inspect.py
 ```
 
 Provider API schemas can change. Treat `BLOCKED` or `STALE` as absence of evidence, not as proof of provider failure. The tool deliberately does not claim a deployment or CI run succeeded without matching commit evidence.
