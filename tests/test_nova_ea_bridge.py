@@ -71,7 +71,7 @@ class NovaEABridgeTests(unittest.TestCase):
         ):
             self.assertRegex(
                 READONLY_EA,
-                rf"void\\s+{function}\\s*\\([^)]*\\)\\s*\\{{\\s*#if NOVA_READONLY_BUILD\\s*return;\\s*#endif",
+                rf"void\s+{function}\s*\([^)]*\)\s*\{{\s*#if NOVA_READONLY_BUILD\s*return;\s*#endif",
             )
         for name in (
             "InpUseONNXEnsemble", "InpUseUnified", "InpUseLSTM", "InpUseONNX",
@@ -82,7 +82,7 @@ class NovaEABridgeTests(unittest.TestCase):
             "InpAdaptForceOnInit", "InpAutoTrainDual", "InpAutoExportONNX",
             "InpUseNovaUniverse", "InpRoseSkill_Memory", "InpRoseSkill_Data",
         ):
-            self.assertRegex(READONLY_EA, rf"input\\s+bool\\s+{name}\\s*=\\s*false\\s*;")
+            self.assertRegex(READONLY_EA, rf"input\s+bool\s+{name}\s*=\s*false\s*;")
         self.assertIn("20 registered / 14 kept / 8 active signal dispatch", READONLY_EA)
         self.assertNotIn("30 modules active", READONLY_EA)
 
