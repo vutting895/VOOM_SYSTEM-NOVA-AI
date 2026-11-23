@@ -41,6 +41,7 @@ jobs:
             node --test tests/supabase-marketplace-security-migration.test.mjs
             node --test tests/secret-vault-readiness.test.mjs
             node --test tests/nova-approval-migration.test.mjs
+            node --test tests/nova-mt5-connection-view-contract.test.mjs
             node --check tests/staging-customer-isolation.mjs
 
       - run:
