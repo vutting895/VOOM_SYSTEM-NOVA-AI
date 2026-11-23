@@ -1,6 +1,7 @@
 """Isolated NOVA research runtime. All routes are research/approval-only; no broker orders."""
 from __future__ import annotations
 import os
+import hmac
 from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -114,8 +115,17 @@ def walk_forward(payload: WalkForwardRequest) -> dict[str, Any]:
 
 
 @app.post("/v1/ea/v1.82/analyze")
-def ea_v182_analyze(payload: EAV182AnalysisRequest) -> dict[str, Any]:
+def ea_v182_analyze(payload: EAV182AnalysisRequest,
+                    authorization: str | None = Header(default=None)) -> dict[str, Any]:
     """Run source-grounded EA v1.82 research analysis; final decision fails closed."""
+    expected_token = os.getenv("NOVA_EA_ANALYSIS_TOKEN", "")
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="EA analysis service is not configured")
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="authenticated_service_token_required")
+    supplied_token = authorization[7:].strip()
+    if not supplied_token or not hmac.compare_digest(supplied_token, expected_token):
+        raise HTTPException(status_code=401, detail="invalid_service_token")
     try:
         return analyze_nova_ea_v182(
             market_data=payload.market_data,
