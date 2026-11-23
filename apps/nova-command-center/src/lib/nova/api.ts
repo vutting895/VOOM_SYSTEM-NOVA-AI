@@ -276,7 +276,9 @@ export function createApiClient(opts: ApiClientOptions) {
 
     if (!res.ok) {
       const error =
-        body && typeof body === "object" && "error" in body &&
+        body &&
+        typeof body === "object" &&
+        "error" in body &&
         typeof body.error === "string"
           ? body.error
           : null;
