@@ -251,7 +251,8 @@ test("signed-in user can create one pending Exness Demo connection request", asy
     if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       if (init.method === "POST") {
-        assert.equal(url.searchParams.get("on_conflict"), "user_id,provider,environment");
+        assert.equal(url.searchParams.has("on_conflict"), false);
+        assert.equal(init.headers.Prefer, "return=representation");
         insertPayload = JSON.parse(init.body);
         assert.equal(insertPayload.provider, "exness_mt5");
         assert.equal(insertPayload.environment, "demo");
