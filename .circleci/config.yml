@@ -1,0 +1,47 @@
+version: 2.1
+
+jobs:
+  nova-command-center-tests:
+    docker:
+      - image: cimg/node:24.16
+    resource_class: small
+    parallelism: 2
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Skip unrelated repository changes
+          command: |
+            set -euo pipefail
+            if [ "${CIRCLE_BRANCH}" != "main" ]; then
+              git fetch --no-tags --depth=1 origin main
+              changed_files="$(git diff --name-only FETCH_HEAD...HEAD)"
+              if ! printf '%s\n' "$changed_files" | grep -Eq '^(apps/nova-command-center/|\.circleci/config\.yml$)'; then
+                echo "No NOVA Command Center or CircleCI config changes; skipping test job."
+                circleci-agent step halt
+              fi
+            fi
+      - run:
+          name: Install Bun
+          command: |
+            curl -fsSL https://bun.sh/install | bash
+            echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$BASH_ENV"
+      - run:
+          name: Resolve and install app dependencies
+          working_directory: ~/project/apps/nova-command-center
+          command: |
+            bun install --lockfile-only
+            bun install --frozen-lockfile
+      - run:
+          name: CircleCI Testsuite Doctor
+          working_directory: ~/project/apps/nova-command-center
+          command: circleci testsuite doctor "nova command center tests"
+      - run:
+          name: Run NOVA Command Center Smarter Tests
+          working_directory: ~/project/apps/nova-command-center
+          command: circleci testsuite run "nova command center tests"
+
+workflows:
+  nova-command-center-smarter-testing:
+    jobs:
+      - nova-command-center-tests

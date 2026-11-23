@@ -95,6 +95,8 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "@circleci/vitest-circleci-coverage": "0.4.1291",
+    "cross-env": "^10.1.0"
   }
 }

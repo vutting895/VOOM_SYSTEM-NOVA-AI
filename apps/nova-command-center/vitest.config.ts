@@ -9,6 +9,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    runner: "@circleci/vitest-circleci-coverage/runner",
+    reporters: ["default", "junit", "@circleci/vitest-circleci-coverage/reporter"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
