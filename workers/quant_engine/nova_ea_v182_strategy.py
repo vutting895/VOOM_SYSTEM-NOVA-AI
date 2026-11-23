@@ -389,7 +389,7 @@ def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, A
         result["state"] = next_state
         return result
     if strategy_id == 4:
-        return _liquidity_pools(bars)
+        return _liquidity_pools(bars, state)
     if strategy_id == 9:
         return _session_box(bars, market_data)
     if strategy_id == 1:
