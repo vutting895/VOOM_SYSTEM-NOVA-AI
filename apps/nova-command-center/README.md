@@ -38,3 +38,10 @@ Overview · AI Assistant · Trading (DEMO) · MT5 Bridge · Risk Center · Appro
 
 ## Scripts
 `bun run dev` · `bun run test` · `bun run build`
+
+## Netlify deployment
+
+- The Netlify site build target is `apps/nova-command-center`; the official `@netlify/vite-plugin-tanstack-start` adapter deploys SSR, server routes, and server functions. The client bundle is published from `dist/client`.
+- The Netlify build maps the existing `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SYSTEM_HUB_URL` build variables into the app's `VITE_*` config. The Supabase URL must match the AI Worker's auth project.
+- Never map service-role keys, provider keys, broker credentials, or other secrets into `VITE_*`; those values would be browser-visible.
+- This changes the Netlify production build target from the repository-root Vite app to NOVA Command Center when merged. Keep the PR Draft until its Deploy Preview, authenticated E2E, and the intended production-site replacement are explicitly accepted.
