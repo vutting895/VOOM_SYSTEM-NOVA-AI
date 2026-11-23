@@ -5,6 +5,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = (ROOT / "integrations/mt5/NOVA_EA_Bridge_v1.82.mqh").read_text(encoding="utf-8")
+SMOKE = (ROOT / "integrations/mt5/NOVA_EA_Bridge_CompileSmoke.mq5").read_text(encoding="utf-8")
 PY_BRIDGE = (ROOT / "integrations/mt5-readonly-bridge/bridge.py").read_text(encoding="utf-8")
 RELAY = (ROOT / "integrations/mt5-bridge-relay/worker.js").read_text(encoding="utf-8")
 CLIENT = (ROOT / "integrations/mt5-readonly-bridge/bridge_relay_client.py").read_text(encoding="utf-8")
@@ -28,6 +29,15 @@ class NovaEABridgeTests(unittest.TestCase):
         self.assertIn("orders_enabled", BRIDGE)
         self.assertIn("live_trading_enabled", BRIDGE)
         self.assertIn("false", BRIDGE)
+
+    def test_compile_smoke_harness_is_telemetry_only(self):
+        self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', SMOKE)
+        self.assertIn("NovaEABridgeInit()", SMOKE)
+        self.assertIn("NovaEABridgeHeartbeat(0)", SMOKE)
+        self.assertIn("NovaEABridgeDeinit()", SMOKE)
+        self.assertNotIn("CTrade", SMOKE)
+        self.assertNotIn("OrderSend(", SMOKE)
+        self.assertNotIn("PositionClose", SMOKE)
 
     def test_private_token_is_not_embedded_in_ea_source(self):
         self.assertIn("NOVA_EA_BRIDGE_TOKEN_FILE", BRIDGE)
