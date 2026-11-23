@@ -143,7 +143,8 @@ export function createApiClient(opts: ApiClientOptions) {
       }
       total += message.content.trim().length;
     }
-    if (total > 8000 || messages[messages.length - 1].role !== "user") {
+    const lastMessage = messages[messages.length - 1];
+    if (total > 8000 || !lastMessage || lastMessage.role !== "user") {
       throw new ApiError("blocked", "Chat history is too large or does not end with a user message");
     }
     const token = await opts.getToken();
