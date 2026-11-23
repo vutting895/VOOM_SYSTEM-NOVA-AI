@@ -187,6 +187,7 @@ bool HasAccountOrderCapacity()
 
 int OnInit()
 {
+   gNovaCoreDiagnostics=InpCoreDiagnostics;
    RegisterModules();
    // Reject legacy .set presets that request trading. Fail closed.
    if(InpTradeEnabled)
