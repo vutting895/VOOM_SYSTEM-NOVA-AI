@@ -83,6 +83,7 @@ A fresh isolated Strategy Tester coverage run used that exact EX5:
 - **100% real tick**, 8,266 bars, 26,757,176 ticks; tester passed with no error/failed/invalid log entries.
 - Gate diagnostics: 8,266 data-ready bars; volatility 182 rejected / 8,084 passed; 934 BOS setups; 1,235 MTF alignments; 737 location passes; 125 wick rejections; 1 risk-gate rejection; 76 risk-gate passes; **76 signal candidates**.
 - Final balance USD 10,000; net profit USD 0.00; total trades 0, as expected for the READ-ONLY signal-only EA. Candidate count is signal coverage only, not executed-trade performance or evidence of positive expectancy.
+- Candidate-log distribution: **55 SELL / 21 BUY**, across 40 distinct calendar days; no consecutive candidates were less than 45 minutes apart. Reference stop-distance distribution (XAU price units): min 2.781, median 7.383, p90 11.423, max 19.733. The sell skew requires chart/regime review and is not itself evidence of bias or edge.
 
 Python source-contract tests: **12/12 PASS** on code head `8494191e9c545becff0d0c68e25a326dbbe75f73`. GitHub Actions Frontend CI run #2283 (`45135123464`) succeeded with all 20 build steps; Netlify production smoke test was skipped. The latest documentation-only commit triggers CI run #2284 (`45135688932`), which was still running when this document was updated.
 
