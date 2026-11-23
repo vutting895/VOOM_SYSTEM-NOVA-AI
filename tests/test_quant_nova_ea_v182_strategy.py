@@ -2,7 +2,8 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from workers.quant_engine import evaluate_nova_ea_v182_strategy as evaluate_from_core_package\nfrom workers.quant_engine.mtraders_strategies import (
+from workers.quant_engine import evaluate_nova_ea_v182_strategy as evaluate_from_core_package
+from workers.quant_engine.mtraders_strategies import (
     StrategyInputError,
     evaluate_mtraders_strategy,
     evaluate_all_mtraders_modules,
