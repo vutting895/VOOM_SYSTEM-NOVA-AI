@@ -8,7 +8,7 @@ export interface NovaConfig {
 const DEFAULT_CHAT_API_BASE_URL = "https://voom-system-nova-ai.suwapat787.workers.dev";
 
 function clean(v: unknown): string | null {
-  return typeof v === "string" && v.trim().length > 0 ? v.trim().replace(/\\/+$/, "") : null;
+  return typeof v === "string" && v.trim().length > 0 ? v.trim().replace(/\/+$/, "") : null;
 }
 
 export function readConfig(env: Record<string, unknown> = import.meta.env): NovaConfig {
