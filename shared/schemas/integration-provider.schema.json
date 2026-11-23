@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nova.voomsystem.example/schemas/integration-provider.schema.json",
+  "title": "NOVA Integration Provider",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "category", "lifecycle", "authMethods", "capabilities", "security"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "category": { "enum": ["identity", "database", "ai", "source_control", "hosting", "infrastructure", "broker", "developer_runtime"] },
+    "lifecycle": { "enum": ["active_registry", "planned", "disabled", "deprecated"] },
+    "authMethods": {
+      "type": "array",
+      "items": { "enum": ["supabase_session", "oauth2", "scoped_api_token", "server_config", "provider_bridge", "none"] },
+      "uniqueItems": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,63}$" },
+      "uniqueItems": true
+    },
+    "environment": { "type": "array", "items": { "enum": ["production", "staging", "demo", "development"] }, "uniqueItems": true },
+    "verification": { "enum": ["not_checked", "configured_only", "reachable", "authenticated", "data_verified", "per_connection"] },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["secretHandling", "leastPrivilege", "userConsent", "browserSecretAccess"],
+      "properties": {
+        "secretHandling": { "enum": ["none", "server_config_only", "approved_server_custody_required", "provider_bridge_only"] },
+        "leastPrivilege": { "type": "boolean", "const": true },
+        "userConsent": { "type": "boolean", "const": true },
+        "browserSecretAccess": { "type": "boolean", "const": false },
+        "readOnlyDefault": { "type": "boolean" }
+      }
+    },
+    "notes": { "type": "string", "maxLength": 1000 }
+  }
+}

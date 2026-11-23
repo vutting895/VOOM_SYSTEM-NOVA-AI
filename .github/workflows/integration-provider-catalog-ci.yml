@@ -1,0 +1,30 @@
+name: Integration Provider Catalog CI
+
+on:
+  pull_request:
+    paths:
+      - "shared/integration-provider-catalog.json"
+      - "shared/schemas/integration-provider.schema.json"
+      - "tests/integration-provider-catalog.test.mjs"
+      - ".github/workflows/integration-provider-catalog-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "shared/integration-provider-catalog.json"
+      - "shared/schemas/integration-provider.schema.json"
+      - "tests/integration-provider-catalog.test.mjs"
+      - ".github/workflows/integration-provider-catalog-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate provider catalog and security invariants
+        run: node --test tests/integration-provider-catalog.test.mjs
