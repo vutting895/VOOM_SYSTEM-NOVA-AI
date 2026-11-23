@@ -1,0 +1,12 @@
+name = "nova-core-api"
+main = "worker.js"
+compatibility_date = "2026-11-23"
+workers_dev = true
+
+[observability]
+enabled = true
+
+# Configure at deploy time; do not commit credentials.
+# SUPABASE_URL
+# SUPABASE_PUBLISHABLE_KEY
+# ALLOWED_ORIGINS
