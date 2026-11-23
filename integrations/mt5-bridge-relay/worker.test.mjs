@@ -191,3 +191,35 @@ test("Durable Object status fails closed when no tenant socket exists", async ()
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error, "bridge_not_connected");
 });
+
+
+test("Durable Object records application heartbeat messages on the tenant socket", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  let attachment = { tenantId: TENANT_ID, connectedAt: Date.now(), lastHeartbeat: null };
+  const socket = {
+    deserializeAttachment: () => attachment,
+    serializeAttachment: (value) => { attachment = value; }
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  session.webSocketMessage(socket, JSON.stringify({ type: "heartbeat" }));
+  assert.equal(attachment.tenantId, TENANT_ID);
+  assert.equal(typeof attachment.lastHeartbeat, "number");
+  assert.ok(Date.now() - attachment.lastHeartbeat < 1000);
+});
+
+test("Durable Object status reports stale heartbeat as disconnected", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: TENANT_ID, lastHeartbeat: Date.now() - 10000 }),
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/status", {
+    headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": TENANT_ID }
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connected, false);
+  assert.equal(body.websocketConnected, true);
+  assert.ok(body.heartbeatAgeMs >= 10000);
+});
