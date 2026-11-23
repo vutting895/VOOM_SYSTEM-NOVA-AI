@@ -28,17 +28,17 @@ def bars(count=220):
 
 class NovaEA182StrategyTests(unittest.TestCase):
     def test_strategy_evaluator_is_exported_by_core_package(self):
-        result = evaluate_from_core_package(10, {})
-        self.assertEqual(result["status"], "NOT_PORTED")
+        result = evaluate_from_core_package(11, {})
+        self.assertEqual(result["status"], "DORMANT_NOT_DISPATCHED")
 
     def test_disabled_strategy_is_explicitly_abstained(self):
         result = evaluate_mtraders_strategy(0, {})
         self.assertEqual(result["status"], "DISABLED_IN_EA_V1_82")
         self.assertEqual(result["direction"], 0)
 
-    def test_unported_active_strategy_does_not_fabricate_a_vote(self):
-        result = evaluate_mtraders_strategy(10, {})
-        self.assertEqual(result["status"], "NOT_PORTED")
+    def test_dormant_registry_entry_does_not_fabricate_a_vote(self):
+        result = evaluate_mtraders_strategy(11, {})
+        self.assertEqual(result["status"], "DORMANT_NOT_DISPATCHED")
         self.assertEqual(result["direction"], 0)
         self.assertNotIn("confidence", result)
 
@@ -76,7 +76,8 @@ class NovaEA182StrategyTests(unittest.TestCase):
     def test_all_twenty_ids_are_reported_but_not_all_claimed_implemented(self):
         result = evaluate_all_mtraders_modules({"bars": bars(), "server_utc_offset_minutes": 0, "bar_seconds": 900})
         self.assertEqual(len(result), 20)
-        self.assertEqual(result[10]["status"], "NOT_PORTED")
+        self.assertEqual(result[10]["status"], "DATA_REQUIRED")
+        self.assertEqual(result[11]["status"], "DORMANT_NOT_DISPATCHED")
         self.assertEqual(result[0]["status"], "DISABLED_IN_EA_V1_82")
         self.assertTrue(all(row.get("execution_enabled") is not True for row in result))
 
