@@ -198,7 +198,7 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
                     await serve_request(websocket, send_lock, message, tenant_id, token)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as exc:
             print(f"[mt5-relay] outbound connection unavailable ({type(exc).__name__}); retrying with backoff", flush=True)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30)
