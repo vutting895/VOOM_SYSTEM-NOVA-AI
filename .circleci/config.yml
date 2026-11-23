@@ -6,7 +6,8 @@ jobs:
       - image: cimg/node:22.12
     working_directory: ~/project
     steps:
-      - checkout
+      - checkout:
+          method: full
       - run:
           name: Install NOVA Core API dependencies
           command: cd integrations/nova-core-api && npm install --no-audit --no-fund
