@@ -30,6 +30,38 @@ double   gNovaCoreFvgLow=0.0;
 double   gNovaCoreFvgHigh=0.0;
 double   gNovaCoreEq=0.0;
 double   gNovaCoreSwingExtreme=0.0;
+bool     gNovaCoreDiagnostics=false;
+ulong    gNovaCoreDiagBars=0;
+ulong    gNovaCoreDiagDataReady=0;
+ulong    gNovaCoreDiagVolRejected=0;
+ulong    gNovaCoreDiagVolPassed=0;
+ulong    gNovaCoreDiagBos=0;
+ulong    gNovaCoreDiagSetupActive=0;
+ulong    gNovaCoreDiagSetupExpired=0;
+ulong    gNovaCoreDiagAligned=0;
+ulong    gNovaCoreDiagLocation=0;
+ulong    gNovaCoreDiagRejection=0;
+ulong    gNovaCoreDiagRiskRejected=0;
+ulong    gNovaCoreDiagRiskPassed=0;
+ulong    gNovaCoreDiagCandidates=0;
+
+void NovaCorePrintDiagnostics()
+{
+   if(!gNovaCoreDiagnostics) return;
+   Print("NOVA CORE DIAG | bars=",gNovaCoreDiagBars,
+         " | dataReady=",gNovaCoreDiagDataReady,
+         " | volRejected=",gNovaCoreDiagVolRejected,
+         " | volPassed=",gNovaCoreDiagVolPassed,
+         " | BOS=",gNovaCoreDiagBos,
+         " | setupActive=",gNovaCoreDiagSetupActive,
+         " | setupExpired=",gNovaCoreDiagSetupExpired,
+         " | aligned=",gNovaCoreDiagAligned,
+         " | location=",gNovaCoreDiagLocation,
+         " | rejection=",gNovaCoreDiagRejection,
+         " | riskRejected=",gNovaCoreDiagRiskRejected,
+         " | riskPassed=",gNovaCoreDiagRiskPassed,
+         " | candidates=",gNovaCoreDiagCandidates);
+}
 
 bool NovaCoreCopy(const int handle,const int count,double &out[])
 {
@@ -179,6 +211,7 @@ void NovaCoreEvaluate()
    ArraySetAsSeries(rates,true);
    if(CopyRates(_Symbol,NOVA_CORE_TF,0,96,rates)<96) return;
    if(rates[0].time==gNovaCoreLastBar) return;
+   gNovaCoreDiagBars++;
 
    double h1Fast[],h1Slow[],h4Fast[],h4Slow[],m15Fast[],m15Slow[],rsi[],atr[],atr50[];
    if(!NovaCoreCopy(gNovaCoreH1Fast,3,h1Fast) || !NovaCoreCopy(gNovaCoreH1Slow,3,h1Slow) ||
@@ -189,26 +222,32 @@ void NovaCoreEvaluate()
 
    // Do not consume the bar until all required buffers and ATR values are valid.
    if(atr[1]<=0.0 || atr50[1]<=0.0) return;
+   gNovaCoreDiagDataReady++;
    // later ticks retry transient CopyBuffer/history synchronization failures.
    gNovaCoreLastBar=rates[0].time;
 
    double volRatio=atr[1]/atr50[1];
-   if(volRatio<0.55 || volRatio>1.80) return; // volatility-regime guard
+   if(volRatio<0.55 || volRatio>1.80) { gNovaCoreDiagVolRejected++; return; } // volatility-regime guard
+   gNovaCoreDiagVolPassed++;
 
    int stDir=NovaCoreSuperTrendDirection(rates,atr);
    bool h1Up=h1Fast[1]>h1Slow[1], h1Down=h1Fast[1]<h1Slow[1];
    bool h4Up=h4Fast[1]>h4Slow[1], h4Down=h4Fast[1]<h4Slow[1];
    bool m15Up=m15Fast[1]>m15Slow[1], m15Down=m15Fast[1]<m15Slow[1];
 
+   datetime priorSetupTime=gNovaCoreSetupTime;
    NovaCoreDetectBos(rates,atr[1]);
+   if(gNovaCoreSetupTime!=priorSetupTime) gNovaCoreDiagBos++;
    if(gNovaCoreSetupDir==0 || gNovaCoreSetupTime<=0) return;
    int age=(int)((rates[1].time-gNovaCoreSetupTime)/PeriodSeconds(NOVA_CORE_TF));
-   if(age<0 || age>NOVA_CORE_SETUP_MAX_BARS) { gNovaCoreSetupDir=0; return; }
+   if(age<0 || age>NOVA_CORE_SETUP_MAX_BARS) { gNovaCoreDiagSetupExpired++; gNovaCoreSetupDir=0; return; }
+   gNovaCoreDiagSetupActive++;
 
    int dir=gNovaCoreSetupDir;
    bool aligned=(dir>0?(h1Up && h4Up && m15Up && stDir>0 && rsi[1]>=45.0 && rsi[1]<=68.0):
                          (h1Down && h4Down && m15Down && stDir<0 && rsi[1]>=32.0 && rsi[1]<=55.0));
    if(!aligned) return;
+   gNovaCoreDiagAligned++;
 
    double entry=rates[1].close;
    double low=rates[1].low, high=rates[1].high;
@@ -217,15 +256,19 @@ void NovaCoreEvaluate()
    bool eqRetrace=(dir>0?(low<=gNovaCoreEq+0.15*atr[1] && entry>=gNovaCoreEq):
                            (high>=gNovaCoreEq-0.15*atr[1] && entry<=gNovaCoreEq));
    bool locationOK=(obTouch || fvgTouch || eqRetrace);
+   if(locationOK) gNovaCoreDiagLocation++;
    bool rejection=(dir>0?NovaCoreBullWick(rates[1],atr[1]):NovaCoreBearWick(rates[1],atr[1]));
+   if(rejection) gNovaCoreDiagRejection++;
    if(!locationOK || !rejection || gNovaCoreLastSignal==rates[1].time) return;
 
    double sl=(dir>0?MathMin(low,gNovaCoreSwingExtreme)-0.20*atr[1]:
                     MathMax(high,gNovaCoreSwingExtreme)+0.20*atr[1]);
    double risk=MathAbs(entry-sl);
-   if(risk<=0.0 || risk>3.0*atr[1]) return;
+   if(risk<=0.0 || risk>3.0*atr[1]) { gNovaCoreDiagRiskRejected++; return; }
+   gNovaCoreDiagRiskPassed++;
    double tp=entry+dir*NOVA_CORE_RR*risk;
    gNovaCoreLastSignal=rates[1].time;
+   gNovaCoreDiagCandidates++;
    Print("NOVA CORE CANDIDATE ",(dir>0?"BUY":"SELL"),
          " | closed M15 bar=",TimeToString(rates[1].time,TIME_DATE|TIME_MINUTES),
          " | entryRef=",DoubleToString(entry,_Digits),
