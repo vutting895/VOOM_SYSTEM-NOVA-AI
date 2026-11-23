@@ -50,13 +50,14 @@ async function makeSignedToken({ privateKey, kid, issuer, audience = "authentica
     .sign(privateKey);
 }
 
-async function withMockJwks({ jwksUrl, jwksResponse, run }) {
+async function withMockJwks({ jwksUrl, jwksResponse, extraFetch, run }) {
   const originalFetch = globalThis.fetch;
   const requests = [];
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     requests.push({ url, method: init?.method || "GET" });
     if (url === jwksUrl) return jwksResponse();
+    if (extraFetch) return extraFetch(input, init);
     throw new Error("Unexpected outbound request: " + url);
   };
   try {
@@ -139,6 +140,53 @@ test("JWT integration fails closed when the JWKS endpoint is unavailable", async
       const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: fixture.projectUrl });
       assert.equal(response.status, 401);
       assert.equal((await response.json()).error, "invalid_or_expired_session");
+    },
+  });
+});
+
+
+test("authenticated approvals read forwards the customer JWT to the nova schema and remains GET-only", async () => {
+  const fixture = await createAuthFixture("postgrest-read");
+  const token = await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, role: "operator" });
+  const testEnv = { ...env, SUPABASE_URL: fixture.projectUrl, SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_placeholder" };
+  let postgrestRequest;
+  await withMockJwks({
+    jwksUrl: fixture.jwksUrl,
+    jwksResponse: () => new Response(JSON.stringify({ keys: [fixture.jwk] }), { status: 200 }),
+    extraFetch: async (input, init) => {
+      postgrestRequest = { url: new URL(String(input)), init };
+      return new Response(JSON.stringify([{ id: "approval-1", kind: "demo_review", requested_by: "customer-user-001", created_at: "2026-11-23T00:00:00Z", status: "pending", decided_by: null }]), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+    run: async () => {
+      const response = await worker.fetch(new Request("https://core.example/v1/approvals", { headers: { Authorization: "Bearer " + token } }), testEnv);
+      assert.equal(response.status, 200);
+      const body = await response.json();
+      assert.equal(body.items.length, 1);
+      assert.equal(body.items[0].id, "approval-1");
+      assert.equal(postgrestRequest.init.method, "GET");
+      assert.equal(postgrestRequest.url.pathname, "/rest/v1/approvals");
+      assert.equal(postgrestRequest.url.searchParams.get("limit"), "50");
+      assert.equal(postgrestRequest.init.headers.Authorization, "Bearer " + token);
+      assert.equal(postgrestRequest.init.headers.apikey, "sb_publishable_test_placeholder");
+      assert.equal(postgrestRequest.init.headers["Accept-Profile"], "nova");
+      assert.equal(postgrestRequest.init.headers["Content-Type"], undefined);
+    },
+  });
+});
+
+test("viewer role cannot access operator-only approvals data", async () => {
+  const fixture = await createAuthFixture("viewer-approvals");
+  const token = await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, role: "viewer" });
+  let postgrestCalled = false;
+  await withMockJwks({
+    jwksUrl: fixture.jwksUrl,
+    jwksResponse: () => new Response(JSON.stringify({ keys: [fixture.jwk] }), { status: 200 }),
+    extraFetch: async () => { postgrestCalled = true; return new Response("unexpected", { status: 500 }); },
+    run: async () => {
+      const response = await worker.fetch(new Request("https://core.example/v1/approvals", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: fixture.projectUrl, SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_placeholder" });
+      assert.equal(response.status, 403);
+      assert.equal((await response.json()).error, "insufficient_role");
+      assert.equal(postgrestCalled, false);
     },
   });
 });
