@@ -19,12 +19,27 @@ function clean(v: unknown): string | null {
 export function readConfig(
   env: Record<string, unknown> = import.meta.env,
 ): NovaConfig {
+  // Netlify's existing public Supabase variables use NEXT_PUBLIC_; local Vite
+  // development may use VITE_. A non-empty VITE_ value takes precedence.
+  const supabaseUrl = clean(env["VITE_SUPABASE_URL"]) ??
+    clean(env["NEXT_PUBLIC_SUPABASE_URL"]);
+  const supabaseAnonKey = clean(env["VITE_SUPABASE_ANON_KEY"]) ??
+    clean(env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
+  const apiBaseUrl = clean(env["VITE_NOVA_API_BASE_URL"]) ??
+    clean(env["NEXT_PUBLIC_NOVA_API_BASE_URL"]);
+  const chatApiBaseUrl = clean(env["VITE_NOVA_CHAT_API_BASE_URL"]) ??
+    clean(env["NEXT_PUBLIC_NOVA_CHAT_API_BASE_URL"]);
+
   return {
-    supabaseUrl: resolveTrustedBaseUrl(env["VITE_SUPABASE_URL"], "supabase"),
-    supabaseAnonKey: clean(env["VITE_SUPABASE_ANON_KEY"]),
-    apiBaseUrl: resolveTrustedBaseUrl(env["VITE_NOVA_API_BASE_URL"], "systemHub"),
+    supabaseUrl: resolveTrustedBaseUrl(supabaseUrl, "supabase"),
+    supabaseAnonKey,
+    apiBaseUrl: resolveTrustedBaseUrl(
+      apiBaseUrl,
+      "systemHub",
+      NOVA_SERVICE_ORIGINS.systemHub,
+    ),
     chatApiBaseUrl: resolveTrustedBaseUrl(
-      env["VITE_NOVA_CHAT_API_BASE_URL"],
+      chatApiBaseUrl,
       "chat",
       NOVA_SERVICE_ORIGINS.chat,
     ),
