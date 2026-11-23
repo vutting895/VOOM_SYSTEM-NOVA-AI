@@ -1,6 +1,7 @@
 import { classifyResearchIntent } from "./intent-contract.js";
 const UI_ORIGINS = new Set([
   "https://voomsystem.netlify.app",
+  "https://deploy-preview-358--voomsystem.netlify.app",
   "https://voom-system-nova-ui.suwapat787.workers.dev"
 ]);
 const BASE_HEADERS = {
