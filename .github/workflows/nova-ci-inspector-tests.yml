@@ -28,8 +28,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          # Python 3.14 changed argparse internals and exposed a local-module shadowing bug.
+          # Keep the CLI import smoke-tested on both the baseline and current runtime.
+          matrix: { python-version: ["3.12", "3.14"] }
       - name: Compile inspector
-        run: python -m py_compile tools/ci-inspector/inspect.py tools/ci-inspector/test_inspect.py
+        run: python -m py_compile tools/ci-inspector/nova_ci_inspector.py tools/ci-inspector/test_inspect.py
       - name: Run unit tests with retained output
         shell: bash
         run: |
