@@ -13,7 +13,7 @@ jobs:
           command: |
             set -euo pipefail
             : "${CIRCLE_SHA1:?CircleCI did not provide CIRCLE_SHA1}"
-            git clone --no-checkout https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git .
+            git clone --no-checkout --filter=blob:none https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git .
             git checkout --detach "${CIRCLE_SHA1}"
             test "$(git rev-parse HEAD)" = "${CIRCLE_SHA1}"
 
