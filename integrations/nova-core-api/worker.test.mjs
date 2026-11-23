@@ -1,31 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import worker from "./worker.js";
 
 const env = {
   ALLOWED_ORIGINS: "https://voomsystem.netlify.app",
   SUPABASE_URL: "https://example.supabase.co",
-  SUPABASE_PUBLISHABLE_KEY: "public-test-key",
 };
+const { publicKey, privateKey } = await generateKeyPair("RS256");
+const jwk = await exportJWK(publicKey);
+jwk.kid = "nova-test-key";
+jwk.alg = "RS256";
+jwk.use = "sig";
 
 function request(path, options = {}) {
   return new Request("https://nova-core-api.test" + path, options);
 }
 
-test("health is public and explicitly reports trading disabled", async () => {
-  const response = await worker.fetch(request("/v1/health"), {});
+async function token(claims = {}) {
+  return new SignJWT(claims)
+    .setProtectedHeader({ alg: "RS256", kid: jwk.kid, typ: "JWT" })
+    .setIssuer("https://example.supabase.co/auth/v1")
+    .setAudience("authenticated")
+    .setSubject("user-123")
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
+}
+
+test("health matches documented read-only response contract", async () => {
+  const response = await worker.fetch(request("/v1/health"), env);
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(body.service, "nova-core-api");
-  assert.equal(body.status, "degraded");
-  assert.equal(body.liveTradingEnabled, false);
-  assert.equal(body.brokerWritesEnabled, false);
+  assert.equal(body.status, "ok");
+  assert.equal(typeof body.version, "string");
+  assert.equal(typeof body.time, "string");
+  assert.equal(body.liveTrading, false);
+  assert.equal(body.brokerWrites, false);
 });
 
 test("unknown routes are not exposed", async () => {
   const response = await worker.fetch(request("/v1/bridge/status"), env);
   assert.equal(response.status, 404);
-  assert.equal((await response.json()).error, "not_found");
 });
 
 test("non-GET requests are rejected", async () => {
@@ -45,59 +61,70 @@ test("unknown browser origins are rejected", async () => {
   assert.equal(response.status, 403);
 });
 
-test("authenticated user with approved app_metadata role can read own identity", async (t) => {
+test("valid Supabase JWT with app_metadata role can read identity", async (t) => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url, init) => {
-    assert.equal(String(url), "https://example.supabase.co/auth/v1/user");
-    assert.equal(init.method, "GET");
-    assert.equal(init.redirect, "manual");
-    assert.equal(init.headers.Authorization, "Bearer valid-test-token");
-    return Response.json({
-      id: "user-123",
-      email: "user@example.test",
-      app_metadata: { nova_role: "viewer" },
-      user_metadata: { nova_role: "admin" },
-    });
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://example.supabase.co/auth/v1/.well-known/jwks.json");
+    return Response.json({ keys: [jwk] });
   };
   t.after(() => { globalThis.fetch = originalFetch; });
 
+  const signed = await token({
+    email: "user@example.test",
+    app_metadata: { nova_role: "viewer" },
+    user_metadata: { nova_role: "admin" },
+  });
   const response = await worker.fetch(request("/v1/me", {
-    headers: { Authorization: "Bearer valid-test-token" },
+    headers: { Authorization: "Bearer " + signed },
   }), env);
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(body.user.id, "user-123");
-  assert.equal(body.user.role, "viewer");
+  assert.equal(body.id, "user-123");
+  assert.equal(body.role, "viewer");
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
+  assert.equal(body.brokerWritesEnabled, false);
 });
 
-test("role from user_metadata is not trusted", async (t) => {
+test("user_metadata role is never trusted", async (t) => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json({
-    id: "user-123",
-    user_metadata: { nova_role: "admin" },
-  });
+  globalThis.fetch = async () => Response.json({ keys: [jwk] });
   t.after(() => { globalThis.fetch = originalFetch; });
 
+  const signed = await token({ user_metadata: { nova_role: "admin" } });
   const response = await worker.fetch(request("/v1/me", {
-    headers: { Authorization: "Bearer valid-test-token" },
+    headers: { Authorization: "Bearer " + signed },
   }), env);
   assert.equal(response.status, 403);
-  assert.equal((await response.json()).error, "role_not_authorized");
 });
 
-test("Supabase redirects fail closed", async (t) => {
+test("wrong audience is rejected", async (t) => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(null, {
-    status: 302,
-    headers: { Location: "https://attacker.invalid/steal" },
-  });
+  globalThis.fetch = async () => Response.json({ keys: [jwk] });
   t.after(() => { globalThis.fetch = originalFetch; });
 
+  const signed = await new SignJWT({ app_metadata: { nova_role: "admin" } })
+    .setProtectedHeader({ alg: "RS256", kid: jwk.kid })
+    .setIssuer("https://example.supabase.co/auth/v1")
+    .setAudience("other")
+    .setSubject("user-123")
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
   const response = await worker.fetch(request("/v1/me", {
-    headers: { Authorization: "Bearer valid-test-token" },
+    headers: { Authorization: "Bearer " + signed },
   }), env);
-  assert.equal(response.status, 503);
-  assert.equal((await response.json()).error, "authentication_provider_unavailable");
+  assert.equal(response.status, 401);
+});
+
+test("unknown role fails closed", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ keys: [jwk] });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const signed = await token({ app_metadata: { nova_role: "root" } });
+  const response = await worker.fetch(request("/v1/me", {
+    headers: { Authorization: "Bearer " + signed },
+  }), env);
+  assert.equal(response.status, 403);
 });
