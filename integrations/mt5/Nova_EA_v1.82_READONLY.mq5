@@ -7741,7 +7741,7 @@ int OnInit()
    UpdateDailyHistory();
    if(!SaveState()) { Print(ENGINE_LABEL,": cannot write state; entries disabled until storage recovers"); }
    EventSetTimer(1);gInitialized=true;gPanelHistoryDirty=true;DrawPanel(true);V162_UpdateDashboard(); // v1.50
-   Print(ENGINE_LABEL,": v1.66 Sniper MTF TP300 SL100 Max2 LOCKED | v1.49 Dashboard | MTF D1-H4-H1-M15 | Cleaned 14 modules | v1.06 Cleaned 14 modules | No Duplicates | Full SMC ON | 20 registered / 14 kept / 8 active signal dispatch | READ-ONLY Core bridge | Risk calculations only on ",_Symbol," using ",EnumToString(InpAnalysisTF),
+   Print("NOVA EA v1.82 READ-ONLY | 20 registered / 14 kept / 8 active signal dispatch | Core strategy and risk governor authoritative | broker execution and EA-side training disabled | ",_Symbol," ",EnumToString(InpAnalysisTF));
          "; target risk ",InpRiskPercent,"%; explicit min-lot cap ",InpMaxSingleRiskPct,"%.");
    return INIT_SUCCEEDED;
 }
