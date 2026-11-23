@@ -98,6 +98,7 @@
 #property description "20 strategy modules + MIND AI + WikiFX 6 EA + Trailing + GOLD Breakout + REGIME-SPECIFIC v1.20"
 #property description "Hedging account required. Embedded defaults, no .set preset."
 #property strict
+#property description "READ-ONLY BUILD: broker order, close, cancel and modify requests are compiled out."
 #define NOVA_READ_ONLY_BUILD 1
 #property description "READ-ONLY telemetry build; all broker request submission and position modification calls are disabled."
 
@@ -684,7 +685,7 @@ const double TRAINED_V119_MAX_DD      = 14.69;
 input group "=== Automatic operation ==="
 input bool            InpTradeEnabled         = false;  // v1.49 Default TRUE
 input ENUM_TIMEFRAMES InpAnalysisTF           = PERIOD_M15;
-input long            InpMagicBase            = 690711000;
+input long            InpMagicBase            = 1820000000;
 input group "=== Speculative risk defaults ==="
 input double          InpRiskPercent          = 1.0;      // v1.02: 5% -> 1% ต่อไม้ (เดิมเสี่ยงเกิน)
 input bool            InpAllowBoundedMinLot    = true;
@@ -1062,7 +1063,7 @@ input int             InpSniperMTF_SessionEnd = 22; // v1.66: Session BKK 22:00
 input double          InpSniperMTF_ATRMin = 4.0; // v1.66: Vol Filter ATR M15 4-12
 input double          InpSniperMTF_ATRMax = 12.0;
 input int             InpSniperMTF_SpreadMaxPoints = 30; // v1.66: Spread เกิน 30 จุด ไม่เข้า
-input long            InpSniperMTF_Magic = 991666; // v1.66: Magic แยกจาก Core (690711000+)
+input long            InpSniperMTF_Magic = 1820000999; // v1.66: Magic แยกจาก Core (690711000+)
 input double          InpSniperMTF_PullbackATR = 0.20; // v1.66: รอย่อมา EMA20 + 0.20 ATR
 input int             InpSniperMTF_PendingBarsM15 = 3;
 // --- v1.72 AI Sniper Advantages (จากโปรเจ็ค VOOM AI Sniper) ---
@@ -7728,8 +7729,8 @@ void OnDeinit(const int reason)
    if(gInitialized && gPrefix!="") ObjectsDeleteAll(0,gPrefix);
    gInitialized=false;
 }
-void OnTick() { gLastMarketTickMs=GetTickCount64();gUiTickSeen=true;UpdateTickDelta();NovaEABridgeHeartbeat(0);MainWork(); }
-void OnTimer() { NovaEABridgeHeartbeat(0); MainWork(); }
+void OnTick() { g_V162_Live=false;gHeader.manual_pause=1;gLastMarketTickMs=GetTickCount64();gUiTickSeen=true;UpdateTickDelta();NovaEABridgeHeartbeat(0);MainWork(); }
+void OnTimer() { g_V162_Live=false;gHeader.manual_pause=1;NovaEABridgeHeartbeat(0);MainWork(); }
 void OnTradeTransaction(const MqlTradeTransaction &trans,const MqlTradeRequest &request,const MqlTradeResult &result)
 {
    // Keep the transaction handler short: event order is not guaranteed by MT5.
