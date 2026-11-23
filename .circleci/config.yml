@@ -1,0 +1,22 @@
+version: 2.1
+
+jobs:
+  nova-core-api-test:
+    docker:
+      - image: cimg/node:22.12
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Install NOVA Core API dependencies
+          command: npm install --no-audit --no-fund
+          working_directory: ~/project/integrations/nova-core-api
+      - run:
+          name: Run NOVA Core API unit tests
+          command: npm test
+          working_directory: ~/project/integrations/nova-core-api
+
+workflows:
+  nova-core-api:
+    jobs:
+      - nova-core-api-test
