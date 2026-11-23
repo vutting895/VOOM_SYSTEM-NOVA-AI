@@ -6,9 +6,11 @@
 //+------------------------------------------------------------------+
 #property copyright "NOVA AI — EA Integration 2026"
 #property version   "1.82"
-#property description "NOVA EA v1.82 — 30 registered strategy modules; research scaffold"
+#property description "NOVA EA v1.82 — read-only Core Strategy signal engine"
 #property description "READ-ONLY build. No order execution. Native MetaEditor validation required."
 #property strict
+
+#include "NOVA_CoreStrategy_v1.82.mqh"
 
 #define NOVA_READ_ONLY_MODE true
 #define NOVA_MAX_TOTAL_ORDERS 5
@@ -191,6 +193,11 @@ int OnInit()
       Print(ENGINE_LABEL,": INIT FAILED — execution is disabled in this build.");
       return(INIT_FAILED);
    }
+   if(!NovaCoreInit())
+   {
+      Print(ENGINE_LABEL,": INIT FAILED — Core Strategy indicators unavailable.");
+      return(INIT_FAILED);
+   }
    Print(ENGINE_LABEL," initialized READ-ONLY for ",_Symbol,
          "; execution OFF; account exposure ceiling=",NOVA_MAX_TOTAL_ORDERS);
    return(INIT_SUCCEEDED);
@@ -198,12 +205,16 @@ int OnInit()
 
 void OnDeinit(const int reason)
 {
+   NovaCoreDeinit();
    Print(ENGINE_LABEL," deinitialized.");
 }
 
 void OnTick()
 {
-   // Hard fail-closed boundary: this EA may not process ticks for trading in NOVA V1.
-   if(NOVA_READ_ONLY_MODE) return;
-   // Core tick evaluation handler for 30 modules
+   // Hard fail-closed boundary: evaluate signals only; never enter a trading path.
+   if(NOVA_READ_ONLY_MODE)
+   {
+      NovaCoreOnTick();
+      return;
+   }
 }
