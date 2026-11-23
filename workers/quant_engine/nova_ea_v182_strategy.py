@@ -273,6 +273,9 @@ def _session_heat(data: Mapping[str, Any], state: Mapping[str, Any] | None) -> d
     h1 = _bars({"bars": raw_h1}, minimum=22)
     server_time_raw = data.get("server_time")
     current_bid = _number(data.get("current_bid"), "current_bid")
+    current_ask = _number(data.get("current_ask"), "current_ask")
+    if current_ask < current_bid:
+        raise StrategyInputError("SessionHeat current_ask cannot be below current_bid")
     if not isinstance(server_time_raw, str):
         raise StrategyInputError("SessionHeat requires timezone-aware server_time")
     try:
@@ -299,7 +302,8 @@ def _session_heat(data: Mapping[str, Any], state: Mapping[str, Any] | None) -> d
     if not direction:
         return {"strategy_id": 8, "name": STRATEGY_NAMES[8], "direction": 0, "status": "NO_SIGNAL", "reason": "SessionHeat_hour_bias_or_H1_breakout_not_met", "hour_up_pct": round(up_pct, 4), "state": state_out}
     atr = _atr(h1)
-    result = _candidate(direction, current_bid, current_bid-direction*1.5*atr, 2.0, 8, server_time, "EA_v1.82_SessionHeat_30day_hour_stats_H1_breakout")
+    entry = current_ask if direction > 0 else current_bid
+    result = _candidate(direction, entry, entry-direction*1.5*atr, 2.0, 8, server_time, "EA_v1.82_SessionHeat_30day_hour_stats_H1_breakout")
     result["candidate_slot_key"] = slot
     result["candidate_flag"] = 1 if direction > 0 else 2
     result["hour_up_pct"] = round(up_pct, 4)
