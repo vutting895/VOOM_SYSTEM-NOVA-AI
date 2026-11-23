@@ -11,18 +11,15 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 STRATEGY_NAMES = [
-    "SuperTrend", "KeltnerBreak", "GoldenCross", "RocSurge", "Alligator",
-    "Ichimoku", "AwesomeOsc", "HeikinPower", "PsarDot", "VwapBand",
-    "FlowMatrix", "HourBias", "PivotWheel", "SessionHeat", "StructureMap",
-    "TrendRadar", "VolRegime-Batch", "EffortResult", "ExpertQEXSweep", "FootprintLite",
-    "LiquidityPools", "NeuralPilot", "KillZoneBreak", "QEX-LiqSweep", "QEX-VolST",
-    "RangeSniper", "SessionBox", "TrendPilot", "VolRegime-QEX", "WyckoffPhase",
+    "SuperTrend", "TrendPilot", "VolRegime-QEX", "QEX-VolST", "LiquidityPools",
+    "QEX-LiqSweep", "WyckoffPhase", "RangeSniper", "SessionHeat", "SessionBox",
+    "FlowMatrix", "SATMAFlow", "WickReject", "SMC_Full", "ZigZag_BreakPull",
+    "Martingale_Avg", "Trend_Trail", "Intraday_VolBreak", "Trend_Adding", "GOLD_Breakout",
 ]
-# Explicitly disabled in the v1.82 source comments.
-DISABLED_IDS = {0, 12, 18, 24, 25}
-# These IDs are still dispatched by EvaluateClosedModule / SignalSATMA in v1.82.
-ACTIVE_DISPATCH_IDS = {0, 10, 13, 14, 16, 20, 21, 23, 24, 25, 26, 27, 29}
-IMPLEMENTED_IDS = {14, 20, 26, 27, 29}
+# Original v1.82 source: 20 modules, 14 kept and 6 disabled/removed.
+KEPT_IDS = {1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19}
+DISABLED_IDS = {0, 3, 5, 7, 12, 16}
+IMPLEMENTED_IDS = {1, 4, 6, 9, 13}
 
 
 class StrategyInputError(ValueError):
