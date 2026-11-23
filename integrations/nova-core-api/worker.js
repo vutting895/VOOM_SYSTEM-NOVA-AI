@@ -168,9 +168,7 @@ async function authProviderStatus(env) {
   } catch (error) {
     const allowed = new Set(["jwks_provider_unavailable", "jwks_response_too_large", "empty_jwks_response", "invalid_jwks_document"]);
     const reason = allowed.has(error?.message) ? error.message : "jwks_provider_error";
-    const safeMessage = typeof error?.message === "string"
-      ? error.message.replace(/https?:\\/\\/[^/\\s]+/g, "[supabase-origin]").replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]").slice(0, 100)
-      : "unknown";
+    const safeMessage = typeof error?.message === "string" ? error.message.slice(0, 100) : "unknown";
     return {
       ready: false,
       reason,
