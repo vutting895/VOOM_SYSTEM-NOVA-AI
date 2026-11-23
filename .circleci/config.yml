@@ -159,7 +159,7 @@ jobs:
             fi
 
 workflows:
-  nova-private-pull-request-ci:
+  nova-pull-request-ci:
     when: pipeline.event.name == "api" or (pipeline.event.name == "pull_request" and (pipeline.event.action == "opened" or pipeline.event.action == "synchronize" or pipeline.event.action == "reopened"))
     jobs:
       - nova-frontend-contract
