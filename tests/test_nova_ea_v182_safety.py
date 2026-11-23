@@ -55,6 +55,11 @@ class TestNovaEA182Safety(unittest.TestCase):
         self.assertNotIn('Trade.mqh', CORE)
 
 
+    def test_indicator_buffers_require_calculated_finite_values(self):
+        self.assertIn("BarsCalculated(handle)<MathMax(count,64)", CORE)
+        self.assertIn("out[i]==EMPTY_VALUE", CORE)
+        self.assertIn("MathIsValidNumber(out[i])", CORE)
+
     def test_transient_indicator_data_does_not_consume_the_bar(self):
         copy_ok = CORE.index("!NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;")
         mark_bar = CORE.index("gNovaCoreLastBar=rates[0].time;")
