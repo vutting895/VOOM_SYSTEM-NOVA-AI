@@ -1,0 +1,80 @@
+version: 2.1
+
+jobs:
+  nova-validation:
+    docker:
+      - image: cimg/node:22.12
+    working_directory: ~/project
+    steps:
+      - checkout
+
+      - run:
+          name: Install Python for Bridge contract checks
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y python3
+
+      - run:
+          name: Install NOVA root dependencies
+          command: npm install --no-package-lock --include=dev
+
+      - run:
+          name: Verify NOVA read-only trading guard
+          command: node --test tests/nova-trading-readonly-guard.test.mjs
+
+      - run:
+          name: Verify training status honesty
+          command: node --test tests/nova-training-status-honesty.test.mjs
+
+      - run:
+          name: Verify Supabase security and Vault contracts
+          command: |
+            node --test tests/supabase-marketplace-security-migration.test.mjs
+            node --test tests/secret-vault-readiness.test.mjs
+            node --test tests/nova-approval-migration.test.mjs
+            node --check tests/staging-customer-isolation.mjs
+
+      - run:
+          name: Verify NOVA AI Worker contracts
+          command: node --test integrations/nova-ai-worker/*.test.mjs
+
+      - run:
+          name: Verify System Integration Hub tenant boundaries
+          command: node --test integrations/system-hub/tests/*.test.mjs
+
+      - run:
+          name: Verify Remote MCP read-only tools
+          command: node --test integrations/remote-mcp-worker/tests/*.test.mjs
+
+      - run:
+          name: Verify MT5 relay and read-only proxy contracts
+          command: node --test integrations/mt5-bridge-relay/worker.test.mjs integrations/mt5-readonly-proxy/worker.test.mjs
+
+      - run:
+          name: Compile MT5 Bridge Python modules
+          command: python3 -m py_compile integrations/mt5-readonly-bridge/bridge.py integrations/mt5-readonly-bridge/bridge_relay_client.py
+
+      - run:
+          name: Verify MT5 Bridge tenant guard
+          command: python3 -m unittest discover -s integrations/mt5-readonly-bridge -p "test_*.py"
+
+      - run:
+          name: Install Wrangler for configuration validation
+          command: npm install --no-save --package-lock=false wrangler@4.156.0
+
+      - run:
+          name: Validate tenant relay Durable Object Worker configuration
+          command: npx wrangler deploy --dry-run --config integrations/mt5-bridge-relay/wrangler.jsonc
+
+      - run:
+          name: Validate NOVA System Integration Hub Worker bundle
+          command: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+
+      - run:
+          name: Build NOVA frontend
+          command: npm run build
+
+workflows:
+  nova-validation:
+    jobs:
+      - nova-validation
