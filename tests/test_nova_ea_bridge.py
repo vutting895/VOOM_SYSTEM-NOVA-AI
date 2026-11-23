@@ -62,6 +62,30 @@ class NovaEABridgeTests(unittest.TestCase):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', PY_BRIDGE)
 
 
+    def test_readonly_build_disables_local_training_and_auto_tune(self):
+        self.assertIn("#define NOVA_READONLY_BUILD 1", READONLY_EA)
+        for function in (
+            "MlpTrainModel", "TrainDualAutoModel", "ExportONNXData",
+            "AdaptCheck", "MlpCheckRetrain", "NovaUniverseSync",
+            "AutoOptRun", "AutoOptCheckRollback", "CheckClosedTradesLearning",
+        ):
+            self.assertRegex(
+                READONLY_EA,
+                rf"void\\s+{function}\\s*\\([^)]*\\)\\s*\\{{\\s*#if NOVA_READONLY_BUILD\\s*return;\\s*#endif",
+            )
+        for name in (
+            "InpUseONNXEnsemble", "InpUseUnified", "InpUseLSTM", "InpUseONNX",
+            "InpAutoWeights", "InpUseAutoScanner", "InpUseAutoOpt",
+            "InpUseDeepLearning", "InpUseVision", "InpUseNeuralNet",
+            "InpUseVisionFilter", "InpUse3YTrained", "InpUseNN", "InpNNDual",
+            "InpUseHybridMLP", "InpAutoAdapt", "InpMlpAutoLabel",
+            "InpAdaptForceOnInit", "InpAutoTrainDual", "InpAutoExportONNX",
+            "InpUseNovaUniverse", "InpRoseSkill_Memory", "InpRoseSkill_Data",
+        ):
+            self.assertRegex(READONLY_EA, rf"input\\s+bool\\s+{name}\\s*=\\s*false\\s*;")
+        self.assertIn("20 registered / 14 kept / 8 active signal dispatch", READONLY_EA)
+        self.assertNotIn("30 modules active", READONLY_EA)
+
     def test_original_v182_readonly_copy_has_no_broker_write_capability(self):
         self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', READONLY_EA)
         self.assertIn("NovaEABridgeInit()", READONLY_EA)
