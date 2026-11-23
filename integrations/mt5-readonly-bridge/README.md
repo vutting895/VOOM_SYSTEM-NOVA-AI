@@ -82,7 +82,7 @@ Deployment caveat: the relay source includes authenticated GET `/api/ea/status`,
 - `GET /health`
 - `GET /api/account`
 - `GET /api/symbols?q=XAU&limit=100`
-- `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`\n- Candle history starts at MT5 bar position 1; the current forming bar (position 0) is excluded so Quant Core receives completed candles only. The live tick remains a separate field.
 
 Supported timeframes: M1, M2, M3, M4, M5, M6, M10, M12, M15, M20, M30, H1, H2, H3, H4, H6, H8, H12, D1, W1, MN1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
