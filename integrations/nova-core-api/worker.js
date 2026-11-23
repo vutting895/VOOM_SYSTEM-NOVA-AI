@@ -1,10 +1,9 @@
-import { importJWK, jwtVerify } from "jose";
-
-const VERSION = "0.2.2";
+const VERSION = "0.2.3";
 const ROLE_LEVEL = Object.freeze({ viewer: 1, operator: 2, admin: 3 });
 const jwksCache = new Map();
 const JWKS_TTL_MS = 5 * 60 * 1000;
 const MAX_JWKS_BYTES = 65536;
+const CLOCK_TOLERANCE_SECONDS = 5;
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -40,7 +39,7 @@ function fail(error, status, origin, env) {
 function supabaseConfig(env) {
   try {
     const base = new URL(String(env.SUPABASE_URL || ""));
-    if (base.protocol !== "https:") return null;
+    if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash) return null;
     return {
       issuer: new URL("/auth/v1", base.origin).toString().replace(/\/$/, ""),
       jwksUrl: new URL("/auth/v1/.well-known/jwks.json", base.origin),
@@ -50,11 +49,23 @@ function supabaseConfig(env) {
   }
 }
 
+function decodeBase64Url(value) {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid_base64url");
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function decodeJwtJson(value) {
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64Url(value)));
+}
+
 async function readBoundedJson(response) {
   const contentLength = Number(response.headers.get("Content-Length") || 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_JWKS_BYTES) {
-    throw new Error("jwks_response_too_large");
-  }
+  if (Number.isFinite(contentLength) && contentLength > MAX_JWKS_BYTES) throw new Error("jwks_response_too_large");
   if (!response.body) throw new Error("empty_jwks_response");
 
   const reader = response.body.getReader();
@@ -84,6 +95,27 @@ async function readBoundedJson(response) {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
 }
 
+async function importVerificationKey(jwk, alg) {
+  if (!jwk || typeof jwk.kid !== "string" || !jwk.kid ||
+      (jwk.use && jwk.use !== "sig") ||
+      (jwk.key_ops && !jwk.key_ops.includes("verify")) ||
+      (jwk.alg && jwk.alg !== alg)) throw new Error("invalid_jwk");
+
+  if (alg === "RS256" && jwk.kty === "RSA") {
+    return crypto.subtle.importKey("jwk", jwk, {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256",
+    }, false, ["verify"]);
+  }
+  if (alg === "ES256" && jwk.kty === "EC" && jwk.crv === "P-256") {
+    return crypto.subtle.importKey("jwk", jwk, {
+      name: "ECDSA",
+      namedCurve: "P-256",
+    }, false, ["verify"]);
+  }
+  throw new Error("unsupported_jwk_algorithm");
+}
+
 async function loadJwks(url, forceRefresh = false) {
   const cacheKey = url.toString();
   const cached = jwksCache.get(cacheKey);
@@ -105,14 +137,13 @@ async function loadJwks(url, forceRefresh = false) {
 
   const imported = new Map();
   for (const jwk of document.keys) {
-    if (!jwk || typeof jwk.kid !== "string" || !jwk.kid ||
-        (jwk.use && jwk.use !== "sig") ||
-        (jwk.key_ops && !jwk.key_ops.includes("verify")) ||
-        !["RS256", "ES256"].includes(jwk.alg)) continue;
-    try {
-      imported.set(jwk.kid + ":" + jwk.alg, await importJWK(jwk, jwk.alg));
-    } catch {
-      // Ignore unusable keys; the requested key must still match below.
+    for (const alg of ["RS256", "ES256"]) {
+      try {
+        const key = await importVerificationKey(jwk, alg);
+        imported.set(jwk.kid + ":" + alg, key);
+      } catch {
+        // Ignore unusable keys; the JWT header must still match a usable key.
+      }
     }
   }
   jwksCache.set(cacheKey, { keys: imported, expiresAt: Date.now() + JWKS_TTL_MS });
@@ -130,18 +161,45 @@ async function authProviderReady(env) {
   }
 }
 
-async function resolveSigningKey(url, header) {
-  if (!header || typeof header.kid !== "string" || !["RS256", "ES256"].includes(header.alg)) {
-    throw Object.assign(new Error("invalid_signing_key_header"), { code: "ERR_JWKS_NO_MATCHING_KEY" });
+async function verifyJwt(token, config) {
+  const parts = token.split(".");
+  if (parts.length !== 3) throw Object.assign(new Error("invalid_jwt"), { code: "ERR_JWT_INVALID" });
+
+  const header = decodeJwtJson(parts[0]);
+  const payload = decodeJwtJson(parts[1]);
+  if (!header || typeof header !== "object" || !["RS256", "ES256"].includes(header.alg) ||
+      typeof header.kid !== "string" || !header.kid || header.crit !== undefined || header.b64 === false) {
+    throw Object.assign(new Error("invalid_jwt_header"), { code: "ERR_JWT_INVALID" });
   }
-  let keys = await loadJwks(url);
+
+  let keys = await loadJwks(config.jwksUrl);
   let key = keys.get(header.kid + ":" + header.alg);
   if (!key) {
-    keys = await loadJwks(url, true);
+    keys = await loadJwks(config.jwksUrl, true);
     key = keys.get(header.kid + ":" + header.alg);
   }
   if (!key) throw Object.assign(new Error("signing_key_not_found"), { code: "ERR_JWKS_NO_MATCHING_KEY" });
-  return key;
+
+  const signature = decodeBase64Url(parts[2]);
+  if (header.alg === "ES256" && signature.byteLength !== 64) {
+    throw Object.assign(new Error("invalid_signature"), { code: "ERR_JWS_INVALID" });
+  }
+  const data = new TextEncoder().encode(parts[0] + "." + parts[1]);
+  const valid = header.alg === "RS256"
+    ? await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, signature, data)
+    : await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, signature, data);
+  if (!valid) throw Object.assign(new Error("invalid_signature"), { code: "ERR_JWS_SIGNATURE_VERIFICATION_FAILED" });
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+      payload.iss !== config.issuer ||
+      !(payload.aud === "authenticated" || (Array.isArray(payload.aud) && payload.aud.includes("authenticated"))) ||
+      typeof payload.exp !== "number" || payload.exp <= now - CLOCK_TOLERANCE_SECONDS ||
+      (payload.nbf !== undefined && (typeof payload.nbf !== "number" || payload.nbf > now + CLOCK_TOLERANCE_SECONDS)) ||
+      typeof payload.sub !== "string" || !payload.sub) {
+    throw Object.assign(new Error("invalid_claims"), { code: "ERR_JWT_CLAIM_VALIDATION_FAILED" });
+  }
+  return payload;
 }
 
 export async function authenticate(request, env) {
@@ -152,15 +210,7 @@ export async function authenticate(request, env) {
   if (!config) return { ok: false, status: 503, error: "authentication_not_configured" };
 
   try {
-    const { payload } = await jwtVerify(match[1], (header) => resolveSigningKey(config.jwksUrl, header), {
-      issuer: config.issuer,
-      audience: "authenticated",
-      algorithms: ["RS256", "ES256"],
-      clockTolerance: 5,
-    });
-    if (typeof payload.sub !== "string" || !payload.sub) {
-      return { ok: false, status: 401, error: "invalid_or_expired_session" };
-    }
+    const payload = await verifyJwt(match[1], config);
     const role = payload.app_metadata?.nova_role;
     if (typeof role !== "string" || !Object.hasOwn(ROLE_LEVEL, role)) {
       return { ok: false, status: 403, error: "role_not_authorized" };
@@ -212,9 +262,6 @@ export default {
 
     const auth = await authenticate(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin, env);
-    if (ROLE_LEVEL[auth.user.role] < ROLE_LEVEL.viewer) {
-      return fail("insufficient_role", 403, origin, env);
-    }
     return json({
       id: auth.user.id,
       email: auth.user.email,
