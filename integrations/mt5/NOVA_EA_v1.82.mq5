@@ -37,6 +37,7 @@ input double          InpMaxSpreadATR         = 0.12;
 input int             InpDeviationBasePoints  = 30;
 input bool            InpPanel                 = true;
 input bool            InpJournal               = true;
+input bool            InpCoreDiagnostics       = false; // Opt-in gate counters for isolated research tests only.
 
 enum ModuleId
 {
@@ -205,6 +206,7 @@ int OnInit()
 
 void OnDeinit(const int reason)
 {
+   NovaCorePrintDiagnostics();
    NovaCoreDeinit();
    Print(ENGINE_LABEL," deinitialized.");
 }
