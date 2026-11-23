@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-SPEC = importlib.util.spec_from_file_location("nova_ci_inspector", Path(__file__).with_name("inspect.py"))
+SPEC = importlib.util.spec_from_file_location("nova_ci_inspector", Path(__file__).with_name("nova_ci_inspector.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 SENSITIVE_PATTERNS = MODULE.SENSITIVE_PATTERNS
