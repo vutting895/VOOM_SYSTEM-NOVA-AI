@@ -40,7 +40,7 @@ This is not full 30-module parity. The previous deterministic placeholder in `mt
 
 ## EA-to-Core bridge
 
-The new MQL5 include `integrations/mt5/NOVA_EA_Bridge_v1.82.mqh` sends a narrow heartbeat every two seconds to the local Python bridge:
+The new MQL5 include `integrations/mt5/NOVA_EA_Bridge_v1.82.mqh` provides a narrow two-second heartbeat sender for a future read-only build of the original v1.82 EA:
 
 `POST http://127.0.0.1:8787/api/ea/heartbeat`
 
@@ -53,14 +53,17 @@ The local endpoint:
 
 Cloud access is read-only: authenticated `GET /api/ea/status` flows through Supabase Auth → MT5 proxy → tenant-scoped Cloudflare relay → local bridge. Heartbeat status is online only for six seconds after the last accepted heartbeat. The heartbeat is held in memory by the local bridge; it is not yet durable database history.
 
+**Integration is not yet complete:** this PR deliberately does not ship an EA entrypoint, because the existing safe entrypoint in prior PR #367 was a v1.83-derived clean-room strategy, not the user's v1.82 source. The original v1.82 file contains live order and position-management code. A separate READ-ONLY copy of that exact source must be produced and verified before adding the include or attaching it to MT5.
+
 ## Installation / verification gate
 
-1. Run `tools/windows/provision-nova-ea-bridge-token.ps1` once on the intended Windows MT5 host.
-2. Start the tenant-authenticated Python Bridge with `tools/windows/run-bridge-from-git.ps1` after the branch is reviewed/deployed.
-3. Add `http://127.0.0.1:8787` to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL.
-4. Attach only `NOVA_EA_v1.82_BRIDGE_READONLY.mq5`.
-5. Verify the local heartbeat returns HTTP 200, then verify authenticated `GET /api/ea/status` reports `online`.
-6. Verify missing token, bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
-7. Compile the EA with native MetaEditor and run read-only MT5 Strategy Tester validation.
+1. Keep the original live-capable v1.82 EA detached; do not attach it as a bridge sender.
+2. Produce and review a READ-ONLY copy of the exact v1.82 source, with all order/position write paths removed or unreachable.
+3. Add this include to that reviewed copy and wire `NovaEABridgeInit`, `EventSetTimer`, `NovaEABridgeHeartbeat`, `EventKillTimer`, and `NovaEABridgeDeinit` into its lifecycle.
+4. Run `tools/windows/provision-nova-ea-bridge-token.ps1` once on the intended Windows MT5 host.
+5. Start the tenant-authenticated Python Bridge with `tools/windows/run-bridge-from-git.ps1` after review/deployment.
+6. Add `http://127.0.0.1:8787` to MT5 Tools → Options → Expert Advisors → Allow WebRequest for listed URL.
+7. Verify local heartbeat HTTP 200 and authenticated `GET /api/ea/status` reports `online`; then verify bad token, non-loopback POST, stale heartbeat and tenant mismatch fail closed.
+8. Compile with native MetaEditor and run read-only MT5 Strategy Tester validation.
 
 No deployment, local EA installation, merge, or live trading activation is implied by this source change. Algo Trading must remain disabled and Live Trading OFF.
