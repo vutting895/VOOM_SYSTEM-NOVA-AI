@@ -19,7 +19,8 @@ STRATEGY_NAMES = [
 # Original v1.82 source: 20 modules, 14 kept and 6 disabled/removed.
 KEPT_IDS = {1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19}
 DISABLED_IDS = {0, 3, 5, 7, 12, 16}
-IMPLEMENTED_IDS = {1, 4, 6, 9, 13}
+IMPLEMENTED_IDS = {1, 2, 4, 6, 8, 9, 10, 13}
+DORMANT_IDS = {11, 14, 15, 17, 18, 19}
 
 
 class StrategyInputError(ValueError):
@@ -67,16 +68,28 @@ def _bars(data: Mapping[str, Any], minimum: int = 110) -> list[dict[str, Any]]:
     return result
 
 
-def _atr(bars: list[dict[str, Any]], period: int = 14) -> float:
-    tr = []
-    for i in range(len(bars) - period, len(bars)):
-        prev_close = bars[i - 1]["close"]
-        tr.append(max(
+def _atr_series(bars: list[dict[str, Any]], period: int = 14) -> list[float]:
+    if period < 1 or len(bars) < period + 3:
+        raise StrategyInputError("insufficient bars for Wilder ATR")
+    true_ranges = [0.0] * len(bars)
+    for i in range(1, len(bars)):
+        prev_close = bars[i-1]["close"]
+        true_ranges[i] = max(
             bars[i]["high"] - bars[i]["low"],
             abs(bars[i]["high"] - prev_close),
             abs(bars[i]["low"] - prev_close),
-        ))
-    value = sum(tr) / len(tr)
+        )
+    out = [0.0] * len(bars)
+    value = sum(true_ranges[1:period+1]) / period
+    out[period] = value
+    for i in range(period+1, len(bars)):
+        value = (value * (period-1) + true_ranges[i]) / period
+        out[i] = value
+    return out
+
+
+def _atr(bars: list[dict[str, Any]], period: int = 14) -> float:
+    value = _atr_series(bars, period)[-1]
     if value <= 0:
         raise StrategyInputError("ATR must be positive")
     return value
@@ -140,6 +153,158 @@ def _candidate(direction: int, entry: float, stop: float, rr: float, strategy_id
         "reason": reason, "research_only": True, "orders_submitted": False,
         "execution_enabled": False, "live_trading_enabled": False,
     }
+
+
+def _bb_width(bars: list[dict[str, Any]], end_index: int, period: int = 20) -> float:
+    if end_index + 1 < period:
+        return 0.0
+    values = [bar["close"] for bar in bars[end_index-period+1:end_index+1]]
+    mean = sum(values) / period
+    if mean <= 0:
+        return 0.0
+    variance = sum((value-mean)**2 for value in values) / period
+    return 4.0 * math.sqrt(variance) / mean
+
+
+def _bars_since(bars: list[dict[str, Any]], timestamp: Any) -> int:
+    if not timestamp:
+        return 1_000_000
+    try:
+        parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise StrategyInputError("state timestamp must be ISO formatted") from exc
+    if parsed.tzinfo is None:
+        raise StrategyInputError("state timestamp must include timezone")
+    found = next((i for i, bar in enumerate(bars) if bar["time"] == parsed), None)
+    if found is not None:
+        return len(bars)-1-found
+    interval = (bars[-1]["time"]-bars[-2]["time"]).total_seconds()
+    return int((bars[-1]["time"]-parsed).total_seconds()/interval) if interval > 0 else 1_000_000
+
+
+def _vol_qex(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> dict[str, Any]:
+    state_out = dict(state or {})
+    atrs = _atr_series(bars, 14)
+    current_atr = atrs[-1]
+    prior_atrs = [value for value in atrs[-201:-1] if value > 0]
+    percentile = 100.0 * sum(value < current_atr for value in prior_atrs) / len(prior_atrs) if len(prior_atrs) >= 20 else -1.0
+    current_width = _bb_width(bars, len(bars)-1)
+    widths = [_bb_width(bars, i) for i in range(max(19, len(bars)-100), len(bars))]
+    valid_widths = [value for value in widths if value > 0]
+    average_width = sum(valid_widths)/len(valid_widths) if len(valid_widths) >= 20 else 0.0
+    squeeze = (0 <= percentile <= 30) or (average_width > 0 and current_width > 0 and current_width < 0.7*average_width)
+    phase = int(state_out.get("phase", 0))
+    if squeeze:
+        if phase != 1:
+            state_out = {"phase": 1, "hi": bars[-1]["close"], "lo": bars[-1]["close"], "flags": 0, "anchor_time": bars[-1]["time"].isoformat()}
+        else:
+            state_out["hi"] = max(float(state_out["hi"]), bars[-1]["close"])
+            state_out["lo"] = min(float(state_out["lo"]), bars[-1]["close"])
+        return {"strategy_id": 2, "name": STRATEGY_NAMES[2], "direction": 0, "status": "SQUEEZE_BUILDING", "reason": "EA_v1.82_QEX_ATR_percentile_or_BBWidth_squeeze", "state": state_out}
+    if phase == 1:
+        phase = 2
+        state_out["phase"] = 2
+    if phase != 2 or int(state_out.get("flags", 0)) != 0 or float(state_out.get("lo", 0)) <= 0:
+        return {"strategy_id": 2, "name": STRATEGY_NAMES[2], "direction": 0, "status": "NO_SIGNAL", "reason": "QEX_not_armed_or_already_consumed", "state": state_out}
+    last = bars[-1]
+    upper = float(state_out["hi"]) + 0.1*current_atr
+    lower = float(state_out["lo"]) - 0.1*current_atr
+    direction = 1 if last["close"] > upper else -1 if last["close"] < lower else 0
+    if not direction:
+        return {"strategy_id": 2, "name": STRATEGY_NAMES[2], "direction": 0, "status": "SETUP_WAITING", "reason": "QEX_waiting_for_range_breakout", "state": state_out}
+    state_out["flags"] = 1
+    if _bars_since(bars, state_out.get("last_entry_time")) < 15:
+        return {"strategy_id": 2, "name": STRATEGY_NAMES[2], "direction": 0, "status": "COOLDOWN", "reason": "EA_v1.82_QEX_15_bar_entry_cooldown", "state": state_out}
+    stop = float(state_out["lo"]) if direction > 0 else float(state_out["hi"])
+    entry = last["close"]
+    if direction*(entry-stop) > 1.5*current_atr:
+        stop = (entry+stop)/2.0
+    result = _candidate(direction, entry, stop, 2.0, 2, last["time"], "EA_v1.82_VolRegime_QEX_squeeze_breakout")
+    result["state"] = state_out
+    return result
+
+
+def _flow_matrix(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[str, Any]:
+    symbol = data.get("symbol")
+    symbol_bars = data.get("symbol_bars")
+    if not isinstance(symbol, str) or not isinstance(symbol_bars, Mapping) or symbol not in symbol_bars:
+        return {"strategy_id": 10, "name": STRATEGY_NAMES[10], "direction": 0, "status": "DATA_REQUIRED", "reason": "FlowMatrix_requires_symbol_bars_for_current_symbol_and_universe"}
+    flows: dict[str, float] = {}
+    for name, rows in symbol_bars.items():
+        try:
+            history = _bars({"bars": rows}, minimum=22)
+        except StrategyInputError:
+            continue
+        sample = history[-20:]
+        volume = sum(bar["volume"] for bar in sample)
+        if volume <= 0:
+            flows[str(name)] = 0.0
+            continue
+        delta = 0.0
+        for bar in sample:
+            span = bar["high"]-bar["low"]
+            if span > 0 and bar["volume"] > 0:
+                bounded = max(-1.0, min(1.0, (2*bar["close"]-bar["high"]-bar["low"])/span))
+                delta += bar["volume"]*bounded
+        flows[str(name)] = delta/volume
+    if symbol not in flows:
+        return {"strategy_id": 10, "name": STRATEGY_NAMES[10], "direction": 0, "status": "DATA_REQUIRED", "reason": "current_symbol_flow_unavailable"}
+    total = sum(abs(value) for value in flows.values())
+    current = flows[symbol]
+    share = 100.0*abs(current)/total if total > 0 else 0.0
+    closes = [bar["close"] for bar in bars]
+    ema50, ema200 = _ema(closes, 50), _ema(closes, 200)
+    direction = 1 if current > 0 else -1 if current < 0 else 0
+    aligned = (direction > 0 and ema50[-1] > ema200[-1]) or (direction < 0 and ema50[-1] < ema200[-1])
+    if share >= 80.0 and aligned:
+        atr = _atr(bars)
+        result = _candidate(direction, closes[-1], closes[-1]-direction*2.0*atr, 1.5, 10, bars[-1]["time"], "EA_v1.82_FlowMatrix_80pct_share_EMA_alignment")
+        result["flow_share_pct"] = round(share, 6)
+        result["symbol_flows"] = flows
+        return result
+    return {"strategy_id": 10, "name": STRATEGY_NAMES[10], "direction": 0, "status": "NO_SIGNAL", "reason": "FlowMatrix_share_or_EMA_gate_not_met", "flow_share_pct": round(share, 6), "symbol_flows": flows}
+
+
+def _session_heat(data: Mapping[str, Any], state: Mapping[str, Any] | None) -> dict[str, Any]:
+    state_out = dict(state or {})
+    raw_h1 = data.get("h1_bars")
+    if not isinstance(raw_h1, Sequence) or isinstance(raw_h1, (str, bytes)):
+        return {"strategy_id": 8, "name": STRATEGY_NAMES[8], "direction": 0, "status": "DATA_REQUIRED", "reason": "SessionHeat_requires_H1_history"}
+    h1 = _bars({"bars": raw_h1}, minimum=22)
+    server_time_raw = data.get("server_time")
+    current_bid = _number(data.get("current_bid"), "current_bid")
+    if not isinstance(server_time_raw, str):
+        raise StrategyInputError("SessionHeat requires timezone-aware server_time")
+    try:
+        server_time = datetime.fromisoformat(server_time_raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise StrategyInputError("SessionHeat server_time is invalid") from exc
+    if server_time.tzinfo is None:
+        raise StrategyInputError("SessionHeat server_time must include timezone")
+    hour = server_time.hour
+    heat_start = server_time - timedelta(days=30)
+    sample = [bar for bar in h1 if heat_start <= bar["time"] <= server_time and bar["time"].hour == hour]
+    count = len(sample)
+    if count < 5:
+        return {"strategy_id": 8, "name": STRATEGY_NAMES[8], "direction": 0, "status": "DATA_INSUFFICIENT", "reason": "SessionHeat_needs_five_H1_samples_for_server_hour", "state": state_out}
+    up_pct = 100.0*sum(bar["close"] > bar["open"] for bar in sample)/count
+    previous_h1 = h1[-1]
+    slot = server_time.replace(minute=0, second=0, microsecond=0).isoformat()
+    if state_out.get("consumed_key") == slot:
+        return {"strategy_id": 8, "name": STRATEGY_NAMES[8], "direction": 0, "status": "SLOT_CONSUMED", "reason": "SessionHeat_one_signal_per_server_hour", "state": state_out}
+    flags = state_out.get("flags", 0)
+    if isinstance(flags, bool) or not isinstance(flags, int):
+        raise StrategyInputError("SessionHeat state.flags must be an integer bitmask")
+    direction = 1 if not (flags & 1) and current_bid > previous_h1["high"] and up_pct >= 60.0 else -1 if not (flags & 2) and current_bid < previous_h1["low"] and up_pct <= 40.0 else 0
+    if not direction:
+        return {"strategy_id": 8, "name": STRATEGY_NAMES[8], "direction": 0, "status": "NO_SIGNAL", "reason": "SessionHeat_hour_bias_or_H1_breakout_not_met", "hour_up_pct": round(up_pct, 4), "state": state_out}
+    atr = _atr(h1)
+    result = _candidate(direction, current_bid, current_bid-direction*1.5*atr, 2.0, 8, server_time, "EA_v1.82_SessionHeat_30day_hour_stats_H1_breakout")
+    result["candidate_slot_key"] = slot
+    result["candidate_flag"] = 1 if direction > 0 else 2
+    result["hour_up_pct"] = round(up_pct, 4)
+    result["state"] = state_out
+    return result
 
 
 def _trend_pilot(bars: list[dict[str, Any]]) -> dict[str, Any]:
@@ -393,9 +558,17 @@ def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, A
         return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DISABLED_IN_EA_V1_82", "reason": "source_v122_disabled_module"}
     if strategy_id not in KEPT_IDS:
         return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "REMOVED_FROM_KEPT_MODULE_SET", "reason": "not_in_v122_kept_modules"}
+    if strategy_id in DORMANT_IDS:
+        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DORMANT_NOT_DISPATCHED", "reason": "registry_entry_has_no_active_signal_dispatch_in_v1_82"}
     if strategy_id not in IMPLEMENTED_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "NOT_PORTED", "reason": "kept_in_source_but_signal_parity_not_yet_implemented"}
-    bars = _bars(market_data, minimum=210 if strategy_id == 1 else 110)
+        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "NOT_PORTED", "reason": "active_source_signal_parity_not_yet_implemented"}
+    if strategy_id == 8:
+        return _session_heat(market_data, state)
+    bars = _bars(market_data, minimum=220 if strategy_id == 2 else 210 if strategy_id in {1, 10} else 110)
+    if strategy_id == 2:
+        return _vol_qex(bars, state)
+    if strategy_id == 10:
+        return _flow_matrix(bars, market_data)
     if strategy_id == 13:
         result, next_state = _smc_full(bars, state)
         result["state"] = next_state
