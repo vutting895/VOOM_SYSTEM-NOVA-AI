@@ -152,9 +152,9 @@ def _trend_pilot(bars: list[dict[str, Any]]) -> dict[str, Any]:
     elif e50[i] < e200[i] and closes[i] < e200[i] and rsi[i-1] > 55 >= rsi[i]:
         direction = -1
     if not direction:
-        return {"strategy_id": 27, "name": STRATEGY_NAMES[27], "direction": 0, "status": "NO_SIGNAL", "reason": "trendpilot_conditions_not_met"}
+        return {"strategy_id": 1, "name": STRATEGY_NAMES[1], "direction": 0, "status": "NO_SIGNAL", "reason": "trendpilot_conditions_not_met"}
     atr = _atr(bars)
-    return _candidate(direction, closes[i], closes[i] - direction * 1.5 * atr, 2.5, 27, bars[i]["time"], "EA_v1.82_TrendPilot_EMA50_200_RSI45_55")
+    return _candidate(direction, closes[i], closes[i] - direction * 1.5 * atr, 2.5, 1, bars[i]["time"], "EA_v1.82_TrendPilot_EMA50_200_RSI45_55")
 
 
 def _liquidity_pools(bars: list[dict[str, Any]]) -> dict[str, Any]:
@@ -170,10 +170,10 @@ def _liquidity_pools(bars: list[dict[str, Any]]) -> dict[str, Any]:
                 continue
             pool = sum(touches) / len(touches)
             if side == "low" and last["low"] < pool - pierce and last["close"] > pool and last["close"] > last["open"]:
-                return _candidate(1, last["close"], last["low"] - 0.3 * atr, 2.0, 20, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
+                return _candidate(1, last["close"], last["low"] - 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
             if side == "high" and last["high"] > pool + pierce and last["close"] < pool and last["close"] < last["open"]:
-                return _candidate(-1, last["close"], last["high"] + 0.3 * atr, 2.0, 20, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
-    return {"strategy_id": 20, "name": STRATEGY_NAMES[20], "direction": 0, "status": "NO_SIGNAL", "reason": "no_confirmed_liquidity_cluster_sweep"}
+                return _candidate(-1, last["close"], last["high"] + 0.3 * atr, 2.0, 4, last["time"], "EA_v1.82_LiquidityPools_cluster_sweep_reclaim")
+    return {"strategy_id": 4, "name": STRATEGY_NAMES[4], "direction": 0, "status": "NO_SIGNAL", "reason": "no_confirmed_liquidity_cluster_sweep"}
 
 
 def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -183,7 +183,7 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
     highs = _confirmed_pivots(bars[:-1], "high")
     lows = _confirmed_pivots(bars[:-1], "low")
     if len(highs) < 2 or len(lows) < 2:
-        return ({"strategy_id": 14, "name": STRATEGY_NAMES[14], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
     range_high = max(highs[-1][1], highs[-2][1])
     range_low = min(lows[-1][1], lows[-2][1])
     recent = bars[-100:]
@@ -192,7 +192,7 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
     if phase == 0:
         direction = 1 if last["close"] > highs[-1][1] and last["close"] > last["open"] else -1 if last["close"] < lows[-1][1] and last["close"] < last["open"] else 0
         if not direction:
-            return ({"strategy_id": 14, "name": STRATEGY_NAMES[14], "direction": 0, "status": "NO_SIGNAL", "reason": "waiting_for_confirmed_bos"}, state_out)
+            return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "waiting_for_confirmed_bos"}, state_out)
         prior = bars[-21:-1]
         opposing = next((b for b in reversed(prior) if (b["close"] < b["open"] if direction > 0 else b["close"] > b["open"])), prior[-1])
         fvg = None
@@ -208,10 +208,10 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
             "fvg_high": fvg[1] if fvg else 0.0, "equilibrium": eq,
             "range_high": range_high, "range_low": range_low,
         }
-        return ({"strategy_id": 14, "name": STRATEGY_NAMES[14], "direction": 0, "status": "SETUP_ARMED", "reason": "EA_v1.82_SMC_BOS_wait_retrace"}, state_out)
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_ARMED", "reason": "EA_v1.82_SMC_BOS_wait_retrace"}, state_out)
     age = len(bars) - 1 - int(state_out.get("anchor_index", -1000))
     if age > 30 or (phase > 0 and last["close"] < float(state_out["range_low"]) - 0.2*atr) or (phase < 0 and last["close"] > float(state_out["range_high"]) + 0.2*atr):
-        return ({"strategy_id": 14, "name": STRATEGY_NAMES[14], "direction": 0, "status": "SETUP_RESET", "reason": "SMC_setup_expired_or_invalidated"}, {"phase": 0})
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "SMC_setup_expired_or_invalidated"}, {"phase": 0})
     ob_hi, ob_lo = float(state_out["ob_high"]), float(state_out["ob_low"])
     fvg_lo, fvg_hi = float(state_out["fvg_low"]), float(state_out["fvg_high"])
     if phase > 0:
@@ -222,7 +222,7 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
         wick_ok = wick >= 1.5*max(abs(last["open"]-last["close"]), 0.1*atr) and wick >= 0.4*atr
         if location and (in_ob or in_fvg) and wick_ok:
             stop_base = fvg_lo if in_fvg and not in_ob else min(ob_lo, fvg_lo if fvg_hi > fvg_lo else ob_lo)
-            signal = _candidate(1, last["close"], stop_base - 0.2*atr, 2.5, 14, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Discount_Wick")
+            signal = _candidate(1, last["close"], stop_base - 0.2*atr, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Discount_Wick")
             return signal, {"phase": 0}
     else:
         location = last["close"] >= float(state_out["equilibrium"])
@@ -232,9 +232,9 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
         wick_ok = wick >= 1.5*max(abs(last["open"]-last["close"]), 0.1*atr) and wick >= 0.4*atr
         if location and (in_ob or in_fvg) and wick_ok:
             stop_base = fvg_hi if in_fvg and not in_ob else max(ob_hi, fvg_hi if fvg_hi > fvg_lo else ob_hi)
-            signal = _candidate(-1, last["close"], stop_base + 0.2*atr, 2.5, 14, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Premium_Wick")
+            signal = _candidate(-1, last["close"], stop_base + 0.2*atr, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Premium_Wick")
             return signal, {"phase": 0}
-    return ({"strategy_id": 14, "name": STRATEGY_NAMES[14], "direction": 0, "status": "SETUP_WAITING", "reason": "SMC_retrace_or_rejection_not_confirmed"}, state_out)
+    return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_WAITING", "reason": "SMC_retrace_or_rejection_not_confirmed"}, state_out)
 
 
 def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[str, Any]:
@@ -266,8 +266,8 @@ def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[st
         stop = lo if direction > 0 else hi
         if direction*(last["close"]-stop) > 3*atr:
             stop = (last["close"]+stop)/2
-        return _candidate(direction, last["close"], stop, 2.0, 26, last["time"], f"EA_v1.82_SessionBox_{tag}_breakout")
-    return {"strategy_id": 26, "name": STRATEGY_NAMES[26], "direction": 0, "status": "NO_SIGNAL", "reason": "no_completed_session_box_breakout"}
+        return _candidate(direction, last["close"], stop, 2.0, 9, last["time"], f"EA_v1.82_SessionBox_{tag}_breakout")
+    return {"strategy_id": 9, "name": STRATEGY_NAMES[9], "direction": 0, "status": "NO_SIGNAL", "reason": "no_completed_session_box_breakout"}
 
 
 def _wyckoff(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -280,64 +280,65 @@ def _wyckoff(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tup
         phase = 0; out = {}
     if phase == 0:
         window = bars[-24:]
-        if len(window) < 24: return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"NO_SIGNAL","reason":"insufficient_wyckoff_history"}, out)
+        if len(window) < 24: return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"NO_SIGNAL","reason":"insufficient_wyckoff_history"}, out)
         hi=max(b["high"] for b in window); lo=min(b["low"] for b in window)
         trend=bars[-25]["close"]-bars[-45]["close"]
         if not 1.2*atr <= hi-lo <= 6*atr or abs(trend)<1.5*atr:
-            return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"NO_SIGNAL","reason":"no_wyckoff_range"}, out)
+            return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"NO_SIGNAL","reason":"no_wyckoff_range"}, out)
         out={"phase":1,"age":0,"hi":hi,"lo":lo,"bias":1 if trend<0 else -1}
-        return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_ARMED","reason":"Wyckoff_range_armed"}, out)
+        return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_ARMED","reason":"Wyckoff_range_armed"}, out)
     out["age"]=int(out.get("age",0))+1
     hi=float(out["hi"]); lo=float(out["lo"]); bias=int(out["bias"])
     if phase == 1:
-        if last["close"] < lo-0.1*atr or last["close"] > hi+0.1*atr: return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_RESET","reason":"range_invalidated"}, {})
+        if last["close"] < lo-0.1*atr or last["close"] > hi+0.1*atr: return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_RESET","reason":"range_invalidated"}, {})
         if bias>0 and last["low"]<lo-0.1*atr and last["close"]>lo and last["volume"]<=avg_volume:
             out.update(phase=2,extreme=last["low"],age=0)
         elif bias<0 and last["high"]>hi+0.1*atr and last["close"]<hi and last["volume"]<=avg_volume:
             out.update(phase=3,extreme=last["high"],age=0)
     elif phase == 2:
-        if last["close"]<float(out["extreme"])-0.1*atr: return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_RESET","reason":"spring_invalidated"}, {})
+        if last["close"]<float(out["extreme"])-0.1*atr: return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_RESET","reason":"spring_invalidated"}, {})
         if last["close"]>hi and last["volume"]>=1.5*avg_volume: out.update(phase=4,age=0)
     elif phase == 3:
-        if last["close"]>float(out["extreme"])+0.1*atr: return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_RESET","reason":"upthrust_invalidated"}, {})
+        if last["close"]>float(out["extreme"])+0.1*atr: return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_RESET","reason":"upthrust_invalidated"}, {})
         if last["close"]<lo and last["volume"]>=1.5*avg_volume: out.update(phase=5,age=0)
     elif phase in (4,5):
         direction=1 if phase==4 else -1
         if (direction>0 and last["close"]<float(out["extreme"])-0.1*atr) or (direction<0 and last["close"]>float(out["extreme"])+0.1*atr):
-            return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_RESET","reason":"wyckoff_extreme_invalidated"}, {})
+            return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_RESET","reason":"wyckoff_extreme_invalidated"}, {})
         lps = (last["low"]<=hi+0.8*atr and last["close"]>hi) if direction>0 else (last["high"]>=lo-0.8*atr and last["close"]<lo)
         if lps:
             entry=last["close"]; stop=float(out["extreme"])-direction*0.3*atr
             target=entry+direction*1.5*(hi-lo)
             risk=direction*(entry-stop)
             if risk>0 and direction*(target-entry)>0:
-                signal={"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":direction,"entry_reference":entry,"stop_reference":stop,"target_reference":target,"risk_distance":risk,"rr":abs(target-entry)/risk,"signal_time":last["time"].isoformat(),"status":"RESEARCH_CANDIDATE","reason":"EA_v1.82_Wyckoff_Spring_UTAD_LPS","research_only":True,"orders_submitted":False,"execution_enabled":False,"live_trading_enabled":False}
+                signal={"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":direction,"entry_reference":entry,"stop_reference":stop,"target_reference":target,"risk_distance":risk,"rr":abs(target-entry)/risk,"signal_time":last["time"].isoformat(),"status":"RESEARCH_CANDIDATE","reason":"EA_v1.82_Wyckoff_Spring_UTAD_LPS","research_only":True,"orders_submitted":False,"execution_enabled":False,"live_trading_enabled":False}
                 return signal, {}
-    return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"SETUP_WAITING","reason":"Wyckoff_phase_not_complete"}, out)
+    return ({"strategy_id":6,"name":STRATEGY_NAMES[6],"direction":0,"status":"SETUP_WAITING","reason":"Wyckoff_phase_not_complete"}, out)
 
 
 def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, Any], state: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if isinstance(strategy_id, bool) or not isinstance(strategy_id, int) or not 0 <= strategy_id < len(STRATEGY_NAMES):
-        raise StrategyInputError("strategy_id must be an integer from 0 through 29")
+        raise StrategyInputError("strategy_id must be an integer from 0 through 19")
     if not isinstance(market_data, Mapping):
         raise StrategyInputError("market_data must be an object")
     if strategy_id in DISABLED_IDS:
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DISABLED_IN_EA_V1_82", "reason": "source_flag_disabled"}
+        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "DISABLED_IN_EA_V1_82", "reason": "source_v122_disabled_module"}
+    if strategy_id not in KEPT_IDS:
+        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "REMOVED_FROM_KEPT_MODULE_SET", "reason": "not_in_v122_kept_modules"}
     if strategy_id not in IMPLEMENTED_IDS:
-        status = "NOT_PORTED" if strategy_id in ACTIVE_DISPATCH_IDS else "RETIRED_OR_NOT_DISPATCHED"
-        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": status, "reason": "no_signal_emitted_until_source_parity_is_implemented"}
-    bars = _bars(market_data, minimum=210 if strategy_id == 27 else 110)
-    if strategy_id == 14:
+        return {"strategy_id": strategy_id, "name": STRATEGY_NAMES[strategy_id], "direction": 0, "status": "NOT_PORTED", "reason": "kept_in_source_but_signal_parity_not_yet_implemented"}
+    bars = _bars(market_data, minimum=210 if strategy_id == 1 else 110)
+    if strategy_id == 13:
         result, next_state = _smc_full(bars, state)
         result["state"] = next_state
         return result
-    if strategy_id == 20:
+    if strategy_id == 4:
         return _liquidity_pools(bars)
-    if strategy_id == 26:
+    if strategy_id == 9:
         return _session_box(bars, market_data)
-    if strategy_id == 27:
+    if strategy_id == 1:
         return _trend_pilot(bars)
-    if strategy_id == 29:
+    if strategy_id == 6:
         result, next_state = _wyckoff(bars, state)
         result["state"] = next_state
         return result
