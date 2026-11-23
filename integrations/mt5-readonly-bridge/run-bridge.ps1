@@ -21,6 +21,16 @@ if ($env:MT5_BRIDGE_TOKEN.Length -lt 32) {
     throw 'Tenant-specific bridge token is invalid or too short.'
 }
 
+# EA telemetry uses a separate private token stored in MetaTrader Common Files.
+$eaTokenPath = Join-Path $env:APPDATA 'MetaQuotes\Terminal\Common\Files\nova-ea-bridge.token'
+if (-not (Test-Path -LiteralPath $eaTokenPath)) {
+    throw 'NOVA EA bridge token is missing. Run tools/windows/provision-nova-ea-bridge-token.ps1 first.'
+}
+$env:MT5_EA_BRIDGE_TOKEN = [System.IO.File]::ReadAllText($eaTokenPath).Trim()
+if ($env:MT5_EA_BRIDGE_TOKEN.Length -lt 48) {
+    throw 'NOVA EA bridge token is invalid or too short.'
+}
+
 # Stable, authenticated WebSocket relay under workers.dev; no custom domain or named Tunnel.
 $env:MT5_BRIDGE_RELAY_URL = 'wss://voom-mt5-bridge-relay.suwapat787.workers.dev/connect'
 
