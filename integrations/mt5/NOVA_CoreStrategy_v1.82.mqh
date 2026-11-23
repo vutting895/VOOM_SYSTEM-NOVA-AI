@@ -173,7 +173,6 @@ void NovaCoreEvaluate()
    ArraySetAsSeries(rates,true);
    if(CopyRates(_Symbol,NOVA_CORE_TF,0,96,rates)<96) return;
    if(rates[0].time==gNovaCoreLastBar) return;
-   gNovaCoreLastBar=rates[0].time;
 
    double h1Fast[],h1Slow[],h4Fast[],h4Slow[],m15Fast[],m15Slow[],rsi[],atr[],atr50[];
    if(!NovaCoreCopy(gNovaCoreH1Fast,3,h1Fast) || !NovaCoreCopy(gNovaCoreH1Slow,3,h1Slow) ||
@@ -182,6 +181,9 @@ void NovaCoreEvaluate()
       !NovaCoreCopy(gNovaCoreM15Rsi,3,rsi) || !NovaCoreCopy(gNovaCoreM15Atr,64,atr) ||
       !NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;
 
+   // Commit the bar as evaluated only after every required buffer is available.
+   // This lets later ticks retry transient CopyBuffer/history synchronization failures.
+   gNovaCoreLastBar=rates[0].time;
    if(atr[1]<=0.0 || atr50[1]<=0.0) return;
    double volRatio=atr[1]/atr50[1];
    if(volRatio<0.55 || volRatio>1.80) return; // volatility-regime guard
