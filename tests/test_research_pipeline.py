@@ -48,7 +48,8 @@ def test_walk_forward_produces_held_out_folds_only():
     assert body["live_trading_enabled"] is False
 
 
-def test_risk_rejection_never_creates_approval():
+def test_risk_rejection_never_creates_approval(monkeypatch):
+    monkeypatch.setenv("NOVA_APPROVALS_ENABLED", "true")
     client = TestClient(app)
     response = client.post("/v1/risk/approval", json={
         "thread_id": "00000000-0000-0000-0000-000000000001",
@@ -61,7 +62,8 @@ def test_risk_rejection_never_creates_approval():
     assert response.json()["approval_created"] is False
 
 
-def test_risk_pass_requires_authenticated_approval_context():
+def test_risk_pass_requires_authenticated_approval_context(monkeypatch):
+    monkeypatch.setenv("NOVA_APPROVALS_ENABLED", "true")
     client = TestClient(app)
     response = client.post("/v1/risk/approval", json={
         "thread_id": "00000000-0000-0000-0000-000000000001",
