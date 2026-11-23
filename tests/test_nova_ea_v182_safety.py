@@ -60,9 +60,9 @@ class TestNovaEA182Safety(unittest.TestCase):
         self.assertIn("out[i]==EMPTY_VALUE", CORE)
         self.assertIn("MathIsValidNumber(out[i])", CORE)
 
-    def test_core_stop_reference_uses_local_structure_and_keeps_atr_cap(self):
-        self.assertIn("NovaCoreLowest(rates,1,8)", CORE)
-        self.assertIn("NovaCoreHighest(rates,1,8)", CORE)
+    def test_core_stop_reference_uses_rejection_wick_and_keeps_atr_cap(self):
+        self.assertIn("low-0.20*atr[1]", CORE)
+        self.assertIn("high+0.20*atr[1]", CORE)
         self.assertIn("risk>3.0*atr[1]", CORE)
         self.assertNotIn("gNovaCoreSwingExtreme", CORE)
 
