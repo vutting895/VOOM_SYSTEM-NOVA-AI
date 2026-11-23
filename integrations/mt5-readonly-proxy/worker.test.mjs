@@ -127,7 +127,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
       return Response.json([{
         id: CONNECTION_ID,
@@ -173,7 +173,7 @@ test("foreign user's connection ID is not forwarded to the Bridge", async () => 
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "different-test-user-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       // Both predicates must be present: a valid row ID alone is not enough.
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
@@ -218,7 +218,7 @@ test("EA status forwards only an authenticated owner's read-only status request"
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
       return Response.json([{
@@ -273,7 +273,7 @@ test("EA status never forwards a foreign user's connection ID", async () => {
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "different-test-user-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
       return Response.json([]);

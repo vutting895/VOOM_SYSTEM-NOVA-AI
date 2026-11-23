@@ -120,7 +120,7 @@ async function loadConnection(request, env, user) {
   const connectionId = new URL(request.url).searchParams.get("connection_id") || "";
   if (!uuid.test(connectionId)) return { ok: false, status: 400, error: "valid_connection_id_required" };
 
-  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/broker_connections");
+  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/nova_broker_connections");
   url.searchParams.set("select", "id,user_id,provider,environment,status,bridge_route_id");
   url.searchParams.set("id", "eq." + connectionId);
   url.searchParams.set("user_id", "eq." + user.userId);
