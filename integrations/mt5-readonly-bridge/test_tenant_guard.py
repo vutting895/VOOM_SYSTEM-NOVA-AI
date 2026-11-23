@@ -119,6 +119,20 @@ class TenantGuardContractTests(unittest.TestCase):
         end = SOURCE.index('@app.get("/api/account")', start)
         self.assertIn("require_token(authorization, tenant_id)", SOURCE[start:end])
 
+    def test_quotes_exclude_the_current_forming_bar_for_point_in_time_core_inputs(self):
+        quotes = function_nodes()["quotes"]
+        calls = [
+            node for node in ast.walk(quotes)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "copy_rates_from_pos"
+        ]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls[0].args), 4)
+        self.assertIsInstance(calls[0].args[2], ast.Constant)
+        self.assertEqual(calls[0].args[2].value, 1)
+        self.assertIn("still-forming candle", SOURCE)
+
     def test_quotes_do_not_mutate_market_watch_symbol_visibility(self):
         quotes = function_nodes()["quotes"]
         self.assertFalse(has_call(quotes, "symbol_select"))
