@@ -1,5 +1,5 @@
 export function pageHead(title: string, description: string) {
-  const fullTitle = \`\${title} — NOVA AI\`;
+  const fullTitle = title + " — NOVA AI";
   return () => ({
     meta: [
       { title: fullTitle },
