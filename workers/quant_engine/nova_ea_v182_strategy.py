@@ -248,7 +248,7 @@ def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[st
     if isinstance(bar_seconds, bool) or not isinstance(bar_seconds, int) or bar_seconds <= 0:
         raise StrategyInputError("SessionBox requires positive bar_seconds")
     last = bars[-1]
-    server_time = last["time"] + timedelta(minutes=offset)
+    server_time = last["time"] + timedelta(seconds=bar_seconds, minutes=offset)
     day = server_time.date()
     atr = _atr(bars)
     for start_hour, end_hour, tag in ((9, 15, "LONDON"), (15, 20, "NEW_YORK")):
@@ -282,7 +282,7 @@ def _wyckoff(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tup
     if phase != 0 and int(out.get("age", 0)) + 1 > 40:
         phase = 0; out = {}
     if phase == 0:
-        window = bars[-45:-21]
+        window = bars[-24:]
         if len(window) < 24: return ({"strategy_id":29,"name":STRATEGY_NAMES[29],"direction":0,"status":"NO_SIGNAL","reason":"insufficient_wyckoff_history"}, out)
         hi=max(b["high"] for b in window); lo=min(b["low"] for b in window)
         trend=bars[-25]["close"]-bars[-45]["close"]
