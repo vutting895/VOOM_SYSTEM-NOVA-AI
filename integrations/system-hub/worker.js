@@ -175,9 +175,11 @@ async function createConnection(request, env, user, origin) {
     }, 200, origin, env);
   }
 
+  // The REST endpoint is an automatically-updatable view. Do not ask PostgREST
+  // to perform ON CONFLICT against a view; the base-table unique constraint is
+  // enforced by PostgreSQL and the race path below re-reads the caller's row.
   const url = connectionUrl(env, {
-    select: "id,user_id,provider,environment,status,account_label,last_verified_at,created_at,bridge_route_id",
-    on_conflict: "user_id,provider,environment"
+    select: "id,user_id,provider,environment,status,account_label,last_verified_at,created_at,bridge_route_id"
   });
   if (!url) return json({ error: "connection_service_not_configured" }, 503, origin, env);
 
@@ -190,7 +192,7 @@ async function createConnection(request, env, user, origin) {
         Authorization: "Bearer " + user.token,
         Accept: "application/json",
         "Content-Type": "application/json",
-        Prefer: "resolution=ignore-duplicates,return=representation"
+        Prefer: "return=representation"
       },
       body: JSON.stringify({
         provider: "exness_mt5",
