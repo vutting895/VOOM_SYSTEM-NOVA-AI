@@ -114,6 +114,25 @@ test("order-like routes are denied and not proxied", async () => {
   assert.equal((await response.json()).ordersEnabled, false);
 });
 
+test("EA status is authenticated and forwarded through the tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, headers: req.headers };
+    return Response.json({ connected: true, status: "online", mode: "read-only", orders_enabled: false, live_trading_enabled: false });
+  });
+  const response = await worker.fetch(request("/api/ea/status", {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connected, true);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.url.pathname, "/api/ea/status");
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("Authorization"), null);
+});
+
 test("query validation only allows bounded read parameters", () => {
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/symbols?q=XAU&limit=100")), { ok: true });
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/ea/status")), { ok: true });
