@@ -1,0 +1,30 @@
+version: 2.1
+
+parameters:
+  run_nova_command_center:
+    type: boolean
+    default: false
+
+jobs:
+  nova-command-center-check:
+    docker:
+      - image: oven/bun:1
+    working_directory: ~/project/apps/nova-command-center
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Resolve app-local lockfile
+          command: bun install --lockfile-only
+      - run:
+          name: Install dependencies
+          command: bun install --frozen-lockfile
+      - run:
+          name: TypeScript, lint, unit tests and production build
+          command: bun run check:ci
+
+workflows:
+  nova-command-center:
+    when: << pipeline.parameters.run_nova_command_center >>
+    jobs:
+      - nova-command-center-check
