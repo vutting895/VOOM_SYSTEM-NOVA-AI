@@ -338,7 +338,6 @@ def quotes(
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 rates unavailable: {error[0]}")
         bars = []
-        bar_duration = timeframe_duration_seconds(timeframe)
         for rate in rates:
             bar_open_time = int(rate["time"])
             bars.append({
