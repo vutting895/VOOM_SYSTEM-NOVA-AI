@@ -84,7 +84,7 @@ describe("api client", () => {
           fetchImpl: hang,
         }).get("/v1/me"),
       ),
-    ).toBe("timeout"));
+    ).toBe("timeout");
   });
   it("sends bearer token and parses json", async () => {
     let auth: string | null = null;
