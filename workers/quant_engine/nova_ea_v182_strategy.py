@@ -227,57 +227,70 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
     lows = _confirmed_pivots(bars[:-1], "low")
     if len(highs) < 2 or len(lows) < 2:
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
-    range_high = max(highs[-1][1], highs[-2][1])
-    range_low = min(lows[-1][1], lows[-2][1])
+    last_sh, prev_sh = highs[-1][1], highs[-2][1]
+    last_sl, prev_sl = lows[-1][1], lows[-2][1]
+    range_high = max(last_sh, prev_sh)
+    range_low = min(last_sl, prev_sl)
     recent = bars[-100:]
-    eq = (max(x["high"] for x in recent) + min(x["low"] for x in recent)) / 2.0
+    hi100 = max(range_high, max(x["high"] for x in recent))
+    lo100 = min(range_low, min(x["low"] for x in recent))
+    equilibrium = (hi100 + lo100) / 2.0
     phase = int(state_out.get("phase", 0))
     if phase == 0:
-        direction = 1 if last["close"] > highs[-1][1] and last["close"] > last["open"] else -1 if last["close"] < lows[-1][1] and last["close"] < last["open"] else 0
+        direction = 1 if last["close"] > last_sh and last["close"] > last["open"] else -1 if last["close"] < last_sl and last["close"] < last["open"] else 0
         if not direction:
             return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "waiting_for_confirmed_bos"}, state_out)
         prior = bars[-21:-1]
         opposing = next((b for b in reversed(prior) if (b["close"] < b["open"] if direction > 0 else b["close"] > b["open"])), prior[-1])
-        fvg = None
-        for j in range(len(prior)-1, 1, -1):
-            newer, older = prior[j], prior[j-2]
-            if direction > 0 and newer["low"] > older["high"]:
-                fvg = (older["high"], newer["low"]); break
-            if direction < 0 and newer["high"] < older["low"]:
-                fvg = (newer["high"], older["low"]); break
         state_out = {
             "phase": direction, "anchor_index": len(bars)-1, "ob_high": opposing["high"],
-            "ob_low": opposing["low"], "fvg_low": fvg[0] if fvg else 0.0,
-            "fvg_high": fvg[1] if fvg else 0.0, "equilibrium": eq,
+            "ob_low": opposing["low"], "equilibrium": equilibrium,
             "range_high": range_high, "range_low": range_low,
         }
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_ARMED", "reason": "EA_v1.82_SMC_BOS_wait_retrace"}, state_out)
     age = len(bars) - 1 - int(state_out.get("anchor_index", -1000))
-    if age > 30 or (phase > 0 and last["close"] < float(state_out["range_low"]) - 0.2*atr) or (phase < 0 and last["close"] > float(state_out["range_high"]) + 0.2*atr):
+    max_retrace = int(state_out.get("max_retrace_bars", 30))
+    if age > max_retrace or (phase > 0 and last["close"] < float(state_out["range_low"]) - 0.2*atr) or (phase < 0 and last["close"] > float(state_out["range_high"]) + 0.2*atr):
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "SMC_setup_expired_or_invalidated"}, {"phase": 0})
+    # EA v1.82 recomputes the nearest FVG from the latest 20 completed bars on every retrace bar.
+    prior = bars[-21:-1]
+    fvg_low = fvg_high = 0.0
+    for j in range(len(prior)-1, 1, -1):
+        newer, older = prior[j], prior[j-2]
+        if phase > 0 and newer["low"] > older["high"]:
+            fvg_low, fvg_high = older["high"], newer["low"]
+            break
+        if phase < 0 and newer["high"] < older["low"]:
+            fvg_low, fvg_high = newer["high"], older["low"]
+            break
     ob_hi, ob_lo = float(state_out["ob_high"]), float(state_out["ob_low"])
-    fvg_lo, fvg_hi = float(state_out["fvg_low"]), float(state_out["fvg_high"])
+    eq = float(state_out["equilibrium"])
     if phase > 0:
-        location = last["close"] <= float(state_out["equilibrium"])
+        location = last["close"] <= eq
         in_ob = last["low"] <= ob_hi and last["close"] >= ob_lo
-        in_fvg = fvg_hi > fvg_lo and last["low"] <= fvg_hi and last["close"] >= fvg_lo
+        in_fvg = fvg_high > 0 and last["low"] <= fvg_high and last["close"] >= fvg_low
         wick = min(last["open"], last["close"]) - last["low"]
-        wick_ok = wick >= 1.5*max(abs(last["open"]-last["close"]), 0.1*atr) and wick >= 0.4*atr
+        body = abs(last["open"] - last["close"])
+        wick_ok = wick >= 1.5*max(body, 0.1*atr) and wick >= 0.4*atr
         if location and (in_ob or in_fvg) and wick_ok:
-            stop_base = fvg_lo if in_fvg and not in_ob else min(ob_lo, fvg_lo if fvg_hi > fvg_lo else ob_lo)
-            signal = _candidate(1, last["close"], stop_base - 0.2*atr, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Discount_Wick")
-            return signal, {"phase": 0}
+            stop = min(ob_lo, fvg_low if fvg_high > 0 else ob_lo) - 0.2*atr
+            if in_fvg and not in_ob:
+                stop = fvg_low - 0.2*atr
+            return _candidate(1, last["close"], stop, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Discount_Wick"), {"phase": 0}
     else:
-        location = last["close"] >= float(state_out["equilibrium"])
+        location = last["close"] >= eq
         in_ob = last["high"] >= ob_lo and last["close"] <= ob_hi
-        in_fvg = fvg_hi > fvg_lo and last["high"] >= fvg_lo and last["close"] <= fvg_hi
+        in_fvg = fvg_high > 0 and last["high"] >= fvg_low and last["close"] <= fvg_high
         wick = last["high"] - max(last["open"], last["close"])
-        wick_ok = wick >= 1.5*max(abs(last["open"]-last["close"]), 0.1*atr) and wick >= 0.4*atr
+        body = abs(last["open"] - last["close"])
+        wick_ok = wick >= 1.5*max(body, 0.1*atr) and wick >= 0.4*atr
         if location and (in_ob or in_fvg) and wick_ok:
-            stop_base = fvg_hi if in_fvg and not in_ob else max(ob_hi, fvg_hi if fvg_hi > fvg_lo else ob_hi)
-            signal = _candidate(-1, last["close"], stop_base + 0.2*atr, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Premium_Wick")
-            return signal, {"phase": 0}
+            stop = max(ob_hi, fvg_high if fvg_high > 0 else ob_hi) + 0.2*atr
+            if in_fvg and not in_ob:
+                stop = fvg_high + 0.2*atr
+            return _candidate(-1, last["close"], stop, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Premium_Wick"), {"phase": 0}
     return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_WAITING", "reason": "SMC_retrace_or_rejection_not_confirmed"}, state_out)
+
 
 
 def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any]) -> dict[str, Any]:
