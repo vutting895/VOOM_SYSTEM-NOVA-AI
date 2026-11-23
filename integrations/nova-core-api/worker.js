@@ -1,4 +1,4 @@
-const VERSION = "0.2.4";
+const VERSION = "0.2.5";
 const ROLE_LEVEL = Object.freeze({ viewer: 1, operator: 2, admin: 3 });
 const jwksCache = new Map();
 const JWKS_TTL_MS = 5 * 60 * 1000;
@@ -162,11 +162,23 @@ async function authProviderStatus(env) {
       reason: keys.size > 0 ? null : diagnostic?.importErrorName ? "jwks_key_import_failed" : "no_usable_signing_keys",
       keyCount: keys.size,
       importErrorName: keys.size > 0 ? null : diagnostic?.importErrorName || null,
+      providerErrorName: null,
+      providerError: null,
     };
   } catch (error) {
     const allowed = new Set(["jwks_provider_unavailable", "jwks_response_too_large", "empty_jwks_response", "invalid_jwks_document"]);
-    const reason = allowed.has(error?.message) ? error.message : "jwks_parse_or_import_failed";
-    return { ready: false, reason, keyCount: 0, importErrorName: null };
+    const reason = allowed.has(error?.message) ? error.message : "jwks_provider_error";
+    const safeMessage = typeof error?.message === "string"
+      ? error.message.replace(/https?:\\/\\/[^/\\s]+/g, "[supabase-origin]").replace(/[A-Za-z0-9_-]{64,}/g, "[redacted]").slice(0, 100)
+      : "unknown";
+    return {
+      ready: false,
+      reason,
+      keyCount: 0,
+      importErrorName: null,
+      providerErrorName: typeof error?.name === "string" ? error.name : "Error",
+      providerError: safeMessage,
+    };
   }
 }
 
@@ -263,6 +275,8 @@ export default {
         providerReason: provider.reason,
         jwksKeyCount: provider.keyCount,
         jwksImportError: provider.importErrorName,
+        providerErrorName: provider.providerErrorName || null,
+        providerError: provider.providerError || null,
         version: VERSION,
         time: new Date().toISOString(),
         liveTrading: false,
