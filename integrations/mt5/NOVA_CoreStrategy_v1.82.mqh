@@ -259,10 +259,8 @@ void NovaCoreEvaluate()
    if(rejection) gNovaCoreDiagRejection++;
    if(!locationOK || !rejection || gNovaCoreLastSignal==rates[1].time) return;
 
-   double localSwingLow=NovaCoreLowest(rates,1,8);
-   double localSwingHigh=NovaCoreHighest(rates,1,8);
-   double sl=(dir>0?localSwingLow-0.20*atr[1]:
-                    localSwingHigh+0.20*atr[1]);
+   double sl=(dir>0?low-0.20*atr[1]:
+                    high+0.20*atr[1]);
    double risk=MathAbs(entry-sl);
    if(risk<=0.0 || risk>3.0*atr[1]) { gNovaCoreDiagRiskRejected++; return; }
    gNovaCoreDiagRiskPassed++;
