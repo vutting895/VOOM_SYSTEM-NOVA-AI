@@ -85,13 +85,30 @@ A fresh isolated Strategy Tester coverage run used that exact EX5:
 - Final balance USD 10,000; net profit USD 0.00; total trades 0, as expected for the READ-ONLY signal-only EA. Candidate count is signal coverage only, not executed-trade performance or evidence of positive expectancy.
 - Candidate-log distribution: **55 SELL / 21 BUY**, across 40 distinct calendar days; no consecutive candidates were less than 45 minutes apart. Reference stop-distance distribution (XAU price units): min 2.781, median 7.383, p90 11.423, max 19.733. The sell skew requires chart/regime review and is not itself evidence of bias or edge.
 
-Python source-contract tests: **12/12 PASS** on code head `8494191e9c545becff0d0c68e25a326dbbe75f73`. GitHub Actions Frontend CI run #2283 (`45135123464`) succeeded with all 20 build steps; Netlify production smoke test was skipped. The latest documentation-only commit triggers CI run #2284 (`45135688932`), which was still running when this document was updated.
+### Tick-level hypothetical first-touch audit
+
+A separate read-only research harness was run against the same Exness real-tick tester data. The reproducibility inputs and outputs are committed alongside this document:
+
+- Candidate input: `tests/mt5/NOVA_CORE_CANDIDATES.csv` (76 candidate timestamps and reference levels; SHA-256 `3A796BE3864DCD8414B70C1A677EDF46F5D8652D324B1C8385D5D8B8B1A82AAB`).
+- Audit harness: `tests/mt5/NOVA_TICK_AUDIT_v1.82.mq5`; native MetaEditor compile **0 errors, 0 warnings**. Source SHA-256 `C497E7D3073F42AE2F8B348E30CBB4C9FC7D649F5DE0FCA6AB69EE0E90B9DA22`; compiled EX5 SHA-256 `C0DB058E6D997A906B5BB9853820B23C9C9D8167423EE4AC3E30BFD5C3647BFD`.
+- Per-candidate result: `docs/research/NOVA-EA-v1.82-TICK-FIRST-TOUCH-AUDIT.csv`; SHA-256 `CC53C7F19D9BE943204CF866EBC03500AB50572432DBA77E5A79D1977D3EC4E3`.
+- For each candidate, the first tick after the closed M15 signal bar was used as the hypothetical market entry (BUY at Ask, SELL at Bid). Subsequent real Bid/Ask ticks were scanned for 24 hours; BUY exits were checked on Bid and SELL exits on Ask. Thus spread is embedded in tick prices. Commission and additional execution slippage are **not** included.
+- All 76 candidates matched their signal-bar timestamp; all 76 had forward tick data; no gap-before-entry or missing-tick cases.
+- Outcomes: **24 TP, 50 SL, 2 timeouts**. Both timeouts closed positive. Gross profit **+61.235R**, gross loss **-50.000R**, net **+11.235R**, gross PF **1.225**, mean **+0.148R/trade**. This is a hypothetical single-trade-per-signal simulation, not broker execution or realized account P/L.
+- BUY: 21 candidates, 6 TP / 14 SL / 1 timeout, net **+1.623R**, PF **1.116**. SELL: 55 candidates, 18 TP / 36 SL / 1 timeout, net **+9.612R**, PF **1.267**.
+- Maximum observed overlap: **4 simultaneous hypothetical positions**; maximum peak-to-trough drawdown **8.523R**; longest consecutive loss sequence **7**; median exit time **31.59 minutes**, maximum **1,292.13 minutes** (about 21.5 hours).
+- The time split is the critical finding: before the stop-diagnostic window (2026-07-17 through 2026-09-30), **48 trades produced only +0.308R, PF 1.009**. In the 2026-10-01 through 2026-11-20 diagnostic window used to investigate and change the stop-distance model, **28 trades produced +10.927R, PF 1.683**. That window contributed approximately **97.3%** of the total +11.235R. This concentration is a material overfitting/selection-bias warning; the full-period PF must not be treated as evidence of an independent edge.
+- The tester completed successfully using 100% real tick data (8,266 bars / 26,757,176 ticks). The audit harness itself contains no order submission or position-management calls.
+
+
+Python source-contract tests: **12/12 PASS** on code head `8494191e9c545becff0d0c68e25a326dbbe75f73`. GitHub Actions Frontend CI runs #2283 (`45135123464`) and #2284 (`45135688932`) both succeeded with all 20 build steps; Netlify production smoke test was skipped in both runs. The tick-audit harness was compiled and executed locally in the isolated MT5 test installation; it is a research harness, not part of the production EA runtime.
 
 Still required before treating the strategy as empirically validated:
 
-- Independently inspect the 76 candidate timestamps and reference levels against the corresponding MT5 chart bars; reject duplicate/clustered or structurally invalid candidates.
-- Measure hypothetical SL/TP first-touch outcomes with spread, commission, slippage, and a defined maximum holding period; the zero-trade report does not contain those outcomes.
-- Complete walk-forward and untouched OOS evaluation; do not tune on the final OOS period.
-- Exness Demo read-only chart observation only, after terminal-wide Algo Trading OFF is independently verified.
+- Re-run the frozen strategy on a genuinely untouched OOS interval that was not used for stop-model selection or any parameter decisions. The July–September segment is near-flat and is not yet certified as untouched.
+- Add broker commission and a defensible slippage model; current tick audit embeds Bid/Ask spread but excludes commission and additional slippage.
+- Increase sample size and test stability across volatility/session regimes. The 76-signal sample is small and the result is highly concentrated in the diagnostic window.
+- Independently verify terminal-wide Algo Trading OFF before any Exness Demo read-only chart observation.
+- Keep PR #366 and this dependent PR Draft until both are reviewed and the base relationship is resolved.
 
 No profitability claim is made. Source-contract tests, native compilation, CI, and a zero-trade smoke run do not establish trading edge. Do not merge, deploy, install as an active chart EA, or enable Live Trading on the basis of these checks alone.
