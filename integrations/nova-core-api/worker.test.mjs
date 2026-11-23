@@ -30,8 +30,9 @@ async function token(claims = {}) {
 
 test("health reports ok only when the configured Supabase JWKS is reachable", async (t) => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, init) => {
     assert.equal(String(url), "https://example.supabase.co/auth/v1/.well-known/jwks.json");
+    assert.equal(init.redirect, "manual");
     return Response.json({ keys: [jwk] });
   };
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -207,4 +208,21 @@ test("valid ES256 Supabase JWT can read identity", async (t) => {
   assert.equal(response.status, 200);
   assert.equal(body.id, "user-es256");
   assert.equal(body.role, "viewer");
+});
+
+test("JWKS redirects are not followed", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://attacker.invalid/keys.json" } });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const response = await worker.fetch(request("/v1/health"), {
+    ...env,
+    SUPABASE_URL: "https://redirect-test.example.supabase.co",
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "degraded");
+  assert.equal(body.providerReason, "jwks_provider_unavailable");
 });
