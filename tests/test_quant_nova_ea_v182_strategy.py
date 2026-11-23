@@ -31,6 +31,19 @@ class NovaEA182StrategyTests(unittest.TestCase):
         result = evaluate_from_core_package(11, {})
         self.assertEqual(result["status"], "DORMANT_NOT_DISPATCHED")
 
+    def test_active_ea_result_carries_source_family_and_market_provenance(self):
+        result = evaluate_from_core_package(1, {
+            "bars": bars(),
+            "symbol": "XAUUSDm",
+            "timeframe": "M15",
+        })
+        self.assertEqual(result["source"], "NOVA_EA_v1.82")
+        self.assertEqual(result["source_ea_version"], "1.82")
+        self.assertEqual(result["strategy_family"], "trend")
+        self.assertEqual(result["symbol"], "XAUUSDm")
+        self.assertEqual(result["timeframe"], "M15")
+        self.assertEqual(result["as_of_timestamp"], bars()[-1]["time"])
+
     def test_disabled_strategy_is_explicitly_abstained(self):
         result = evaluate_mtraders_strategy(0, {})
         self.assertEqual(result["status"], "DISABLED_IN_EA_V1_82")
