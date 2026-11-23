@@ -257,6 +257,8 @@ test("chat prefers Gemini and maps assistant history to the Gemini model role", 
     assert.equal(new Headers(init.headers).get("x-goog-api-key"), "gemini-test-key");
     assert.equal(init.redirect, "manual");
     requestBody = JSON.parse(String(init.body));
+    assert.equal(requestBody.generationConfig.thinkingConfig.thinkingLevel, "LOW");
+    assert.equal("temperature" in requestBody.generationConfig, false);
     return new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: "Gemini research answer" }] } }]
     }), { status: 200, headers: { "Content-Type": "application/json" } });
