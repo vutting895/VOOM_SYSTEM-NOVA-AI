@@ -1,33 +1,34 @@
 //+------------------------------------------------------------------+
-//| MTRADERS All In One v1.01                                        |
+//| NOVA EA v1.82                                        |
 //| Re-engineered integration of the user's Deca10EA / EA_QEX pack.   |
 //| Original strategy attribution: MTRADERS (c) 2026.                 |
 //| Source release: native MetaEditor compilation remains required. |
 //+------------------------------------------------------------------+
-#property copyright "MTRADERS original strategies; All In One integration 2026"
-#property version   "1.01"
-#property description "30 strategy modules + 5 monitoring tools on one symbol/chart"
-#property description "Hedging account required. Embedded defaults, no .set preset."
+#property copyright "NOVA AI — EA Integration 2026"
+#property version   "1.82"
+#property description "NOVA EA v1.82 — 30 registered strategy modules; research scaffold"
+#property description "READ-ONLY build. No order execution. Native MetaEditor validation required."
 #property strict
 
 #define NOVA_READ_ONLY_MODE true
+#define NOVA_MAX_TOTAL_ORDERS 5
 #define MODULES 30
 #define STATE_SIGNATURE 1095323465
 #define STATE_VERSION 100
-const string ENGINE_LABEL="MTRADERS All In One 1.01";
+const string ENGINE_LABEL="NOVA EA v1.82";
 
 input group "=== Automatic operation ==="
 input bool            InpTradeEnabled         = false; // Ignored while NOVA_READ_ONLY_MODE is true.
 input ENUM_TIMEFRAMES InpAnalysisTF           = PERIOD_M15;
 input long            InpMagicBase            = 690711000;
-input group "=== Speculative risk defaults ==="
-input double          InpRiskPercent          = 5.0;
-input bool            InpAllowBoundedMinLot    = true;
-input double          InpMaxSingleRiskPct      = 10.0;
-input double          InpMaxOpenRiskPct        = 30.0;
-input int             InpMaxPositions          = 30;
+input group "=== Risk policy (NOVA guarded defaults) ==="
+input double          InpRiskPercent          = 1.0;
+input bool            InpAllowBoundedMinLot    = false;
+input double          InpMaxSingleRiskPct      = 1.0;
+input double          InpMaxOpenRiskPct        = 9.0;
+input int             InpMaxPositions          = 5; // Compatibility input; execution remains disabled.
 input double          InpMaxMarginUsedPct      = 60.0;
-input double          InpDailyLossPct          = 35.0;
+input double          InpDailyLossPct          = 10.0;
 input double          InpDailyProfitPct        = 0.0;
 input group "=== Execution and display ==="
 input double          InpMaxSpreadATR         = 0.12;
@@ -170,12 +171,28 @@ bool DirectionAllowed(const int dir)
           (dir<0 && mode==SYMBOL_TRADE_MODE_SHORTONLY);
 }
 
+// Read-only account exposure snapshot; not an atomic reservation or execution permit.
+int CountAccountExposureOrders()
+{
+   return PositionsTotal()+OrdersTotal();
+}
+
+bool HasAccountOrderCapacity()
+{
+   return CountAccountExposureOrders()<NOVA_MAX_TOTAL_ORDERS;
+}
+
 int OnInit()
 {
    RegisterModules();
-   if(NOVA_READ_ONLY_MODE && InpTradeEnabled)
-      Print(ENGINE_LABEL," WARNING: InpTradeEnabled is ignored; NOVA V1 is READ-ONLY.");
-   Print(ENGINE_LABEL," initialized in READ-ONLY mode for symbol ",_Symbol);
+   // Reject legacy .set presets that request trading. Fail closed.
+   if(InpTradeEnabled)
+   {
+      Print(ENGINE_LABEL,": INIT FAILED — execution is disabled in this build.");
+      return(INIT_FAILED);
+   }
+   Print(ENGINE_LABEL," initialized READ-ONLY for ",_Symbol,
+         "; execution OFF; account exposure ceiling=",NOVA_MAX_TOTAL_ORDERS);
    return(INIT_SUCCEEDED);
 }
 
