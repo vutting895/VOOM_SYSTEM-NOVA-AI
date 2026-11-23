@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Panel, PageHeader, NotConnected } from "@/components/nova/primitives";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +37,7 @@ function Assistant() {
   const ready = Boolean(status?.ok && status.aiBinding && status.authConfigured);
   const canSend = ready && !sending && text.trim().length > 0;
 
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const content = text.trim();
     if (!content || !ready || sending) return;
