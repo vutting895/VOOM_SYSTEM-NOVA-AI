@@ -62,6 +62,20 @@ Confirmed for PR head `7dc2c72c34a69dcc6006b79eae09281b709fbbc9`:
 - No `NOVA CORE CANDIDATE` journal entries were found for this interval. The EA initialized and deinitialized cleanly, but no complete signal passed all gates in this smoke window. This is a negative signal-coverage observation, not proof of a strategy edge or a code failure.
 - The isolated demo terminal log reported global Algo Trading enabled for its demo account, although the tester run had zero positions/orders and the test terminal shut down after completion. This does **not** establish terminal-wide Algo Trading OFF. Keep this installation isolated; do not attach the EA to a live chart. The primary terminal's global Algo Trading state remains a separate operational gate.
 
+### Diagnostic findings and follow-up code change
+
+The opt-in gate counters were run on the original 50-bar swing-stop build over the same smoke interval:
+
+- Bars/data-ready: 3,308 / 3,308.
+- Volatility guard: 52 rejected; 3,256 passed.
+- BOS setups: 373; active setup bars: 2,135; expired setups: 97.
+- MTF alignment passed: 538; location passed: 319; wick rejection passed: 47.
+- Risk gate: 28 rejected; 0 passed; candidates: 0.
+
+This isolates the stop-distance/risk gate as the final bottleneck in that build. The 50-bar swing extreme was removed; the current branch anchors the reference stop to the signal candle wick (low/high plus/minus 0.20 ATR) and retains the existing 3 ATR maximum-risk gate. This is a structural implementation change, not a parameter relaxation.
+
+The current branch head has **12/12 Python source-contract tests passing** and exact-head GitHub Actions Frontend CI run #2283 (`45135123464`) succeeded; the Netlify production smoke-test job was skipped. The rejection-wick stop revision still requires a fresh native MetaEditor compile and a fresh isolated Strategy Tester run on the exact latest branch binary. The earlier smoke report and diagnostic counters do not validate this revised stop model.
+
 Still required before treating the strategy as empirically validated:
 
 - Expand signal-coverage testing across additional market regimes and verify candidate timestamps/reference levels against MT5 chart data.
