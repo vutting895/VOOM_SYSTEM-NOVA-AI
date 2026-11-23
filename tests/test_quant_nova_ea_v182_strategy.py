@@ -44,31 +44,31 @@ class NovaEA182StrategyTests(unittest.TestCase):
 
     def test_implemented_strategy_requires_real_market_data(self):
         with self.assertRaises(StrategyInputError):
-            evaluate_mtraders_strategy(27, {})
+            evaluate_mtraders_strategy(1, {})
 
     def test_trendpilot_requires_enough_bars_for_ema200(self):
         with self.assertRaisesRegex(StrategyInputError, "at least 210"):
-            evaluate_mtraders_strategy(27, {"bars": bars(150)})
+            evaluate_mtraders_strategy(1, {"bars": bars(150)})
 
     def test_trendpilot_runs_on_closed_bar_data_without_fake_defaults(self):
-        result = evaluate_mtraders_strategy(27, {"bars": bars()})
+        result = evaluate_mtraders_strategy(1, {"bars": bars()})
         self.assertEqual(result["strategy_id"], 27)
         self.assertEqual(result["status"], "NO_SIGNAL")
         self.assertEqual(result["direction"], 0)
 
     def test_sessionbox_requires_explicit_broker_server_timezone(self):
         with self.assertRaisesRegex(StrategyInputError, "server_utc_offset_minutes"):
-            evaluate_mtraders_strategy(26, {"bars": bars()})
+            evaluate_mtraders_strategy(9, {"bars": bars()})
 
     def test_smc_requires_confirmed_historical_bars_and_returns_state(self):
-        result = evaluate_mtraders_strategy(14, {"bars": bars()})
+        result = evaluate_mtraders_strategy(13, {"bars": bars()})
         self.assertIn(result["status"], {"NO_SIGNAL", "SETUP_ARMED", "SETUP_WAITING", "SETUP_RESET", "RESEARCH_CANDIDATE"})
         self.assertIn("state", result)
         self.assertFalse(result.get("execution_enabled", False))
 
-    def test_all_thirty_ids_are_reported_but_not_all_claimed_implemented(self):
+    def test_all_twenty_ids_are_reported_but_not_all_claimed_implemented(self):
         result = evaluate_all_mtraders_modules({"bars": bars(), "server_utc_offset_minutes": 0, "bar_seconds": 900})
-        self.assertEqual(len(result), 30)
+        self.assertEqual(len(result), 20)
         self.assertEqual(result[10]["status"], "NOT_PORTED")
         self.assertEqual(result[0]["status"], "DISABLED_IN_EA_V1_82")
         self.assertTrue(all(row.get("execution_enabled") is not True for row in result))
