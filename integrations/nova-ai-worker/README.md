@@ -26,3 +26,11 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## AI provider routing
+
+- When the existing Cloudflare Worker secret `GEMINI_API_KEY` is present, Gemini 3.8 Flash is the primary provider for chat and research-draft generation.
+- Gemini failures, redirects, timeouts, empty responses, or invalid research output fall back to the Cloudflare Workers AI binding. If the Gemini key is absent, Cloudflare AI is used directly.
+- The Gemini key is sent only in the `x-goog-api-key` header. Redirects are disabled, and logs never include prompts, response bodies, or credentials.
+- The Gemini Developer API free tier is quota-limited and Google states that free-tier content may be used to improve its products. Do not submit broker credentials, access tokens, private account identifiers, or confidential customer data. The code does not enable billing or a paid tier.
+- Provider selection does not grant tool access or execution authority. Every strategy remains a non-executable research draft; order submission and live trading remain disabled.
