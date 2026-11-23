@@ -141,6 +141,21 @@ test("untrusted browser origin is rejected", async () => {
   assert.equal(response.status, 403);
 });
 
+test("NOVA Chat deploy preview origin is allowed for authenticated browser requests", async () => {
+  const previewOrigin = "https://deploy-preview-358--voomsystem.netlify.app";
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "OPTIONS",
+    headers: {
+      Origin: previewOrigin,
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,content-type"
+    }
+  }), env);
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), previewOrigin);
+  assert.match(response.headers.get("Access-Control-Allow-Headers"), /Authorization/i);
+});
+
 test("bad input and oversized payload fail closed", async () => {
   authFetch();
   const invalid = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
