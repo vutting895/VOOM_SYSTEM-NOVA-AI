@@ -6,7 +6,11 @@ jobs:
       - image: cimg/node:22.12
     working_directory: ~/project
     steps:
-      - checkout
+      # Use a full clone to avoid failures in CircleCI's blobless partial-clone path.
+      # CircleCI's checkout step manages the repository's configured VCS credentials
+      # and GitHub host-key verification; do not inject additional SSH secrets here.
+      - checkout:
+          method: full
       - run:
           name: Install Python
           command: |
