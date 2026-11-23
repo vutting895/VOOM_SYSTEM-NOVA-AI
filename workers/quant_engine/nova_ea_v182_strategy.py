@@ -347,4 +347,4 @@ def evaluate_nova_ea_v182_strategy(strategy_id: int, market_data: Mapping[str, A
 
 def evaluate_all_nova_ea_v182_strategies(market_data: Mapping[str, Any], states: Mapping[int, Mapping[str, Any]] | None = None) -> list[dict[str, Any]]:
     states = states or {}
-    return [evaluate_nova_ea_v182_strategy(i, market_data, states.get(i)) for i in range(30)]
+    return [evaluate_nova_ea_v182_strategy(i, market_data, states.get(i)) for i in range(20)]
