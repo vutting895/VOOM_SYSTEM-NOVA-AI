@@ -22,6 +22,18 @@ string NovaEABridgeIsoUtc(const datetime value)
                        dt.year,dt.mon,dt.day,dt.hour,dt.min,dt.sec);
 }
 
+string NovaEABridgeTimeframe()
+{
+   if(_Period==PERIOD_M1) return "M1";
+   if(_Period==PERIOD_M5) return "M5";
+   if(_Period==PERIOD_M15) return "M15";
+   if(_Period==PERIOD_M30) return "M30";
+   if(_Period==PERIOD_H1) return "H1";
+   if(_Period==PERIOD_H4) return "H4";
+   if(_Period==PERIOD_D1) return "D1";
+   return "M15";
+}
+
 bool NovaEABridgeInit()
 {
    int handle=FileOpen(NOVA_EA_BRIDGE_TOKEN_FILE,FILE_READ|FILE_TXT|FILE_COMMON|FILE_ANSI);
@@ -57,7 +69,7 @@ void NovaEABridgeHeartbeat(const ulong signalCount)
    datetime barTime=iTime(_Symbol,_Period,0);
    string payload=StringFormat(
       "{\"ea_id\":\"NOVA_EA_v1.82\",\"version\":\"1.82\",\"symbol\":\"%s\",\"timeframe\":\"%s\",\"mode\":\"read-only\",\"orders_enabled\":false,\"live_trading_enabled\":false,\"last_tick_utc\":\"%s\",\"last_bar_utc\":\"%s\",\"signal_count\":%I64u}",
-      _Symbol,EnumToString(_Period),NovaEABridgeIsoUtc(tickTime),NovaEABridgeIsoUtc(barTime));
+      _Symbol,NovaEABridgeTimeframe(),NovaEABridgeIsoUtc(tickTime),NovaEABridgeIsoUtc(barTime));
 
    char data[];
    int bytes=StringToCharArray(payload,data,0,WHOLE_ARRAY,CP_UTF8);
