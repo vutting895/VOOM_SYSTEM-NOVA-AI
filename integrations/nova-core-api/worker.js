@@ -86,6 +86,17 @@ async function loadJwks(url, forceRefresh = false) {
   return imported;
 }
 
+async function authProviderReady(env) {
+  const config = supabaseConfig(env);
+  if (!config) return false;
+  try {
+    const keys = await loadJwks(config.jwksUrl);
+    return keys.size > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function resolveSigningKey(url, header) {
   if (!header || typeof header.kid !== "string" || !["RS256", "ES256"].includes(header.alg)) {
     throw Object.assign(new Error("invalid_signing_key_header"), { code: "ERR_JWKS_NO_MATCHING_KEY" });
@@ -101,7 +112,7 @@ async function resolveSigningKey(url, header) {
 }
 
 export async function authenticate(request, env) {
-  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
+  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
 
   const config = supabaseConfig(env);
@@ -154,9 +165,9 @@ export default {
     if (request.method !== "GET") return fail("method_not_allowed", 405, origin, env);
 
     if (url.pathname === "/v1/health") {
-      const configured = Boolean(supabaseConfig(env));
+      const providerReady = await authProviderReady(env);
       return json({
-        status: configured ? "ok" : "degraded",
+        status: providerReady ? "ok" : "degraded",
         version: VERSION,
         time: new Date().toISOString(),
         liveTrading: false,
