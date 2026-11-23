@@ -128,3 +128,15 @@ test("unknown role fails closed", async (t) => {
   }), env);
   assert.equal(response.status, 403);
 });
+
+test("prototype property names are not accepted as roles", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ keys: [jwk] });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const signed = await token({ app_metadata: { nova_role: "toString" } });
+  const response = await worker.fetch(request("/v1/me", {
+    headers: { Authorization: "Bearer " + signed },
+  }), env);
+  assert.equal(response.status, 403);
+});
