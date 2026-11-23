@@ -119,7 +119,7 @@ test("JWT integration rejects incorrect issuer, audience, and expired sessions",
       const invalidTokens = [
         await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer + "/attacker" }),
         await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, audience: "other-audience" }),
-        await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, expiresAt: "0s" }),
+        await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, expiresAt: Math.floor(Date.now() / 1000) - 60 }),
       ];
       for (const token of invalidTokens) {
         const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: fixture.projectUrl });
