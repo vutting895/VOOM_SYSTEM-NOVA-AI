@@ -111,6 +111,14 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         return terminal, account
 
 
+def timeframe_duration_seconds(name: str) -> int:
+    durations = {"M1": 60, "M5": 300, "M15": 900, "M30": 1800, "H1": 3600, "H4": 14400, "D1": 86400}
+    value = durations.get(name.upper())
+    if value is None:
+        raise HTTPException(status_code=400, detail="Unsupported timeframe")
+    return value
+
+
 def timeframe_value(name: str) -> int:
     values = {
         "M1": mt5.TIMEFRAME_M1,
@@ -308,9 +316,12 @@ def quotes(
             error = mt5.last_error()
             raise HTTPException(status_code=503, detail=f"MT5 rates unavailable: {error[0]}")
         bars = []
+        bar_duration = timeframe_duration_seconds(timeframe)
         for rate in rates:
+            bar_open_time = int(rate["time"])
             bars.append({
-                "time": datetime.fromtimestamp(int(rate["time"]), timezone.utc).isoformat(),
+                "time": datetime.fromtimestamp(bar_open_time, timezone.utc).isoformat(),
+                "bar_close_time": datetime.fromtimestamp(bar_open_time + bar_duration, timezone.utc).isoformat(),
                 "open": float(rate["open"]),
                 "high": float(rate["high"]),
                 "low": float(rate["low"]),
