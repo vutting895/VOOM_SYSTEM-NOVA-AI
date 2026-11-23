@@ -402,20 +402,23 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
     state_out = dict(state or {})
     atr = _atr(bars)
     last = bars[-1]
-    highs = _confirmed_pivots(bars, "high")
-    lows = _confirmed_pivots(bars, "low")
-    if len(highs) < 2 or len(lows) < 2:
-        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
-    last_sh, prev_sh = highs[-1][1], highs[-2][1]
-    last_sl, prev_sl = lows[-1][1], lows[-2][1]
-    range_high = max(last_sh, prev_sh)
-    range_low = min(last_sl, prev_sl)
-    recent = bars[-100:]
-    hi100 = max(range_high, max(x["high"] for x in recent))
-    lo100 = min(range_low, min(x["low"] for x in recent))
-    equilibrium = (hi100 + lo100) / 2.0
-    phase = int(state_out.get("phase", 0))
+    phase = state_out.get("phase", 0)
+    if isinstance(phase, bool) or not isinstance(phase, int) or phase not in (-1, 0, 1):
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "invalid_SMC_state_phase"}, {"phase": 0})
+
     if phase == 0:
+        highs = _confirmed_pivots(bars, "high")
+        lows = _confirmed_pivots(bars, "low")
+        if len(highs) < 2 or len(lows) < 2:
+            return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "insufficient_confirmed_swings"}, state_out)
+        last_sh, prev_sh = highs[-1][1], highs[-2][1]
+        last_sl, prev_sl = lows[-1][1], lows[-2][1]
+        range_high = max(last_sh, prev_sh)
+        range_low = min(last_sl, prev_sl)
+        recent = bars[-100:]
+        hi100 = max(range_high, max(x["high"] for x in recent))
+        lo100 = min(range_low, min(x["low"] for x in recent))
+        equilibrium = (hi100 + lo100) / 2.0
         direction = 1 if last["close"] > last_sh and last["close"] > last["open"] else -1 if last["close"] < last_sl and last["close"] < last["open"] else 0
         if not direction:
             return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "NO_SIGNAL", "reason": "waiting_for_confirmed_bos"}, state_out)
@@ -427,10 +430,22 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
             "range_high": range_high, "range_low": range_low,
         }
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_ARMED", "reason": "EA_v1.82_SMC_BOS_wait_retrace"}, state_out)
+
     age = _bars_since(bars, state_out.get("anchor_time"))
-    max_retrace = int(state_out.get("max_retrace_bars", 30))
-    if age > max_retrace or (phase > 0 and last["close"] < float(state_out["range_low"]) - 0.2*atr) or (phase < 0 and last["close"] > float(state_out["range_high"]) + 0.2*atr):
+    max_retrace = state_out.get("max_retrace_bars", 30)
+    if isinstance(max_retrace, bool) or not isinstance(max_retrace, int) or max_retrace < 1:
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "invalid_SMC_retrace_limit"}, {"phase": 0})
+    required = ("range_low", "range_high", "ob_low", "ob_high", "equilibrium")
+    if any(key not in state_out for key in required):
+        return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "incomplete_SMC_setup_state"}, {"phase": 0})
+    range_low = _number(state_out["range_low"], "state.range_low")
+    range_high = _number(state_out["range_high"], "state.range_high")
+    ob_lo = _number(state_out["ob_low"], "state.ob_low")
+    ob_hi = _number(state_out["ob_high"], "state.ob_high")
+    eq = _number(state_out["equilibrium"], "state.equilibrium")
+    if age > max_retrace or (phase > 0 and last["close"] < range_low - 0.2*atr) or (phase < 0 and last["close"] > range_high + 0.2*atr):
         return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_RESET", "reason": "SMC_setup_expired_or_invalidated"}, {"phase": 0})
+
     # EA v1.82 recomputes the nearest FVG from the latest 20 completed bars on every retrace bar.
     prior = bars[-21:-1]
     fvg_low = fvg_high = 0.0
@@ -442,8 +457,6 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
         if phase < 0 and newer["high"] < older["low"]:
             fvg_low, fvg_high = newer["high"], older["low"]
             break
-    ob_hi, ob_lo = float(state_out["ob_high"]), float(state_out["ob_low"])
-    eq = float(state_out["equilibrium"])
     if phase > 0:
         location = last["close"] <= eq
         in_ob = last["low"] <= ob_hi and last["close"] >= ob_lo
@@ -469,7 +482,6 @@ def _smc_full(bars: list[dict[str, Any]], state: Mapping[str, Any] | None) -> tu
                 stop = fvg_high + 0.2*atr
             return _candidate(-1, last["close"], stop, 2.5, 13, last["time"], "EA_v1.82_SMC_BOS_OB_FVG_Premium_Wick"), {"phase": 0}
     return ({"strategy_id": 13, "name": STRATEGY_NAMES[13], "direction": 0, "status": "SETUP_WAITING", "reason": "SMC_retrace_or_rejection_not_confirmed"}, state_out)
-
 
 
 def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any], state: Mapping[str, Any] | None) -> dict[str, Any]:
