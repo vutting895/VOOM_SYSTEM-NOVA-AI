@@ -18,7 +18,7 @@ This is a development/product requirement change. It does not authorize a live o
 The customer receives one NOVA application and one authenticated workspace:
 
 - **AI Copilot:** conversational analysis, strategy explanations, market context, trade thesis, risk explanation, portfolio and execution status. Model output is untrusted data and can only create typed proposals.
-- **Strategy workspace:** strategy/version selection, Wave3 + SMC + XGBoost + PyTorch LSTM research, benchmark/challenger comparisons, walk-forward results, signal history and model/data provenance.
+- **Strategy workspace:** strategy/version selection, SMC Mean Rejection as the primary strategy, XGBoost/PyTorch LSTM as supporting model research, benchmark/challenger comparisons, walk-forward results, signal history and model/data provenance.
 - **Trading terminal:** verified quotes/charts, account balance/equity/free margin, positions, pending orders, fills, realized/unrealized P&L, fees, spread and connection freshness.
 - **Risk center:** exposure, position sizing, leverage/margin, daily loss, drawdown, max order notional, concentration, spread/deviation, market/session/news and stale-data guards.
 - **Execution center:** proposal review, order lifecycle, broker acknowledgements, partial fills, rejection/cancel state, reconciliation and immutable audit trail.
@@ -39,9 +39,9 @@ Every displayed value must come from a verified API response with source, timest
 
 ## 4. Trading strategy readiness
 
-The existing Wave3 + XGBoost + PyTorch LSTM + SMC family remains the primary research candidate, not a proven profitable strategy.
+SMC Mean Rejection replaces Wave3 as the primary deterministic strategy candidate. XGBoost and PyTorch LSTM remain separate supporting model candidates. This architecture is not evidence of a profitable strategy.
 
-- Preserve PR #66's frozen benchmark and untouched Final OOS. Its recorded Final OOS result is zero closed trades and it has not established positive net-of-cost expectancy.
+- Preserve PR #66's frozen Wave3 benchmark and untouched Final OOS as historical comparison evidence. Wave3 is no longer the primary strategy candidate; its recorded Final OOS result is zero closed trades and it has not established positive net-of-cost expectancy.
 - Continue the separate challenger/research redesign (including PR #147) without relaxing SMC/Fibonacci/RSI/volume/spread/news/model/risk gates or tuning on Final OOS.
 - Use chronological nested walk-forward with purge/embargo, realistic spread, commission, slippage, swap/funding and instrument contract sizing.
 - Compare to simple baselines and report trade count, expectancy, PF, drawdown, Sharpe/Sortino, calibration, regime/fold stability and uncertainty.

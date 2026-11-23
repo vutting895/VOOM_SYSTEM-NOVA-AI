@@ -79,7 +79,16 @@ class NovaApiClient {
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');
-        throw new Error(`HTTP ${response.status}: ${errorBody || response.statusText}`);
+        let errorMessage = response.statusText;
+        try {
+          const parsed = JSON.parse(errorBody);
+          if (typeof parsed.message === 'string' && parsed.message.trim()) {
+            errorMessage = parsed.message;
+          }
+        } catch {
+          if (errorBody) errorMessage = errorBody;
+        }
+        throw new Error(`HTTP ${response.status}: ${errorMessage || 'Request failed'}`);
       }
 
       const data = (await response.json()) as T;

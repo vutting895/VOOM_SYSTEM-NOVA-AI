@@ -833,146 +833,109 @@ async function startServer() {
     res.json({
       ok: true,
       engineArchitecture: 'NOVA Multi-Agent Quantitative Intelligence Ensemble',
-      ensembleConfidencePct: 87.5,
-      marketRegimeDetected: 'BULLISH_EXPANSION_WITH_SMC_CONFLUENCE',
+      ensembleConfidencePct: null,
+      marketRegimeDetected: 'NOT_VERIFIED',
       safetyPolicy: 'READ_ONLY_INTELLIGENCE_LAYER_NON_EXECUTABLE',
       models: [
         {
-          id: 'elliott-wave-3',
-          name: 'Elliott Wave 3 Impulse Engine',
-          tag: 'Harmonic & Fractal Waves',
-          status: 'ACTIVE',
-          accuracyPct: 84.6,
-          latencyMs: 3.2,
-          primaryMetricLabel: 'Fibonacci Target 1.618',
-          primaryMetricValue: '2,768.40',
+          id: 'smc-mean-rejection',
+          name: 'SMC Mean Rejection Strategy Engine',
+          tag: '4H Bias · 5M Rejection',
+          status: 'RESEARCH_ONLY',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Research Validation',
+          primaryMetricValue: 'NOT VALIDATED',
           highlights: [
-            'ตรวจพบ Subwave 3 ในระดับ Intermediate Degree',
-            'อัตราส่วน Fibonacci Extension: 161.8% ที่ 2,768.40',
-            'ระดับ Invalidation Level (จุดยกเลิกโครงสร้าง): 2,738.00',
-            'โมเมนตัม RSI 64.2 ไม่มีสัญญาณ Bearish Divergence',
+            'Primary deterministic research strategy: confirmed 10/10 4H pivots, BOS/CHoCH and 50% equilibrium.',
+            'Uses 4H Order Block / Fair Value Gap zones with expiry and minimum-gap filters.',
+            '5M entry requires liquidity sweep, rejection or engulfing candle, and micro-BOS confirmation.',
+            'Research simulator only: maximum 1% risk, TP1 at 2.5R, remainder protected at breakeven, TP2 at 3R.',
+            'Single-position simulator; no broker connection, order submission, or live execution.',
+            'Performance, latency, and out-of-sample edge have not been validated.',
           ],
           details: {
-            waveCycle: 'Cycle V -> Primary Wave 1 -> Intermediate Wave 3',
-            extensionRatio: 1.618,
-            invalidationPrice: 2738.0,
-            rsiMomentum: 64.2,
+            strategyId: 'smc-mean-rejection',
+            higherTimeframe: '4h',
+            entryTimeframe: '5m',
+            confirmedPivotBars: { left: 10, right: 10 },
+            equilibriumPct: 50,
+            zoneExpiryBars: 50,
+            minimumFvgPct: 0.1,
+            maxRiskPerTradePct: 1,
+            minimumRewardRisk: 2.5,
+            targetRewardRisk: 3,
+            tp1ClosePct: 50,
+            positionLimit: 1,
+            executionMode: 'RESEARCH_ONLY',
+            backtestStatus: 'NOT_RUN',
+            performanceMetrics: null,
           },
           accentColor: 'amber',
         },
         {
           id: 'xgboost-classifier',
-          name: 'XGBoost Trend & Volatility Classifier',
-          tag: 'Gradient Boosted Trees',
-          status: 'TRAINED',
-          accuracyPct: 79.2,
-          latencyMs: 1.8,
-          primaryMetricLabel: 'Validation Accuracy',
-          primaryMetricValue: '79.2%',
-          highlights: [
-            'โมเดลเทรนด้วย 300 Decision Trees (Max Depth 6)',
-            'Feature สำคัญอันดับ 1: Volume Delta (28.4%)',
-            'Feature สำคัญอันดับ 2: 4H Order Block Distance (22.1%)',
-            'AUC-ROC Score: 0.865 บนชุดข้อมูลทดสอบ Out-of-Sample',
-          ],
-          details: {
-            trees: 300,
-            maxDepth: 6,
-            aucRoc: 0.865,
-            topFeatures: ['Volume Delta', '4H OB Distance', '5m FVG Width', 'Realized Volatility'],
-          },
+          name: 'XGBoost Supporting Model',
+          tag: 'Supporting ML Model',
+          status: 'NOT_VALIDATED',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Validation',
+          primaryMetricValue: 'NOT VALIDATED',
+          highlights: ['Supporting model only; no approved artifact or current validation report is attached.'],
+          details: { artifactStatus: 'NOT_LOADED', validationStatus: 'NOT_RUN' },
           accentColor: 'emerald',
         },
         {
           id: 'lstm-pytorch',
-          name: 'LSTM / PyTorch Deep Horizon Predictor',
-          tag: 'Deep Neural Sequences',
-          status: 'CONVERGED',
-          accuracyPct: 76.8,
-          latencyMs: 8.5,
-          primaryMetricLabel: 'Validation MSE Loss',
-          primaryMetricValue: '0.0142',
-          highlights: [
-            'สถาปัตยกรรม Bidirectional LSTM 2 ชั้น พร้อม Self-Attention',
-            'พยากรณ์กรอบราคา 4 ชั่วโมงข้างหน้า: มีแนวโน้มเชิงบวก +0.68%',
-            'ขนาด Latent Space: 128 มิติ ผ่านการ Fine-tune บน PyTorch 2.3',
-            'Dropout 0.2 ป้องกัน Overfitting ในช่วงตลาด Sideway',
-          ],
-          details: {
-            framework: 'PyTorch 2.3.0',
-            architecture: 'Bi-LSTM + Self-Attention (128 units)',
-            predictedHorizonDrift: '+0.68%',
-            mseLoss: 0.0142,
-          },
+          name: 'LSTM / PyTorch Supporting Model',
+          tag: 'Supporting ML Model',
+          status: 'NOT_VALIDATED',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Validation',
+          primaryMetricValue: 'NOT VALIDATED',
+          highlights: ['Supporting model only; no approved artifact or current validation report is attached.'],
+          details: { framework: 'PyTorch', artifactStatus: 'NOT_LOADED', validationStatus: 'NOT_RUN' },
           accentColor: 'purple',
         },
         {
           id: 'smc-liquidity',
-          name: 'Smart Money Concepts (SMC) & FVG Engine',
-          tag: 'Institutional Order Flow',
-          status: 'ACTIVE',
-          accuracyPct: 88.0,
-          latencyMs: 2.1,
-          primaryMetricLabel: 'Order Block Mitigation',
-          primaryMetricValue: '72% Mitigated',
-          highlights: [
-            'ตรวจพบการกวาดสภาพคล่อง (Asian Low Liquidity Sweep) ที่ 2,739.10',
-            'กรอบ Order Block ฝั่งซื้อ (Bullish OB) แข็งแกร่งที่ 2,742.00 - 2,745.50',
-            'Fair Value Gap (FVG 15m) เติมเต็มครบแล้ว พร้อม Break of Structure',
-            'ระดับความน่าจะเป็นของการดีดตัว (Confluence Score): 5/5 ดาว',
-          ],
-          details: {
-            orderBlockRange: '2,742.00 - 2,745.50',
-            fvgRange: '2,746.20 - 2,747.80',
-            liquiditySwept: 'Asian Low (2,739.10)',
-            marketStructure: 'Bullish BOS Confirmed',
-          },
+          name: 'SMC Market Structure Context',
+          tag: 'Context Features',
+          status: 'NOT_VALIDATED',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Evidence',
+          primaryMetricValue: 'NOT VERIFIED',
+          highlights: ['BOS/CHoCH, liquidity, OB and FVG are context features; they are not a second independent strategy vote.'],
+          details: { role: 'SUPPORTING_CONTEXT', validationStatus: 'NOT_RUN' },
           accentColor: 'cyan',
         },
         {
           id: 'auto-learning-loop',
           name: 'Auto-Learning & Regime Adaptation',
-          tag: 'Continual Online Learning',
-          status: 'CONTINUOUS_ADAPTATION',
-          accuracyPct: 82.5,
-          latencyMs: 12.0,
-          primaryMetricLabel: 'Concept Drift Score',
-          primaryMetricValue: '0.12 (Low Drift)',
-          highlights: [
-            'ใช้อัลกอริทึม Elastic Weight Consolidation (EWC) ป้องกันลืมข้อมูลเดิม',
-            'ตรวจสอบ Market Regime อัตโนมัติทุกๆ 18 วินาที',
-            'ปรับค่าน้ำหนัก Ensemble Models แบบไดนามิกตามสภาพความผันผวน',
-            'ซิงค์ผลการประเมินเข้าสู่ Feature Store อย่างต่อเนื่อง',
-          ],
-          details: {
-            algorithm: 'Elastic Weight Consolidation (EWC)',
-            driftScore: 0.12,
-            syncCycleSec: 18,
-            regimeStability: 'Stable High-Confidence Regime',
-          },
+          tag: 'Training Pipeline',
+          status: 'DISABLED',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Training State',
+          primaryMetricValue: 'NOT RUN',
+          highlights: ['No training job is started by this endpoint. Dataset and model approval gates remain required.'],
+          details: { trainingEnabled: false, validationStatus: 'NOT_RUN' },
           accentColor: 'indigo',
         },
         {
           id: 'neural-network-ensemble',
           name: 'Neural Network Meta-Analyst',
-          tag: 'Attention Weight Aggregator',
-          status: 'READY',
-          accuracyPct: 86.4,
-          latencyMs: 4.1,
-          primaryMetricLabel: 'Model Agreement',
-          primaryMetricValue: '5 of 6 (83%)',
-          highlights: [
-            'รวบรวมสัญญาณจากโมเดลทั้ง 5 ตัวด้วย Multi-Head Attention',
-            'คะแนนความเชื่อมั่นรวม (Ensemble Confidence): 87.5%',
-            'คำนวณ Multiplier ปรับลดความเสี่ยงอัตโนมัติ: 0.85x',
-            'Fail-Closed Hard Invariant: สัญญาณทั้งหมดเป็นคำแนะนำเชิงวิจัยเท่านั้น',
-          ],
-          details: {
-            confidenceScore: 0.875,
-            modelsAgreed: 5,
-            totalModels: 6,
-            safetyMode: 'NON_EXECUTABLE_ADVISORY',
-          },
+          tag: 'Ensemble Layer',
+          status: 'DISABLED',
+          accuracyPct: null,
+          latencyMs: null,
+          primaryMetricLabel: 'Ensemble State',
+          primaryMetricValue: 'DISABLED',
+          highlights: ['Ensemble aggregation remains disabled until each contributing model has independently validated evidence.'],
+          details: { ensembleEnabled: false, safetyMode: 'NON_EXECUTABLE_ADVISORY' },
           accentColor: 'blue',
         },
       ],
@@ -981,130 +944,26 @@ async function startServer() {
 
   // 3. Backtest Simulation Engine (Simulated Historical Strategy Tester)
   app.post('/api/backtest/run', (req, res) => {
-    const {
-      strategyId = 'smc-mean-rejection',
-      symbol = 'XAU/USDm',
-      timeframe = '15m',
-      historicalPeriod = '1Y',
-      initialBalance = 10000,
-      riskPerTradePct = 1.0,
-    } = req.body || {};
+    const strategyId =
+      typeof req.body?.strategyId === 'string' && req.body.strategyId.trim()
+        ? req.body.strategyId.trim()
+        : 'smc-mean-rejection';
 
-    const strategyNames: Record<string, string> = {
-      'smc-mean-rejection': 'SMC Mean Rejection & 4H Order Block Strategy',
-      'momentum-bos-ob': 'Momentum BOS + Liquidity Sweep Strategy',
-      'elliott-wave-impulse': 'Elliott Wave 3 Trend Extension Strategy',
-      'xgboost-volatility': 'XGBoost Multi-Factor Volatility Breakout',
-    };
-
-    const isHighYield = strategyId === 'smc-mean-rejection' || strategyId === 'momentum-bos-ob';
-    const totalTrades = isHighYield ? 138 : 112;
-    const winRatePct = isHighYield ? 63.8 : 58.4;
-    const profitFactor = isHighYield ? 2.18 : 1.84;
-    const netProfitPct = isHighYield ? 48.6 : 32.4;
-    const maxDrawdownPct = isHighYield ? 4.4 : 5.8;
-    const sharpeRatio = isHighYield ? 2.34 : 1.92;
-
-    const netProfit = Math.round(initialBalance * (netProfitPct / 100));
-    const finalBalance = initialBalance + netProfit;
-    const winningTrades = Math.round((totalTrades * winRatePct) / 100);
-    const losingTrades = totalTrades - winningTrades;
-
-    // Generate realistic simulated equity curve points
-    const equityCurve = [];
-    const pointsCount = 32;
-    let runningEquity = initialBalance;
-    let peakEquity = initialBalance;
-
-    for (let i = 0; i < pointsCount; i++) {
-      const progress = i / (pointsCount - 1);
-      const simulatedGain = (netProfit * progress) + Math.sin(i * 1.3) * (initialBalance * 0.015);
-      runningEquity = Math.round(initialBalance + simulatedGain);
-      if (runningEquity > peakEquity) peakEquity = runningEquity;
-      const dd = Math.max(0, Number((((peakEquity - runningEquity) / peakEquity) * 100).toFixed(2)));
-      const benchmark = Math.round(initialBalance * (1 + 0.12 * progress));
-
-      equityCurve.push({
-        date: `2026-M${Math.floor(i / 3) + 1}-D${(i % 28) + 1}`,
-        equity: runningEquity,
-        drawdownPct: dd,
-        benchmarkEquity: benchmark,
-      });
-    }
-
-    res.json({
-      ok: true,
+    // Fail closed until an approved, provenance-checked historical dataset is
+    // connected to the deterministic research engine. Never synthesize KPIs.
+    return res.status(503).json({
+      ok: false,
+      status: 'NOT_RUN',
+      code: 'BACKTEST_DATA_OR_ENGINE_NOT_APPROVED',
       strategyId,
-      strategyName: strategyNames[strategyId] || 'NOVA Adaptive Quant Strategy',
-      symbol,
-      timeframe,
-      initialBalance,
-      finalBalance,
-      netProfit,
-      netProfitPct,
-      profitFactor,
-      winRatePct,
-      maxDrawdownPct,
-      sharpeRatio,
-      totalTrades,
-      winningTrades,
-      losingTrades,
-      avgTradeDuration: '3 ชั่วโมง 45 นาที',
-      inSampleResults: {
-        datasetPct: 70,
-        winRatePct: Number((winRatePct + 1.8).toFixed(1)),
-        profitFactor: Number((profitFactor + 0.12).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct - 0.4).toFixed(1)),
-        trades: Math.round(totalTrades * 0.7),
-      },
-      outOfSampleResults: {
-        datasetPct: 30,
-        winRatePct: Number((winRatePct - 1.6).toFixed(1)),
-        profitFactor: Number((profitFactor - 0.14).toFixed(2)),
-        maxDrawdownPct: Number((maxDrawdownPct + 0.5).toFixed(1)),
-        trades: Math.round(totalTrades * 0.3),
-        generalizationScorePct: 94.2,
-      },
-      equityCurve,
-      recentTrades: [
-        {
-          id: 'bt-tr-01',
-          timestamp: '2026-11-06 14:30',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2742.5,
-          exitPrice: 2758.0,
-          pnl: +465.0,
-          returnPct: +4.65,
-          holdTime: '4h 15m',
-          reason: 'Take Profit 2 (161.8% Fib Extension)',
-        },
-        {
-          id: 'bt-tr-02',
-          timestamp: '2026-11-05 09:15',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2736.0,
-          exitPrice: 2748.2,
-          pnl: +366.0,
-          returnPct: +3.66,
-          holdTime: '2h 50m',
-          reason: 'Take Profit 1 (SMC Liquidity Grab)',
-        },
-        {
-          id: 'bt-tr-03',
-          timestamp: '2026-11-04 18:40',
-          symbol,
-          side: 'BUY',
-          entryPrice: 2741.0,
-          exitPrice: 2734.5,
-          pnl: -195.0,
-          returnPct: -1.95,
-          holdTime: '1h 10m',
-          reason: 'Stop Loss Hit (Risk Rule Enforced)',
-        },
+      message:
+        'Backtest ถูกระงับ: ยังไม่มีการเชื่อมต่อชุดข้อมูล Historical OHLCV ที่ผ่านการอนุมัติและ Research Engine ที่ตรวจสอบได้ จึงไม่สร้าง Win Rate, Profit Factor, Net Profit, Equity Curve หรือผล Out-of-Sample จำลอง',
+      requiredEvidence: [
+        'Approved 4H and 5M OHLCV with UTC candle-close timestamps',
+        'Verified instrument point value, spread, commission and slippage',
+        'Exact-head unit tests and cost-aware walk-forward validation',
+        'Sealed Final OOS results and independent strategy review',
       ],
-      dataNotice: 'SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH',
     });
   });
 

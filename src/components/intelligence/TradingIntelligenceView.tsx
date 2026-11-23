@@ -22,7 +22,7 @@ export default function TradingIntelligenceView() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [intelData, setIntelData] = useState<IntelligenceResponse | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState<string>('elliott-wave-3');
+  const [selectedModelId, setSelectedModelId] = useState<string>('smc-mean-rejection');
 
   const fetchIntel = async () => {
     try {
@@ -45,7 +45,7 @@ export default function TradingIntelligenceView() {
     return (
       <div className="space-y-6">
         <ReadonlySafetyBadge />
-        <LoadingSpinner label="กำลังเชื่อมต่อโมเดลปัญญาประดิษฐ์ (Elliott Wave 3, XGBoost, LSTM, SMC, Auto-Learning, Neural Net)..." />
+        <LoadingSpinner label="กำลังโหลด SMC Mean Rejection และโมเดลสนับสนุน..." />
       </div>
     );
   }
@@ -78,13 +78,13 @@ export default function TradingIntelligenceView() {
               </h2>
             </div>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              สถาปัตยกรรมโมเดลควอนต์ 6 ระดับ: ประมวลผลคลื่นเอลเลียตเวฟ, ต้นไม้การตัดสินใจ XGBoost, ลำดับเวลา LSTM บน PyTorch, กลไกสภาพคล่อง SMC, ระบบเรียนรู้อัตโนมัติ Auto-Learning และเครือข่ายประสาทเทียม
+              SMC Mean Rejection เป็นกลยุทธ์วิจัยหลักแบบ deterministic; XGBoost และ PyTorch LSTM เป็นโมเดลสนับสนุนแยกต่างหาก โดยยังไม่มีผล validation หรือหลักฐานความสามารถทำกำไรที่ได้รับอนุมัติ
             </p>
             <div className="flex flex-wrap gap-1.5 pt-2">
-              <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">1. Elliott Wave 3</span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">2. XGBoost</span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">3. LSTM / PyTorch</span>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">4. Smart Money Concepts (SMC)</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">1. SMC Mean Rejection · Primary</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">2. XGBoost · Supporting</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">3. LSTM / PyTorch · Supporting</span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">4. SMC Context Features</span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">5. Auto-Learning</span>
               <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">6. Neural Network Analysis</span>
             </div>
@@ -93,19 +93,19 @@ export default function TradingIntelligenceView() {
           <div className="flex items-center gap-3 bg-slate-900/80 p-3 rounded-xl border border-slate-800 self-start md:self-auto">
             <div>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
-                Ensemble Confidence
+                Ensemble Validation
               </span>
               <span className="text-base font-bold font-mono text-cyan-400">
-                {intelData.ensembleConfidencePct}%
+                {intelData.ensembleConfidencePct == null ? 'NOT VALIDATED' : `${intelData.ensembleConfidencePct}%`}
               </span>
             </div>
             <div className="h-8 w-px bg-slate-800" />
             <div>
               <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
-                Active Models
+                Listed Modules
               </span>
               <span className="text-base font-bold font-mono text-emerald-400">
-                6 / 6 Online
+                {intelData.models.length} Listed · No execution
               </span>
             </div>
           </div>
@@ -153,10 +153,10 @@ export default function TradingIntelligenceView() {
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider block font-mono">
-                      Accuracy / Latency
+                      Validation / Runtime
                     </span>
                     <span className="text-xs font-mono font-bold text-slate-300">
-                      {model.accuracyPct}% · {model.latencyMs}ms
+                      {model.accuracyPct == null ? 'NOT VALIDATED' : `${model.accuracyPct}%`} · {model.latencyMs == null ? 'NOT MEASURED' : `${model.latencyMs}ms`}
                     </span>
                   </div>
                 </div>
@@ -182,7 +182,7 @@ export default function TradingIntelligenceView() {
               </h3>
             </div>
             <p className="text-xs text-slate-400 mt-1 font-mono">
-              Architecture ID: <span className="text-slate-200">{selectedModel.id}</span> · Inference Latency: <span className="text-cyan-400">{selectedModel.latencyMs} ms</span>
+              Architecture ID: <span className="text-slate-200">{selectedModel.id}</span> · Inference Latency: <span className="text-cyan-400">{selectedModel.latencyMs == null ? 'NOT MEASURED' : `${selectedModel.latencyMs} ms`}</span>
             </p>
           </div>
 
@@ -191,7 +191,7 @@ export default function TradingIntelligenceView() {
               Status: {selectedModel.status}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-mono">
-              Validation: {selectedModel.accuracyPct}%
+              Validation: {selectedModel.accuracyPct == null ? 'NOT VALIDATED' : `${selectedModel.accuracyPct}%`}
             </span>
           </div>
         </div>
