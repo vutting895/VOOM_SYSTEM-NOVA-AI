@@ -160,6 +160,19 @@ export default {
       return env.BRIDGE_SESSIONS.get(id).fetch(request);
     }
 
+    if (url.pathname === "/status") {
+      if (request.method !== "GET") return unavailable("method_not_allowed", 405);
+      const auth = authorizeBridge(request, env);
+      if (!auth.ok) return unavailable(auth.error, auth.status);
+      if (!env.BRIDGE_SESSIONS) return unavailable("bridge_session_binding_not_configured");
+      const id = env.BRIDGE_SESSIONS.idFromName(auth.tenantId);
+      const internalRequest = new Request("https://bridge-session.internal/status", {
+        method: "GET",
+        headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": auth.tenantId }
+      });
+      return env.BRIDGE_SESSIONS.get(id).fetch(internalRequest);
+    }
+
     if (/\/(orders?|trades?|execute|withdraw|transfer)(\/|$)/i.test(url.pathname)) {
       return unavailable("forbidden", 403);
     }
