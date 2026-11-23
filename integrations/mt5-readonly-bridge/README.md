@@ -51,6 +51,30 @@ Start using the tenant-aware script from the bridge directory:
 
 The script fails closed if the tenant ID or tenant-specific token file is missing or invalid. It binds Uvicorn to `127.0.0.1:8787` and opens an outbound authenticated WSS connection to `https://voom-mt5-bridge-relay.suwapat787.workers.dev`. No custom domain, named Tunnel, or public local port is required. The relay client reconnects with backoff and does not log tokens or account payloads.
 
+
+## NOVA EA telemetry bridge (local POST, cloud GET)
+
+The read-only NOVA EA can send a two-second heartbeat to the loopback-only Python Bridge:
+
+- Local ingest: `POST http://127.0.0.1:8787/api/ea/heartbeat`
+- Cloud read: `GET /api/ea/status` through the authenticated Supabase → proxy → relay path.
+- The local POST accepts only a fixed telemetry schema and requires a separate local token. It is not a broker API.
+- The relay and customer proxy expose only the authenticated GET status route; they do not forward POST requests to MT5.
+- EA status becomes stale after six seconds without a heartbeat.
+- No account number, balance, credentials, position ticket, order payload, or trading instruction is sent by this EA heartbeat.
+
+Provision the local token once from the repository root:
+
+```powershell
+.\tools\windows\provision-nova-ea-bridge-token.ps1
+```
+
+The provisioner writes a random token to MetaTrader Common Files and never prints its value. The bridge launcher reads the same file into its private process environment. The EA reads the token locally from Common Files; it is not embedded in source code.
+
+Install `NOVA_EA_v1.82_BRIDGE_READONLY.mq5` and `NOVA_EA_Bridge_v1.82.mqh` into the terminal's `MQL5/Experts/NOVA` folder. In MT5, add `http://127.0.0.1:8787` to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Attach only the READONLY EA. Keep Algo Trading disabled.
+
+A connected status requires all of the following: the local Python Bridge passes tenant-authenticated health; the EA heartbeat is accepted; the outbound WSS relay is active; and the signed-in user's own Supabase connection row is provisioned. Worker health alone is not proof of EA connectivity.
+
 ## Endpoints
 
 - `GET /health`
