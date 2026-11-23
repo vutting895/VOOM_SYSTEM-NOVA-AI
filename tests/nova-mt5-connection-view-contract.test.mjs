@@ -18,6 +18,8 @@ test("NOVA MT5 REST view exposes every field selected by System Hub", () => {
   assert.match(proxy, /\/rest\/v1\/nova_broker_connections/);
   assert.doesNotMatch(hub, /\/rest\/v1\/broker_connections/);
   assert.doesNotMatch(proxy, /\/rest\/v1\/broker_connections/);
+  assert.doesNotMatch(hub, /on_conflict:/);
+  assert.match(hub, /Prefer: "return=representation"/);
 });
 
 test("authenticated users can read and create pending requests through the view, but anonymous users cannot", () => {
