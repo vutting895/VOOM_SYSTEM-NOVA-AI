@@ -56,6 +56,13 @@ class NovaEA182StrategyTests(unittest.TestCase):
         self.assertEqual(result["status"], "NO_SIGNAL")
         self.assertEqual(result["direction"], 0)
 
+    def test_liquiditypools_enforces_source_ten_bar_entry_cooldown(self):
+        history = bars()
+        state = {"last_entry_time": history[-5]["time"]}
+        result = evaluate_mtraders_strategy(4, {"bars": history}, state)
+        self.assertEqual(result["status"], "COOLDOWN")
+        self.assertEqual(result["direction"], 0)
+
     def test_sessionbox_requires_explicit_broker_server_timezone(self):
         with self.assertRaisesRegex(StrategyInputError, "server_utc_offset_minutes"):
             evaluate_mtraders_strategy(9, {"bars": bars()})
