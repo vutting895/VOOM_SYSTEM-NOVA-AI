@@ -45,13 +45,17 @@ These are not enforced for order placement because this build has no order execu
 
 ## Validation status
 
-Python source-contract tests cover the read-only boundary, MTF/volatility gates, closed-bar evaluation, and absence of execution API calls.
+Confirmed for PR head `79a5da73d6daa4121b11e5dc9ce287b08ae366ef`:
 
-Still required before treating the strategy as validated:
-- Native MetaEditor compile on the target MT5 terminal.
-- Strategy Tester runs with real symbol specification, commission, swap, spread, and slippage.
+- Python source-contract tests: **9/9 passed** on the remote Windows validation workspace.
+- Native MetaEditor compile: **0 errors, 0 warnings** using `C:\MT5\metaeditor64.exe`; compiled from the isolated temporary validation workspace, not installed into the active MT5 Experts folder.
+- GitHub Actions Frontend CI run `45130322675` (#2268): **success**. All build job steps passed; the production smoke-test job was skipped.
+
+Still required before treating the strategy as empirically validated:
+
+- MT5 Strategy Tester runs using the intended broker symbol specification and real commission, swap, spread, and slippage assumptions.
 - Walk-forward and untouched OOS evaluation; do not tune on final OOS.
 - Verify candidate timestamps and levels against MT5 chart data.
 - Exness Demo read-only observation only.
 
-No profitability claim is made. Do not merge, deploy, or enable Live Trading on the basis of source-level tests.
+No profitability claim is made. The source-level tests and compile do not establish trading edge. Do not merge, deploy, install as an active EA, or enable Live Trading on the basis of these checks alone.
