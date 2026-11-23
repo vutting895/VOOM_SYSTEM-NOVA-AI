@@ -13,6 +13,7 @@
 string   gNovaEABridgeToken = "";
 datetime gNovaEABridgeLastSent = 0;
 datetime gNovaEABridgeLastErrorLog = 0;
+datetime gNovaEABridgeLastTickUtc = 0;
 
 string NovaEABridgeIsoUtc(const datetime value)
 {
@@ -79,11 +80,16 @@ void NovaEABridgeHeartbeat(const ulong signalCount)
 
    MqlTick tick;
    datetime tickTime=0;
-   if(SymbolInfoTick(_Symbol,tick)) tickTime=(datetime)tick.time;
    datetime barTime=iTime(_Symbol,_Period,0);
    datetime utcNow=TimeGMT();
    int serverUtcOffset=(int)(TimeCurrent()-utcNow);
-   if(tickTime>0) tickTime-=serverUtcOffset; else tickTime=utcNow;
+   if(SymbolInfoTick(_Symbol,tick))
+   {
+      tickTime=(datetime)tick.time-serverUtcOffset;
+      gNovaEABridgeLastTickUtc=tickTime;
+   }
+   else tickTime=gNovaEABridgeLastTickUtc;
+   if(tickTime<=0) return; // Do not invent a fresh tick timestamp when the market is idle.
    if(barTime>0) barTime-=serverUtcOffset; else barTime=utcNow;
    string payload=StringFormat(
       "{\"ea_id\":\"NOVA_EA_v1.82\",\"version\":\"1.82\",\"symbol\":\"%s\",\"timeframe\":\"%s\",\"mode\":\"read-only\",\"orders_enabled\":false,\"live_trading_enabled\":false,\"last_tick_utc\":\"%s\",\"last_bar_utc\":\"%s\",\"signal_count\":%I64u}",
