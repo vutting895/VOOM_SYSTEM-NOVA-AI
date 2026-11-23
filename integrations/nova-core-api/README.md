@@ -1,33 +1,29 @@
 # NOVA Core API — read-only foundation
 
-This Worker is a new, isolated API boundary. It is not deployed and is not yet connected to the NOVA UI or VOOM AI clients.
+This Worker is an isolated API boundary. It is not deployed and is not connected to the NOVA UI or VOOM AI clients.
 
-## Implemented in this first slice
-
-- `GET /v1/health`: public process/configuration status. The Supabase flag means configuration is present; it does not prove Supabase is reachable.
-- `GET /v1/me`: authenticated identity and NOVA role.
-- All other paths return 404 until a route has a verified source of truth and tests.
-- Only `app_metadata.nova_role` is trusted. Allowed roles are `admin`, `operator`, and `viewer`; missing or unknown roles fail closed.
-- Supabase Auth is called server-side at `/auth/v1/user`. Redirects are rejected to prevent forwarding bearer tokens.
-- Browser origins are allowlisted through `ALLOWED_ORIGINS`.
-- Only GET and CORS preflight are accepted. No broker writes, order routes, execution routes, or trading activation exist.
+## Implemented
+- Public `GET /v1/health` matching the documented contract: status, version, timestamp, and explicit trading/broker-write false flags.
+- Authenticated `GET /v1/me` matching the documented identity/role contract.
+- JWT verification against Supabase JWKS using `jose`; verifies signature, issuer, expiration, and `aud=authenticated`.
+- Only `app_metadata.nova_role` is trusted. Allowed roles are admin, operator, and viewer; missing/unknown roles fail closed.
+- GET-only enforcement, allowlisted browser origins, no-store/security headers.
+- No order, execution, broker-write, deposit, withdrawal, or transfer routes.
 
 ## Runtime configuration
-
-Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `ALLOWED_ORIGINS` in the Worker environment. Use the public publishable key only. Never configure a Supabase service-role key or broker credentials in this Worker.
+Set `SUPABASE_URL` and comma-separated `ALLOWED_ORIGINS` in the Worker environment. JWKS is fetched from `/auth/v1/.well-known/jwks.json` on the configured HTTPS Supabase origin. Never configure a service-role key or broker credentials in this Worker.
 
 ## Local verification
-
 Requires Node.js 22 or newer:
 
 ```sh
+npm install
 npm test
 ```
 
-Tests stub Supabase Auth. They do not prove production Supabase connectivity.
+Tests generate a local RSA signing key and mock the Supabase JWKS response. They verify JWT signature, issuer/audience enforcement, role claim source, and read-only route restrictions. They do not prove production Supabase connectivity.
 
 ## Deliberate gaps
+The contract routes for services, bridge status/account, risk policy, approvals, audit, and assistant status are not implemented. Each requires a verified authoritative data source, tenant/role policy, response schema, and integration tests before implementation.
 
-The following contract routes are not implemented in this first slice: services, bridge status/account, risk policy, approvals, audit, and assistant status. They must not return fabricated or inferred status. Each requires a reviewed data source, tenant/role policy, response schema, and integration tests before implementation.
-
-No deployment workflow is added here. Deploy only after local tests, CI, runtime configuration review, and explicit approval.
+No deployment workflow is added. Deploy only after CI, runtime configuration/security review, and explicit approval.
