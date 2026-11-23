@@ -6,7 +6,7 @@ The source for this migration is the user's local MT5 file:
 
 `MQL5/Experts/nova v.1.82/Nova_EA_v1.82.mq5`
 
-The source reports `#property version "1.82"` and contains a 30-ID strategy registry. Its inspected local copy is 522,707 bytes / 7,840 lines, SHA-256 `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
+The source reports `#property version "1.82"` and contains a 20-module registry (14 kept modules and 6 disabled/removed modules). Its inspected local copy is 522,707 bytes / 7,840 lines, SHA-256 `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
 
 The original EA is not safe to execute as-is: it contains broker execution paths including `OrderSend`, `CTrade`, position close/modify operations, and live-operation inputs. The Core port extracts signal logic only. Those execution paths are deliberately excluded.
 
@@ -16,17 +16,17 @@ The first source-grounded Python parity slice implements five strategy modules:
 
 | EA module ID | Strategy | Port status |
 |---:|---|---|
-| 14 | SMC Full — confirmed swing BOS, OB/FVG retrace, Premium/Discount and wick confirmation | Implemented as stateful research signal |
-| 20 | LiquidityPools — confirmed pivot clusters, sweep/reclaim, ATR stop and 1:2 reference target | Implemented as research signal |
-| 26 | SessionBox — London / New York completed-session range breakout | Implemented; requires explicit broker server UTC offset and bar duration |
-| 27 | TrendPilot — EMA50/EMA200 trend plus RSI 45/55 crossing | Implemented; requires at least 210 completed bars |
-| 29 | WyckoffPhase — range, spring/upthrust, displacement and LPS state machine | Implemented as stateful research signal |
+| 13 | SMC Full — confirmed swing BOS, OB/FVG retrace, Premium/Discount and wick confirmation | Implemented as stateful research signal |
+| 4 | LiquidityPools — confirmed pivot clusters, sweep/reclaim, ATR stop and 1:2 reference target | Implemented as research signal |
+| 9 | SessionBox — London / New York completed-session range breakout | Implemented; requires explicit broker server UTC offset and bar duration |
+| 1 | TrendPilot — EMA50/EMA200 trend plus RSI 45/55 crossing | Implemented; requires at least 210 completed bars |
+| 6 | WyckoffPhase — range, spring/upthrust, displacement and LPS state machine | Implemented as stateful research signal |
 
 All other IDs abstain with an explicit status. They do not receive synthetic direction/confidence scores.
 
-The source explicitly marks SuperTrend (0), WickReject (12), LiquiditySweep/ExpertQEXSweep (18), VolST (24), and RangeSniper (25) as disabled. Those remain disabled. Other active/auxiliary modules still requiring source-parity work include FlowMatrix, SessionHeat/SATMA, QEX volatility, Neural/SATMA, and QEX intrabar sweep. Modules absent from the source dispatch path remain retired/not-dispatched rather than being silently revived.
+The source has 20 module IDs. Its v1.22 audit marks six modules disabled/removed: SuperTrend (0), QEX-VolST (3), QEX-LiqSweep (5), RangeSniper (7), WickReject (12), and Trend_Trail (16). The 14 kept modules are IDs 1, 2, 4, 6, 8, 9, 10, 11, 13, 14, 15, 17, 18, and 19. Remaining kept modules still requiring source-parity work include VolRegime-QEX, SessionHeat, FlowMatrix, SATMAFlow, ZigZag_BreakPull, Martingale_Avg, Intraday_VolBreak, Trend_Adding, and GOLD_Breakout.
 
-This is not full 30-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence and exact broker-server session/DST behavior still need parity tests against MT5 outputs before these candidates are used in a production backtest.
+This is not full 20-module parity. The previous deterministic placeholder in `mtraders_strategies.py` has been removed; unsupported strategies now abstain rather than fabricate votes. Stateful setup/cooldown persistence and exact broker-server session/DST behavior still need parity tests against MT5 outputs before these candidates are used in a production backtest.
 
 ## Core integration rules
 
