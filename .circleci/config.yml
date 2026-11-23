@@ -9,12 +9,10 @@ jobs:
       - checkout
       - run:
           name: Install NOVA Core API dependencies
-          command: npm install --no-audit --no-fund
-          working_directory: ~/project/integrations/nova-core-api
+          command: cd integrations/nova-core-api && npm install --no-audit --no-fund
       - run:
           name: Run NOVA Core API unit tests
-          command: npm test
-          working_directory: ~/project/integrations/nova-core-api
+          command: cd integrations/nova-core-api && npm test
 
 workflows:
   nova-core-api:
