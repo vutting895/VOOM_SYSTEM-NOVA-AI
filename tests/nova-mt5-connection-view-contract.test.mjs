@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const migration = readFileSync(new URL("../supabase/migrations/20261123172541_nova_mt5_customer_connections.sql", import.meta.url), "utf8");
-const grantsMigration = readFileSync(new URL("../supabase/migrations/20261124003000_grant_nova_schema_usage_for_mt5_view.sql", import.meta.url), "utf8");
+const grantsMigration = readFileSync(new URL("../supabase/migrations/20261123172807_grant_nova_schema_usage_for_mt5_view.sql", import.meta.url), "utf8");
 const hub = readFileSync(new URL("../integrations/system-hub/worker.js", import.meta.url), "utf8");
 
 test("NOVA MT5 REST view exposes every field selected by System Hub", () => {
