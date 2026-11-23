@@ -88,3 +88,31 @@ Restoring a project backup can roll back unrelated customer data and migrations;
 - [ ] Customer proxy E2E passes with read-only account/quote data and no secrets exposed.
 
 **Current release state:** Customer Proxy BLOCKED; Worker NOT DEPLOYED; PR #373 DRAFT; no production DDL; all broker writes and Live Trading OFF.
+
+
+## 8. Superseding investigation result — 2026-11-23
+
+The earlier assumption that the root cause was unknown is superseded by the production migration ledger:
+
+- Migration `20261101123853 / affiliate_cleanup_legacy_tables` contains an explicit `DROP TABLE IF EXISTS ... public.broker_connections` statement. This is the confirmed cause of the legacy table removal.
+- Migration `20261123141239 / nova_mt5_customer_connections` is recorded as applied in the canonical production database.
+- Read-only catalog checks confirm:
+  - `public.broker_connections` is absent;
+  - `nova.mt5_broker_connections` exists;
+  - `public.nova_broker_connections` exists as a view with `security_invoker=true`;
+  - the view exposes only `id,user_id,provider,environment,status,bridge_route_id`;
+  - the base table has owner-scoped SELECT and pending-only INSERT policies;
+  - authenticated grants are SELECT/INSERT on the base table and SELECT on the public view.
+- The current `main` MT5 proxy still queries the removed legacy `public.broker_connections` relation. The immediate runtime defect is therefore a Proxy ↔ Database contract mismatch, not a missing production connection table.
+
+A separate Draft PR #376 now tracks the already-applied NOVA migration source and changes the proxy lookup to `public.nova_broker_connections`, with corresponding contract assertions in the proxy tests. This is source-code alignment only; it does not apply DDL or deploy the Worker.
+
+## 9. Current blockers after root-cause confirmation
+
+- Supabase SQL does not reveal the dashboard-level PostgREST Exposed Schemas setting; `current_setting('pgrst.db_schemas', true)` returned NULL. The public view should be available through the public schema only if the project's Data API configuration exposes it; this still needs an authenticated smoke test.
+- The only listed Supabase development branch is `main` and its status is `MIGRATIONS_FAILED`; it is not a valid isolated staging target.
+- No customer-session two-user RLS acceptance has been run.
+- The MT5 proxy fix has no successful exact-head CI result yet; CircleCI Pipeline 1449 is ERROR and GitHub Actions returned no workflow runs for that head.
+- Backup/PITR inventory and restore readiness are not exposed by the available connector. This is no longer a prerequisite for recreating the table (the replacement already exists), but is still required before any future production DDL.
+
+**Updated status:** production NOVA connection schema exists; legacy relation removal cause confirmed; proxy code fix in PR #376 DRAFT; customer E2E BLOCKED; no DDL, Worker deploy, merge, broker write, or Live Trading change.
