@@ -71,7 +71,7 @@ Provision the local token once from the repository root:
 
 The provisioner writes a random token to MetaTrader Common Files and never prints its value. The bridge launcher reads the same file into its private process environment. The EA reads the token locally from Common Files; it is not embedded in source code.
 
-Install `NOVA_EA_v1.82_BRIDGE_READONLY.mq5` and `NOVA_EA_Bridge_v1.82.mqh` into the terminal's `MQL5/Experts/NOVA` folder. In MT5, add `http://127.0.0.1:8787` to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Attach only the READONLY EA. Keep Algo Trading disabled.
+The include is not yet wired into the original EA. Do not attach the original live-capable v1.82 source as a telemetry sender. First produce and verify a READ-ONLY copy of that exact source, then add `NOVA_EA_Bridge_v1.82.mqh` and wire its lifecycle calls. In MT5, add `http://127.0.0.1:8787` to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Keep Algo Trading disabled.
 
 A connected status requires all of the following: the local Python Bridge passes tenant-authenticated health; the EA heartbeat is accepted; the outbound WSS relay is active; and the signed-in user's own Supabase connection row is provisioned. Worker health alone is not proof of EA connectivity.
 
