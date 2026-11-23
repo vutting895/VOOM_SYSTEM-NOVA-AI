@@ -28,13 +28,36 @@ async function token(claims = {}) {
     .sign(privateKey);
 }
 
-test("health matches documented read-only response contract", async () => {
+test("health reports ok only when the configured Supabase JWKS is reachable", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://example.supabase.co/auth/v1/.well-known/jwks.json");
+    return Response.json({ keys: [jwk] });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
   const response = await worker.fetch(request("/v1/health"), env);
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.status, "ok");
   assert.equal(typeof body.version, "string");
   assert.equal(typeof body.time, "string");
+  assert.equal(body.liveTrading, false);
+  assert.equal(body.brokerWrites, false);
+});
+
+test("health degrades when Supabase JWKS is unreachable", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("network unavailable"); };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const response = await worker.fetch(request("/v1/health"), {
+    ...env,
+    SUPABASE_URL: "https://unreachable.example.supabase.co",
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "degraded");
   assert.equal(body.liveTrading, false);
   assert.equal(body.brokerWrites, false);
 });
