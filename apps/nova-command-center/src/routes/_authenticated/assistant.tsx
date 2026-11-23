@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Panel, PageHeader, NotConnected } from "@/components/nova/primitives";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api, type ChatMessage, type ChatWorkerHealth } from "@/lib/nova/api";
 import { isApiConfigured, isChatApiConfigured } from "@/lib/nova/config";
 import { pageHead } from "@/lib/nova/head";
+import { useAuth } from "@/lib/nova/auth";
 
 export const Route = createFileRoute("/_authenticated/assistant")({
   head: pageHead("NOVA Trading AI Chat", "Authenticated, read-only trading research assistant."),
@@ -18,6 +19,8 @@ interface Msg {
 }
 
 function Assistant() {
+  const { userId } = useAuth();
+  const requestVersion = useRef(0);
   const [status, setStatus] = useState<ChatWorkerHealth | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -34,7 +37,14 @@ function Assistant() {
     return () => { active = false; };
   }, []);
 
-  const ready = Boolean(status?.ok && status.aiBinding && status.authConfigured);
+  useEffect(() => {
+    requestVersion.current += 1;
+    setMsgs([]);
+    setText("");
+    setSending(false);
+  }, [userId]);
+
+  const ready = Boolean(userId && status?.ok && status.aiBinding && status.authConfigured);
   const canSend = ready && !sending && text.trim().length > 0;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -45,18 +55,23 @@ function Assistant() {
     setMsgs(next);
     setText("");
     setSending(true);
+    const activeRequest = requestVersion.current;
     const history: ChatMessage[] = next.slice(-8).map((message) => ({
       role: message.role,
       content: message.text,
     }));
     try {
       const result = await api.sendChat(history);
-      setMsgs((current) => [...current, { role: "assistant", text: result.message }]);
+      if (requestVersion.current === activeRequest) {
+        setMsgs((current) => [...current, { role: "assistant", text: result.message }]);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Chat request failed";
-      setMsgs((current) => [...current, { role: "assistant", text: `ส่งข้อความไม่สำเร็จ: ${message}` }]);
+      if (requestVersion.current === activeRequest) {
+        setMsgs((current) => [...current, { role: "assistant", text: `ส่งข้อความไม่สำเร็จ: ${message}` }]);
+      }
     } finally {
-      setSending(false);
+      if (requestVersion.current === activeRequest) setSending(false);
     }
   }
 
