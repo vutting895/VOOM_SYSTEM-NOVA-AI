@@ -3033,7 +3033,7 @@ bool MlpFeaturesAtIdx(int idx, const double &cl[], const double &hi[], const dou
    return(true);
 }
 void MlpTrainModel(){
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    int need=InpMlpLookback+InpMlpHorizon+100; if(need<300) need=300;
@@ -3135,7 +3135,7 @@ void DualAutoTrainFlat(const double &X[], const int &Y[], int n, int nIn, int ep
    for(int e=0;e<epochs;e++){ for(int i=0;i<n;i++){ double xi[]; ArrayResize(xi,nIn); for(int k=0;k<nIn;k++) xi[k]=X[i*nIn+k]; DualAutoStep(xi, Y[i], lr, isUp); } }
 }
 void TrainDualAutoModel(){
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpAutoTrainDual) return;
@@ -3173,7 +3173,7 @@ void TrainDualAutoModel(){
    Print("Nova v1.62 Voom Precise + Auto-Tune + News Dual-Auto: trained Up ", cntUp, " Down ", cntDn, " ValAcc ", DoubleToString(gDualAutoValAcc*100,1), "% Symbol=", _Symbol);
 }
 void ExportONNXData(){
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpAutoExportONNX) return;
@@ -3208,7 +3208,7 @@ void ExportONNXData(){
 
 // v1.42 Auto-Adapt: ตรวจ Symbol/โบรก/บัญชี เปลี่ยน -> เทรน MLP ใหม่เอง + ปรับ Dual
 void AdaptCheck(){
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpAutoAdapt) return;
@@ -3254,7 +3254,7 @@ void AdaptCheck(){
    }
 }
 void MlpCheckRetrain(){
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpUseHybridMLP) return;
@@ -5084,7 +5084,7 @@ double NovaUniverseSATMA(const string sym)
 }
 void NovaUniverseSync()
 {
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpUseNovaUniverse) return;
@@ -5230,7 +5230,7 @@ void AutoOptApply(const OptParams &p)
 }
 void AutoOptRun()
 {
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpUseAutoOpt) return;
@@ -5310,7 +5310,7 @@ void AutoOptRecordTrade(const double score, const int dir, const double r)
 }
 void AutoOptCheckRollback()
 {
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpUseAutoOpt || !InpAutoOptAutoRollback) return;
@@ -6799,7 +6799,7 @@ datetime gLearn_LastHistoryCheck=0;
 ulong gLearn_LastDealTicket=0;
 void CheckClosedTradesLearning()
 {
-#if NOVA_READONLY_BUILD
+#ifdef NOVA_READONLY_BUILD
    return;
 #endif
    if(!InpUseAutoLearning) return;
@@ -7742,7 +7742,6 @@ int OnInit()
    if(!SaveState()) { Print(ENGINE_LABEL,": cannot write state; entries disabled until storage recovers"); }
    EventSetTimer(1);gInitialized=true;gPanelHistoryDirty=true;DrawPanel(true);V162_UpdateDashboard(); // v1.50
    Print("NOVA EA v1.82 READ-ONLY | 20 registered / 14 kept / 8 active signal dispatch | Core strategy and risk governor authoritative | broker execution and EA-side training disabled | ",_Symbol," ",EnumToString(InpAnalysisTF));
-         "; target risk ",InpRiskPercent,"%; explicit min-lot cap ",InpMaxSingleRiskPct,"%.");
    return INIT_SUCCEEDED;
 }
 void OnDeinit(const int reason)
