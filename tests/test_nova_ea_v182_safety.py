@@ -60,6 +60,16 @@ class TestNovaEA182Safety(unittest.TestCase):
         self.assertIn("out[i]==EMPTY_VALUE", CORE)
         self.assertIn("MathIsValidNumber(out[i])", CORE)
 
+    def test_core_diagnostics_are_opt_in_and_read_only(self):
+        self.assertIn("InpCoreDiagnostics       = false", EA)
+        self.assertIn("gNovaCoreDiagnostics=InpCoreDiagnostics;", EA)
+        self.assertIn("NovaCorePrintDiagnostics();", EA)
+        self.assertIn("if(!gNovaCoreDiagnostics) return;", CORE)
+        for token in ("gNovaCoreDiagBars", "gNovaCoreDiagBos",
+                      "gNovaCoreDiagAligned", "gNovaCoreDiagLocation",
+                      "gNovaCoreDiagRejection", "gNovaCoreDiagCandidates"):
+            self.assertIn(token, CORE)
+
     def test_transient_indicator_data_does_not_consume_the_bar(self):
         copy_ok = CORE.index("!NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;")
         mark_bar = CORE.index("gNovaCoreLastBar=rates[0].time;")
