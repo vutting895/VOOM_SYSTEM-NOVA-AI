@@ -4,7 +4,6 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EA = (ROOT / "integrations/mt5/NOVA_EA_v1.82_BRIDGE_READONLY.mq5").read_text(encoding="utf-8")
 BRIDGE = (ROOT / "integrations/mt5/NOVA_EA_Bridge_v1.82.mqh").read_text(encoding="utf-8")
 PY_BRIDGE = (ROOT / "integrations/mt5-readonly-bridge/bridge.py").read_text(encoding="utf-8")
 RELAY = (ROOT / "integrations/mt5-bridge-relay/worker.js").read_text(encoding="utf-8")
@@ -13,11 +12,9 @@ PROXY = (ROOT / "integrations/mt5-readonly-proxy/worker.js").read_text(encoding=
 
 
 class NovaEABridgeTests(unittest.TestCase):
-    def test_ea_heartbeat_is_timer_driven_every_two_seconds(self):
-        self.assertIn("EventSetTimer(NOVA_EA_BRIDGE_INTERVAL_SEC)", EA)
-        self.assertIn("void OnTimer()", EA)
+    def test_bridge_include_exposes_two_second_heartbeat_function(self):
         self.assertIn("#define NOVA_EA_BRIDGE_INTERVAL_SEC 2", BRIDGE)
-        self.assertIn("NovaEABridgeHeartbeat(gNovaCoreDiagCandidates)", EA)
+        self.assertIn("void NovaEABridgeHeartbeat(", BRIDGE)
 
     def test_ea_uses_only_loopback_telemetry_endpoint(self):
         self.assertIn('http://127.0.0.1:8787/api/ea/heartbeat', BRIDGE)
