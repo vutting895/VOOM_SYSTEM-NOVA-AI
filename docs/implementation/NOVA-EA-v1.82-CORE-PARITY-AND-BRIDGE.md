@@ -23,7 +23,7 @@ The first source-grounded Python parity slice implements eight active signal mod
 | 6 | WyckoffPhase — range, spring/upthrust, displacement and LPS state machine | Implemented as stateful research signal |
 | 2 | VolRegime-QEX — ATR percentile / Bollinger-width squeeze and range breakout | Implemented with state and 15-bar entry cooldown |
 | 10 | FlowMatrix — normalized bounded-delta share and EMA50/EMA200 alignment | Implemented; requires the multi-symbol bar universe |
-| 8 | SessionHeat — 30-day server-hour H1 statistics and H1 breakout | Implemented as intrabar research candidate; requires H1 history, server time and current bid |
+| 8 | SessionHeat — 30-day server-hour H1 statistics and H1 breakout | Implemented as intrabar research candidate; requires H1 history, server time, current bid and ask (buy references use Ask, sell references use Bid) |
 
 All other IDs abstain with an explicit status. They do not receive synthetic direction/confidence scores.
 
