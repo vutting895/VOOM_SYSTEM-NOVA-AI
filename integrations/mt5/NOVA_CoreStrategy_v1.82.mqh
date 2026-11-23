@@ -181,10 +181,11 @@ void NovaCoreEvaluate()
       !NovaCoreCopy(gNovaCoreM15Rsi,3,rsi) || !NovaCoreCopy(gNovaCoreM15Atr,64,atr) ||
       !NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;
 
-   // Commit the bar as evaluated only after every required buffer is available.
-   // This lets later ticks retry transient CopyBuffer/history synchronization failures.
-   gNovaCoreLastBar=rates[0].time;
+   // Do not consume the bar until all required buffers and ATR values are valid.
    if(atr[1]<=0.0 || atr50[1]<=0.0) return;
+   // Later ticks can retry transient CopyBuffer/history synchronization failures.
+   gNovaCoreLastBar=rates[0].time;
+
    double volRatio=atr[1]/atr50[1];
    if(volRatio<0.55 || volRatio>1.80) return; // volatility-regime guard
 
