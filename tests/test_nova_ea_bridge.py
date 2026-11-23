@@ -71,7 +71,7 @@ class NovaEABridgeTests(unittest.TestCase):
         ):
             self.assertRegex(
                 READONLY_EA,
-                rf"void\s+{function}\s*\([^)]*\)\s*\{{\s*#if NOVA_READONLY_BUILD\s*return;\s*#endif",
+                rf"void\s+{function}\s*\([^)]*\)\s*\{{\s*#ifdef NOVA_READONLY_BUILD\s*return;\s*#endif",
             )
         for name in (
             "InpUseONNXEnsemble", "InpUseUnified", "InpUseLSTM", "InpUseONNX",
