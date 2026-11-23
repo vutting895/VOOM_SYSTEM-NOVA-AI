@@ -26,6 +26,8 @@ CORS_ORIGINS = [
 ]
 MAX_BARS = 500
 LOCK = threading.RLock()
+EA_BRIDGE_TOKEN = os.environ.get("MT5_EA_BRIDGE_TOKEN", "").strip()
+EA_HEARTBEAT: dict[str, Any] | None = None
 
 app = FastAPI(
     title=APP_NAME,
@@ -52,6 +54,12 @@ async def enforce_read_only(request: Request, call_next):
             status_code=403,
             content={"error": "forbidden", "mode": "read-only", "order_submission_enabled": False},
         )
+    if request.method == "POST" and request.url.path == "/api/ea/heartbeat":
+        # This is local EA telemetry ingestion only, not a broker write operation.
+        host = request.client.host if request.client else ""
+        if host not in {"127.0.0.1", "::1", "localhost", "testclient"}:
+            return JSONResponse(status_code=403, content={"error": "loopback_only"})
+        return await call_next(request)
     if request.method not in {"GET", "OPTIONS"}:
         return JSONResponse(
             status_code=405,
@@ -134,6 +142,93 @@ def health(authorization: str | None = Header(default=None), tenant_id: str | No
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
+
+
+
+@app.post("/api/ea/heartbeat")
+async def ingest_ea_heartbeat(
+    request: Request,
+    x_nova_ea_token: str | None = Header(default=None, alias="X-NOVA-EA-TOKEN"),
+):
+    """Accept a narrow loopback-only heartbeat from the read-only NOVA EA."""
+    global EA_HEARTBEAT
+    if not EA_BRIDGE_TOKEN:
+        raise HTTPException(status_code=503, detail="EA telemetry token is not configured")
+    if not x_nova_ea_token or not hmac.compare_digest(x_nova_ea_token, EA_BRIDGE_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid EA telemetry token")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    required = {
+        "ea_id", "version", "symbol", "timeframe", "mode",
+        "orders_enabled", "live_trading_enabled",
+        "last_tick_utc", "last_bar_utc", "signal_count"
+    }
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise HTTPException(status_code=400, detail="Heartbeat schema mismatch")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", str(payload["ea_id"])):
+        raise HTTPException(status_code=400, detail="Invalid EA identity")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,24}", str(payload["version"])):
+        raise HTTPException(status_code=400, detail="Invalid EA version")
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", str(payload["symbol"])):
+        raise HTTPException(status_code=400, detail="Invalid symbol")
+    if payload["timeframe"] not in {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}:
+        raise HTTPException(status_code=400, detail="Invalid timeframe")
+    if payload["mode"] != "read-only" or payload["orders_enabled"] is not False or payload["live_trading_enabled"] is not False:
+        raise HTTPException(status_code=403, detail="Only READ-ONLY telemetry is accepted")
+    if isinstance(payload["signal_count"], bool) or not isinstance(payload["signal_count"], int) or payload["signal_count"] < 0:
+        raise HTTPException(status_code=400, detail="Invalid signal counter")
+    for field in ("last_tick_utc", "last_bar_utc"):
+        if not isinstance(payload[field], str) or len(payload[field]) > 40:
+            raise HTTPException(status_code=400, detail="Invalid timestamp")
+        try:
+            parsed = datetime.fromisoformat(payload[field].replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Timestamp must include timezone")
+    record = dict(payload)
+    record["received_at"] = datetime.now(timezone.utc).isoformat()
+    with LOCK:
+        EA_HEARTBEAT = record
+    return {
+        "accepted": True,
+        "mode": "read-only",
+        "orders_enabled": False,
+        "live_trading_enabled": False,
+        "received_at": record["received_at"],
+    }
+
+
+@app.get("/api/ea/status")
+def ea_status(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    require_token(authorization, tenant_id)
+    with LOCK:
+        record = dict(EA_HEARTBEAT) if EA_HEARTBEAT else None
+    if record is None:
+        return {
+            "connected": False,
+            "status": "never_seen",
+            "mode": "read-only",
+            "orders_enabled": False,
+            "live_trading_enabled": False,
+            "heartbeat_interval_seconds": 2,
+        }
+    received = datetime.fromisoformat(record["received_at"])
+    age = max(0.0, (datetime.now(timezone.utc) - received).total_seconds())
+    return {
+        "connected": age <= 6.0,
+        "status": "online" if age <= 6.0 else "stale",
+        "heartbeat_age_seconds": round(age, 3),
+        "heartbeat_interval_seconds": 2,
+        **record,
+        "orders_enabled": False,
+        "live_trading_enabled": False,
+    }
 
 @app.get("/api/account")
 def account_summary(authorization: str | None = Header(default=None), tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID")):
