@@ -127,8 +127,10 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("select"), "id,user_id,provider,environment,status,bridge_route_id");
       return Response.json([{
         id: CONNECTION_ID,
         user_id: "user-test-id",
@@ -173,10 +175,11 @@ test("foreign user's connection ID is not forwarded to the Bridge", async () => 
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "different-test-user-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       // Both predicates must be present: a valid row ID alone is not enough.
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
+      assert.equal(url.searchParams.get("select"), "id,user_id,provider,environment,status,bridge_route_id");
       // Simulate the owner-scoped Supabase response when this ID belongs to another user.
       return Response.json([]);
     }
