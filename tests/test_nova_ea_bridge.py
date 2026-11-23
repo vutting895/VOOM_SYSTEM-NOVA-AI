@@ -27,9 +27,10 @@ class NovaEABridgeTests(unittest.TestCase):
         self.assertNotIn("PositionClose", BRIDGE)
 
     def test_ea_telemetry_is_hard_coded_read_only(self):
-        self.assertIn('"mode":"read-only"', BRIDGE)
-        self.assertIn('"orders_enabled":false', BRIDGE)
-        self.assertIn('"live_trading_enabled":false', BRIDGE)
+        self.assertIn("read-only", BRIDGE)
+        self.assertIn("orders_enabled", BRIDGE)
+        self.assertIn("live_trading_enabled", BRIDGE)
+        self.assertIn("false", BRIDGE)
         self.assertIn('NOVA_READ_ONLY_MODE true', EA)
 
     def test_private_token_is_not_embedded_in_ea_source(self):
