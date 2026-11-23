@@ -33,10 +33,16 @@ double   gNovaCoreSwingExtreme=0.0;
 
 bool NovaCoreCopy(const int handle,const int count,double &out[])
 {
-   if(handle==INVALID_HANDLE) return false;
+   if(handle==INVALID_HANDLE || BarsCalculated(handle)<MathMax(count,64)) return false;
    ArrayResize(out,count);
    ArraySetAsSeries(out,true);
-   return CopyBuffer(handle,0,0,count,out)==count;
+   if(CopyBuffer(handle,0,0,count,out)!=count) return false;
+   for(int i=0;i<count;i++)
+   {
+      if(!MathIsValidNumber(out[i]) || out[i]==EMPTY_VALUE || MathAbs(out[i])>1.0e100)
+         return false;
+   }
+   return true;
 }
 
 double NovaCoreHighest(const MqlRates &rates[],const int first,const int last)
