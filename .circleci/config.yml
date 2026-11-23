@@ -6,7 +6,16 @@ jobs:
       - image: cimg/node:22.12
     working_directory: ~/project
     steps:
-      - checkout
+      # This repository is public. Use HTTPS explicitly so CircleCI does not
+      # depend on a project SSH key, ssh-agent, port 22, or blobless checkout.
+      - run:
+          name: Checkout source over HTTPS
+          command: |
+            set -euo pipefail
+            : "${CIRCLE_SHA1:?CircleCI did not provide CIRCLE_SHA1}"
+            git clone --no-checkout https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git .
+            git checkout --detach "${CIRCLE_SHA1}"
+            test "$(git rev-parse HEAD)" = "${CIRCLE_SHA1}"
 
       - run:
           name: Install Python for Bridge contract checks
