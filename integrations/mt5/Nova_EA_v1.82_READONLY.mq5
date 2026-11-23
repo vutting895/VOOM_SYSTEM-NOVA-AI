@@ -98,6 +98,7 @@
 #property description "20 strategy modules + MIND AI + WikiFX 6 EA + Trailing + GOLD Breakout + REGIME-SPECIFIC v1.20"
 #property description "Hedging account required. Embedded defaults, no .set preset."
 #property strict
+#define NOVA_READONLY_BUILD 1
 #property description "READ-ONLY BUILD: broker order, close, cancel and modify requests are compiled out."
 #define NOVA_READ_ONLY_BUILD 1
 #property description "READ-ONLY telemetry build; all broker request submission and position modification calls are disabled."
@@ -151,7 +152,7 @@ input long   InpMaxSpreadPoints    = 350;   // v1.30: Max Spread (points) XAUUSD
 input bool   InpUseStopsCheck      = true;  // v1.30: เช็ค StopsLevel + FreezeLevel ก่อนวาง SL/TP/Modify
 input bool   InpUseEquityCurveScaling = true; // v1.30: ลด Risk ตาม DD (CPositionSizer)
 input bool   InpUseCTrade          = true;  // v1.30: ใช้ CTrade แทน OrderSend เก่า
-input bool   InpUseONNXEnsemble   = true;  // v1.30: ใช้ ONNX 2 โมเดล Voting (Regression+Classification) ถ้า Fail Fallback เป็น Calibrated P
+input bool   InpUseONNXEnsemble   = false;  // v1.30: ใช้ ONNX 2 โมเดล Voting (Regression+Classification) ถ้า Fail Fallback เป็น Calibrated P
 input string InpONNXModel1        = "Nova_Unified.onnx"; // v1.30: โมเดล 1 Classification - วางใน MQL5/Files/
 input string InpONNXModel2        = "Nova_Regime.onnx";  // v1.30: โมเดล 2 Regression - วางใน MQL5/Files/
 
@@ -387,7 +388,7 @@ input int InpMaxTradesPerDay_Tuned = 3; // v1.27: Max 3/day
 //   - EA builds input [488] every tick: tabular 8 + vision 400 + sequence 80 (oldest first)
 //   - OnnxRun once -> P_final -> vote: >0.60 +2 Long, >0.55 +1, <0.40 +2 Short, <0.45 +1
 //   - Retrain: python learning_system_unified.py --data <csv/pkl> --outdir <MT5 Files>/
-input bool InpUseUnified = true; // v1.26: Use Unified 1-Model (single ONNX)
+input bool InpUseUnified = false; // v1.26: Use Unified 1-Model (single ONNX)
 input string InpUnifiedFile = "unified_model.onnx";
 long gONNX_Unified=-1;
 double gUnified_LastP=0.5;
@@ -434,7 +435,7 @@ double gUnified_LastP=0.5;
 //   - Attach EA v1.25, InpUseONNX=true, InpUseLSTM=true
 //   - Log: ONNX loaded Deep=... Vision=... XGB=... LSTM=...
 //   - Retrain monthly: python train_lstm.py + train_onnx.py (see train_lstm.py)
-input bool InpUseLSTM = true; // v1.25: Use LSTM ONNX live (gated)
+input bool InpUseLSTM = false; // v1.25: Use LSTM ONNX live (gated)
 input string InpONNX_LSTM = "lstm.onnx";
 long gONNX_LSTM=-1;
 double gLSTM_LastP=0.5;
@@ -476,7 +477,7 @@ double gLSTM_LastP=0.5;
 //   - MT5 will log: ONNX loaded Deep=... Vision=... XGB=... and every hour: ONNX P_ens=...
 //   - To retrain: python train_onnx.py --data <new data> --outdir <MT5 Files>/  (or run auto_learning_system.py + train_onnx.py monthly)
 //   - If ONNX file missing, EA falls back to 7-vote ensemble only (no crash).
-input bool InpUseONNX = true; // v1.24: Use ONNX live (Deep/Vision/XGB)
+input bool InpUseONNX = false; // v1.24: Use ONNX live (Deep/Vision/XGB)
 input string InpONNX_Deep = "deep_nn.onnx";
 input string InpONNX_Vision = "vision.onnx";
 input string InpONNX_XGB = "xgb.onnx";
@@ -544,7 +545,7 @@ void ReleaseONNX()
 //   - Attach EA v1.23 to XAUUSDm M15, set InpAutoWeights=true
 //   - Schedule Python: Windows Task Scheduler every 1st 00:05, or cron: 5 0 1 * * python3 auto_learning_system.py --data <path> --out <MT5 Files path>/trained_v123_auto.json
 //   - EA will log: AutoWeights loaded: Ens=3 TP=1.2/1.0 ADX=25 ...
-input bool InpAutoWeights = true; // v1.23: Read trained_v123_auto.json every 1 hour
+input bool InpAutoWeights = false; // v1.23: Read trained_v123_auto.json every 1 hour
 input string InpAutoWeightsFile = "trained_v123_auto.json"; // v1.23: File in MQL5/Files/
 int gAutoEns=3; double gAutoTP_Strong=1.2, gAutoTP_Weak=1.0, gAutoADX_Strong=25.0, gAutoMinWave=15.0, gAutoShallow=0.5, gAutoSL_Up=2.0, gAutoSL_Down=2.5;
 datetime gAutoLastLoad=0;
@@ -719,7 +720,7 @@ input bool            InpUseCorrelationBlock  = true;  // ถ้า EURUSD/GBPUS
 // [FIX v1.34] ลบ 0 ตัวซ้ำ (v1.02) - ใช้ตัว v1.16 ที่บรรทัด ~731 (2.0) ตัวเดียว กัน error 125/282
 input int             InpMaxDailyEntriesTotal = 10;    // v1.77: 12 -> 10 ไม้/วัน = Core 3 + Sniper 4 + Recovery 3
 input group "=== v1.03 Auto Regime Scanner (ใหม่) ==="
-input bool            InpUseAutoScanner       = true;  // สแกนตลาดแล้วเลือกกลุ่มกลยุทธ์อัตโนมัติ
+input bool            InpUseAutoScanner       = false;  // สแกนตลาดแล้วเลือกกลุ่มกลยุทธ์อัตโนมัติ
 input int             InpScannerMinHoldBars   = 2;     // ต้องยืนยัน Regime ซ้ำ 2 แท่งก่อนสลับ กันสลับไปมา
 input double          InpScannerATRHigh       = 80.0;  // ATR Percentile >= 80 = HIGH_VOL ปิดเกือบหมด
 input double          InpScannerSqueezeRatio  = 0.70;  // BB Width < 70% ของค่าเฉลี่ย 100 แท่ง = SQUEEZE
@@ -754,13 +755,13 @@ input bool            InpLearnWarp        = true;  // เรียนปรั�
 input bool            InpLearnRegime      = true;  // เรียนว่า Regime ไหนเล่นได้ ไม่ได้ เอง
 input bool            InpLearnModuleOnOff = true;  // เรียนปิด/เปิดโมดูลเองตาม WinRate ล่าสุด
 input group "=== v1.10 Nova Universe Learning - เรียนจากทั้งจักรวาล 6 คู่เงิน ==="
-input bool            InpUseNovaUniverse = true;  // เปิด Nova Universe Learning แทนเรียนตัวเดียว
+input bool            InpUseNovaUniverse = false;  // เปิด Nova Universe Learning แทนเรียนตัวเดียว
 input double          InpNovaTransferRate = 0.30;  // โอนความรู้จากจักรวาลมา 30% + ของตัวเอง 70% = ไม่ลืมของตัวเอง
 input int             InpNovaSyncEveryBars = 4;    // ซิงค์จักรวาลทุก 4 แท่ง M15 = ทุก 1 ชั่วโมง
 input double          InpNovaMinUniverseAgree = 0.66; // ต้องเห็นด้วยกัน 4/6 จักรวาล ถึงเชื่อว่า Pattern นี้จริง ไม่ใช่ Overfit
 input bool            InpNovaUseCrossCheck = true; // ตรวจสอบข้ามจักรวาล ถ้าใช้ได้แค่จักรวาลเดียวให้ลดน้ำหนัก
 input group "=== v1.12 Auto Optimise - จูนพารามิเตอร์เองทุก 50 ไม้ ==="
-input bool            InpUseAutoOpt = true;  // เปิด Auto Optimise แทนการ Optimize ใน Tester เอง
+input bool            InpUseAutoOpt = false;  // เปิด Auto Optimise แทนการ Optimize ใน Tester เอง
 input int             InpAutoOptEveryTrades = 50;  // จูนทุก 50 ไม้ที่ปิดแล้ว (Walk-Forward)
 input int             InpAutoOptMinTrades = 30;   // ต้องมีอย่างน้อย 30 ไม้ถึงจูนได้ กันจูนจากข้อมูลน้อยเกิน
 input int             InpAutoOptCandidates = 20;  // ลอง Candidate 20 ชุดต่อการจูน 1 ครั้ง (Hill-Climbing + Random)
@@ -773,16 +774,16 @@ input bool            InpAutoOptAllowWarpTemp = true; // ให้จูน Warp
 input bool            InpAutoOptAllowNovaTransfer = true; // ให้จูน Nova Transfer Rate ได้
 input bool            InpAutoOptAutoRollback = true; // ถ้าหลังจูนแล้ว 20 ไม้ถัดไปแย่ลง >15% ให้ Rollback กลับค่าก่อนหน้า
 input group "=== v1.13 Deep + XGBoost + Vision + Neural Network Ensemble ==="
-input bool            InpUseDeepLearning = true;  // Deep Learning 14-32-16-8-1 (3 Hidden Layers)
+input bool            InpUseDeepLearning = false;  // Deep Learning 14-32-16-8-1 (3 Hidden Layers)
 input bool            InpUseXGBoost = true;  // XGBoost (Gradient Boosted Trees) - จับ Pattern แบบต้นไม้
-input bool            InpUseVision = true;  // Vision - มองกราฟเป็นรูปภาพ 32x32 แล้วหาลายกราฟ
-input bool            InpUseNeuralNet = true;  // Neural Network 14-16-8-1 (Shallow NN)
+input bool            InpUseVision = false;  // Vision - มองกราฟเป็นรูปภาพ 32x32 แล้วหาลายกราฟ
+input bool            InpUseNeuralNet = false;  // Neural Network 14-16-8-1 (Shallow NN)
 input double          InpWeightDeep = 0.30;  // น้ำหนัก Deep ใน Ensemble
 input double          InpWeightXGB = 0.30;  // น้ำหนัก XGBoost ใน Ensemble
 input double          InpWeightVision = 0.20;  // น้ำหนัก Vision ใน Ensemble
 input double          InpWeightNN = 0.20;  // น้ำหนัก Neural Net ใน Ensemble
 input double          InpEnsembleMinAgree = 0.55; // Ensemble ต้องเห็นด้วยกัน >55% ถึงเข้า ไม่ใช่ตัวเดียวสั่ง
-input bool            InpUseVisionFilter = true;  // ใช้ Vision Filters 4 ตัว (Uptrend/Downtrend/Reversal/Squeeze)
+input bool            InpUseVisionFilter = false;  // ใช้ Vision Filters 4 ตัว (Uptrend/Downtrend/Reversal/Squeeze)
 input group "=== v1.15 MIND AI - สมองตัดสินใจ 4 เรื่อง (จากรูป MIND AI v1.02) ==="
 input bool            InpUseMindAI = true;  // เปิด MIND AI ตัดสินใจทุกไม้ แทนกฎตายตัว
 input bool            InpMindDecideAccept = true;  // 1. รับ / ข้าม สัญญาณ
@@ -813,7 +814,7 @@ input double          InpGold_ATRMultTP = 2.5;  // v1.49 Dashboard: ทอง TP
 input bool            InpGold_RequireClose = true;  // ทอง: ต้องปิดแท่งทะลุแนวเท่านั้น กันไส้เทียนหลอก (False Breakout)
 input bool            InpGold_UseRoundNum = true;  // ทอง: ให้คะแนนเพิ่มถ้าแนวอยู่ใกล้เลขกลม $10 / $50 / $100 (2600, 2650)
 // --- v1.18 3Y Trained Filters (จากเทรน 3 ปีทองจริง) ---
-input bool            InpUse3YTrained = true;  // ใช้ Weights + Filters ที่เทรนจากทอง 3 ปีจริง (Jan 2023-Nov 2026)
+input bool            InpUse3YTrained = false;  // ใช้ Weights + Filters ที่เทรนจากทอง 3 ปีจริง (Jan 2023-Nov 2026)
 input bool            InpGold_UseVisionFilter = true;  // Vision Filter: ถ้า Breakout ขึ้นแต่ไส้บนยาว >0.5*ATR = False Breakout ข้าม (Feature สำคัญสุด 0.0306)
 input double          InpGold_MaxATRpct = 0.02;  // ATR Filter: ถ้า ATR >2% ของราคา = ช่วง Crash 2026 (Jan 2026 High 5595 -> Nov Low 3620) ลด Lot เหลือ 0.5x อย่าเทรดเต็ม
 input bool            InpGold_RegimeFilter = true;  // Regime Filter: TREND_UP เน้น Buy / TREND_DOWN เน้น Sell / HIGH_VOL ลด Lot (Monthly REAL Win 70% มาจากเทรนด์)
@@ -870,13 +871,13 @@ input bool            InpAutoSpread         = true;   // ปรับ MaxSpread 
 input bool            InpAutoLot            = true;   // ปรับ MaxLot ตาม Contract Size (Cent Lot 0.5 = Standard 0.005 ต้อง x100)
 input bool            InpAutoSymbol         = true;   // ใช้ _Symbol อัตโนมัติ - แปะกราฟไหนเทรดกราฟนั้น ไม่ต้องแก้ชื่อ XAUUSDm
 input group "=== v1.40 Dual NN MaxConf - Side เลือกโมเดลมั่นใจกว่า (ใหม่) ==="
-input bool            InpUseNN              = true;   // เปิด Dual NN Filter - Up ใช้โมเดล Up, Down ใช้โมเดล Down, Side เฉลี่ย 2 โมเดล
+input bool            InpUseNN              = false;   // เปิด Dual NN Filter - Up ใช้โมเดล Up, Down ใช้โมเดล Down, Side เฉลี่ย 2 โมเดล
 input double          InpNNThreshold        = 0.60;   // Up/Down prob >= 0.60 ถึงจะยอมให้เทรดตามทิศนั้น
 input double          InpNNFlatBlock        = 0.70;   // Flat prob >= 0.70 ให้บล็อกไม้ (ตลาด Sideways)
-input bool            InpNNDual             = true;   // ใช้ 2 โมเดล (Up/Down) แทนโมเดลเดียว - กันลืมของเก่า
+input bool            InpNNDual             = false;   // ใช้ 2 โมเดล (Up/Down) แทนโมเดลเดียว - กันลืมของเก่า
 input int             InpNNSideMode         = 1;      // Side ทำยังไง: 0=เฉลี่ย 2 โมเดล (ปลอดภัย เทรดน้อย) / 1=เลือกโมเดลที่มั่นใจกว่า (เทรดเยอะขึ้น)
 input group "=== v1.41 Hybrid MLP In-EA (บทความ 20559) - เทรนเองใน EA ==="
-input bool            InpUseHybridMLP       = true;   // เปิด Hybrid MLP ตัวที่ 3 (เทรนใน EA เอง ไม่ต้องใช้ Python)
+input bool            InpUseHybridMLP       = false;   // เปิด Hybrid MLP ตัวที่ 3 (เทรนใน EA เอง ไม่ต้องใช้ Python)
 input int             InpHybridMode         = 2;      // 0=Dual อย่างเดียว (v1.40) / 1=MLP Gate (MLP ต้องเห็นด้วย) / 2=2-of-3 (Dual+MLP+Trend อย่างน้อย 2 เห็นด้วย) แนะนำ 2
 input int             InpMlpHidden          = 12;     // v1.47: 24->12 ลด Overfit (Test 49.4%->52.6%)     // Neurons ชั้น Hidden (บทความ 24, 16-32 พอแล้ว มากกว่านี้ Overfit)
 input double          InpMlpLR             = 0.01;   // Learning rate SGD
@@ -887,13 +888,13 @@ input double          InpMlpThreshold      = 0.10;   // v1.47: 0.20->0.10 เพ
 input int             InpMlpRetrainBars     = 250;    // เทรนใหม่ทุก 250 แท่ง (บทความ)
 input double          InpMlpLabelMinPts    = 0.0;    // กรอง Noise: ถ้าเคลื่อนไหว < นี้ (points) ไม่เอามาเทรน, 0=ปิด
 input group "=== v1.42 Auto-Adapt - เปลี่ยนคู่เงิน/โบรก/บัญชี เทรนเอง ==="
-input bool            InpAutoAdapt          = true;   // เปิด Auto-Adapt: ตรวจ Symbol/โบรก/Cent เปลี่ยน -> เทรน MLP ใหม่เอง ไม่ต้องตั้งค่าใหม่
-input bool            InpMlpAutoLabel       = true;   // LabelMinPts อัตโนมัติตาม ATR (0.1*ATR) แทนค่าคงที่ -> ใช้ได้ทุกคู่เงิน/ทุกโบรก
+input bool            InpAutoAdapt          = false;   // เปิด Auto-Adapt: ตรวจ Symbol/โบรก/Cent เปลี่ยน -> เทรน MLP ใหม่เอง ไม่ต้องตั้งค่าใหม่
+input bool            InpMlpAutoLabel       = false;   // LabelMinPts อัตโนมัติตาม ATR (0.1*ATR) แทนค่าคงที่ -> ใช้ได้ทุกคู่เงิน/ทุกโบรก
 input bool            InpDualOnlyGold       = true;   // Dual NN ใช้เฉพาะทอง (XAU/GOLD) ถ้าเปลี่ยนไปคู่เงินอื่น ให้ใช้ MLP+Trend อย่างเดียว (Dual เทรนบนทอง)
-input bool            InpAdaptForceOnInit   = true;   // เปิด EA ครั้งแรก ให้เทรน MLP บน Symbol ปัจจุบันเลย (ไม่ใช้ของเก่า)
+input bool            InpAdaptForceOnInit   = false;   // เปิด EA ครั้งแรก ให้เทรน MLP บน Symbol ปัจจุบันเลย (ไม่ใช้ของเก่า)
 input group "=== v1.43 Auto-Train Dual + ONNX Bridge (6+7 เทรนเอง) ==="
-input bool            InpAutoTrainDual      = true;   // Dual เทรนเองใน EA บน Symbol ปัจจุบัน (ไม่ใช้แค่ทอง) - ใช้โมเดล Dual-Auto แยก Up/Down
-input bool            InpAutoExportONNX     = true;   // Export ข้อมูลให้ Python เทรน ONNX (XGBoost/Deep) อัตโนมัติ - ต้องรัน auto_retrain_onnx.py บนเครื่องเดียวกับ MT5
+input bool            InpAutoTrainDual      = false;   // Dual เทรนเองใน EA บน Symbol ปัจจุบัน (ไม่ใช้แค่ทอง) - ใช้โมเดล Dual-Auto แยก Up/Down
+input bool            InpAutoExportONNX     = false;   // Export ข้อมูลให้ Python เทรน ONNX (XGBoost/Deep) อัตโนมัติ - ต้องรัน auto_retrain_onnx.py บนเครื่องเดียวกับ MT5
 input int             InpONNXExportEveryBars= 500;   // Export ทุก 500 แท่ง หรือตอนเปลี่ยน Symbol/Broker
 input group "=== v1.44 SMC Wave Premium/Discount - ตัวเทรนใหม่ (แทน RSI/EMA) ==="
 input bool            InpUseSMCWave         = true;   // ใช้ SMC Wave Premium/Discount เป็นตัวเทรนแทน RSI/EMA เดิม (MLP + Dual-Auto + ONNX Export)
@@ -928,8 +929,8 @@ input bool            InpRoseSkill_Volume = true; // Skill: Volume Heatmap + POC
 input bool            InpRoseSkill_Elliott = true; // Skill: Elliott Wave + Fib
 input bool            InpRoseSkill_SMCWave = true; // Skill: SMC Wave Premium/Discount
 input bool            InpRoseSkill_Recovery = false; // Skill: Recovery Overlap + Worst Case (capped)
-input bool            InpRoseSkill_Memory = true; // Skill: Memory - Journal + Auto-Retrain + AutoConfig
-input bool            InpRoseSkill_Data = true; // Skill: Data - Exness Tick -> M15 Auto
+input bool            InpRoseSkill_Memory = false; // Skill: Memory - Journal + Auto-Retrain + AutoConfig
+input bool            InpRoseSkill_Data = false; // Skill: Data - Exness Tick -> M15 Auto
 input bool            InpRoseSkill_Sniper = true; // Skill 10: Sniper - Sweep+Disp+CHoCH = Score Boost ไม่บล็อก (ทดสอบแล้ว Gate=0 ไม้ / Boost=+$8)
 input bool            InpRoseSkill_Learning = false; // Skill 11: Learning - รวมทุกฟังก์ชั่น Learning ไว้ที่เดียว (v1.59)
 input group "=== v1.59 Learning Skill 11 - รวมทุกฟังก์ชั่น Learning ==="
@@ -3032,6 +3033,9 @@ bool MlpFeaturesAtIdx(int idx, const double &cl[], const double &hi[], const dou
    return(true);
 }
 void MlpTrainModel(){
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    int need=InpMlpLookback+InpMlpHorizon+100; if(need<300) need=300;
    MqlRates rates[]; int copied=CopyRates(_Symbol, PERIOD_M15, 0, need, rates);
    if(copied<200) { Print("Nova v1.62 Voom Precise + Auto-Tune + News MLP: history insufficient ", copied); return; }
@@ -3131,6 +3135,9 @@ void DualAutoTrainFlat(const double &X[], const int &Y[], int n, int nIn, int ep
    for(int e=0;e<epochs;e++){ for(int i=0;i<n;i++){ double xi[]; ArrayResize(xi,nIn); for(int k=0;k<nIn;k++) xi[k]=X[i*nIn+k]; DualAutoStep(xi, Y[i], lr, isUp); } }
 }
 void TrainDualAutoModel(){
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpAutoTrainDual) return;
    int need=InpMlpLookback+InpMlpHorizon+100; if(need<300) need=300;
    MqlRates rates[]; int copied=CopyRates(_Symbol, PERIOD_M15, 0, need, rates);
@@ -3166,6 +3173,9 @@ void TrainDualAutoModel(){
    Print("Nova v1.62 Voom Precise + Auto-Tune + News Dual-Auto: trained Up ", cntUp, " Down ", cntDn, " ValAcc ", DoubleToString(gDualAutoValAcc*100,1), "% Symbol=", _Symbol);
 }
 void ExportONNXData(){
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpAutoExportONNX) return;
    int need=InpMlpLookback+InpMlpHorizon+100; if(need<300) need=300;
    MqlRates rates[]; int copied=CopyRates(_Symbol, PERIOD_M15, 0, need, rates);
@@ -3198,6 +3208,9 @@ void ExportONNXData(){
 
 // v1.42 Auto-Adapt: ตรวจ Symbol/โบรก/บัญชี เปลี่ยน -> เทรน MLP ใหม่เอง + ปรับ Dual
 void AdaptCheck(){
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpAutoAdapt) return;
    if(!gAutoDetected) DetectAutoSettings();
    string curSym=_Symbol;
@@ -3241,6 +3254,9 @@ void AdaptCheck(){
    }
 }
 void MlpCheckRetrain(){
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpUseHybridMLP) return;
    datetime cur=iTime(_Symbol, PERIOD_M15, 0);
    if(cur==0) return;
@@ -5068,6 +5084,9 @@ double NovaUniverseSATMA(const string sym)
 }
 void NovaUniverseSync()
 {
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpUseNovaUniverse) return;
    NovaInit(); LearnInit();
    datetime bar=gRates[1].time;
@@ -5211,6 +5230,9 @@ void AutoOptApply(const OptParams &p)
 }
 void AutoOptRun()
 {
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpUseAutoOpt) return;
    AutoOptInit(); LearnInit();
    if(gOpt_TradesSinceOpt < InpAutoOptEveryTrades) return;
@@ -5288,6 +5310,9 @@ void AutoOptRecordTrade(const double score, const int dir, const double r)
 }
 void AutoOptCheckRollback()
 {
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpUseAutoOpt || !InpAutoOptAutoRollback) return;
    if(gOpt_OptCount==0) return;
    if(gOpt_TradesSinceRollbackCheck < 20) return;
@@ -6774,6 +6799,9 @@ datetime gLearn_LastHistoryCheck=0;
 ulong gLearn_LastDealTicket=0;
 void CheckClosedTradesLearning()
 {
+#if NOVA_READONLY_BUILD
+   return;
+#endif
    if(!InpUseAutoLearning) return;
    datetime bar=gRates[1].time;
    if(bar==gLearn_LastHistoryCheck) return;
@@ -7658,7 +7686,7 @@ double AutoCalcLot(double slDistance, double riskPct, double balance)
 int OnInit()
 {
    NovaEABridgeInit(); // local telemetry only; does not gate EA startup
-   Print("NOVA EA v1.82 READ-ONLY build: broker execution and position modification are disabled.");
+   Print("NOVA EA v1.82 READ-ONLY build: broker execution, local model training, ONNX export and auto-tune are disabled.");
    g_V162_Auto = InpAutoConfig; // v1.49 Default TRUE
    g_V162_Live = false; // READ-ONLY hard lock; never inherit the live input
    gHeader.manual_pause = g_V162_Live ? 0 : 1; // Sync LIVE -> manual_pause ตั้งแต่เริ่ม
@@ -7713,7 +7741,7 @@ int OnInit()
    UpdateDailyHistory();
    if(!SaveState()) { Print(ENGINE_LABEL,": cannot write state; entries disabled until storage recovers"); }
    EventSetTimer(1);gInitialized=true;gPanelHistoryDirty=true;DrawPanel(true);V162_UpdateDashboard(); // v1.50
-   Print(ENGINE_LABEL,": v1.66 Sniper MTF TP300 SL100 Max2 LOCKED | v1.49 Dashboard | MTF D1-H4-H1-M15 | Cleaned 14 modules | v1.06 Cleaned 14 modules | No Duplicates | Full SMC ON | 32 modules | v1.04 WickReject ON | 31 modules | v1.03 Scanner ON | Regime Auto-Select | v1.02 Governor ON | Risk 1% MaxOpen 8% DailyLoss 6% | 30 modules active on ",_Symbol," using ",EnumToString(InpAnalysisTF),
+   Print(ENGINE_LABEL,": v1.66 Sniper MTF TP300 SL100 Max2 LOCKED | v1.49 Dashboard | MTF D1-H4-H1-M15 | Cleaned 14 modules | v1.06 Cleaned 14 modules | No Duplicates | Full SMC ON | 20 registered / 14 kept / 8 active signal dispatch | READ-ONLY Core bridge | Risk calculations only on ",_Symbol," using ",EnumToString(InpAnalysisTF),
          "; target risk ",InpRiskPercent,"%; explicit min-lot cap ",InpMaxSingleRiskPct,"%.");
    return INIT_SUCCEEDED;
 }
