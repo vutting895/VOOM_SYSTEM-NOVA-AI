@@ -9,19 +9,18 @@ jobs:
   nova-command-center-check:
     docker:
       - image: oven/bun:1
-    working_directory: ~/project/apps/nova-command-center
+    working_directory: ~/project
     steps:
-      - checkout:
-          path: ~/project
+      - checkout
       - run:
           name: Resolve app-local lockfile
-          command: bun install --lockfile-only
+          command: cd apps/nova-command-center && bun install --lockfile-only
       - run:
           name: Install dependencies
-          command: bun install --frozen-lockfile
+          command: cd apps/nova-command-center && bun install --frozen-lockfile
       - run:
           name: TypeScript, lint, unit tests and production build
-          command: bun run check:ci
+          command: cd apps/nova-command-center && bun run check:ci
 
 workflows:
   nova-command-center:
