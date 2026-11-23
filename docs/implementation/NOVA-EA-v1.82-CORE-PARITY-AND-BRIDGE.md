@@ -6,7 +6,7 @@ The source for this migration is the user's local MT5 file:
 
 `MQL5/Experts/nova v.1.82/Nova_EA_v1.82.mq5`
 
-The source reports `#property version "1.82"` and contains a 20-module registry (14 kept modules and 6 disabled/removed modules). Its inspected local copy is 522,707 bytes / 7,840 lines, SHA-256 `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
+The source reports `#property version "1.82"` and contains a 20-module registry (14 kept modules and 6 disabled/removed modules). Its inspected local copy is 522,707 bytes / 8,025 source lines, SHA-256 `F6B0EFD2D00F9DE7644BB4403CC47A2088800E3AB3C015E2EC93A6341C431D8A`. This migration does not import the v1.83 SAFE_READONLY file as a substitute.
 
 The original EA is not safe to execute as-is: it contains broker execution paths including `OrderSend`, `CTrade`, position close/modify operations, and live-operation inputs. The Core port extracts signal logic only. Those execution paths are deliberately excluded.
 
