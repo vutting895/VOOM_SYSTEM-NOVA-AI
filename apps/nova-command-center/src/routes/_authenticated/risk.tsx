@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { OctagonX } from "lucide-react";
-import { Panel, PageHeader, Stat, NotConnected, EmptyState } from "@/components/nova/primitives";
+import {
+  Panel,
+  PageHeader,
+  Stat,
+  NotConnected,
+  EmptyState,
+} from "@/components/nova/primitives";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNovaQuery } from "@/components/nova/useApi";
@@ -41,9 +47,18 @@ function Risk() {
         }
       />
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Daily loss limit" value={pol.data ? pol.data.dailyLossLimit : nc} />
-        <Stat label="Max exposure" value={pol.data ? pol.data.maxExposure : nc} />
-        <Stat label="Max open orders" value={pol.data ? pol.data.maxOrders : nc} />
+        <Stat
+          label="Daily loss limit"
+          value={pol.data ? pol.data.dailyLossLimit : nc}
+        />
+        <Stat
+          label="Max exposure"
+          value={pol.data ? pol.data.maxExposure : nc}
+        />
+        <Stat
+          label="Max open orders"
+          value={pol.data ? pol.data.maxOrders : nc}
+        />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel title="Risk policy" right={!pol.data && <NotConnected />}>
@@ -59,15 +74,23 @@ function Risk() {
             </EmptyState>
           )}
         </Panel>
-        <Panel title="Emergency stop" right={<NotConnected label="Endpoint not connected" />}>
+        <Panel
+          title="Emergency stop"
+          right={<NotConnected label="Endpoint not connected" />}
+        >
           <p className="text-sm text-muted-foreground">
-            An emergency stop only counts once a trusted backend endpoint confirms it. None is
-            connected, so pressing the button sends nothing and stops nothing. If real positions are
-            at risk, act directly on your broker platform.
+            An emergency stop only counts once a trusted backend endpoint
+            confirms it. None is connected, so pressing the button sends nothing
+            and stops nothing. If real positions are at risk, act directly on
+            your broker platform.
           </p>
           <RoleGate
             min="operator"
-            fallback={<p className="mt-3 text-sm text-muted-foreground">Operator role required.</p>}
+            fallback={
+              <p className="mt-3 text-sm text-muted-foreground">
+                Operator role required.
+              </p>
+            }
           >
             <Button
               variant="destructive"

@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Panel, PageHeader, EmptyState, NotConnected } from "@/components/nova/primitives";
+import {
+  Panel,
+  PageHeader,
+  EmptyState,
+  NotConnected,
+} from "@/components/nova/primitives";
 import { useNovaQuery } from "@/components/nova/useApi";
 import { describeApiError } from "@/lib/nova/api";
 import { isApiConfigured } from "@/lib/nova/config";
@@ -22,7 +27,10 @@ function Logs() {
   const q = useNovaQuery<{ events: AuditEvent[] }>("/v1/audit");
   return (
     <>
-      <PageHeader title="Audit Logs" subtitle="Audit events from the backend." />
+      <PageHeader
+        title="Audit Logs"
+        subtitle="Audit events from the backend."
+      />
       <Panel title="Audit events" right={!isApiConfigured && <NotConnected />}>
         {!isApiConfigured ? (
           <EmptyState title="Audit log unavailable">
@@ -35,7 +43,10 @@ function Logs() {
         ) : (
           <ul className="divide-y divide-border font-mono text-xs">
             {q.data.events.map((e) => (
-              <li key={e.id} className="grid grid-cols-[150px_60px_1fr] gap-2 py-1.5">
+              <li
+                key={e.id}
+                className="grid grid-cols-[150px_60px_1fr] gap-2 py-1.5"
+              >
                 <span className="text-muted-foreground">{e.at}</span>
                 <span
                   className={

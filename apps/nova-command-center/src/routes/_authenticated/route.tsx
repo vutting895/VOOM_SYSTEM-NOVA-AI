@@ -29,10 +29,15 @@ function Gate() {
         <div className="max-w-md rounded-lg border border-destructive/50 bg-card p-6 text-center">
           <div className="font-mono text-destructive">ACCESS DENIED</div>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your account has no NOVA role in its server-issued claims (app_metadata.nova_role). Ask
-            an administrator to assign Admin, Operator or Viewer.
+            Your account has no NOVA role in its server-issued claims
+            (app_metadata.nova_role). Ask an administrator to assign Admin,
+            Operator or Viewer.
           </p>
-          <Button className="mt-4" variant="outline" onClick={() => auth.signOut()}>
+          <Button
+            className="mt-4"
+            variant="outline"
+            onClick={() => auth.signOut()}
+          >
             Sign out
           </Button>
         </div>

@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Panel, PageHeader, EmptyState, NotConnected } from "@/components/nova/primitives";
+import {
+  Panel,
+  PageHeader,
+  EmptyState,
+  NotConnected,
+} from "@/components/nova/primitives";
 import { useNovaQuery } from "@/components/nova/useApi";
 import { describeApiError } from "@/lib/nova/api";
 import { isApiConfigured } from "@/lib/nova/config";
@@ -29,7 +34,10 @@ function Approvals() {
       ? describeApiError(q.error)
       : null;
   const row = (a: Approval) => (
-    <li key={a.id} className="flex flex-wrap justify-between gap-2 py-2 font-mono text-sm">
+    <li
+      key={a.id}
+      className="flex flex-wrap justify-between gap-2 py-2 font-mono text-sm"
+    >
       <span>{a.kind}</span>
       <span className="text-muted-foreground">
         {a.requestedBy} · {a.createdAt}

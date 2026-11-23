@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Panel, PageHeader, StatusDot } from "@/components/nova/primitives";
-import { config, isApiConfigured, isSupabaseConfigured } from "@/lib/nova/config";
+import {
+  config,
+  isApiConfigured,
+  isSupabaseConfigured,
+} from "@/lib/nova/config";
 import { SAFETY } from "@/lib/nova/safety";
 import { useHealth } from "@/components/nova/useApi";
 import { describeApiError } from "@/lib/nova/api";
@@ -11,7 +15,15 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
 });
 
-function Row({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+function Row({
+  label,
+  ok,
+  detail,
+}: {
+  label: string;
+  ok: boolean;
+  detail: string;
+}) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
       <span className="flex items-center gap-2">
@@ -50,8 +62,16 @@ function Settings() {
                     : (config.apiBaseUrl ?? "")
               }
             />
-            <Row label="MT5 bridge" ok={false} detail="Configured on the Worker, not here" />
-            <Row label="AI model provider" ok={false} detail="Configured on the Worker, not here" />
+            <Row
+              label="MT5 bridge"
+              ok={false}
+              detail="Configured on the Worker, not here"
+            />
+            <Row
+              label="AI model provider"
+              ok={false}
+              detail="Configured on the Worker, not here"
+            />
           </ul>
         </Panel>
         <Panel title="Safety flags (build constants)">
@@ -59,7 +79,9 @@ function Settings() {
             {Object.entries(SAFETY).map(([k, v]) => (
               <li key={k} className="flex justify-between py-2">
                 <span>{k}</span>
-                <span className={v ? "text-destructive" : "text-primary"}>{String(v)}</span>
+                <span className={v ? "text-destructive" : "text-primary"}>
+                  {String(v)}
+                </span>
               </li>
             ))}
           </ul>
@@ -68,20 +90,21 @@ function Settings() {
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>
               Copy <code className="font-mono">.env.example</code> to{" "}
-              <code className="font-mono">.env</code> and set the public values (URL, publishable
-              key, API base URL).
+              <code className="font-mono">.env</code> and set the public values
+              (URL, publishable key, API base URL).
             </li>
             <li>
               Deploy the NOVA Worker per{" "}
-              <code className="font-mono">docs/worker-api-contract.md</code>; put provider and
-              bridge secrets in Worker secrets.
+              <code className="font-mono">docs/worker-api-contract.md</code>;
+              put provider and bridge secrets in Worker secrets.
             </li>
             <li>
-              Review and manually apply <code className="font-mono">supabase/migrations</code>{" "}
-              drafts.
+              Review and manually apply{" "}
+              <code className="font-mono">supabase/migrations</code> drafts.
             </li>
             <li>
-              Assign roles via <code className="font-mono">app_metadata.nova_role</code> using an
+              Assign roles via{" "}
+              <code className="font-mono">app_metadata.nova_role</code> using an
               admin tool server-side.
             </li>
           </ol>

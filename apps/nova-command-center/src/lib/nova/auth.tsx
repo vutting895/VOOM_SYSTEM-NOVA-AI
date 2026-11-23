@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useReducer, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useReducer,
+  type ReactNode,
+} from "react";
 import { authReducer, initialAuthState, type AuthState } from "./auth-state";
 import { getSupabase } from "./supabase";
 import { parseRole } from "./roles";
@@ -20,7 +26,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "UNCONFIGURED" });
       return;
     }
-    setTokenGetter(async () => (await sb.auth.getSession()).data.session?.access_token ?? null);
+    setTokenGetter(
+      async () =>
+        (await sb.auth.getSession()).data.session?.access_token ?? null,
+    );
     sb.auth.getUser().then(({ data }) => {
       if (data.user)
         dispatch({
@@ -33,7 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT" || !session) dispatch({ type: "SIGNED_OUT" });
-      else if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED")
+      else if (
+        event === "SIGNED_IN" ||
+        event === "USER_UPDATED" ||
+        event === "TOKEN_REFRESHED"
+      )
         dispatch({
           type: "SESSION",
           email: session.user.email ?? null,

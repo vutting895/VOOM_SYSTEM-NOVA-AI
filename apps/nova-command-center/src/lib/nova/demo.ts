@@ -7,11 +7,31 @@ export const DEMO_WATCHLIST = [
   { symbol: "BTCUSD", bid: 67210, ask: 67240, chg: -1.12 },
 ];
 export const DEMO_POSITIONS = [
-  { id: "D-1001", symbol: "EURUSD", side: "BUY", volume: 0.1, open: 1.0821, pnl: 21.0 },
-  { id: "D-1002", symbol: "XAUUSD", side: "SELL", volume: 0.05, open: 2390.1, pnl: 43.5 },
+  {
+    id: "D-1001",
+    symbol: "EURUSD",
+    side: "BUY",
+    volume: 0.1,
+    open: 1.0821,
+    pnl: 21.0,
+  },
+  {
+    id: "D-1002",
+    symbol: "XAUUSD",
+    side: "SELL",
+    volume: 0.05,
+    open: 2390.1,
+    pnl: 43.5,
+  },
 ];
 export const DEMO_ORDERS = [
-  { id: "D-2001", symbol: "GBPUSD", type: "BUY LIMIT", volume: 0.1, price: 1.262 },
+  {
+    id: "D-2001",
+    symbol: "GBPUSD",
+    type: "BUY LIMIT",
+    volume: 0.1,
+    price: 1.262,
+  },
 ];
 export const DEMO_HISTORY = [
   {
