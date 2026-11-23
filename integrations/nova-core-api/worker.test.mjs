@@ -62,6 +62,25 @@ test("health degrades when Supabase JWKS is unreachable", async (t) => {
   assert.equal(body.brokerWrites, false);
 });
 
+test("health rejects JWKS bodies larger than 64 KiB without Content-Length", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array(65537));
+      controller.close();
+    },
+  }), { headers: { "Content-Type": "application/json" } });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const response = await worker.fetch(request("/v1/health"), {
+    ...env,
+    SUPABASE_URL: "https://oversized.example.supabase.co",
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "degraded");
+});
+
 test("unknown routes are not exposed", async () => {
   const response = await worker.fetch(request("/v1/bridge/status"), env);
   assert.equal(response.status, 404);

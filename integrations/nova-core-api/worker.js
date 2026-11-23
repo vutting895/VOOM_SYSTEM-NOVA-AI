@@ -1,9 +1,10 @@
 import { importJWK, jwtVerify } from "jose";
 
-const VERSION = "0.2.1";
+const VERSION = "0.2.2";
 const ROLE_LEVEL = Object.freeze({ viewer: 1, operator: 2, admin: 3 });
 const jwksCache = new Map();
 const JWKS_TTL_MS = 5 * 60 * 1000;
+const MAX_JWKS_BYTES = 65536;
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -49,6 +50,40 @@ function supabaseConfig(env) {
   }
 }
 
+async function readBoundedJson(response) {
+  const contentLength = Number(response.headers.get("Content-Length") || 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_JWKS_BYTES) {
+    throw new Error("jwks_response_too_large");
+  }
+  if (!response.body) throw new Error("empty_jwks_response");
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_JWKS_BYTES) {
+        await reader.cancel();
+        throw new Error("jwks_response_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+}
+
 async function loadJwks(url, forceRefresh = false) {
   const cacheKey = url.toString();
   const cached = jwksCache.get(cacheKey);
@@ -63,9 +98,7 @@ async function loadJwks(url, forceRefresh = false) {
   });
   if (!response.ok) throw new Error("jwks_provider_unavailable");
 
-  const length = Number(response.headers.get("Content-Length") || 0);
-  if (length > 65536) throw new Error("jwks_response_too_large");
-  const document = await response.json();
+  const document = await readBoundedJson(response);
   if (!document || !Array.isArray(document.keys) || document.keys.length < 1 || document.keys.length > 20) {
     throw new Error("invalid_jwks_document");
   }
