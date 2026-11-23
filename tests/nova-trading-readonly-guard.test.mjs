@@ -12,7 +12,7 @@ const settings = read('src/components/SystemSettingsView.tsx');
 const terminal = read('src/components/LiveTradingTerminalView.tsx');
 const mcpWorker = read('integrations/remote-mcp-worker/src/index.js');
 const skillRegistry = read('integrations/remote-mcp-worker/src/skill-registry.js');
-const ea = read('integrations/mt5/MTRADERS_All_In_One_v1.01.mq5');
+const ea = read('integrations/mt5/NOVA_EA_v1.82.mq5');
 
 const novaChat = read('src/components/NovaChatOSView.tsx');
 
@@ -116,7 +116,7 @@ test('MT5 EA remains hard-disabled in NOVA read-only mode', () => {
   assert.match(ea, /#define NOVA_READ_ONLY_MODE true/);
   assert.match(ea, /InpTradeEnabled\s*=\s*false/);
   const onTick = section(ea, 'void OnTick()', '}');
-  assert.match(onTick, /if\(NOVA_READ_ONLY_MODE\) return;/);
+  assert.match(onTick, /if\(NOVA_READ_ONLY_MODE\)\s*\{\s*NovaCoreOnTick\(\);\s*return;/s);
 });
 
 test('infrastructure health reports offline and unverified services without fabricated metrics', () => {
