@@ -144,9 +144,17 @@ class NovaEA182StrategyTests(unittest.TestCase):
                 "current_bid": 2100.0,
             })
 
-    def test_sessionbox_requires_explicit_broker_server_timezone(self):
+    def test_sessionbox_missing_broker_timezone_abstains_without_blocking_other_modules(self):
+        result = evaluate_mtraders_strategy(9, {"bars": bars()})
+        self.assertEqual(result["status"], "DATA_REQUIRED")
+        self.assertIn("server_utc_offset_minutes", result["missing_fields"])
+        self.assertIn("bar_seconds", result["missing_fields"])
+
+    def test_sessionbox_rejects_invalid_broker_timezone_when_supplied(self):
         with self.assertRaisesRegex(StrategyInputError, "server_utc_offset_minutes"):
-            evaluate_mtraders_strategy(9, {"bars": bars()})
+            evaluate_mtraders_strategy(9, {
+                "bars": bars(), "server_utc_offset_minutes": 9999, "bar_seconds": 900
+            })
 
     def test_smc_requires_confirmed_historical_bars_and_returns_state(self):
         result = evaluate_mtraders_strategy(13, {"bars": bars()})

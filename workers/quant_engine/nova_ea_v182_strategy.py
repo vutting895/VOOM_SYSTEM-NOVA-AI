@@ -488,6 +488,22 @@ def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any], state: Map
     state_out = dict(state or {})
     offset = data.get("server_utc_offset_minutes")
     bar_seconds = data.get("bar_seconds")
+    missing_context = [
+        key for key, value in (
+            ("server_utc_offset_minutes", offset),
+            ("bar_seconds", bar_seconds),
+        ) if value is None
+    ]
+    if missing_context:
+        return {
+            "strategy_id": 9,
+            "name": STRATEGY_NAMES[9],
+            "direction": 0,
+            "status": "DATA_REQUIRED",
+            "reason": "SessionBox_requires_explicit_broker_server_timezone_and_bar_duration",
+            "missing_fields": missing_context,
+            "state": state_out,
+        }
     if isinstance(offset, bool) or not isinstance(offset, int) or not -720 <= offset <= 840:
         raise StrategyInputError("SessionBox requires server_utc_offset_minutes in [-720, 840]")
     if isinstance(bar_seconds, bool) or not isinstance(bar_seconds, int) or bar_seconds <= 0:
