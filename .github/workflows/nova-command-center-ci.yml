@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "apps/nova-command-center/**"
+      - "integrations/nova-ai-worker/**"
       - ".github/workflows/nova-command-center-ci.yml"
   workflow_dispatch:
 
@@ -46,6 +47,15 @@ jobs:
 
       - name: Unit tests
         run: bun run test
+
+      - name: Set up Node.js for AI Worker tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test NOVA AI Worker security and provider routing
+        working-directory: integrations/nova-ai-worker
+        run: node --test
 
       - name: Production build
         run: bun run build
