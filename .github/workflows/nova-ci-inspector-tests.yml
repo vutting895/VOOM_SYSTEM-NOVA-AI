@@ -17,6 +17,10 @@ concurrency:
 jobs:
   python-tests:
     name: Python unit tests and syntax validation
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -27,10 +31,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          # Python 3.14 changed argparse internals and exposed a local-module shadowing bug.
-          # Keep the CLI import smoke-tested on both the baseline and current runtime.
-          matrix: { python-version: ["3.12", "3.14"] }
+          python-version: ${{ matrix.python-version }}
       - name: Compile inspector
         run: python -m py_compile tools/ci-inspector/nova_ci_inspector.py tools/ci-inspector/test_inspect.py
       - name: Run unit tests with retained output
@@ -42,7 +43,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nova-inspector-test-output
+          name: nova-inspector-test-output-${{ matrix.python-version }}
           path: inspector-test-output.txt
           if-no-files-found: warn
           retention-days: 7
