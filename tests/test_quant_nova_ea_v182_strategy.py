@@ -63,6 +63,54 @@ class NovaEA182StrategyTests(unittest.TestCase):
         self.assertEqual(result["status"], "COOLDOWN")
         self.assertEqual(result["direction"], 0)
 
+    def test_volregime_qex_arms_on_low_atr_percentile(self):
+        result = evaluate_mtraders_strategy(2, {"bars": bars()})
+        self.assertEqual(result["status"], "SQUEEZE_BUILDING")
+        self.assertEqual(result["direction"], 0)
+        self.assertIn("state", result)
+
+    def test_flowmatrix_requires_cross_symbol_flow_data(self):
+        result = evaluate_mtraders_strategy(10, {"bars": bars()})
+        self.assertEqual(result["status"], "DATA_REQUIRED")
+        self.assertEqual(result["direction"], 0)
+
+    def test_flowmatrix_emits_when_current_symbol_has_eighty_percent_flow_share(self):
+        history = []
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        for i in range(220):
+            close = 2000.0 + i * 0.05
+            history.append({
+                "time": (start + timedelta(minutes=15*i)).isoformat(),
+                "open": close-0.1, "high": close+0.1, "low": close-0.2,
+                "close": close, "tick_volume": 100,
+            })
+        result = evaluate_mtraders_strategy(10, {
+            "bars": history, "symbol": "XAUUSDm",
+            "symbol_bars": {"XAUUSDm": history},
+        })
+        self.assertEqual(result["status"], "RESEARCH_CANDIDATE")
+        self.assertEqual(result["strategy_id"], 10)
+        self.assertGreaterEqual(result["flow_share_pct"], 80.0)
+
+    def test_sessionheat_uses_h1_30_day_hour_statistics(self):
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        h1 = []
+        for i in range(240):
+            close = 2000.0 + i*0.05
+            h1.append({
+                "time": (start+timedelta(hours=i)).isoformat(),
+                "open": close-0.1, "high": close+0.2, "low": close-0.1,
+                "close": close, "tick_volume": 100,
+            })
+        server_dt = datetime.fromisoformat(h1[-1]["time"])+timedelta(hours=1)
+        result = evaluate_mtraders_strategy(8, {
+            "h1_bars": h1, "server_time": server_dt.isoformat(),
+            "current_bid": h1[-1]["high"]+0.5,
+        })
+        self.assertEqual(result["status"], "RESEARCH_CANDIDATE")
+        self.assertEqual(result["strategy_id"], 8)
+        self.assertEqual(result["rr"], 2.0)
+
     def test_sessionbox_requires_explicit_broker_server_timezone(self):
         with self.assertRaisesRegex(StrategyInputError, "server_utc_offset_minutes"):
             evaluate_mtraders_strategy(9, {"bars": bars()})
