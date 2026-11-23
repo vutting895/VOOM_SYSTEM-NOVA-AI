@@ -1,8 +1,9 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { importJWK, jwtVerify } from "jose";
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 const ROLE_LEVEL = Object.freeze({ viewer: 1, operator: 2, admin: 3 });
 const jwksCache = new Map();
+const JWKS_TTL_MS = 5 * 60 * 1000;
 const BASE_HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -48,21 +49,66 @@ function supabaseConfig(env) {
   }
 }
 
-function remoteJwks(url) {
-  const key = url.toString();
-  if (!jwksCache.has(key)) jwksCache.set(key, createRemoteJWKSet(url));
-  return jwksCache.get(key);
+async function loadJwks(url, forceRefresh = false) {
+  const cacheKey = url.toString();
+  const cached = jwksCache.get(cacheKey);
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached.keys;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    redirect: "error",
+    cache: "no-store",
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error("jwks_provider_unavailable");
+
+  const length = Number(response.headers.get("Content-Length") || 0);
+  if (length > 65536) throw new Error("jwks_response_too_large");
+  const document = await response.json();
+  if (!document || !Array.isArray(document.keys) || document.keys.length < 1 || document.keys.length > 20) {
+    throw new Error("invalid_jwks_document");
+  }
+
+  const imported = new Map();
+  for (const jwk of document.keys) {
+    if (!jwk || typeof jwk.kid !== "string" || !jwk.kid ||
+        (jwk.use && jwk.use !== "sig") ||
+        (jwk.key_ops && !jwk.key_ops.includes("verify")) ||
+        !["RS256", "ES256"].includes(jwk.alg)) continue;
+    try {
+      imported.set(jwk.kid + ":" + jwk.alg, await importJWK(jwk, jwk.alg));
+    } catch {
+      // Ignore unusable keys; the requested key must still match below.
+    }
+  }
+  jwksCache.set(cacheKey, { keys: imported, expiresAt: Date.now() + JWKS_TTL_MS });
+  return imported;
+}
+
+async function resolveSigningKey(url, header) {
+  if (!header || typeof header.kid !== "string" || !["RS256", "ES256"].includes(header.alg)) {
+    throw Object.assign(new Error("invalid_signing_key_header"), { code: "ERR_JWKS_NO_MATCHING_KEY" });
+  }
+  let keys = await loadJwks(url);
+  let key = keys.get(header.kid + ":" + header.alg);
+  if (!key) {
+    keys = await loadJwks(url, true);
+    key = keys.get(header.kid + ":" + header.alg);
+  }
+  if (!key) throw Object.assign(new Error("signing_key_not_found"), { code: "ERR_JWKS_NO_MATCHING_KEY" });
+  return key;
 }
 
 export async function authenticate(request, env) {
-  const match = /^Bearer\s+(\S+)$/i.exec(request.headers.get("Authorization") || "");
+  const match = /^Bearer\\s+(\\S+)$/i.exec(request.headers.get("Authorization") || "");
   if (!match) return { ok: false, status: 401, error: "authentication_required" };
 
   const config = supabaseConfig(env);
   if (!config) return { ok: false, status: 503, error: "authentication_not_configured" };
 
   try {
-    const { payload } = await jwtVerify(match[1], remoteJwks(config.jwksUrl), {
+    const { payload } = await jwtVerify(match[1], (header) => resolveSigningKey(config.jwksUrl, header), {
       issuer: config.issuer,
       audience: "authenticated",
       algorithms: ["RS256", "ES256"],
