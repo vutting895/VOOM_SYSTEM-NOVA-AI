@@ -29,7 +29,8 @@ function Chart() {
   const min = Math.min(...DEMO_SERIES),
     max = Math.max(...DEMO_SERIES);
   const pts = DEMO_SERIES.map(
-    (v, i) => `${(i / (DEMO_SERIES.length - 1)) * 100},${100 - ((v - min) / (max - min)) * 90 - 5}`,
+    (v, i) =>
+      `${(i / (DEMO_SERIES.length - 1)) * 100},${100 - ((v - min) / (max - min)) * 90 - 5}`,
   ).join(" ");
   return (
     <svg
@@ -61,10 +62,17 @@ function Trading() {
         <Panel title="Watchlist" right={<DemoBadge />}>
           <ul className="divide-y divide-border font-mono text-sm">
             {DEMO_WATCHLIST.map((w) => (
-              <li key={w.symbol} className="flex items-center justify-between py-2">
+              <li
+                key={w.symbol}
+                className="flex items-center justify-between py-2"
+              >
                 <span>{w.symbol}</span>
                 <span className="text-muted-foreground">{w.bid}</span>
-                <span className={cn(w.chg >= 0 ? "text-primary" : "text-destructive")}>
+                <span
+                  className={cn(
+                    w.chg >= 0 ? "text-primary" : "text-destructive",
+                  )}
+                >
                   {w.chg > 0 ? "+" : ""}
                   {w.chg}%
                 </span>
@@ -159,8 +167,8 @@ function Trading() {
           </TabsContent>
         </Tabs>
         <p className="mt-3 text-xs text-muted-foreground">
-          All rows above are DEMO fixtures. Real data appears only once an authenticated read-only
-          MT5 bridge is connected.
+          All rows above are DEMO fixtures. Real data appears only once an
+          authenticated read-only MT5 bridge is connected.
         </p>
       </Panel>
     </>

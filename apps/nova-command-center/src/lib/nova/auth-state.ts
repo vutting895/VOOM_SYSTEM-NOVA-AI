@@ -1,6 +1,7 @@
 import type { NovaRole } from "./roles";
 
-export type AuthStatus = "loading" | "unconfigured" | "signed_out" | "signed_in";
+export type AuthStatus =
+  "loading" | "unconfigured" | "signed_out" | "signed_in";
 
 export interface AuthState {
   status: AuthStatus;
@@ -11,7 +12,12 @@ export interface AuthState {
 
 export type AuthEvent =
   | { type: "UNCONFIGURED" }
-  | { type: "SESSION"; email: string | null; userId: string; role: NovaRole | null }
+  | {
+      type: "SESSION";
+      email: string | null;
+      userId: string;
+      role: NovaRole | null;
+    }
   | { type: "SIGNED_OUT" };
 
 export const initialAuthState: AuthState = {
@@ -28,7 +34,12 @@ export function authReducer(_s: AuthState, e: AuthEvent): AuthState {
     case "SIGNED_OUT":
       return { status: "signed_out", email: null, userId: null, role: null };
     case "SESSION":
-      return { status: "signed_in", email: e.email, userId: e.userId, role: e.role };
+      return {
+        status: "signed_in",
+        email: e.email,
+        userId: e.userId,
+        role: e.role,
+      };
   }
 }
 

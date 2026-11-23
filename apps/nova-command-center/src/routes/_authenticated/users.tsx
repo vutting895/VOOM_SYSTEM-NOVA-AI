@@ -29,19 +29,26 @@ function Users() {
             </div>
             <div>
               <dt className="terminal-label">Role (from server claims)</dt>
-              <dd>{a.role ? <Badge variant="online">{ROLE_LABEL[a.role]}</Badge> : "None"}</dd>
+              <dd>
+                {a.role ? (
+                  <Badge variant="online">{ROLE_LABEL[a.role]}</Badge>
+                ) : (
+                  "None"
+                )}
+              </dd>
             </div>
           </dl>
           <p className="mt-3 text-xs text-muted-foreground">
-            Role is read from app_metadata in your signed token for display. Every API call is
-            authorized by the server, not by this page.
+            Role is read from app_metadata in your signed token for display.
+            Every API call is authorized by the server, not by this page.
           </p>
         </Panel>
         <Panel title="User management">
           <RoleGate min="admin" fallback={<EmptyState title="Admin only" />}>
             <EmptyState title="Unavailable">
-              Role assignment requires a trusted admin API on the NOVA Worker (service-role key
-              stays server-side). It is not implemented in the browser by design.
+              Role assignment requires a trusted admin API on the NOVA Worker
+              (service-role key stays server-side). It is not implemented in the
+              browser by design.
             </EmptyState>
           </RoleGate>
         </Panel>

@@ -19,7 +19,12 @@ describe("safety invariants", () => {
   it("blocks non-GET methods", () =>
     expect(() => assertReadOnlyRequest("POST", "/v1/health")).toThrow());
   it("blocks order/withdraw/transfer paths", () => {
-    for (const p of ["/v1/orders", "/v1/withdraw", "/v1/transfer", "/v1/trade/execute"])
+    for (const p of [
+      "/v1/orders",
+      "/v1/withdraw",
+      "/v1/transfer",
+      "/v1/trade/execute",
+    ])
       expect(() => assertReadOnlyRequest("GET", p)).toThrow();
   });
   it("allow-listed paths contain no forbidden endpoints", () =>
@@ -34,7 +39,9 @@ describe("safety invariants", () => {
         return new Response("{}");
       },
     });
-    await expect(c.get("/v1/orders")).rejects.toMatchObject({ kind: "blocked" });
+    await expect(c.get("/v1/orders")).rejects.toMatchObject({
+      kind: "blocked",
+    });
     expect(called).toBe(false);
   });
 });

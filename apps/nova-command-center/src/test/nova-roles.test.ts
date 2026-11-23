@@ -6,7 +6,10 @@ describe("parseRole", () => {
     expect(parseRole({ app_metadata: { nova_role: "Admin" } })).toBe("admin"));
   it("ignores user_metadata (user-editable)", () =>
     expect(
-      parseRole({ app_metadata: {}, user_metadata: { nova_role: "admin" } } as never),
+      parseRole({
+        app_metadata: {},
+        user_metadata: { nova_role: "admin" },
+      } as never),
     ).toBeNull());
   it("rejects unknown roles", () =>
     expect(parseRole({ app_metadata: { nova_role: "superuser" } })).toBeNull());
