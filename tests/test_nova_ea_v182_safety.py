@@ -55,5 +55,12 @@ class TestNovaEA182Safety(unittest.TestCase):
         self.assertNotIn('Trade.mqh', CORE)
 
 
+    def test_transient_indicator_data_does_not_consume_the_bar(self):
+        copy_ok = CORE.index("!NovaCoreCopy(gNovaCoreM15Atr50,3,atr50)) return;")
+        mark_bar = CORE.index("gNovaCoreLastBar=rates[0].time;")
+        self.assertGreater(mark_bar, copy_ok)
+        self.assertIn("later ticks retry transient CopyBuffer/history synchronization failures", CORE)
+
+
 if __name__ == '__main__':
     unittest.main()
