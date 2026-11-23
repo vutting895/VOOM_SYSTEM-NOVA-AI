@@ -22,11 +22,7 @@ export function readConfig(
   return {
     supabaseUrl: resolveTrustedBaseUrl(env["VITE_SUPABASE_URL"], "supabase"),
     supabaseAnonKey: clean(env["VITE_SUPABASE_ANON_KEY"]),
-    apiBaseUrl: resolveTrustedBaseUrl(
-      env["VITE_NOVA_API_BASE_URL"],
-      "systemHub",
-      NOVA_SERVICE_ORIGINS.systemHub,
-    ),
+    apiBaseUrl: resolveTrustedBaseUrl(env["VITE_NOVA_API_BASE_URL"], "systemHub"),
     chatApiBaseUrl: resolveTrustedBaseUrl(
       env["VITE_NOVA_CHAT_API_BASE_URL"],
       "chat",
