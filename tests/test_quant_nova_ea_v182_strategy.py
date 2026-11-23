@@ -87,6 +87,16 @@ class NovaEA182StrategyTests(unittest.TestCase):
         self.assertEqual(result["status"], "DATA_REQUIRED")
         self.assertEqual(result["direction"], 0)
 
+    def test_flowmatrix_skips_universe_symbols_without_ema200_history(self):
+        short_history = bars(80)
+        result = evaluate_mtraders_strategy(10, {
+            "bars": bars(),
+            "symbol": "XAUUSDm",
+            "symbol_bars": {"XAUUSDm": short_history},
+        })
+        self.assertEqual(result["status"], "DATA_REQUIRED")
+        self.assertEqual(result["direction"], 0)
+
     def test_flowmatrix_emits_when_current_symbol_has_eighty_percent_flow_share(self):
         history = []
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -143,6 +153,22 @@ class NovaEA182StrategyTests(unittest.TestCase):
         self.assertIn(result["status"], {"NO_SIGNAL", "SETUP_ARMED", "SETUP_WAITING", "SETUP_RESET", "RESEARCH_CANDIDATE"})
         self.assertIn("state", result)
         self.assertFalse(result.get("execution_enabled", False))
+
+    def test_smc_setup_age_uses_persistent_timestamp_not_rolling_window_index(self):
+        history = bars()
+        state = {
+            "phase": 1,
+            "anchor_time": history[-40]["time"],
+            "max_retrace_bars": 30,
+            "range_high": 2100.0,
+            "range_low": 1900.0,
+            "ob_high": 2050.0,
+            "ob_low": 2040.0,
+            "equilibrium": 2000.0,
+        }
+        result = evaluate_mtraders_strategy(13, {"bars": history}, state)
+        self.assertEqual(result["status"], "SETUP_RESET")
+        self.assertEqual(result["direction"], 0)
 
     def test_all_twenty_ids_are_reported_but_not_all_claimed_implemented(self):
         result = evaluate_all_mtraders_modules({"bars": bars(), "server_utc_offset_minutes": 0, "bar_seconds": 900})
