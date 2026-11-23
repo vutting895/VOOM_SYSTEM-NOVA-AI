@@ -392,6 +392,41 @@ test("invalid Gemini strategy output falls back to validated Cloudflare output",
   assert.equal(body.liveTradingEnabled, false);
 });
 
+test("health reports Gemini primary and Cloudflare fallback without exposing the key", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/health"),
+    {
+      ...env,
+      GEMINI_API_KEY: "gemini-test-key",
+      AI: { run: async () => ({ response: "unused" }) },
+    },
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.version, "1.2.0");
+  assert.equal(body.primaryProvider, "gemini");
+  assert.equal(body.primaryModel, "gemini-3.8-flash");
+  assert.equal(body.fallbackProvider, "cloudflare-workers-ai");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(JSON.stringify(body).includes("gemini-test-key"), false);
+});
+
+test("health reports Cloudflare AI as primary when Gemini is not configured", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/health"),
+    {
+      ...env,
+      GEMINI_API_KEY: undefined,
+      AI: { run: async () => ({ response: "unused" }) },
+    },
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.primaryProvider, "cloudflare-workers-ai");
+  assert.equal(body.primaryModel, "@cf/meta/llama-3.2-3b-instruct");
+  assert.equal(body.fallbackProvider, null);
+});
 test("unknown order route cannot execute", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/orders", {
     method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },

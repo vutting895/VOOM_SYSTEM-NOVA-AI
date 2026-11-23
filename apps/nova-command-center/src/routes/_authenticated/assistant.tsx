@@ -167,17 +167,30 @@ function Assistant() {
             <div>
               <dt className="terminal-label">Provider</dt>
               <dd>
-                {status?.aiBinding ? "Cloudflare Workers AI" : "Unavailable"}
+                {status?.primaryProvider === "gemini"
+                  ? "Google Gemini"
+                  : status?.primaryProvider === "cloudflare-workers-ai"
+                    ? "Cloudflare Workers AI"
+                    : status?.aiBinding
+                      ? "Cloudflare Workers AI"
+                      : "Unavailable"}
               </dd>
             </div>
             <div>
               <dt className="terminal-label">Model</dt>
               <dd>
-                {status?.aiBinding
-                  ? "@cf/meta/llama-3.2-3b-instruct"
-                  : "Not connected"}
+                {status?.primaryModel ??
+                  (status?.aiBinding
+                    ? "@cf/meta/llama-3.2-3b-instruct"
+                    : "Not connected")}
               </dd>
             </div>
+            {status?.fallbackProvider && (
+              <div>
+                <dt className="terminal-label">Fallback</dt>
+                <dd>Cloudflare Workers AI</dd>
+              </div>
+            )}
             <div>
               <dt className="terminal-label">Authentication</dt>
               <dd>{status?.authConfigured ? "Configured" : "Unavailable"}</dd>

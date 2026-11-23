@@ -424,10 +424,30 @@ export default {
         : fail("origin_not_allowed", 403, "");
     }
     if (request.method === "GET" && url.pathname === "/health") {
+      const geminiConfigured =
+        typeof env.GEMINI_API_KEY === "string" && env.GEMINI_API_KEY.trim().length > 0;
+      const aiBinding = Boolean(env.AI);
       return json({
-        ok: true, service: "voom-system-nova-ai", version: "1.1.0",
-        aiBinding: Boolean(env.AI), authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
-        executionEnabled: false, liveTradingEnabled: false,
+        ok: true,
+        service: "voom-system-nova-ai",
+        version: "1.2.0",
+        aiBinding,
+        authConfigured: Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY),
+        primaryProvider: geminiConfigured
+          ? "gemini"
+          : aiBinding
+            ? "cloudflare-workers-ai"
+            : "unavailable",
+        primaryModel: geminiConfigured
+          ? "gemini-3.8-flash"
+          : aiBinding
+            ? "@cf/meta/llama-3.2-3b-instruct"
+            : "unavailable",
+        fallbackProvider: geminiConfigured && aiBinding
+          ? "cloudflare-workers-ai"
+          : null,
+        executionEnabled: false,
+        liveTradingEnabled: false,
       }, 200, origin);
     }
     if (!["GET", "POST"].includes(request.method)) return fail("method_not_allowed", 405, origin);

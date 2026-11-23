@@ -36,6 +36,9 @@ export interface ChatWorkerHealth {
   version: string;
   aiBinding: boolean;
   authConfigured: boolean;
+  primaryProvider?: "gemini" | "cloudflare-workers-ai" | "unavailable";
+  primaryModel?: string;
+  fallbackProvider?: "cloudflare-workers-ai" | null;
   executionEnabled: false;
   liveTradingEnabled: false;
 }

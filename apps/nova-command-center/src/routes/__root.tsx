@@ -11,7 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportNovaUiError } from "../lib/nova-ui-error-reporting";
 import { AuthProvider } from "../lib/nova/auth";
 import { Toaster } from "../components/ui/sonner";
 
@@ -40,10 +40,9 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
-  console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportNovaUiError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -81,9 +80,6 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     head: () => ({
-      // Replace these placeholders with the app's name and description when first building the app.
-      // Each content route, / included, must still set its own head(). Never add og:image or
-      // twitter:image here: every page without its own would inherit the root's preview image.
       meta: [
         { charSet: "utf-8" },
         { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -101,7 +97,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:site", content: "@Lovable" },
       ],
       links: [
         {

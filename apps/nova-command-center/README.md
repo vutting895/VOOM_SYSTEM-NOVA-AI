@@ -18,7 +18,8 @@ TanStack Start (React 19, Vite, TypeScript), Tailwind v4, shadcn/ui, Supabase Au
 See `.env.example`. Only `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_NOVA_API_BASE_URL`, and the public `VITE_NOVA_CHAT_API_BASE_URL` are read. Never put secrets in `VITE_*`.
 
 ## Chat boundary
-- The browser obtains the current Supabase access token and sends it only to the fixed NOVA AI Worker `POST /api/chat`; the Worker verifies it with Supabase Auth before invoking Cloudflare Workers AI.
+- The browser obtains the current Supabase access token and sends it only to the fixed NOVA AI Worker `POST /api/chat`; the Worker verifies it with Supabase Auth before invoking Gemini 3.8 Flash as primary when configured, with Cloudflare Workers AI as fallback.
+- Gemini free-tier requests are quota-limited and may be used by Google to improve its products. Do not submit credentials or confidential customer data.
 - The client sends at most 8 recent messages, 1,200 characters per message and 8,000 total characters.
 - Conversation history remains in page memory only and is lost on refresh; there is no transcript persistence.
 - Chat provider health is read from the Worker's public `GET /health` endpoint.
@@ -45,3 +46,10 @@ Overview · AI Assistant · Trading (DEMO) · MT5 Bridge · Risk Center · Appro
 - The Netlify build maps the existing `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_SYSTEM_HUB_URL` build variables into the app's `VITE_*` config. The Supabase URL must match the AI Worker's auth project.
 - Never map service-role keys, provider keys, broker credentials, or other secrets into `VITE_*`; those values would be browser-visible.
 - This changes the Netlify production build target from the repository-root Vite app to NOVA Command Center when merged. Keep the PR Draft until its Deploy Preview, authenticated E2E, and the intended production-site replacement are explicitly accepted.
+
+## Session and destination isolation
+
+- Protected React Query keys include the authenticated Supabase user ID.
+- The AuthProvider clears query and mutation caches whenever the authenticated identity changes or signs out; token refresh for the same user does not clear the cache.
+- The Assistant page resets its in-memory conversation and ignores responses from requests started under a previous identity.
+- Supabase, System Hub, and AI Worker URLs are restricted to exact production origins. Local development is limited to explicit localhost ports.
