@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import worker, { authorizeClaims } from "./worker.js";
+
 const env = { ALLOWED_ORIGIN: "https://voomsystem.netlify.app" };
 
 test("public health reports degraded until dependencies are verified and keeps trading disabled", async () => {
@@ -35,4 +37,108 @@ test("authorization uses trusted app_metadata only and enforces role hierarchy",
   assert.equal(authorizeClaims({ sub: "u1", app_metadata: { nova_role: "viewer" } }, "operator").status, 403);
   assert.equal(authorizeClaims({ sub: "u1", app_metadata: { nova_role: "operator" } }, "operator").ok, true);
   assert.equal(authorizeClaims({ sub: "u1", app_metadata: { nova_role: "root" } }, "viewer").status, 403);
+});
+
+async function makeSignedToken({ privateKey, kid, issuer, audience = "authenticated", expiresAt = "2h", role = "viewer" }) {
+  return new SignJWT({ app_metadata: { nova_role: role } })
+    .setProtectedHeader({ alg: "ES256", kid, typ: "JWT" })
+    .setIssuer(issuer)
+    .setAudience(audience)
+    .setSubject("customer-user-001")
+    .setIssuedAt()
+    .setExpirationTime(expiresAt)
+    .sign(privateKey);
+}
+
+async function withMockJwks({ jwksUrl, jwksResponse, run }) {
+  const originalFetch = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    requests.push({ url, method: init?.method || "GET" });
+    if (url === jwksUrl) return jwksResponse();
+    throw new Error("Unexpected outbound request: " + url);
+  };
+  try {
+    return await run(requests);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function createAuthFixture(suffix) {
+  const projectUrl = `https://nova-auth-${suffix}.example.test`;
+  const issuer = projectUrl + "/auth/v1";
+  const jwksUrl = issuer + "/.well-known/jwks.json";
+  const { publicKey, privateKey } = await generateKeyPair("ES256");
+  const jwk = await exportJWK(publicKey);
+  jwk.kid = "nova-test-key-" + suffix;
+  jwk.alg = "ES256";
+  jwk.use = "sig";
+  return { projectUrl, issuer, jwksUrl, privateKey, jwk, kid: jwk.kid };
+}
+
+test("JWT integration accepts a valid ES256 Supabase session and reaches the authenticated route", async () => {
+  const fixture = await createAuthFixture("valid");
+  const token = await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer });
+  const testEnv = { ...env, SUPABASE_URL: fixture.projectUrl };
+  await withMockJwks({
+    jwksUrl: fixture.jwksUrl,
+    jwksResponse: () => new Response(JSON.stringify({ keys: [fixture.jwk] }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    run: async (requests) => {
+      const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), testEnv);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { id: "customer-user-001", email: null, role: "viewer" });
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].url, fixture.jwksUrl);
+    },
+  });
+});
+
+test("JWT integration rejects a token signed by an untrusted key", async () => {
+  const trusted = await createAuthFixture("bad-signature");
+  const attacker = await generateKeyPair("ES256");
+  const token = await makeSignedToken({ privateKey: attacker.privateKey, kid: trusted.kid, issuer: trusted.issuer });
+  await withMockJwks({
+    jwksUrl: trusted.jwksUrl,
+    jwksResponse: () => new Response(JSON.stringify({ keys: [trusted.jwk] }), { status: 200 }),
+    run: async () => {
+      const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: trusted.projectUrl });
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error, "invalid_or_expired_session");
+    },
+  });
+});
+
+test("JWT integration rejects incorrect issuer, audience, and expired sessions", async () => {
+  const fixture = await createAuthFixture("claims");
+  await withMockJwks({
+    jwksUrl: fixture.jwksUrl,
+    jwksResponse: () => new Response(JSON.stringify({ keys: [fixture.jwk] }), { status: 200 }),
+    run: async () => {
+      const invalidTokens = [
+        await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer + "/attacker" }),
+        await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, audience: "other-audience" }),
+        await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer, expiresAt: "0s" }),
+      ];
+      for (const token of invalidTokens) {
+        const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: fixture.projectUrl });
+        assert.equal(response.status, 401);
+      }
+    },
+  });
+});
+
+test("JWT integration fails closed when the JWKS endpoint is unavailable", async () => {
+  const fixture = await createAuthFixture("jwks-down");
+  const token = await makeSignedToken({ privateKey: fixture.privateKey, kid: fixture.kid, issuer: fixture.issuer });
+  await withMockJwks({
+    jwksUrl: fixture.jwksUrl,
+    jwksResponse: () => new Response("unavailable", { status: 503 }),
+    run: async () => {
+      const response = await worker.fetch(new Request("https://core.example/v1/me", { headers: { Authorization: "Bearer " + token } }), { ...env, SUPABASE_URL: fixture.projectUrl });
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error, "invalid_or_expired_session");
+    },
+  });
 });
