@@ -183,7 +183,7 @@ void NovaCoreEvaluate()
 
    // Do not consume the bar until all required buffers and ATR values are valid.
    if(atr[1]<=0.0 || atr50[1]<=0.0) return;
-   // Later ticks can retry transient CopyBuffer/history synchronization failures.
+   // later ticks retry transient CopyBuffer/history synchronization failures.
    gNovaCoreLastBar=rates[0].time;
 
    double volRatio=atr[1]/atr50[1];
