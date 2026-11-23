@@ -47,7 +47,12 @@ jobs:
       - name: Unit tests
         run: bun run test
 
-      - name: Production build
+      - name: Netlify SSR build (preview parity)
+        env:
+          NETLIFY: "true"
+          VITE_SUPABASE_URL: "https://tlyyxufuiimrbaksoitf.supabase.co"
+          VITE_SUPABASE_ANON_KEY: "build-only-placeholder"
+          VITE_NOVA_API_BASE_URL: "https://voom-system-hub.suwapat787.workers.dev"
         run: bun run build
 
       - name: Upload app-local lockfile for review
