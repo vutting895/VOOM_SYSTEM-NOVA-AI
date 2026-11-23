@@ -8,5 +8,4 @@ enabled = true
 
 # Configure at deploy time; do not commit credentials.
 # SUPABASE_URL
-# SUPABASE_PUBLISHABLE_KEY
 # ALLOWED_ORIGINS
