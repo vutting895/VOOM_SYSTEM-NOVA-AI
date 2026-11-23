@@ -126,7 +126,7 @@ async function authenticate(request, env) {
 function connectionUrl(env, query = {}) {
   const base = supabaseBase(env);
   if (!base) return null;
-  const url = new URL(base + "/rest/v1/broker_connections");
+  const url = new URL(base + "/rest/v1/nova_broker_connections");
   for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
   return url;
 }
