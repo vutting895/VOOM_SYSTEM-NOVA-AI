@@ -27,7 +27,11 @@ def bars(count=220):
 
 
 class NovaEA182StrategyTests(unittest.TestCase):
-    def test_strategy_evaluator_is_exported_by_core_package(self):\n        result = evaluate_from_core_package(10, {})\n        self.assertEqual(result["status"], "NOT_PORTED")\n\n    def test_disabled_strategy_is_explicitly_abstained(self):
+    def test_strategy_evaluator_is_exported_by_core_package(self):
+        result = evaluate_from_core_package(10, {})
+        self.assertEqual(result["status"], "NOT_PORTED")
+
+    def test_disabled_strategy_is_explicitly_abstained(self):
         result = evaluate_mtraders_strategy(0, {})
         self.assertEqual(result["status"], "DISABLED_IN_EA_V1_82")
         self.assertEqual(result["direction"], 0)
