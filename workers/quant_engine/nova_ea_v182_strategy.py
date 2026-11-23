@@ -311,7 +311,7 @@ def _session_box(bars: list[dict[str, Any]], data: Mapping[str, Any], state: Map
     atr = _atr(bars)
     for start_hour, end_hour, tag in ((9, 15, "LONDON"), (15, 20, "NEW_YORK")):
         session_key = f"{day.isoformat()}:{tag}"
-        if session_key in flags or not end_hour:
+        if session_key in flags:
             continue
         start = datetime.combine(day, datetime.min.time(), tzinfo=server_time.tzinfo) + timedelta(hours=start_hour)
         end = datetime.combine(day, datetime.min.time(), tzinfo=server_time.tzinfo) + timedelta(hours=end_hour)
