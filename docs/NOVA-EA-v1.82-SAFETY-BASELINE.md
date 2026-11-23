@@ -74,13 +74,23 @@ The opt-in gate counters were run on the original 50-bar swing-stop build over t
 
 This isolates the stop-distance/risk gate as the final bottleneck in that build. The 50-bar swing extreme was removed; the current branch anchors the reference stop to the signal candle wick (low/high plus/minus 0.20 ATR) and retains the existing 3 ATR maximum-risk gate. This is a structural implementation change, not a parameter relaxation.
 
-The current branch head has **12/12 Python source-contract tests passing** and exact-head GitHub Actions Frontend CI run #2283 (`45135123464`) succeeded; the Netlify production smoke-test job was skipped. The rejection-wick stop revision still requires a fresh native MetaEditor compile and a fresh isolated Strategy Tester run on the exact latest branch binary. The earlier smoke report and diagnostic counters do not validate this revised stop model.
+The current rejection-wick stop revision was compiled from code head `8494191e9c545becff0d0c68e25a326dbbe75f73` in the isolated `C:\\MT5_TEST` MetaEditor environment: **0 errors, 0 warnings** (826 ms). The resulting EX5 SHA-256 is `B979A349F77B48759853C14457B6E46B6ED8569FBA9277D02F17B4C052CE2936`.
+
+A fresh isolated Strategy Tester coverage run used that exact EX5:
+
+- Symbol/timeframe: `XAUUSDm / M15`; period: `2026-07-17` through `2026-11-20`; Every tick based on real ticks.
+- Report: `NOVA_EA_v1.82_CORE_REAL_TICK_COVERAGE_20260717_20261120.html`; SHA-256: `B9BC01333C0F18544FB2792F48311CF9F8FCC6ADE8207A140B41814FC8E36DAC`.
+- **100% real tick**, 8,266 bars, 26,757,176 ticks; tester passed with no error/failed/invalid log entries.
+- Gate diagnostics: 8,266 data-ready bars; volatility 182 rejected / 8,084 passed; 934 BOS setups; 1,235 MTF alignments; 737 location passes; 125 wick rejections; 1 risk-gate rejection; 76 risk-gate passes; **76 signal candidates**.
+- Final balance USD 10,000; net profit USD 0.00; total trades 0, as expected for the READ-ONLY signal-only EA. Candidate count is signal coverage only, not executed-trade performance or evidence of positive expectancy.
+
+Python source-contract tests: **12/12 PASS** on code head `8494191e9c545becff0d0c68e25a326dbbe75f73`. GitHub Actions Frontend CI run #2283 (`45135123464`) succeeded with all 20 build steps; Netlify production smoke test was skipped. The latest documentation-only commit triggers CI run #2284 (`45135688932`), which was still running when this document was updated.
 
 Still required before treating the strategy as empirically validated:
 
-- Expand signal-coverage testing across additional market regimes and verify candidate timestamps/reference levels against MT5 chart data.
-- Investigate why no candidates passed the gates in the smoke interval before loosening any filter; do not optimize against the same test interval.
-- Complete walk-forward and untouched OOS evaluation; do not tune on final OOS.
-- Exness Demo read-only observation only, after terminal-wide Algo Trading OFF is independently verified.
+- Independently inspect the 76 candidate timestamps and reference levels against the corresponding MT5 chart bars; reject duplicate/clustered or structurally invalid candidates.
+- Measure hypothetical SL/TP first-touch outcomes with spread, commission, slippage, and a defined maximum holding period; the zero-trade report does not contain those outcomes.
+- Complete walk-forward and untouched OOS evaluation; do not tune on the final OOS period.
+- Exness Demo read-only chart observation only, after terminal-wide Algo Trading OFF is independently verified.
 
 No profitability claim is made. Source-contract tests, native compilation, CI, and a zero-trade smoke run do not establish trading edge. Do not merge, deploy, install as an active chart EA, or enable Live Trading on the basis of these checks alone.
