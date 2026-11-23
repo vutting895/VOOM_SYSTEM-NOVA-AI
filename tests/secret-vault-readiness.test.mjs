@@ -24,7 +24,7 @@ test("local frontend Compose service does not receive provider or Bridge credent
   assert.doesNotMatch(compose, /BYBIT_API_(KEY|SECRET)/i);
   assert.doesNotMatch(compose, /MT5_BRIDGE_(TOKEN|HEALTH_URL)/i);
   assert.match(compose, /frontend:/);
-  assert.match(compose, /NODE_ENV: development/);
+  assert.match(compose, /NODE_ENV: production/);
 });
 
 test("readiness document keeps credential operations disabled until every Vault gate passes", () => {
