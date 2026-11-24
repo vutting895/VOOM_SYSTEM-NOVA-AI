@@ -78,3 +78,12 @@ The Worker deployment is managed independently from the local stdio MCP server i
 - server/discover is implemented for modern clients. Modern result objects use resultType: "complete"; discovery and tools/list include ttlMs and cacheScope. Cache scope is private.
 - Origin checks remain independent from protocol checks. A supplied untrusted Origin is rejected with HTTP 403 before authentication or tool dispatch. Requests without Origin remain allowed for non-browser clients, but protected MCP calls still require a valid Supabase bearer token.
 - This is a read-only tools subset. No order placement, close/modify, transfer, withdrawal, or broker mutation method is available. Do not describe this Worker as supporting the entire MCP specification beyond its implemented tools-only scope.
+
+## Datacenter release gate
+
+1. Provision Datacenter on the approved Linux VM and configure the Cloudflare Tunnel hostname.
+2. Set the GitHub Actions repository variable `DATACENTER_MCP_URL` to the fixed HTTPS `/mcp` endpoint.
+3. Run the `Frontend CI` workflow manually after Datacenter is ready. On success, the existing Cloudflare deployment workflow deploys the latest Remote MCP Worker and checks the Datacenter endpoint rejects unauthenticated requests.
+4. Run the Datacenter `Datacenter CI` workflow manually for the single consolidated Python validation.
+
+Both CI workflows are manual-dispatch only while this integration is being assembled. Do not report the Gateway as connected until the authenticated Learning tool call succeeds end-to-end.
