@@ -47,7 +47,7 @@ export default function BacktestSimulatorView() {
       setLoading(true);
       setError(null);
       const [availableDatasets, history] = await Promise.all([
-        datacenterResearchService.listDatasets(),
+        datacenterResearchService.listApprovedDatasets(),
         datacenterResearchService.listResearchRuns(),
       ]);
       setDatasets(availableDatasets);
