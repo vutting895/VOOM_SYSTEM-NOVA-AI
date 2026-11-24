@@ -42,7 +42,7 @@ jobs:
             node --test tests/secret-vault-readiness.test.mjs
             node --test tests/nova-approval-migration.test.mjs
             node --test tests/nova-mt5-connection-view-contract.test.mjs
-            node --check tests/staging-customer-isolation.mjs
+            node --test tests/staging-customer-isolation.mjs
 
       - run:
           name: Verify NOVA AI Worker contracts
