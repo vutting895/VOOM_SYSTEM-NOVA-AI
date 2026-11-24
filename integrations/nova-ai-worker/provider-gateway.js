@@ -5,15 +5,15 @@ const MAX_OUTPUT_CHARS = 10000;
 const MAX_PROMPT_CHARS = 12000;
 
 const CREDENTIAL_PATTERNS = [
-  /\\bAuthorization\\s*:\\s*Basic\\s+[A-Za-z0-9+/]+={0,2}/gi,
-  /\\bAuthorization\\s*:\\s*Bearer\\s+\\S+/gi,
-  /\\bBearer\\s+[A-Za-z0-9._~+/-]{16,}={0,2}\\b/gi,
-  /\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\b/g,
-  /\\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\\b/g,
-  /\\b((?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[_ -]?key|password|passwd|secret|token)\\s*[:=]\\s*)["']?[^\\s"',;]+/gi,
-  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\\s]+)/gi,
+  /\bAuthorization\s*:\s*Basic\s+[A-Za-z0-9+/]+={0,2}/gi,
+  /\bAuthorization\s*:\s*Bearer\s+\S+/gi,
+  /\bBearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}\b/gi,
+  /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+  /\b(?:sk-(?:proj-)?[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,})\b/g,
+  /\b((?:api[ _-]?key|api[ _-]?token|access[ _-]?token|refresh[ _-]?token|client[ _-]?secret|service[ _-]?role[_ -]?key|password|passwd|secret|token)\s*[:=]\s*)["']?[^\s"',;]+/gi,
+  /[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)=([^&#\s]+)/gi,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi,
-  /(?:^|\\n)\\s*(?:cookie|set-cookie)\\s*:\\s*[^\\r\\n]+/gim,
+  /(?:^|\n)\s*(?:cookie|set-cookie)\s*:\s*[^\r\n]+/gim,
 ];
 
 export function redactProviderText(value) {
@@ -57,9 +57,9 @@ function extractGeminiText(data) {
 async function requestGemini(env, messages) {
   const key = env?.GEMINI_API_KEY;
   if (typeof key !== "string" || !key.trim()) throw new Error("gemini_not_configured");
-  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\\n");
+  const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
   const prompt = messages.filter((m) => m.role !== "system")
-    .map((m) => (m.role === "assistant" ? "Assistant: " : "User: ") + m.content).join("\\n\\n");
+    .map((m) => (m.role === "assistant" ? "Assistant: " : "User: ") + m.content).join("\n\n");
   const model = resolveGeminiModel(env);
   const response = await fetch(GEMINI_ENDPOINT, {
     method: "POST",
