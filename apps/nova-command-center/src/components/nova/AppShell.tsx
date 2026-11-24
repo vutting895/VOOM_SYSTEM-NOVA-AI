@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Activity,
+  BrainCircuit,
   Bot,
   CandlestickChart,
   Cable,
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Overview", icon: Activity },
+  { to: "/learning", label: "Learning", icon: BrainCircuit },
   { to: "/assistant", label: "AI Assistant", icon: Bot },
   { to: "/trading", label: "Trading", icon: CandlestickChart },
   { to: "/bridge", label: "MT5 Bridge", icon: Cable },
