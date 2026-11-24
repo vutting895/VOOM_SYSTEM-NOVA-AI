@@ -152,3 +152,56 @@ test("gateway errors never echo bearer tokens", async () => {
   const body = await response.text();
   assert.equal(body.includes(TOKEN), false);
 });
+
+test("MT5 account capability routes through the Hub service binding with the user session", async () => {
+  mockSupabase({ rows: [{
+    id: CONNECTION_A, user_id: USER_A, provider: "exness_mt5", environment: "demo",
+    status: "connected", bridge_route_id: "route-a"
+  }] });
+  let bindingCalled = false;
+  const response = await worker.fetch(makeRequest("/v1/gateway/tools/mt5_account_summary", {
+    method: "POST", body: { connection_id: CONNECTION_A }
+  }), {
+    ...env,
+    MT5_READONLY_PROXY: {
+      async fetch(request) {
+        bindingCalled = true;
+        const url = new URL(request.url);
+        assert.equal(url.pathname, "/api/account");
+        assert.equal(url.searchParams.get("connection_id"), CONNECTION_A);
+        assert.equal(request.headers.get("Authorization"), "Bearer " + TOKEN);
+        return Response.json({ connected: true, server: "Demo", currency: "USD", balance: 100, equity: 100 });
+      }
+    }
+  });
+  const body = await response.json();
+  assert.equal(bindingCalled, true);
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.account.mode, "read-only");
+  assert.equal(body.data.ordersEnabled, false);
+});
+
+test("NOVA AI capability uses only the configured service binding", async () => {
+  mockSupabase();
+  let bindingCalled = false;
+  const response = await worker.fetch(makeRequest("/v1/gateway/tools/nova_ai_chat", {
+    method: "POST", body: { messages: [{ role: "user", content: "Explain a test signal." }] }
+  }), {
+    ...env,
+    NOVA_AI: {
+      async fetch(request) {
+        bindingCalled = true;
+        assert.equal(new URL(request.url).pathname, "/api/chat");
+        assert.equal(request.headers.get("Authorization"), "Bearer " + TOKEN);
+        return Response.json({ message: "Research only.", provider: "test-adapter" });
+      }
+    }
+  });
+  const body = await response.json();
+  assert.equal(bindingCalled, true);
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.data.message, "Research only.");
+  assert.equal(body.data.liveTradingEnabled, false);
+});
