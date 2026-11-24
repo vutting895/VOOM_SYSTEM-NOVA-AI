@@ -39,23 +39,6 @@ services:
       timeout: 5s
       retries: 5
 
-  mcp-server:
-    build:
-      context: ../integrations/nova-ai-mcp-full-clean
-      dockerfile: mcp-server/Dockerfile
-    container_name: voom-system-nova-mcp
-    restart: unless-stopped
-    environment:
-      VOOM_PROJECT_NAME: voom_system
-      VOOM_ARCHITECTURE: nova
-      REDIS_URL: redis://redis:6379/1
-      DATABASE_URL: postgresql://${POSTGRES_USER:-nova}:${POSTGRES_PASSWORD:-nova_local_only}@postgres:5432/${POSTGRES_DB:-nova}
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    # MCP stdio is deliberately not published to the host.
 
   redis:
     image: redis:7.4-alpine
