@@ -91,7 +91,7 @@ test("both providers unavailable fails closed", async () => {
 
 test("invalid messages are rejected and credential redaction is deterministic", async () => {
   await assert.rejects(() => generateWithProviderGateway({}, []), /invalid_provider_messages/);
-  assert.equal(redactProviderText("api_key=AIzaSyDUMMYKEY12345678901234567890"), "api_key=[REDACTED]");
+  assert.equal(redactProviderText("api_key=AIzaSyDUMMYKEY12345678901234567890"), "[REDACTED]");
   await assert.rejects(() => generateWithProviderGateway({}, [
     { role: "user", content: "x".repeat(12001) },
   ]), /invalid_provider_messages/);
