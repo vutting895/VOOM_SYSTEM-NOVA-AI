@@ -83,6 +83,15 @@ The active System Hub source currently exposes:
 
 The NOVA Command Center client documentation currently describes a different set, including `/v1/health`, `/v1/services`, `/v1/bridge/status`, `/v1/risk/policy`, `/v1/approvals`, and `/v1/audit`. Those routes must not be assumed to exist until implemented and tested. Resolve this by updating the typed client and the Hub contract together; do not maintain two competing API dialects.
 
+### Newly confirmed repository blockers
+
+- `System-nova-backend` is not currently proven to be a production backend service. Its `server.ts` contains seeded demo events/workers/commands, process-global in-memory stores, synthetic/randomized telemetry, wildcard CORS, and fallback API/secret-looking values in source. Some routes accept state-changing requests. This is incompatible with a trusted central control plane. **Do not connect it to NOVA, expose it as a trusted service, or point a frontend at it** until it is isolated, credentials are removed/rotated if any were ever real, auth/RBAC and tenant checks are added to every protected route, CORS is allowlisted, mock data is removed, and contract/security tests pass.
+- `Voom-studio-affiliate-` current `package.json` does not include `@base44/sdk`; current `server.ts` uses Supabase auth/persistence modules and explicitly retires legacy `/entities` and `/functions` endpoints with HTTP 410. Therefore the README's Base44 SDK architecture is stale and must be corrected after the current implementation is audited. Its current persistence is owner-restricted and disables auto-publish/publishing paths in the code inspected; do not treat this as a completed production integration.
+- `voom-remote-desktop` main README explicitly says no Windows agent has been installed or connected and no remote-control capability is implemented. Keep it as a future read-only service; do not register it as connected.
+- `voom-ai` main remains a README-only bootstrap. PR #6 is open/draft, stacked on `feature/voom-ai-client-foundation`, and CI evidence covers build/tests/package only; authenticated runtime against the deployed Hub is still unverified. Do not merge the PR or call VOOM AI integrated until the stacked base is reviewed and runtime acceptance passes.
+
+These are blocking findings, not implementation suggestions. No secret values were retrieved or copied into this document.
+
 ### Supabase projects observed
 
 - `rovhmjeowracayicbqij` — ACTIVE_HEALTHY; referenced by the current System Hub and VOOM AI PR #6 as the canonical Hub/Auth project.
