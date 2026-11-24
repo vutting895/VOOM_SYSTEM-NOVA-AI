@@ -66,7 +66,6 @@ class BacktestWorker:
         wins = 0
         pending_signal: str | None = None
         entry_cash = 0.0
-        entry_fill = 0.0
 
         # A signal is known only after candle i closes; it is filled at candle
         # i+1 open. The final candle's close cannot create a same-bar fill.
