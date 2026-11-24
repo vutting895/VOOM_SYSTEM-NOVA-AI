@@ -63,9 +63,9 @@ class EmaWalkForwardTests(unittest.TestCase):
 
     def test_walk_forward_rejects_short_training_and_bad_code_revision(self):
         with self.assertRaises(WalkForwardEvaluationError):
-            run_ema_walk_forward(market_rows(), code_revision="main", train_bars=120)
+            run_ema_walk_forward(market_rows(), code_revision="main", train_bars=120, purge_bars=5)
         with self.assertRaises(WalkForwardEvaluationError):
-            run_ema_walk_forward(market_rows(), code_revision="a" * 40, train_bars=50)
+            run_ema_walk_forward(market_rows(), code_revision="a" * 40, train_bars=50, purge_bars=5)
 
     def test_backtest_rejects_oos_boundary_outside_dataset(self):
         with self.assertRaises(BacktestInputError):
