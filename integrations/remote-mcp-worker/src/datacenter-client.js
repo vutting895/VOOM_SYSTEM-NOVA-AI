@@ -208,7 +208,7 @@ export function buildMt5DatasetPayload({
   const normalizedSymbol = String(symbol || "").trim();
   const normalizedTimeframe = String(timeframe || "").trim().toUpperCase();
   const interval = mt5Intervals[normalizedTimeframe];
-  if (!/^[A-Z0-9._-]{1,40}$/.test(normalizedSymbol)) throw new Error("invalid_mt5_dataset_symbol");
+  if (!/^[A-Za-z0-9._-]{1,40}$/.test(normalizedSymbol)) throw new Error("invalid_mt5_dataset_symbol");
   if (!interval) throw new Error("unsupported_mt5_dataset_timeframe");
   if (!Array.isArray(bars) || bars.length < 2 || bars.length > 500) {
     throw new Error("mt5_dataset_requires_2_to_500_source_bars");
