@@ -14,6 +14,7 @@ This is the control plane for viewing integration metadata, listing the signed-i
 - `POST /v1/connections/:connectionId/check` — verifies a read-only account request through the MT5 proxy. The account response is discarded; only a sanitized status is returned.
 - `GET /v1/connections/:connectionId/account` — returns a small, credential-free account summary only after the authenticated Proxy read succeeds.
 - `GET /v1/connections/:connectionId/quotes?symbol=XAUUSDm&timeframe=M1&count=3` — reads bounded quotes/candles from the user's connected Demo terminal through the MT5 Proxy.
+- `GET /v1/connections/:connectionId/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z` — reads historical OHLCV from the authenticated user's connected Demo bridge. UTC bounds are strict and half-open; supported maximum windows are M1=1 day, M5=5 days, M15=15 days, M30=30 days, H1=60 days, H4=180 days, D1=730 days; maximum response is 2,000 bars.
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
 
