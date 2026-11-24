@@ -147,6 +147,68 @@ async function notifyInitialized(url, authorization) {
   }
 }
 
+const mt5Intervals = {M1:60, M5:300, M15:900, M30:1800, H1:3600, H4:14400, D1:86400};
+
+export function buildMt5DatasetPayload({
+  symbol, timeframe, bars, dataset_name, market_calendar, now_ms = Date.now(),
+}) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedTimeframe = String(timeframe || "").trim().toUpperCase();
+  const interval = mt5Intervals[normalizedTimeframe];
+  if (!/^[A-Z0-9._-]{1,40}$/.test(normalizedSymbol)) throw new Error("invalid_mt5_dataset_symbol");
+  if (!interval) throw new Error("unsupported_mt5_dataset_timeframe");
+  if (!Array.isArray(bars) || bars.length < 2 || bars.length > 500) {
+    throw new Error("mt5_dataset_requires_2_to_500_source_bars");
+  }
+  const name = String(dataset_name || (normalizedSymbol + "-" + normalizedTimeframe.toLowerCase() + "-exness-demo")).trim();
+  if (!/^[A-Za-z0-9._-]{1,80}$/.test(name)) throw new Error("invalid_dataset_name");
+
+  const rows = [];
+  let previous = -Infinity;
+  for (const bar of bars) {
+    const timestamp = Date.parse(bar?.time);
+    if (!Number.isFinite(timestamp) || timestamp <= previous) {
+      throw new Error("mt5_source_bars_must_be_valid_and_ascending");
+    }
+    previous = timestamp;
+    // Exclude the still-forming candle. Source order is preserved; no sorting or filling.
+    if (timestamp + interval * 1000 > now_ms) continue;
+    const values = ["open", "high", "low", "close", "tick_volume", "spread", "real_volume"];
+    if (!values.every((key) => Number.isFinite(Number(bar[key])))) {
+      throw new Error("mt5_source_bar_contains_invalid_numeric_field");
+    }
+    rows.push({
+      timestamp: new Date(timestamp).toISOString(),
+      open: Number(bar.open),
+      high: Number(bar.high),
+      low: Number(bar.low),
+      close: Number(bar.close),
+      volume: Number(bar.tick_volume),
+      tick_volume: Number(bar.tick_volume),
+      spread: Number(bar.spread),
+      real_volume: Number(bar.real_volume),
+    });
+  }
+  if (rows.length < 2) throw new Error("not_enough_closed_mt5_candles");
+  const manifest = {
+    name,
+    source: "exness-mt5-demo-readonly",
+    symbols: [normalizedSymbol],
+    timeframe: normalizedTimeframe,
+    timezone: "UTC",
+    expected_interval_seconds: interval,
+    coverage_start: rows[0].timestamp,
+    coverage_end: rows[rows.length - 1].timestamp,
+    schema: {
+      timestamp: "datetime", open: "float", high: "float", low: "float",
+      close: "float", volume: "integer", tick_volume: "integer",
+      spread: "integer", real_volume: "integer",
+    },
+  };
+  if (market_calendar !== undefined) manifest.market_calendar = market_calendar;
+  return {manifest, rows};
+}
+
 export async function callDatacenterTool(name, args, request, env) {
   if (!names.has(name)) throw new Error("unknown_datacenter_tool");
   const authorization = request?.headers?.get("Authorization") || "";
