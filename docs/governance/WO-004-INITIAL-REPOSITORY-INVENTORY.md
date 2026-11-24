@@ -177,3 +177,17 @@ No source tests/builds were run in this inventory phase. No code/data movement, 
 - #340/#341 add data lineage/catalog/ingestion candidates; preserve manifests, source metadata, hashes and approval gates. No dataset moved or synthesized.
 - **Manifest:** `docs/governance/WO-004-MIGRATION-MANIFEST.md` revision 0.1 updated at commit `90c31ec3176a9235f820e550016eaf6a7ddd9d98`; zero moves remain approved.
 - Full PR patch/commit/review/exact-head CI and remaining changed-path enumeration remain incomplete. Phase 1 and Phase 2 remain IN_PROGRESS; Phase 3 remains PRELIMINARY / BLOCKED.
+
+
+## 14. Current-head refresh and expanded PR overlap review — 2026-11-24
+
+- **Main SHA before this inventory append:** `30b14071b7c11531f496958248bba4d2fc3d797b` (re-read from `refs/heads/main`).
+- **Recursive tree:** 488 entries; `truncated=false`.
+- **Open PRs:** 237 in the latest all-open pagination, down from 238 in the prior recorded snapshot. The prior PR count is historical, not current.
+- **Changed paths:** six additional distinct PR changed-file lists were inspected after the previously recorded 84: #387, #376, #375, #372, #371 and #370. This yields at least 90 distinct PR lists inspected. Lists for #384/#383/#382/#381/#380/#386/#385 were also re-read for the current overlap analysis. Coverage remains incomplete.
+- **MT5 schema collision:** #375 and #376 both introduce migrations creating `nova.mt5_broker_connections`, owner-scoped RLS policies and the `public.nova_broker_connections` REST view, while changing the proxy lookup away from `broker_connections`. #376 additionally changes staging relay allowlisting/redirect handling and adds a separate schema-usage grant migration. These are competing migration lineages, not independent additive migrations. Status: BLOCKED pending full SQL comparison, branch ancestry, exact current schema and Supabase migration-ledger proof. No migration applied.
+- **Core API:** #373 and #377 overlap on the proposed new `integrations/nova-core-api/` Worker/package/tests/config, but have distinct schema and UI/CI changes. The path does not exist on current main; neither PR proves a deployed Core API.
+- **Dependency PR:** #387 changes only Command Center app package versions (Zod 3→4, Vite 8.1.5→8.1.6); adoption requires app typecheck, lint, unit tests and build against exact head.
+- **Research/EA:** #372/#371 remain blocked/preserve-only under Datacenter ownership; #370 is architecture documentation only.
+- **No-move decision:** unchanged. No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, DB, secrets, permissions or broker action.
+- **Next:** continue changed-file enumeration and reconcile all PRs touching overlapping schema, CI, app, Gateway and MT5 paths. Update manifest only when exact owner, caller map, test parity and rollback evidence exist.
