@@ -473,3 +473,12 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No source/data/model/migration/workflow file moved; no PR merged/closed by this operation, no branch deleted, no CI triggered, no deployment, database, secrets, permissions or broker action occurred.
 - Phase 0 DONE; Phase 1–2 IN_PROGRESS; Phase 3 PRELIMINARY/BLOCKED; Phases 4–6 NOT STARTED. Zero file moves approved.
 - Next: wait for #397 exact-head CI; inspect approval guard JWT/RPC tests; reconcile #396/#398 independently; complete dependency/caller mapping.
+
+
+## WO-004 — PR #397 latest-head refresh (2026-11-25T02:03+07:00)
+- Main before write: `d134bb3b220551d296ad92a1d90d1c3c3d62f14d`.
+- PR #397 current head: `f10a7bcc92a3af830fde5f48c7c39d3f951293d1`; base `7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`; open Draft, mergeable=true reported, but 1 ahead / 2 behind current main and diverged.
+- Exact-head SMC `smc-tests` remains IN_PROGRESS; Supabase Preview SKIPPED. Earlier successful CI on prior head does not apply to this head.
+- Verified current #397 test file has one approval-context test definition; workflow path filters include Datacenter client and approval guard test paths.
+- Manifest update commit: `ddd5ca35e97eb13996f0f79c17071bf31028dea7`. No code, PR, branch, CI, deployment, DB, secret, permission or broker state changed.
+- Decision: no merge while diverged and CI is incomplete. Wait for exact-head check, then reconcile two documentation-only commits on main and review approval auth/RPC behavior.
