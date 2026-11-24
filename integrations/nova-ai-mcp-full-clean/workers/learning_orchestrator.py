@@ -119,8 +119,7 @@ def _canonical_scalar(value: Any) -> Any:
     if value is None or value is pd.NA or value is pd.NaT:
         return None
     try:
-        missing = pd.isna(value)
-        if isinstance(missing, bool) and missing:
+        if bool(pd.isna(value)):
             return None
     except (TypeError, ValueError):
         pass
