@@ -7,7 +7,7 @@ test("Learning tools are exposed by the existing NOVA Remote MCP catalog", () =>
   for (const name of [
     "dataset_ingest", "dataset_approve", "universe_register", "analysis_run",
     "learning_submit", "learning_status", "model_list", "model_approve", "audit_log_list",
-    "backtest_run", "research_run_get", "research_run_list",
+    "backtest_run", "walk_forward_replay", "research_run_get", "research_run_list",
   ]) assert.ok(names.has(name), name);
 });
 
