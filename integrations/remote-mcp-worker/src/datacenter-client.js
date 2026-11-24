@@ -174,19 +174,19 @@ export function buildMt5DatasetPayload({
     // Exclude the still-forming candle. Source order is preserved; no sorting or filling.
     if (timestamp + interval * 1000 > now_ms) continue;
     const values = ["open", "high", "low", "close", "tick_volume", "spread", "real_volume"];
-    if (!values.every((key) => Number.isFinite(Number(bar[key])))) {
+    if (!values.every((key) => typeof bar[key] === "number" && Number.isFinite(bar[key]))) {
       throw new Error("mt5_source_bar_contains_invalid_numeric_field");
     }
     rows.push({
       timestamp: new Date(timestamp).toISOString(),
-      open: Number(bar.open),
-      high: Number(bar.high),
-      low: Number(bar.low),
-      close: Number(bar.close),
-      volume: Number(bar.tick_volume),
-      tick_volume: Number(bar.tick_volume),
-      spread: Number(bar.spread),
-      real_volume: Number(bar.real_volume),
+      open: bar.open,
+      high: bar.high,
+      low: bar.low,
+      close: bar.close,
+      volume: bar.tick_volume,
+      tick_volume: bar.tick_volume,
+      spread: bar.spread,
+      real_volume: bar.real_volume,
     });
   }
   if (rows.length < 2) throw new Error("not_enough_closed_mt5_candles");
