@@ -448,7 +448,6 @@ export default function NovaChatOSView({
   const [autoTrainNotice, setAutoTrainNotice] = useState<string>(
     'Backend Auto-Train: ยังไม่มีหลักฐานยืนยันสถานะ ingestion หรือ training ล่าสุด'
   );
-  const [autoTrainSyncing, setAutoTrainSyncing] = useState<boolean>(false);
   const [inputPrompt, setInputPrompt] = useState<string>('');
   const [sending, setSending] = useState<boolean>(false);
 
@@ -520,13 +519,11 @@ export default function NovaChatOSView({
   // Training is submitted only from the Datacenter Learning dashboard using an approved pinned Universe.
   useEffect(() => {
     setAutoTrainNotice('Datacenter Learning: training requires an approved Dataset and a registered, version-pinned Universe.');
-    setAutoTrainSyncing(false);
   }, []);
 
   function handleSelectPair(symbol: string, group: 'FOREX' | 'CRYPTO') {
     setPairGroup(group);
     setSelectedPair(symbol);
-    setAutoTrainSyncing(false);
     setAutoTrainNotice(`Selected ${symbol}. No training job was started; submit training from the Datacenter Learning dashboard after approving its Dataset and Universe.`);
   }
 
@@ -634,13 +631,9 @@ export default function NovaChatOSView({
           {/* Left: Backend Auto-Train Compact Status + Session thread_id */}
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
             <span
-              className={`px-3 py-1 rounded-full border flex items-center gap-1.5 ${
-                autoTrainSyncing
-                  ? 'bg-cyan-500/15 text-cyan-200 border-cyan-400/50'
-                  : 'bg-emerald-500/15 text-emerald-300 border-emerald-400/40'
-              }`}
+              className="px-3 py-1 rounded-full border flex items-center gap-1.5 bg-slate-500/10 text-slate-300 border-slate-600"
             >
-              <span className={`w-2 h-2 rounded-full ${autoTrainSyncing ? 'bg-cyan-300 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
               {autoTrainNotice}
             </span>
             <span className="px-2.5 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-400/40">
