@@ -23,7 +23,7 @@ class LearningOrchestratorTests(unittest.TestCase):
     def test_rejects_timezone_naive_timestamps(self):
         frame=sample_frame()
         frame["timestamp"]=frame["timestamp"].dt.tz_localize(None)
-        with self.assertRaisesRegex(LearningGateError,"timezone_naive_timestamp"):
+        with self.assertRaisesRegex(LearningGateError,"timezone_aware_timestamp_required"):
             validate_market_frame(frame)
     def test_rejects_duplicate_timestamps(self):
         frame=sample_frame()
