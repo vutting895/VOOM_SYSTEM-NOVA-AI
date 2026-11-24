@@ -350,3 +350,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - #291 (open Draft, 2 files) adds a bounded read-only Exness MT5 Demo M1–D1 exporter and tests. It requires confirmed Exness Demo/server/symbol/BID mode, exports native tick_volume and UTC bar-open timestamps, writes SHA-256 manifests and marks outputs training-ineligible pending independent audit. It does not contact an MT5 terminal in the reported tests and does not recover the #238 missing dataset. Compare current `main` → PR head: **diverged, 7 ahead / 221 behind**, merge base `dad49ccbd6e69a02c6bb5c248657d6e12a421fe3`. PR body reports 7/7 Windows unit tests but historical CI is inconclusive/blocked and no real export occurred. **Disposition: KEEP AS A UNIQUE DATA-RECOVERY TOOL CANDIDATE; do not merge as-is or claim dataset recovery.** Rebase and exact-head tests required.
 - #294 and #290 are closed/unmerged aggregate-profit-close feature candidates. #293 is merged but is explicitly titled a revert restoring main before the aggregate-profit-close feature; its changed paths are the migration and tests. Therefore these PRs do not establish that aggregate-profit-close is currently active on main. Do not treat the old candidate as implemented or reopen it without a fresh requirement and full schema/risk review.
 - These five PR metadata/path lists and two full patch sets were reviewed in this pass. No PR state or branch changed, no code was merged, no exporter was run, and no data/model/DB/broker action occurred.
+
+
+## WO-2026-11-24-004 — live inventory refresh (2026-11-24T17:52Z)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Before SHA: `9b03eaac5d6a3c20a7192cdf375d2446407f6a30` (verified live before this documentation-only operation).
+- Inventory evidence: recursive tree 489 entries / 374 blobs, `truncated=false`; 331 unique branches across 5 cursor pages; 375 PR records from REST pagination (242 open, 133 closed).
+- Updated `docs/governance/WO-004-MIGRATION-MANIFEST.md` with current snapshot and PR overlap findings for #395–#400, including #400's duplicate test function defect and #397/#399 workflow-path overlap.
+- Key evidence: #396 exact-head CI reported PASS but owner-vs-foreign-tenant Demo E2E remains absent; #398 Compose-specific validation passed but overall SMC CI remains failed on two failures also observed on main; #397 exact-head CI pending.
+- After SHA for manifest update: `bcab510b08361409a570480a323e88a74d52595c`.
+- No source/runtime/data/model/test/migration/workflow file moved or edited; only governance documentation changed. No PR state, branch, deployment, database, secret, permission or broker state changed.
+- Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS; Phase 3 PRELIMINARY/BLOCKED (zero moves approved).
+- Next: reconcile overlapping PRs #397/#399/#400/#395; finish per-PR path coverage and dependency/caller/workflow mapping before revising the zero-move manifest.
