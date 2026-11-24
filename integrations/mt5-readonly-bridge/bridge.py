@@ -83,15 +83,26 @@ def initialize_mt5() -> None:
         raise HTTPException(status_code=503, detail=f"MT5 initialize failed: {error[0]}")
 
 
-def get_terminal_and_account() -> tuple[Any, Any]:
-    with LOCK:
+def ensure_connection() -> tuple[Any, Any]:
+    """Reuse a healthy MT5 session; reinitialize once only when disconnected."""
+    terminal = mt5.terminal_info()
+    account = mt5.account_info()
+    if terminal is None or not bool(getattr(terminal, "connected", False)) or account is None:
         initialize_mt5()
         terminal = mt5.terminal_info()
         account = mt5.account_info()
-        if terminal is None:
-            raise HTTPException(status_code=503, detail="MT5 terminal status unavailable")
-        if account is None:
-            raise HTTPException(status_code=503, detail="No MT5 account session detected")
+    if terminal is None or not bool(getattr(terminal, "connected", False)):
+        raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
+    if account is None:
+        error = mt5.last_error()
+        code = error[0] if error else "unknown"
+        raise HTTPException(status_code=503, detail=f"MT5 account unavailable: {code}")
+    return terminal, account
+
+
+def get_terminal_and_account() -> tuple[Any, Any]:
+    with LOCK:
+        terminal, account = ensure_connection()
 
         # Restrict this tenant-bound terminal to Exness Demo only.
         trade_mode = getattr(account, "trade_mode", None)
