@@ -4,9 +4,9 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 for folder in ("backtest","risk","data-ingestion"):
     sys.path.insert(0,str(ROOT/"workers"/folder))
-from engine_prototype import BacktestWorker, BacktestInputError
+from engine import BacktestWorker, BacktestInputError
 from manager_prototype import RiskWorker
-from main_prototype import fetch_ohlcv
+from main_prototype import fetch_ohlcv\nfrom workers.tuning.engine import TuningWorker
 
 def candles():
     closes=[100+i*0.8 for i in range(35)]+[128-i*0.9 for i in range(35)]
@@ -24,6 +24,19 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(a,worker.run({"fast_period":3,"slow_period":8},candles()))
         self.assertGreater(a["total_trades"],0)
         self.assertFalse(a["execution_enabled"])
+    def test_backtest_rejects_non_finite_ohlcv(self):
+        bad=candles()
+        bad[10]["close"]=float("nan")
+        with self.assertRaises(BacktestInputError): BacktestWorker().run({"fast_period":3,"slow_period":8},bad)
+    def test_tuner_uses_real_backtest_callback_and_is_deterministic(self):
+        worker=BacktestWorker(fee=0,slippage=0)
+        tuner=TuningWorker(max_trials=5)
+        a=tuner.tune(candles(),worker.run)
+        self.assertEqual(a,tuner.tune(candles(),worker.run))
+        self.assertEqual(a["source"],"historical_ohlcv")
+        self.assertFalse(a["execution_enabled"])
+    def test_tuner_rejects_empty_data(self):
+        with self.assertRaises(ValueError): TuningWorker().tune([],lambda *_: {})
     def test_backtest_rejects_short_input(self):
         with self.assertRaises(BacktestInputError): BacktestWorker().run({},candles()[:5])
     def test_risk_rejects_overallocation(self):
