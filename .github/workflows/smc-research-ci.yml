@@ -68,6 +68,8 @@ jobs:
         run: python -m py_compile workers/feature/smc_wave/smc_strategy.py
       - name: Run focused SMC tests
         run: python -m unittest discover -s tests -p "test_smc_strategy.py" -v
+      - name: Run deterministic backtest and tuning regression tests
+        run: python -m unittest discover -s tests -p "test_workers.py" -v
       - name: Run pytest regression suite
         run: python -m pytest tests/test_smc_pytest.py tests/test_telegram_alerts.py tests/test_runtime_api.py tests/test_research_pipeline.py -q
       - name: Run Cloudflare Worker SMC classification tests
