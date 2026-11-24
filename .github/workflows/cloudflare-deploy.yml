@@ -233,6 +233,17 @@ jobs:
             echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
             exit 1
           fi
+
+          if [ -n "$DATACENTER_MCP_URL" ]; then
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":10,"method":"tools/list"}' "$DATACENTER_MCP_URL" || true)"
+            if [ "$code" != "401" ]; then
+              echo "Configured Datacenter endpoint did not enforce authentication (HTTP $code)."
+              exit 1
+            fi
+            echo "Configured Datacenter MCP endpoint is reachable and rejects unauthenticated requests."
+          else
+            echo "Datacenter host is not provisioned; authenticated Learning integration smoke test is deferred."
+          fi
           if [ "$FRONTEND_DEPLOYED" = "true" ]; then
             ui="https://voom-system-nova-ui.suwapat787.workers.dev"
             for path in / /login /command-center /settings/broker; do
