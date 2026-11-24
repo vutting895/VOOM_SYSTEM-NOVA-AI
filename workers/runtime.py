@@ -107,10 +107,8 @@ def walk_forward(payload: WalkForwardRequest) -> dict[str, Any]:
 @app.post("/v1/risk/approval")
 def risk_approval(payload: RiskApprovalRequest,
                   authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    if os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true":
-        raise HTTPException(status_code=503, detail="approval_workflow_disabled")
-    # This gate only creates an authenticated draft-review request. Approval never
-    # authorizes broker writes; execution must remain separately disabled.
+    # Evaluate the deterministic risk gate before checking optional approval-service
+    # availability: an over-limit proposal must always receive its risk rejection.
     risk = RiskWorker().check(allocation_pct=payload.allocation_pct,
         daily_loss_pct=payload.daily_loss_pct, drawdown_pct=payload.drawdown_pct,
         leverage=payload.leverage, data_age_seconds=payload.data_age_seconds,
@@ -118,11 +116,18 @@ def risk_approval(payload: RiskApprovalRequest,
     if not risk["passed"]:
         return {"ok": False, "risk": risk, "approval_created": False,
                 "status": "rejected_by_risk", "live_execution_allowed": False}
+
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="authenticated_user_token_required")
     access_token = authorization[7:].strip()
     if not access_token:
         raise HTTPException(status_code=401, detail="authenticated_user_token_required")
+
+    # Approval creation remains independently disabled by default. Even an
+    # authenticated, risk-passing request cannot create a draft until enabled.
+    if os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true":
+        raise HTTPException(status_code=503, detail="approval_workflow_disabled")
+
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
     publishable_key = (os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or
                        os.getenv("SUPABASE_ANON_KEY", ""))
