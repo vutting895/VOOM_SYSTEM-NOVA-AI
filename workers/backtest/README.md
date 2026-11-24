@@ -6,6 +6,10 @@ Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`. It r
 
 Metrics are historical bar-close simulation results, not forecasts. Confirm candle source, timezone, gaps, exchange-specific fees, funding, spread, instrument sizing, and execution assumptions before using results in decisions. This EMA engine is not a tick-accurate MT5 simulator.
 
+## Leakage-safe EMA walk-forward evaluation
+
+`workers/backtest/ema_walk_forward.py` tunes each expanding fold only on its earlier training slice, excludes the explicit purge gap from tuning, uses a bounded pre-test warmup for EMA state, and evaluates entries/exits only in the subsequent held-out window. Each fold records training/test dataset hashes, selected parameters, OOS metrics and trade ledger. The evaluator reports a configurable OOS trade-count gate but does not claim a final performance pass. Reserve the final untouched OOS period separately; never include it in these tuning folds.
+
 ## Deterministic optimization
 
 Canonical tuner: `workers/tuning/engine.py`. It evaluates a bounded deterministic parameter grid by calling a real backtest function against validated historical OHLCV. It rejects missing data, invalid objectives, and non-finite scores; it does not generate synthetic scores. `optuna_tuner_prototype.py` remains only as a backward-compatible import shim.
