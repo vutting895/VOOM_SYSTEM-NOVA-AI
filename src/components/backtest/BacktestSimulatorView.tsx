@@ -1,523 +1,353 @@
-import React, { useState, useEffect } from 'react';
-import { novaApi } from '../../api/apiClient';
-import { BacktestParams, BacktestResult, EquityDataPoint } from '../../api/types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Play, RefreshCw, Database, History, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import ReadonlySafetyBadge from '../common/ReadonlySafetyBadge';
 import { LoadingSpinner, ErrorView } from '../common/StateViews';
 import {
-  Play,
-  RotateCcw,
-  BarChart2,
-  TrendingUp,
-  Percent,
-  ShieldCheck,
-  Calendar,
-  Layers,
-  ArrowUpRight,
-  ArrowDownRight,
-  AlertCircle,
-  CheckCircle2,
-  Sliders,
-} from 'lucide-react';
+  datacenterResearchService,
+  type DatacenterDataset,
+  type ResearchRun,
+} from '../../services/datacenterResearchService';
+
+type RunMode = 'backtest' | 'walk_forward';
+
+const FORBIDDEN_SIGNAL_TOKENS = ['future', 'forward', 'next_', 'lead_', 'target', 'label', 't_plus'];
 
 export default function BacktestSimulatorView() {
-  const [params, setParams] = useState<BacktestParams>({
-    strategyId: 'smc-mean-rejection',
-    symbol: 'XAU/USDm',
-    timeframe: '15m',
-    historicalPeriod: '1Y',
-    initialBalance: 10000,
-    riskPerTradePct: 1.0,
-  });
-
-  const [loading, setLoading] = useState<boolean>(false);
+  const [datasets, setDatasets] = useState<DatacenterDataset[]>([]);
+  const [runs, setRuns] = useState<ResearchRun[]>([]);
+  const [datasetId, setDatasetId] = useState('');
+  const [signalColumn, setSignalColumn] = useState('');
+  const [mode, setMode] = useState<RunMode>('backtest');
+  const [initialBalance, setInitialBalance] = useState(10000);
+  const [exposurePct, setExposurePct] = useState(10);
+  const [commissionBps, setCommissionBps] = useState(2);
+  const [spreadBps, setSpreadBps] = useState(1);
+  const [slippageBps, setSlippageBps] = useState(1);
+  const [maxHoldingBars, setMaxHoldingBars] = useState(100);
+  const [trainWindowBars, setTrainWindowBars] = useState(200);
+  const [testWindowBars, setTestWindowBars] = useState(50);
+  const [purgeGapBars, setPurgeGapBars] = useState(1);
+  const [allowShort, setAllowShort] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BacktestResult | null>(null);
-  const [autoOptimization, setAutoOptimization] = useState<boolean>(false);
+  const [selectedRun, setSelectedRun] = useState<ResearchRun | null>(null);
 
-  const runSimulation = async () => {
+  const selectedDataset = datasets.find((dataset) => dataset.dataset_id === datasetId) || null;
+  const signalColumns = useMemo(() => {
+    const schema = selectedDataset?.manifest.schema || {};
+    return Object.entries(schema)
+      .filter(([name]) => !FORBIDDEN_SIGNAL_TOKENS.some((token) => name.toLowerCase().includes(token)))
+      .filter(([name]) => !['timestamp', 'open', 'high', 'low', 'close', 'volume'].includes(name.toLowerCase()))
+      .map(([name]) => name);
+  }, [selectedDataset]);
+
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await novaApi.runBacktest(params);
-      setResult(res);
+      const [availableDatasets, history] = await Promise.all([
+        datacenterResearchService.listDatasets(),
+        datacenterResearchService.listResearchRuns(),
+      ]);
+      setDatasets(availableDatasets);
+      setRuns(history);
+      setDatasetId((current) => current && availableDatasets.some((item) => item.dataset_id === current)
+        ? current : availableDatasets[0]?.dataset_id || '');
+      if (!history.length) setSelectedRun(null);
     } catch (err: any) {
-      setError(err?.message || 'Backtest simulation failed');
+      setError(err?.message || 'Unable to load Datacenter research data');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    runSimulation();
+    void loadData();
   }, []);
 
-  const STRATEGIES = [
-    { id: 'smc-mean-rejection', name: 'SMC Mean Rejection & 4H Order Block' },
-    { id: 'momentum-bos-ob', name: 'Momentum Break of Structure (BOS) & Sweep' },
-    { id: 'elliott-wave-impulse', name: 'Elliott Wave 3 Impulse & Fib Extension' },
-    { id: 'xgboost-volatility', name: 'XGBoost Multi-Factor Volatility Breakout' },
-  ];
+  useEffect(() => {
+    if (!signalColumns.includes(signalColumn)) setSignalColumn('');
+  }, [datasetId, signalColumns, signalColumn]);
 
-  const SYMBOLS = ['XAU/USDm', 'BTC/USDm', 'EUR/USDm', 'GBP/USDm', 'ETH/USDm'];
-  const TIMEFRAMES: BacktestParams['timeframe'][] = ['5m', '15m', '1h', '4h', '1D'];
-  const PERIODS: BacktestParams['historicalPeriod'][] = ['3M', '6M', '1Y', '2Y', 'All'];
+  const runResearch = async () => {
+    if (!selectedDataset || !signalColumn) {
+      setError('Select an approved Dataset and an explicit signal column before running research.');
+      return;
+    }
+    try {
+      setRunning(true);
+      setError(null);
+      const shared = {
+        dataset_id: selectedDataset.dataset_id,
+        dataset_version: selectedDataset.version,
+        signal_column: signalColumn,
+        initial_balance: initialBalance,
+        exposure_fraction: exposurePct / 100,
+        commission_bps: commissionBps,
+        spread_bps: spreadBps,
+        slippage_bps: slippageBps,
+        max_holding_bars: maxHoldingBars,
+        allow_short: allowShort,
+      };
+      const run = mode === 'backtest'
+        ? await datacenterResearchService.runBacktest(shared)
+        : await datacenterResearchService.runWalkForward({
+            ...shared,
+            train_window_bars: trainWindowBars,
+            test_window_bars: testWindowBars,
+            step_bars: testWindowBars,
+            purge_gap_bars: purgeGapBars,
+          });
+      setSelectedRun(run);
+      const history = await datacenterResearchService.listResearchRuns();
+      setRuns(history);
+    } catch (err: any) {
+      setError(err?.message || 'Datacenter research run failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  if (loading) return <div className="space-y-6"><ReadonlySafetyBadge /><LoadingSpinner label="Loading approved Datacenter datasets and research history..." /></div>;
+  if (error && !datasets.length) return <div className="space-y-6"><ReadonlySafetyBadge /><ErrorView error={error} onRetry={loadData} /></div>;
+
+  const result = selectedRun?.result || null;
+  const backtestTrades = Array.isArray(result?.trades) ? result.trades : [];
+  const folds = Array.isArray(result?.folds) ? result.folds : [];
 
   return (
     <div className="space-y-6 text-slate-100">
-      {/* 1. Safety Status Banner */}
       <ReadonlySafetyBadge />
 
-      {/* 2. Top Controls & Strategy Selection Bar */}
-      <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <BarChart2 className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-base font-bold text-white tracking-wide">
-                Historical Backtest & Strategy Testing Simulator
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              ทดสอบกลยุทธ์ย้อนหลังบนข้อมูลจริงของ Exness Demo พร้อมการตรวจสอบ Out-of-Sample เพื่อป้องกัน Overfitting
+            <h2 className="flex items-center gap-2 text-base font-bold text-white">
+              <Database className="h-5 w-5 text-cyan-400" />
+              Datacenter Research Runtime
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">
+              ใช้เฉพาะ Dataset ที่ผ่าน Quality Gate และได้รับอนุมัติแล้ว ไม่มีการส่งคำสั่งซื้อขาย
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={runSimulation}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
-          >
-            <Play className="w-4 h-4 fill-current" />
-            {loading ? 'กำลังรันแบบจำลอง...' : 'รันแบบจำลอง (Run Backtest)'}
+          <button type="button" onClick={loadData} disabled={loading || running}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-cyan-500 disabled:opacity-50">
+            <RefreshCw className="h-4 w-4" /> Refresh
           </button>
         </div>
 
-        {/* Parameter Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 pt-4 text-xs font-mono">
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">กลยุทธ์ (Strategy)</label>
-            <select
-              value={params.strategyId}
-              onChange={(e) => setParams({ ...params, strategyId: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            >
-              {STRATEGIES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+        {datasets.length === 0 ? (
+          <div className="rounded-xl border border-amber-700/50 bg-amber-950/20 p-4 text-sm text-amber-200">
+            No approved Dataset is available. Collect and validate market data, then explicitly approve its exact version in Datacenter before backtesting.
           </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="space-y-1 text-xs text-slate-400">
+              Approved Dataset / Version
+              <select value={datasetId} onChange={(event) => setDatasetId(event.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-slate-100">
+                {datasets.map((dataset) => (
+                  <option key={dataset.dataset_id} value={dataset.dataset_id}>
+                    {dataset.name} · v{dataset.version} · {dataset.manifest.symbols?.join(', ') || 'Unknown symbol'} · {dataset.row_count} rows
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">
+              Explicit Signal Column
+              <select value={signalColumn} onChange={(event) => setSignalColumn(event.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2.5 text-slate-100">
+                <option value="">Select signal column…</option>
+                {signalColumns.map((column) => <option key={column} value={column}>{column}</option>)}
+              </select>
+            </label>
+          </div>
+        )}
 
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">คู่สินทรัพย์ (Symbol)</label>
-            <select
-              value={params.symbol}
-              onChange={(e) => setParams({ ...params, symbol: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            >
-              {SYMBOLS.map((sym) => (
-                <option key={sym} value={sym}>
-                  {sym}
-                </option>
-              ))}
-            </select>
+        {selectedDataset && (
+          <div className="grid grid-cols-2 gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs md:grid-cols-4">
+            <div><span className="block text-slate-500">Timeframe</span><span className="text-slate-200">{selectedDataset.manifest.timeframe || '—'}</span></div>
+            <div><span className="block text-slate-500">Rows</span><span className="text-slate-200">{selectedDataset.row_count.toLocaleString()}</span></div>
+            <div><span className="block text-slate-500">Coverage Start</span><span className="text-slate-200">{selectedDataset.manifest.coverage_start || '—'}</span></div>
+            <div><span className="block text-slate-500">Coverage End</span><span className="text-slate-200">{selectedDataset.manifest.coverage_end || '—'}</span></div>
           </div>
+        )}
 
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">ไทม์เฟรม (Timeframe)</label>
-            <select
-              value={params.timeframe}
-              onChange={(e) => setParams({ ...params, timeframe: e.target.value as any })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            >
-              {TIMEFRAMES.map((tf) => (
-                <option key={tf} value={tf}>
-                  {tf}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">ช่วงเวลาย้อนหลัง (Period)</label>
-            <select
-              value={params.historicalPeriod}
-              onChange={(e) => setParams({ ...params, historicalPeriod: e.target.value as any })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            >
-              {PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">เงินต้นจำลอง ($ Balance)</label>
-            <input
-              type="number"
-              value={params.initialBalance}
-              onChange={(e) => setParams({ ...params, initialBalance: Number(e.target.value) })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-slate-400 text-[11px] block mb-1">ความเสี่ยง/ไม้ (% Risk)</label>
-            <input
-              type="number"
-              step="0.1"
-              value={params.riskPerTradePct}
-              onChange={(e) => setParams({ ...params, riskPerTradePct: Number(e.target.value) })}
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 text-xs focus:border-cyan-500 outline-none"
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={() => setAutoOptimization(!autoOptimization)}
-              className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-xs font-mono font-bold transition-all cursor-pointer ${
-                autoOptimization
-                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200 shadow-[0_0_20px_rgba(34,211,238,0.25)]'
-                  : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-              }`}
-              title="Toggle Auto-Optimization to run Walk-Forward Grid"
-            >
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-cyan-400" />
-                <span>Auto-Optimization</span>
-              </div>
-              <div className={`w-9 h-5 rounded-full transition-colors relative ${autoOptimization ? 'bg-cyan-500' : 'bg-slate-800'}`}>
-                <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-transform ${autoOptimization ? 'translate-x-4 bg-slate-950' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-          </div>
+        <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-3 lg:grid-cols-6">
+          <label className="space-y-1 text-slate-400">Initial Balance
+            <input type="number" min="1" max="1000000000000" value={initialBalance} onChange={(e) => setInitialBalance(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
+          <label className="space-y-1 text-slate-400">Exposure (%)
+            <input type="number" min="0.1" max="100" step="0.1" value={exposurePct} onChange={(e) => setExposurePct(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
+          <label className="space-y-1 text-slate-400">Commission (bps)
+            <input type="number" min="0" max="500" value={commissionBps} onChange={(e) => setCommissionBps(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
+          <label className="space-y-1 text-slate-400">Spread (bps)
+            <input type="number" min="0" max="500" value={spreadBps} onChange={(e) => setSpreadBps(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
+          <label className="space-y-1 text-slate-400">Slippage (bps)
+            <input type="number" min="0" max="500" value={slippageBps} onChange={(e) => setSlippageBps(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
+          <label className="space-y-1 text-slate-400">Max Holding Bars
+            <input type="number" min="1" max="100000" value={maxHoldingBars} onChange={(e) => setMaxHoldingBars(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100" />
+          </label>
         </div>
-      </div>
 
-      {loading && <LoadingSpinner label="กำลังจำลองผลการเทรดและคำนวณ Equity Curve ย้อนหลัง..." />}
-      {error && <ErrorView error={error} onRetry={runSimulation} />}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <label className="flex items-center gap-2 text-slate-300">
+              <input type="radio" checked={mode === 'backtest'} onChange={() => setMode('backtest')} />
+              Signal Backtest
+            </label>
+            <label className="flex items-center gap-2 text-slate-300">
+              <input type="radio" checked={mode === 'walk_forward'} onChange={() => setMode('walk_forward')} />
+              Walk-forward Replay
+            </label>
+            <label className="flex items-center gap-2 text-slate-300">
+              <input type="checkbox" checked={allowShort} onChange={(e) => setAllowShort(e.target.checked)} />
+              Allow Short
+            </label>
+          </div>
+          <button type="button" onClick={runResearch} disabled={running || !selectedDataset || !signalColumn}
+            className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">
+            <Play className="h-4 w-4" /> {running ? 'Running…' : 'Run Research'}
+          </button>
+        </div>
 
-      {result && !loading && (
-        <>
-          {/* Data Notice Banner */}
-          <div className="p-3 bg-slate-900/90 border border-slate-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400">
-            <span className="text-emerald-400 flex items-center gap-1.5 font-semibold">
-              <ShieldCheck className="w-4 h-4" />
-              SIMULATED HISTORICAL BACKTEST · NO REAL MONEY AT RISK · READ-ONLY RESEARCH
+        {mode === 'walk_forward' && (
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs md:grid-cols-3">
+            <label className="space-y-1 text-slate-400">Context Window (bars)
+              <input type="number" min="30" value={trainWindowBars} onChange={(e) => setTrainWindowBars(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-100" />
+            </label>
+            <label className="space-y-1 text-slate-400">OOS Test Window (bars)
+              <input type="number" min="3" value={testWindowBars} onChange={(e) => setTestWindowBars(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-100" />
+            </label>
+            <label className="space-y-1 text-slate-400">Purge Gap (bars)
+              <input type="number" min="0" value={purgeGapBars} onChange={(e) => setPurgeGapBars(Number(e.target.value))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-slate-100" />
+            </label>
+            <p className="md:col-span-3 text-amber-300">
+              Evaluation-only: each fold replays precomputed signals. This does not retrain or refit a model in each fold.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {error && <ErrorView error={error} onRetry={loadData} />}
+      {running && <LoadingSpinner label="Running Datacenter research replay..." />}
+
+      {result && !running && (
+        <section className="space-y-4 rounded-2xl border border-slate-800 bg-[#0D111A] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-white">Research Result</h3>
+              <p className="text-xs text-slate-500">Run ID: {selectedRun?.run_id}</p>
+            </div>
+            <span className="rounded-lg border border-emerald-700/50 bg-emerald-950/20 px-3 py-1 text-xs text-emerald-300">
+              {selectedRun?.run_type} · {selectedRun?.status}
             </span>
-            <span className="text-slate-500 text-[11px]">{result.dataNotice}</span>
           </div>
 
-          {/* 3. KPI Metrics Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Final Balance</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-emerald-400">
-                ${result.finalBalance.toLocaleString()}
-              </span>
-              <span className="text-[11px] text-emerald-400/80 block mt-0.5">
-                +{result.netProfitPct}% (${result.netProfit.toLocaleString()})
-              </span>
-            </div>
-
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Profit Factor</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-cyan-400">
-                {result.profitFactor}
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5"> Gross Win/Loss Ratio </span>
-            </div>
-
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Win Rate</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-indigo-300">
-                {result.winRatePct}%
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                {result.winningTrades} ชนะ / {result.losingTrades} แพ้
-              </span>
-            </div>
-
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Max Drawdown</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-rose-400">
-                {result.maxDrawdownPct}%
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5"> อยู่ในเกณฑ์ Hard Rule (&lt;5%) </span>
-            </div>
-
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Sharpe Ratio</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-amber-400">
-                {result.sharpeRatio}
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5"> Risk-Adjusted Return </span>
-            </div>
-
-            <div className="bg-[#0D111A] border border-slate-800 p-4 rounded-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block">Total Trades</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-slate-200">
-                {result.totalTrades}
-              </span>
-              <span className="text-[11px] text-slate-400 block mt-0.5"> เฉลี่ย {result.avgTradeDuration} </span>
-            </div>
-          </div>
-
-          {/* Multi-Parameter Walk-Forward Validation Grid */}
-          {autoOptimization && (
-            <div className="bg-[#0D111A] border border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-fadeIn">
-              <div className="flex flex-wrap items-center justify-between pb-3 border-b border-cyan-500/20 gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-cyan-400" />
-                    Multi-Parameter Walk-Forward Validation Grid
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    จำลองระบบ Auto Optimization แบบ Walk-Forward Grid เพื่อค้นหาพารามิเตอร์ที่เสถียรที่สุดในสภาวะตลาดจริง
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-xs font-mono">
-                  <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-bold">
-                    WFE Score: 88.4% (Passed)
-                  </span>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold">
-                    Best: Iter #2 (PF 2.45)
-                  </span>
-                </div>
-              </div>
-
-              {/* 12-Iteration Parameter Matrix Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {selectedRun?.run_type === 'backtest' ? (
+            <>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 {[
-                  { iter: 1, ob: 20, rr: '1:2.5', atr: 1.5, pf: 2.14, wr: 64.2, sharpe: 2.31, status: 'PASSED', color: 'emerald' },
-                  { iter: 2, ob: 30, rr: '1:3.0', atr: 2.0, pf: 2.45, wr: 68.5, sharpe: 2.68, status: 'OPTIMAL', color: 'cyan' },
-                  { iter: 3, ob: 40, rr: '1:3.5', atr: 2.5, pf: 1.82, wr: 58.1, sharpe: 1.94, status: 'PASSED', color: 'emerald' },
-                  { iter: 4, ob: 50, rr: '1:4.0', atr: 3.0, pf: 1.28, wr: 46.2, sharpe: 1.15, status: 'OVERFITTED', color: 'rose' },
-                  { iter: 5, ob: 25, rr: '1:2.8', atr: 1.8, pf: 2.28, wr: 66.0, sharpe: 2.48, status: 'OPTIMAL', color: 'cyan' },
-                  { iter: 6, ob: 35, rr: '1:3.2', atr: 2.2, pf: 1.95, wr: 60.4, sharpe: 2.10, status: 'PASSED', color: 'emerald' },
-                  { iter: 7, ob: 45, rr: '1:3.8', atr: 2.7, pf: 1.45, wr: 51.0, sharpe: 1.40, status: 'PASSED', color: 'emerald' },
-                  { iter: 8, ob: 60, rr: '1:4.5', atr: 3.2, pf: 1.10, wr: 41.5, sharpe: 0.92, status: 'OVERFITTED', color: 'rose' },
-                ].map((item) => (
-                  <div
-                    key={item.iter}
-                    className={`p-3.5 rounded-xl bg-slate-950/80 border text-xs font-mono space-y-1.5 transition-all ${
-                      item.status === 'OPTIMAL'
-                        ? 'border-cyan-400/50 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                        : item.status === 'OVERFITTED'
-                        ? 'border-rose-500/30 opacity-70'
-                        : 'border-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold text-slate-300">Iter #{item.iter}</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold ${
-                          item.status === 'OPTIMAL'
-                            ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
-                            : item.status === 'PASSED'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                    </div>
-
-                    <div className="text-[10px] text-slate-400 leading-tight">
-                      OB: {item.ob}b | R:R: {item.rr} | ATR: {item.atr}x
-                    </div>
-
-                    <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between font-bold">
-                      <span className="text-emerald-400">PF {item.pf}</span>
-                      <span className="text-indigo-300">{item.wr}% WR</span>
-                      <span className="text-amber-400">S {item.sharpe}</span>
-                    </div>
+                  ['Net PnL', result.net_profit],
+                  ['Return (%)', result.net_return_pct],
+                  ['Max Drawdown (%)', result.max_drawdown_pct],
+                  ['Profit Factor', result.profit_factor ?? 'N/A'],
+                  ['Trades', result.total_trades],
+                  ['Win Rate (%)', result.win_rate_pct],
+                  ['Final Balance', result.final_balance],
+                  ['Dataset Version', `v${selectedRun.dataset_version}`],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+                    <span className="block text-[10px] uppercase text-slate-500">{label}</span>
+                    <span className="mt-1 block text-base font-bold text-slate-100">{typeof value === 'number' ? value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : value}</span>
                   </div>
                 ))}
               </div>
-            </div>
+              <div className="overflow-x-auto">
+                <h4 className="mb-2 text-xs font-semibold text-slate-300">Recent Trades</h4>
+                <table className="w-full min-w-[650px] text-left text-xs">
+                  <thead className="text-slate-500"><tr><th className="p-2">Side</th><th className="p-2">Entry</th><th className="p-2">Exit</th><th className="p-2">Net PnL</th><th className="p-2">Exit Reason</th></tr></thead>
+                  <tbody>{backtestTrades.slice(-20).reverse().map((trade: any, index: number) => (
+                    <tr key={index} className="border-t border-slate-800 text-slate-300">
+                      <td className="p-2">{trade.side}</td><td className="p-2">{trade.entry_price}</td><td className="p-2">{trade.exit_price}</td><td className="p-2">{Number(trade.net_pnl).toFixed(3)}</td><td className="p-2">{trade.exit_reason}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  ['OOS Folds', result.fold_count],
+                  ['OOS Trades', result.total_oos_trades],
+                  ['Mean Fold Return (%)', result.mean_fold_return_pct],
+                  ['Median Fold Return (%)', result.median_fold_return_pct],
+                  ['Positive Folds', result.positive_folds],
+                  ['Aggregate Trade PF', result.aggregate_trade_profit_factor ?? 'N/A'],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+                    <span className="block text-[10px] uppercase text-slate-500">{label}</span>
+                    <span className="mt-1 block text-base font-bold text-slate-100">{typeof value === 'number' ? value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-slate-300">Out-of-Sample Folds</h4>
+                {folds.map((fold: any) => (
+                  <div key={fold.fold} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
+                    <span className="text-slate-300">Fold {fold.fold} · {fold.test_start_timestamp} → {fold.test_end_timestamp}</span>
+                    <span className="text-slate-400">{fold.result.total_trades} trades · {Number(fold.result.net_return_pct).toFixed(3)}% return</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
-          {/* 4. Equity Curve Interactive SVG Visualizer */}
-          <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-emerald-400" />
-                  Equity Curve & Drawdown Performance (เส้นการเติบโตของพอร์ต)
-                </h3>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  Strategy: {result.strategyName} ({result.symbol})
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4 text-xs font-mono">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 bg-cyan-400 rounded-full" />
-                  <span className="text-slate-300">NOVA Strategy Equity</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 bg-slate-600 rounded-full stroke-dasharray" />
-                  <span className="text-slate-500">Benchmark</span>
-                </div>
-              </div>
-            </div>
-
-            {/* SVG Chart */}
-            <div className="relative w-full h-[260px] overflow-hidden select-none">
-              <svg viewBox="0 0 800 240" className="w-full h-full">
-                <defs>
-                  <linearGradient id="equityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Grid */}
-                {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
-                  const y = 200 * pct + 20;
-                  return (
-                    <line key={idx} x1="0" y1={y} x2="800" y2={y} stroke="#1e293b" strokeDasharray="3 3" />
-                  );
-                })}
-
-                {/* Path calculation */}
-                {(() => {
-                  const points = result.equityCurve;
-                  if (!points || points.length === 0) return null;
-                  const minEq = Math.min(...points.map((p) => p.equity)) * 0.98;
-                  const maxEq = Math.max(...points.map((p) => p.equity)) * 1.02;
-                  const range = maxEq - minEq || 1;
-
-                  const getSvgY = (val: number) => 210 - ((val - minEq) / range) * 190;
-                  const getSvgX = (i: number) => (i / (points.length - 1)) * 780 + 10;
-
-                  const lineD = points.reduce((acc, p, idx) => {
-                    const x = getSvgX(idx);
-                    const y = getSvgY(p.equity);
-                    return `${acc} ${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-                  }, '');
-
-                  const areaD = `${lineD} L ${getSvgX(points.length - 1)} 220 L ${getSvgX(0)} 220 Z`;
-
-                  const benchD = points.reduce((acc, p, idx) => {
-                    const x = getSvgX(idx);
-                    const y = getSvgY(p.benchmarkEquity);
-                    return `${acc} ${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-                  }, '');
-
-                  return (
-                    <>
-                      <path d={areaD} fill="url(#equityGrad)" />
-                      <path d={benchD} fill="none" stroke="#64748b" strokeWidth="1.5" strokeDasharray="4 4" />
-                      <path d={lineD} fill="none" stroke="#22d3ee" strokeWidth="2.5" />
-
-                      {/* Endpoint Dot */}
-                      <circle
-                        cx={getSvgX(points.length - 1)}
-                        cy={getSvgY(points[points.length - 1].equity)}
-                        r="4"
-                        fill="#22d3ee"
-                        className="animate-ping"
-                      />
-                      <circle
-                        cx={getSvgX(points.length - 1)}
-                        cy={getSvgY(points[points.length - 1].equity)}
-                        r="4"
-                        fill="#22d3ee"
-                      />
-                    </>
-                  );
-                })()}
-              </svg>
-            </div>
-          </div>
-
-          {/* 5. In-Sample vs. Out-of-Sample Results (Overfitting Check) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
-                  In-Sample Training Split ({result.inSampleResults.datasetPct}%)
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
-                  Optimization Window
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-4 text-center font-mono text-xs">
-                <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">WIN RATE</span>
-                  <span className="text-emerald-400 font-bold">{result.inSampleResults.winRatePct}%</span>
-                </div>
-                <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">PROFIT FACTOR</span>
-                  <span className="text-cyan-400 font-bold">{result.inSampleResults.profitFactor}</span>
-                </div>
-                <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">MAX DRAWDOWN</span>
-                  <span className="text-rose-400 font-bold">{result.inSampleResults.maxDrawdownPct}%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-[#0D111A] to-emerald-950/20 border border-emerald-500/30 rounded-2xl p-5">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Out-of-Sample Validation ({result.outOfSampleResults.datasetPct}%)
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-                  Score {result.outOfSampleResults.generalizationScorePct}%
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-4 text-center font-mono text-xs">
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">WIN RATE</span>
-                  <span className="text-emerald-400 font-bold">{result.outOfSampleResults.winRatePct}%</span>
-                </div>
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">PROFIT FACTOR</span>
-                  <span className="text-cyan-400 font-bold">{result.outOfSampleResults.profitFactor}</span>
-                </div>
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-500 block">MAX DRAWDOWN</span>
-                  <span className="text-rose-400 font-bold">{result.outOfSampleResults.maxDrawdownPct}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 6. Recent Historical Simulated Trades */}
-          <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono mb-4">
-              Historical Simulated Execution Log (บันทึกออเดอร์จำลอง)
-            </h3>
-            <div className="divide-y divide-slate-800/80">
-              {result.recentTrades.map((tr) => (
-                <div key={tr.id} className="py-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                  <div className="flex items-center gap-3">
-                    <span className="text-slate-500 text-[11px]">{tr.timestamp}</span>
-                    <span className="px-2 py-0.5 rounded bg-slate-800 font-bold text-slate-200">{tr.symbol}</span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">{tr.side}</span>
-                    <span className="text-slate-300">{tr.reason}</span>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <span className="text-slate-400">Hold: {tr.holdTime}</span>
-                    <span className={`font-bold ${tr.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {tr.pnl >= 0 ? '+' : ''}${tr.pnl} ({tr.returnPct >= 0 ? '+' : ''}{tr.returnPct}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
+          <p className="flex items-start gap-2 border-t border-slate-800 pt-3 text-[11px] text-amber-300">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+            Research-only. No broker orders. Signal provenance and point-in-time correctness must be independently verified.
+          </p>
+        </section>
       )}
+
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5">
+        <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-white">
+          <History className="h-4 w-4 text-cyan-400" /> Datacenter Research History
+        </h3>
+        {runs.length === 0 ? (
+          <p className="text-xs text-slate-500">No persisted research runs yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {runs.slice(0, 20).map((run) => (
+              <button key={run.run_id} type="button" onClick={() => setSelectedRun(run)}
+                className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-left text-xs hover:border-cyan-700">
+                <span className="text-slate-300">{run.run_type} · {run.dataset_id.slice(0, 8)} · v{run.dataset_version}</span>
+                <span className="text-slate-500">{new Date(run.created_at).toLocaleString()}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="flex items-center gap-2 text-[11px] text-slate-500">
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Cost model includes commission, half-spread, and slippage. No funding/swap, partial fills, intrabar execution, or multi-position portfolio model.
+      </div>
     </div>
   );
 }
