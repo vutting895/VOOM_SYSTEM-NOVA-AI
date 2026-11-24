@@ -92,6 +92,18 @@ The NOVA Command Center client documentation currently describes a different set
 
 These are blocking findings, not implementation suggestions. No secret values were retrieved or copied into this document.
 
+### Confirmed Supabase / Hub schema mismatch
+
+A read-only database inspection confirmed a concrete integration defect:
+
+- The production `voom-system-hub` plain-text `SUPABASE_URL` binding points to `rovhmjeowracayicbqij`.
+- In that project, `public.broker_connections` does not exist; `nova.mt5_broker_connections` does exist. The same project also contains `nova.approvals` and `nova.audit_events`.
+- The current `integrations/system-hub/worker.js` connection helper builds `/rest/v1/broker_connections`, which targets the `public` schema. Therefore its current connection-list/create path is inconsistent with the observed production database schema unless an alternate runtime path or view exists (none was established in this inspection).
+- The separate `tlyyxufuiimrbaksoitf` project does contain `public.broker_connections`, but it does not contain the `nova.approvals` or `nova.audit_events` tables. Switching the whole Hub to that project would split NOVA state and is not an acceptable unreviewed workaround.
+- The production Hub `ALLOWED_ORIGINS` binding currently lists the NOVA Netlify origin and legacy Cloudflare UI fallback, not `https://voom-ai.netlify.app`. VOOM AI PR #6 uses a same-origin Netlify Edge proxy, so test that exact proxy path before changing CORS; do not broaden CORS without need.
+
+**Required fix path:** keep the intended canonical project unchanged for now; inspect the applied `nova.mt5_broker_connections` migration, confirm whether the `nova` schema is exposed to PostgREST, then update the Hub to use an explicitly approved schema-aware query/view with the existing RLS and owner scope. Add integration tests proving own-row read, cross-user denial, pending insert, and sanitized response. Do not create a duplicate `public.broker_connections` table, switch projects, or apply schema changes until backup/rollback and migration ownership are reviewed.
+
 ### Supabase projects observed
 
 - `rovhmjeowracayicbqij` — ACTIVE_HEALTHY; referenced by the current System Hub and VOOM AI PR #6 as the canonical Hub/Auth project.
