@@ -39,3 +39,10 @@ The current-main Compose file (blob `1a52b30d87cc6614f3115b0875a65f911b83cd89`) 
 
 Operations log: [logs/OPERATIONS.md](../../logs/OPERATIONS.md)
 NOVA Master Tracker: [Issue #36](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/issues/36)
+
+
+## Exact-head GitHub Actions addendum — PR #394
+
+- GitHub Actions run `45447170407` (SMC Research CI, run #590) is attached to exact PR #394 head `08cc8207528012cf0322cb0982d166af4d44894a`.
+- Run conclusion: **SUCCESS**. One job (`smc-tests`) completed successfully. Verified steps include Python dependency setup, SMC module compile, focused SMC tests, pytest regression suite, Cloudflare Worker SMC classification tests, Docker Compose configuration validation, research-worker container build, and frontend container build.
+- This is meaningful exact-head evidence and updates the earlier statement that no exact-head Actions result was verified. It does **not** prove a separate full Remote MCP Node test suite was run: no step is explicitly named as the complete MCP Worker Node test suite. CircleCI status remains error (pipeline 1817), and Vercel context success remains non-production evidence.
