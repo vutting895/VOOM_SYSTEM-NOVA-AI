@@ -51,14 +51,40 @@ Start using the tenant-aware script from the bridge directory:
 
 The script fails closed if the tenant ID or tenant-specific token file is missing or invalid. It binds Uvicorn to `127.0.0.1:8787` and opens an outbound authenticated WSS connection to `https://voom-mt5-bridge-relay.suwapat787.workers.dev`. No custom domain, named Tunnel, or public local port is required. The relay client reconnects with backoff and does not log tokens or account payloads.
 
+
+## NOVA EA telemetry bridge (local POST, cloud GET)
+
+The read-only NOVA EA can send a two-second heartbeat to the loopback-only Python Bridge:
+
+- Local ingest: `POST http://127.0.0.1:8787/api/ea/heartbeat`
+- Cloud read: `GET /api/ea/status` through the authenticated Supabase → proxy → relay path.
+- The local POST accepts only a fixed telemetry schema and requires a separate local token. It is not a broker API.
+- The relay and customer proxy expose only the authenticated GET status route; they do not forward POST requests to MT5.
+- EA status becomes stale after six seconds without a heartbeat.
+- No account number, balance, credentials, position ticket, order payload, or trading instruction is sent by this EA heartbeat.
+
+Provision the local token once from the repository root:
+
+```powershell
+.\tools\windows\provision-nova-ea-bridge-token.ps1
+```
+
+The provisioner writes a random token to MetaTrader Common Files and never prints its value. The bridge launcher reads the same file into its private process environment. The EA reads the token locally from Common Files; it is not embedded in source code.
+
+A source-grounded READ-ONLY copy is provided at `integrations/mt5/Nova_EA_v1.82_READONLY.mq5`. It includes `NOVA_EA_Bridge_v1.82.mqh`, sends heartbeat from OnTimer and OnTick, preserves the last actual tick timestamp during idle periods, and compiles out every broker write call site. It uses isolated Magic values and hard-locks live state off. EA-side model inference, local training, ONNX export, auto-learning and auto-tune are disabled so NOVA Core remains authoritative. Native MetaEditor 5 compile: 0 errors, 3 warnings. The current Windows host has this READ-ONLY build attached to `XAUUSDm,M15`; terminal `terminal_trade_allowed=false`. The local Bridge health is 200 and the authenticated outbound WSS relay is established. The EA heartbeat is not yet accepted: MT5 returns WebRequest error 4014. In MT5, add `http://127.0.0.1:8787` to Tools → Options → Expert Advisors → Allow WebRequest for listed URL. Keep the global Algo Trading control disabled.
+
+A connected status requires all of the following: the local Python Bridge passes tenant-authenticated health; the EA heartbeat is accepted; the outbound WSS relay is active; and the signed-in user's own Supabase connection row is provisioned. Worker health alone is not proof of EA connectivity.
+
+Deployment caveat: the relay source includes authenticated GET `/api/ea/status`, and the Windows WSS session is authenticated. The full customer Supabase-authenticated proxy path has not yet been verified. Do not mark the cloud EA status as connected until the local heartbeat is accepted and the customer proxy route is tested.
+
 ## Endpoints
 
 - `GET /health`
 - `GET /api/account`
 - `GET /api/symbols?q=XAU&limit=100`
-- `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`\n- Candle history starts at MT5 bar position 1; the current forming bar (position 0) is excluded so Quant Core receives completed candles only. The live tick remains a separate field.
 
-Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
+Supported timeframes: M1, M2, M3, M4, M5, M6, M10, M12, M15, M20, M30, H1, H2, H3, H4, H6, H8, H12, D1, W1, MN1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 
 ## Validation before marking a customer connected
 

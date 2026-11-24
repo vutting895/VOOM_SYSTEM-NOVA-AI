@@ -48,7 +48,8 @@ def test_walk_forward_produces_held_out_folds_only():
     assert body["live_trading_enabled"] is False
 
 
-def test_risk_rejection_never_creates_approval():
+def test_risk_rejection_never_creates_approval(monkeypatch):
+    monkeypatch.setenv("NOVA_APPROVALS_ENABLED", "true")
     client = TestClient(app)
     response = client.post("/v1/risk/approval", json={
         "thread_id": "00000000-0000-0000-0000-000000000001",
@@ -61,7 +62,8 @@ def test_risk_rejection_never_creates_approval():
     assert response.json()["approval_created"] is False
 
 
-def test_risk_pass_requires_authenticated_approval_context():
+def test_risk_pass_requires_authenticated_approval_context(monkeypatch):
+    monkeypatch.setenv("NOVA_APPROVALS_ENABLED", "true")
     client = TestClient(app)
     response = client.post("/v1/risk/approval", json={
         "thread_id": "00000000-0000-0000-0000-000000000001",
@@ -70,3 +72,38 @@ def test_risk_pass_requires_authenticated_approval_context():
         "allocation_pct": 10, "daily_loss_pct": 0, "drawdown_pct": 0
     })
     assert response.status_code == 401
+
+
+def test_ea_v182_analysis_route_requires_service_auth_and_fails_closed(monkeypatch):
+    client = TestClient(app)
+    monkeypatch.delenv("NOVA_EA_ANALYSIS_TOKEN", raising=False)
+    bars = []
+    from datetime import datetime, timedelta, timezone
+    end = datetime.fromisoformat("2026-11-23T11:00:00+00:00")
+    for index in range(110):
+        stamp = end - timedelta(minutes=5 * (109 - index))
+        bars.append({
+            "time": stamp.isoformat(), "open": 100.0, "high": 101.0,
+            "low": 99.0, "close": 100.0, "volume": 10
+        })
+    payload = {
+        "market_data": {"symbol": "XAUUSDm", "timeframe": "M5", "bars": bars},
+        "current_time": "2026-11-23T12:00:00+00:00",
+        "premium_discount": {"zone": "EQUILIBRIUM"},
+    }
+    assert client.post("/v1/ea/v1.82/analyze", json=payload).status_code == 503
+
+    monkeypatch.setenv("NOVA_EA_ANALYSIS_TOKEN", "test-service-token")
+    assert client.post("/v1/ea/v1.82/analyze", json=payload).status_code == 401
+    assert client.post("/v1/ea/v1.82/analyze", json=payload,
+                       headers={"Authorization": "Bearer wrong"}).status_code == 401
+
+    response = client.post("/v1/ea/v1.82/analyze", json=payload,
+                           headers={"Authorization": "Bearer test-service-token"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["final_decision"] == "NO_TRADE"
+    assert "STALE_MARKET_DATA" in body["final_decision_blockers"]
+    assert body["orders_submitted"] is False
+    assert body["execution_enabled"] is False
+    assert body["live_trading_enabled"] is False

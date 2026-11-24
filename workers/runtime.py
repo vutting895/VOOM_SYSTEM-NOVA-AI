@@ -1,6 +1,7 @@
 """Isolated NOVA research runtime. All routes are research/approval-only; no broker orders."""
 from __future__ import annotations
 import os
+import hmac
 from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -10,6 +11,7 @@ from workers.feature.elliott_wave.elliott_wave import analyze_elliott_wave
 from workers.backtest.walk_forward import run_walk_forward
 from workers.risk.manager_prototype import RiskWorker
 from integrations.notifications.approval_guard import ApprovalGuard
+from workers.quant_engine.ea_runtime import analyze_nova_ea_v182
 
 app = FastAPI(title="VOOM NOVA Research Worker", version="0.3.0")
 
@@ -31,6 +33,14 @@ class WalkForwardRequest(BaseModel):
     reward_risk: float = Field(default=2.0, ge=0.5, le=5.0)
     fee_rate: float = Field(default=0.001, ge=0, lt=0.05)
     slippage_rate: float = Field(default=0.0005, ge=0, lt=0.05)
+
+
+class EAV182AnalysisRequest(BaseModel):
+    market_data: dict[str, Any]
+    current_time: str
+    premium_discount: dict[str, Any]
+    states: dict[int, dict[str, Any]] = Field(default_factory=dict)
+    max_signal_age_seconds: int = Field(default=3600, ge=1, le=86400)
 
 
 class RiskApprovalRequest(BaseModel):
@@ -100,6 +110,30 @@ def walk_forward(payload: WalkForwardRequest) -> dict[str, Any]:
             test_bars=payload.test_bars, step_bars=payload.step_bars,
             warmup_bars=payload.warmup_bars, reward_risk=payload.reward_risk,
             fee_rate=payload.fee_rate, slippage_rate=payload.slippage_rate)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/v1/ea/v1.82/analyze")
+def ea_v182_analyze(payload: EAV182AnalysisRequest,
+                    authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """Run source-grounded EA v1.82 research analysis; final decision fails closed."""
+    expected_token = os.getenv("NOVA_EA_ANALYSIS_TOKEN", "")
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="EA analysis service is not configured")
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="authenticated_service_token_required")
+    supplied_token = authorization[7:].strip()
+    if not supplied_token or not hmac.compare_digest(supplied_token, expected_token):
+        raise HTTPException(status_code=401, detail="invalid_service_token")
+    try:
+        return analyze_nova_ea_v182(
+            market_data=payload.market_data,
+            current_time=payload.current_time,
+            premium_discount=payload.premium_discount,
+            states=payload.states,
+            max_signal_age_seconds=payload.max_signal_age_seconds,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

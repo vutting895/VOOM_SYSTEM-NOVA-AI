@@ -106,6 +106,33 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn("127.0.0.1:8787", RELAY_CLIENT)
 
 
+    def test_ea_heartbeat_is_loopback_only_and_rejects_trade_enabled_payloads(self):
+        self.assertIn('@app.post("/api/ea/heartbeat")', SOURCE)
+        self.assertIn('host not in {"127.0.0.1", "::1", "localhost", "testclient"}', SOURCE)
+        self.assertIn('payload["orders_enabled"] is not False', SOURCE)
+        self.assertIn('payload["live_trading_enabled"] is not False', SOURCE)
+        self.assertIn('hmac.compare_digest(x_nova_ea_token, EA_BRIDGE_TOKEN)', SOURCE)
+
+    def test_ea_status_requires_the_existing_tenant_auth_guard(self):
+        self.assertIn('@app.get("/api/ea/status")', SOURCE)
+        start = SOURCE.index('def ea_status(')
+        end = SOURCE.index('@app.get("/api/account")', start)
+        self.assertIn("require_token(authorization, tenant_id)", SOURCE[start:end])
+
+    def test_quotes_exclude_the_current_forming_bar_for_point_in_time_core_inputs(self):
+        quotes = function_nodes()["quotes"]
+        calls = [
+            node for node in ast.walk(quotes)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "copy_rates_from_pos"
+        ]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(len(calls[0].args), 4)
+        self.assertIsInstance(calls[0].args[2], ast.Constant)
+        self.assertEqual(calls[0].args[2].value, 1)
+        self.assertIn("still-forming candle", SOURCE)
+
     def test_quotes_do_not_mutate_market_watch_symbol_visibility(self):
         quotes = function_nodes()["quotes"]
         self.assertFalse(has_call(quotes, "symbol_select"))

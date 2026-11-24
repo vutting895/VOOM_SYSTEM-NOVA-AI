@@ -24,8 +24,8 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
-TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/ea/status"}
+TIMEFRAMES = {"M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12", "M15", "M20", "M30", "H1", "H2", "H3", "H4", "H6", "H8", "H12", "D1", "W1", "MN1"}
 
 
 def validate_relay_url(value: str) -> str:
@@ -58,7 +58,7 @@ def normalize_read_path(value: object) -> str:
     if any(len(items) != 1 for items in params.values()):
         raise ValueError("Duplicate query parameters are not allowed.")
 
-    if parsed.path in {"/health", "/api/account"}:
+    if parsed.path in {"/health", "/api/account", "/api/ea/status"}:
         if params:
             raise ValueError("This read endpoint does not accept query parameters.")
         return parsed.path
@@ -185,7 +185,7 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
                 ping_timeout=20,
                 max_size=MAX_MESSAGE_BYTES
             ) as websocket:
-                print("[mt5-relay] authenticated outbound connection established; read-only mode")
+                print("[mt5-relay] authenticated outbound connection established; read-only mode", flush=True)
                 backoff = 2
                 send_lock = asyncio.Lock()
                 async for raw in websocket:
@@ -198,8 +198,8 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
                     await serve_request(websocket, send_lock, message, tenant_id, token)
         except asyncio.CancelledError:
             raise
-        except Exception:
-            print("[mt5-relay] outbound connection unavailable; retrying with backoff")
+        except Exception as exc:
+            print(f"[mt5-relay] outbound connection unavailable ({type(exc).__name__}); retrying with backoff", flush=True)
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, 30)
 
@@ -229,7 +229,7 @@ async def main() -> None:
     )
     try:
         await wait_for_local_bridge(bridge_process, tenant_id, token)
-        print("[mt5-relay] local Bridge health verified; no public local port is opened")
+        print("[mt5-relay] local Bridge health verified; no public local port is opened", flush=True)
         await run_relay(relay_url, tenant_id, token)
     finally:
         if bridge_process.returncode is None:
@@ -245,4 +245,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("[mt5-relay] stopped")
+        print("[mt5-relay] stopped", flush=True)

@@ -1,0 +1,117 @@
+"""Static safety contract tests for the NOVA EA read-only telemetry bridge."""
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+BRIDGE = (ROOT / "integrations/mt5/NOVA_EA_Bridge_v1.82.mqh").read_text(encoding="utf-8")
+SMOKE = (ROOT / "integrations/mt5/NOVA_EA_Bridge_CompileSmoke.mq5").read_text(encoding="utf-8")
+PY_BRIDGE = (ROOT / "integrations/mt5-readonly-bridge/bridge.py").read_text(encoding="utf-8")
+RELAY = (ROOT / "integrations/mt5-bridge-relay/worker.js").read_text(encoding="utf-8")
+CLIENT = (ROOT / "integrations/mt5-readonly-bridge/bridge_relay_client.py").read_text(encoding="utf-8")
+PROXY = (ROOT / "integrations/mt5-readonly-proxy/worker.js").read_text(encoding="utf-8")
+READONLY_EA = (ROOT / "integrations/mt5/Nova_EA_v1.82_READONLY.mq5").read_text(encoding="utf-8")
+
+
+class NovaEABridgeTests(unittest.TestCase):
+    def test_bridge_include_exposes_two_second_heartbeat_function(self):
+        self.assertIn("#define NOVA_EA_BRIDGE_INTERVAL_SEC 2", BRIDGE)
+        self.assertIn("void NovaEABridgeHeartbeat(", BRIDGE)
+        self.assertIn("gNovaEABridgeLastTickUtc", BRIDGE)
+        self.assertIn("if(tickTime<=0) return;", BRIDGE)
+
+    def test_ea_uses_only_loopback_telemetry_endpoint(self):
+        self.assertIn('http://127.0.0.1:8787/api/ea/heartbeat', BRIDGE)
+        self.assertIn('WebRequest("POST",NOVA_EA_BRIDGE_URL', BRIDGE)
+        self.assertNotIn("OrderSend(", BRIDGE)
+        self.assertNotIn("CTrade", BRIDGE)
+        self.assertNotIn("PositionClose", BRIDGE)
+
+    def test_ea_telemetry_is_hard_coded_read_only(self):
+        self.assertIn("read-only", BRIDGE)
+        self.assertIn("orders_enabled", BRIDGE)
+        self.assertIn("live_trading_enabled", BRIDGE)
+        self.assertIn("false", BRIDGE)
+
+    def test_compile_smoke_harness_is_telemetry_only(self):
+        self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', SMOKE)
+        self.assertIn("NovaEABridgeInit()", SMOKE)
+        self.assertIn("NovaEABridgeHeartbeat(0)", SMOKE)
+        self.assertIn("NovaEABridgeDeinit()", SMOKE)
+        self.assertNotIn("CTrade", SMOKE)
+        self.assertNotIn("OrderSend(", SMOKE)
+        self.assertNotIn("PositionClose", SMOKE)
+
+    def test_private_token_is_not_embedded_in_ea_source(self):
+        self.assertIn("NOVA_EA_BRIDGE_TOKEN_FILE", BRIDGE)
+        self.assertIn("FILE_COMMON", BRIDGE)
+        self.assertNotRegex(BRIDGE, r'(?i)(token|secret)\s*=\s*"[A-Za-z0-9_-]{40,}"')
+
+    def test_cloud_path_only_exposes_authenticated_status_read(self):
+        self.assertIn('"/api/ea/status"', RELAY)
+        self.assertIn('"/api/ea/status"', CLIENT)
+        self.assertIn('"/api/ea/status"', PROXY)
+        self.assertIn('require_token(authorization, tenant_id)', PY_BRIDGE)
+
+    def test_loopback_bridge_accepts_only_strict_telemetry_schema(self):
+        for field in ("ea_id", "version", "symbol", "timeframe", "mode",
+                      "orders_enabled", "live_trading_enabled",
+                      "last_tick_utc", "last_bar_utc", "signal_count"):
+            self.assertIn('"' + field + '"', PY_BRIDGE)
+        self.assertIn('request.method == "POST" and request.url.path == "/api/ea/heartbeat"', PY_BRIDGE)
+        self.assertIn('request.method not in {"GET", "OPTIONS"}', PY_BRIDGE)
+
+
+    def test_readonly_build_disables_local_training_and_auto_tune(self):
+        self.assertIn("#define NOVA_READONLY_BUILD 1", READONLY_EA)
+        for function in (
+            "MlpTrainModel", "TrainDualAutoModel", "ExportONNXData",
+            "AdaptCheck", "MlpCheckRetrain", "NovaUniverseSync",
+            "AutoOptRun", "AutoOptCheckRollback", "CheckClosedTradesLearning",
+        ):
+            self.assertRegex(
+                READONLY_EA,
+                rf"void\s+{function}\s*\([^)]*\)\s*\{{\s*#ifdef NOVA_READONLY_BUILD\s*return;\s*#endif",
+            )
+        for name in (
+            "InpUseONNXEnsemble", "InpUseUnified", "InpUseLSTM", "InpUseONNX",
+            "InpAutoWeights", "InpUseAutoScanner", "InpUseAutoOpt",
+            "InpUseDeepLearning", "InpUseVision", "InpUseNeuralNet",
+            "InpUseVisionFilter", "InpUse3YTrained", "InpUseNN", "InpNNDual",
+            "InpUseHybridMLP", "InpAutoAdapt", "InpMlpAutoLabel",
+            "InpAdaptForceOnInit", "InpAutoTrainDual", "InpAutoExportONNX",
+            "InpUseNovaUniverse", "InpRoseSkill_Memory", "InpRoseSkill_Data",
+        ):
+            self.assertRegex(READONLY_EA, rf"input\s+bool\s+{name}\s*=\s*false\s*;")
+        self.assertIn("20 registered / 14 kept / 8 active signal dispatch", READONLY_EA)
+        self.assertNotIn("30 modules active", READONLY_EA)
+
+    def test_original_v182_readonly_copy_has_no_broker_write_capability(self):
+        self.assertIn('#include "NOVA_EA_Bridge_v1.82.mqh"', READONLY_EA)
+        self.assertIn("NovaEABridgeInit()", READONLY_EA)
+        self.assertIn("NovaEABridgeHeartbeat(0)", READONLY_EA)
+        self.assertIn("void OnTimer() { g_V162_Live=false;gHeader.manual_pause=1;NovaEABridgeHeartbeat(0);MainWork(); }", READONLY_EA)
+        self.assertIn("void OnTick() { g_V162_Live=false;gHeader.manual_pause=1;", READONLY_EA)
+        self.assertIn("InpMagicBase            = 1820000000", READONLY_EA)
+        self.assertIn("InpSniperMTF_Magic = 1820000999", READONLY_EA)
+        self.assertIn("NovaEABridgeDeinit()", READONLY_EA)
+        self.assertIn('string status = "READ-ONLY - NO EXECUTION";', READONLY_EA)
+        self.assertIn("g_V162_Live = false;", READONLY_EA)
+        self.assertNotIn(r"#include <Trade\Trade.mqh>", READONLY_EA)
+        code = re.sub(r'"(?:\\.|[^"\\])*"', '""', READONLY_EA)
+        code = re.sub(r'//[^\r\n]*|/\*.*?\*/', "", code, flags=re.S)
+        forbidden = (
+            r"\bOrderSend(?:Async)?\s*\(",
+            r"\bOrderDelete\s*\(",
+            r"\bPositionClose(?:By)?\s*\(",
+            r"\bPositionModify\s*\(",
+            r"\bgTrade\s*\.",
+            r"\.(?:Buy|Sell)(?:Limit|Stop)?\s*\(",
+        )
+        for pattern in forbidden:
+            with self.subTest(pattern=pattern):
+                self.assertNotRegex(code, pattern)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

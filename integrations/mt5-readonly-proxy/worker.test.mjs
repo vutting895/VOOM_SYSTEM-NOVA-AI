@@ -208,3 +208,110 @@ test("Cloudflare rollback UI remains CORS-allowed while Netlify is primary", asy
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+test("EA status forwards only an authenticated owner's read-only status request", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-test-id",
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "connected",
+        bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({
+        connected: true,
+        status: "online",
+        mode: "read-only",
+        orders_enabled: false,
+        live_trading_enabled: false
+      });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/ea/status?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.connected, true);
+    assert.equal(body.status, "online");
+    assert.equal(body.orders_enabled, false);
+    assert.equal(body.live_trading_enabled, false);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+    assert.equal(new URL(relayRequest.url).origin, RELAY_ORIGIN);
+    assert.equal(new URL(relayRequest.url).pathname, "/api/ea/status");
+    assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
+    assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + BRIDGE_TOKEN);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("EA status never forwards a foreign user's connection ID", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "different-test-user-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
+      return Response.json([]);
+    }
+    if (url.origin === RELAY_ORIGIN) relayCalls += 1;
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/ea/status?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "connection_not_found");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("EA status is GET-only and rejects POST before authentication or forwarding", async () => {
+  const originalFetch = globalThis.fetch;
+  let outboundCalls = 0;
+  globalThis.fetch = async () => {
+    outboundCalls += 1;
+    throw new Error("POST must not trigger outbound requests");
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/ea/status?connection_id=" + CONNECTION_ID,
+      { method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 405);
+    assert.equal((await response.json()).error, "method_not_allowed");
+    assert.equal(outboundCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
