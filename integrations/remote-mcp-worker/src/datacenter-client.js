@@ -152,7 +152,7 @@ const mt5Intervals = {M1:60, M5:300, M15:900, M30:1800, H1:3600, H4:14400, D1:86
 export function buildMt5DatasetPayload({
   symbol, timeframe, bars, dataset_name, market_calendar, now_ms = Date.now(),
 }) {
-  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedSymbol = String(symbol || "").trim();
   const normalizedTimeframe = String(timeframe || "").trim().toUpperCase();
   const interval = mt5Intervals[normalizedTimeframe];
   if (!/^[A-Z0-9._-]{1,40}$/.test(normalizedSymbol)) throw new Error("invalid_mt5_dataset_symbol");
