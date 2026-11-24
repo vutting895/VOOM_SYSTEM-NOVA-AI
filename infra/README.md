@@ -4,7 +4,9 @@ Local development is provided by `docker-compose.yml`. Kubernetes manifests and 
 
 ## Local Compose boundary
 
-- Compose runs the local frontend and the MCP stdio development process only.
+- Compose runs the local frontend, research worker, Redis, and PostgreSQL for isolated development.
+- The canonical remote MCP entry point is the existing NOVA Remote MCP Gateway Worker. Do not start a second local MCP server in this stack.
+- The archived `integrations/nova-ai-mcp-full-clean` prototype is quarantined and must not be built or started by Compose.
 - The frontend container must not receive broker API keys, MT5 Bridge tokens, or other provider credentials. The frontend does not own or retrieve provider credentials.
 - Do not add credentials as `NEXT_PUBLIC_*` variables, Compose environment values, build arguments, or browser-visible configuration.
 - Platform-level provider credentials (for example the NOVA Gemini provider key) belong in the existing Cloudflare Worker Secret store for the Worker that consumes them.

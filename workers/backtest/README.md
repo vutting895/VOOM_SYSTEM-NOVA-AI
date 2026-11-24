@@ -1,8 +1,20 @@
 # Backtest Worker
 
-Deterministic EMA crossover simulator driven by chronological OHLCV candles. Applies fee and slippage assumptions; rejects malformed or non-chronological data. It does not fabricate market data or submit orders.
+Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`. It requires timezone-aware, strictly chronological historical OHLCV, validates price/volume fields through the Quant Engine quality validator, and applies explicit fee and slippage assumptions. Signals use recursively calculated exponential moving averages seeded with the initial period SMA. They are evaluated at completed candle close and filled at the next candle open to avoid same-bar lookahead. Annualized Sharpe is withheld unless `periods_per_year` is explicitly supplied; `sharpe_per_period` is the default tuning objective. It does not generate synthetic market data, use randomized trade outcomes, or submit orders.
 
-Metrics are historical simulation results, not forecasts. Confirm candle source, timezone, gaps, exchange-specific fees, funding, spread, and intrabar stop/target assumptions before using results in decisions. The current engine is intentionally simple and is not yet a tick-accurate MT5 simulator.
+`engine_prototype.py` remains only as a backward-compatible import shim; new code must import from `workers.backtest.engine`.
+
+Metrics are historical bar-close simulation results, not forecasts. Confirm candle source, timezone, gaps, exchange-specific fees, funding, spread, instrument sizing, and execution assumptions before using results in decisions. This EMA engine is not a tick-accurate MT5 simulator.
+
+## Leakage-safe EMA walk-forward evaluation
+
+`workers/backtest/ema_walk_forward.py` tunes each expanding fold only on its earlier training slice, excludes the explicit purge gap from tuning, uses a bounded pre-test warmup for EMA state, and evaluates entries/exits only in the subsequent held-out window. Each fold records training/test dataset hashes, selected parameters, OOS metrics and trade ledger. The evaluator reports a configurable OOS trade-count gate but does not claim a final performance pass. Reserve the final untouched OOS period separately; never include it in these tuning folds.
+
+## Deterministic optimization
+
+Canonical tuner: `workers/tuning/engine.py`. It evaluates a bounded deterministic parameter grid by calling a real backtest function against validated historical OHLCV. It rejects missing data, invalid objectives, and non-finite scores; it does not generate synthetic scores. `optuna_tuner_prototype.py` remains only as a backward-compatible import shim.
+
+Optimization is in-sample unless selected parameters are separately evaluated on a chronological, untouched holdout. Do not promote parameters based only on the best in-sample score.
 
 ## SMC historical backtest API
 

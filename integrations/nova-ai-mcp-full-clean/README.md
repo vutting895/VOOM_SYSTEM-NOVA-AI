@@ -5,7 +5,7 @@ Archive filename: NOVA-AI-MCP-FULL-CLEAN.zip
 Imported on 2026-10-24.
 
 ## Status
-This directory preserves the archive's Python prototype. It is not production-ready and must not be deployed as-is. The original server's backtest/tuning metrics are random mock data; the feature workers are partial examples; state is in-memory.
+This directory is a quarantined source archive, not an active service. Its Python prototype is not production-ready and must not be deployed as-is. The original server's backtest/tuning metrics are random mock data; the feature workers are partial examples; state is in-memory. The random backtest engine and mock tuning functions remain intentionally disabled and are not being converted in-place.
 
 ## Safety review
 - `workers/execution/ccxt_exec.py` can submit real exchange orders if called with live credentials. Keep it disabled and do not configure live keys.
@@ -13,6 +13,15 @@ This directory preserves the archive's Python prototype. It is not production-re
 - Do not expose the FastAPI server publicly without authentication, rate limiting, and request validation.
 - Do not treat the source's random score/60% quality gate as a validated backtest.
 - The deployed Cloudflare adapter is separate from the Python source. It is paper/test only and explicitly disables execution.
+
+## Canonical replacement
+
+Use the maintained deterministic engines outside this archive:
+- Backtest: `workers/backtest/engine.py`
+- Parameter search: `workers/tuning/engine.py`
+- SMC baseline and walk-forward: `workers/feature/smc_wave/smc_strategy.py` and `workers/backtest/walk_forward.py`
+
+These replacements require real historical OHLCV and explicit costs. They are research-only and do not authorize broker execution. The archive's FastAPI prototype and Cloudflare adapter are not the active MCP path.
 
 ## Python prototype
 - `mcp-server/server.py`: FastAPI prototype with generate/strategies/allocate routes.

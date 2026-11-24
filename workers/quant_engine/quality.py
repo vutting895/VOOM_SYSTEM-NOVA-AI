@@ -163,9 +163,14 @@ def validate_ohlcv(
     )
 
 
-def canonical_dataset_sha256(rows: Sequence[Mapping[str, Any]]) -> str:
-    """Hash validated OHLCV content; provider metadata is deliberately excluded."""
+def canonical_ohlcv_payload(rows: Sequence[Mapping[str, Any]]) -> bytes:
+    """Serialize validated OHLCV using the same canonical form as its content hash."""
     validate_ohlcv(rows)
     canonical = _normalise_rows(rows)
     payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return payload.encode("utf-8")
+
+
+def canonical_dataset_sha256(rows: Sequence[Mapping[str, Any]]) -> str:
+    """Hash validated OHLCV content; provider metadata is deliberately excluded."""
+    return hashlib.sha256(canonical_ohlcv_payload(rows)).hexdigest()
