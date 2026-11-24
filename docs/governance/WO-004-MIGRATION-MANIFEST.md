@@ -101,3 +101,17 @@ Notable path-level findings:
 This raises the number of open PRs with changed-filename lists inspected in the current and earlier passes, but does not complete the 238-open-PR requirement. Each PR's changed-file endpoint was read at page 1 with `per_page=100`; any PR exceeding 100 changed files would need pagination. Full patch, commits, reviews and exact-head CI are not yet reconciled for all listed PRs.
 
 **Manifest decision remains unchanged:** zero moves approved. No PR merged/closed, branch deleted, workflow modified, deployment triggered, database migrated, or broker action performed.
+
+
+## 8. Current-head refresh and MT5 schema collision review — 2026-11-24
+
+- Live main at start of this refresh: `760a9bc0eedc36793daf6c447509e815350cc006`.
+- Recursive tree: 488 entries; `truncated=false`. Open PR count is now 237 (the prior snapshot recorded 238); previous counts must not be treated as current.
+- Current-main path checks: `integrations/mt5-readonly-proxy/` and `integrations/system-hub/` exist; `integrations/nova-core-api/` does not exist on main and remains PR-only.
+- New changed-path lists inspected since the prior 84-PR count: #387, #376, #375, #372, #371 and #370. Previously inspected PR lists were rechecked for #384, #383, #382, #381, #380, #386 and #385. The verified distinct-list count is at least 90; this remains incomplete coverage of 237 open PRs.
+- **#375/#376 database collision — BLOCKED:** both PRs add migrations that create `nova.mt5_broker_connections` and its owner-scoped RLS policy family, and both update the MT5 proxy to read `public.nova_broker_connections`. #376 additionally includes a second migration for `nova` schema usage grants, staging relay origin allowlisting, redirect rejection and wider validation configuration. #375's migration creates the narrow security-invoker view; #376's migration path also creates the same underlying table/view contract. These migration files are separately timestamped and cannot both be treated as independent additive changes. Reconcile SQL equivalence, migration ordering, current Supabase ledger and branch ancestry before either is selected. Do not apply either migration or assume one safely supersedes the other.
+- **#373/#377 Core API remains BLOCKED:** both modify the same new Worker source/package/tests/config; #373 adds two schema migrations and a schema-repair plan; #377 adds app UI and CI changes. Current main still has no `integrations/nova-core-api/` path. No Core API is proven deployed.
+- **#387 dependency update:** only changes `apps/nova-command-center/package.json` (Zod 3→4 and Vite 8.1.5→8.1.6); compatibility/build/test evidence is required before adoption.
+- **Research boundary:** #372/#371 also touch quant/EA/point-in-time research paths and remain preserve-only / BLOCKED under the Datacenter ownership boundary. #370 is architecture documentation, not implementation proof.
+- No source/data/model/migration/workflow/runtime files moved or edited. No PR state changed, no branch deleted, no workflow run/deployment, no database action, and no broker action.
+- Manifest decision remains **zero moves approved**. Phase 1 and Phase 2 remain IN_PROGRESS; Phase 3 remains PRELIMINARY / BLOCKED.
