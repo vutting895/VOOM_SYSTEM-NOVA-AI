@@ -3,7 +3,7 @@
 - Decision: **Architecture A — Control Only**
 - Status: **PROPOSED / DOCUMENTATION REVIEW**
 - Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
-- Baseline: `main@e7d1f3795de3b2dc655e73f6f148056ddb9ed19f`
+- Baseline: `main@7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`
 - Date: 2026-11-25
 - Deployment: **NOT AUTHORIZED**
 - Live trading / broker writes: **OFF**
@@ -111,7 +111,7 @@ The owner has previously stated desired risk parameters of a 10% daily loss limi
 
 ## 4. Current-main evidence and gaps
 
-Snapshot is tied to `main@e7d1f3795de3b2dc655e73f6f148056ddb9ed19f`. This is a repository-source review, not a production runtime audit.
+Snapshot is tied to `main@7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`. This is a repository-source review, not a production runtime audit.
 
 | Area | Evidence found | Assessment |
 |---|---|---|
