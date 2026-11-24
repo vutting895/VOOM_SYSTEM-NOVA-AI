@@ -274,7 +274,9 @@ def history(
     if end - start > timedelta(days=MAX_HISTORY_DAYS[tf]):
         raise HTTPException(status_code=400, detail="Requested range too large; split into smaller chunks")
     with LOCK:
-        get_terminal_and_account()
+        terminal, account = get_terminal_and_account()
+        if not bool(getattr(terminal, "connected", False)):
+            raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
         info = mt5.symbol_info(symbol)
         if info is None:
             raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
