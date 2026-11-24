@@ -24,6 +24,7 @@ test("local frontend Compose service does not receive provider or Bridge credent
   assert.doesNotMatch(compose, /BYBIT_API_(KEY|SECRET)/i);
   assert.doesNotMatch(compose, /MT5_BRIDGE_(TOKEN|HEALTH_URL)/i);
   assert.match(compose, /frontend:/);
+  assert.doesNotMatch(compose, /mcp-server:|nova-ai-mcp-full-clean/);
   assert.match(compose, /NODE_ENV: production/);
 });
 
