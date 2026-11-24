@@ -1,4 +1,5 @@
 import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
+import { callDatacenterTool, datacenterTools, isDatacenterTool } from "./datacenter-client.js";
 
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
@@ -310,14 +311,15 @@ async function runMt5ReadonlyTool(name, args, request, env, user) {
 }
 
 async function callTool(name,args,request,env,user) {
+  if (isDatacenterTool(name)) return await callDatacenterTool(name, args, request, env);
   if (name === "request_mt5_demo_connection") return await requestMt5DemoConnection(request, env, user);
   if (["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"].includes(name)) {
     return await runMt5ReadonlyTool(name, args, request, env, user);
   }
-  if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",liveTradingEnabled:false,executionEnabled:false,userId:user.id};
+  if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",learningServiceConfigured:Boolean(env.DATACENTER_MCP_URL),liveTradingEnabled:false,executionEnabled:false,userId:user.id};
   if(name==="list_nova_skills") return listNovaSkills(args.domain);
   if(name==="get_nova_skill") return getNovaSkill(args.skill_id);
-  if(name==="list_workers") return {workers:["data-ingestion","feature","gen-ai","backtest","tuning","risk","portfolio","execution"].map(worker=>({worker,status:worker==="execution"?"disabled": "prototype_or_local_module",liveExecutionEnabled:false})),note:"Python worker modules are not individually deployed as Cloudflare Workers."};
+  if(name==="list_workers") return {workers:["datacenter-learning","data-ingestion","feature","gen-ai","backtest","tuning","risk","portfolio","execution"].map(worker=>({worker,status:worker==="execution"?"disabled":worker==="datacenter-learning"?(env.DATACENTER_MCP_URL?"configured_external_mcp":"not_configured"):"prototype_or_local_module",liveExecutionEnabled:false})),note:"Datacenter is the centralized Learning Service; internal workers are not deployed as duplicate MCP servers."};
   if(name==="list_strategy_registry") {
     const r=await fetch(env.SUPABASE_URL+"/rest/v1/ai_strategies?select=strategy_key,display_name,version,lifecycle_status,trading_mode,backtest_passed,out_of_sample_passed,demo_passed,risk_review_passed&order=created_at.desc&limit=100",{headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY,Authorization:request.headers.get("Authorization"),Accept:"application/json"}});
     if(!r.ok) throw new Error("Supabase read denied; verify table and RLS permissions");
@@ -385,6 +387,7 @@ export const tools=[
  {name:"mt5_account_summary",description:"Read account summary from the signed-in user's own connected Exness MT5 Demo terminal through the tenant-guarded proxy. Read-only; no orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"mt5_symbols",description:"Read symbol discovery results from the signed-in user's connected Exness MT5 Demo terminal. Optional q substring and limit 1-500. Read-only.",inputSchema:{type:"object",properties:{q:{type:"string"},limit:{type:"integer",minimum:1,maximum:500}},additionalProperties:false}},
  {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}}
+ ...datacenterTools,
 
 ];
 
@@ -540,7 +543,7 @@ async function handleModernMcp(body, request, env, user, origin) {
     return modernSuccess(id, {
       supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
       capabilities: { tools: {} },
-      instructions: "Authenticated, read-only NOVA research tools. Exness MT5 tools read the signed-in user's own Demo connection. No order submission or broker mutations are available.",
+      instructions: "Authenticated NOVA research and Learning tools. Datacenter Learning tools forward the signed-in Supabase session to the configured Learning Service MCP endpoint. Exness MT5 remains read-only. No order submission or broker mutations are available.",
       ttlMs: 60000,
       cacheScope: "private"
     }, origin);
