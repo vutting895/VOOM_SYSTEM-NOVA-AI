@@ -31,6 +31,16 @@ function bearer(request) {
   return match ? match[1] : "";
 }
 
+function parseRouteMap(value) {
+  if (!value) return {};
+  try {
+    const routes = JSON.parse(value);
+    return routes && typeof routes === "object" && !Array.isArray(routes) ? routes : null;
+  } catch {
+    return null;
+  }
+}
+
 export function authorizeBridge(request, env) {
   const token = bearer(request);
   if (!token) return { ok: false, status: 401, error: "authentication_required" };
@@ -39,21 +49,22 @@ export function authorizeBridge(request, env) {
   if (!TENANT_ID_PATTERN.test(tenantId)) {
     return { ok: false, status: 403, error: "tenant_mismatch" };
   }
-  if (!env.MT5_TENANT_ROUTES) {
+  if (!env.MT5_TENANT_ROUTES && !env.MT5_TENANT_ROUTES_ADDITIONAL) {
     return { ok: false, status: 503, error: "tenant_route_map_not_configured" };
   }
 
-  let routes;
-  try {
-    routes = JSON.parse(env.MT5_TENANT_ROUTES);
-  } catch {
-    return { ok: false, status: 503, error: "tenant_route_map_invalid" };
-  }
-  if (!routes || typeof routes !== "object" || Array.isArray(routes)) {
+  const primaryRoutes = parseRouteMap(env.MT5_TENANT_ROUTES);
+  const additionalRoutes = parseRouteMap(env.MT5_TENANT_ROUTES_ADDITIONAL);
+  if (primaryRoutes === null || additionalRoutes === null) {
     return { ok: false, status: 503, error: "tenant_route_map_invalid" };
   }
 
-  const route = routes[tenantId];
+  const inPrimary = Object.hasOwn(primaryRoutes, tenantId);
+  const inAdditional = Object.hasOwn(additionalRoutes, tenantId);
+  if (inPrimary && inAdditional) {
+    return { ok: false, status: 503, error: "tenant_route_map_conflict" };
+  }
+  const route = inPrimary ? primaryRoutes[tenantId] : additionalRoutes[tenantId];
   if (
     !route ||
     route.tenantId !== tenantId ||

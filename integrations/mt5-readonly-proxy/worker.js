@@ -40,6 +40,16 @@ function safeAuthDiagnostic(error) {
   return "MT5 Proxy could not reach Supabase Auth; errorName=" + errorName + "; message=" + message;
 }
 
+function parseRouteMap(value) {
+  if (!value) return {};
+  try {
+    const routes = JSON.parse(value);
+    return routes && typeof routes === "object" && !Array.isArray(routes) ? routes : null;
+  } catch {
+    return null;
+  }
+}
+
 function supabaseApiKey(env) {
   return env.SUPABASE_PUBLISHABLE_KEY || env.SUPABASE_ANON_KEY || "";
 }
@@ -148,13 +158,22 @@ async function loadConnection(request, env, user) {
       return { ok: false, status: 409, error: "connection_not_provisioned" };
     }
 
-    let routes;
-    try {
-      routes = JSON.parse(env.MT5_TENANT_ROUTES || "{}");
-    } catch {
+    if (!env.MT5_TENANT_ROUTES && !env.MT5_TENANT_ROUTES_ADDITIONAL) {
+      return { ok: false, status: 503, error: "dedicated_bridge_not_provisioned" };
+    }
+    const primaryRoutes = parseRouteMap(env.MT5_TENANT_ROUTES);
+    const additionalRoutes = parseRouteMap(env.MT5_TENANT_ROUTES_ADDITIONAL);
+    if (primaryRoutes === null || additionalRoutes === null) {
       return { ok: false, status: 503, error: "tenant_route_map_invalid" };
     }
-    const route = routes?.[row.bridge_route_id];
+    const inPrimary = Object.hasOwn(primaryRoutes, row.bridge_route_id);
+    const inAdditional = Object.hasOwn(additionalRoutes, row.bridge_route_id);
+    if (inPrimary && inAdditional) {
+      return { ok: false, status: 503, error: "tenant_route_map_conflict" };
+    }
+    const route = inPrimary
+      ? primaryRoutes[row.bridge_route_id]
+      : additionalRoutes[row.bridge_route_id];
     if (
       !route ||
       typeof route.token !== "string" ||

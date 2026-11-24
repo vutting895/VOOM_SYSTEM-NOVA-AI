@@ -10,7 +10,7 @@ const BRIDGE_TOKEN = "bridge_test_token_long_enough_for_route_validation_123";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000000";
 const TENANT_ID = "tenant_12345678";
 
-function envWithRoutes() {
+function envWithRoutes(overrides = {}) {
   return {
     SUPABASE_URL: "https://supabase.test",
     SUPABASE_ANON_KEY: "public-test-key",
@@ -20,7 +20,8 @@ function envWithRoutes() {
         token: BRIDGE_TOKEN,
         url: "https://stale-origin.invalid"
       }
-    })
+    }),
+    ...overrides
   };
 }
 
@@ -164,6 +165,50 @@ test("connected user is routed only to the stable workers.dev relay", async () =
   }
 });
 
+
+test("additional tenant routes work without replacing the primary route map", async () => {
+  const originalFetch = globalThis.fetch;
+  const additionalTenant = "tenant_additional_123";
+  const additionalToken = "additional_bridge_token_long_enough_for_route_validation_123";
+  let relayHeaders;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-test-id",
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "connected",
+        bridge_route_id: additionalTenant
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayHeaders = new Headers(init.headers || {});
+      return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes({
+      MT5_TENANT_ROUTES_ADDITIONAL: JSON.stringify({
+        [additionalTenant]: { tenantId: additionalTenant, token: additionalToken }
+      })
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(relayHeaders.get("Authorization"), "Bearer " + additionalToken);
+    assert.equal(relayHeaders.get("X-VOOM-TENANT-ID"), additionalTenant);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
