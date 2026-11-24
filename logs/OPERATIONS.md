@@ -409,3 +409,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - API source matrix and phased plan are recorded in the new document. No code, migration, test, PR state, deployment, secret, permission or broker state changed. No tests were run.
 - Status: API data-source design **DOCUMENTED**; implementation **BLOCKED** on the unresolved sources above and separate implementation authorization. Production deployment remains PAUSED; trading remains disabled.
 - Next: verify staging migration ledger through an authorized Supabase connection; then resolve the heartbeat and canonical risk/audit sources before opening a fresh current-main implementation PR.
+
+
+## WO-2026-11-24-004 — live Supabase migration/schema reconciliation (2026-11-25)
+
+- Verified current main before log update: f44e7e3aebd43a6a77d098ba67f2f3a3188928ed.
+- Read-only Supabase project inventory identified active projects `rovhmjeowracayicbqij` and `tlyyxufuiimrbaksoitf`. Project environment labels remain ambiguous: repository Command Center documentation calls `rovhmjeowracayicbqij` staging, while the user previously identified that project URL for NOVA Video production. Do not infer environment or migrate until ownership is reconciled.
+- `rovhmjeowracayicbqij`: migration ledger lists durable approval lifecycle and core owner-scoped schema, but catalog lookup finds `nova.approvals`/`nova.audit_events` and does not find `public.nova_agent_threads`/`public.nova_approval_requests`.
+- `tlyyxufuiimrbaksoitf` (project name Voom_system): migration ledger includes durable approval lifecycle; catalog lookup confirms `public.nova_agent_threads`/`public.nova_approval_requests`, and no `nova.approvals`/`nova.audit_events`.
+- `tlyyxufuiimrbaksoitf` also contains `public.system_heartbeats` (zero rows, staff-only SELECT), `public.system_controls` (three boolean control keys, not a numeric risk policy), `public.security_events`, `public.mcp_tool_audit` and `public.nova_analysis_audit_events` (domain-specific audit sources). Current RLS policies show staff-only access for system heartbeat/control/security/MCP audit; owner-scoped access for approval lifecycle; owner-or-active-staff access for risk guard decisions.
+- Updated API data-source plan with this live evidence and corrected the earlier draft-only assumption. This establishes environment schema divergence; it does not prove either project is production or authorize schema repair.
+- No SQL writes, migrations, data edits, RLS changes, keys/secrets, PR state or deployments changed. No tests were run.
+- Status: Supabase schema inventory **READ-ONLY VERIFIED**; environment designation **BLOCKED / CONFLICTING**; migration reconciliation **BLOCKED**; API implementation **BLOCKED**; production deployment **PAUSED**; trading remains disabled.
+- Next: owner must confirm which Supabase project is NOVA production and which is staging before a migration repair plan can be safely prepared. Then validate the heartbeat writer and unified audit/risk ownership without changing data.
