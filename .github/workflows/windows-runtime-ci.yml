@@ -1,6 +1,6 @@
 name: Windows Runtime CI
 
-# Includes read-only MT5 Bridge, Proxy, Relay and System Hub contract validation.
+# Includes bounded history API and read-only MT5 Bridge, Proxy, Relay and System Hub contract validation.
 
 on:
   pull_request:
