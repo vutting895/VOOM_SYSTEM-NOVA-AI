@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
+const STAGING_RELAY_ORIGIN = "https://voom-mt5-bridge-relay-staging.suwapat787.workers.dev";
 const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "supabase_test_access_token";
@@ -167,6 +168,42 @@ test("connected user is routed only to the stable workers.dev relay", async () =
   }
 });
 
+
+test("staging configuration routes only to the dedicated staging relay", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayOrigin;
+  const env = envWithRoutes();
+  env.MT5_BRIDGE_RELAY_URL = STAGING_RELAY_ORIGIN;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === STAGING_RELAY_ORIGIN) {
+      relayOrigin = url.origin;
+      return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 200);
+    assert.equal(relayOrigin, STAGING_RELAY_ORIGIN);
+    assert.notEqual(relayOrigin, RELAY_ORIGIN);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("relay redirects are rejected without following the Location target", async () => {
   const originalFetch = globalThis.fetch;
