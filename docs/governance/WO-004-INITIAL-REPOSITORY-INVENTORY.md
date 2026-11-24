@@ -163,3 +163,17 @@ No source tests/builds were run in this inventory phase. No code/data movement, 
 - Phase 1 remains IN_PROGRESS because changed paths for all PRs and full dependency/reference mapping are not complete.
 - Phase 2 remains IN_PROGRESS (preliminary dispositions only).
 - Phase 3 is PRELIMINARY / BLOCKED pending an exact, unambiguous move set and validation/rollback evidence.
+
+
+## 13. Additional open-PR changed-path batches — 2026-11-24
+
+- Additional changed-filename lists fetched for #365, #364, #363, #362, #358, #357, #356, #355, #354, #352, #351, #350, #349, #348, #347, #346, #345, #344, #341, #340, #339, #338, #337, #336, #335, #334, #333, #332, #331, #329, #327, #326, #324, #322, #321, #319, #318, #317, #316, #315, #314, #313, #312, #311, #310, #309, #308, #307, #306, #305, #304, #303, #302, #301, #300, #299, #298, #297, #296 and #295.
+- Combined with earlier per-PR filename reads, 84 distinct PR changed-filename lists have now been inspected. This is partial coverage of 238 open PRs, not completion.
+- Confirmed overlapping CI proposals: #363/#364/#365 all touch `.circleci/config.yml`; #363 also touches app-local suite config. No workflow change was made.
+- #358/#352 span different mixtures of Command Center app, root frontend, System Hub, AI Worker and migration paths; they are not interchangeable. #355/#356 touch auth and token-sensitive paths. No auth code was changed.
+- #351 touches multiple workflows and a manual-release policy; workflow mutation is outside WO-004.
+- Research/data candidates #348/#350/#341/#340/#344/#306/#305/#302/#301/#300/#319/#312 remain blocked or preserve-only pending Datacenter ownership and lineage checks.
+- Trading/MT5 candidates #334/#336/#322/#307/#302/#297/#362/#309/#298 affect execution, risk, tenant Bridge or position lifecycle boundaries. No broker-write capability is enabled by this inventory.
+- #340/#341 add data lineage/catalog/ingestion candidates; preserve manifests, source metadata, hashes and approval gates. No dataset moved or synthesized.
+- **Manifest:** `docs/governance/WO-004-MIGRATION-MANIFEST.md` revision 0.1 updated at commit `90c31ec3176a9235f820e550016eaf6a7ddd9d98`; zero moves remain approved.
+- Full PR patch/commit/review/exact-head CI and remaining changed-path enumeration remain incomplete. Phase 1 and Phase 2 remain IN_PROGRESS; Phase 3 remains PRELIMINARY / BLOCKED.
