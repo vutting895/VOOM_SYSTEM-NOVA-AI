@@ -183,6 +183,15 @@ async function startServer() {
   const mt5BridgeEnabled = false as const;
   const liveTradingEnabled = false as const;
 
+  const trainingUnavailable = {
+    state: 'NOT_CONFIGURED',
+    available: false,
+    epoch: null,
+    samplesIngested: null,
+    validationAccuracyPct: null,
+    lastTrainedAt: null,
+  };
+
   // Symbol-only legacy auto-training is disabled. Datacenter requires approved pinned inputs.
   app.get('/api/auto-train/status', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
