@@ -107,3 +107,29 @@ The implementation functions explicitly query/write the missing `public.nova_age
 **NOT DONE:** no DDL, SQL write, migration, data copy, row update, RLS/grant change, branch creation, function invocation, Edge Function deployment, production deployment or broker action was performed.
 
 **Safety invariant:** `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`, and broker writes remain disabled.
+
+
+## 8. Backup/PITR verification — 2026-11-25 follow-up
+
+The connected Supabase project metadata exposes project/database status and branch status, but the connected Supabase toolset does not expose a backup inventory, latest backup timestamp, PITR retention window, or restore-point validation action. Therefore backup/PITR is still **UNVERIFIED**; no inference is made from `ACTIVE_HEALTHY`, PostgreSQL 17.11, or database size.
+
+Supabase's current documentation states:
+- Daily automatic database backups are provided for Pro, Team and Enterprise projects (retention varies by plan); Free projects should create regular logical exports and keep off-site copies.
+- PITR is a paid add-on for paid plans; when PITR is enabled, daily backups are replaced by PITR recovery coverage.
+- PITR restore overwrites the current database state. Supabase recommends restoring to a new project first when preserving current data is important.
+- Database backups do not include Storage API object contents; Storage objects require a separate backup/transfer plan.
+
+References:
+- https://supabase.com/docs/guides/platform/backups
+- https://supabase.com/docs/guides/platform/clone-project
+- https://supabase.com/docs/guides/platform/manage-your-usage/point-in-time-recovery
+
+### Required operator evidence (Dashboard)
+1. Open the selected project `rovhmjeowracayicbqij` in Supabase Dashboard.
+2. Open **Database → Backups** and capture the backup type, latest successful backup timestamp, and available restore points. If PITR is configured, open **Point in Time** and capture earliest/latest recovery points and retention period.
+3. Confirm project plan and billing impact before enabling PITR or creating a restore/clone target. No paid add-on is authorized by this work order.
+4. Verify Storage object backup separately; a database backup alone is insufficient for full application recovery.
+5. For repair testing, prefer **Restore to a New Project** if the plan supports it; do not restore over the selected NOVA project.
+6. Record evidence (timestamp, timezone, backup type, restore window, retention, Storage backup coverage, and whether restore-to-new-project is available) in this document before proposing any DDL.
+
+**Result:** No backup listing or restore-point evidence was accessible through the connected tools. Operator Dashboard evidence is required. No restore, clone, PITR enablement or billing change was performed.
