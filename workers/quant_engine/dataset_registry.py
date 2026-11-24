@@ -92,6 +92,11 @@ def build_dataset_manifest(
     content_hash = canonical_dataset_sha256(rows)
     normalized_payload = canonical_ohlcv_payload(rows)
 
+    quality_warnings = list(quality.warnings)
+    if expected_interval_seconds is None:
+        quality_warnings.append("expected_interval_seconds not supplied; interval completeness was not assessed")
+    quality_status = "not_assessed" if expected_interval_seconds is None else ("warning" if quality_warnings else "passed")
+
     manifest_core = {
         "schema_version": SCHEMA_VERSION,
         "content_sha256": content_hash,
@@ -107,10 +112,10 @@ def build_dataset_manifest(
         "row_count": quality.row_count,
         "schema": "nova.ohlcv.v1",
         "ingested_at": ingested,
-        "quality_status": "warning" if quality.warnings else "passed",
-        "quality_warnings": list(quality.warnings),
-        "gap_count": quality.observed_gap_count,
-        "irregular_interval_count": quality.observed_irregular_interval_count,
+        "quality_status": quality_status,
+        "quality_warnings": quality_warnings,
+        "gap_count": quality.observed_gap_count if expected_interval_seconds is not None else None,
+        "irregular_interval_count": quality.observed_irregular_interval_count if expected_interval_seconds is not None else None,
         "duplicate_count": 0,
         "expected_interval_seconds": expected_interval_seconds,
     }
