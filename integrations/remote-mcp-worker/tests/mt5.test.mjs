@@ -13,7 +13,11 @@ test("MT5 MCP exposes only read-only Exness Demo account tools", () => {
     "mt5_quotes"
   ]) assert.ok(names.has(name), "missing MCP tool: " + name);
 
-  assert.equal(tools.length, 15);
+  assert.equal(tools.length, 22);
+  for (const name of ["list_dataset_registry", "get_dataset_record", "list_model_registry", "get_model_record", "list_learning_runs", "get_learning_run", "get_learning_dashboard_summary"]) {
+    assert.ok(names.has(name), "missing registry MCP tool: " + name);
+  }
+  assert.ok(tools.filter((tool) => /registry|learning/i.test(tool.name)).every((tool) => /read-only/i.test(tool.description)));
   assert.ok(names.has("list_nova_skills"));
   assert.ok(names.has("get_nova_skill"));
   assert.equal([...names].some((name) => /^(place|submit|close|modify|execute)_?(order|trade)/i.test(name)), false);
