@@ -25,6 +25,23 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(a,worker.run({"fast_period":3,"slow_period":8},candles()))
         self.assertGreater(a["total_trades"],0)
         self.assertFalse(a["execution_enabled"])
+        self.assertIsNone(a["sharpe_annualized"])
+        self.assertIn("sharpe_per_period",a)
+    def test_backtest_fills_on_next_bar_open_and_omits_unqualified_annualization(self):
+        rows=candles()
+        report=BacktestWorker(fee=0,slippage=0).run({"fast_period":3,"slow_period":8},rows)
+        fills=[fill for fill in report["fills"] if fill["side"]=="buy"]
+        self.assertTrue(fills)
+        fill=fills[0]
+        signal_index=next(i for i,row in enumerate(rows) if row["timestamp"]==fill["signal_timestamp"])
+        fill_index=next(i for i,row in enumerate(rows) if row["timestamp"]==fill["fill_timestamp"])
+        self.assertEqual(fill_index,signal_index+1)
+        self.assertEqual(fill["fill_price"],rows[fill_index]["open"])
+        self.assertIsNone(report["sharpe_annualized"])
+    def test_backtest_annualizes_only_with_explicit_period_frequency(self):
+        report=BacktestWorker(fee=0,slippage=0).run(
+            {"fast_period":3,"slow_period":8,"periods_per_year":8760},candles())
+        self.assertIsInstance(report["sharpe_annualized"],float)
     def test_backtest_rejects_non_finite_ohlcv(self):
         bad=candles()
         bad[10]["close"]=float("nan")
