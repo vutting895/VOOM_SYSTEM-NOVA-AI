@@ -396,3 +396,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No code, runtime configuration, database, secret, permission, PR state, branch, deployment, or broker state changed. No tests were executed in this audit; cited test files were inspected only.
 - Status: API caller/binding audit DONE for the inspected paths; PR disposition remains IN PROGRESS; Backend Consolidation BLOCKED pending authoritative data-source contract, migration-ledger verification, current-main port/rebase, and authenticated E2E proof. Production deployment remains PAUSED; trading remains disabled.
 - Next action: design a minimal current-main API implementation plan that reuses System Hub for broker connection data and Remote MCP for Datacenter tools, while keeping Command Center's REST control-plane contract separate. Do not merge #373/#377 wholesale.
+
+
+## WO-2026-11-24-004 — Command Center API data-source review (2026-11-25)
+
+- Verified current main before documentation update: 9e3cf78c1e5ab53969e6476b97a2bebbf2c75955.
+- Reviewed the Command Center API contract and consumers, app-local draft migration, existing durable approval migration/client, Risk Center UI/schema, System Hub Worker and AI runtime search results.
+- Created `docs/governance/WO-004-COMMAND-CENTER-API-DATA-SOURCE-PLAN.md` (documentation only).
+- Critical finding: existing durable approvals live in the repository design as `public.nova_approval_requests` + `public.nova_agent_threads` and atomic RPCs. The app-local draft schema separately proposes `nova.approvals`; it must not be treated as the same store or applied as a duplicate.
+- `nova.audit_events` appears only in an explicitly draft/not-auto-applied app-local migration; no live migration-ledger verification was available in this pass.
+- Bridge heartbeat producer, canonical Command Center risk-policy persistence, aggregate service health and aggregate assistant readiness remain unverified/blocked. System Hub is the existing owner-scoped broker connection/account boundary; Remote MCP remains the separate MCP gateway.
+- API source matrix and phased plan are recorded in the new document. No code, migration, test, PR state, deployment, secret, permission or broker state changed. No tests were run.
+- Status: API data-source design **DOCUMENTED**; implementation **BLOCKED** on the unresolved sources above and separate implementation authorization. Production deployment remains PAUSED; trading remains disabled.
+- Next: verify staging migration ledger through an authorized Supabase connection; then resolve the heartbeat and canonical risk/audit sources before opening a fresh current-main implementation PR.
