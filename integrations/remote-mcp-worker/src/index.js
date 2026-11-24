@@ -1,4 +1,5 @@
 import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
+import { analyzeDatasetReadiness, analyzeModelReadiness, getDatasetRecord, getLearningRun, getModelRecord, listDatasetRegistry, listLearningRuns, listModelRegistry } from "./learning-registry.js";
 
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
@@ -314,6 +315,29 @@ async function callTool(name,args,request,env,user) {
   if (["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"].includes(name)) {
     return await runMt5ReadonlyTool(name, args, request, env, user);
   }
+  if (name === "analyze_dataset_readiness") return await analyzeDatasetReadiness(args, request, env);
+  if (name === "analyze_model_readiness") return await analyzeModelReadiness(args, request, env);
+  if (name === "list_dataset_registry") return await listDatasetRegistry(args, request, env);
+  if (name === "get_dataset_record") return await getDatasetRecord(args, request, env);
+  if (name === "list_model_registry") return await listModelRegistry(args, request, env);
+  if (name === "get_model_record") return await getModelRecord(args, request, env);
+  if (name === "list_learning_runs") return await listLearningRuns(args, request, env);
+  if (name === "get_learning_run") return await getLearningRun(args, request, env);
+  if (name === "get_learning_dashboard_summary") {
+    const [datasets, models, runs] = await Promise.all([
+      listDatasetRegistry({ limit: 100 }, request, env),
+      listModelRegistry({ limit: 100 }, request, env),
+      listLearningRuns({ limit: 100 }, request, env)
+    ]);
+    const tally = (rows, key) => rows.reduce((acc, row) => { const value = row[key] || "unknown"; acc[value] = (acc[value] || 0) + 1; return acc; }, {});
+    return {
+      datasets: { total: datasets.count, byValidation: tally(datasets.datasets, "validation_status"), byQuality: tally(datasets.datasets, "quality_status") },
+      models: { total: models.count, byLifecycle: tally(models.models, "lifecycle_status"), byArchitecture: tally(models.models, "architecture") },
+      learningRuns: { total: runs.count, byStatus: tally(runs.runs, "status"), byType: tally(runs.runs, "run_type") },
+      safety: { liveTradingEnabled: false, executionEnabled: false, ordersEnabled: false },
+      note: "Counts are limited to the latest 100 rows per registry and scoped by Supabase RLS."
+    };
+  }
   if(name==="system_status") return {service:"voom-system-mcp",status:"online",authenticated:true,mode:"authenticated-read-only",liveTradingEnabled:false,executionEnabled:false,userId:user.id};
   if(name==="list_nova_skills") return listNovaSkills(args.domain);
   if(name==="get_nova_skill") return getNovaSkill(args.skill_id);
@@ -374,6 +398,15 @@ export const tools=[
  {name:"list_workers",description:"List NOVA modules and clearly label local prototypes; execution remains disabled.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_nova_skills",description:"List the NOVA skill capability catalog. Metadata only; skills are not executable and grant no permissions.",inputSchema:{type:"object",properties:{domain:{type:"string",enum:["market_data","trading_research","engineering","security","platform","frontend","operations"]}},additionalProperties:false}},
  {name:"get_nova_skill",description:"Read one NOVA skill definition by ID. Metadata only; no skill execution, code writes or trading actions.",inputSchema:{type:"object",properties:{skill_id:{type:"string",minLength:3,maxLength:64,pattern:"^[a-z0-9_]+$"}},required:["skill_id"],additionalProperties:false}},
+ {name:"analyze_dataset_readiness",description:"Evaluate registered dataset metadata against basic quality, validation, hash and UTC-range gates. Does not reopen or rehash source files.",inputSchema:{type:"object",properties:{dataset_id:{type:"string",format:"uuid"}},required:["dataset_id"],additionalProperties:false}},
+ {name:"analyze_model_readiness",description:"Evaluate registered model evidence against artifact, walk-forward, OOS trade, profit-factor, leakage and baseline gates. Does not promote models or authorize trading.",inputSchema:{type:"object",properties:{model_id:{type:"string",format:"uuid"}},required:["model_id"],additionalProperties:false}},
+ {name:"list_dataset_registry",description:"List authenticated user's Dataset Registry entries with validation and quality state. Read-only; owner RLS enforced.",inputSchema:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:100},symbol:{type:"string"},timeframe:{type:"string"},validation_status:{type:"string",enum:["pending","passed","failed","blocked"]}},additionalProperties:false}},
+ {name:"get_dataset_record",description:"Read one Dataset Registry record by UUID, including manifest and coverage evidence. Owner-scoped read-only.",inputSchema:{type:"object",properties:{dataset_id:{type:"string",format:"uuid"}},required:["dataset_id"],additionalProperties:false}},
+ {name:"list_model_registry",description:"List authenticated user's Model Registry entries, architecture, evaluation and OOS gates. Read-only; owner RLS enforced.",inputSchema:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:100},architecture:{type:"string",enum:["xgboost","lstm","hybrid_xgboost_lstm","meta_ensemble","other"]},lifecycle_status:{type:"string",enum:["candidate","training","evaluating","approved","rejected","retired"]}},additionalProperties:false}},
+ {name:"get_model_record",description:"Read one Model Registry record by UUID, including artifact hashes, evaluation evidence and rollback pointer. Owner-scoped read-only.",inputSchema:{type:"object",properties:{model_id:{type:"string",format:"uuid"}},required:["model_id"],additionalProperties:false}},
+ {name:"list_learning_runs",description:"List durable analysis/training/evaluation/walk-forward run records. Read-only; does not start training.",inputSchema:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:100},status:{type:"string",enum:["queued","running","succeeded","failed","blocked","cancelled"]},run_type:{type:"string",enum:["analysis","training","evaluation","walk_forward","promotion_review"]}},additionalProperties:false}},
+ {name:"get_learning_run",description:"Read one durable Learning Run by UUID with sanitized metrics and evidence. Read-only; does not execute jobs.",inputSchema:{type:"object",properties:{run_id:{type:"string",format:"uuid"}},required:["run_id"],additionalProperties:false}},
+ {name:"get_learning_dashboard_summary",description:"Return tenant-scoped Dataset, Model and Learning Run counts for the Learning Dashboard. Read-only; latest 100 rows per registry.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_strategy_registry",description:"Read strategy registry rows visible to this signed-in user under Supabase RLS.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"read_market_candles",description:"Read public Binance OHLCV candles. Research only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"}},additionalProperties:false}},
  {name:"analyze_smc_strategy",description:"Analyze confirmed swing structure, BOS/CHoCH and fair value gaps on public Binance candles. Research only; never sends orders.",inputSchema:{type:"object",properties:{symbol:{type:"string"},interval:{type:"string"},limit:{type:"integer"},swing_left:{type:"integer"},swing_right:{type:"integer"}},additionalProperties:false}},

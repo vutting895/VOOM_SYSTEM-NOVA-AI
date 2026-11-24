@@ -26,6 +26,10 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 - `system_status` — authenticated status, execution disabled.
 - `list_workers` — module inventory, explicitly labeling Python prototypes.
 - `list_strategy_registry` — reads visible strategy rows under Supabase RLS.
+- `list_dataset_registry` / `get_dataset_record` — read the signed-in user's dataset manifests, hashes, quality and validation state.
+- `analyze_dataset_readiness` / `analyze_model_readiness` — evaluate registry metadata against fail-closed dataset and model evidence gates; these checks do not independently rehash files or audit model artifacts.
+- `list_model_registry` / `get_model_record` — read model lineage, artifact hashes, lifecycle, walk-forward and OOS evidence.
+- `list_learning_runs` / `get_learning_run` / `get_learning_dashboard_summary` — read durable learning-run state and dashboard aggregates; these tools do not start training.
 - `read_market_candles` — bounded public Binance OHLCV candles.
 - `run_ema_backtest` — simplified long-only EMA crossover research calculation; omits fees, spread, slippage and funding.
 - `analyze_smc_strategy` / `run_smc_backtest` — heuristic SMC research using public Binance candles; no orders.
@@ -61,3 +65,12 @@ The Worker deployment is managed independently from the local stdio MCP server i
 - server/discover is implemented for modern clients. Modern result objects use resultType: "complete"; discovery and tools/list include ttlMs and cacheScope. Cache scope is private.
 - Origin checks remain independent from protocol checks. A supplied untrusted Origin is rejected with HTTP 403 before authentication or tool dispatch. Requests without Origin remain allowed for non-browser clients, but protected MCP calls still require a valid Supabase bearer token.
 - This is a read-only tools subset. No order placement, close/modify, transfer, withdrawal, or broker mutation method is available. Do not describe this Worker as supporting the entire MCP specification beyond its implemented tools-only scope.
+
+
+## Dataset / Model Registry and Learning Dashboard
+
+The reviewed migration candidate is `supabase/migrations/202611240001_nova_learning_registries.sql`. It defines owner-scoped Dataset Registry, Model Registry and Learning Run tables with authenticated RLS. It has **not** been applied to Supabase by this change.
+
+The MCP tools are read-only and use the caller's Supabase bearer session; they rely on owner RLS and never use a service-role key. The Command Center exposes the authenticated `/learning` page and reads the same tables through the signed-in Supabase client. Until the migration is applied to an isolated staging project and verified, an empty or missing registry must be displayed as unavailable/empty—not as successful training.
+
+Important boundary: these registry and dashboard changes do not implement a compute worker, execute XGBoost/LSTM training, generate real model artifacts, or approve/promote models. A queued Learning Run is not proof that a worker has claimed or completed it. Real training, leakage tests, walk-forward/OOS evidence and model promotion remain separate gates. Live trading and order execution remain disabled.
