@@ -538,7 +538,8 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
   const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
   if (contentType !== "application/json") {
     return gatewayFailure(requestId, "invalid_request", 415, origin, env);
-  }\n  try { raw = await request.text(); } catch {
+  }
+  try { raw = await request.text(); } catch {
     return gatewayFailure(requestId, "invalid_request", 400, origin, env);
   }
   if (new TextEncoder().encode(raw).byteLength > Math.min(MAX_TOOL_BODY_BYTES, capability.maxBodyBytes)) {
