@@ -49,3 +49,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Remote MCP deployment and its smoke checks remain skipped until the fixed Datacenter endpoint variable is present.
 - Both relevant CI workflows remain manual-dispatch only. No tests were run.
 - Outcome: IN PROGRESS — release gating is ready; Datacenter host provisioning, endpoint configuration, and one final consolidated test remain pending.
+
+
+## OP-20261124-007 — Datacenter research/backtest Gateway integration
+
+- NOVA main baseline at start: `4cc59e0c8f6c9b9404ec21e7388d05eec6fd7018`.
+- Extended the existing `datacenter-client.js` catalog with `backtest_run`, `research_run_get`, and `research_run_list`.
+- All three tools route through the existing `isDatacenterTool` → `callDatacenterTool` path and forward the authenticated user's existing Supabase Bearer session to the configured fixed Datacenter `/mcp` endpoint.
+- Updated Gateway catalog tests and README to describe the new research tools and their limitations.
+- The tool catalog exposes only the implemented `backtest` run type; walk-forward is not advertised until implemented.
+- No direct browser-to-Datacenter API, no second MCP server, no environment variable/secret changes, no Worker deployment.
+- Tests updated but not executed; final consolidated test gate remains pending.
+- Outcome: IN PROGRESS. Next: implement Datacenter walk-forward orchestration and then replace NOVA frontend legacy Backtest service only after parity.
