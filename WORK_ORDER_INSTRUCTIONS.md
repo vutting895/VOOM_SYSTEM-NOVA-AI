@@ -39,3 +39,13 @@ Append to `logs/OPERATIONS.md` for each meaningful operation: UTC timestamp, ope
 ## Work-order authority
 
 The central registry defines approval and scope. This local file adds NOVA-specific execution boundaries and does not authorize work outside the central Work Order.
+
+
+## Reporting scope — REPORTING-SCOPE-001
+
+- Canonical policy: https://github.com/vutting895/voom-shared-contracts/blob/main/standards/REPORTING-SCOPE-POLICY.md
+- Rollout work order: `WO-2026-11-24-002` in the central registry.
+- When a report is requested from the NOVA Project/repository context, report only NOVA's own tasks, phases, status, blockers, logs, evidence, and next actions.
+- You may identify an external repository as a dependency, but must not merge its internal work or progress into a NOVA-local report.
+- Cross-repository reporting is reserved for the central Ecosystem Governance / Master Coordination context, and only for repositories with recorded active or planned work. Each repository must remain separately identified with its own evidence and status.
+- Do not treat GitHub account membership as ecosystem membership. Do not include Voom Studio Affiliate, Voom_system, or unclassified repositories unless the central registry explicitly approves them.
