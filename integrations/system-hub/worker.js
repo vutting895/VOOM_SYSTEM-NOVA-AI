@@ -535,7 +535,9 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
   const capability = getCapability(toolName);
   if (!capability) return gatewayFailure(requestId, "capability_not_found", 404, origin, env);
   let raw;
-  if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {\n    return gatewayFailure(requestId, "invalid_request", 415, origin, env);\n  }\n  try { raw = await request.text(); } catch {
+  if (!String(request.headers.get("Content-Type") || "").toLowerCase().startsWith("application/json")) {
+    return gatewayFailure(requestId, "invalid_request", 415, origin, env);
+  }\n  try { raw = await request.text(); } catch {
     return gatewayFailure(requestId, "invalid_request", 400, origin, env);
   }
   if (new TextEncoder().encode(raw).byteLength > Math.min(MAX_TOOL_BODY_BYTES, capability.maxBodyBytes)) {
