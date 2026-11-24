@@ -252,3 +252,12 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 2. Complete approval guard test review for valid, invalid, expired and owner-mismatched JWT/RPC cases without enabling approval creation.
 3. Keep #396/#398 blocked; reconcile separately against current main.
 4. Continue per-file caller/import/workflow mapping and only then prepare any move manifest with rollback evidence.
+
+
+## PR #397 head refresh — 2026-11-25
+
+- Latest PR #397 head re-read: `f10a7bcc92a3af830fde5f48c7c39d3f951293d1`; base remains `7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`; state OPEN / DRAFT; GitHub mergeable=true at this read.
+- Compared with current main `d134bb3b220551d296ad92a1d90d1c3c3d62f14d`: 1 ahead / 2 behind, diverged from merge base `7a54b753...`. Do not merge while behind/diverged.
+- Current exact-head check run `smc-tests` is still IN_PROGRESS; Supabase Preview is SKIPPED. Earlier success on prior head `3e1db...` does not validate current head `f10a7...`.
+- Inspected current #397 head `tests/test_research_pipeline.py`: exactly one definition of `test_risk_pass_requires_authenticated_approval_context`; duplicate-function defect identified in #400 is not present in #397. SMC workflow includes both `datacenter-client.js` and `tests/test_approval_guard.py` in trigger filters.
+- Disposition remains: retain #397 as preferred candidate, wait for exact-head CI, review JWT/RPC tests, then reconcile the two docs-only commits on main. No merge, rebase, CI trigger or runtime action performed.
