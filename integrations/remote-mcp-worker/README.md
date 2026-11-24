@@ -36,6 +36,22 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 
 MT5 tools require an authenticated Supabase session and an existing user-owned `broker_connections` row. Reading account data remains unavailable until a trusted administrator provisions the separate Bridge route and the Cloudflare secret `MT5_TENANT_ROUTES`. All MT5 tools are GET/read-only except creating the pending database request; no tool submits, modifies, or closes orders.
 
+## Datacenter Learning Service integration
+
+The existing Remote MCP Gateway exposes the Datacenter Learning tool group without creating a second NOVA Gateway or per-worker MCP servers. The Gateway forwards the signed-in user's Supabase Bearer session to Datacenter; Datacenter independently verifies the same session with Supabase Auth and scopes all registry operations to that authenticated user.
+
+Learning tool groups:
+- Dataset: `dataset_list`, `dataset_get`, `dataset_validate`, `dataset_register`, `dataset_ingest`, `dataset_validate_ohlcv`, `dataset_approve`, `dataset_consolidate`.
+- Universe: `universe_validate`, `universe_register`, `universe_list`, `universe_get`.
+- Analysis: `analysis_run`, `analysis_get`, `analysis_report`.
+- Training: `learning_submit`, `learning_status`, `learning_cancel`, `learning_logs`.
+- Model: `model_list`, `model_get`, `model_register`, `model_evaluate`, `model_approve`.
+- Audit: `audit_log_list`.
+
+Set the Cloudflare Worker variable `DATACENTER_MCP_URL` to the fixed HTTPS Datacenter MCP endpoint ending in `/mcp`. It must be configured only after the Datacenter Docker service is deployed behind the approved Cloudflare Tunnel hostname. If it is missing, Learning tool calls fail closed with `datacenter_service_not_configured`; the Gateway does not fall back to mock data or a public arbitrary URL. The current repository does not yet contain a deployed Datacenter hostname.
+
+The Datacenter service uses the same Supabase project URL and publishable key already configured for NOVA. Do not use a Supabase service-role key. No new user ID, tenant ID, upstream URL, broker credential, or service token is accepted from model-controlled tool arguments.
+
 ## JSON-RPC smoke test
 Initialize and list tools using a valid signed-in user's Supabase access token:
 
