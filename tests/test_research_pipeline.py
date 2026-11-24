@@ -48,18 +48,37 @@ def test_walk_forward_produces_held_out_folds_only():
     assert body["live_trading_enabled"] is False
 
 
-def test_risk_rejection_never_creates_approval():
-    client = TestClient(app)
-    response = client.post("/v1/risk/approval", json={
+def _risk_payload(allocation_pct: float) -> dict:
+    return {
         "thread_id": "00000000-0000-0000-0000-000000000001",
         "proposal": {"title": "Draft", "summary": "Research only", "market": "BTC/USDT",
                      "timeframe": "1h", "riskProfile": "low"},
-        "allocation_pct": 30, "daily_loss_pct": 0, "drawdown_pct": 0
-    })
+        "allocation_pct": allocation_pct, "daily_loss_pct": 0, "drawdown_pct": 0
+    }
+
+
+def test_risk_rejection_never_creates_approval():
+    client = TestClient(app)
+    response = client.post("/v1/risk/approval", json=_risk_payload(30))
     assert response.status_code == 200
     assert response.json()["status"] == "rejected_by_risk"
     assert response.json()["approval_created"] is False
 
+
+def test_risk_pass_requires_authenticated_approval_context():
+    client = TestClient(app)
+    response = client.post("/v1/risk/approval", json=_risk_payload(10))
+    assert response.status_code == 401
+    assert response.json()["detail"] == "authenticated_user_token_required"
+
+
+def test_authenticated_risk_pass_still_fails_closed_when_approval_disabled(monkeypatch):
+    monkeypatch.delenv("NOVA_APPROVALS_ENABLED", raising=False)
+    client = TestClient(app)
+    response = client.post("/v1/risk/approval", json=_risk_payload(10),
+                            headers={"Authorization": "Bearer test-token"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "approval_workflow_disabled"
 
 def test_risk_pass_requires_authenticated_approval_context():
     client = TestClient(app)
