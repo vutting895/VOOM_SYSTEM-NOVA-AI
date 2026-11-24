@@ -127,18 +127,16 @@ jobs:
           npx wrangler deploy --config ../integrations/mt5-readonly-proxy/wrangler.jsonc --keep-vars \
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
 
+      - name: Defer Remote MCP release until Datacenter endpoint is configured
+        if: steps.changed.outputs.remote_mcp == 'true' && env.DATACENTER_MCP_URL == ''
+        run: echo "Remote MCP release is deferred; the Learning Gateway will not be deployed without the fixed Datacenter /mcp endpoint."
+
       - name: Deploy authenticated read-only Remote MCP Worker
-        if: steps.changed.outputs.remote_mcp == 'true'
+        if: steps.changed.outputs.remote_mcp == 'true' && env.DATACENTER_MCP_URL != ''
         working-directory: frontend
-        shell: bash
         run: |
-          if [ -n "$DATACENTER_MCP_URL" ]; then
-            npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars \
-              --var "DATACENTER_MCP_URL:$DATACENTER_MCP_URL"
-          else
-            echo "DATACENTER_MCP_URL is not configured; Learning tools will remain fail-closed until the Datacenter host is provisioned."
-            npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars
-          fi
+          npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars \
+            --var "DATACENTER_MCP_URL:$DATACENTER_MCP_URL"
 
       # Separate control plane; no Alpaca OAuth logic or order-submission routes are reused.
       - name: Deploy NOVA System Integration Hub
@@ -223,18 +221,21 @@ jobs:
           fi
 
           code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' "$mcp/health" || true)"
-          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body" || ! grep -q '"toolCount":41' "$body"; then
-            echo "Remote MCP health or read-only tool contract failed (HTTP $code)."
+          if [ "$code" != "200" ] || ! grep -q '"liveTradingEnabled":false' "$body"; then
+            echo "Remote MCP health or read-only safety contract failed (HTTP $code)."
             exit 1
           fi
 
-          code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' "$mcp/mcp" || true)"
-          if [ "$code" != "401" ] || ! grep -q '"unauthorized"' "$body"; then
-            echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
-            exit 1
-          fi
-
-          if [ -n "$DATACENTER_MCP_URL" ]; then
+          if [ "$REMOTE_MCP_DEPLOYED" = "true" ]; then
+            if ! grep -q '"toolCount":41' "$body"; then
+              echo "Remote MCP tool catalog count is not 41."
+              exit 1
+            fi
+            code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' "$mcp/mcp" || true)"
+            if [ "$code" != "401" ] || ! grep -q '"unauthorized"' "$body"; then
+              echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
+              exit 1
+            fi
             code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":10,"method":"tools/list"}' "$DATACENTER_MCP_URL" || true)"
             if [ "$code" != "401" ]; then
               echo "Configured Datacenter endpoint did not enforce authentication (HTTP $code)."
@@ -242,7 +243,7 @@ jobs:
             fi
             echo "Configured Datacenter MCP endpoint is reachable and rejects unauthenticated requests."
           else
-            echo "Datacenter host is not provisioned; authenticated Learning integration smoke test is deferred."
+            echo "Remote MCP release and authenticated Learning smoke tests are deferred until DATACENTER_MCP_URL is configured."
           fi
           if [ "$FRONTEND_DEPLOYED" = "true" ]; then
             ui="https://voom-system-nova-ui.suwapat787.workers.dev"
