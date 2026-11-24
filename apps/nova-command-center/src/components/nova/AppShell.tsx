@@ -46,7 +46,7 @@ export function AppShell() {
           to={n.to}
           onClick={() => setOpen(false)}
           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-          activeProps={{ className: "bg-sidebar-accent text-primary shadow-glow" }}
+          activeProps={{\n            className: "bg-sidebar-accent text-primary shadow-glow",\n          }}
         >
           <n.icon className="size-4" /> {n.label}
         </Link>
@@ -102,7 +102,7 @@ export function AppShell() {
                 {auth.email}
               </span>
               {auth.role && (
-                <Badge variant="online" title="Display only — the server enforces permissions">
+                <Badge\n                  variant="online"\n                  title="Display only — the server enforces permissions"\n                >
                   {ROLE_LABEL[auth.role]}
                 </Badge>
               )}
@@ -114,7 +114,7 @@ export function AppShell() {
                   navigate({ to: "/login", replace: true });
                 }}
               >
-                <LogOut className="size-4" /> <span className="hidden sm:inline">Sign out</span>
+                <LogOut className="size-4" />{" "}\n                <span className="hidden sm:inline">Sign out</span>
               </Button>
             </div>
           </header>
@@ -134,7 +134,7 @@ function Brand() {
         N
       </div>
       <div>
-        <div className="font-mono text-sm font-bold tracking-[0.2em] text-foreground">NOVA AI</div>
+        <div className="font-mono text-sm font-bold tracking-[0.2em] text-foreground">\n          NOVA AI\n        </div>
         <div className="terminal-label">Command Center</div>
       </div>
     </div>
