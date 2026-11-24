@@ -74,6 +74,65 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
         self.assertRegex(SOURCE, r"allow_methods\s*=\s*\[\s*['\"]GET['\"],\s*['\"]OPTIONS['\"]")
 
+    def test_symbols_endpoint_exposes_contract_tick_and_volume_metadata(self):
+        functions = function_nodes()
+        symbols_endpoint = functions["symbols"]
+        self.assertTrue(has_call(symbols_endpoint, "symbol_spec"))
+        for field in (
+            "contract_size", "tick_size", "tick_value_profit", "tick_value_loss",
+            "profit_currency", "margin_currency", "volume_min", "volume_max",
+            "volume_step", "risk_metadata_complete",
+            "contract_size_decimal", "tick_size_decimal", "tick_value_loss_decimal",
+            "volume_min_decimal", "volume_max_decimal", "volume_step_decimal",
+            "equity_decimal", "balance_decimal",
+        ):
+            with self.subTest(field=field):
+                self.assertIn(f'"{field}"', SOURCE)
+
+    def test_missing_or_non_finite_instrument_metadata_fails_completeness(self):
+        self.assertIn("math.isfinite(result)", SOURCE)
+        self.assertIn('spec["risk_metadata_complete"]', SOURCE)
+        self.assertIn('spec[field] is not None and spec[field] > 0', SOURCE)
+
+    def test_decimal_string_fields_reject_non_finite_values(self):
+        self.assertIn("Decimal(str(value))", SOURCE)
+        self.assertIn("result.is_finite()", SOURCE)
+        self.assertIn('optional_decimal_string(account, "equity")', SOURCE)
+        self.assertIn('optional_decimal_string(account, "balance")', SOURCE)
+
+    def test_profit_calculation_is_read_only_tenant_guarded_and_uses_mt5_calculator(self):
+        functions = function_nodes()
+        calculation = functions["profit_calculation"]
+        args = {arg.arg for arg in calculation.args.args + calculation.args.kwonlyargs}
+        self.assertIn("authorization", args)
+        self.assertIn("tenant_id", args)
+        self.assertTrue(has_call(calculation, "require_token", ["authorization", "tenant_id"]))
+        self.assertTrue(has_call(calculation, "order_calc_profit"))
+        self.assertFalse(has_call(calculation, "order_send"))
+        self.assertIn('app.get("/api/profit-calculation")', SOURCE)
+        self.assertIn("volume_step", SOURCE)
+        self.assertIn('optional_decimal_string(info, "trade_tick_size")', SOURCE)
+        self.assertIn("Prices do not match broker tick size", SOURCE)
+        self.assertIn("native_profit >= 0", SOURCE)
+        self.assertIn('"calculation_method": "mt5.order_calc_profit"', SOURCE)
+
+    def test_usc_account_requires_cent_suffixed_symbol_for_profit_calculation(self):
+        functions = function_nodes()
+        calculation = functions["profit_calculation"]
+        self.assertIn('account_currency == "USC"', SOURCE)
+        self.assertIn('symbol.strip().upper().endswith("C")', SOURCE)
+        self.assertIn("Exness USC Cent accounts require a cent-suffixed symbol", SOURCE)
+
+    def test_unverified_cent_currency_codes_are_not_mislabeled_native(self):
+        self.assertIn('"unsupported-cent" if str(getattr(account, "currency", "")).upper().endswith("C")', SOURCE)
+        self.assertIn('"unsupported-cent" if account_currency.endswith("C")', SOURCE)
+
+    def test_profit_calculation_path_is_whitelisted_and_validated_by_outbound_relay(self):
+        self.assertIn('"/api/profit-calculation"', RELAY_CLIENT)
+        self.assertIn('{"symbol", "side", "volume", "open_price", "stop_price"}', RELAY_CLIENT)
+        self.assertIn("Decimal(raw)", RELAY_CLIENT)
+        self.assertIn("Stop price must represent a loss for the selected side.", RELAY_CLIENT)
+
     def test_read_only_middleware_rejects_mutating_methods_and_order_paths(self):
         self.assertIn('request.method not in {"GET", "OPTIONS"}', SOURCE)
         self.assertRegex(SOURCE, r"orders\?\|trades\?\|execute\|withdraw\|transfer")
