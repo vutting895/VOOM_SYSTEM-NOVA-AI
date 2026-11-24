@@ -396,7 +396,7 @@ const PROTOCOL_META_KEY = "io.modelcontextprotocol/protocolVersion";
 const CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
 const CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities";
 const SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo";
-const SERVER_INFO = { name: "voom-system-mcp", version: "0.3.0" };
+const SERVER_INFO = { name: "voom-system-mcp", version: "0.4.0" };
 const SUPPORTED_PROTOCOL_VERSIONS = [MODERN_PROTOCOL_VERSION, ...ALLOWED_PROTOCOLS];
 
 function protocolError(id, code, message, data, status, origin) {
