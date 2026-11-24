@@ -449,3 +449,14 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Created `docs/governance/NOVA-SUPABASE-MIGRATION-RECONCILIATION.md` with non-destructive gates, provenance requirements, canonical schema decision, rollback principles and explicit blocked status.
 - No DDL/SQL write, migration, data copy/update, RLS/grant change, branch creation, function invocation, Edge Function deployment, production deployment, secrets change or broker action was performed. No tests were run.
 - Status: read-only audit **DONE**; backup/PITR verification **BLOCKED**; migration provenance **BLOCKED**; schema repair **NOT AUTHORIZED / NOT EXECUTED**; deployment **PAUSED**; trading remains disabled.
+
+
+## WO-004 — NOVA Supabase backup/PITR verification follow-up (2026-11-25)
+
+- Rechecked repository main before work: `e7d1f3795de3b2dc655e73f6f148056ddb9ed19f`.
+- Rechecked selected Supabase project `rovhmjeowracayicbqij`: project `ACTIVE_HEALTHY`; PostgreSQL 17.11; its listed main branch remains `MIGRATIONS_FAILED`.
+- Connected Supabase tools do not expose backup inventory, backup timestamps, PITR retention/recovery window, or restore-point validation. Backup/PITR therefore remains **UNVERIFIED**; project health and DB version are not backup evidence.
+- Consulted current Supabase backup documentation. Paid plans have daily backup coverage subject to retention; Free projects should maintain regular logical exports/off-site backups. PITR is a paid add-on and replaces daily backups while enabled. PITR restore overwrites current DB state; restore-to-new-project is preferred for preserving source data. Storage API object contents are not included in DB backups.
+- Updated `docs/governance/NOVA-SUPABASE-MIGRATION-RECONCILIATION.md` with the exact Dashboard evidence checklist and links to official documentation.
+- No backup/restore, PITR enablement, clone, project billing change, SQL write, migration, DDL, RLS/grant change, branch operation, deploy or broker action was performed. No tests run.
+- Status: backup/PITR **UNVERIFIED — DASHBOARD EVIDENCE REQUIRED**; migration repair **BLOCKED**; deployment **PAUSED**; trading and broker writes remain disabled.
