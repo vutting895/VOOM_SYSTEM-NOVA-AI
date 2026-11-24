@@ -142,9 +142,9 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 | PR | Current evidence | WO-004 disposition |
 |---|---|---|
 | #396 | Open Draft, 14 changed files, base exactly current main. Bounded read-only History API across Bridge, Relay, Proxy and System Hub. PR body records exact-head GitHub Actions run 45452374172 SUCCESS and 27 Bridge/history tests plus Node/Windows checks. Authenticated owner-vs-foreign-tenant Demo E2E not run. | KEEP / REQUIRED CANDIDATE; BLOCKED from merge pending independent security review and tenant-isolation E2E. Existing read-only invariants remain mandatory. |
-| #397 | Open Draft, 7 changed files, base exactly current main. Ports MCP syntax, case-sensitive MT5 symbol validation, RiskWorker gate ordering and full Remote MCP Node tests; adds Datacenter-client workflow path filters. | PREFERRED CONSOLIDATION CANDIDATE over stale #394 and overlapping #400; exact-head CI still pending. Review the #399 workflow overlap before merge. |
+| #397 | Open Draft, 7 changed files, base exactly current main. Ports MCP syntax, case-sensitive MT5 symbol validation, RiskWorker gate ordering and full Remote MCP Node tests. It changes `datacenter-client.js` but its SMC CI path filters still omit that file. | PREFERRED CONSOLIDATION CANDIDATE over stale #394 and overlapping #400; exact-head CI still pending. Requires the complementary #399 path-filter fix or equivalent. |
 | #398 | Open Draft, 3 changed files, base exactly current main. Archives legacy Python MCP behind opt-in `legacy-archive` Compose profile. Compose-specific validation job passed on exact head; overall SMC CI failed on two failures also reported on main. | KEEP / REQUIRED CANDIDATE; no runtime deployment or Docker startup performed. Keep Draft until unrelated baseline failures are dispositioned and full review completes. |
-| #399 | Open Draft, 1 workflow file. Adds `integrations/remote-mcp-worker/src/datacenter-client.js` to SMC CI path filters. | CONSOLIDATION / DUPLICATE CANDIDATE with #397: #397 already adds the same path to both pull_request and push filters. Do not merge both copies; no PR closure authorized. |
+| #399 | Open Draft, 1 workflow file. Adds `integrations/remote-mcp-worker/src/datacenter-client.js` to both SMC CI path filters. The #397 branch changes this source file but omits it from those filters. | KEEP / REQUIRED COMPLEMENT to #397; not a duplicate. Exact-head validation pending. |
 | #400 | Open Draft, 2 files, current-main base. Narrow RiskWorker gate-order correction. Branch test file contains **two functions with the same name** `test_risk_pass_requires_authenticated_approval_context`; Python's later definition shadows the earlier test, so the intended test coverage is not preserved. | BLOCKED / DEFECT. Overlaps the RiskWorker/test changes in #397; prefer #397 after exact-head validation. Do not merge #400 as-is. |
 | #395 | Open Draft, test-only feature-flag adjustment. Sets `NOVA_APPROVALS_ENABLED=true` in existing approval route tests. | ALTERNATE TEST-ONLY WORKAROUND; likely superseded by #397's runtime gate-order fix and revised tests. Preserve until #397 is validated; no merge/closure. |
 | #394 | Open Draft on stale/diverged base `07afb3f...`; earlier exact-head CI success does not validate current main. | SUPERSEDED implementation candidate by current-main port #397; keep history, no merge. |
@@ -170,3 +170,25 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 2. Finish per-PR changed-path coverage for the 375 PRs and map import/caller/workflow/deployment references.
 3. Build a per-directory ownership and dependency matrix for the 374 files, with special attention to the dual frontend roots, legacy MCP, System Hub, and database migrations.
 4. Revise the manifest only when a specific move has proven NOVA ownership, no unresolved callers, passing tests, and rollback evidence.
+
+
+## 11. Frontend ownership and deployment-path verification — 2026-11-25
+
+**Evidence read on current main**
+- Root `netlify.toml` builds from repository root with `npm run build` and publishes `dist`.
+- Root `package.json` defines Vite build; root `vite.config.ts`, `index.html` and `src/main.tsx` are the corresponding React SPA entry/build files. `frontend/README.md` identifies Netlify as the current public production frontend (`https://voomsystem.netlify.app/`).
+- `apps/nova-command-center/` is a separate TanStack Start/Vite application with its own package.json, Vite config, UI routes, tests and draft app-local Supabase migration. Its README describes a read-only Command Center; its deployment document describes manual Cloudflare Workers deployment. `.github/workflows/nova-command-center-ci.yml` runs app-local dependency resolution, typecheck, lint, tests and build.
+- The current recursive tree contains only these paths under `frontend/`: `README.md`, `scripts/nova-approval-local-supabase.integration.mjs`, `stores/README.md`, and `wix-export.html` (plus directory entries). There is **no** `frontend/package.json`, `frontend/package-lock.json`, or Next.js app source tree.
+- However, `.github/workflows/cloudflare-deploy.yml` and `.github/workflows/nova-approval-migration-ci.yml` set `working-directory: frontend`, reference `frontend/package-lock.json`, and run `npm ci`; the Cloudflare workflow also invokes `npm run cf:build`. Those inputs are absent from current main. Treat these workflow paths as **deployment/CI blockers requiring separate workflow remediation**, not as proof that the frontend is deployable.
+- `.github/workflows/frontend-ci.yml` builds the root Vite frontend. Its only trigger is `workflow_dispatch`; the downstream Cloudflare deployment workflow listens for completion of this workflow on main. Do not manually trigger or deploy as part of WO-004.
+- The Cloudflare deploy workflow checks changes under `frontend/` for the frontend Worker; it does not target `apps/nova-command-center/`. The app has its own CI but no current production deployment evidence in the inspected workflows.
+
+**Correction to Section 10 PR overlap row**
+- #397 changes `integrations/remote-mcp-worker/src/datacenter-client.js` and expands MCP tests, but its SMC CI path filters do **not** include `datacenter-client.js`.
+- #399 independently adds that exact path to both pull_request and push filters. #399 is therefore **complementary/required**, not a duplicate of #397. The earlier Section 10 wording that treated #399 as duplicate is superseded by this evidence.
+- #397 remains the preferred current-main code consolidation candidate over #394/#400. #399 is a separate CI-trigger correction. #400 remains blocked because its test file defines `test_risk_pass_requires_authenticated_approval_context` twice; the later definition shadows the earlier test.
+
+**Migration implications**
+- Root Vite SPA, legacy `frontend/` residue, and `apps/nova-command-center/` are three distinct path groups with different build/deploy assumptions. They must not be collapsed or moved as a single "frontend" directory.
+- Keep root SPA and Netlify config in place. Keep the app-local Command Center in place until its target hosting and consumer contracts are explicitly selected. Preserve legacy `frontend/` paths until CI references are either corrected under a separate Work Order or proven obsolete.
+- No source or workflow files moved/edited. No CI workflow was run, no deployment was triggered, and no secrets or production configuration were changed.
