@@ -3,6 +3,27 @@ const UI_ORIGINS = new Set([
   "https://voom-system-nova-ui.suwapat787.workers.dev"
 ]);
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
+const STAGING_RELAY_ORIGIN = "https://voom-mt5-bridge-relay-staging.suwapat787.workers.dev";
+const ALLOWED_RELAY_ORIGINS = new Set([RELAY_ORIGIN, STAGING_RELAY_ORIGIN]);
+
+function configuredRelayOrigin(env) {
+  const value = String(env.MT5_BRIDGE_RELAY_URL || RELAY_ORIGIN);
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !ALLOWED_RELAY_ORIGINS.has(url.origin) ||
+      url.pathname !== "/" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) return "";
+    return url.origin;
+  } catch {
+    return "";
+  }
+}
 const BASE = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -164,11 +185,13 @@ async function loadConnection(request, env, user) {
       return { ok: false, status: 503, error: "dedicated_bridge_not_provisioned" };
     }
 
-    // Ignore legacy per-tenant URLs. All bridge traffic now uses the stable Worker relay;
-    // no custom DNS zone or public Windows origin is involved.
+    // Ignore legacy per-tenant URLs. Relay origin is deployment-scoped so staging
+    // cannot forward tenant traffic into the production Durable Object namespace.
+    const relayUrl = configuredRelayOrigin(env);
+    if (!relayUrl) return { ok: false, status: 503, error: "relay_endpoint_not_configured" };
     return {
       ok: true,
-      route: { url: RELAY_ORIGIN, token: route.token, tenantId: route.tenantId }
+      route: { url: relayUrl, token: route.token, tenantId: route.tenantId }
     };
   } catch {
     return { ok: false, status: 503, error: "connection_lookup_unavailable" };
