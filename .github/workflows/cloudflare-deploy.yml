@@ -81,7 +81,7 @@ jobs:
           if grep -Eq '^frontend/' <<< "$changed"; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Install pinned Wrangler whenever a Worker will be deployed
-        if: steps.changed.outputs.mt5_relay == 'true' || steps.changed.outputs.mt5_proxy == 'true' || steps.changed.outputs.remote_mcp == 'true' || steps.changed.outputs.system_hub == 'true' || (steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true')
+        if: steps.changed.outputs.mt5_relay == 'true' || steps.changed.outputs.mt5_proxy == 'true' || steps.changed.outputs.remote_mcp == 'true' || env.DATACENTER_MCP_URL != '' || steps.changed.outputs.system_hub == 'true' || (steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true')
         working-directory: frontend
         run: npm install --no-save --package-lock=false wrangler@4.156.0
 
@@ -128,11 +128,11 @@ jobs:
             --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
 
       - name: Defer Remote MCP release until Datacenter endpoint is configured
-        if: steps.changed.outputs.remote_mcp == 'true' && env.DATACENTER_MCP_URL == ''
+        if: env.DATACENTER_MCP_URL == ''
         run: echo "Remote MCP release is deferred; the Learning Gateway will not be deployed without the fixed Datacenter /mcp endpoint."
 
       - name: Deploy authenticated read-only Remote MCP Worker
-        if: steps.changed.outputs.remote_mcp == 'true' && env.DATACENTER_MCP_URL != ''
+        if: env.DATACENTER_MCP_URL != ''
         working-directory: frontend
         run: |
           npx wrangler deploy --config ../integrations/remote-mcp-worker/wrangler.jsonc --keep-vars \
@@ -152,7 +152,7 @@ jobs:
         shell: bash
         env:
           FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true' }}
-          REMOTE_MCP_DEPLOYED: ${{ steps.changed.outputs.remote_mcp == 'true' && vars.DATACENTER_MCP_URL != '' }}
+          REMOTE_MCP_DEPLOYED: ${{ vars.DATACENTER_MCP_URL != '' }}
         run: |
           set -euo pipefail
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
