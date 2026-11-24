@@ -6,13 +6,6 @@ on:
       - "integrations/nova-ai-worker/**"
       - ".github/workflows/ai-gemini-provider-ci.yml"
       - ".circleci/config.yml"
-  push:
-    branches-ignore: [main]
-    paths:
-      - "integrations/nova-ai-worker/**"
-      - ".github/workflows/ai-gemini-provider-ci.yml"
-      - ".circleci/config.yml"
-
 permissions:
   contents: read
 
