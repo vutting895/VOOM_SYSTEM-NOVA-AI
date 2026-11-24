@@ -96,3 +96,11 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Tests and typecheck/build were NOT run. The Datacenter endpoint, CORS, browser auth, and full Gateway → Datacenter call are not yet verified.
 - No broker write capabilities were added. No production deployment or secrets were changed.
 - Outcome: IN PROGRESS. Next: run static typecheck and source review when the migration slice is complete; then implement actual model walk-forward refit and remaining ML runtimes before one consolidated validation pass.
+
+
+## OP-20261124-010 — Expose Datacenter XGBoost training option
+
+- Learning Dashboard model-family choices now include XGBoost for classification and regression, matching Datacenter's newly added bounded CPU runtime.
+- No model has been trained or evaluated as part of this code change; no accuracy or performance result is claimed.
+- Training still requires a pinned approved Dataset and registered Universe. Model artifacts remain pending human approval and cannot enable trading.
+- Tests/build not run; deployment remains paused.
