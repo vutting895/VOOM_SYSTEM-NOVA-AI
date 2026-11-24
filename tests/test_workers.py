@@ -6,7 +6,8 @@ for folder in ("backtest","risk","data-ingestion"):
     sys.path.insert(0,str(ROOT/"workers"/folder))
 from engine import BacktestWorker, BacktestInputError
 from manager_prototype import RiskWorker
-from main_prototype import fetch_ohlcv\nfrom workers.tuning.engine import TuningWorker
+from main_prototype import fetch_ohlcv
+from workers.tuning.engine import TuningWorker
 
 def candles():
     closes=[100+i*0.8 for i in range(35)]+[128-i*0.9 for i in range(35)]
