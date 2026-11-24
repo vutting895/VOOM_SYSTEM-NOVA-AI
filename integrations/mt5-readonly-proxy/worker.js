@@ -229,7 +229,7 @@ async function loadConnection(request, env, user) {
 async function forward(request, route, path, origin) {
   const url = new URL(request.url);
   const target = new URL(path, route.url);
-  for (const key of ["q", "limit", "symbol", "timeframe", "count"]) {
+  for (const key of ["q", "limit", "symbol", "timeframe", "count", "start_utc", "end_utc"]) {
     const value = url.searchParams.get(key);
     if (value !== null) target.searchParams.set(key, value.slice(0, 120));
   }
