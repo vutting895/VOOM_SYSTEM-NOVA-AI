@@ -4,7 +4,8 @@ Local development is provided by `docker-compose.yml`. The default stack include
 
 ## Local Compose boundary
 
-- Compose runs the local frontend and the MCP stdio development process only.
+- The default Compose stack runs the local frontend, research worker, Redis, and PostgreSQL.
+- The archived Python MCP prototype is not part of default startup. Start it only for isolated investigation with `docker compose --profile legacy-archive up mcp-server-archive`.
 - The frontend container must not receive broker API keys, MT5 Bridge tokens, or other provider credentials. The frontend does not own or retrieve provider credentials.
 - Do not add credentials as `NEXT_PUBLIC_*` variables, Compose environment values, build arguments, or browser-visible configuration.
 - Platform-level provider credentials (for example the NOVA Gemini provider key) belong in the existing Cloudflare Worker Secret store for the Worker that consumes them.
