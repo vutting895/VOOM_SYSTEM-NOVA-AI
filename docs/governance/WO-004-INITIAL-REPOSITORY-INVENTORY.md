@@ -140,3 +140,26 @@ No source tests/builds were run in this inventory phase. No code/data movement, 
 - PR #388 is closed/unmerged (4 commits); PR #389 is open Draft (2 commits). Their commit SHAs are distinct; there are no shared commits. Both PR comment timelines returned empty.
 - **Evidence-based preliminary disposition:** #389 = KEEP / REQUIRED candidate; #388 = SUPERSEDED candidate because its complete resulting file content is identical to the open replacement. No merge, closure, branch deletion or history rewrite is performed. The disposition is recorded for review; no destructive action is authorized.
 - This comparison does not establish that PR #389 itself is ready to merge; its architecture/API claims and exact-head validation remain separate gates.
+
+
+## 11. Current-main dependency and runtime boundary findings — 2026-11-24
+
+- **Main at this verification:** `e1e23cc4a2ebe5b6f7a5369e06f15667d60b5692`.
+- **Recursive tree at this SHA:** 488 entries; `truncated=false`. The tree includes root `src/`, root `server.ts`, root `package.json`, `frontend/`, and a separate `apps/nova-command-center/` application.
+- **Runtime split confirmed from current-main file reads:** root `package.json` defines Vite/Express scripts and root `tsconfig.json` includes `src`, `server.ts`, and `vite.config.ts`; root `netlify.toml` builds from `.` using `npm run build` and publishes `dist`. The separate `apps/nova-command-center/package.json` defines its own TanStack/Vite, typecheck, lint, test and build scripts; `.github/workflows/nova-command-center-ci.yml` runs from that directory.
+- **Potential deployment configuration inconsistency — BLOCKED, do not repair under WO-004:** current tree contains no `frontend/package.json` or `frontend/package-lock.json` (direct fetch returned 404), while `.github/workflows/cloudflare-deploy.yml` specifies `working-directory: frontend`, `npm ci`, and `frontend/package-lock.json`. This workflow is deployment-affecting and WO-004 excludes workflow changes. Record for a separately scoped CI/deployment audit; do not move application files to make the workflow pass by guesswork.
+- **Legacy test coupling:** root tests read root `server.ts`, root `src/components/*`, `integrations/remote-mcp-worker/`, and MT5 paths directly. These references block moving root source/server paths without rewriting tests and preserving runtime parity.
+- **Gateway/control-plane distinction:** `integrations/remote-mcp-worker/README.md` identifies `voom-system-mcp` as the single stateless tools-only MCP Gateway and Datacenter route. `integrations/system-hub/README.md` identifies `voom-system-hub` as the authenticated control plane for user-owned connections and read-only MT5 routes. These are separate roles; neither should be moved or collapsed based on name similarity.
+- **Core API overlap:** PR #373 changes `integrations/nova-core-api/` source, two Supabase migrations and schema-repair documentation. PR #377 changes the same Core API Worker files plus Command Center UI and CI. No current-main `integrations/nova-core-api/` path is present in the 488-entry tree; these are PR-only candidates, not current production modules. Preserve both until full PR review and migration/caller proof.
+- **Migration manifest:** `docs/governance/WO-004-MIGRATION-MANIFEST.md` revision 0.1 records M-001..M-014 and a zero-move set. It is preliminary, not a blanket move approval.
+- **PR changed-path coverage in this pass:** full first-page filename lists fetched for #389, #387, #386, #385, #384, #383, #382, #381, #380, #377, #376, #375, #374, #373, #372, #371, #370, #368, #367 and #366. This supplements the earlier list for #388, #66, #147 and #238. All remaining PRs still require changed-path/commit/review reconciliation.
+- **Search limitation:** GitHub code search returned snippets anchored to older commit `b05459f...`; those snippets were not treated as current-main evidence. Current-main file reads and the recursive tree were used for the findings above.
+- **Disposition:** no code, data, model, migration, test, workflow or runtime files moved or modified. The potential deployment workflow inconsistency is recorded only; no workflow run or deployment was triggered.
+
+## 12. Migration manifest and next gates
+
+- Preliminary manifest revision 0.1 was created at `docs/governance/WO-004-MIGRATION-MANIFEST.md` (commit `e1e23cc4a2ebe5b6f7a5369e06f15667d60b5692`).
+- Manifest decision: zero moves approved; all candidate paths remain in place pending ownership, caller, workflow, deployment and rollback evidence.
+- Phase 1 remains IN_PROGRESS because changed paths for all PRs and full dependency/reference mapping are not complete.
+- Phase 2 remains IN_PROGRESS (preliminary dispositions only).
+- Phase 3 is PRELIMINARY / BLOCKED pending an exact, unambiguous move set and validation/rollback evidence.
