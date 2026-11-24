@@ -18,6 +18,7 @@ on:
       - "workers/quant_engine/**"
       - "tests/test_workers.py"
       - "tests/test_dataset_registry.py"
+      - "tests/test_ema_walk_forward.py"
       - ".github/workflows/backtest-engine-ci.yml"
 
 permissions:
