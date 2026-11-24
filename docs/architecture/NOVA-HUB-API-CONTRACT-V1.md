@@ -1,7 +1,7 @@
 # NOVA Hub API Contract — Gateway Integration
 
 Contract version: `v1`  
-Status: Canonical target contract for the Central MCP Gateway migration. Route additions and implementation must be tested before the Gateway is switched over.
+Status: Implemented in System Hub as the Phase 1 API boundary; MCP Gateway cutover remains Phase 2.
 
 ## Boundary
 
@@ -61,7 +61,7 @@ No raw upstream body, stack trace, bearer token, credential, or secret reference
 | `/v1/connections/{connectionId}/account` | GET | Read-only account summary | Authenticated + owner + connected route |
 | `/v1/connections/{connectionId}/quotes` | GET | Bounded market data | Authenticated + owner + symbol/timeframe allowlist |
 
-The gateway tool execution route is a typed dispatch surface, not a generic proxy. The Hub maps each approved tool name to a fixed handler. Unknown tool names, methods, providers, symbols, or capabilities fail closed.
+The gateway tool execution route is a typed dispatch surface, not a generic proxy. The Hub maps each approved tool name to a fixed handler. Unknown tool names, unknown fields, invalid schemas, methods, providers, symbols, or capabilities fail closed. No caller-supplied URL, Worker name, service binding, user ID, or tenant ID is used for routing or authorization.
 
 ## Tool registration
 
