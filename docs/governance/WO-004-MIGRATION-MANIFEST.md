@@ -115,3 +115,14 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 - **Research boundary:** #372/#371 also touch quant/EA/point-in-time research paths and remain preserve-only / BLOCKED under the Datacenter ownership boundary. #370 is architecture documentation, not implementation proof.
 - No source/data/model/migration/workflow/runtime files moved or edited. No PR state changed, no branch deleted, no workflow run/deployment, no database action, and no broker action.
 - Manifest decision remains **zero moves approved**. Phase 1 and Phase 2 remain IN_PROGRESS; Phase 3 remains PRELIMINARY / BLOCKED.
+
+
+## 9. Current-main consumer parity check for MT5 connection schema — 2026-11-24
+
+- Read current-main `integrations/mt5-readonly-proxy/worker.js`: connection lookup still targets `/rest/v1/broker_connections`.
+- Read current-main `integrations/system-hub/worker.js`: control-plane connection lookup also targets `/rest/v1/broker_connections`.
+- Read current-main `integrations/remote-mcp-worker/README.md`: MT5 tool access contract requires an owner-scoped `broker_connections` row.
+- PRs #375/#376 change the MT5 proxy to `/rest/v1/nova_broker_connections` and introduce a separate `nova.mt5_broker_connections` backing table/view. Their changed-path lists do not include the System Hub Worker or Remote MCP Gateway README/source.
+- **Consumer parity finding — BLOCKED:** adopting only #375 or #376 would create a split schema contract: proxy uses `nova_broker_connections`, while System Hub and documented MCP Gateway still use `broker_connections`. This is not proof of a runtime outage or production schema state; it is a source-level contract mismatch that requires an explicit compatibility plan and tests across all consumers before migration.
+- Current-main source blobs read: proxy Worker `5ae365379a5c255658545a9b058648cac2a8cdc5`; proxy tests `59eadd53e6ed7a07d6d9f7b421680cb8b3366e3f`; System Hub Worker `6d371e4bd619a84fa8d7010309ff517de15bc33e`; Remote MCP README `478a596c0c21f8c6043054ca302f3681022af82c`.
+- Required before reconsideration: map all consumers and migration history; decide canonical schema/view; test proxy, System Hub and Remote MCP together; prove owner isolation and read-only behavior; obtain exact-head CI and rollback evidence. No migration or source change is authorized by this finding.
