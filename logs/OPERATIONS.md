@@ -306,3 +306,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no workflow run/deployment; no DB, secrets, permissions or broker action.
 - Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS (partial); Phase 3 PRELIMINARY / BLOCKED (zero moves approved).
 - Next: complete remaining PR changed-path coverage and review commits/reviews/exact-head CI for overlapping paths; map source callers/workflows/config/deployment references before any move.
+
+
+## 2026-11-24 — WO-004 MT5 schema consumer parity blocker
+
+- Main SHA before log append: `68fedcd86fa0c488136eca6264e0c55ef135eb88`.
+- Read current-main proxy Worker, System Hub Worker and Remote MCP Gateway README.
+- Proxy Worker and System Hub both query `public.broker_connections`; Remote MCP Gateway contract also documents `broker_connections`.
+- PR #375/#376 change the proxy to `public.nova_broker_connections` and create a separate NOVA schema/view, but their changed paths do not update System Hub or Remote MCP consumers.
+- Recorded this as a source-level contract mismatch and BLOCKER in the migration manifest and inventory. This is not a claim about deployed production DB state.
+- Updated manifest commit: `d840692056584307242f6df3a07c52089d2ea0c1`; inventory commit: `68fedcd86fa0c488136eca6264e0c55ef135eb88`.
+- Required gates: canonical schema choice; all-consumer migration plan; proxy/System Hub/Remote MCP contract tests; cross-tenant denial; pending-only creation; read-only/no-order-write proof; exact migration ledger and rollback.
+- No source code or migration modified; no DB action, deployment, PR state change or broker action.
+- Phase 1 and 2 remain IN_PROGRESS; Phase 3 remains PRELIMINARY / BLOCKED; zero moves approved.
