@@ -1,4 +1,4 @@
-"""Bounded client for the NOVA Learning Service MCP endpoint."""
+// Bounded client for the NOVA Learning Service MCP endpoint.
 const marketCalendarSchema = {
   type: "object",
   properties: {
