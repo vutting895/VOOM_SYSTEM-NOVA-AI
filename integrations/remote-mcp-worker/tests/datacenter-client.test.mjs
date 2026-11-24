@@ -1,0 +1,73 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { callDatacenterTool, datacenterTools } from "../src/datacenter-client.js";
+
+test("Learning tools are exposed by the existing NOVA Remote MCP catalog", () => {
+  const names = new Set(datacenterTools.map((tool) => tool.name));
+  for (const name of [
+    "dataset_ingest", "dataset_approve", "universe_register", "analysis_run",
+    "learning_submit", "learning_status", "model_list", "model_approve", "audit_log_list",
+  ]) assert.ok(names.has(name), name);
+});
+
+test("Datacenter calls forward the authenticated Supabase session and use stateless MCP", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({url: String(url), init});
+    const body = JSON.parse(init.body);
+    if (body.method === "notifications/initialized") return new Response(null, {status: 202});
+    const result = body.method === "tools/call"
+      ? {content: [{type: "text", text: JSON.stringify({status: "PASSED", ownerScoped: true})}], isError: false}
+      : {};
+    return new Response(JSON.stringify({jsonrpc: "2.0", id: body.id ?? null, result}), {
+      status: 200, headers: {"content-type": "application/json"},
+    });
+  };
+  try {
+    const request = new Request("https://gateway.example/mcp", {
+      headers: {Authorization: "Bearer supabase-user-session"},
+    });
+    const result = await callDatacenterTool(
+      "dataset_list", {limit: 20}, request,
+      {DATACENTER_MCP_URL: "https://learning.example/mcp"},
+    );
+    assert.deepEqual(result, {status: "PASSED", ownerScoped: true});
+    assert.equal(calls.length, 3);
+    assert.ok(calls.every((call) => call.url === "https://learning.example/mcp"));
+    assert.ok(calls.every((call) => call.init.headers.Authorization === "Bearer supabase-user-session"));
+    assert.equal(JSON.parse(calls[2].init.body).params.name, "dataset_list");
+    assert.equal("user_id" in JSON.parse(calls[2].init.body).params.arguments, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Datacenter client fails closed when endpoint or user session is missing", async () => {
+  const request = new Request("https://gateway.example/mcp");
+  await assert.rejects(
+    callDatacenterTool("dataset_list", {}, request, {}),
+    /authentication_required/,
+  );
+  const authenticated = new Request("https://gateway.example/mcp", {
+    headers: {Authorization: "Bearer valid-session"},
+  });
+  await assert.rejects(
+    callDatacenterTool("dataset_list", {}, authenticated, {}),
+    /datacenter_service_not_configured/,
+  );
+  await assert.rejects(
+    callDatacenterTool("unknown_tool", {}, authenticated, {DATACENTER_MCP_URL:"https://learning.example/mcp"}),
+    /unknown_datacenter_tool/,
+  );
+});
+
+test("Datacenter URL must be HTTPS and end at the fixed MCP path", async () => {
+  const request = new Request("https://gateway.example/mcp", {
+    headers: {Authorization: "Bearer valid-session"},
+  });
+  await assert.rejects(
+    callDatacenterTool("dataset_list", {}, request, {DATACENTER_MCP_URL:"http://learning.example/mcp"}),
+    /datacenter_service_configuration_invalid/,
+  );
+});
