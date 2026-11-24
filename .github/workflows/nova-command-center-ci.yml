@@ -57,7 +57,24 @@ jobs:
           exit "$status"
 
       - name: ESLint
-        run: bun run lint
+        shell: bash
+        run: |
+          set +e
+          bun run lint --format json > "$RUNNER_TEMP/eslint-results.json"
+          status=$?
+          node <<'NODE'
+          const fs = require("node:fs");
+          const results = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/eslint-results.json", "utf8"));
+          for (const result of results) {
+            const file = result.filePath.replace(process.cwd() + "/", "");
+            for (const issue of result.messages) {
+              const message = `${issue.ruleId || "eslint"}: ${issue.message}`;
+              const escaped = message.replace(/%/g, "%25").replace(/\\r/g, "%0D").replace(/\\n/g, "%0A");
+              console.log(`::error file=${file},line=${issue.line || 1},col=${issue.column || 1},title=ESLint::${escaped}`);
+            }
+          }
+          NODE
+          exit "$status"
 
       - name: Unit tests
         run: bun run test
