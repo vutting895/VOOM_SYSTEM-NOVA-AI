@@ -55,6 +55,7 @@ class XGBoostFeatureTests(unittest.TestCase):
 
     def test_non_numeric_funding_rate_is_rejected(self):
         frame=add_funding_provenance(market_frame())
+        frame["funding_rate"]=frame["funding_rate"].astype(object)
         frame.loc[40,"funding_rate"]="not-a-number"
         with self.assertRaisesRegex(LearningGateError,"funding_rate_invalid"):
             SupervisedWorker(horizon=5).create_features(frame)
