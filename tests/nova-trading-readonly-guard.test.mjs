@@ -120,7 +120,7 @@ test('MT5 EA remains hard-disabled in NOVA read-only mode', () => {
 });
 
 test('infrastructure health reports offline and unverified services without fabricated metrics', () => {
-  const health = section(server, "app.get('/api/infrastructure/health'", '// 5. Learning Universe');
+  const health = section(server, "app.get('/api/infrastructure/health'", '// Learning registries are Datacenter-owned');
   assert.match(health, /status: 'OFFLINE'/);
   assert.match(health, /latencyMs: null/);
   assert.match(health, /credentialsSecured: null/);
