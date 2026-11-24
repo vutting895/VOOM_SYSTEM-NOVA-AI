@@ -7,15 +7,9 @@ function parseAllowedOrigins(value: string | undefined): Set<string> {
     if (!candidate) continue;
     try {
       const parsed = new URL(candidate);
-      if (
-        parsed.protocol === 'https:' &&
-        parsed.origin === candidate &&
-        !parsed.username &&
-        !parsed.password &&
-        parsed.pathname === '/' &&
-        !parsed.search &&
-        !parsed.hash
-      ) origins.add(parsed.origin);
+      if (parsed.protocol === 'https:' && parsed.origin === candidate &&
+          !parsed.username && !parsed.password && parsed.pathname === '/' &&
+          !parsed.search && !parsed.hash) origins.add(parsed.origin);
     } catch {
       // Invalid allowlist entries are ignored; an empty set fails closed.
     }
@@ -28,15 +22,9 @@ function resolveSupabaseAuthUrl(env: Record<string, string | undefined>): string
   const allowedOrigins = parseAllowedOrigins(env.NOVA_SUPABASE_ALLOWED_ORIGINS);
   try {
     const parsed = new URL(configured);
-    if (
-      parsed.protocol !== 'https:' ||
-      parsed.username ||
-      parsed.password ||
-      parsed.pathname !== '/' ||
-      parsed.search ||
-      parsed.hash ||
-      !allowedOrigins.has(parsed.origin)
-    ) return null;
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+        parsed.pathname !== '/' || parsed.search || parsed.hash ||
+        !allowedOrigins.has(parsed.origin)) return null;
     return parsed.origin + '/auth/v1/user';
   } catch {
     return null;
@@ -49,7 +37,7 @@ export function createSupabaseAuthMiddleware(
 ): RequestHandler {
   return async (_req, res, next) => {
     const authorization = _req.headers.authorization || '';
-    if (!/^Bearer\\s+\\S+$/i.test(authorization)) {
+    if (!/^Bearer\s+\S+$/i.test(authorization)) {
       res.status(401).json({ ok: false, error: 'authentication_required' });
       return;
     }
@@ -79,5 +67,5 @@ export function createSupabaseAuthMiddleware(
 }
 
 export function scopedThreadId(userId: string, threadId: string): string {
-  return `${userId}:${threadId}`;
+  return \`\${userId}:\${threadId}\`;
 }
