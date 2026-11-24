@@ -6,6 +6,8 @@ on:
       - "workers/feature/smc_wave/**"
       - "workers/feature/elliott_wave/**"
       - "workers/backtest/**"
+      - "workers/tuning/**"
+      - "tests/test_workers.py"
       - "tests/test_smc_strategy.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
@@ -30,6 +32,9 @@ on:
     branches: [main]
     paths:
       - "workers/feature/smc_wave/**"
+      - "workers/backtest/**"
+      - "workers/tuning/**"
+      - "tests/test_workers.py"
       - "tests/test_smc_strategy.py"
       - "tests/test_smc_pytest.py"
       - "tests/test_telegram_alerts.py"
