@@ -47,7 +47,7 @@ Learning tool groups:
 - Analysis: `analysis_run`, `analysis_get`, `analysis_report`.
 - Training: `learning_submit`, `learning_status`, `learning_cancel`, `learning_logs`.
 - Model: `model_list`, `model_get`, `model_register`, `model_evaluate`, `model_approve`.
-- Research: `backtest_run`, `research_run_get`, `research_run_list`. The initial signal-replay engine runs only on an exact approved dataset version and includes configurable commission, spread, and slippage. It is a limited research baseline; walk-forward is not yet implemented.
+- Research: `backtest_run`, `walk_forward_replay`, `research_run_get`, `research_run_list`. The signal-replay engine runs only on an exact approved dataset version and includes configurable commission, spread, and slippage. Walk-forward replay evaluates precomputed signals over non-overlapping chronological OOS windows; it does not refit models and is not a substitute for model walk-forward training.
 - Audit: `audit_log_list`.
 
 Set the Cloudflare Worker variable `DATACENTER_MCP_URL` to the fixed HTTPS Datacenter MCP endpoint ending in `/mcp`. It must be configured only after the Datacenter Docker service is deployed behind the approved Cloudflare Tunnel hostname. If it is missing, Learning tool calls fail closed with `datacenter_service_not_configured`; the Gateway does not fall back to mock data or a public arbitrary URL. The current repository does not yet contain a deployed Datacenter hostname.
