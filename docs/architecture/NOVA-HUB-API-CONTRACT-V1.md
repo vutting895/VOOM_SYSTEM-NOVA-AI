@@ -72,7 +72,7 @@ Each Gateway tool must have a Hub capability record with:
 - fixed Hub handler identifier (never a URL);
 - required scope and tenant/connection ownership rule;
 - allowed provider/environment and operation;
-- timeout and rate-limit policy;
+- bounded request size and adapter timeout policy; rate limiting is a separate release gate and is not implemented in Phase 1;
 - response schema and data classification;
 - explicit `readOnly` flag;
 - audit event name.
@@ -130,6 +130,6 @@ Service bindings in `integrations/system-hub/wrangler.jsonc`:
 - `MT5_READONLY_PROXY` → `voom-mt5-readonly-proxy`
 - `NOVA_AI` → `voom-system-nova-ai`
 
-Tests run through `node --test integrations/system-hub/tests/*.test.mjs` and `.github/workflows/system-hub-ci.yml`. They include contract version and request-ID validation, unknown capability denial, strict input schemas, two-user tenant isolation, token non-disclosure, and service-binding dispatch. A CI pass is still required before release.
+Tests run through `node --test integrations/system-hub/tests/*.test.mjs` and `.github/workflows/system-hub-ci.yml`. Dedicated CI run `45387949255` passed 54/54 tests; Worker/module syntax and Wrangler JSON validation also passed. The full Frontend CI run is separate. Rate limiting is not implemented in Phase 1 and must be addressed before broad production exposure.
 
 The Remote MCP Worker has not yet been migrated to call these routes. That work belongs to Phase 2. This Phase 1 implementation does not change production routing or claim a production deployment.
