@@ -10,7 +10,7 @@ type JsonRpcResponse<T> = {
   error?: { code: number; message: string };
 };
 
-async function postRpc<T>(body: Record<string, unknown>, token: string, includeVersion = false): Promise<T | undefined> {
+async function postRpc<T>(body: Record<string, unknown>, token: string): Promise<T | undefined> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 12000);
   try {
@@ -24,7 +24,6 @@ async function postRpc<T>(body: Record<string, unknown>, token: string, includeV
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
-        ...(includeVersion ? { 'MCP-Protocol-Version': PROTOCOL_VERSION } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -60,7 +59,7 @@ export async function callNovaMcpTool<T>(name: string, args: Record<string, unkn
     jsonrpc: '2.0',
     method: 'notifications/initialized',
     params: {},
-  }, token, true);
+  }, token);
 
   const response = await postRpc<{
     content?: Array<{ type: string; text?: string }>;
