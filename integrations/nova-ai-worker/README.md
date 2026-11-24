@@ -26,3 +26,14 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+
+## NOVA-MTF-001 research knowledge
+
+The authenticated chat system prompt includes the NOVA multi-timeframe research heuristics at inference time:
+- D1 provides higher-timeframe context; H4 evaluates structural alignment or conflict; H1/M15/M5 refine local context.
+- Lower-timeframe counter-moves are not automatically pullbacks or reversals; contradictory evidence remains unclassified unless structure supports a cautious candidate.
+- The H4 2-2-2 sequence is explicitly an unvalidated hypothesis, not a universal session rule or trade rule.
+- Support/resistance are treated as swing-reaction zones; structural invalidation is descriptive only.
+
+This is prompt-context injection, **not fine-tuning**: no model weights, embeddings, training dataset, or learned parameters are changed. The chat must not claim to have inspected current prices or charts unless bars are supplied explicitly. The research specification is tracked separately in PR #285 and the internal Research Worker analyzer in PR #292.
