@@ -1,6 +1,6 @@
 # NOVA Central MCP Gateway Architecture
 
-Status: Architecture decision and migration baseline. This document does not claim that production routing has been cut over.
+Status: Phase 1 Hub API and adapter boundary implemented in source; Gateway cutover and production verification remain pending.
 
 ## Decision
 
@@ -87,11 +87,13 @@ The local `mcp-server/app.py` stdio process is a developer/test harness only. It
 - Inventory existing production endpoints and local-only MCP harnesses.
 - Keep current deployed URLs and callers unchanged.
 
-### Phase 1 — Contract and adapter boundary
-- Add contract tests for Gateway-to-Hub authentication, version negotiation, request IDs, schema validation, tenant context derivation, error mapping, timeout, and no-secret logging.
-- Add typed Hub routes for the tools currently implemented directly in the MCP Worker.
-- Keep adapter operations read-only and bounded.
-- Add a capability registry mapping each tool to one Hub operation and required authorization scope.
+### Phase 1 — Contract and adapter boundary (source implementation complete; CI verification pending)
+- Added authenticated `GET /v1/gateway/capabilities` and `POST /v1/gateway/tools/{toolName}` routes.
+- Added six fixed capabilities: integration inventory, user-owned connection inventory, MT5 connection status, MT5 account summary, MT5 quotes, and NOVA AI research chat.
+- Added strict request schemas, contract-version and UUID request-ID validation, bounded request bodies, fixed handler mapping, sanitized response envelopes, and no-secret audit logging.
+- Added Cloudflare Service Bindings from System Hub to MT5 Read-only Proxy and NOVA AI Worker. Gateway adapter dispatch fails closed if the required binding is unavailable; downstream adapters independently validate the forwarded user session.
+- Added automated contract/security tests and a dedicated System Hub CI workflow.
+- Phase 1 is not release-complete until the new CI run passes. MCP Gateway cutover remains Phase 2; production deployment and live end-to-end verification are not yet claimed.
 
 ### Phase 2 — Gateway cutover
 - Change Gateway tool handlers to call the Hub contract, not Supabase/PostgREST or provider Workers directly.
