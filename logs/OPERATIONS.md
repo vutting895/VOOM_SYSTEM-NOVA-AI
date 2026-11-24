@@ -226,3 +226,23 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Status: Phase 0 DONE; Phase 1 IN_PROGRESS; Phases 2–6 NOT STARTED.
 - Next: complete bounded PR coverage, source-tree and dependency/reference inventory, then produce migration manifest before any move.
 - Safety: no PR merge/closure, branch deletion, deployment, secret/permission change, DB migration, broker write or trading activation.
+
+
+## 2026-11-24 — WO-2026-11-24-004 expanded Phase 1 inventory
+
+- Timestamp: 2026-11-24 UTC; inventory pass performed during the 23:43+07 session.
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main SHA immediately before this update: `60ff0cf3958237e0bb3d7c4097f71099e9e11539`.
+- Work Order: `WO-2026-11-24-004`; central status APPROVED; Phase 1 IN_PROGRESS.
+- Re-read: local `WORK_ORDER_INSTRUCTIONS.md`, central WO-004, central WO-001, NOVA Master Tracker Issue #36, NOVA `logs/OPERATIONS.md`, and target repository structure specification.
+- Read-only inventory evidence:
+  - Main recursive tree: 487 entries, `truncated=false`.
+  - Branches: 318 names including main, four pages (100/100/100/18), final cursor `MzE4`.
+  - Pull requests: 364 records across four complete REST pages (100/100/100/64); page 5 empty. Counts: 238 open, 126 closed, 82 merged, 44 closed-unmerged; 220 open Draft and 18 open non-Draft.
+  - Full changed-filename lists fetched for #389, #388, #386, #385, #384, #383, #382, #381, #380, #377, #373, #66, #147 and #238.
+- Updated inventory artifact: `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md`; commit `60ff0cf3958237e0bb3d7c4097f71099e9e11539`.
+- Key findings: #389/#388 touch the same two documentation paths but need history/review reconciliation; #373/#377 overlap in Core API source but have distinct migration/UI/CI changes; #383/#381/#380 touch Datacenter-owned research paths; #66/#147 remain isolated; #238 remains blocked and preserved.
+- Checks: live main ref and source files were read before mutation; inventory update was accepted by GitHub. Read-back verification of this update is pending.
+- Incomplete: changed-path enumeration for remaining PRs, PR commit/review reconciliation, import/caller/workflow/deployment reference mapping, and full ownership matrix. Phase 1 remains IN_PROGRESS; Phases 2–6 remain NOT STARTED.
+- No source/data/model/migration/workflow/runtime files moved or changed; no PR merged/closed; no branch deleted; no deployment, database, secrets, permissions or broker actions.
+- Next: read back the updated inventory and log; then complete remaining PR changed-path and dependency/reference inventory before preparing Phase 2 disposition.
