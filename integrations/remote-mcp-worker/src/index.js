@@ -314,7 +314,8 @@ async function callTool(name,args,request,env,user) {
   if (name === "dataset_collect_mt5") {
     const symbol = normalizeMt5Symbol(args.symbol);
     const timeframe = normalizeMt5Timeframe(args.timeframe);
-    const count = normalizeMt5Count(args.count, 169, 500);
+    const defaultCounts = {M1:500, M5:500, M15:500, M30:337, H1:169, H4:43, D1:8};
+    const count = normalizeMt5Count(args.count, defaultCounts[timeframe], 500);
     const source = await runMt5ReadonlyTool("mt5_quotes", {symbol, timeframe, count}, request, env, user);
     if (source.status !== "ok" || !Array.isArray(source.data?.bars)) {
       return {status:"blocked", source_status:source.status, mode:"read-only",
