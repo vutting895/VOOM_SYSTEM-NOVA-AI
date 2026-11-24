@@ -39,12 +39,16 @@ services:
       timeout: 5s
       retries: 5
 
-  mcp-server:
+  # Archived Python MCP prototype only. Excluded from normal startup so it
+  # cannot run beside the Cloudflare Remote MCP Gateway. Enable explicitly
+  # only for isolated legacy investigation; never use its mock outputs.
+  mcp-server-archive:
+    profiles: ["legacy-archive"]
     build:
       context: ../integrations/nova-ai-mcp-full-clean
       dockerfile: mcp-server/Dockerfile
-    container_name: voom-system-nova-mcp
-    restart: unless-stopped
+    container_name: voom-system-nova-mcp-archive
+    restart: "no"
     environment:
       VOOM_PROJECT_NAME: voom_system
       VOOM_ARCHITECTURE: nova
