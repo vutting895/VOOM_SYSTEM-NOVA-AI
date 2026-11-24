@@ -70,3 +70,18 @@ Additional verified observations:
 - Bridge: system_heartbeats is a candidate only; it is empty and staff-only. Need heartbeat writer, component naming, tenant/connection binding, freshness threshold and customer-safe projection.
 - Risk: system_controls holds only global boolean toggles; no numeric daily-loss/max-exposure/max-orders policy source was found.
 - Audit: several domain-specific sources exist; a unified customer-safe audit projection and explicit ownership/retention contract are still required.
+
+
+## 6. NOVA Supabase ownership decision — user confirmed 2026-11-25
+
+The user explicitly confirmed that Supabase project `rovhmjeowracayicbqij` is to be used for NOVA. Treat this project as the designated NOVA Supabase project for future NOVA planning and integration.
+
+This confirms **project ownership/selection**, not its deployment tier. Whether this project is NOVA production, staging, or a dedicated NOVA Video environment remains unconfirmed; do not label it production or staging without a separate explicit designation.
+
+Current live schema remains as observed:
+- `nova.approvals` and `nova.audit_events` exist.
+- `public.nova_agent_threads` and `public.nova_approval_requests` do not exist.
+- The durable approval lifecycle migration is listed in the migration ledger, but its expected public objects are absent from this project.
+- This is a schema/migration reconciliation issue to resolve against the selected NOVA project, not a reason to redirect NOVA to another Supabase project or copy/drop tables immediately.
+
+**Next implementation prerequisite:** prepare a project-specific, non-destructive migration reconciliation plan for `rovhmjeowracayicbqij`, including migration ledger, actual schema, RLS, grants, dependencies, row counts and rollback/backup evidence. No SQL mutation or migration application is authorized by this ownership confirmation.
