@@ -59,3 +59,18 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - Security & Identity, Infrastructure & DevOps, Knowledge Center, and QA & Testing are internal workstreams, not separate ChatGPT Projects.
 - Every status report must identify the exact repository full name, branch, commit SHA, Work Order/Task ID, status, changed paths, tests/checks, evidence, blockers, and next actions.
 - This Work Order does not authorize code/data migration, API/runtime changes, CI/automation changes, secret/permission changes, deployment, or broker execution. Those require separate scoped approval.
+
+
+## Approved repository restructuring — WO-2026-11-24-004
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-24-004-nova-repository-restructuring.md
+- After completing the routine pre-work sequence above, read WO-2026-11-24-004 in full before any branch/PR inventory, file move, consolidation, or restructuring action.
+- This Work Order authorizes a complete evidence-backed NOVA repository inventory and, after the migration manifest is approved within its exact scope, safe NOVA-internal restructuring of verified NOVA-owned files.
+- Inventory must include live main SHA, all discoverable branches (paginate to completion), all open/closed/merged PRs, full changed-path lists, branch/base/head SHAs, repository tree, ownership, imports/callers, tests, workflows and data lineage.
+- Classify PRs as KEEP/REQUIRED, CONSOLIDATE/DUPLICATE, SUPERSEDED, ARCHIVE/LEGACY, or BLOCKED/INSUFFICIENT EVIDENCE. Similar titles are not sufficient evidence for consolidation.
+- Preserve PR #66 and PR #147 as isolated benchmark/challenger workstreams. Preserve PR #238 and its blocked dataset/provenance. Do not merge/close PRs or delete branches as part of classification.
+- Datacenter remains the sole owner of research/learning computation and authoritative research lineage. Do not transfer research code/data/models or modify another repository under WO-004; cross-repository migration requires a separate Work Order.
+- Preserve legacy modules until a verified replacement, caller parity, rollback plan and consolidated tests are evidenced.
+- Record each operation in `logs/OPERATIONS.md` with UTC timestamp, WO ID, repository, branch, before/after SHA, changed paths, checks/results, evidence, blockers and next action.
+- Existing safety rules remain: deployment paused; `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; no broker writes, order execution, transfers or withdrawals.
+- NOVA remains main-only under this local instruction. Do not create a feature branch, force-push, or rewrite history unless the repository owner explicitly changes this operating rule.
