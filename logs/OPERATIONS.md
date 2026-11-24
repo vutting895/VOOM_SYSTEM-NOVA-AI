@@ -433,3 +433,19 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Next: produce a non-destructive, project-specific migration reconciliation plan with schema/RLS/grants/dependencies/row-count and backup/rollback evidence before any database mutation.
 - No SQL writes, migrations, data changes, RLS changes, secrets, PR states or deployments changed.
 - Status: NOVA Supabase project **SELECTED BY USER**; environment tier **UNCONFIRMED**; migration reconciliation **BLOCKED**; production deployment **PAUSED**.
+
+
+## WO-004 — selected NOVA Supabase migration reconciliation audit (2026-11-25)
+
+- Selected project `rovhmjeowracayicbqij` was rechecked read-only after user confirmation.
+- Project API status is `ACTIVE_HEALTHY`; the only listed branch `main` reports `MIGRATIONS_FAILED`. Do not treat these as equivalent health signals.
+- Migration ledger contains eight versions. The live durable-approval version is `20261030052224`, while the repository root migration file is `202610300001_nova_durable_approval_lifecycle.sql`; four later NOVA migration ledger entries do not have matching migration files in the inspected root migration directory.
+- Catalog confirms `nova.approvals`, `nova.audit_events`, `nova.emergency_stops`, `nova.mt5_broker_connections` exist and each currently has 0 rows. The expected `public.nova_agent_threads` and `public.nova_approval_requests` are absent.
+- Public/private approval functions remain installed and explicitly reference the missing public tables. Approval lifecycle calls are not proven operational; do not invoke them against this project.
+- Captured RLS policies, grants, constraints/FKs and security-definer function definitions. Existing `nova.*` authenticated access is SELECT-only except own pending MT5 Demo connection INSERT; approval functions have separate EXECUTE grants. Private schema usage is granted to authenticated and needs review.
+- Security advisor reports Affiliate-owned `public.affiliate_state_snapshots` with RLS but no policies and leaked-password protection disabled. Performance advisor reports five unused indexes on empty NOVA tables; no index was dropped. Health advisor returned no findings.
+- One Edge Function is active but is a JWT-protected 410 disabled test endpoint, not a NOVA production API.
+- Backup/PITR status cannot be verified through the connected Supabase tools; no backup inventory action is exposed. Recent Postgres log query returned no migration/approval-related rows and does not explain historical migration failure.
+- Created `docs/governance/NOVA-SUPABASE-MIGRATION-RECONCILIATION.md` with non-destructive gates, provenance requirements, canonical schema decision, rollback principles and explicit blocked status.
+- No DDL/SQL write, migration, data copy/update, RLS/grant change, branch creation, function invocation, Edge Function deployment, production deployment, secrets change or broker action was performed. No tests were run.
+- Status: read-only audit **DONE**; backup/PITR verification **BLOCKED**; migration provenance **BLOCKED**; schema repair **NOT AUTHORIZED / NOT EXECUTED**; deployment **PAUSED**; trading remains disabled.
