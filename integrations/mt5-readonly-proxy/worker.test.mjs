@@ -15,6 +15,7 @@ function envWithRoutes() {
   return {
     SUPABASE_URL: "https://supabase.test",
     SUPABASE_ANON_KEY: "public-test-key",
+    MT5_BRIDGE_RELAY_URL: RELAY_ORIGIN,
     MT5_TENANT_ROUTES: JSON.stringify({
       [TENANT_ID]: {
         tenantId: TENANT_ID,
@@ -168,6 +169,39 @@ test("connected user is routed only to the stable workers.dev relay", async () =
   }
 });
 
+
+test("missing relay endpoint fails closed before bridge forwarding", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  const env = envWithRoutes();
+  delete env.MT5_BRIDGE_RELAY_URL;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    relayCalls += 1;
+    throw new Error("Relay must not be called without an explicit endpoint");
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "relay_endpoint_not_configured");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("staging configuration routes only to the dedicated staging relay", async () => {
   const originalFetch = globalThis.fetch;
