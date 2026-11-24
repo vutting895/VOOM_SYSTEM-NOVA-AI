@@ -14,15 +14,21 @@ const learning = read('src/components/learning/LearningUniverseView.tsx');
 const safetyBadge = read('src/components/common/ReadonlySafetyBadge.tsx');
 const chart = read('src/components/dashboard/CandlestickChart.tsx');
 
-test('server implements all 5 core platform endpoints with read-only safeguards', () => {
+test('NOVA retains UI and health endpoints while legacy Learning and Backtest routes are retired', () => {
   assert.ok(server.includes("app.get('/api/market/overview'"));
   assert.ok(server.includes("app.get('/api/market/candlesticks'"));
-  assert.ok(server.includes("app.get('/api/intelligence/models'"));
-  assert.ok(server.includes("app.post('/api/backtest/run'"));
   assert.ok(server.includes("app.get('/api/infrastructure/health'"));
-  assert.ok(server.includes("app.get('/api/learning/universe'"));
+  for (const route of [
+    "app.get('/api/intelligence/models'",
+    "app.post('/api/backtest/run'",
+    "app.get('/api/learning/universe'",
+    "app.get('/api/auto-train/status'",
+    "app.post('/api/auto-train/trigger'",
+  ]) assert.ok(server.includes(route));
+  assert.match(server, /legacy_route_removed/);
+  assert.match(server, /NOVA Remote MCP -> model_list/);
+  assert.match(server, /NOVA Remote MCP -> backtest_run/);
 
-  // Check read-only invariant in infrastructure endpoint
   assert.match(server, /systemMode:\s*'FAIL_CLOSED_READONLY'/);
   assert.match(server, /orderExecutionBlocked:\s*true/);
   assert.match(server, /realMoneyWritesDisabled:\s*true/);
@@ -38,27 +44,23 @@ test('Trading Dashboard view displays XAUUSDm, BTCUSD, Candlestick chart, Signal
   assert.doesNotMatch(dashboard, /order_send|execute_live|place_trade_order/);
 });
 
-test('Trading Intelligence view covers all 6 AI models required by specification', () => {
-  assert.ok(intelligence.includes('Elliott Wave 3'));
-  assert.ok(intelligence.includes('XGBoost'));
-  assert.ok(intelligence.includes('LSTM / PyTorch'));
-  assert.ok(intelligence.includes('Smart Money Concepts'));
-  assert.ok(intelligence.includes('Auto-Learning'));
-  assert.ok(intelligence.includes('Neural Network Analysis'));
+test('Trading Intelligence view reports only persisted Datacenter model registry records', () => {
+  assert.ok(intelligence.includes('datacenterResearchService.listModels()'));
+  assert.ok(intelligence.includes('Datacenter Model Registry'));
+  assert.ok(intelligence.includes('deployment_eligible'));
   assert.ok(intelligence.includes('ReadonlySafetyBadge'));
-  assert.match(intelligence, /Ensemble Confidence/);
+  assert.doesNotMatch(intelligence, /Ensemble Confidence|87\.5|84\.6|79\.2|76\.8/);
 });
 
-test('Backtest Simulator view provides historical testing, equity curve, and out-of-sample results', () => {
-  assert.ok(backtest.includes('runSimulation'));
-  assert.ok(backtest.includes('Equity Curve'));
-  assert.ok(backtest.includes('Out-of-Sample Validation'));
-  assert.ok(backtest.includes('In-Sample Training Split'));
-  assert.ok(backtest.includes('Profit Factor'));
-  assert.ok(backtest.includes('Win Rate'));
-  assert.ok(backtest.includes('Max Drawdown'));
+test('Backtest UI uses approved Datacenter datasets and persisted research history', () => {
+  assert.ok(backtest.includes('datacenterResearchService.listApprovedDatasets()'));
+  assert.ok(backtest.includes('datacenterResearchService.runBacktest'));
+  assert.ok(backtest.includes('datacenterResearchService.runWalkForward'));
+  assert.ok(backtest.includes('research_run_list'));
+  assert.ok(backtest.includes('commission_bps'));
+  assert.ok(backtest.includes('slippage_bps'));
   assert.ok(backtest.includes('ReadonlySafetyBadge'));
-  assert.match(backtest, /SIMULATED HISTORICAL BACKTEST/);
+  assert.doesNotMatch(backtest, /\/api\/backtest\/run|In-Sample Training Split|generalizationScorePct/);
 });
 
 test('Trading Infrastructure view enforces MT5 connection, Exness Demo, and Risk Engine rules', () => {
@@ -73,13 +75,14 @@ test('Trading Infrastructure view enforces MT5 connection, Exness Demo, and Risk
   assert.match(infrastructure, /ไม่รับและไม่แสดง Password\/Secrets/);
 });
 
-test('Learning Universe view features dataset management, model performance by regime, and update status', () => {
-  assert.ok(learning.includes('Dataset Management & Feature Store'));
-  assert.ok(learning.includes('Model Performance by Market Regime'));
-  assert.ok(learning.includes('Continuous Training History'));
-  assert.ok(learning.includes('Daily Data Update Status'));
-  assert.ok(learning.includes('handleManualTrigger'));
+test('Learning dashboard reads Datacenter registries and submits pinned training jobs', () => {
+  assert.ok(learning.includes('datacenterResearchService.listDatasets()'));
+  assert.ok(learning.includes('datacenterResearchService.listUniverses()'));
+  assert.ok(learning.includes('datacenterResearchService.listModels()'));
+  assert.ok(learning.includes('datacenterResearchService.submitTraining'));
+  assert.ok(learning.includes('approved Dataset version'));
   assert.ok(learning.includes('ReadonlySafetyBadge'));
+  assert.doesNotMatch(learning, /accuracyPct: 83\.2|totalSamplesStored: 1485000|Cron Daemon/);
 });
 
 test('Safety badge clearly presents READ-ONLY and LIVE TRADING OFF across all viewports', () => {
