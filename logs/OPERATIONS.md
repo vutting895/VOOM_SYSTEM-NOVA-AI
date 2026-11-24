@@ -209,3 +209,20 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Status: Phase 0 NOVA local acknowledgement recorded; read-back verification pending.
 - Checks: documentation write accepted by GitHub; no code tests/builds run or claimed. No source/data movement, PR merge/closure, branch deletion, deployment, secret/permission change, database change or broker action.
 - Next: read back central Work Order, NOVA instructions and this log; then begin Phase 1 complete read-only inventory.
+
+
+## 2026-11-24 — WO-2026-11-24-004 Phase 1 initial inventory
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Observed main HEAD before inventory record: `b05459f0396c8d5108ddca0afc6b547315fec640`.
+- Inventory artifact: `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md`.
+- Inventory artifact commit: `023a7a0263f36d24ced2d7abbcb81aa492d115aa`.
+- Branch inventory: four pages, 318 discovered branch names including main; pagination reached final cursor `MzE4`. No branch was deleted, renamed, merged or rewritten.
+- PR inventory: repository-scoped search returned 100 entries (configured cap); this is not complete PR enumeration. Individually fetched PR metadata and changed paths for #389, #388, #387, #386, #385, #384, #383, #382, #381, #380, #377, #373, #66, #147 and #238.
+- Confirmed key findings: #389 open Draft and #388 closed/unmerged share the same two documentation paths; #373/#377 overlap at `integrations/nova-core-api/` but differ in schema migrations and other unique files; #66/#147 remain separate research workstreams; #238 remains blocked with a historical coverage gap; #383/#380/#381 touch research paths that conflict with Datacenter's canonical ownership.
+- Stale-base comparisons against observed main: #389 base is 48 commits behind; #373/#377 base is 104 commits behind; #66/#147/#238 base is 142 commits behind. This does not establish mergeability or redundancy.
+- No-move decision: no code/data paths moved because complete tree/caller inventory and per-file migration manifest are not yet available. Preserve research, datasets, models, reports, migrations, workflows and Gateway paths.
+- Checks: GitHub branch pagination and PR metadata/path reads completed for listed records; inventory artifact write succeeded. Direct recursive tree enumeration and full PR enumeration remain incomplete. No source tests/builds run or claimed.
+- Status: Phase 0 DONE; Phase 1 IN_PROGRESS; Phases 2–6 NOT STARTED.
+- Next: complete bounded PR coverage, source-tree and dependency/reference inventory, then produce migration manifest before any move.
+- Safety: no PR merge/closure, branch deletion, deployment, secret/permission change, DB migration, broker write or trading activation.
