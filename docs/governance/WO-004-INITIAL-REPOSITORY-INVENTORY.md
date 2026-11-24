@@ -108,3 +108,23 @@ The structure document also requires preserving current directories until a migr
 - Phase 6 — Final report: NOT STARTED.
 
 No source tests/builds were run in this inventory phase. No code/data movement, PR merge/closure, branch deletion, deployment, secrets/permissions change, database migration or broker action occurred.
+
+
+## 9. Expanded inventory snapshot — 2026-11-24 (UTC)
+
+- **Live main HEAD at snapshot:** `0e230b0cd8c73dad5662defb629d3082694d7b6d` (verified from `refs/heads/main` immediately before this update).
+- **Recursive tree:** 487 entries; GitHub reported `truncated=false`. This completes the raw path enumeration for this snapshot, but not caller/import/deployment dependency analysis.
+- **Branches:** 318 branch names including `main`; four search pages (100 + 100 + 100 + 18). Final cursor `MzE4`; no further page returned.
+- **Pull requests:** direct REST pagination of `state=all`, `per_page=100`, pages 1–4 returned 364 PR records (100 + 100 + 100 + 64); page 5 returned 0. Counts: 238 open, 126 closed, 82 merged, 44 closed without merge. Of the open PRs, 220 are Draft and 18 are non-Draft. These counts replace the earlier 100-result search shortlist.
+- **Changed-path inspection:** fetched complete paginated filename lists for the following high-risk/overlap PRs: #389, #388, #386, #385, #384, #383, #382, #381, #380, #377, #373, #66, #147 and #238. Full changed-path enumeration for the remaining PRs is still pending; Phase 1 is therefore not complete.
+- **Confirmed path-level findings:**
+  - #389 and #388 each change exactly the same two files: `docs/architecture/NOVA-MULTI-REPO-COMMAND-CENTER-INTEGRATION-PLAN.md` and `docs/openapi/nova-system-hub-v1.yaml`. #389 is open Draft; #388 is closed/unmerged. This is a strong supersession candidate, not final disposition until unique commits/reviews/comments are reconciled.
+  - #373 and #377 both change `integrations/nova-core-api/{README.md,package.json,worker.js,worker.test.mjs,wrangler.toml}`; #373 additionally changes two Supabase migrations, a schema-repair plan, an example env file, a workflow and `tests/secret-vault-readiness.test.mjs`; #377 additionally changes Command Center UI files and CircleCI/GitHub workflows. They are not interchangeable duplicates. Preserve both pending full diff, caller, migration-lineage and test comparison.
+  - #384 changes the Learning dashboard, existing Remote MCP Worker, tests and a candidate Supabase migration. Its own acceptance gates remain pending; migration is not applied.
+  - #383 and #381 change research/learning computation paths; #380 changes backtest/tuning/quant-engine paths. These conflict with the approved Datacenter research ownership boundary and must remain BLOCKED pending a separate cross-repository Work Order and parity evidence.
+  - #382 adds a System Hub Worker/API contract and is not itself proof of a replacement or second MCP Gateway; compare its routing/callers with the existing `voom-system-mcp` Gateway before disposition.
+  - #385 is architecture documentation; #386 is MCP runtime inventory plus Compose profile change. Keep separate pending review of their distinct scopes and validation.
+  - #66 and #147 remain isolated benchmark/challenger workstreams; #238 remains blocked and its dataset/provenance assets must remain untouched.
+- **Tracker freshness:** Issue #36 still embeds the old main baseline `0cceaf5d1d32b4323bcf72f9f26877c6d75886ff` and a historical PR/CI list. Treat it as a governance/safety tracker, not a current inventory snapshot, until a new exact-head update is posted.
+- **No mutation beyond inventory documentation:** no source, data, model, migration, workflow or runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, database, secret, permission or broker action.
+- **Remaining Phase 1 gates:** enumerate changed paths for all remaining PRs; reconcile PR commits/reviews and exact head/base ancestry; map current-main imports/callers/workflow/deployment references; publish a complete per-directory ownership matrix. Do not start Phase 2 disposition or Phase 3 moves until those evidence gaps are closed.
