@@ -33,6 +33,7 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 - `request_mt5_demo_connection` — creates a pending Exness MT5 Demo request for the authenticated user; it does not provision a Bridge or place trades.
 - `mt5_connection_status` — verifies the user's own connection and the health of its dedicated Bridge.
 - `mt5_account_summary`, `mt5_symbols`, `mt5_quotes` — read account and market data from that user's connected Exness MT5 Demo terminal through the tenant-isolated proxy.
+- `dataset_collect_mt5` — reads only closed candles from the same Demo Bridge, preserves source order and exact symbol casing, and ingests them into Datacenter. It does not approve the dataset.
 
 MT5 tools require an authenticated Supabase session and an existing user-owned `broker_connections` row. Reading account data remains unavailable until a trusted administrator provisions the separate Bridge route and the Cloudflare secret `MT5_TENANT_ROUTES`. All MT5 tools are GET/read-only except creating the pending database request; no tool submits, modifies, or closes orders.
 
