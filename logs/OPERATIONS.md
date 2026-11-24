@@ -116,3 +116,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No browser-to-Datacenter direct call, no second MCP server, no deployment, no secret changes.
 - Tests and build remain unexecuted pending consolidated validation.
 - Outcome: IN PROGRESS. Next: finish source review, then assess PyTorch/LSTM runtime and remaining model families.
+
+
+## OP-20261124-012 — Gateway client source correction and release gate audit
+
+- Repo-first main verification before this log update: NOVA `6928f7bef74ada4dd3a91fbdc681572e74918af4`; Datacenter `6d4aa1c0548c38048cdce20e718ceed8304c4f00`.
+- Source review found an invalid Python-style triple-quoted module header at the top of `integrations/remote-mcp-worker/src/datacenter-client.js`. Replaced it with a valid JavaScript line comment in commit `6928f7bef74ada4dd3a91fbdc681572e74918af4`.
+- Confirmed the Worker still validates a fixed HTTPS `/mcp` URL, forwards the authenticated Supabase session, and does not accept a caller-controlled upstream URL or tenant identity.
+- The Datacenter host/Tunnel remains unprovisioned and no `DATACENTER_MCP_URL` is verified. The existing Worker must not be deployed with a guessed endpoint.
+- Frontend CI is manual-dispatch only; no workflow-dispatch action is available in the connected GitHub operation surface. The connected Windows execution device has no authorized repository workspace directories. Therefore no current-main build/test PASS is claimed.
+- An earlier SMC Research CI run on pre-current NOVA SHA `c7a5a45c332b6a4b6864f9091f40abbc1aaff153` failed in two unrelated legacy `tests/test_research_pipeline.py` cases because `/v1/risk/approval` returned HTTP 503 instead of the tests' expected 200/401. That stale run is not evidence about the current Datacenter integration and must not be represented as its test result.
+- No deployment, secret update, or broker capability change was made. Live Trading and order submission remain disabled.
+- Outcome: IN PROGRESS — the source syntax defect is corrected; the final consolidated validation and hosted Gateway → Datacenter proof remain BLOCKED on authorized execution/host configuration.
