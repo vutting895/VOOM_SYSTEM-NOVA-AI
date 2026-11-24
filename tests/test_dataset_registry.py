@@ -66,6 +66,13 @@ class DatasetRegistryTests(unittest.TestCase):
         self.assertEqual(manifest["content_sha256"], canonical_dataset_sha256(sample_rows()))
         self.assertEqual(payload.count(b'"timestamp"'), 3)
 
+    def test_missing_interval_frequency_is_not_reported_as_zero_gaps(self):
+        details = metadata()
+        details.pop("expected_interval_seconds")
+        manifest, _ = build_dataset_manifest(sample_rows(), **details)
+        self.assertEqual(manifest["quality_status"], "not_assessed")
+        self.assertIsNone(manifest["gap_count"])
+        self.assertTrue(any("not assessed" in warning for warning in manifest["quality_warnings"]))
     def test_dataset_identity_is_stable_across_ingestion_time(self):
         first, _ = build_dataset_manifest(sample_rows(), **metadata("2026-01-02T00:00:00Z"))
         second, _ = build_dataset_manifest(sample_rows(), **metadata("2026-01-03T00:00:00Z"))
@@ -93,6 +100,7 @@ class DatasetRegistryTests(unittest.TestCase):
         self.assertTrue(result["storage_uri"].startswith("test://datasets/"))
         self.assertTrue(result["object_version"])
         self.assertEqual(result["artifact_sha256"], sha256(next(iter(store.objects.values()))).hexdigest())
+        self.assertEqual(result["content_sha256"], result["artifact_sha256"])
 
     def test_invalid_metadata_is_rejected(self):
         bad = metadata()
