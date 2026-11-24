@@ -11,6 +11,7 @@ This Windows process reads data from the MT5 terminal session already logged in 
 - Missing tenant configuration returns 503; tenant mismatch returns 403; missing/invalid bearer token returns 401.
 - Never reuse a terminal session or bridge token across customers. Never commit or paste tokens, account IDs, passwords, or credential-bearing environment files.
 - Historical responses are validated for UTC range, ascending unique timestamps, OHLC relationships, integer nonnegative tick/real volume and spread, and a 2,000-bar hard cap.
+- A healthy MT5 session is reused; the bridge attempts one reinitialization only when the terminal is disconnected or account session is unavailable, then fails closed if it remains disconnected.
 - Hidden Market Watch symbols are not auto-selected by history reads; the caller receives 409 until the symbol is manually visible.
 - Order execution must remain disabled even if the terminal itself reports trading allowed.
 
