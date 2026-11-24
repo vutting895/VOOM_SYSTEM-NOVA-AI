@@ -8,6 +8,7 @@ on:
       - "workers/quant_engine/**"
       - "tests/test_workers.py"
       - "tests/test_dataset_registry.py"
+      - "tests/test_ema_walk_forward.py"
       - ".github/workflows/backtest-engine-ci.yml"
   push:
     branches: [main]
@@ -40,3 +41,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_workers.py" -v
       - name: Run immutable dataset registry contract tests
         run: python -m unittest discover -s tests -p "test_dataset_registry.py" -v
+      - name: Run leakage-safe EMA walk-forward tests
+        run: python -m unittest discover -s tests -p "test_ema_walk_forward.py" -v
