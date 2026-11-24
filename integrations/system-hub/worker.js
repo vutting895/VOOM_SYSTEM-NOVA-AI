@@ -383,7 +383,7 @@ async function checkConnection(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, result.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (result.body.connected !== true) {
     return json({
       connectionId: row.id,
       state: "bridge_unavailable",
