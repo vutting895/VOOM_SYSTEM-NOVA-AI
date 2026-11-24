@@ -278,3 +278,17 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No code, data, model, migration, workflow or runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, database, secret, permission or broker action.
 - Status: Phase 1 IN_PROGRESS (all branches/PR metadata/tree enumerated; full PR changed-path and dependency/caller mapping outstanding); Phase 2 IN_PROGRESS (preliminary classification only); Phase 3 PRELIMINARY / BLOCKED (zero moves approved); Phases 4–6 NOT STARTED.
 - Next: complete changed-path and commit/review reconciliation for remaining PRs; map import/caller/config/deployment references for M-001..M-014; prepare manifest revision 0.2 only after a safe exact move set is evidenced.
+
+
+## 2026-11-24 — WO-2026-11-24-004 expanded PR changed-path coverage
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main SHA before inventory append: `90c31ec3176a9235f820e550016eaf6a7ddd9d98`; inventory update commit: `b376cb35e277ecd7be2a07208523d83f6d72f9e1`.
+- Fetched changed-filename lists for an additional 60 open PRs: #365, #364, #363, #362, #358, #357, #356, #355, #354, #352, #351, #350, #349, #348, #347, #346, #345, #344, #341, #340, #339, #338, #337, #336, #335, #334, #333, #332, #331, #329, #327, #326, #324, #322, #321, #319, #318, #317, #316, #315, #314, #313, #312, #311, #310, #309, #308, #307, #306, #305, #304, #303, #302, #301, #300, #299, #298, #297, #296 and #295.
+- Combined with prior reads, 84 distinct PR changed-filename lists are inspected. This remains partial coverage of 238 open PRs; no complete per-PR classification is claimed.
+- Key findings recorded in manifest and inventory: #363/#364/#365 overlap on CircleCI config; #358/#352 have different root/app/Worker/migration scopes; #355/#356 affect auth/token-sensitive paths; #351 affects workflows; #340/#341 add data lineage/catalog candidates; multiple quant/training PRs remain Datacenter-owned or blocked; #334/#336/#322/#307/#302/#297 and Bridge PRs affect trading/MT5 safety boundaries.
+- Updated `docs/governance/WO-004-MIGRATION-MANIFEST.md` revision 0.1 at commit `90c31ec3176a9235f820e550016eaf6a7ddd9d98` and `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md` at commit `b376cb35e277ecd7be2a07208523d83f6d72f9e1`.
+- Checks: GitHub file lists and read-only metadata fetched; documentation writes accepted. No source tests/builds run or claimed.
+- No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, DB, secrets, permissions or broker action.
+- Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS (partial classification); Phase 3 PRELIMINARY / BLOCKED (zero moves approved); Phases 4–6 NOT STARTED.
+- Next: continue remaining open PR changed paths; then inspect PR commits/reviews/patches for overlap candidates and map exact current-main callers/workflows/config/deployment references.
