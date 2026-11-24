@@ -105,8 +105,31 @@ A tool is callable only when both Gateway registration and Hub capability policy
 - Keep order execution, broker writes, transfers, and withdrawals absent from this contract.
 - Keep `ordersEnabled=false`, `executionEnabled=false`, and `liveTradingEnabled=false`.
 
-## Compatibility and implementation rule
+## Implemented Phase 1 behavior
 
-The currently deployed Hub already implements a subset of `/v1/integrations` and `/v1/connections`. The Gateway currently contains direct Supabase and provider-read logic. This contract does not imply that the new `/v1/gateway/*` routes exist yet.
+The Hub implements these protected routes:
 
-Implement Hub routes and contract tests first. Only then migrate Gateway handlers to call them. Do not point production clients at unimplemented routes or remove current working handlers before parity tests pass.
+- `/v1/gateway/capabilities`
+- `/v1/gateway/tools/{toolName}`
+
+The current registered capabilities are:
+
+| Capability | Handler boundary | Authorization boundary |
+|---|---|---|
+| `list_integrations` | Hub integration registry | Authenticated user |
+| `list_connections` | Supabase broker connection query | Authenticated user + RLS/user ID filter |
+| `mt5_connection_status` | Hub connection status | Authenticated user owns the connection |
+| `mt5_account_summary` | MT5 read-only Proxy via service binding | Authenticated user owns connected Demo connection |
+| `mt5_quotes` | MT5 read-only Proxy via service binding | Authenticated user owns connected Demo connection; symbol/timeframe/count bounded |
+| `nova_ai_chat` | NOVA AI Worker via service binding | Authenticated user; analysis-only adapter |
+
+The Hub derives the principal from a fresh Supabase Auth user lookup. It does not trust caller-supplied user or tenant IDs. Unknown capability names, unknown input fields, malformed schemas, missing/unsupported contract headers, invalid request IDs, and unavailable service bindings fail closed. The Hub sends only fixed internal requests to declared service bindings and explicitly forwards the user bearer token; downstream Workers validate the session independently.
+
+Service bindings in `integrations/system-hub/wrangler.jsonc`:
+
+- `MT5_READONLY_PROXY` → `voom-mt5-readonly-proxy`
+- `NOVA_AI` → `voom-system-nova-ai`
+
+Tests run through `node --test integrations/system-hub/tests/*.test.mjs` and `.github/workflows/system-hub-ci.yml`. They include contract version and request-ID validation, unknown capability denial, strict input schemas, two-user tenant isolation, token non-disclosure, and service-binding dispatch. A CI pass is still required before release.
+
+The Remote MCP Worker has not yet been migrated to call these routes. That work belongs to Phase 2. This Phase 1 implementation does not change production routing or claim a production deployment.
