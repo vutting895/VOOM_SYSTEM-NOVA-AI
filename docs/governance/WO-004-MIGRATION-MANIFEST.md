@@ -79,3 +79,25 @@ This is not a complete per-file disposition for all 238 open PRs. The remaining 
 3. Reconcile PR #373/#377 and Gateway/control-plane overlap candidates with exact diff and test evidence.
 4. Publish manifest revision 0.2 only when at least one exact move has unambiguous NOVA ownership, verified dependency parity, test plan and rollback.
 5. Keep all paths in place until then.
+
+
+## 7. Additional PR changed-path evidence — second and third batches
+
+Additional full first-page changed-filename lists were fetched for open PRs #365, #364, #363, #362, #358, #357, #356, #355, #354, #352, #351, #350, #349, #348, #347, #346, #345, #344, #341, #340, #339, #338, #337, #336, #335, #334, #333, #332, #331, #329, #327, #326, #324, #322, #321, #319, #318, #317, #316, #315, #314, #313, #312, #311, #310, #309, #308, #307, #306, #305, #304, #303, #302, #301, #300, #299, #298, #297, #296 and #295.
+
+Notable path-level findings:
+- **CircleCI overlap:** #363, #364 and #365 all touch `.circleci/config.yml`; #363 also adds app-local test-suite configuration. Do not merge configurations by title; compare complete YAML, orb/context/runner assumptions and path filters. CI/automation mutation is outside WO-004.
+- **Root app vs Command Center:** #358 and #352 touch broad overlapping Command Center/root frontend and backend paths, but #352 includes root `server.ts`, root `src/`, System Hub and a database migration while #358 is largely the isolated app and a new AI Worker. They are not interchangeable. Preserve until exact behavior/caller/auth parity is proven.
+- **Command Center UX:** #357 touches app-local package/lockfile, routes, styles and Netlify config. It remains a candidate independent of root Netlify build configuration; no deployment or path move authorized.
+- **Auth isolation:** #355/#356 change root auth, API clients, AI chat and Worker/runtime code. Security-sensitive; keep blocked from structural moves until exact diff, RLS/tenant tests and current-head CI are reviewed.
+- **Manual release policy:** #351 changes multiple existing workflow files and proposes a no-CI release policy. Workflow changes are excluded by WO-004; preserve for separate CI governance review.
+- **Research/learning ownership:** #348, #350, #341, #340, #344, #306, #305, #302, #301, #300, #319 and #312 touch training, datasets, quant engine, strategy or research infrastructure. These remain blocked from relocation/consolidation under Datacenter's ownership boundary unless they are proven NOVA-only adapters or governance docs; no transfer is authorized.
+- **Data lineage:** #340 introduces raw/normalized/approved/external data directories and source manifests; #341 introduces catalog/schema and ingestion/R2 components. Preserve provenance, hashes and source metadata; no data movement or synthetic backfill.
+- **Trading execution boundaries:** #334 and #336 introduce hard-disabled/isolated Demo execution design/API paths; #322 adds an MT5 Decision API and bridge/risk integration; #307/#302/#297 affect execution/position lifecycle and capacity. These are safety-sensitive and outside structural migration until separately reviewed and authorized. Keep broker writes disabled.
+- **Broker bridge:** #362/#309/#298/#307 touch tenant relay/proxy/bridge behavior. Preserve existing tenant isolation and GET/read-only contract; no relocation.
+- **Backups/release evidence:** #303 adds PDI backup manifest/runbook/scripts/tests; #326 adds release evidence agent; #349 adds agent skills. Preserve their audit and provenance content; map CI consumers before any relocation.
+- **Single-file or documentation-only proposals:** #338, #317, #311, #299, #346, #370 and similar PRs still require state/base/commit review; a small path count alone does not establish disposition.
+
+This raises the number of open PRs with changed-filename lists inspected in the current and earlier passes, but does not complete the 238-open-PR requirement. Each PR's changed-file endpoint was read at page 1 with `per_page=100`; any PR exceeding 100 changed files would need pagination. Full patch, commits, reviews and exact-head CI are not yet reconciled for all listed PRs.
+
+**Manifest decision remains unchanged:** zero moves approved. No PR merged/closed, branch deleted, workflow modified, deployment triggered, database migrated, or broker action performed.
