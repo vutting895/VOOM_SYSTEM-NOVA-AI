@@ -141,7 +141,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
       }]);
     }
     if (url.origin === RELAY_ORIGIN) {
-      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      relayRequest = { url, headers: new Headers(init.headers || {}), redirect: init.redirect };
       return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
     }
     throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
@@ -156,6 +156,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
     assert.equal(response.headers.get("Vary"), "Origin");
     assert.equal(new URL(relayRequest.url).origin, RELAY_ORIGIN);
+    assert.equal(relayRequest.redirect, "manual");
     assert.equal(new URL(relayRequest.url).pathname, "/api/account");
     assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
     assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + BRIDGE_TOKEN);
@@ -166,6 +167,41 @@ test("connected user is routed only to the stable workers.dev relay", async () =
   }
 });
 
+
+test("relay redirects are rejected without following the Location target", async () => {
+  const originalFetch = globalThis.fetch;
+  const seenOrigins = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      assert.equal(init.redirect, "manual");
+      return new Response(null, { status: 302, headers: { Location: "https://attacker.example/collect" } });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error, "dedicated_bridge_redirect_rejected");
+    assert.deepEqual(seenOrigins, ["https://supabase.test", "https://supabase.test", RELAY_ORIGIN]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
