@@ -1,5 +1,5 @@
 import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
-import { callDatacenterTool, datacenterTools, isDatacenterTool } from "./datacenter-client.js";
+import { buildMt5DatasetPayload, callDatacenterTool, datacenterTools, isDatacenterTool } from "./datacenter-client.js";
 
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
@@ -311,6 +311,24 @@ async function runMt5ReadonlyTool(name, args, request, env, user) {
 }
 
 async function callTool(name,args,request,env,user) {
+  if (name === "dataset_collect_mt5") {
+    const symbol = normalizeMt5Symbol(args.symbol);
+    const timeframe = normalizeMt5Timeframe(args.timeframe);
+    const count = normalizeMt5Count(args.count, 168, 500);
+    const source = await runMt5ReadonlyTool("mt5_quotes", {symbol, timeframe, count}, request, env, user);
+    if (source.status !== "ok" || !Array.isArray(source.data?.bars)) {
+      return {status:"blocked", source_status:source.status, mode:"read-only",
+        liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false};
+    }
+    const payload = buildMt5DatasetPayload({
+      symbol, timeframe, bars:source.data.bars, dataset_name:args.dataset_name,
+      market_calendar:args.market_calendar,
+    });
+    const ingested = await callDatacenterTool("dataset_ingest", payload, request, env);
+    return {...ingested, source:"exness-mt5-demo-readonly", symbol, timeframe,
+      source_bars:source.data.bars.length, closed_bars:payload.rows.length,
+      liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false};
+  }
   if (isDatacenterTool(name)) return await callDatacenterTool(name, args, request, env);
   if (name === "request_mt5_demo_connection") return await requestMt5DemoConnection(request, env, user);
   if (["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"].includes(name)) {
@@ -386,7 +404,8 @@ export const tools=[
  {name:"request_mt5_demo_connection",description:"Create a pending Exness MT5 Demo connection request for the signed-in user only. A trusted administrator must provision the tenant-isolated Bridge route. Does not connect or place orders by itself.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"mt5_account_summary",description:"Read account summary from the signed-in user's own connected Exness MT5 Demo terminal through the tenant-guarded proxy. Read-only; no orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"mt5_symbols",description:"Read symbol discovery results from the signed-in user's connected Exness MT5 Demo terminal. Optional q substring and limit 1-500. Read-only.",inputSchema:{type:"object",properties:{q:{type:"string"},limit:{type:"integer",minimum:1,maximum:500}},additionalProperties:false}},
- {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}}
+ {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}},
+ {name:"dataset_collect_mt5",description:"Read closed OHLCV candles from the signed-in user's connected Exness MT5 Demo Bridge and ingest them into Datacenter. Read-only source; no broker writes. Excludes the still-forming candle.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string",enum:["M1","M5","M15","M30","H1","H4","D1"]},count:{type:"integer",minimum:2,maximum:500},dataset_name:{type:"string",maxLength:80},market_calendar:{type:"object"}},required:["symbol","timeframe"],additionalProperties:false}}
  ...datacenterTools,
 
 ];
