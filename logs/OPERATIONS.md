@@ -28,3 +28,14 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Validation: tests were added but the consolidated test run is deferred by owner instruction until the Datacenter host endpoint is provisioned and configured. No test PASS or production connection is claimed.
 - Deployment state: Oracle Cloud VM and Cloudflare Tunnel hostname are not yet provisioned; `DATACENTER_MCP_URL` is not yet recorded as configured.
 - Outcome: IN PROGRESS — code-level Gateway integration committed; hosted endpoint configuration and one final combined test run remain pending.
+
+
+## NOVA-DATACENTER-001 — release-gate addendum
+
+- Latest NOVA main SHA: `b502cd559967deb9a891950f0dbdae09e9860f18`.
+- `Frontend CI` is now manual-dispatch only so the Remote MCP integration suite is run once after Datacenter is ready.
+- The Cloudflare deployment workflow will not deploy the Remote MCP Worker until the GitHub Actions variable `DATACENTER_MCP_URL` is set to the fixed HTTPS Datacenter `/mcp` endpoint.
+- When the endpoint is configured, the deployment workflow installs Wrangler and deploys the latest Remote MCP Worker regardless of whether the endpoint variable was added after the code commits. It then checks the 41-tool catalog, read-only safety, and unauthenticated rejection.
+- When the endpoint is absent, Remote MCP deployment and its release smoke checks are skipped; existing Cloudflare worker safety checks remain separate.
+- No Datacenter endpoint has been provisioned or recorded. No authenticated Gateway-to-Datacenter call or final test PASS is claimed.
+- Outcome: IN PROGRESS — integration code and release gating are ready; host provisioning, endpoint configuration, and one consolidated validation remain pending.
