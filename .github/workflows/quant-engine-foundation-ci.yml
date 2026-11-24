@@ -6,6 +6,8 @@ on:
       - "workers/quant_engine/**"
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
+      - "tests/test_residual_mlp.py"
+      - "workers/requirements-training.txt"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
       - ".github/workflows/quant-engine-foundation-ci.yml"
 
@@ -28,3 +30,19 @@ jobs:
         env:
           PYTHONPATH: .
         run: python -m unittest discover -s tests -p "test_quant*.py" -v
+
+  pytorch-training-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU PyTorch training dependency
+        run: python -m pip install --upgrade pip && python -m pip install -r workers/requirements-training.txt --index-url https://download.pytorch.org/whl/cpu
+      - name: Run real training and checkpoint tests
+        env:
+          PYTHONPATH: .
+        run: python -m unittest tests.test_residual_mlp -v
