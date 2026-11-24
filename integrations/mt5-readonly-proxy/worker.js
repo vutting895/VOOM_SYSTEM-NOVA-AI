@@ -7,7 +7,7 @@ const STAGING_RELAY_ORIGIN = "https://voom-mt5-bridge-relay-staging.suwapat787.w
 const ALLOWED_RELAY_ORIGINS = new Set([RELAY_ORIGIN, STAGING_RELAY_ORIGIN]);
 
 function configuredRelayOrigin(env) {
-  const value = String(env.MT5_BRIDGE_RELAY_URL || RELAY_ORIGIN);
+  const value = String(env.MT5_BRIDGE_RELAY_URL || "");
   try {
     const url = new URL(value);
     if (
