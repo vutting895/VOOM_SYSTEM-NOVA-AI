@@ -227,9 +227,6 @@ jobs:
               echo "Remote MCP health, tool catalog, or read-only safety contract failed (HTTP $code)."
               exit 1
             fi
-              echo "Remote MCP tool catalog count is not 41."
-              exit 1
-            fi
             code="$(curl --silent --show-error --max-time 20 -o "$body" -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"tools/list"}' "$mcp/mcp" || true)"
             if [ "$code" != "401" ] || ! grep -q '"unauthorized"' "$body"; then
               echo "Remote MCP did not reject an unauthenticated request (HTTP $code)."
