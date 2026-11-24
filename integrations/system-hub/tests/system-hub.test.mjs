@@ -437,3 +437,69 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+test("history endpoint requires a connected owner-scoped Demo bridge and returns bounded UTC bars", async () => {
+  let forwarded = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/history") {
+      forwarded = { url, authorization: init.headers.Authorization };
+      return Response.json({
+        symbol: "XAUUSDm", timeframe: "H1", count: 1,
+        bars: [{ time: "2026-01-01T00:00:00Z", open: 1, high: 2, low: 0.5, close: 1.5, tick_volume: 3, spread: 1, real_volume: 0 }],
+        mode: "read-only", order_submission_enabled: false, as_of: "2026-01-01T01:00:00Z"
+      });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  const response = await worker.fetch(request(
+    "/v1/connections/" + CONNECTION_ID + "/history?symbol=XAUUSDm&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z",
+    { headers: { Authorization: "Bearer " + USER_TOKEN } }
+  ), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(forwarded.url.searchParams.get("connection_id"), CONNECTION_ID);
+  assert.equal(forwarded.url.searchParams.get("symbol"), "XAUUSDm");
+  assert.equal(forwarded.url.searchParams.get("start_utc"), "2026-01-01T00:00:00Z");
+  assert.equal(forwarded.authorization, "Bearer " + USER_TOKEN);
+  assert.equal(body.dataVerified, true);
+  assert.equal(body.history.count, 1);
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("history endpoint rejects reversed and oversized UTC ranges before proxying", async () => {
+  let proxyCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.pathname === "/rest/v1/broker_connections") return Response.json([{
+      id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+      status: "connected", bridge_route_id: "tenant-a"
+    }]);
+    if (url.pathname === "/api/history") { proxyCalls += 1; return Response.json({ bars: [] }); }
+    throw new Error("Unexpected request");
+  };
+  for (const range of [
+    "start_utc=2026-01-02T00:00:00Z&end_utc=2026-01-01T00:00:00Z",
+    "start_utc=2026-01-01T00:00:00Z&end_utc=2026-03-10T00:00:00Z"
+  ]) {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/history?symbol=XAUUSDm&timeframe=H1&" + range,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 400);
+  }
+  assert.equal(proxyCalls, 0);
+});

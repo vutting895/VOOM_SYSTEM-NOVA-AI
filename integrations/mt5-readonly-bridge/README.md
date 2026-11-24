@@ -4,12 +4,15 @@ This Windows process reads data from the MT5 terminal session already logged in 
 
 ## Safety boundary
 
-- Read-only GET endpoints only: health, account summary, symbol discovery and quotes/candles.
+- Read-only GET endpoints only: health, account summary, symbol discovery, quotes/candles and bounded UTC historical OHLCV.
 - No order, trade, position-modification, transfer or withdrawal implementation exists.
 - Requests to order/trade/execute/withdraw/transfer paths are denied, and non-GET/OPTIONS methods are rejected.
 - Every protected endpoint requires both `Authorization: Bearer <tenant-specific token>` and `X-VOOM-TENANT-ID: <assigned tenant id>`.
 - Missing tenant configuration returns 503; tenant mismatch returns 403; missing/invalid bearer token returns 401.
 - Never reuse a terminal session or bridge token across customers. Never commit or paste tokens, account IDs, passwords, or credential-bearing environment files.
+- Historical responses are validated for UTC range, ascending unique timestamps, OHLC relationships, integer nonnegative tick/real volume and spread, and a 2,000-bar hard cap.
+- A healthy MT5 session is reused; the bridge attempts one reinitialization only when the terminal is disconnected or account session is unavailable, then fails closed if it remains disconnected.
+- Hidden Market Watch symbols are not auto-selected by history reads; the caller receives 409 until the symbol is manually visible.
 - Order execution must remain disabled even if the terminal itself reports trading allowed.
 
 ## Per-customer isolation
@@ -57,8 +60,9 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 - `GET /api/account`
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/history?symbol=<exact-terminal-symbol>&timeframe=H1&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z`
 
-Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
+Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling. History timestamps must use strict UTC `YYYY-MM-DDTHH:MM:SSZ`; the returned interval is `[start_utc, end_utc)`. Maximum requested range: M1=1 day, M5=5 days, M15=15 days, M30=30 days, H1=60 days, H4=180 days, D1=730 days. Split larger exports into smaller requests; no request may return more than 2,000 bars.
 
 ## Validation before marking a customer connected
 

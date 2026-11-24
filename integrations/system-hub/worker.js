@@ -332,7 +332,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/quotes", "/api/history"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
@@ -498,6 +498,65 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+async function readHistory(request, env, user, row, origin) {
+  const url = new URL(request.url);
+  const allowedQuery = new Set(["symbol", "timeframe", "start_utc", "end_utc"]);
+  const queryKeys = [...url.searchParams.keys()];
+  if (new Set(queryKeys).size !== queryKeys.length || queryKeys.some((key) => !allowedQuery.has(key))) {
+    return json({ error: "invalid_history_query" }, 400, origin, env);
+  }
+  const symbol = String(url.searchParams.get("symbol") || "").trim();
+  const timeframe = String(url.searchParams.get("timeframe") || "H1").toUpperCase();
+  const startUtc = String(url.searchParams.get("start_utc") || "");
+  const endUtc = String(url.searchParams.get("end_utc") || "");
+  const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[timeframe];
+  const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  if (!MT5_SYMBOL.test(symbol)) return json({ error: "valid_mt5_symbol_required" }, 400, origin, env);
+  if (!maxDays || !isoUtc.test(startUtc) || !isoUtc.test(endUtc)) return json({ error: "invalid_history_range" }, 400, origin, env);
+  const startMs = Date.parse(startUtc), endMs = Date.parse(endUtc);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs ||
+      new Date(startMs).toISOString().replace(".000Z", "Z") !== startUtc ||
+      new Date(endMs).toISOString().replace(".000Z", "Z") !== endUtc) {
+    return json({ error: "invalid_history_range" }, 400, origin, env);
+  }
+  if (endMs - startMs > maxDays * 86400000) return json({ error: "history_window_too_large" }, 400, origin, env);
+  const result = await requestMt5Proxy(env, user, row, "/api/history", {
+    symbol, timeframe, start_utc: startUtc, end_utc: endUtc
+  });
+  if (!result.ok) return json({
+    connectionId: row.id, state: result.error, detail: result.detail,
+    dataVerified: false, ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
+  }, result.status, origin, env);
+  const data = result.body;
+  let previousTime = -Infinity;
+  if (!Array.isArray(data.bars) || data.bars.length > 2000 ||
+      data.bars.some((bar) => {
+        const time = Date.parse(bar?.time || "");
+        const valid = bar && typeof bar.time === "string" && Number.isFinite(time) &&
+          time >= startMs && time < endMs && time > previousTime && new Date(time).toISOString().replace(".000Z", "Z") === bar.time &&
+          [bar.open, bar.high, bar.low, bar.close].every((value) => typeof value === "number" && Number.isFinite(value)) &&
+          bar.low <= Math.min(bar.open, bar.close) &&
+          bar.high >= Math.max(bar.open, bar.close, bar.low) &&
+          Number.isInteger(bar.tick_volume) && bar.tick_volume >= 0 &&
+          Number.isInteger(bar.spread) && bar.spread >= 0 &&
+          Number.isInteger(bar.real_volume) && bar.real_volume >= 0;
+        previousTime = time;
+        return !valid;
+      })) {
+    return json({ error: "mt5_history_response_invalid", dataVerified: false,
+      ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false }, 502, origin, env);
+  }
+  return json({
+    connectionId: row.id, state: "data_verified", dataVerified: true,
+    history: {
+      symbol, timeframe, start_utc: startUtc, end_utc: endUtc,
+      bars: data.bars, count: data.bars.length, mode: "read-only",
+      order_submission_enabled: false, as_of: typeof data.as_of === "string" ? data.as_of : null
+    },
+    ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
+  }, 200, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -552,9 +611,9 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes|history)$/.exec(url.pathname);
     if (match && (
-      (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
+      (["status", "account", "quotes", "history"].includes(match[2]) && request.method === "GET") ||
       (match[2] === "check" && request.method === "POST")
     )) {
       const auth = await authenticate(request, env);
@@ -569,6 +628,10 @@ export default {
       if (match[2] === "quotes") {
         if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
         return readQuotes(request, env, auth, result.row, origin);
+      }
+      if (match[2] === "history") {
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) return connectionNotReady(result.row, origin, env);
+        return readHistory(request, env, auth, result.row, origin);
       }
       const connection = publicConnection(result.row);
       return json({
