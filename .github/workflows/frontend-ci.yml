@@ -5,60 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    paths:
-      - "src/**"
-      - "public/**"
-      - "backend/**"
-      - ".env.example"
-      - "package.json"
-      - "vite.config.ts"
-      - "index.html"
-      - "server.ts"
-      - "netlify.toml"
-      - ".github/workflows/frontend-ci.yml"
-      - ".github/workflows/cloudflare-deploy.yml"
-      - ".github/workflows/ai-worker-deploy.yml"
-      - "integrations/mt5-readonly-proxy/**"
-      - "integrations/mt5-bridge-relay/**"
-      - "integrations/mt5-readonly-bridge/**"
-      - "integrations/remote-mcp-worker/**"
-      - "integrations/nova-ai-worker/**"
-      - "shared/nova-intent-envelope.schema.json"
-      - "integrations/system-hub/**"
-      - "supabase/migrations/**"
-      - "tests/**"
-      - "infra/**"
-      - "supabase/verification/**"
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "public/**"
-      - "backend/**"
-      - ".env.example"
-      - "package.json"
-      - "vite.config.ts"
-      - "index.html"
-      - "server.ts"
-      - "netlify.toml"
-      - ".github/workflows/frontend-ci.yml"
-      - ".github/workflows/cloudflare-deploy.yml"
-      - ".github/workflows/ai-worker-deploy.yml"
-      - "integrations/mt5-readonly-proxy/**"
-      - "integrations/mt5-bridge-relay/**"
-      - "integrations/mt5-readonly-bridge/**"
-      - "integrations/remote-mcp-worker/**"
-      - "integrations/nova-ai-worker/**"
-      - "shared/nova-intent-envelope.schema.json"
-      - "integrations/system-hub/**"
-      - "supabase/migrations/**"
-      - "tests/**"
-      - "infra/**"
-      - "supabase/verification/**"
+  # Owner-requested single consolidated validation after Datacenter host/API configuration.
+  workflow_dispatch:
 
-permissions:
-  contents: read
 
 jobs:
   build:
