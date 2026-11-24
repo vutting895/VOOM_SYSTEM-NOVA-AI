@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Database, Layers, Cpu, RefreshCw, Play, ClipboardList, ShieldCheck } from 'lucide-react';
+import { Database, Layers, Cpu, RefreshCw, Play, ShieldCheck } from 'lucide-react';
 import ReadonlySafetyBadge from '../common/ReadonlySafetyBadge';
 import { LoadingSpinner, ErrorView } from '../common/StateViews';
 import {
