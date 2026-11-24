@@ -57,7 +57,9 @@ class BacktestWorker:
         ):
             raise BacktestInputError("periods_per_year must be a positive integer when supplied")
 
-        fast_ema, slow_ema = _ema_series(closes, fast), _ema_series(closes, slow)\n\n        cash, units = self.initial_cash, 0.0
+        fast_ema, slow_ema = _ema_series(closes, fast), _ema_series(closes, slow)
+
+        cash, units = self.initial_cash, 0.0
         equity: list[float] = []
         trade_returns: list[float] = []
         fills: list[dict[str, Any]] = []
