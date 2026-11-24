@@ -128,3 +128,15 @@ No source tests/builds were run in this inventory phase. No code/data movement, 
 - **Tracker freshness:** Issue #36 still embeds the old main baseline `0cceaf5d1d32b4323bcf72f9f26877c6d75886ff` and a historical PR/CI list. Treat it as a governance/safety tracker, not a current inventory snapshot, until a new exact-head update is posted.
 - **No mutation beyond inventory documentation:** no source, data, model, migration, workflow or runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, database, secret, permission or broker action.
 - **Remaining Phase 1 gates:** enumerate changed paths for all remaining PRs; reconcile PR commits/reviews and exact head/base ancestry; map current-main imports/callers/workflow/deployment references; publish a complete per-directory ownership matrix. Do not start Phase 2 disposition or Phase 3 moves until those evidence gaps are closed.
+
+
+## 10. PR #388 / #389 duplicate verification — 2026-11-24
+
+- Both PRs are documentation-only and change the same two paths.
+- GitHub's PR file API reports identical resulting blob SHAs for both PRs:
+  - `docs/architecture/NOVA-MULTI-REPO-COMMAND-CENTER-INTEGRATION-PLAN.md` → `54e447f2c5315c4ce593c405eb2a7936565ba555`
+  - `docs/openapi/nova-system-hub-v1.yaml` → `697efaf200051250a0a650fecfd5c4dbe78731ad`
+- Full unified diff strings are byte-identical in the fetched PR responses (31,177 characters each).
+- PR #388 is closed/unmerged (4 commits); PR #389 is open Draft (2 commits). Their commit SHAs are distinct; there are no shared commits. Both PR comment timelines returned empty.
+- **Evidence-based preliminary disposition:** #389 = KEEP / REQUIRED candidate; #388 = SUPERSEDED candidate because its complete resulting file content is identical to the open replacement. No merge, closure, branch deletion or history rewrite is performed. The disposition is recorded for review; no destructive action is authorized.
+- This comparison does not establish that PR #389 itself is ready to merge; its architecture/API claims and exact-head validation remain separate gates.
