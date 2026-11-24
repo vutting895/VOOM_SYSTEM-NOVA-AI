@@ -259,3 +259,22 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Checks: complete PR diff equality and file blob equality confirmed via GitHub API. Read-back of this inventory update is pending.
 - Status: WO-004 Phase 1 remains IN_PROGRESS; Phase 2 disposition is not complete. No merge readiness is inferred for #389.
 - Next: continue remaining PR changed-path coverage and source dependency/caller mapping. Preserve all safety and no-deployment boundaries.
+
+
+## 2026-11-24 — WO-2026-11-24-004 dependency review and preliminary migration manifest
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main SHA before this operation's manifest write: `95d788b31b6fd031f2cd8f1c3c493ee05601c851`; latest verified main after the inventory update and before this log append: `bd87cf514ab9416cdda1d22a7b569b1ffc4cb667`.
+- Re-read the approved central WO-004, local `WORK_ORDER_INSTRUCTIONS.md`, NOVA Master Tracker #36, existing operations log, and target repository structure specification.
+- Live inventory: 318 branches (four pages); 364 PRs across all states (four pages: 100/100/100/64; page 5 empty), 238 open PRs; recursive tree at `e1e23cc4a2ebe5b6f7a5369e06f15667d60b5692` contains 488 entries with `truncated=false`.
+- Fetched changed-filename lists for open PRs #389, #387, #386, #385, #384, #383, #382, #381, #380, #377, #376, #375, #374, #373, #372, #371, #370, #368, #367 and #366. Earlier evidence covers #388, #66, #147 and #238. This is not complete changed-path coverage for all PRs.
+- Read current-main files for root `package.json`, `netlify.toml`, `vite.config.ts`, `tsconfig.json`, `server.ts`, root workflows, Command Center app config, Remote MCP Gateway README/source, System Hub README/config, and infrastructure docs.
+- Dependency finding: root app and `apps/nova-command-center/` are distinct application trees with separate packages/config/CI. Root tests directly read root `server.ts`, root `src/components/*`, Remote MCP and MT5 files. No source move is safe without preserving these callers.
+- Deployment config finding: current recursive tree has no `frontend/package.json` or `frontend/package-lock.json`; current `.github/workflows/cloudflare-deploy.yml` nevertheless runs `npm ci` from `frontend/` and references `frontend/package-lock.json`. Recorded as a BLOCKED deployment/config audit finding only. WO-004 excludes workflow changes; no repair or workflow run was performed.
+- Gateway/control-plane distinction: existing `integrations/remote-mcp-worker/` is the single NOVA MCP Gateway; `integrations/system-hub/` is the authenticated control plane. Both preserved in place.
+- Created `docs/governance/WO-004-MIGRATION-MANIFEST.md` revision 0.1; commit `e1e23cc4a2ebe5b6f7a5369e06f15667d60b5692`. It records M-001..M-014, explicit no-move decisions and rollback requirements. No source/data/runtime file move is approved by revision 0.1.
+- Updated `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md` with current tree/runtime findings and manifest link; commit `bd87cf514ab9416cdda1d22a7b569b1ffc4cb667`.
+- Verification: manifest and inventory were fetched from `main` after writes; content and blob SHAs returned. No source tests/builds were run; no tests are claimed.
+- No code, data, model, migration, workflow or runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, database, secret, permission or broker action.
+- Status: Phase 1 IN_PROGRESS (all branches/PR metadata/tree enumerated; full PR changed-path and dependency/caller mapping outstanding); Phase 2 IN_PROGRESS (preliminary classification only); Phase 3 PRELIMINARY / BLOCKED (zero moves approved); Phases 4–6 NOT STARTED.
+- Next: complete changed-path and commit/review reconciliation for remaining PRs; map import/caller/config/deployment references for M-001..M-014; prepare manifest revision 0.2 only after a safe exact move set is evidenced.
