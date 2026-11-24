@@ -23,7 +23,7 @@ test("Gemini is primary and sends the key only in the request header", async () 
   assert.equal(result.fallbackFrom, null);
   assert.equal(result.text, "Gemini answer");
   assert.equal(request.url, "https://generativelanguage.googleapis.com/v1beta/interactions");
-  assert.equal(JSON.parse(request.init.body).model, "gemini-3.8-flash");
+  assert.equal(JSON.parse(request.init.body).model, "gemini-3.6-flash");
   assert.equal(request.init.headers["x-goog-api-key"], "test-gemini-secret");
   assert.equal(request.url.includes("test-gemini-secret"), false);
   assert.equal(JSON.stringify(result).includes("test-gemini-secret"), false);
