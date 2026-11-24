@@ -10,7 +10,8 @@ test("MT5 MCP exposes only read-only Exness Demo account tools", () => {
     "request_mt5_demo_connection",
     "mt5_account_summary",
     "mt5_symbols",
-    "mt5_quotes"
+    "mt5_quotes",
+    "dataset_collect_mt5"
   ]) assert.ok(names.has(name), "missing MCP tool: " + name);
 
   assert.equal(tools.length, 41);
