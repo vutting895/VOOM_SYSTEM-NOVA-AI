@@ -97,6 +97,30 @@ test("protected route requires a bearer token", async () => {
   assert.equal(response.status, 401);
 });
 
+test("malformed JWT encodings are rejected as unauthorized, not provider failures", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ keys: [jwk] });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const malformedHeader = await worker.fetch(request("/v1/me", {
+    headers: { Authorization: "Bearer !.e30.c2ln" },
+  }), env);
+  assert.equal(malformedHeader.status, 401);
+
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", kid: jwk.kid, typ: "JWT" })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({
+    iss: "https://example.supabase.co/auth/v1",
+    aud: "authenticated",
+    sub: "user-123",
+    exp: Math.floor(Date.now() / 1000) + 300,
+    app_metadata: { nova_role: "viewer" },
+  })).toString("base64url");
+  const malformedSignature = await worker.fetch(request("/v1/me", {
+    headers: { Authorization: "Bearer " + header + "." + payload + ".!" },
+  }), env);
+  assert.equal(malformedSignature.status, 401);
+});
+
 test("unknown browser origins are rejected", async () => {
   const response = await worker.fetch(request("/v1/health", {
     headers: { Origin: "https://attacker.invalid" },

@@ -49,18 +49,31 @@ function supabaseConfig(env) {
   }
 }
 
+function invalidJwtEncodingError() {
+  return Object.assign(new Error("invalid_jwt_encoding"), { code: "ERR_JWT_INVALID" });
+}
+
 function decodeBase64Url(value) {
-  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("invalid_base64url");
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]+$/.test(value)) throw invalidJwtEncodingError();
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-  const binary = atob(padded);
+  let binary;
+  try {
+    binary = atob(padded);
+  } catch {
+    throw invalidJwtEncodingError();
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 
 function decodeJwtJson(value) {
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64Url(value)));
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64Url(value)));
+  } catch {
+    throw invalidJwtEncodingError();
+  }
 }
 
 async function readBoundedJson(response) {
