@@ -39,12 +39,16 @@ services:
       timeout: 5s
       retries: 5
 
-  mcp-server:
+  # Archived prototype only. Excluded from normal `docker compose up` so it
+  # cannot start a second MCP server beside the Cloudflare Remote MCP gateway.
+  # Explicit opt-in is retained for isolated legacy investigation only.
+  mcp-server-archive:
+    profiles: ["legacy-archive"]
     build:
       context: ../integrations/nova-ai-mcp-full-clean
       dockerfile: mcp-server/Dockerfile
-    container_name: voom-system-nova-mcp
-    restart: unless-stopped
+    container_name: voom-system-nova-mcp-archive
+    restart: "no"
     environment:
       VOOM_PROJECT_NAME: voom_system
       VOOM_ARCHITECTURE: nova
