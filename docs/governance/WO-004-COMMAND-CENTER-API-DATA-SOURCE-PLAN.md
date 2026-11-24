@@ -45,3 +45,28 @@
 - Services and assistant aggregate health: BLOCKED pending explicit probe contracts.
 - Core API implementation/deployment and authenticated E2E: NOT IMPLEMENTED / NOT VERIFIED on current main.
 - No tests, migrations, runtime code, PR states, deployment, secrets, permissions or broker state were changed in this review.
+
+
+## 5. Live Supabase verification addendum — 2026-11-25
+
+Read-only connector inspection covered both linked active NOVA-related Supabase projects. Project identity/production-vs-staging designation must not be inferred from project names alone.
+
+| Project ref | Repository/user context | Migration/schema evidence | Implication |
+|---|---|---|---|
+| rovhmjeowracayicbqij | The checked-in Command Center implementation document calls this the isolated staging project; the user has also previously referred to this project URL for NOVA Video production, so its environment designation is conflicting and must be reconciled | Migration ledger lists nova_durable_approval_lifecycle and nova_core_owner_scoped_schema. Catalog lookup confirms nova.approvals and nova.audit_events exist, but public.nova_agent_threads and public.nova_approval_requests do not exist. | This project has the app-local duplicate approval/audit schema but lacks the public durable approval tables expected by the existing canonical approval client. Treat as schema/migration drift; do not apply or drop anything until project role and migration ownership are resolved. |
+| tlyyxufuiimrbaksoitf | Linked Supabase project named Voom_system; production designation not independently verified in this pass | Migration ledger includes nova_durable_approval_lifecycle. Catalog lookup confirms public.nova_agent_threads and public.nova_approval_requests exist; nova.approvals and nova.audit_events do not. | This project has the repository's durable approval schema. It also has public.system_heartbeats, public.system_controls, public.security_events, public.mcp_tool_audit and public.nova_analysis_audit_events. |
+
+Additional verified observations:
+- In tlyyxufuiimrbaksoitf, public.system_heartbeats currently reports zero rows. Its current RLS policy is staff-only, so it is not yet a customer-readable Bridge heartbeat feed. It is a candidate schema, not evidence of active heartbeat telemetry.
+- public.system_controls currently contains three control keys: global_kill_switch, live_trading_enabled and llm_strategy_generation_enabled. This is not a complete numeric Risk Policy source for daily loss, exposure and order limits.
+- public.security_events and public.mcp_tool_audit are staff-only read sources; public.nova_analysis_audit_events is a domain-specific analysis-job lifecycle audit. None is yet proven to be the complete customer-facing audit timeline required by /v1/audit.
+- public.nova_agent_threads and public.nova_approval_requests have owner-scoped RLS policies. public.risk_guard_decisions has owner-or-active-staff read policy. public.system_heartbeats and public.system_controls have active-staff-only read policies.
+- The project list and migration ledger were inspected read-only. No SQL writes, migrations, data edits, RLS changes, key changes or deployment were performed.
+
+**Correction to Section 2 and Section 4:** The app-local nova.approvals/nova.audit_events schema is not merely an un-applied draft in every environment. It is present in rovhmjeowracayicbqij, while the canonical public approval tables are present in tlyyxufuiimrbaksoitf. The two projects have divergent schemas despite both migration ledgers listing a durable approval migration. This is a cross-environment migration reconciliation blocker, not permission to copy/drop schemas.
+
+**Updated decisions:**
+- Approval: canonical repository design remains public.nova_approval_requests/public.nova_agent_threads. tlyyxufuiimrbaksoitf has those tables; rovhmjeowracayicbqij does not. Verify which project is the intended NOVA staging/production target before any migration repair.
+- Bridge: system_heartbeats is a candidate only; it is empty and staff-only. Need heartbeat writer, component naming, tenant/connection binding, freshness threshold and customer-safe projection.
+- Risk: system_controls holds only global boolean toggles; no numeric daily-loss/max-exposure/max-orders policy source was found.
+- Audit: several domain-specific sources exist; a unified customer-safe audit projection and explicit ownership/retention contract are still required.
