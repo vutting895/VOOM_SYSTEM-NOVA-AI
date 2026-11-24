@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import worker, { authorizeBridge, constantTimeEqual, validateReadRequest } from "./worker.js";
+import worker, { BridgeSession, authorizeBridge, constantTimeEqual, validateReadRequest } from "./worker.js";
 
 const TENANT_ID = "tenant_12345678";
 const TOKEN = "read_only_test_token_which_is_long_enough_123456";
@@ -35,14 +35,58 @@ function request(path, options = {}) {
   });
 }
 
-test("health is public and explicitly read-only", async () => {
-  const response = await worker.fetch(request("/health"), {});
+test("public liveness is separate from tenant bridge health", async () => {
+  const response = await worker.fetch(request("/healthz"), {});
   const body = await response.json();
   assert.equal(response.status, 200);
   assert.equal(body.status, "relay_ready");
   assert.equal(body.ordersEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
   assert.equal(body.order_submission_enabled, false);
+});
+
+test("tenant bridge health rejects missing credentials", async () => {
+  const response = await worker.fetch(request("/health"), makeEnv());
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "authentication_required");
+});
+
+test("authenticated tenant health is routed through its tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, headers: req.headers };
+    return Response.json({
+      status: "ok",
+      terminal_connected: true,
+      account_session_available: true,
+      mode: "read-only",
+      order_submission_enabled: false
+    });
+  });
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: TENANT_ID
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.terminal_connected, true);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.url.pathname, "/health");
+  assert.equal(observed.headers.get("X-Relay-Internal"), "1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+});
+
+test("Durable Object reports disconnected when no tenant WebSocket exists", async () => {
+  const session = new BridgeSession({ getWebSockets: () => [] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bridge_not_connected");
 });
 
 test("account route rejects missing credentials", async () => {
@@ -137,4 +181,98 @@ test("a wrong bearer token cannot attach to a tenant session", () => {
   };
   const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
+});
+
+
+test("valid tenant A token cannot be replayed with tenant B identity", async () => {
+  const tenantB = "tenant_87654321";
+  const tokenB = "different_read_only_token_for_tenant_b_123456";
+  let routed = false;
+  const env = makeEnv(undefined, {
+    MT5_TENANT_ROUTES: JSON.stringify({
+      [TENANT_ID]: { tenantId: TENANT_ID, token: TOKEN },
+      [tenantB]: { tenantId: tenantB, token: tokenB }
+    }),
+    BRIDGE_SESSIONS: {
+      idFromName: (name) => name,
+      get: () => ({ fetch: async () => { routed = true; return Response.json({ status: "ok" }); } })
+    }
+  });
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: tenantB
+  }), env);
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).error, "invalid_bridge_token");
+  assert.equal(routed, false);
+});
+
+test("malformed tenant identity is rejected before Durable Object routing", async () => {
+  let routed = false;
+  const env = makeEnv(undefined, {
+    BRIDGE_SESSIONS: {
+      idFromName: () => { routed = true; return TENANT_ID; },
+      get: () => ({ fetch: async () => { routed = true; return Response.json({ status: "ok" }); } })
+    }
+  });
+  const response = await worker.fetch(request("/health", {
+    token: TOKEN,
+    tenant: "tenant invalid!"
+  }), env);
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).error, "tenant_mismatch");
+  assert.equal(routed, false);
+});
+
+test("tenant session health requires a matching active socket and a Bridge response", async () => {
+  let session;
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: TENANT_ID }),
+    send(payload) {
+      const message = JSON.parse(payload);
+      session.webSocketMessage(socket, JSON.stringify({
+        type: "response",
+        id: message.id,
+        status: 200,
+        body: JSON.stringify({
+          status: "ok",
+          terminal_connected: true,
+          mode: "read-only",
+          order_submission_enabled: false
+        })
+      }));
+    }
+  };
+  session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.terminal_connected, true);
+  assert.equal(body.order_submission_enabled, false);
+});
+
+test("tenant session health cannot use another tenant's active socket", async () => {
+  const tenantB = "tenant_87654321";
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: tenantB }),
+    send() { assert.fail("must not send a request to another tenant's socket"); }
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/health", {
+    method: "GET",
+    headers: {
+      "X-Relay-Internal": "1",
+      "X-VOOM-TENANT-ID": TENANT_ID
+    }
+  }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bridge_not_connected");
 });
