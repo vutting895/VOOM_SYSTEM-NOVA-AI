@@ -1,283 +1,237 @@
-import React, { useState, useEffect } from 'react';
-import { novaApi } from '../../api/apiClient';
-import { LearningUniverseResponse } from '../../api/types';
+import React, { useEffect, useState } from 'react';
+import { Database, Layers, Cpu, RefreshCw, Play, ClipboardList, ShieldCheck } from 'lucide-react';
 import ReadonlySafetyBadge from '../common/ReadonlySafetyBadge';
 import { LoadingSpinner, ErrorView } from '../common/StateViews';
 import {
-  Database,
-  Layers,
-  Activity,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-  BarChart3,
-  RefreshCw,
-  Cpu,
-  ShieldCheck,
-  Zap,
-} from 'lucide-react';
+  datacenterResearchService,
+  type DatacenterDataset,
+  type DatacenterModel,
+  type DatacenterUniverse,
+} from '../../services/datacenterResearchService';
 
 export default function LearningUniverseView() {
-  const [loading, setLoading] = useState<boolean>(true);
+  const [datasets, setDatasets] = useState<DatacenterDataset[]>([]);
+  const [universes, setUniverses] = useState<DatacenterUniverse[]>([]);
+  const [models, setModels] = useState<DatacenterModel[]>([]);
+  const [selectedUniverseId, setSelectedUniverseId] = useState('');
+  const [modelFamily, setModelFamily] = useState('');
+  const [jobId, setJobId] = useState('');
+  const [jobStatus, setJobStatus] = useState<Record<string, any> | null>(null);
+  const [jobLogs, setJobLogs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [learningData, setLearningData] = useState<LearningUniverseResponse | null>(null);
-  const [triggering, setTriggering] = useState<boolean>(false);
-  const [triggerMsg, setTriggerMsg] = useState<string | null>(null);
 
-  const fetchLearningData = async () => {
+  const selectedUniverse = universes.find((item) => item.universe_id === selectedUniverseId) || null;
+  const taskType = selectedUniverse?.definition.task_type;
+  const allowedFamilies = taskType === 'classification'
+    ? ['logistic_regression', 'random_forest_classifier']
+    : taskType === 'regression'
+      ? ['ridge', 'random_forest_regressor']
+      : [];
+
+  const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await novaApi.getLearningUniverse();
-      setLearningData(res);
+      const [datasetRows, universeRows, modelRows] = await Promise.all([
+        datacenterResearchService.listDatasets(),
+        datacenterResearchService.listUniverses(),
+        datacenterResearchService.listModels(),
+      ]);
+      setDatasets(datasetRows);
+      setUniverses(universeRows);
+      setModels(modelRows);
+      setSelectedUniverseId((current) => current && universeRows.some((item) => item.universe_id === current)
+        ? current : universeRows[0]?.universe_id || '');
     } catch (err: any) {
-      const message = String(err?.message || '');
-      setError(message.includes('learning_runtime_not_configured')
-        ? 'Learning data source is not configured. Dataset and model metrics are intentionally unavailable.'
-        : message || 'Failed to fetch learning universe data');
+      setError(err?.message || 'Unable to load Datacenter Learning registries');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleManualTrigger = async (pair: string) => {
+  useEffect(() => { void loadData(); }, []);
+
+  useEffect(() => {
+    if (!allowedFamilies.includes(modelFamily)) setModelFamily(allowedFamilies[0] || '');
+  }, [selectedUniverseId, taskType]);
+
+  const submitTraining = async () => {
+    if (!selectedUniverse) {
+      setError('Select a registered Learning Universe first.');
+      return;
+    }
     try {
-      setTriggering(true);
-      const res = await novaApi.triggerAutoTrain(pair);
-      setTriggerMsg(res.statusNotification || `เริ่มกระบวนการเทรน ${pair} สำเร็จ`);
-      await fetchLearningData();
+      setSubmitting(true);
+      setError(null);
+      const definition = selectedUniverse.definition;
+      const response = await datacenterResearchService.submitTraining({
+        universe_id: selectedUniverse.universe_id,
+        universe_version: selectedUniverse.version,
+        task_type: definition.task_type,
+        label_column: definition.label_column,
+        feature_columns: definition.feature_columns,
+        model_family: modelFamily,
+      });
+      if (response.status !== 'accepted' || typeof response.job_id !== 'string') {
+        throw new Error(String(response.reason || response.errors?.join(', ') || 'training_job_not_accepted'));
+      }
+      setJobId(response.job_id);
+      setJobStatus(response);
+      setJobLogs([]);
     } catch (err: any) {
-      setTriggerMsg(`Trigger failed: ${err?.message || err}`);
+      setError(err?.message || 'Training job submission failed');
     } finally {
-      setTriggering(false);
+      setSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    fetchLearningData();
-  }, []);
+  const refreshJob = async () => {
+    if (!jobId) return;
+    try {
+      const [status, logs] = await Promise.all([
+        datacenterResearchService.getTrainingStatus(jobId),
+        datacenterResearchService.getTrainingLogs(jobId),
+      ]);
+      setJobStatus(status.job || status);
+      setJobLogs(Array.isArray(logs.logs) ? logs.logs : []);
+      await loadData();
+    } catch (err: any) {
+      setError(err?.message || 'Unable to refresh training job');
+    }
+  };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <ReadonlySafetyBadge />
-        <LoadingSpinner label="กำลังโหลดข้อมูล Learning Universe (Dataset, Model Performance, Training History)..." />
-      </div>
-    );
-  }
-
-  if (error || !learningData) {
-    return (
-      <div className="space-y-6">
-        <ReadonlySafetyBadge />
-        <ErrorView error={error || 'Failed to load learning universe'} onRetry={fetchLearningData} />
-      </div>
-    );
+  if (loading) return <div className="space-y-6"><ReadonlySafetyBadge /><LoadingSpinner label="Loading Datacenter Dataset, Universe, and Model registries..." /></div>;
+  if (error && !datasets.length && !universes.length && !models.length) {
+    return <div className="space-y-6"><ReadonlySafetyBadge /><ErrorView error={error} onRetry={loadData} /></div>;
   }
 
   return (
     <div className="space-y-6 text-slate-100">
-      {/* 1. Mandatory Safety Banner */}
       <ReadonlySafetyBadge />
-
-      {/* 2. Top Banner & Trigger Controls */}
-      <div className="bg-gradient-to-r from-slate-900 via-purple-950/40 to-slate-900 border border-purple-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-purple-400" />
-              <h2 className="text-lg font-bold text-white tracking-wide">
-                Learning Universe: Feature Store & Continuous Adaptation
-              </h2>
-            </div>
-            <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              ศูนย์กลางคลังข้อมูลฟีเจอร์ (Feast Feature Store on Parquet) และประวัติการฝึกฝนโมเดลอัตโนมัติ สำหรับ 16 คู่สินทรัพย์หลัก พร้อมการอัปเดตข้อมูลรายวัน
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => handleManualTrigger('XAU/USDm')}
-              disabled={triggering}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-lg shadow-purple-600/20 transition-all disabled:opacity-50"
-            >
-              <Zap className="w-4 h-4 fill-current" />
-              {triggering ? 'กำลังประมวลผล...' : 'กระตุ้นรอบฝึกฝน (Trigger Train)'}
-            </button>
-          </div>
-        </div>
-
-        {triggerMsg && (
-          <div className="mt-4 p-3 bg-purple-950/60 border border-purple-500/40 rounded-xl text-xs font-mono text-purple-200">
-            {triggerMsg}
-          </div>
-        )}
-      </div>
-
-      {/* 3. Section 1: Dataset Management */}
-      <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2">
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Database className="w-4 h-4 text-purple-400" />
-              1. Dataset Management & Feature Store
-            </h3>
-            <span className="text-xs text-slate-400 font-mono">
-              Provider: {learningData.featureStore.provider} · Total Samples: {learningData.featureStore.totalSamplesStored.toLocaleString()} Vectors
-            </span>
+            <h2 className="flex items-center gap-2 text-base font-bold text-white"><Layers className="h-5 w-5 text-cyan-400" />Datacenter Learning Registry</h2>
+            <p className="mt-1 text-xs text-slate-400">สถานะจริงจาก Dataset Registry, Learning Universe และ Model Registry ผ่าน NOVA Remote MCP Gateway</p>
           </div>
-
-          <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono self-start sm:self-auto">
-            Daily Status: {learningData.featureStore.dailyUpdateStatus}
-          </span>
+          <button type="button" onClick={loadData} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-cyan-500 disabled:opacity-50">
+            <RefreshCw className="h-4 w-4" /> Refresh Registries
+          </button>
         </div>
-
-        <div>
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block font-mono mb-2">
-            16 Monitored Assets (คู่สินทรัพย์ที่จัดเก็บใน Feature Store)
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {learningData.featureStore.monitoredSymbols.map((sym) => (
-              <span
-                key={sym}
-                className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono font-medium text-slate-300"
-              >
-                {sym}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block font-mono mb-2">
-            Feature Vector Categories (หมวดหมู่ของฟีเจอร์)
-          </span>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
-            {learningData.featureStore.featureCategories.map((cat, i) => (
-              <div key={i} className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 text-slate-300 flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                <span>{cat}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Section 2: Model Performance by Market Regime */}
-      <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-        <div className="pb-3 border-b border-slate-800">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-cyan-400" />
-            2. Model Performance by Market Regime (ประสิทธิภาพตามสภาวะตลาด)
-          </h3>
-          <span className="text-xs text-slate-400 font-mono">
-            การวัดความแม่นยำ F1-Score แยกตามพฤติกรรมความผันผวน
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {learningData.modelPerformanceByRegime.map((regime, i) => (
-            <div key={i} className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between">
-              <div>
-                <span className="text-xs font-bold text-cyan-300 block mb-1">{regime.regimeName}</span>
-                <p className="text-[11px] text-slate-400 leading-relaxed mb-3">{regime.description}</p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 font-mono text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-500 block">ACCURACY</span>
-                  <span className="text-emerald-400 font-bold text-sm">{regime.accuracyPct}%</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 block">F1-SCORE</span>
-                  <span className="text-indigo-300 font-bold text-sm">{regime.f1Score}</span>
-                </div>
-              </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            ['Datasets', datasets.length],
+            ['Approved Datasets', datasets.filter((item) => item.status === 'PASSED' && item.approval_status === 'approved').length],
+            ['Universes', universes.length],
+            ['Registered Models', models.length],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+              <span className="block text-[10px] uppercase text-slate-500">{label}</span>
+              <span className="mt-1 block text-xl font-bold text-slate-100">{value}</span>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* 5. Section 3 & 4: Training History & Daily Data Update Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Training History */}
-        <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-          <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-emerald-400" />
-              3. Continuous Training History (ประวัติการเทรน)
-            </h3>
-            <span className="text-[11px] text-slate-400 font-mono">Recent Logs</span>
-          </div>
+      {error && <ErrorView error={error} onRetry={loadData} />}
 
-          <div className="space-y-3">
-            {learningData.trainingHistory.map((th) => (
-              <div key={th.id} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-white">{th.pair} (Epoch #{th.epoch})</span>
-                  <span className="text-emerald-400 font-bold">{th.status}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-400 text-[11px]">
-                  <span>Loss: {th.trainingLoss}</span>
-                  <span>Accuracy: {th.validationAccuracyPct}%</span>
-                  <span>Duration: {th.durationSec}s</span>
-                </div>
-                <div className="text-[10px] text-slate-500">
-                  {new Date(th.timestamp).toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Daily Data Update Status */}
-        <div className="bg-[#0D111A] border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="pb-3 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-400" />
-                4. Daily Data Update Status (สถานะการอัปเดตข้อมูล)
-              </h3>
-              <span className="text-xs font-mono text-emerald-400">100% HEALTH</span>
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5 space-y-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Database className="h-4 w-4 text-cyan-400" />Dataset Registry</h3>
+        {datasets.length === 0 ? <p className="text-xs text-slate-500">No datasets registered for this account.</p> : datasets.slice(0, 30).map((dataset) => (
+          <div key={dataset.dataset_id + ':' + dataset.version} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-slate-200">{dataset.name} · v{dataset.version}</span>
+              <span className={dataset.status === 'PASSED' && dataset.approval_status === 'approved' ? 'text-emerald-400' : 'text-amber-300'}>{dataset.status} / {dataset.approval_status}</span>
             </div>
-
-            <div className="mt-4 space-y-2.5 text-xs font-mono">
-              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between">
-                <span className="text-slate-400">Update Cadence:</span>
-                <span className="text-slate-200">{learningData.autoUpdateJob.cadence}</span>
-              </div>
-              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between">
-                <span className="text-slate-400">Automated Pipeline:</span>
-                <span className="text-emerald-400 font-bold">ACTIVE (Cron Daemon)</span>
-              </div>
-              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex justify-between">
-                <span className="text-slate-400">Next Scheduled Sync:</span>
-                <span className="text-cyan-300">
-                  {new Date(learningData.featureStore.nextScheduledUpdateAt).toLocaleTimeString()}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-1.5">
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-mono block">
-                Pipeline Automation Logs
-              </span>
-              {learningData.autoUpdateJob.logs.map((log, idx) => (
-                <div key={idx} className="p-2 rounded bg-slate-950 text-[11px] font-mono text-slate-400 border border-slate-900">
-                  › {log}
-                </div>
-              ))}
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
+              <span>{dataset.manifest.symbols?.join(', ') || 'No symbol metadata'}</span>
+              <span>{dataset.manifest.timeframe || 'Unknown timeframe'}</span>
+              <span>{dataset.row_count.toLocaleString()} rows</span>
+              <span>SHA-256: {dataset.checksum ? dataset.checksum.slice(0, 12) : 'not available'}</span>
             </div>
           </div>
+        ))}
+      </section>
 
-          <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 font-mono flex items-center gap-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Feast Schema Contract Validated · Zero Data Drift Detected</span>
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5 space-y-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Layers className="h-4 w-4 text-indigo-400" />Learning Universe Registry</h3>
+        {universes.length === 0 ? <p className="text-xs text-slate-500">No Learning Universe has been registered yet.</p> : universes.map((universe) => (
+          <div key={universe.universe_id + ':' + universe.version} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-slate-200">{universe.name} · v{universe.version}</span>
+              <span className="text-slate-400">{universe.status}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
+              <span>Task: {universe.definition.task_type}</span>
+              <span>Features: {universe.definition.feature_columns?.length || 0}</span>
+              <span>Label: {universe.definition.label_column || '—'}</span>
+              <span>Pinned datasets: {universe.definition.datasets?.length || 0}</span>
+            </div>
           </div>
-        </div>
-      </div>
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5 space-y-4">
+        <div className="flex items-center gap-2"><Play className="h-4 w-4 text-emerald-400" /><h3 className="text-sm font-bold text-white">Submit Real Training Job</h3></div>
+        <p className="text-xs text-slate-400">ระบบจะใช้เฉพาะ Dataset ที่ถูก pin ใน Universe และผ่านการอนุมัติ ไม่มี Mock Training หรือการสร้าง Label อัตโนมัติ</p>
+        {universes.length === 0 ? <p className="text-xs text-amber-300">Register a valid Learning Universe before submitting a training job.</p> : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <label className="space-y-1 text-xs text-slate-400">Universe
+              <select value={selectedUniverseId} onChange={(e) => setSelectedUniverseId(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100">
+                {universes.map((item) => <option key={item.universe_id} value={item.universe_id}>{item.name} · v{item.version}</option>)}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs text-slate-400">Model Family
+              <select value={modelFamily} onChange={(e) => setModelFamily(e.target.value)} disabled={!allowedFamilies.length} className="w-full rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-100">
+                {allowedFamilies.map((family) => <option key={family} value={family}>{family}</option>)}
+              </select>
+            </label>
+            <div className="flex items-end">
+              <button type="button" onClick={submitTraining} disabled={submitting || !selectedUniverse || !modelFamily} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-3 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-40">
+                <Play className="h-4 w-4" />{submitting ? 'Submitting…' : 'Submit Training'}
+              </button>
+            </div>
+          </div>
+        )}
+        {jobId && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-slate-300">Job: {jobId}</span>
+              <button type="button" onClick={refreshJob} className="inline-flex items-center gap-1 text-cyan-300"><RefreshCw className="h-3 w-3" /> Refresh Job</button>
+            </div>
+            <pre className="overflow-x-auto text-[11px] text-slate-400">{JSON.stringify(jobStatus, null, 2)}</pre>
+            {jobLogs.map((line, index) => <div key={index} className="text-[11px] text-slate-500">› {line}</div>)}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-[#0D111A] p-5 space-y-3">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Cpu className="h-4 w-4 text-purple-400" />Model Registry</h3>
+        {models.length === 0 ? <p className="text-xs text-slate-500">No trained model artifacts are registered for this account.</p> : models.slice(0, 30).map((model) => (
+          <div key={model.model_id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-slate-200">{model.name} · v{model.version} · {model.model_family}</span>
+              <span className={model.deployment_eligible ? 'text-emerald-400' : 'text-amber-300'}>{model.approval_status}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
+              <span>Task: {model.task_type}</span>
+              <span>Gate: {model.gates.passed ? 'PASSED' : 'NOT PASSED'}</span>
+              <span>Deployment eligible: {model.deployment_eligible ? 'YES' : 'NO'}</span>
+              <span>Created: {new Date(model.created_at).toLocaleString()}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-slate-400">
+              {Object.entries(model.metrics || {}).map(([key, value]) => <span key={key} className="rounded bg-slate-950 px-2 py-1">{key}: {typeof value === 'number' ? value.toFixed(4) : String(value)}</span>)}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <p className="flex items-start gap-2 border-t border-slate-800 pt-3 text-[11px] text-slate-500">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        Model approval never enables broker execution. This dashboard reports only persisted Datacenter registry and job data; no synthetic accuracy, cron, or health metrics are displayed.
+      </p>
     </div>
   );
 }
