@@ -217,3 +217,38 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 - Preliminary disposition: keep the Command Center REST API boundary as a separate proposed control-plane API only if its authoritative data sources are specified; retain System Hub for broker connections and Remote MCP for MCP/Datacenter. Do not merge either PR wholesale. Port/rebase only after a current-main contract and data-source review.
 - Blockers: no verified production API deployment/binding; no authenticated end-to-end Command Center → API test; no current evidence that #373's claimed production migrations match the actual Supabase migration ledger; no authoritative bridge/risk data integration for all contract routes.
 - No source code, runtime configuration, database, PR state, deployment, secret, permission, or broker state changed during this audit. Trading remains disabled.
+
+
+## 12. Repo-first continuation — 2026-11-25
+
+**Canonical main snapshot**
+- Re-read live `refs/heads/main` immediately before this update: `7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`.
+- Since prior audit SHA `6114725d5aaee20feeaa73877c67340e5f15fa11`, main advanced by 12 commits, all limited to governance documentation: Supabase migration reconciliation, Command Center API data-source plan, migration manifest and operations log. No runtime/code paths changed in this 12-commit interval.
+
+**PR status correction**
+| PR | Live state | Current comparison / evidence | Disposition |
+|---|---|---|---|
+| #397 | Open Draft; head `d69d9396420443d43085377ae97431024d55af50`; base main `7a54b753...` | GitHub compare: 1 ahead / 2 behind, diverged from merge base `e7d1f379...`. Exact-head SMC job `45466226126` is still IN_PROGRESS; Supabase Preview is SKIPPED. Latest patch includes #399's missing Datacenter-client path filter and a new `tests/test_approval_guard.py`. Duplicate test-function issue observed earlier on #400 is not present in #397 head's current `tests/test_research_pipeline.py` (only one definition). | Preferred consolidation candidate; do not merge until CI completes, reconcile the two newer docs-only main commits, review approval guard tests and obtain valid/invalid JWT behavior evidence. |
+| #399 | Closed, unmerged | PR comment says superseded by #397; #397 now includes the two path-filter additions. | SUPERSEDED by #397; no further action. |
+| #400 | Closed, unmerged | Its gate-order change is incorporated in #397; earlier duplicate test definition is not present in #397's current test file. | SUPERSEDED by #397; no further action. |
+| #395 | Closed, superseded | PR #397 includes the broader test/runtime gate-order correction. | SUPERSEDED; retain history. |
+| #396 | Open Draft; base `9b03eaac...` | 29 ahead / 16 behind current main; diverged from merge base `9b03eaac...`; adds bounded read-only History API across Bridge/Relay/Proxy/Hub. | BLOCKED for merge; rebase/port only after per-file review and tenant-isolation E2E. |
+| #398 | Open Draft; base `9b03eaac...` | 5 ahead / 16 behind current main; diverged from merge base `9b03eaac...`; Compose legacy archive profile change. | BLOCKED for merge; preserve until current-main port and Docker default/profile startup validation. |
+
+**Command Center API data-source plan**
+- `docs/governance/WO-004-COMMAND-CENTER-API-DATA-SOURCE-PLAN.md` is a documentation-only design artifact. It confirms that Command Center API, System Hub REST control plane, and Remote MCP Gateway are separate boundaries; do not route all Command Center traffic to System Hub or MCP.
+- Durable approval source is the repository's `public.nova_approval_requests/public.nova_agent_threads` design, but selected Supabase project `rovhmjeowracayicbqij` currently lacks those public tables while containing `nova.approvals/nova.audit_events`. No migration repair is authorized; project tier/environment and migration provenance remain unresolved.
+- Bridge heartbeat, numeric risk-policy source, unified customer-safe audit projection, service probe registry and AI provider aggregate health remain BLOCKED / NOT IDENTIFIED. No static healthy values or inferred connected status.
+- The data-source plan does not authorize Core API runtime implementation, schema change, PR merge or deployment.
+
+**Migration decision and phase status**
+- Full tree, branch pagination and PR metadata pagination were completed for the prior snapshot; this continuation refreshed live main and priority PR states. Full changed-path/dependency mapping for all 375 PRs remains incomplete.
+- No exact source-to-destination candidate has yet passed ownership + caller/import + workflow + tests + rollback acceptance. **Zero file moves remain approved.**
+- Phase 0 DONE; Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS; Phase 3 PRELIMINARY/BLOCKED; Phases 4–6 NOT STARTED.
+- No code/data/model/migration/workflow files moved; no PR merged or closed by this operation; no branch deleted; no CI triggered; no deployment, DB, secret, permission or broker state changed.
+
+**Next actions**
+1. Wait for exact-head #397 SMC job; then review full check summary and two-commit divergence against main.
+2. Complete approval guard test review for valid, invalid, expired and owner-mismatched JWT/RPC cases without enabling approval creation.
+3. Keep #396/#398 blocked; reconcile separately against current main.
+4. Continue per-file caller/import/workflow mapping and only then prepare any move manifest with rollback evidence.
