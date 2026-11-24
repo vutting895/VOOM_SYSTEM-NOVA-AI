@@ -1,0 +1,373 @@
+openapi: 3.1.0
+info:
+  title: NOVA System Hub API
+  version: 1.0.0
+  description: >
+    Source-aligned contract for the currently implemented voom-system-hub Worker.
+    This document intentionally excludes Command Center routes that are not yet
+    implemented. All broker operations are read-only; connection creation creates
+    only a pending Exness Demo request and must be explicitly authorized by the owner.
+servers:
+  - url: https://voom-system-hub.suwapat787.workers.dev
+security:
+  - SupabaseBearer: []
+paths:
+  /health:
+    get:
+      operationId: getHubHealth
+      security: []
+      summary: Process and configuration readiness
+      description: Does not prove Supabase, MT5 bridge, or broker terminal connectivity.
+      responses:
+        "200":
+          description: Hub process response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/integrations:
+    get:
+      operationId: listIntegrations
+      summary: List registered integration capabilities
+      responses:
+        "200":
+          description: Authenticated integration registry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [service, integrations, mode, ordersEnabled, liveTradingEnabled]
+                properties:
+                  service:
+                    const: voom-system-hub
+                  integrations:
+                    type: array
+                    items:
+                      type: object
+                  mode:
+                    const: read-only
+                  ordersEnabled:
+                    const: false
+                  liveTradingEnabled:
+                    const: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/connections:
+    get:
+      operationId: listOwnConnections
+      summary: List connection records visible to the authenticated user
+      description: Uses the signed-in user's Supabase token and owner-scoped RLS.
+      responses:
+        "200":
+          description: User-owned connection list; an empty list is a valid state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connections, count, ordersEnabled, liveTradingEnabled]
+                properties:
+                  connections:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Connection"
+                  count:
+                    type: integer
+                    minimum: 0
+                  ordersEnabled:
+                    const: false
+                  liveTradingEnabled:
+                    const: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+    post:
+      operationId: requestExnessDemoConnection
+      summary: Create an idempotent pending Exness Demo connection request
+      description: >
+        This is a state-changing database operation. Do not call from a client
+        automatically. It requires explicit owner authorization and does not
+        allocate a bridge route, verify a broker account, or enable trading.
+      responses:
+        "200":
+          description: An existing pending or configured request was returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionRequestResult"
+        "201":
+          description: A new pending Demo request was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionRequestResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/connections/{connectionId}/status:
+    parameters:
+      - $ref: "#/components/parameters/ConnectionId"
+    get:
+      operationId: getOwnConnectionStatus
+      summary: Read the authenticated user's connection-record status
+      description: A configured record is not proof of a reachable or data-verified broker.
+      responses:
+        "200":
+          description: Owner-scoped connection status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Connection"
+                  - type: object
+                    properties:
+                      state:
+                        type: string
+                      dataVerified:
+                        const: false
+                      note:
+                        type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/connections/{connectionId}/check:
+    parameters:
+      - $ref: "#/components/parameters/ConnectionId"
+    post:
+      operationId: checkOwnConnection
+      summary: Run a bounded read-only account-path check
+      description: The response is sanitized; account payload and credentials are not returned by the check route.
+      responses:
+        "200":
+          description: Sanitized check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectionId:
+                    type: string
+                  state:
+                    type: string
+                  dataVerified:
+                    type: boolean
+                  ordersEnabled:
+                    const: false
+                  liveTradingEnabled:
+                    const: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          $ref: "#/components/responses/Unavailable"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/connections/{connectionId}/account:
+    parameters:
+      - $ref: "#/components/parameters/ConnectionId"
+    get:
+      operationId: getOwnReadOnlyAccountSummary
+      summary: Read a sanitized account summary from the user's connected Demo terminal
+      responses:
+        "200":
+          description: Credential-free read-only account summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectionId:
+                    type: string
+                  state:
+                    const: data_verified
+                  dataVerified:
+                    const: true
+                  account:
+                    type: object
+                  ordersEnabled:
+                    const: false
+                  liveTradingEnabled:
+                    const: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+  /v1/connections/{connectionId}/quotes:
+    parameters:
+      - $ref: "#/components/parameters/ConnectionId"
+    get:
+      operationId: getOwnReadOnlyQuotes
+      summary: Read bounded quotes and candles from the user's connected Demo terminal
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9._-]{1,32}$"
+            default: XAUUSDm
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [M1, M5, M15, M30, H1, H4, D1]
+            default: M1
+        - name: count
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Source-stamped read-only quote/candle response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectionId:
+                    type: string
+                  state:
+                    const: data_verified
+                  dataVerified:
+                    const: true
+                  quote:
+                    type: object
+                    properties:
+                      symbol:
+                        type: string
+                      timeframe:
+                        type: string
+                      tick:
+                        type: [object, "null"]
+                      bars:
+                        type: array
+                      as_of:
+                        type: [string, "null"]
+                      mode:
+                        const: read-only
+                      order_submission_enabled:
+                        const: false
+                  ordersEnabled:
+                    const: false
+                  liveTradingEnabled:
+                    const: false
+        "400":
+          description: Invalid symbol, timeframe, or count
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/Unavailable"
+components:
+  securitySchemes:
+    SupabaseBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Supabase access token
+  parameters:
+    ConnectionId:
+      name: connectionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired user session
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Connection does not exist or is not visible to the authenticated user
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unavailable:
+      description: Authentication, connection service, or upstream adapter unavailable
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      required: [ok, service, status, mode, authConfigured, mt5ProxyConfigured, ordersEnabled, executionEnabled, liveTradingEnabled]
+      properties:
+        ok:
+          const: true
+        service:
+          const: voom-system-hub
+        status:
+          const: ready
+        mode:
+          const: control-plane-read-only
+        authConfigured:
+          type: boolean
+        mt5ProxyConfigured:
+          type: boolean
+        ordersEnabled:
+          const: false
+        executionEnabled:
+          const: false
+        liveTradingEnabled:
+          const: false
+    Connection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        environment:
+          type: string
+        status:
+          type: string
+        accountLabel:
+          type: [string, "null"]
+        readiness:
+          type: string
+        lastVerifiedAt:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+        ordersEnabled:
+          const: false
+        liveTradingEnabled:
+          const: false
+    ConnectionRequestResult:
+      type: object
+      required: [connection, created, ordersEnabled, liveTradingEnabled]
+      properties:
+        connection:
+          $ref: "#/components/schemas/Connection"
+        created:
+          type: boolean
+        ordersEnabled:
+          const: false
+        liveTradingEnabled:
+          const: false
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
