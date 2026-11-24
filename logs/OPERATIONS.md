@@ -39,3 +39,13 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - When the endpoint is absent, Remote MCP deployment and its release smoke checks are skipped; existing Cloudflare worker safety checks remain separate.
 - No Datacenter endpoint has been provisioned or recorded. No authenticated Gateway-to-Datacenter call or final test PASS is claimed.
 - Outcome: IN PROGRESS — integration code and release gating are ready; host provisioning, endpoint configuration, and one consolidated validation remain pending.
+
+
+## NOVA-DATACENTER-001 — final release-health addendum
+
+- Current NOVA main SHA: `1125edbd8441f492bee8156d6b5a60c5decee032`.
+- Remote MCP `/health` now exposes `learningServiceConfigured` without revealing the endpoint value.
+- The Cloudflare deployment smoke check requires `learningServiceConfigured=true`, the 41-tool catalog, and read-only trading flags when the Datacenter URL is configured.
+- Remote MCP deployment and its smoke checks remain skipped until the fixed Datacenter endpoint variable is present.
+- Both relevant CI workflows remain manual-dispatch only. No tests were run.
+- Outcome: IN PROGRESS — release gating is ready; Datacenter host provisioning, endpoint configuration, and one final consolidated test remain pending.
