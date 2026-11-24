@@ -1,5 +1,5 @@
 const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
-const DEFAULT_MODEL = "gemini-3.8-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 const CLOUDFLARE_MODEL = "@cf/meta/llama-3.2-3b-instruct";
 const MAX_OUTPUT_CHARS = 10000;
 const MAX_PROMPT_CHARS = 12000;
