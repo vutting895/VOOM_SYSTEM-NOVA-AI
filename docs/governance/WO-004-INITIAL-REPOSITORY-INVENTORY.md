@@ -191,3 +191,14 @@ No source tests/builds were run in this inventory phase. No code/data movement, 
 - **Research/EA:** #372/#371 remain blocked/preserve-only under Datacenter ownership; #370 is architecture documentation only.
 - **No-move decision:** unchanged. No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, DB, secrets, permissions or broker action.
 - **Next:** continue changed-file enumeration and reconcile all PRs touching overlapping schema, CI, app, Gateway and MT5 paths. Update manifest only when exact owner, caller map, test parity and rollback evidence exist.
+
+
+## 15. MT5 schema consumer parity blocker — 2026-11-24
+
+- Current-main `integrations/mt5-readonly-proxy/worker.js` reads `public.broker_connections`.
+- Current-main `integrations/system-hub/worker.js` independently reads `public.broker_connections`.
+- Current-main Remote MCP Gateway README documents MT5 tools as requiring an owner-scoped `broker_connections` row.
+- PR #375/#376 switch the proxy lookup to `public.nova_broker_connections` and create `nova.mt5_broker_connections` plus a narrow REST view, but do not update System Hub or Remote MCP consumer contracts in their changed-path sets.
+- This is a confirmed source-level consumer parity mismatch. It is not evidence of production outage or of the actual deployed Supabase schema. Mark #375/#376 BLOCKED until canonical schema choice, all-consumer compatibility, owner isolation, read-only tests, migration-ledger proof and rollback are established.
+- Required tests before any future schema transition: proxy lookup, System Hub connection listing/check/account, Remote MCP MT5 tools, cross-tenant denial, pending-only creation and no order-write surface.
+- No migration or source code changed; no database operation performed.
