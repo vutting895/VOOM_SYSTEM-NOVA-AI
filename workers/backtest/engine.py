@@ -81,7 +81,7 @@ class BacktestWorker:
                 slow_now = sum(closes[i-slow+1:i+1]) / slow
                 fast_prev = sum(closes[i-fast:i]) / fast
                 slow_prev = sum(closes[i-slow:i]) / slow
-                if units == 0 and fast_prev <= slow_prev and fast_now > slow_now:
+                if units == 0 and ((i == slow and fast_now > slow_now) or (fast_prev <= slow_prev and fast_now > slow_now)):
                     pending_signal = "buy"
                 elif units > 0 and fast_prev >= slow_prev and fast_now < slow_now:
                     pending_signal = "sell"
