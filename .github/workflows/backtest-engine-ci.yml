@@ -16,6 +16,7 @@ on:
       - "workers/tuning/**"
       - "workers/quant_engine/**"
       - "tests/test_workers.py"
+      - "tests/test_dataset_registry.py"
       - ".github/workflows/backtest-engine-ci.yml"
 
 permissions:
@@ -34,7 +35,7 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install fastapi pydantic httpx
       - name: Compile promoted engines
-        run: python -m py_compile workers/backtest/engine.py workers/tuning/engine.py workers/quant_engine/quality.py
+        run: python -m py_compile workers/backtest/engine.py workers/tuning/engine.py workers/quant_engine/quality.py workers/quant_engine/dataset_registry.py
       - name: Run backtest and tuning regressions
         run: python -m unittest discover -s tests -p "test_workers.py" -v
       - name: Run immutable dataset registry contract tests
