@@ -195,3 +195,17 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Main SHA at verification: `05e9f1eec782b7e44ca22849dcbf55272c93387e` (before this read-back record).
 - Result: PASS for documentation presence/read-back. No source tests/builds were run because no source code changed. No migration, deployment, secret/permission change, or broker action occurred.
 - Outcome: DONE for documentation phases 1–3; Phase 4 remains IN_PROGRESS for repository ownership/dependency mapping and follow-up work-order planning.
+
+
+## 2026-11-24 — WO-2026-11-24-004 registration and acknowledgement
+
+- Timestamp: 2026-11-24 (UTC; exact execution time not supplied by GitHub connector).
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Work Order: `WO-2026-11-24-004`; central status: APPROVED.
+- Central registry: `vutting895/voom-shared-contracts`; Work Order file commit `de57a0b4aa3514d2187c3453ffa1d22047187104`.
+- Action: added the WO-004 mandatory read-before-work instruction, inventory requirements, PR disposition categories, Datacenter ownership boundary, research PR isolation, dataset preservation, logging requirements and safety constraints to `WORK_ORDER_INSTRUCTIONS.md`.
+- Instruction update commit: `36aadbf4f3ca488e65137ab204435972b9a2d753`.
+- Baseline operations log blob read before append: `25da4628e9736c2e45ef257b02e4a6d14ae7000c`.
+- Status: Phase 0 NOVA local acknowledgement recorded; read-back verification pending.
+- Checks: documentation write accepted by GitHub; no code tests/builds run or claimed. No source/data movement, PR merge/closure, branch deletion, deployment, secret/permission change, database change or broker action.
+- Next: read back central Work Order, NOVA instructions and this log; then begin Phase 1 complete read-only inventory.
