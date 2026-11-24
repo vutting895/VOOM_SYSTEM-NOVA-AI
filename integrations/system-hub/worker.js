@@ -510,7 +510,7 @@ async function readHistory(request, env, user, row, origin) {
   const startUtc = String(url.searchParams.get("start_utc") || "");
   const endUtc = String(url.searchParams.get("end_utc") || "");
   const maxDays = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 }[timeframe];
-  const isoUtc = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
+  const isoUtc = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
   if (!MT5_SYMBOL.test(symbol)) return json({ error: "valid_mt5_symbol_required" }, 400, origin, env);
   if (!maxDays || !isoUtc.test(startUtc) || !isoUtc.test(endUtc)) return json({ error: "invalid_history_range" }, 400, origin, env);
   const startMs = Date.parse(startUtc), endMs = Date.parse(endUtc);
