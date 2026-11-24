@@ -4,6 +4,7 @@ from hashlib import sha256
 
 from workers.quant_engine import (
     DatasetRegistryError,
+    DatasetValidationError,
     build_dataset_manifest,
     canonical_dataset_sha256,
     register_dataset_snapshot,
@@ -73,17 +74,17 @@ class DatasetRegistryTests(unittest.TestCase):
 
     def test_gaps_are_reported_and_can_be_rejected(self):
         rows = sample_rows()
-        rows[2]["timestamp"] = "2026-01-01T04:00:00Z"
+        rows[2]["timestamp"] = "2026-01-01T03:00:00Z"
         manifest, _ = build_dataset_manifest(rows, **metadata())
         self.assertEqual(manifest["gap_count"], 1)
         self.assertEqual(manifest["quality_status"], "warning")
-        with self.assertRaises(Exception):
+        with self.assertRaises(DatasetValidationError):
             build_dataset_manifest(rows, **{**metadata(), "reject_gaps": True})
 
     def test_duplicate_or_out_of_order_rows_are_rejected(self):
         rows = sample_rows()
         rows[2]["timestamp"] = rows[1]["timestamp"]
-        with self.assertRaises(Exception):
+        with self.assertRaises(DatasetValidationError):
             build_dataset_manifest(rows, **metadata())
 
     def test_registration_requires_immutable_store_and_returns_versioned_reference(self):
