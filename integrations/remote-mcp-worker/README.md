@@ -16,7 +16,7 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 - CORS allows only the primary NOVA Netlify UI and the documented Cloudflare UI fallback. Retired Base44 origins are rejected.
 - The worker is research/read-only. It never submits broker or exchange orders.
 - Paper-risk checks are conservative guardrails, not financial advice or a live-trading authorization.
-- Never commit credentials. Cloudflare variables contain only the Supabase URL and publishable key; no service-role key or Alpaca secret is used by this worker.
+- Never commit credentials. Cloudflare variables contain the Supabase URL, publishable key, and (when provisioned) the fixed HTTPS `DATACENTER_MCP_URL`; no service-role key or Alpaca secret is used by this worker.
 
 ## NOVA skill catalog
 - `list_nova_skills` — discover capability metadata by domain; all entries are catalog-only.
