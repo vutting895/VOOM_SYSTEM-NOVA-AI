@@ -143,3 +143,14 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Tests: documentation-only change; no code tests run or claimed.
 - Outcome: DONE for local instruction installation; overall Phase 3 remains REVIEW_REQUIRED pending unresolved repository-boundary classification.
 - Next: inspect existing CI/agent enforcement without creating duplicate automation.
+
+
+## 2026-11-24 — WO-2026-11-24-002 reporting scope rollout
+
+- Work Order: `WO-2026-11-24-002`; policy: `REPORTING-SCOPE-001`.
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Action: appended repository-local reporting scope to `WORK_ORDER_INSTRUCTIONS.md`.
+- Rule: NOVA-local reports cover NOVA's own work only; cross-repository reporting is reserved for central governance and must keep repository evidence/status separate.
+- Commit: `ac4bb160439ed5118b2bb5b03eb6320c8dac6993`.
+- Validation: instruction write succeeded; read-back verification pending. Documentation-only change; no source tests or deployment performed.
+- Next: read back the instruction and complete the other approved repository rollouts.
