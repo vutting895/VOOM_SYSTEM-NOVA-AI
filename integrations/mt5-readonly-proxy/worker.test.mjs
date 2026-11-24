@@ -129,7 +129,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("select"), "id,user_id,provider,environment,status,bridge_route_id");
@@ -180,7 +180,7 @@ test("missing relay endpoint fails closed before bridge forwarding", async () =>
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
         environment: "demo", status: "connected", bridge_route_id: TENANT_ID
@@ -213,7 +213,7 @@ test("staging configuration routes only to the dedicated staging relay", async (
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
         environment: "demo", status: "connected", bridge_route_id: TENANT_ID
@@ -248,7 +248,7 @@ test("relay redirects are rejected without following the Location target", async
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
         environment: "demo", status: "connected", bridge_route_id: TENANT_ID
@@ -282,7 +282,7 @@ test("foreign user's connection ID is not forwarded to the Bridge", async () => 
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "different-test-user-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
       // Both predicates must be present: a valid row ID alone is not enough.
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
