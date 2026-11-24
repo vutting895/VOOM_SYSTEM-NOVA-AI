@@ -246,3 +246,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Incomplete: changed-path enumeration for remaining PRs, PR commit/review reconciliation, import/caller/workflow/deployment reference mapping, and full ownership matrix. Phase 1 remains IN_PROGRESS; Phases 2–6 remain NOT STARTED.
 - No source/data/model/migration/workflow/runtime files moved or changed; no PR merged/closed; no branch deleted; no deployment, database, secrets, permissions or broker actions.
 - Next: read back the updated inventory and log; then complete remaining PR changed-path and dependency/reference inventory before preparing Phase 2 disposition.
+
+
+## 2026-11-24 — WO-2026-11-24-004 PR overlap verification
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main SHA before this log update: `eacfb02f806b2387ad916f6cf7f883b5ba66ea73`.
+- Compared full PR diffs, commit lists, comments and per-file resulting blob SHAs for #388 and #389.
+- Evidence: both PRs change the same two paths; both resulting blob SHAs match exactly; fetched unified diff strings are byte-identical (31,177 characters); #388 is closed/unmerged with four distinct commits; #389 is open Draft with two distinct commits; no shared commit SHAs; both PR comment timelines are empty.
+- Updated `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md` with preliminary disposition evidence; inventory artifact commit `eacfb02f806b2387ad916f6cf7f883b5ba66ea73`.
+- Preliminary disposition only: #389 KEEP candidate; #388 SUPERSEDED candidate. No PR was merged/closed and no branch was deleted.
+- Checks: complete PR diff equality and file blob equality confirmed via GitHub API. Read-back of this inventory update is pending.
+- Status: WO-004 Phase 1 remains IN_PROGRESS; Phase 2 disposition is not complete. No merge readiness is inferred for #389.
+- Next: continue remaining PR changed-path coverage and source dependency/caller mapping. Preserve all safety and no-deployment boundaries.
