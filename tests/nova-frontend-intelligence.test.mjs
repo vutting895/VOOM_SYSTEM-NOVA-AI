@@ -56,7 +56,7 @@ test('Backtest UI uses approved Datacenter datasets and persisted research histo
   assert.ok(backtest.includes('datacenterResearchService.listApprovedDatasets()'));
   assert.ok(backtest.includes('datacenterResearchService.runBacktest'));
   assert.ok(backtest.includes('datacenterResearchService.runWalkForward'));
-  assert.ok(backtest.includes('research_run_list'));
+  assert.ok(backtest.includes('datacenterResearchService.listResearchRuns'));
   assert.ok(backtest.includes('commission_bps'));
   assert.ok(backtest.includes('slippage_bps'));
   assert.ok(backtest.includes('ReadonlySafetyBadge'));
