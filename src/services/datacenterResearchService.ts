@@ -18,6 +18,20 @@ export interface DatacenterDataset {
   created_at: string;
 }
 
+export interface DatacenterUniverse {
+  universe_id: string;
+  name: string;
+  version: number;
+  definition: {
+    datasets?: Array<{ dataset_id: string; version: number }>;
+    feature_columns?: string[];
+    label_column?: string;
+    task_type?: string;
+  };
+  status: string;
+  created_at: string;
+}
+
 export interface DatacenterModel {
   model_id: string;
   name: string;
@@ -45,9 +59,33 @@ export interface ResearchRun {
 export class DatacenterResearchService {
   async listDatasets(): Promise<DatacenterDataset[]> {
     const response = await callNovaMcpTool<{ status: string; datasets: DatacenterDataset[] }>(
-      'dataset_list', { limit: 200, status: 'PASSED' },
+      'dataset_list', { limit: 200 },
     );
-    return (response.datasets || []).filter((dataset) => dataset.status === 'PASSED' && dataset.approval_status === 'approved');
+    return response.datasets || [];
+  }
+
+  async listApprovedDatasets(): Promise<DatacenterDataset[]> {
+    const datasets = await this.listDatasets();
+    return datasets.filter((dataset) => dataset.status === 'PASSED' && dataset.approval_status === 'approved');
+  }
+
+  async listUniverses(): Promise<DatacenterUniverse[]> {
+    const response = await callNovaMcpTool<{ status: string; universes: DatacenterUniverse[] }>(
+      'universe_list', { limit: 200 },
+    );
+    return response.universes || [];
+  }
+
+  async submitTraining(manifest: Record<string, unknown>): Promise<Record<string, any>> {
+    return callNovaMcpTool<Record<string, any>>('learning_submit', { manifest });
+  }
+
+  async getTrainingStatus(jobId: string): Promise<Record<string, any>> {
+    return callNovaMcpTool<Record<string, any>>('learning_status', { job_id: jobId });
+  }
+
+  async getTrainingLogs(jobId: string, limit = 100): Promise<Record<string, any>> {
+    return callNovaMcpTool<Record<string, any>>('learning_logs', { job_id: jobId, limit });
   }
 
   async listModels(): Promise<DatacenterModel[]> {
