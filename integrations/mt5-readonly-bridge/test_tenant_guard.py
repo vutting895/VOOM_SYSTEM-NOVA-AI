@@ -62,13 +62,28 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
                 self.assertIn("authorization", args)
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
+
+    def test_history_endpoint_enforces_bounded_utc_and_read_only_contract(self):
+        functions = function_nodes()
+        history = functions["history"]
+        args = {arg.arg for arg in history.args.args + history.args.kwonlyargs}
+        self.assertTrue({"symbol", "timeframe", "start_utc", "end_utc", "authorization", "tenant_id"}.issubset(args))
+        self.assertTrue(has_call(history, "require_token", ["authorization", "tenant_id"]))
+        self.assertTrue(has_call(history, "copy_rates_range"))
+        self.assertTrue(has_call(history, "serialize_history_rates"))
+        self.assertIn("MAX_HISTORY_BARS = 2000", SOURCE)
+        self.assertIn("MAX_HISTORY_DAYS", SOURCE)
+        self.assertIn('status_code=409, detail="symbol_not_selected_in_terminal"', SOURCE)
+        self.assertIn('"ordersEnabled": False', SOURCE)
+        self.assertIn('"executionEnabled": False', SOURCE)
+        self.assertIn('"liveTradingEnabled": False', SOURCE)
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
