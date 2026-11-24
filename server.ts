@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import { createSupabaseAuthMiddleware, scopedThreadId } from './server/supabase-auth';
 
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -133,6 +134,7 @@ function runInternalQuantExecutionEngine(rawPrompt: string, explicitSymbol?: str
 
 async function startServer() {
   const app = express();
+  const requireSupabaseUser = createSupabaseAuthMiddleware();
 
   // Fail closed before request-body parsing. This app has no approved broker-write runtime.
   app.use((req, res, next) => {
@@ -1176,7 +1178,7 @@ async function startServer() {
   // Hybrid Architecture Endpoint:
   // 1. Outer Brain (Cloud LLM - Gemini): Extracts intent & synthesizes Generative UI explanation
   // 2. Inner Brain (Internal Quant Engine - TFT / FinRL / Quantum): Computes regime, VPIN, and lot sizing
-  app.post('/api/chat', async (req, res) => {
+  app.post('/api/chat', requireSupabaseUser, async (req, res) => {
     const { messages, message, symbol } = req.body || {};
     const lastMessage =
       typeof message === 'string' && message.trim()
@@ -1256,7 +1258,7 @@ async function startServer() {
     });
   });
 
-  app.post('/api/gen-ai/generate', async (req, res) => {
+  app.post('/api/gen-ai/generate', requireSupabaseUser, async (req, res) => {
     const { prompt, market, timeframe, risk } = req.body || {};
     const quantResult = runInternalQuantExecutionEngine(`${prompt || ''} ${market || ''}`);
 
@@ -1638,8 +1640,8 @@ async function startServer() {
   }
 
   // GET Thread State & Pending Interrupts (Phase 1 & 2: threads, checkpoints, trade_logs, user_configs)
-  app.get('/api/intent/thread/:threadId', (req, res) => {
-    const state = getOrCreateThreadCheckpoint(req.params.threadId);
+  app.get('/api/intent/thread/:threadId', requireSupabaseUser, (req, res) => {
+    const state = getOrCreateThreadCheckpoint(scopedThreadId(res.locals.novaUserId, req.params.threadId));
     res.json({
       ok: true,
       threadId: state.threadId,
@@ -1653,9 +1655,10 @@ async function startServer() {
   });
 
   // POST Main 5-Layer Zero-Menu Intent Dispatcher
-  app.post('/api/intent/dispatch', (req, res) => {
+  app.post('/api/intent/dispatch', requireSupabaseUser, (req, res) => {
     const { prompt, symbol, threadId } = req.body || {};
-    const safeThreadId = threadId || 'thread-nova-session-01';
+    const externalThreadId = typeof threadId === 'string' && threadId.trim() ? threadId.trim() : 'thread-nova-session-01';
+    const safeThreadId = scopedThreadId(res.locals.novaUserId, externalThreadId);
     const rawPrompt = String(prompt || '').trim();
 
     // 1. Check Layer 3: NVIDIA NeMo Guardrails (Colang Filter)
