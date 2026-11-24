@@ -14,7 +14,7 @@ Separate secret custody by purpose:
 
 | Secret class | Intended custody | Boundary |
 |---|---|---|
-| Platform AI provider key (for example Gemini) | Cloudflare Worker Secret | Deployment-level configuration; never a customer credential |
+| Platform AI provider keys (Gemini, OpenAI, Anthropic) | Cloudflare Worker Secrets | Deployment-level configuration consumed only by the NOVA AI Provider Gateway; never customer credentials |
 | Exness MT5 terminal/Bridge credentials | Existing tenant-specific Bridge and private route configuration | Keep local to the assigned tenant Bridge; do not copy into the customer Vault |
 | Customer API credentials for a future approved provider | Supabase Vault | Disabled until a dedicated, narrowly scoped server-side access path is verified |
 
@@ -32,7 +32,7 @@ Existing architecture decisions are retained:
 - The System Hub is the broker/provider control plane.
 - Exness MT5 remains on the per-tenant Bridge → Relay → read-only Proxy path.
 - IBKR and CCXT exchange adapters remain planned until their own read-only runtime and credential scopes are verified.
-- The AI Worker is an authenticated research interface, not a credential store.
+- The AI Worker is an authenticated research interface, not a credential store. The server-side AI Provider Gateway consumes platform-level Cloudflare Worker Secrets only; it must never query customer Vault secrets directly.
 
 ## 3. Staging Vault inspection — 2026-10-30
 
@@ -108,3 +108,16 @@ Cloudflare Workers are developed and deployed from their existing integration di
 7. Production activation remains a separate approval gate.
 
 No staging grants, secrets, production data, Cloudflare configuration, Worker deployments, broker routes, or trading flags were changed during this readiness step.
+
+
+## 8. Platform AI Provider Gateway boundary
+
+The NOVA AI Worker uses a separate server-side provider gateway for platform-owned AI credentials:
+- Default primary: Gemini (`GEMINI_API_KEY`).
+- Default fallback: Cloudflare Workers AI binding `AI`.
+- Optional explicit primary adapters: OpenAI (`OPENAI_API_KEY`) and Anthropic (`ANTHROPIC_API_KEY`), selected only by a server-side `NOVA_AI_PROVIDER` Worker variable. They are not silently tried and cannot be selected by browser input.
+- Provider model names are non-secret server configuration. Keys are stored as Cloudflare Worker Secrets and sent only in provider authentication headers.
+- Provider requests are bounded, HTTPS-only, time-limited, redirect-rejecting, tool-free, and must not contain broker credentials or private account data.
+- The gateway returns provider/model provenance and a sanitized fallback source; it never returns key material.
+
+This platform-key path is intentionally separate from customer-owned API credentials in Supabase Vault. It does not bypass the Vault gate, create a Vault retrieval API, or mark customer credential storage as active. Customer Vault reads/writes remain blocked until the trusted System Hub caller identity and least-privilege/two-customer acceptance requirements are independently satisfied.
