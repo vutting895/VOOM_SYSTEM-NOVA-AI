@@ -60,7 +60,7 @@ test("credential-like prompt content is redacted before provider request", async
   ]);
   assert.equal(body.includes(secret), false);
   assert.equal(body.includes("abcdefghijklmnopqrstuvwxyz123456"), false);
-  assert.match(body, /\\[REDACTED\\]/);
+  assert.match(body, /\[REDACTED\]/);
 });
 
 test("Gemini failure falls back to Cloudflare AI and reports provenance", async () => {
