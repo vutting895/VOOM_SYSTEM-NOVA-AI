@@ -35,6 +35,18 @@ The current Remote MCP Worker registers these 15 tools:
 
 No dedicated Knowledge retrieval/indexing tool or Learning Dataset Registry, Model Registry, training-job, evaluation or artifact-lineage tool was found in this registered tool list. Do not report those services as connected yet.
 
+## Cloudflare control-plane verification
+
+Read-only Cloudflare API inspection on 2026-11-24 confirmed:
+- Worker script `voom-system-mcp` exists in the connected account.
+- Latest listed deployment: `2026-11-01T13:53:34Z`, deployment ID `3f93c779-6fd7-4061-8e92-cac55f6cdd0b`.
+- That deployment assigns 100% traffic to version `2f493012-4a6c-435c-95f0-c1d24b8d285f`.
+- Worker subdomain is enabled.
+- Cloudflare script settings expose the expected `SUPABASE_URL` and publishable-key bindings; no secret values are reproduced here.
+- The script settings report compatibility date `2026-10-28`.
+
+This confirms a Worker deployment exists and is assigned 100% traffic. It does **not** confirm that the public `/health` or authenticated `/mcp` endpoint responds successfully, that the deployed code matches the current repository source, or that the configured Supabase project is the intended production project. Runtime HTTP and authenticated MCP smoke tests remain required.
+
 ## Important safety findings
 
 1. MT5 tools in the Remote MCP source are documented as read-only and set execution/order flags false. The pending connection-request tool writes a connection-request row to Supabase; it does not write to the broker. Keep this distinction explicit.
@@ -49,7 +61,8 @@ No dedicated Knowledge retrieval/indexing tool or Learning Dataset Registry, Mod
 - [x] Identify the archived mock Python MCP prototype.
 - [x] Identify the static `server.ts` metadata endpoint and distinguish it from MCP transport.
 - [x] Disable the archived MCP prototype from default Docker Compose startup.
-- [ ] Confirm actual Cloudflare Worker deployment and `/health` response.
+- [x] Confirm Cloudflare control-plane deployment exists and identify latest deployment/version metadata.
+- [ ] Confirm public `/health` and authenticated `/mcp` HTTP responses and compare deployed code/config with repository main.
 - [ ] Map each current tool to one domain owner and introduce stable namespaced aliases without breaking existing clients.
 - [ ] Implement Knowledge and Learning service adapters only after locating/reusing existing service code and registries.
 - [ ] Add contract, duplicate-tool, MT5 write-denial and tenant-isolation tests.
