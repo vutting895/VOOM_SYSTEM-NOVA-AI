@@ -17,7 +17,7 @@ async function requestWith(fetcher: typeof fetch, authorization?: string, env: R
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('test server did not bind');
-  try { return await fetch(\`http://127.0.0.1:\${address.port}/protected\`, { headers: authorization ? { Authorization: authorization } : {} }); }
+  try { return await fetch('http://127.0.0.1:' + address.port + '/protected', { headers: authorization ? { Authorization: authorization } : {} }); }
   finally { await new Promise<void>((resolve,reject) => server.close(err => err ? reject(err) : resolve())); }
 }
 
