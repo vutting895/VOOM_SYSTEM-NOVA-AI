@@ -1,6 +1,6 @@
 # Backtest Worker
 
-Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`. It requires timezone-aware, strictly chronological historical OHLCV, validates price/volume fields through the Quant Engine quality validator, and applies explicit fee and slippage assumptions. Signals are evaluated at completed candle close and filled at the next candle open to avoid same-bar lookahead. Annualized Sharpe is withheld unless `periods_per_year` is explicitly supplied; `sharpe_per_period` is the default tuning objective. It does not generate synthetic market data, use randomized trade outcomes, or submit orders.
+Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`. It requires timezone-aware, strictly chronological historical OHLCV, validates price/volume fields through the Quant Engine quality validator, and applies explicit fee and slippage assumptions. Signals use recursively calculated exponential moving averages seeded with the initial period SMA. They are evaluated at completed candle close and filled at the next candle open to avoid same-bar lookahead. Annualized Sharpe is withheld unless `periods_per_year` is explicitly supplied; `sharpe_per_period` is the default tuning objective. It does not generate synthetic market data, use randomized trade outcomes, or submit orders.
 
 `engine_prototype.py` remains only as a backward-compatible import shim; new code must import from `workers.backtest.engine`.
 
