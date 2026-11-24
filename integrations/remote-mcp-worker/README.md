@@ -27,6 +27,7 @@ Health: `https://voom-system-mcp.suwapat787.workers.dev/health`
 - `list_workers` — module inventory, explicitly labeling Python prototypes.
 - `list_strategy_registry` — reads visible strategy rows under Supabase RLS.
 - `list_dataset_registry` / `get_dataset_record` — read the signed-in user's dataset manifests, hashes, quality and validation state.
+- `analyze_dataset_readiness` / `analyze_model_readiness` — evaluate registry metadata against fail-closed dataset and model evidence gates; these checks do not independently rehash files or audit model artifacts.
 - `list_model_registry` / `get_model_record` — read model lineage, artifact hashes, lifecycle, walk-forward and OOS evidence.
 - `list_learning_runs` / `get_learning_run` / `get_learning_dashboard_summary` — read durable learning-run state and dashboard aggregates; these tools do not start training.
 - `read_market_candles` — bounded public Binance OHLCV candles.
