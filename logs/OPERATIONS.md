@@ -61,3 +61,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No direct browser-to-Datacenter API, no second MCP server, no environment variable/secret changes, no Worker deployment.
 - Tests updated but not executed; final consolidated test gate remains pending.
 - Outcome: IN PROGRESS. Next: implement Datacenter walk-forward orchestration and then replace NOVA frontend legacy Backtest service only after parity.
+
+
+## OP-20261124-008 — Walk-forward replay tool wired through NOVA Gateway
+
+- NOVA main baseline at start: `3cbe3db8de39fbf95f167e370afd81a95370b916`.
+- Added `walk_forward_replay` to the Datacenter tool catalog and argument schema, including explicit train-context, purge-gap, test-window, and step controls.
+- Extended `research_run_list` run-type filter to include `walk_forward`.
+- Updated tool catalog tests and README.
+- Scope qualification retained in tool description: evaluation-only replay of precomputed signals; it does not refit/retrain models per fold.
+- All calls route through existing NOVA Remote MCP Gateway and fixed Datacenter `/mcp` client path. No new MCP service, no browser-direct endpoint, no deployment.
+- Tests updated but not run pending the one consolidated test gate.
+- Outcome: IN PROGRESS. Next: replace NOVA Backtest frontend service with typed Gateway calls after inspecting current UI expectations and implementing result/history parity.
