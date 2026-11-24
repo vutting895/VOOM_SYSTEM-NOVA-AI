@@ -99,3 +99,53 @@ export async function getLearningRun(args, request, env) {
   if (!rows.length) throw new Error("Learning run not found in this user's registry");
   return { run: rows[0], readOnly: true };
 }
+
+export async function analyzeDatasetReadiness(args, request, env) {
+  const result = await getDatasetRecord(args, request, env);
+  const d = result.dataset;
+  const checks = {
+    qualityPassed: d.quality_status === "passed",
+    manifestValidationPassed: d.validation_status === "passed",
+    nonEmpty: Number(d.row_count) > 0,
+    sha256Present: /^[0-9a-f]{64}$/.test(String(d.sha256 || "")),
+    boundedUtcRangePresent: Boolean(d.start_at && d.end_at && Date.parse(d.start_at) < Date.parse(d.end_at))
+  };
+  const failed = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
+  return {
+    datasetId: d.id,
+    symbol: d.symbol,
+    timeframe: d.timeframe,
+    analysisMode: "registry_metadata_only",
+    eligibleForDownstreamAnalysis: failed.length === 0,
+    checks,
+    failedChecks: failed,
+    limitation: "This tool does not reopen the source file or recompute SHA-256. A passed status is trusted only as evidence from the authorized ingestion/validation pipeline."
+  };
+}
+
+export async function analyzeModelReadiness(args, request, env) {
+  const result = await getModelRecord(args, request, env);
+  const m = result.model;
+  const evaluation = m.evaluation && typeof m.evaluation === "object" ? m.evaluation : {};
+  const checks = {
+    explicitlyApproved: m.lifecycle_status === "approved",
+    artifactHashPresent: /^[0-9a-f]{64}$/.test(String(m.artifact_sha256 || "")),
+    walkForwardPassed: m.walk_forward_status === "passed",
+    minimumOosTrades: Number(m.oos_closed_trades) >= 30,
+    positiveOosNetProfit: Number(evaluation.oos_net_profit) > 0,
+    oosProfitFactorAboveOne: Number(evaluation.oos_profit_factor) > 1,
+    leakageAuditPassed: evaluation.leakage_audit === "passed",
+    baselineBeaten: evaluation.classification_beats_baseline === true
+  };
+  const failed = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
+  return {
+    modelId: m.id,
+    modelKey: m.model_key,
+    modelVersion: m.model_version,
+    analysisMode: "registry_evidence_only",
+    eligibleForResearchPromotionReview: failed.length === 0,
+    checks,
+    failedChecks: failed,
+    limitation: "This is a registry evidence gate, not an independent artifact audit or production authorization. It never promotes a model or enables trading."
+  };
+}
