@@ -35,7 +35,7 @@ Cloudflare service bindings declared by `wrangler.jsonc`:
 - `MT5_READONLY_PROXY` → `voom-mt5-readonly-proxy`
 - `NOVA_AI` → `voom-system-nova-ai`
 
-The Hub uses these bindings for internal Worker-to-Worker calls. Fixed HTTPS fallback is retained for local tests/development only when a binding is absent; caller input can never change the destination. Bindings do not transfer caller authentication context, so the Hub explicitly forwards the original user bearer token and the downstream adapter validates it independently.
+The Phase 1 Gateway capability routes require these service bindings and fail closed if a binding is missing. Existing legacy `/v1/connections/*` routes retain their fixed HTTPS Proxy fallback for backward compatibility; callers cannot change the destination. Bindings do not transfer caller authentication context, so the Hub explicitly forwards the original user bearer token and the downstream adapter validates it independently.
 
 Contract tests: `node --test integrations/system-hub/tests/*.test.mjs`. These cover version/request-ID validation, capability allowlisting, schema rejection, tenant isolation, token non-disclosure, and adapter binding dispatch.
 
@@ -69,4 +69,4 @@ Security boundary:
 - This is a public-data adapter only; it does not prove private account access or customer connection readiness.
 - The current pilot is not deployed or registered in the active Worker. Do not report it as live until a separately reviewed integration PR and staging smoke test pass.
 
-Tests: `node --test integrations/system-hub/tests/binance-spot-readonly.test.mjs`
+System Hub tests: `node --test integrations/system-hub/tests/*.test.mjs` (54 tests passed in dedicated CI run 45387949255).\n\nBinance adapter tests: `node --test integrations/system-hub/tests/binance-spot-readonly.test.mjs`
