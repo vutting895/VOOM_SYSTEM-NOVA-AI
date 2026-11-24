@@ -89,6 +89,7 @@ test("MT5 ingestion adapter excludes the forming candle and preserves source ord
   assert.equal(payload.manifest.coverage_end, "2026-01-01T02:00:00.000Z");
   assert.equal(payload.rows[0].volume, 5);
   assert.equal(payload.manifest.source, "exness-mt5-demo-readonly");
+  assert.equal(payload.manifest.symbols[0], "XAUUSDm");
 });
 
 test("MT5 ingestion adapter rejects reversed source bars instead of silently sorting", () => {
