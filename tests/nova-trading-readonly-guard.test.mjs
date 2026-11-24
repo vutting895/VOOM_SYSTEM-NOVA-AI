@@ -135,11 +135,13 @@ test('learning and training endpoints do not fabricate data or start unverified 
   const learning = section(server, "app.get('/api/learning/universe'", '// Hybrid Architecture Endpoint');
   const status = section(server, "app.get('/api/auto-train/status'", "app.post('/api/auto-train/trigger'");
   const trigger = section(server, "app.post('/api/auto-train/trigger'", "app.get('/api/mt5-bridge/status'");
-  assert.match(learning, /status\(503\)/);
-  assert.match(learning, /learning_runtime_not_configured/);
-  assert.doesNotMatch(learning, /accuracyPct: 83\.2|totalSamplesStored: 1485000|healthPct: 100/);
-  assert.match(status, /status\(503\)/);
-  assert.match(trigger, /status\(503\)/);
+  assert.match(learning, /status\(410\)/);
+  assert.match(learning, /legacy_route_removed/);
+  assert.match(learning, /universe_list/);
+  assert.match(status, /status\(410\)/);
+  assert.match(status, /legacy_route_removed/);
+  assert.match(trigger, /status\(410\)/);
+  assert.match(trigger, /approved dataset and pinned universe are required/);
 });
 
 test('server blocks high-impact API mutations before parsing request bodies', () => {
