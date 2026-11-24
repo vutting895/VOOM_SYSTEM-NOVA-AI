@@ -192,9 +192,18 @@ async function forward(request, route, path, origin) {
         Accept: "application/json"
       },
       cache: "no-store",
-      redirect: "error",
+      // Cloudflare Workers reliably supports manual redirects; never forward tenant credentials.
+      redirect: "manual",
       signal: AbortSignal.timeout(8000)
     });
+    if (response.status >= 300 && response.status < 400) {
+      return json({
+        error: "dedicated_bridge_redirect_rejected",
+        mode: "read-only",
+        order_submission_enabled: false,
+        ordersEnabled: false
+      }, 502, origin);
+    }
     return new Response(await response.text(), {
       status: response.status,
       headers: {
