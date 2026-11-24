@@ -6,5 +6,13 @@ workers_dev = true
 [ai]
 binding = "AI"
 
+[[ratelimits]]
+name = "AI_RATE_LIMITER"
+namespace_id = "1432314564"
+
+[ratelimits.simple]
+limit = 30
+period = 60
+
 [observability]
 enabled = true
