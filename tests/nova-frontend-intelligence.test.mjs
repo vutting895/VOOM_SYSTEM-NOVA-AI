@@ -11,6 +11,7 @@ const intelligence = read('src/components/intelligence/TradingIntelligenceView.t
 const backtest = read('src/components/backtest/BacktestSimulatorView.tsx');
 const infrastructure = read('src/components/infrastructure/TradingInfrastructureView.tsx');
 const learning = read('src/components/learning/LearningUniverseView.tsx');
+const mcpClient = read('src/api/mcpClient.ts');
 const safetyBadge = read('src/components/common/ReadonlySafetyBadge.tsx');
 const chart = read('src/components/dashboard/CandlestickChart.tsx');
 
@@ -90,4 +91,13 @@ test('Safety badge clearly presents READ-ONLY and LIVE TRADING OFF across all vi
   assert.match(safetyBadge, /LIVE TRADING: OFF/);
   assert.match(safetyBadge, /TARGET: EXNESS MT5 DEMO \(READ-ONLY\)/);
   assert.match(safetyBadge, /ไม่มีการจัดเก็บ Broker Password\/Secret/);
+});
+
+
+test('frontend Datacenter calls use the signed-in Supabase session through the existing legacy MCP Gateway transport', () => {
+  assert.match(mcpClient, /getSupabaseClient\(\)\.auth\.getSession\(\)/);
+  assert.match(mcpClient, /Authorization: `Bearer \$\{token\}`/);
+  assert.match(mcpClient, /method: 'tools\/call'/);
+  assert.match(mcpClient, /MCP_ENDPOINT = 'https:\/\/voom-system-mcp/);
+  assert.doesNotMatch(mcpClient, /localStorage|sessionStorage|MCP-Protocol-Version/);
 });
