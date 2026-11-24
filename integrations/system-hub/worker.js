@@ -20,7 +20,7 @@ function corsHeaders(origin, env) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, X-NOVA-Contract-Version, X-NOVA-Request-ID",
     "Access-Control-Max-Age": "300",
     "Vary": "Origin"
   };
@@ -520,6 +520,8 @@ function gatewayFailure(requestId, code, status, origin, env, retryable = false)
     capability_not_found: "Capability is not registered.",
     authentication_required: "A valid user session is required.",
     capability_denied: "The requested capability is not permitted.",
+    invalid_session: "The user session is invalid or expired.",
+    auth_or_dependency_unavailable: "Authentication or a required dependency is unavailable.",
     resource_not_found: "The requested resource was not found.",
     connection_not_ready: "The requested connection is not ready.",
     adapter_unavailable: "The requested adapter is unavailable.",
@@ -533,7 +535,7 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
   const capability = getCapability(toolName);
   if (!capability) return gatewayFailure(requestId, "capability_not_found", 404, origin, env);
   let raw;
-  try { raw = await request.text(); } catch {
+  if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {\n    return gatewayFailure(requestId, "invalid_request", 415, origin, env);\n  }\n  try { raw = await request.text(); } catch {
     return gatewayFailure(requestId, "invalid_request", 400, origin, env);
   }
   if (new TextEncoder().encode(raw).byteLength > Math.min(MAX_TOOL_BODY_BYTES, capability.maxBodyBytes)) {
@@ -677,19 +679,19 @@ export default {
       const context = await gatewayRequestContext(request);
       if (!context.ok) return gatewayFailure(context.requestId, context.code, context.status, origin, env);
       const auth = await authenticate(request, env);
-      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : "capability_denied", auth.status, origin, env, auth.status === 503);
+      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : auth.status === 401 ? "invalid_session" : auth.status === 503 ? "auth_or_dependency_unavailable" : "capability_denied", auth.status, origin, env, auth.status === 503);
       return gatewayResponse(context.requestId, {
         capabilities: CAPABILITIES.map(({ inputSchema, ...item }) => ({ ...item, inputSchema })),
         count: CAPABILITIES.length
       }, 200, origin, env);
     }
 
-    const gatewayToolMatch = /^\\/v1\\/gateway\\/tools\\/([a-z0-9_]+)$/.exec(url.pathname);
+    const gatewayToolMatch = new RegExp("^/v1/gateway/tools/([a-z0-9_]+)$").exec(url.pathname);
     if (gatewayToolMatch && request.method === "POST") {
       const context = await gatewayRequestContext(request);
       if (!context.ok) return gatewayFailure(context.requestId, context.code, context.status, origin, env);
       const auth = await authenticate(request, env);
-      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : "capability_denied", auth.status, origin, env, auth.status === 503);
+      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : auth.status === 401 ? "invalid_session" : auth.status === 503 ? "auth_or_dependency_unavailable" : "capability_denied", auth.status, origin, env, auth.status === 503);
       return gatewayTool(request, env, auth, gatewayToolMatch[1], context.requestId, origin);
     }
 
