@@ -292,3 +292,17 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no deployment, DB, secrets, permissions or broker action.
 - Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS (partial classification); Phase 3 PRELIMINARY / BLOCKED (zero moves approved); Phases 4–6 NOT STARTED.
 - Next: continue remaining open PR changed paths; then inspect PR commits/reviews/patches for overlap candidates and map exact current-main callers/workflows/config/deployment references.
+
+
+## 2026-11-24 — WO-004 current-head refresh and MT5 migration collision review
+
+- Main SHA before this log append: `a6bc260251f823e9247ce4820dab4d359bef9b83`.
+- Re-read exact live main first; recursive tree at `760a9bc0eedc36793daf6c447509e815350cc006` has 488 entries and `truncated=false`; latest open PR count is 237.
+- Inspected six additional distinct changed-file lists (#387, #376, #375, #372, #371, #370), bringing the recorded unique inspected PR-list count to at least 90. Re-read #384/#383/#382/#381/#380/#386/#385 for overlap review. This is partial coverage, not all 237.
+- Reviewed full PR diffs for #375/#376. Both create the same NOVA MT5 customer connection table/RLS/view contract and change proxy lookups to `public.nova_broker_connections`. #376 additionally includes staging relay origin allowlisting, redirect rejection, broader tests/validation and a schema-usage migration. Marked the pair BLOCKED pending SQL equivalence, migration-ledger and branch-ancestry reconciliation. No migration applied.
+- Confirmed current main contains `integrations/mt5-readonly-proxy/` and `integrations/system-hub/`, but no `integrations/nova-core-api/`; #373/#377 remain PR-only candidates and are not proof of deployed service.
+- #387 is a dependency-only Command Center package update (Zod 3→4, Vite 8.1.5→8.1.6); exact-head app validation remains required.
+- Updated `docs/governance/WO-004-MIGRATION-MANIFEST.md` at commit `30b14071b7c11531f496958248bba4d2fc3d797b` and `docs/governance/WO-004-INITIAL-REPOSITORY-INVENTORY.md` at commit `a6bc260251f823e9247ce4820dab4d359bef9b83`.
+- No source/data/model/migration/workflow/runtime files moved or edited; no PR merged/closed; no branch deleted; no workflow run/deployment; no DB, secrets, permissions or broker action.
+- Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS (partial); Phase 3 PRELIMINARY / BLOCKED (zero moves approved).
+- Next: complete remaining PR changed-path coverage and review commits/reviews/exact-head CI for overlapping paths; map source callers/workflows/config/deployment references before any move.
