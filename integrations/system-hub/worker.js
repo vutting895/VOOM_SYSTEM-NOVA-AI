@@ -1,3 +1,5 @@
+import { CAPABILITIES, CONTRACT_VERSION, MAX_TOOL_BODY_BYTES, REQUEST_ID_PATTERN, getCapability, validateCapabilityInput, successEnvelope, errorEnvelope } from "./gateway-contract.js";
+
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -342,7 +344,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
   for (const [key, value] of Object.entries(query)) target.searchParams.set(key, String(value));
 
   try {
-    const response = await fetch(target, {
+    const init = {
       method: "GET",
       headers: {
         Authorization: "Bearer " + user.token,
@@ -351,7 +353,10 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(9000)
-    });
+    };
+    const response = env.MT5_READONLY_PROXY?.fetch
+      ? await env.MT5_READONLY_PROXY.fetch(new Request(target, init))
+      : await fetch(target, init);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) return proxyError(response.status, body);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -498,6 +503,148 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+async function gatewayRequestContext(request) {
+  const version = request.headers.get("X-NOVA-Contract-Version");
+  const requestId = request.headers.get("X-NOVA-Request-ID") || "";
+  if (version !== CONTRACT_VERSION) return { ok: false, status: 400, requestId: REQUEST_ID_PATTERN.test(requestId) ? requestId : null, code: "contract_version_unsupported" };
+  if (!REQUEST_ID_PATTERN.test(requestId)) return { ok: false, status: 400, requestId: null, code: "invalid_request_id" };
+  return { ok: true, requestId };
+}
+
+function gatewayResponse(requestId, data, status, origin, env) {
+  return json(successEnvelope(requestId, data), status, origin, env);
+}
+function gatewayFailure(requestId, code, status, origin, env, retryable = false) {
+  const messages = {
+    invalid_request: "Request does not match the registered capability schema.",
+    capability_not_found: "Capability is not registered.",
+    authentication_required: "A valid user session is required.",
+    capability_denied: "The requested capability is not permitted.",
+    resource_not_found: "The requested resource was not found.",
+    connection_not_ready: "The requested connection is not ready.",
+    adapter_unavailable: "The requested adapter is unavailable.",
+    upstream_timeout: "The adapter request timed out.",
+    internal_error: "The Hub could not complete the request."
+  };
+  return json(errorEnvelope(requestId, code, messages[code] || "Request failed.", retryable), status, origin, env);
+}
+
+async function gatewayTool(request, env, user, toolName, requestId, origin) {
+  const capability = getCapability(toolName);
+  if (!capability) return gatewayFailure(requestId, "capability_not_found", 404, origin, env);
+  let raw;
+  try { raw = await request.text(); } catch {
+    return gatewayFailure(requestId, "invalid_request", 400, origin, env);
+  }
+  if (new TextEncoder().encode(raw).byteLength > Math.min(MAX_TOOL_BODY_BYTES, capability.maxBodyBytes)) {
+    return gatewayFailure(requestId, "invalid_request", 413, origin, env);
+  }
+  let body;
+  try { body = JSON.parse(raw); } catch {
+    return gatewayFailure(requestId, "invalid_request", 400, origin, env);
+  }
+  const validation = validateCapabilityInput(capability, body);
+  if (!validation.ok) return gatewayFailure(requestId, "invalid_request", 400, origin, env);
+
+  try {
+    let data;
+    switch (capability.handler) {
+      case "integrations":
+        data = { service: "voom-system-hub", integrations: integrationRegistry(env), mode: "read-only" };
+        break;
+      case "connections": {
+        const result = await queryOwnConnections(env, user);
+        if (!result.ok) return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
+        data = { connections: result.rows.map(publicConnection), count: result.rows.length };
+        break;
+      }
+      case "mt5_status": {
+        const result = await getConnection(request, env, user, body.connection_id, origin);
+        if (result.response) {
+          if (result.response.status === 404) return gatewayFailure(requestId, "resource_not_found", 404, origin, env);
+          return gatewayFailure(requestId, "invalid_request", result.response.status, origin, env);
+        }
+        const connection = publicConnection(result.row);
+        data = { ...connection, state: connection.readiness, dataVerified: false };
+        break;
+      }
+      case "mt5_account": {
+        const result = await getConnection(request, env, user, body.connection_id, origin);
+        if (result.response) return gatewayFailure(requestId, result.response.status === 404 ? "resource_not_found" : "capability_denied", result.response.status, origin, env);
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) {
+          return gatewayFailure(requestId, "connection_not_ready", 409, origin, env);
+        }
+        const response = await readAccount(request, env, user, result.row, "");
+        const payload = await response.json();
+        if (!response.ok) return gatewayFailure(requestId, payload.state === "pending_provisioning" ? "connection_not_ready" : "adapter_unavailable", response.status, origin, env, response.status >= 500);
+        data = payload;
+        break;
+      }
+      case "mt5_quotes": {
+        const result = await getConnection(request, env, user, body.connection_id, origin);
+        if (result.response) return gatewayFailure(requestId, result.response.status === 404 ? "resource_not_found" : "capability_denied", result.response.status, origin, env);
+        if (result.row.status !== "connected" || !result.row.bridge_route_id) {
+          return gatewayFailure(requestId, "connection_not_ready", 409, origin, env);
+        }
+        const target = new URL(request.url);
+        target.searchParams.set("symbol", body.symbol);
+        if (body.timeframe) target.searchParams.set("timeframe", body.timeframe);
+        if (body.count !== undefined) target.searchParams.set("count", String(body.count));
+        const quoteRequest = new Request(target, { headers: request.headers });
+        const response = await readQuotes(quoteRequest, env, user, result.row, "");
+        const payload = await response.json();
+        if (!response.ok) return gatewayFailure(requestId, response.status === 409 ? "connection_not_ready" : "adapter_unavailable", response.status, origin, env, response.status >= 500);
+        data = payload;
+        break;
+      }
+      case "nova_ai_chat": {
+        const init = {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + user.token,
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({ messages: body.messages }),
+          redirect: "error",
+          signal: AbortSignal.timeout(12000)
+        };
+        let response;
+        if (env.NOVA_AI?.fetch) {
+          response = await env.NOVA_AI.fetch(new Request("https://nova-ai.internal/api/chat", init));
+        } else {
+          const base = String(env.NOVA_AI_URL || "https://voom-system-nova-ai.suwapat787.workers.dev").replace(/\\/+$/, "");
+          const target = new URL("/api/chat", base);
+          if (target.protocol !== "https:" || !target.hostname.endsWith(".workers.dev")) {
+            return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
+          }
+          response = await fetch(target, init);
+        }
+        if (!response.ok) return gatewayFailure(requestId, response.status === 504 ? "upstream_timeout" : "adapter_unavailable", response.status >= 500 ? 502 : response.status, origin, env, response.status >= 500);
+        const payload = await response.json();
+        if (!payload || typeof payload !== "object" || typeof payload.message !== "string") {
+          return gatewayFailure(requestId, "adapter_unavailable", 502, origin, env, true);
+        }
+        data = payload;
+        break;
+      }
+      default:
+        return gatewayFailure(requestId, "capability_not_found", 404, origin, env);
+    }
+    console.info(JSON.stringify({ event: "nova_gateway_tool", requestId, tool: toolName, outcome: "success" }));
+    return gatewayResponse(requestId, {
+      ...data,
+      ordersEnabled: false,
+      executionEnabled: false,
+      liveTradingEnabled: false
+    }, 200, origin, env);
+  } catch (error) {
+    const timeout = error?.name === "TimeoutError" || error?.name === "AbortError";
+    console.warn(JSON.stringify({ event: "nova_gateway_tool", requestId, tool: toolName, outcome: "failed", code: timeout ? "upstream_timeout" : "internal_error" }));
+    return gatewayFailure(requestId, timeout ? "upstream_timeout" : "internal_error", timeout ? 504 : 500, origin, env, timeout);
+  }
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -524,6 +671,26 @@ export default {
 
     if (origin && !allowedOrigins(env).has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
+    }
+
+    if (url.pathname === "/v1/gateway/capabilities" && request.method === "GET") {
+      const context = await gatewayRequestContext(request);
+      if (!context.ok) return gatewayFailure(context.requestId, context.code, context.status, origin, env);
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : "capability_denied", auth.status, origin, env, auth.status === 503);
+      return gatewayResponse(context.requestId, {
+        capabilities: CAPABILITIES.map(({ inputSchema, ...item }) => ({ ...item, inputSchema })),
+        count: CAPABILITIES.length
+      }, 200, origin, env);
+    }
+
+    const gatewayToolMatch = /^\\/v1\\/gateway\\/tools\\/([a-z0-9_]+)$/.exec(url.pathname);
+    if (gatewayToolMatch && request.method === "POST") {
+      const context = await gatewayRequestContext(request);
+      if (!context.ok) return gatewayFailure(context.requestId, context.code, context.status, origin, env);
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return gatewayFailure(context.requestId, auth.error === "authentication_required" ? "authentication_required" : "capability_denied", auth.status, origin, env, auth.status === 503);
+      return gatewayTool(request, env, auth, gatewayToolMatch[1], context.requestId, origin);
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
