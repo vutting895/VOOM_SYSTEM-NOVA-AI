@@ -7,6 +7,7 @@ on:
       - "workers/tuning/**"
       - "workers/quant_engine/**"
       - "tests/test_workers.py"
+      - "tests/test_dataset_registry.py"
       - ".github/workflows/backtest-engine-ci.yml"
   push:
     branches: [main]
@@ -36,3 +37,5 @@ jobs:
         run: python -m py_compile workers/backtest/engine.py workers/tuning/engine.py workers/quant_engine/quality.py
       - name: Run backtest and tuning regressions
         run: python -m unittest discover -s tests -p "test_workers.py" -v
+      - name: Run immutable dataset registry contract tests
+        run: python -m unittest discover -s tests -p "test_dataset_registry.py" -v
