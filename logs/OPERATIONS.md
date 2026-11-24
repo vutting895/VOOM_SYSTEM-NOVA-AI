@@ -73,3 +73,26 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - All calls route through existing NOVA Remote MCP Gateway and fixed Datacenter `/mcp` client path. No new MCP service, no browser-direct endpoint, no deployment.
 - Tests updated but not run pending the one consolidated test gate.
 - Outcome: IN PROGRESS. Next: replace NOVA Backtest frontend service with typed Gateway calls after inspecting current UI expectations and implementing result/history parity.
+
+
+## OP-20261124-009 — Frontend Learning, Intelligence, and Backtest cutover
+
+- NOVA main baseline at start: `2b65f8975983e0ea161ae7b28a7d36265a94165d`.
+- Frontend Gateway integration:
+  - Added `src/api/mcpClient.ts` to call the existing NOVA Remote MCP Worker using the current Supabase session from `getSupabaseClient().auth.getSession()`. The access token is not copied to local storage or accepted from user input.
+  - Added `src/services/datacenterResearchService.ts` for datasets, universes, models, training jobs, research runs, backtest and walk-forward replay.
+  - Replaced Learning Dashboard with Datacenter Dataset/Universe/Model Registry views and explicit training submission/status/log access.
+  - Replaced Trading Intelligence mock cards with persisted Datacenter model records only.
+  - Replaced Backtest Simulator with approved dataset/version selection, explicit signal column, transaction cost controls, backtest/walk-forward replay, and Datacenter research history.
+- Legacy service ownership:
+  - `modelService.ts` now delegates to Datacenter.
+  - `backtestService.ts` now delegates to Datacenter; removed Firebase/Firestore duplicate backtest persistence.
+  - Removed legacy Intelligence/Learning/Backtest/Auto-Train methods from `src/api/apiClient.ts`.
+  - Removed unverified symbol-only Auto-Train UI triggers from Chat and Settings; the Settings panel now explains the approved Dataset + pinned Universe requirement.
+  - Removed inactive hard-coded Kaggle status/quota/session scaffolding and unused API methods from the frontend.
+- Local server legacy routes now return HTTP 410 with explicit replacement tools for `/api/intelligence/models`, `/api/backtest/run`, `/api/learning/universe`, and symbol-only `/api/auto-train/*`.
+- Updated frontend tests, read-only guard tests, sync documentation, service exports, and Cloudflare deploy health assertion to the current tool catalog count of 45. No deployment was triggered.
+- Static review correction: preserved the truthful `trainingUnavailable` health payload after retiring the old Auto-Train routes.
+- Tests and typecheck/build were NOT run. The Datacenter endpoint, CORS, browser auth, and full Gateway → Datacenter call are not yet verified.
+- No broker write capabilities were added. No production deployment or secrets were changed.
+- Outcome: IN PROGRESS. Next: run static typecheck and source review when the migration slice is complete; then implement actual model walk-forward refit and remaining ML runtimes before one consolidated validation pass.
