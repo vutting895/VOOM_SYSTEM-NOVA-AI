@@ -20,7 +20,7 @@ class TuningWorker:
             raise TuningInputError("At least 30 historical OHLCV candles are required")
         if not callable(backtest_fn):
             raise TuningInputError("backtest_fn must be a callable historical backtest")
-        if objective not in {"sharpe_per_period", "sharpe_annualized", "total_return_pct", "profit_factor"}:
+        if objective not in {"sharpe_per_period", "total_return_pct", "profit_factor"}:
             raise TuningInputError("Unsupported optimization objective")
         try:
             quality = validate_ohlcv(candles)
