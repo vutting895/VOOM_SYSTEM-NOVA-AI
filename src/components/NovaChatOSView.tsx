@@ -517,52 +517,17 @@ export default function NovaChatOSView({
       .catch(() => {});
   }, [threadId]);
 
-  // Poll Backend Autonomous Data Ingestion & Model Training Status
+  // Training is submitted only from the Datacenter Learning dashboard using an approved pinned Universe.
   useEffect(() => {
-    let active = true;
-    const pollStatus = () => {
-      fetch('/api/auto-train/status', { cache: 'no-store' })
-        .then((r) => r.json())
-        .then((data) => {
-          if (!active) return;
-          if (data?.statusNotification) {
-            setAutoTrainNotice(data.statusNotification);
-            setAutoTrainSyncing(data.state === 'INGESTING_AND_TRAINING');
-          }
-        })
-        .catch(() => {});
-    };
-    pollStatus();
-    const timer = setInterval(pollStatus, 9000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
+    setAutoTrainNotice('Datacenter Learning: training requires an approved Dataset and a registered, version-pinned Universe.');
+    setAutoTrainSyncing(false);
   }, []);
 
   function handleSelectPair(symbol: string, group: 'FOREX' | 'CRYPTO') {
     setPairGroup(group);
     setSelectedPair(symbol);
-    setAutoTrainSyncing(true);
-    setAutoTrainNotice(`Backend Auto-Train: กำลังดึงกราฟสด ${symbol} มาเทรนที่ Backend...`);
-
-    fetch('/api/auto-train/trigger', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ symbol }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.statusNotification) {
-          setAutoTrainNotice(data.statusNotification);
-        }
-      })
-      .catch(() => {
-        setAutoTrainNotice(`Backend Auto-Train: ไม่สามารถยืนยันการดึงข้อมูลหรือฝึกโมเดล ${symbol} ได้`);
-      })
-      .finally(() => {
-        setAutoTrainSyncing(false);
-      });
+    setAutoTrainSyncing(false);
+    setAutoTrainNotice(`Selected ${symbol}. No training job was started; submit training from the Datacenter Learning dashboard after approving its Dataset and Universe.`);
   }
 
   // Research-only UI shortcut. No broker approval or resume action is available.
