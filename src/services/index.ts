@@ -3,3 +3,4 @@ export * from './apiClient';
 export * from './marketService';
 export * from './backtestService';
 export * from './modelService';
+export * from './datacenterResearchService';
