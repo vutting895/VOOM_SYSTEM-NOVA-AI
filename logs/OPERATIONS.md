@@ -376,3 +376,23 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Manifest update commit: `b91e95eb5d2debcdce854b1105a7cd45f2294116`.
 - No source/runtime/workflow/data/model/migration files moved or edited; no PR or branch state changed; no deployment, database, secrets, permissions or broker action occurred.
 - Next: keep the three frontend path groups separate; raise workflow remediation as a separate authorized work item; finish caller/import mapping before any move.
+
+
+## WO-2026-11-24-004 — Command Center API caller/binding audit (2026-11-25)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Before SHA: `6114725d5aaee20feeaa73877c67340e5f15fa11`.
+- Read-only audit covered Command Center auth/API client/config/callers/tests, System Hub Worker/routes/config/tests, Remote MCP Gateway/client/config, deployment workflows, and PR #373/#377 head implementations.
+- Confirmed caller chain: AuthProvider obtains the active Supabase access token and injects it into the API client; Command Center Dashboard consumes health/services/bridge-status; Settings consumes health; API base URL is intentionally blank in the checked-in `.env.example`.
+- Confirmed distinct API ownership:
+  - Command Center REST contract: system health/services, bridge status/account, risk policy, approvals, audit and assistant status.
+  - System Hub: authenticated broker connection registry and tenant-scoped MT5 account/quotes.
+  - Remote MCP: the single MCP Gateway, including Datacenter tool forwarding.
+- Confirmed gaps: no current-main Core API Worker/deploy binding; no authenticated frontend-to-API E2E evidence; #373 and #377 are both stale/diverged from current main (merge base `0cceaf5d1d32b4323bcf72f9f26877c6d75886ff`, 134 commits behind); #377 implements only health/identity; #373 has broader routes but static/not-verified service and bridge status plus 503 placeholders for bridge account/risk policy. #373's claimed applied migrations remain unverified against the live Supabase migration ledger.
+- Security review note: Command Center's `ALLOWED_API_PATHS` constant is not enforced by `assertReadOnlyRequest`; the current client does enforce GET-only and blocks forbidden trading/funds patterns. This is a client-side hardening gap, not evidence of an exposed write route. Server-side authorization remains mandatory.
+- Updated `docs/governance/WO-004-MIGRATION-MANIFEST.md` with section 11 caller/binding evidence and preliminary PR disposition.
+- Manifest commit: `bb7076d4fed0ed6b171f9d1b88f5885f31932e16`.
+- After SHA before operations-log update: `bb7076d4fed0ed6b171f9d1b88f5885f31932e16`.
+- No code, runtime configuration, database, secret, permission, PR state, branch, deployment, or broker state changed. No tests were executed in this audit; cited test files were inspected only.
+- Status: API caller/binding audit DONE for the inspected paths; PR disposition remains IN PROGRESS; Backend Consolidation BLOCKED pending authoritative data-source contract, migration-ledger verification, current-main port/rebase, and authenticated E2E proof. Production deployment remains PAUSED; trading remains disabled.
+- Next action: design a minimal current-main API implementation plan that reuses System Hub for broker connection data and Remote MCP for Datacenter tools, while keeping Command Center's REST control-plane contract separate. Do not merge #373/#377 wholesale.
