@@ -41,6 +41,21 @@ const definitions = [
   ["model_register", "Retrieve the model automatically registered by a completed real training job.", {job_id:{type:"string"}}],
   ["model_evaluate", "Re-check model evaluation gates; evaluation never auto-approves.", {model_id:{type:"string"}}],
   ["model_approve", "Explicitly approve a model after evaluation gates pass; this does not enable trading.", {model_id:{type:"string"}}],
+  ["backtest_run", "Run a deterministic no-broker signal replay on one exact approved Datacenter dataset version. Signal at bar i executes no earlier than bar i+1 open; fixed exposure, explicit transaction costs, one position.", {
+    config:{type:"object",properties:{
+      dataset_id:{type:"string"},dataset_version:{type:"integer",minimum:1},
+      signal_column:{type:"string"},initial_balance:{type:"number",minimum:1,maximum:1000000000000},
+      exposure_fraction:{type:"number",minimum:0.001,maximum:1},
+      commission_bps:{type:"number",minimum:0,maximum:500},
+      spread_bps:{type:"number",minimum:0,maximum:500},
+      slippage_bps:{type:"number",minimum:0,maximum:500},
+      max_holding_bars:{type:"integer",minimum:1,maximum:100000},
+      allow_short:{type:"boolean"}
+    },required:["dataset_id","dataset_version","signal_column"],additionalProperties:false}
+  }],
+  ["research_run_get", "Retrieve one owner-scoped immutable Datacenter research run.", {run_id:{type:"string"}}],
+  ["research_run_list", "List owner-scoped immutable Datacenter research runs.", {limit:{type:"integer",minimum:1,maximum:200},run_type:{type:"string",enum:["backtest","walk_forward"]}}],
+
   ["audit_log_list", "Read the signed-in user's append-only Datacenter operation log.", {limit:{type:"integer",minimum:1,maximum:500}}],
 ];
 
@@ -65,6 +80,9 @@ const requiredArguments = {
   model_register: ["job_id"],
   model_evaluate: ["model_id"],
   model_approve: ["model_id"],
+  backtest_run: ["config"],
+  research_run_get: ["run_id"],
+
 };
 
 export const datacenterTools = definitions.map(([name, description, properties]) => ({
