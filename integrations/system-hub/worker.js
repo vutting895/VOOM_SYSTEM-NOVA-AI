@@ -535,7 +535,8 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
   const capability = getCapability(toolName);
   if (!capability) return gatewayFailure(requestId, "capability_not_found", 404, origin, env);
   let raw;
-  if (!String(request.headers.get("Content-Type") || "").toLowerCase().startsWith("application/json")) {
+  const contentType = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
     return gatewayFailure(requestId, "invalid_request", 415, origin, env);
   }\n  try { raw = await request.text(); } catch {
     return gatewayFailure(requestId, "invalid_request", 400, origin, env);
@@ -573,6 +574,7 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
         break;
       }
       case "mt5_account": {
+        if (!env.MT5_READONLY_PROXY?.fetch) return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
         const result = await getConnection(request, env, user, body.connection_id, origin);
         if (result.response) return gatewayFailure(requestId, result.response.status === 404 ? "resource_not_found" : "capability_denied", result.response.status, origin, env);
         if (result.row.status !== "connected" || !result.row.bridge_route_id) {
@@ -585,6 +587,7 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
         break;
       }
       case "mt5_quotes": {
+        if (!env.MT5_READONLY_PROXY?.fetch) return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
         const result = await getConnection(request, env, user, body.connection_id, origin);
         if (result.response) return gatewayFailure(requestId, result.response.status === 404 ? "resource_not_found" : "capability_denied", result.response.status, origin, env);
         if (result.row.status !== "connected" || !result.row.bridge_route_id) {
@@ -613,17 +616,8 @@ async function gatewayTool(request, env, user, toolName, requestId, origin) {
           redirect: "error",
           signal: AbortSignal.timeout(12000)
         };
-        let response;
-        if (env.NOVA_AI?.fetch) {
-          response = await env.NOVA_AI.fetch(new Request("https://nova-ai.internal/api/chat", init));
-        } else {
-          const base = String(env.NOVA_AI_URL || "https://voom-system-nova-ai.suwapat787.workers.dev").replace(/\\/+$/, "");
-          const target = new URL("/api/chat", base);
-          if (target.protocol !== "https:" || !target.hostname.endsWith(".workers.dev")) {
-            return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
-          }
-          response = await fetch(target, init);
-        }
+        if (!env.NOVA_AI?.fetch) return gatewayFailure(requestId, "adapter_unavailable", 503, origin, env, true);
+        const response = await env.NOVA_AI.fetch(new Request("https://nova-ai.internal/api/chat", init));
         if (!response.ok) return gatewayFailure(requestId, response.status === 504 ? "upstream_timeout" : "adapter_unavailable", response.status >= 500 ? 502 : response.status, origin, env, response.status >= 500);
         const payload = await response.json();
         if (!payload || typeof payload !== "object" || typeof payload.message !== "string") {
