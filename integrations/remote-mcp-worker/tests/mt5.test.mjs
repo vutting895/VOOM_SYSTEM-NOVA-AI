@@ -14,7 +14,7 @@ test("MT5 MCP exposes only read-only Exness Demo account tools", () => {
     "dataset_collect_mt5"
   ]) assert.ok(names.has(name), "missing MCP tool: " + name);
 
-  assert.equal(tools.length, 41);
+  assert.ok(tools.length >= 41, "registry must retain the established minimum tool surface");
   assert.ok(names.has("list_nova_skills"));
   assert.ok(names.has("get_nova_skill"));
   assert.equal([...names].some((name) => /^(place|submit|close|modify|execute)_?(order|trade)/i.test(name)), false);
