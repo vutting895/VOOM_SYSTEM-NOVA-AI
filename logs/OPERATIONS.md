@@ -422,3 +422,14 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No SQL writes, migrations, data edits, RLS changes, keys/secrets, PR state or deployments changed. No tests were run.
 - Status: Supabase schema inventory **READ-ONLY VERIFIED**; environment designation **BLOCKED / CONFLICTING**; migration reconciliation **BLOCKED**; API implementation **BLOCKED**; production deployment **PAUSED**; trading remains disabled.
 - Next: owner must confirm which Supabase project is NOVA production and which is staging before a migration repair plan can be safely prepared. Then validate the heartbeat writer and unified audit/risk ownership without changing data.
+
+
+## NOVA Supabase project selection confirmed (2026-11-25)
+
+- User explicitly confirmed Supabase project `rovhmjeowracayicbqij` is to be used for NOVA.
+- Updated `docs/governance/WO-004-COMMAND-CENTER-API-DATA-SOURCE-PLAN.md` to record the selected NOVA project.
+- This confirms project selection/ownership only; production vs staging designation remains unconfirmed.
+- Read-only schema evidence for the selected project remains: `nova.approvals` and `nova.audit_events` exist; `public.nova_agent_threads` and `public.nova_approval_requests` are absent despite the durable approval migration being listed in its migration ledger.
+- Next: produce a non-destructive, project-specific migration reconciliation plan with schema/RLS/grants/dependencies/row-count and backup/rollback evidence before any database mutation.
+- No SQL writes, migrations, data changes, RLS changes, secrets, PR states or deployments changed.
+- Status: NOVA Supabase project **SELECTED BY USER**; environment tier **UNCONFIRMED**; migration reconciliation **BLOCKED**; production deployment **PAUSED**.
