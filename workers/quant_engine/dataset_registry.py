@@ -12,7 +12,7 @@ import json
 import re
 from typing import Protocol, Any
 
-from .quality import canonical_dataset_sha256, validate_ohlcv
+from .quality import canonical_dataset_sha256, canonical_ohlcv_payload, validate_ohlcv
 
 SCHEMA_VERSION = "nova.dataset.v1"
 _ID_PART = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
@@ -90,25 +90,7 @@ def build_dataset_manifest(
         reject_gaps=reject_gaps,
     )
     content_hash = canonical_dataset_sha256(rows)
-    normalized = []
-    for row in rows:
-        timestamp = row["timestamp"]
-        if isinstance(timestamp, datetime):
-            timestamp = timestamp.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
-        elif timestamp.endswith("Z"):
-            pass
-        else:
-            parsed = datetime.fromisoformat(timestamp)
-            timestamp = parsed.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
-        normalized.append({
-            "timestamp": timestamp,
-            "open": str(row["open"]),
-            "high": str(row["high"]),
-            "low": str(row["low"]),
-            "close": str(row["close"]),
-            "volume": str(row["volume"]),
-        })
-    normalized_payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    normalized_payload = canonical_ohlcv_payload(rows)
 
     manifest_core = {
         "schema_version": SCHEMA_VERSION,
@@ -132,7 +114,8 @@ def build_dataset_manifest(
         "duplicate_count": 0,
         "expected_interval_seconds": expected_interval_seconds,
     }
-    identity_payload = json.dumps(manifest_core, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    identity_fields = {key: value for key, value in manifest_core.items() if key != "ingested_at"}
+    identity_payload = json.dumps(identity_fields, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     manifest_id = sha256(identity_payload.encode("utf-8")).hexdigest()
     manifest = {"dataset_id": f"dataset-{manifest_id[:32]}", **manifest_core}
     return manifest, normalized_payload
