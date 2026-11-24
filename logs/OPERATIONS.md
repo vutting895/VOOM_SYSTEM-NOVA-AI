@@ -128,3 +128,18 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - An earlier SMC Research CI run on pre-current NOVA SHA `c7a5a45c332b6a4b6864f9091f40abbc1aaff153` failed in two unrelated legacy `tests/test_research_pipeline.py` cases because `/v1/risk/approval` returned HTTP 503 instead of the tests' expected 200/401. That stale run is not evidence about the current Datacenter integration and must not be represented as its test result.
 - No deployment, secret update, or broker capability change was made. Live Trading and order submission remain disabled.
 - Outcome: IN PROGRESS — the source syntax defect is corrected; the final consolidated validation and hosted Gateway → Datacenter proof remain BLOCKED on authorized execution/host configuration.
+
+
+## 2026-11-24 — WO-2026-11-24-001 Phase 3 local governance instructions
+
+- Timestamp: 2026-11-24 16:00 UTC.
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main SHA before instruction write: `f63abff9bb609ba306af2b07ca5701bc6c831230`.
+- Added `WORK_ORDER_INSTRUCTIONS.md` linking the central registry and Issue #36, requiring current-main/PR evidence review, append-only operation logs, Datacenter-only research ownership, and existing Gateway use.
+- Explicitly preserved Demo/read-only trading flags and prohibited production deployment, live execution, and Oracle Cloud VM provisioning under this Work Order.
+- Commit: `6f5557998a4f6d823a44e55f351bbc5d74ec3c7f`; blob: `9443657c912c16c13854b0b69c1eeb5233feb810`.
+- Read-back: PASS; file fetched from `main` and Work Order ID verified.
+- Tracker finding: Issue #36 embeds a 2026-11-23 main baseline and stale historical CI snapshots; re-check current main and PR heads before relying on them.
+- Tests: documentation-only change; no code tests run or claimed.
+- Outcome: DONE for local instruction installation; overall Phase 3 remains REVIEW_REQUIRED pending unresolved repository-boundary classification.
+- Next: inspect existing CI/agent enforcement without creating duplicate automation.
