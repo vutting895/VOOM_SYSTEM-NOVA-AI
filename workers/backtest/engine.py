@@ -11,6 +11,21 @@ class BacktestInputError(ValueError):
     """Raised when historical market data or strategy parameters are invalid."""
 
 
+def _ema_series(values: list[float], period: int) -> list[float | None]:
+    """EMA seeded with the first period's SMA; earlier values are unavailable."""
+    output: list[float | None] = [None] * len(values)
+    if len(values) < period:
+        return output
+    seed = sum(values[:period]) / period
+    output[period - 1] = seed
+    alpha = 2.0 / (period + 1)
+    previous = seed
+    for index in range(period, len(values)):
+        previous = alpha * values[index] + (1.0 - alpha) * previous
+        output[index] = previous
+    return output
+
+
 class BacktestWorker:
     def __init__(self, fee: float = 0.001, slippage: float = 0.0005, initial_cash: float = 10000):
         if not all(isfinite(float(x)) for x in (fee, slippage, initial_cash)):
@@ -42,7 +57,7 @@ class BacktestWorker:
         ):
             raise BacktestInputError("periods_per_year must be a positive integer when supplied")
 
-        cash, units = self.initial_cash, 0.0
+        fast_ema, slow_ema = _ema_series(closes, fast), _ema_series(closes, slow)\n\n        cash, units = self.initial_cash, 0.0
         equity: list[float] = []
         trade_returns: list[float] = []
         fills: list[dict[str, Any]] = []
@@ -77,10 +92,10 @@ class BacktestWorker:
             equity.append(cash + units * closes[i])
 
             if i >= slow:
-                fast_now = sum(closes[i-fast+1:i+1]) / fast
-                slow_now = sum(closes[i-slow+1:i+1]) / slow
-                fast_prev = sum(closes[i-fast:i]) / fast
-                slow_prev = sum(closes[i-slow:i]) / slow
+                fast_now, slow_now = fast_ema[i], slow_ema[i]
+                fast_prev, slow_prev = fast_ema[i-1], slow_ema[i-1]
+                if None in (fast_now, slow_now, fast_prev, slow_prev):
+                    continue
                 if units == 0 and ((i == slow and fast_now > slow_now) or (fast_prev <= slow_prev and fast_now > slow_now)):
                     pending_signal = "buy"
                 elif units > 0 and fast_prev >= slow_prev and fast_now < slow_now:
