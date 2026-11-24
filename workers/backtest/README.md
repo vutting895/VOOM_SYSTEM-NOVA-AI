@@ -1,30 +1,16 @@
 # Backtest Worker
 
-Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`.
-It requires timezone-aware, strictly chronological historical OHLCV, validates
-price/volume fields through the Quant Engine quality validator, and applies
-explicit fee and slippage assumptions. It does not generate synthetic market
-data, use randomized trade outcomes, or submit orders.
+Canonical deterministic EMA crossover engine: `workers/backtest/engine.py`. It requires timezone-aware, strictly chronological historical OHLCV, validates price/volume fields through the Quant Engine quality validator, and applies explicit fee and slippage assumptions. It does not generate synthetic market data, use randomized trade outcomes, or submit orders.
 
-`engine_prototype.py` remains only as a backward-compatible import shim.
-New code must import from `workers.backtest.engine`.
+`engine_prototype.py` remains only as a backward-compatible import shim; new code must import from `workers.backtest.engine`.
 
-Metrics are historical bar-close simulation results, not forecasts. Confirm
-candle source, timezone, gaps, exchange-specific fees, funding, spread,
-instrument sizing, and execution assumptions before using results in decisions.
-This EMA engine is not a tick-accurate MT5 simulator.
+Metrics are historical bar-close simulation results, not forecasts. Confirm candle source, timezone, gaps, exchange-specific fees, funding, spread, instrument sizing, and execution assumptions before using results in decisions. This EMA engine is not a tick-accurate MT5 simulator.
 
 ## Deterministic optimization
 
-Canonical tuner: `workers/tuning/engine.py`. It evaluates a bounded,
-deterministic parameter grid by calling the supplied real backtest function
-against validated historical OHLCV. It rejects missing data, invalid
-objectives, and non-finite scores. It does not generate synthetic scores.
-`optuna_tuner_prototype.py` remains as a backward-compatible import shim.
+Canonical tuner: `workers/tuning/engine.py`. It evaluates a bounded deterministic parameter grid by calling a real backtest function against validated historical OHLCV. It rejects missing data, invalid objectives, and non-finite scores; it does not generate synthetic scores. `optuna_tuner_prototype.py` remains only as a backward-compatible import shim.
 
-Optimization is in-sample unless the caller separately evaluates the selected
-parameters on a chronological, untouched holdout. Do not promote parameters
-based only on the best in-sample score.
+Optimization is in-sample unless selected parameters are separately evaluated on a chronological, untouched holdout. Do not promote parameters based only on the best in-sample score.
 
 ## SMC historical backtest API
 
@@ -33,21 +19,40 @@ The isolated research runtime exposes:
 - `POST /v1/smc/analyze`
 - `POST /v1/smc/backtest`
 
-Submit chronological, completed OHLC candles as JSON. Backtest settings include
-`reward_risk`, `fee_rate`, `slippage_rate`, and `initial_equity`. The engine
-assumes next-bar-open entry and conservatively assumes stop loss first when
-stop and target are touched in the same candle. Results are per-unit research
-estimates, not portfolio-sized returns.
+Submit chronological, completed OHLC candles as JSON. Backtest settings include `reward_risk`, `fee_rate`, `slippage_rate`, and `initial_equity`. The engine assumes next-bar-open entry and conservatively assumes stop loss first when stop and target are touched in the same candle. Results are per-unit research estimates, not portfolio-sized returns.
+
+## Telegram operational alerts
+
+Set `NOVA_TELEGRAM_BOT_TOKEN` and `NOVA_TELEGRAM_CHAT_ID` in the deployment environment. Use `workers.alerts.telegram.notify_broker_disconnected`, `notify_high_slippage`, or `notify_circuit_breaker` from the corresponding broker/risk event boundary. Telegram delivery is best-effort: missing configuration or network failure returns `False` and must never bypass a fail-closed risk decision. Never log bot tokens.
+
+## Local container startup
+
+From the repository root:
+1. Copy `.env.example` to `.env` and set a unique `POSTGRES_PASSWORD`.
+2. Run `docker compose -f infra/docker-compose.yml up --build -d`.
+3. Check `docker compose -f infra/docker-compose.yml ps` and `curl http://localhost:8000/health` is intentionally not published; use `docker compose -f infra/docker-compose.yml exec research-worker python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/health').read().decode())"`.
+
+The frontend is published on port 3000. The research worker is internal to the Compose network. MCP stdio is not published as an HTTP service. PostgreSQL and Redis use persistent named volumes. For production, replace local defaults, configure secret storage, TLS/reverse proxy, backups, and network policies before public exposure.
+
+## Test
+
+Install `workers/requirements.txt`, then run `python -m pytest tests -q` and `python -m unittest discover -s tests -v`. CI runs the focused SMC pytest suite and the existing SMC unittest regression tests.
+
+## Combined SMC + Elliott Wave research pipeline
+
+- `POST /v1/research/pipeline` returns SMC structure analysis, heuristic Elliott-wave candidates, and directional agreement metadata.
+- `POST /v1/elliott-wave/analyze` returns the latest alternating-pivot candidate count.
+- Elliott labeling is deliberately heuristic: it is not a unique Elliott count, does not resolve wave degree/alternatives, and must not be treated as a trade signal.
 
 ## Walk-forward / out-of-sample
 
 - `POST /v1/backtest/walk-forward` runs rolling expanding-window folds.
 - Configure `train_bars`, `test_bars`, `step_bars`, and `warmup_bars`.
-- Only trades entered inside each held-out test segment contribute to OOS metrics.
-- This evaluates the fixed SMC baseline; it does not fit/tune model parameters.
+- Only trades entered inside each held-out test segment contribute to OOS metrics. Warmup candles provide swing context; no trade entered in the warmup is counted.
+- This evaluates the fixed SMC baseline; it does not fit/tune model parameters. Use additional walk-forward parameter selection, embargo/purge, gap-aware execution, spread/funding and portfolio sizing before production decisions.
 
-## Safety boundary
+## Risk Guard → durable approval
 
-All backtest and tuning modules are research-only. `execution_enabled` and
-`live_trading_enabled` remain false. No broker order, position mutation, or
-fund transfer capability is exposed by these engines.
+`POST /v1/risk/approval` first runs the fail-closed paper-only RiskWorker. A rejection returns without creating an approval. A pass requires an authenticated Supabase user bearer token plus `SUPABASE_URL` and `SUPABASE_ANON_KEY`, then calls the owner-scoped `nova_create_approval` RPC using the supplied active `thread_id`. The database validates proposal schema, owner/thread binding, policy version and expiry. This creates a human-review draft only: approval does not authorize broker execution and `live_trading_enabled` remains false.
+
+Do not put service-role keys or broker credentials in the request. Never log the Authorization header. A missing Supabase configuration fails closed.
