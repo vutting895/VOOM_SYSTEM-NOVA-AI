@@ -452,6 +452,11 @@ async function readAccount(request, env, user, row, origin) {
 }
 async function readQuotes(request, env, user, row, origin) {
   const url = new URL(request.url);
+  const allowedQuery = new Set(["symbol", "timeframe", "start_utc", "end_utc"]);
+  const queryKeys = [...url.searchParams.keys()];
+  if (new Set(queryKeys).size !== queryKeys.length || queryKeys.some((key) => !allowedQuery.has(key))) {
+    return json({ error: "invalid_history_query" }, 400, origin, env);
+  }
   const symbol = String(url.searchParams.get("symbol") || "").trim();
   const timeframe = String(url.searchParams.get("timeframe") || "M5").toUpperCase();
   const count = url.searchParams.has("count") ? Number(url.searchParams.get("count")) : 100;
@@ -523,13 +528,21 @@ async function readHistory(request, env, user, row, origin) {
     dataVerified: false, ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false
   }, result.status, origin, env);
   const data = result.body;
+  let previousTime = -Infinity;
   if (!Array.isArray(data.bars) || data.bars.length > 2000 ||
-      data.bars.some((bar) => !bar || typeof bar.time !== "string" ||
-        !Number.isFinite(Date.parse(bar.time)) ||
-        ![bar.open, bar.high, bar.low, bar.close].every(Number.isFinite) ||
-        !Number.isInteger(bar.tick_volume) || bar.tick_volume < 0 ||
-        !Number.isInteger(bar.spread) || bar.spread < 0 ||
-        !Number.isInteger(bar.real_volume) || bar.real_volume < 0)) {
+      data.bars.some((bar) => {
+        const time = Date.parse(bar?.time || "");
+        const valid = bar && typeof bar.time === "string" && Number.isFinite(time) &&
+          time >= startMs && time < endMs && time > previousTime &&
+          [bar.open, bar.high, bar.low, bar.close].every((value) => typeof value === "number" && Number.isFinite(value)) &&
+          bar.low <= Math.min(bar.open, bar.close) &&
+          bar.high >= Math.max(bar.open, bar.close, bar.low) &&
+          Number.isInteger(bar.tick_volume) && bar.tick_volume >= 0 &&
+          Number.isInteger(bar.spread) && bar.spread >= 0 &&
+          Number.isInteger(bar.real_volume) && bar.real_volume >= 0;
+        previousTime = time;
+        return !valid;
+      })) {
     return json({ error: "mt5_history_response_invalid", dataVerified: false,
       ordersEnabled: false, executionEnabled: false, liveTradingEnabled: false }, 502, origin, env);
   }
