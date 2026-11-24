@@ -15,12 +15,12 @@ class TuningWorker:
             raise ValueError("max_trials must be an integer in 1..500")
         self.max_trials = max_trials
 
-    def tune(self, candles: list[dict], backtest_fn: Callable, objective: str = "sharpe_annualized") -> dict[str, Any]:
+    def tune(self, candles: list[dict], backtest_fn: Callable, objective: str = "sharpe_per_period") -> dict[str, Any]:
         if not isinstance(candles, list) or len(candles) < 30:
             raise TuningInputError("At least 30 historical OHLCV candles are required")
         if not callable(backtest_fn):
             raise TuningInputError("backtest_fn must be a callable historical backtest")
-        if objective not in {"sharpe_annualized", "total_return_pct", "profit_factor"}:
+        if objective not in {"sharpe_per_period", "sharpe_annualized", "total_return_pct", "profit_factor"}:
             raise TuningInputError("Unsupported optimization objective")
         try:
             quality = validate_ohlcv(candles)
