@@ -452,11 +452,6 @@ async function readAccount(request, env, user, row, origin) {
 }
 async function readQuotes(request, env, user, row, origin) {
   const url = new URL(request.url);
-  const allowedQuery = new Set(["symbol", "timeframe", "start_utc", "end_utc"]);
-  const queryKeys = [...url.searchParams.keys()];
-  if (new Set(queryKeys).size !== queryKeys.length || queryKeys.some((key) => !allowedQuery.has(key))) {
-    return json({ error: "invalid_history_query" }, 400, origin, env);
-  }
   const symbol = String(url.searchParams.get("symbol") || "").trim();
   const timeframe = String(url.searchParams.get("timeframe") || "M5").toUpperCase();
   const count = url.searchParams.has("count") ? Number(url.searchParams.get("count")) : 100;
@@ -505,6 +500,11 @@ async function readQuotes(request, env, user, row, origin) {
 
 async function readHistory(request, env, user, row, origin) {
   const url = new URL(request.url);
+  const allowedQuery = new Set(["symbol", "timeframe", "start_utc", "end_utc"]);
+  const queryKeys = [...url.searchParams.keys()];
+  if (new Set(queryKeys).size !== queryKeys.length || queryKeys.some((key) => !allowedQuery.has(key))) {
+    return json({ error: "invalid_history_query" }, 400, origin, env);
+  }
   const symbol = String(url.searchParams.get("symbol") || "").trim();
   const timeframe = String(url.searchParams.get("timeframe") || "H1").toUpperCase();
   const startUtc = String(url.searchParams.get("start_utc") || "");
@@ -533,7 +533,7 @@ async function readHistory(request, env, user, row, origin) {
       data.bars.some((bar) => {
         const time = Date.parse(bar?.time || "");
         const valid = bar && typeof bar.time === "string" && Number.isFinite(time) &&
-          time >= startMs && time < endMs && time > previousTime && new Date(time).toISOString() === bar.time &&
+          time >= startMs && time < endMs && time > previousTime && new Date(time).toISOString().replace(".000Z", "Z") === bar.time &&
           [bar.open, bar.high, bar.low, bar.close].every((value) => typeof value === "number" && Number.isFinite(value)) &&
           bar.low <= Math.min(bar.open, bar.close) &&
           bar.high >= Math.max(bar.open, bar.close, bar.low) &&
