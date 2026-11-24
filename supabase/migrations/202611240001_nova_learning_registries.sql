@@ -21,6 +21,7 @@ create table if not exists public.nova_dataset_registry (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint nova_dataset_range_check check (start_at is null or end_at is null or start_at < end_at),
+  constraint nova_dataset_owner_id_unique unique (owner_id, id),
   constraint nova_dataset_owner_key_hash unique (owner_id, dataset_key, sha256)
 );
 
@@ -35,7 +36,7 @@ create table if not exists public.nova_model_registry (
   model_key text not null check (length(model_key) between 1 and 128),
   model_version text not null check (length(model_version) between 1 and 64),
   architecture text not null check (architecture in ('xgboost','lstm','hybrid_xgboost_lstm','meta_ensemble','other')),
-  dataset_id uuid references public.nova_dataset_registry(id) on delete restrict,
+  dataset_id uuid,
   dataset_sha256 text not null check (dataset_sha256 ~ '^[0-9a-f]{64}$'),
   feature_schema_sha256 text not null check (feature_schema_sha256 ~ '^[0-9a-f]{64}$'),
   code_revision text not null check (code_revision ~ '^[0-9a-f]{40}([0-9a-f]{24})?$'),
@@ -53,6 +54,9 @@ create table if not exists public.nova_model_registry (
   rollback_model_id uuid references public.nova_model_registry(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint nova_model_owner_id_unique unique (owner_id, id),
+  constraint nova_model_owner_dataset_fk foreign key (owner_id, dataset_id)
+    references public.nova_dataset_registry(owner_id, id) on delete restrict,
   constraint nova_model_owner_key_version unique (owner_id, model_key, model_version)
 );
 
@@ -67,8 +71,8 @@ create table if not exists public.nova_learning_runs (
   run_key text not null unique,
   run_type text not null check (run_type in ('analysis','training','evaluation','walk_forward','promotion_review')),
   status text not null default 'queued' check (status in ('queued','running','succeeded','failed','blocked','cancelled')),
-  dataset_id uuid references public.nova_dataset_registry(id) on delete restrict,
-  model_id uuid references public.nova_model_registry(id) on delete restrict,
+  dataset_id uuid,
+  model_id uuid,
   config jsonb not null default '{}'::jsonb,
   metrics jsonb not null default '{}'::jsonb,
   evidence jsonb not null default '{}'::jsonb,
@@ -77,6 +81,10 @@ create table if not exists public.nova_learning_runs (
   finished_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint nova_learning_run_dataset_owner_fk foreign key (owner_id, dataset_id)
+    references public.nova_dataset_registry(owner_id, id) on delete restrict,
+  constraint nova_learning_run_model_owner_fk foreign key (owner_id, model_id)
+    references public.nova_model_registry(owner_id, id) on delete restrict,
   constraint nova_learning_run_time_check check (finished_at is null or started_at is null or finished_at >= started_at)
 );
 
@@ -94,13 +102,13 @@ create policy nova_dataset_registry_owner_select on public.nova_dataset_registry
   for select to authenticated using (owner_id = auth.uid());
 drop policy if exists nova_dataset_registry_owner_insert on public.nova_dataset_registry;
 create policy nova_dataset_registry_owner_insert on public.nova_dataset_registry
-  for insert to authenticated with check (owner_id = auth.uid());
+  for insert to authenticated with check (owner_id = auth.uid() and quality_status = 'pending' and validation_status = 'pending');
 drop policy if exists nova_model_registry_owner_select on public.nova_model_registry;
 create policy nova_model_registry_owner_select on public.nova_model_registry
   for select to authenticated using (owner_id = auth.uid());
 drop policy if exists nova_model_registry_owner_insert on public.nova_model_registry;
 create policy nova_model_registry_owner_insert on public.nova_model_registry
-  for insert to authenticated with check (owner_id = auth.uid());
+  for insert to authenticated with check (owner_id = auth.uid() and lifecycle_status = 'candidate' and approved_at is null and approved_by is null);
 drop policy if exists nova_learning_runs_owner_select on public.nova_learning_runs;
 create policy nova_learning_runs_owner_select on public.nova_learning_runs
   for select to authenticated using (owner_id = auth.uid());
