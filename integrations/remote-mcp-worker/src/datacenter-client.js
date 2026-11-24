@@ -54,7 +54,7 @@ const definitions = [
     },required:["dataset_id","dataset_version","signal_column"],additionalProperties:false}
   }],
   ["research_run_get", "Retrieve one owner-scoped immutable Datacenter research run.", {run_id:{type:"string"}}],
-  ["research_run_list", "List owner-scoped immutable Datacenter research runs.", {limit:{type:"integer",minimum:1,maximum:200},run_type:{type:"string",enum:["backtest","walk_forward"]}}],
+  ["research_run_list", "List owner-scoped immutable Datacenter research runs.", {limit:{type:"integer",minimum:1,maximum:200},run_type:{type:"string",enum:["backtest"]}}],
 
   ["audit_log_list", "Read the signed-in user's append-only Datacenter operation log.", {limit:{type:"integer",minimum:1,maximum:500}}],
 ];
