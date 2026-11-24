@@ -208,3 +208,124 @@ test("Cloudflare rollback UI remains CORS-allowed while Netlify is primary", asy
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+test("history request forwards the bounded UTC range through the owner-scoped proxy", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
+      return Response.json([{
+        id: CONNECTION_ID,
+        user_id: "user-test-id",
+        provider: "exness_mt5",
+        environment: "demo",
+        status: "connected",
+        bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      return Response.json({ symbol: "XAUUSDm", timeframe: "H1", bars: [], mode: "read-only" });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const query = "connection_id=" + CONNECTION_ID
+      + "&symbol=XAUUSDm&timeframe=H1"
+      + "&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z";
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/history?" + query,
+      { headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 200);
+    assert.equal(new URL(relayRequest.url).pathname, "/api/history");
+    assert.equal(new URL(relayRequest.url).searchParams.get("symbol"), "XAUUSDm");
+    assert.equal(new URL(relayRequest.url).searchParams.get("timeframe"), "H1");
+    assert.equal(new URL(relayRequest.url).searchParams.get("start_utc"), "2026-01-01T00:00:00Z");
+    assert.equal(new URL(relayRequest.url).searchParams.get("end_utc"), "2026-01-15T00:00:00Z");
+    assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
+    assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + BRIDGE_TOKEN);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("history request for a foreign user's connection never reaches the relay", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "different-test-user-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
+      return Response.json([]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayCalls += 1;
+      throw new Error("Foreign connection must not reach the relay");
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/history?connection_id=" + CONNECTION_ID
+        + "&symbol=XAUUSDm&timeframe=H1"
+        + "&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 404);
+    assert.equal((await response.json()).error, "connection_not_found");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("proxy rejects duplicate query parameters before authentication or forwarding", async () => {
+  const response = await worker.fetch(new Request(
+    "https://proxy.test/api/history?connection_id=" + CONNECTION_ID
+      + "&symbol=XAUUSDm&timeframe=H1"
+      + "&start_utc=2026-01-01T00:00:00Z&start_utc=2026-01-02T00:00:00Z"
+      + "&end_utc=2026-01-03T00:00:00Z"
+  ), envWithRoutes());
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "duplicate_query_parameter");
+});
+
+test("proxy rejects unknown query parameters instead of silently dropping them", async () => {
+  const response = await worker.fetch(new Request(
+    "https://proxy.test/api/account?connection_id=" + CONNECTION_ID + "&admin=true"
+  ), envWithRoutes());
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "query_parameter_not_allowed");
+});
+
+test("public health rejects ignored query parameters", async () => {
+  const response = await worker.fetch(new Request("https://proxy.test/health?debug=true"), {});
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "query_parameter_not_allowed");
+});
+
+
+test("proxy requires an explicit supported history timeframe", async () => {
+  const response = await worker.fetch(new Request(
+    "https://proxy.test/api/history?connection_id=" + CONNECTION_ID
+      + "&symbol=XAUUSDm"
+      + "&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-02T00:00:00Z"
+  ), envWithRoutes());
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "invalid_history_range");
+});
