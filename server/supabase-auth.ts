@@ -67,5 +67,5 @@ export function createSupabaseAuthMiddleware(
 }
 
 export function scopedThreadId(userId: string, threadId: string): string {
-  return \`\${userId}:\${threadId}\`;
+  return userId + ':' + threadId;
 }
