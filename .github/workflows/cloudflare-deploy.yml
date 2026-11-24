@@ -152,6 +152,7 @@ jobs:
         shell: bash
         env:
           FRONTEND_DEPLOYED: ${{ steps.changed.outputs.frontend == 'true' && vars.DEPLOY_CLOUDFLARE_FRONTEND_MAIN == 'true' }}
+          REMOTE_MCP_DEPLOYED: ${{ steps.changed.outputs.remote_mcp == 'true' && vars.DATACENTER_MCP_URL != '' }}
         run: |
           set -euo pipefail
           proxy="https://voom-mt5-readonly-proxy.suwapat787.workers.dev"
