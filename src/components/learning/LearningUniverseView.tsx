@@ -25,9 +25,9 @@ export default function LearningUniverseView() {
   const selectedUniverse = universes.find((item) => item.universe_id === selectedUniverseId) || null;
   const taskType = selectedUniverse?.definition.task_type;
   const allowedFamilies = taskType === 'classification'
-    ? ['logistic_regression', 'random_forest_classifier']
+    ? ['logistic_regression', 'random_forest_classifier', 'xgboost']
     : taskType === 'regression'
-      ? ['ridge', 'random_forest_regressor']
+      ? ['ridge', 'random_forest_regressor', 'xgboost']
       : [];
 
   const loadData = async () => {
