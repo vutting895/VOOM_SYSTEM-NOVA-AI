@@ -34,7 +34,7 @@ class BacktestWorker:
             raise ValueError("Invalid cost or initial cash configuration")
         self.fee, self.slippage, self.initial_cash = float(fee), float(slippage), float(initial_cash)
 
-    def run(self, strategy: dict[str, Any], candles: list[dict[str, Any]]) -> dict[str, Any]:
+    def run(self, strategy: dict[str, Any], candles: list[dict[str, Any]], *, trade_start_index: int = 0) -> dict[str, Any]:
         if not isinstance(strategy, dict):
             raise BacktestInputError("strategy must be an object")
         if not isinstance(candles, list) or len(candles) < 30:
@@ -51,6 +51,8 @@ class BacktestWorker:
             raise BacktestInputError("EMA periods must be integers")
         if not 2 <= fast < slow <= len(closes):
             raise BacktestInputError("Require 2 <= fast_period < slow_period <= candle count")
+        if isinstance(trade_start_index, bool) or not isinstance(trade_start_index, int) or not 0 <= trade_start_index < len(candles):
+            raise BacktestInputError("trade_start_index must be an integer inside the candle range")
         periods_per_year = strategy.get("periods_per_year")
         if periods_per_year is not None and (
             isinstance(periods_per_year, bool) or not isinstance(periods_per_year, int) or periods_per_year <= 0
@@ -63,9 +65,12 @@ class BacktestWorker:
         equity: list[float] = []
         trade_returns: list[float] = []
         fills: list[dict[str, Any]] = []
+        trade_ledger: list[dict[str, Any]] = []
         wins = 0
         pending_signal: str | None = None
         entry_cash = 0.0
+        entry_fill = 0.0
+        entry_timestamp: str | None = None
 
         # A signal is known only after candle i closes; it is filled at candle
         # i+1 open. The final candle's close cannot create a same-bar fill.
@@ -74,6 +79,8 @@ class BacktestWorker:
                 fill = opens[i] * (1 + self.slippage)
                 entry_cash = cash
                 units = cash * (1 - self.fee) / fill
+                entry_fill = fill
+                entry_timestamp = row["timestamp"]
                 cash = 0.0
                 fills.append({"side": "buy", "signal_timestamp": candles[i-1]["timestamp"],
                               "fill_timestamp": row["timestamp"], "fill_price": fill})
@@ -83,19 +90,27 @@ class BacktestWorker:
                 trade_return = cash / entry_cash - 1 if entry_cash > 0 else 0.0
                 trade_returns.append(trade_return)
                 wins += trade_return > 0
+                trade_ledger.append({"entry_timestamp": entry_timestamp, "exit_timestamp": row["timestamp"],
+                                     "entry_fill_price": entry_fill, "exit_fill_price": fill,
+                                     "net_return_pct": round(trade_return * 100, 8)})
                 fills.append({"side": "sell", "signal_timestamp": candles[i-1]["timestamp"],
                               "fill_timestamp": row["timestamp"], "fill_price": fill})
                 units = 0.0
                 entry_cash = 0.0
+                entry_fill = 0.0
+                entry_timestamp = None
             pending_signal = None
             equity.append(cash + units * closes[i])
 
-            if i >= slow:
+            signal_floor = max(slow, trade_start_index - 1)
+            if i >= signal_floor:
                 fast_now, slow_now = fast_ema[i], slow_ema[i]
                 fast_prev, slow_prev = fast_ema[i-1], slow_ema[i-1]
                 if None in (fast_now, slow_now, fast_prev, slow_prev):
                     continue
-                if units == 0 and ((i == slow and fast_now > slow_now) or (fast_prev <= slow_prev and fast_now > slow_now)):
+                initial_oos_state = trade_start_index > 0 and i == trade_start_index - 1 and fast_now > slow_now
+                initial_full_run_state = trade_start_index == 0 and i == slow and fast_now > slow_now
+                if units == 0 and (initial_oos_state or initial_full_run_state or (fast_prev <= slow_prev and fast_now > slow_now)):
                     pending_signal = "buy"
                 elif units > 0 and fast_prev >= slow_prev and fast_now < slow_now:
                     pending_signal = "sell"
@@ -107,6 +122,9 @@ class BacktestWorker:
             trade_return = cash / entry_cash - 1 if entry_cash > 0 else 0.0
             trade_returns.append(trade_return)
             wins += trade_return > 0
+            trade_ledger.append({"entry_timestamp": entry_timestamp, "exit_timestamp": candles[-1]["timestamp"],
+                                 "entry_fill_price": entry_fill, "exit_fill_price": fill,
+                                 "net_return_pct": round(trade_return * 100, 8)})
             fills.append({"side": "forced_close", "signal_timestamp": candles[-1]["timestamp"],
                           "fill_timestamp": candles[-1]["timestamp"], "fill_price": fill})
             equity[-1] = cash
@@ -146,6 +164,7 @@ class BacktestWorker:
             "final_equity": round(equity[-1], 2),
             "equity_curve": [round(x, 8) for x in equity[-500:]],
             "fills": fills,
+            "trade_ledger": trade_ledger,
             "fees_rate": self.fee,
             "slippage_rate": self.slippage,
             "execution_enabled": False,
