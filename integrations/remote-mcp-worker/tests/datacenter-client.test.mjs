@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callDatacenterTool, datacenterTools } from "../src/datacenter-client.js";
+import { buildMt5DatasetPayload, callDatacenterTool, datacenterTools } from "../src/datacenter-client.js";
 
 test("Learning tools are exposed by the existing NOVA Remote MCP catalog", () => {
   const names = new Set(datacenterTools.map((tool) => tool.name));
@@ -70,4 +70,34 @@ test("Datacenter URL must be HTTPS and end at the fixed MCP path", async () => {
     callDatacenterTool("dataset_list", {}, request, {DATACENTER_MCP_URL:"http://learning.example/mcp"}),
     /datacenter_service_configuration_invalid/,
   );
+});
+
+test("MT5 ingestion adapter excludes the forming candle and preserves source order", () => {
+  const bars = [
+    {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
+    {time:"2026-01-01T01:00:00Z",open:11,high:13,low:10,close:12,tick_volume:6,spread:2,real_volume:0},
+    {time:"2026-01-01T02:00:00Z",open:12,high:14,low:11,close:13,tick_volume:7,spread:3,real_volume:0},
+    {time:"2026-01-01T03:00:00Z",open:13,high:15,low:12,close:14,tick_volume:8,spread:3,real_volume:0},
+  ];
+  const payload = buildMt5DatasetPayload({
+    symbol:"XAUUSDm", timeframe:"H1", bars,
+    now_ms:Date.parse("2026-01-01T03:30:00Z"),
+  });
+  assert.equal(payload.rows.length, 3);
+  assert.equal(payload.manifest.expected_interval_seconds, 3600);
+  assert.equal(payload.manifest.coverage_start, "2026-01-01T00:00:00.000Z");
+  assert.equal(payload.manifest.coverage_end, "2026-01-01T02:00:00.000Z");
+  assert.equal(payload.rows[0].volume, 5);
+  assert.equal(payload.manifest.source, "exness-mt5-demo-readonly");
+});
+
+test("MT5 ingestion adapter rejects reversed source bars instead of silently sorting", () => {
+  const bars = [
+    {time:"2026-01-01T01:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
+    {time:"2026-01-01T00:00:00Z",open:11,high:13,low:10,close:12,tick_volume:6,spread:2,real_volume:0},
+  ];
+  assert.throws(() => buildMt5DatasetPayload({
+    symbol:"XAUUSDm", timeframe:"H1", bars,
+    now_ms:Date.parse("2026-01-02T00:00:00Z"),
+  }), /must_be_valid_and_ascending/);
 });
