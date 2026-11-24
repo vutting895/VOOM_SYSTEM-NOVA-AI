@@ -13,7 +13,7 @@ export const CAPABILITIES = Object.freeze([
     name: "list_integrations",
     description: "List NOVA integration adapter metadata and verification state.",
     handler: "integrations",
-    scope: "integrations:read",
+    authorization: "authenticated_user",
     readOnly: true,
     maxBodyBytes: 1024,
     inputSchema: object({})
@@ -22,7 +22,7 @@ export const CAPABILITIES = Object.freeze([
     name: "list_connections",
     description: "List only the authenticated user's own broker connection records.",
     handler: "connections",
-    scope: "connections:read",
+    authorization: "authenticated_user_scoped_by_rls",
     readOnly: true,
     maxBodyBytes: 1024,
     inputSchema: object({})
@@ -31,7 +31,7 @@ export const CAPABILITIES = Object.freeze([
     name: "mt5_connection_status",
     description: "Read the authenticated user's own Exness MT5 Demo connection status.",
     handler: "mt5_status",
-    scope: "mt5:read",
+    authorization: "authenticated_user_owns_connection",
     readOnly: true,
     maxBodyBytes: 2048,
     inputSchema: object({ connection_id: string({ minLength: 36, maxLength: 36 }) }, ["connection_id"])
@@ -63,7 +63,7 @@ export const CAPABILITIES = Object.freeze([
     name: "nova_ai_chat",
     description: "Send a bounded research conversation to the NOVA AI adapter. Analysis only.",
     handler: "nova_ai_chat",
-    scope: "research:invoke",
+    authorization: "authenticated_user",
     readOnly: true,
     maxBodyBytes: 12000,
     inputSchema: object({
