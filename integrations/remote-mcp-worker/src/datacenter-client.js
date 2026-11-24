@@ -1,13 +1,30 @@
 """Bounded client for the NOVA Learning Service MCP endpoint."""
+const marketCalendarSchema = {
+  type: "object",
+  properties: {
+    closed_intervals: {
+      type: "array",
+      maxItems: 5000,
+      items: {
+        type: "object",
+        properties: {start: {type: "string"}, end: {type: "string"}},
+        required: ["start", "end"],
+        additionalProperties: false,
+      },
+    },
+  },
+  additionalProperties: false,
+};
+
 const definitions = [
   ["dataset_list", "List the signed-in user's Datacenter datasets.", {limit:{type:"integer",minimum:1,maximum:200},status:{type:"string",enum:["PENDING","PASSED","FAILED","QUARANTINED","REJECTED","SUPERSEDED"]}}],
   ["dataset_get", "Read one immutable dataset version and quality receipt.", {dataset_id:{type:"string"},version:{type:"integer",minimum:1}}],
   ["dataset_validate", "Validate dataset provenance or inspect its persisted quality receipt.", {manifest:{type:"object"},dataset_id:{type:"string"},version:{type:"integer",minimum:1}}],
   ["dataset_register", "Register a metadata-only dataset version; it is not approved for training.", {manifest:{type:"object"}}],
   ["dataset_ingest", "Validate and persist OHLCV rows in Parquet/Zstandard. Only 100% passing datasets can be approved.", {manifest:{type:"object"},rows:{type:"array",minItems:1,maxItems:100000,items:{type:"object"}}}],
-  ["dataset_validate_ohlcv", "Run strict UTC/OHLCV validation with explicit cadence and market closures.", {rows:{type:"array",minItems:1,maxItems:100000,items:{type:"object"}},expected_interval_seconds:{type:"integer",minimum:1},reject_gaps:{type:"boolean"},market_calendar:{type:"object"}}],
+  ["dataset_validate_ohlcv", "Run strict UTC/OHLCV validation with explicit cadence and market closures.", {rows:{type:"array",minItems:1,maxItems:100000,items:{type:"object"}},expected_interval_seconds:{type:"integer",minimum:1},reject_gaps:{type:"boolean"},market_calendar:marketCalendarSchema}],
   ["dataset_approve", "Approve a dataset only after its complete quality status is PASSED.", {dataset_id:{type:"string"},version:{type:"integer",minimum:1}}],
-  ["dataset_consolidate", "Consolidate compatible approved datasets into an immutable monthly or annual version.", {name:{type:"string"},source_dataset_refs:{type:"array",minItems:2,items:{type:"object"}},period:{type:"string",enum:["monthly","annual"]},expected_interval_seconds:{type:"integer",minimum:1},market_calendar:{type:"object"}}],
+  ["dataset_consolidate", "Consolidate compatible approved datasets into an immutable monthly or annual version.", {name:{type:"string"},source_dataset_refs:{type:"array",minItems:2,items:{type:"object"}},period:{type:"string",enum:["monthly","annual"]},expected_interval_seconds:{type:"integer",minimum:1},market_calendar:marketCalendarSchema}],
   ["universe_validate", "Validate an immutable learning-universe definition and its pinned approved datasets.", {definition:{type:"object"}}],
   ["universe_register", "Register a versioned learning universe with exact dataset and feature dependencies.", {definition:{type:"object"}}],
   ["universe_list", "List learning universes owned by the signed-in user.", {limit:{type:"integer",minimum:1,maximum:200}}],
