@@ -533,7 +533,7 @@ async function readHistory(request, env, user, row, origin) {
       data.bars.some((bar) => {
         const time = Date.parse(bar?.time || "");
         const valid = bar && typeof bar.time === "string" && Number.isFinite(time) &&
-          time >= startMs && time < endMs && time > previousTime &&
+          time >= startMs && time < endMs && time > previousTime && new Date(time).toISOString() === bar.time &&
           [bar.open, bar.high, bar.low, bar.close].every((value) => typeof value === "number" && Number.isFinite(value)) &&
           bar.low <= Math.min(bar.open, bar.close) &&
           bar.high >= Math.max(bar.open, bar.close, bar.low) &&
