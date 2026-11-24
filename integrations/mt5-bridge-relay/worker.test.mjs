@@ -138,3 +138,88 @@ test("a wrong bearer token cannot attach to a tenant session", () => {
   const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
 });
+
+
+test("status endpoint is authenticated and tenant scoped", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = { url: new URL(req.url), id, tenant: req.headers.get("X-VOOM-TENANT-ID") };
+    return Response.json({ connected: true, heartbeatIntervalMs: 2000, ordersEnabled: false });
+  });
+  const missing = await worker.fetch(request("/status"), env);
+  assert.equal(missing.status, 401);
+  const response = await worker.fetch(request("/status", { token: TOKEN, tenant: TENANT_ID }), env);
+  assert.equal(response.status, 200);
+  assert.equal(observed.id, TENANT_ID);
+  assert.equal(observed.url.pathname, "/status");
+  assert.equal(observed.tenant, TENANT_ID);
+  const body = await response.json();
+  assert.equal(body.heartbeatIntervalMs, 2000);
+  assert.equal(body.ordersEnabled, false);
+});
+
+test("status endpoint rejects non-GET methods", async () => {
+  const response = await worker.fetch(request("/status", { method: "POST", token: TOKEN, tenant: TENANT_ID }), makeEnv());
+  assert.equal(response.status, 405);
+});
+
+test("Durable Object status reports heartbeat freshness without persistent writes", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  const now = Date.now();
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: TENANT_ID, lastHeartbeat: now }),
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/status", {
+    headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": TENANT_ID }
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connected, true);
+  assert.equal(body.websocketConnected, true);
+  assert.equal(body.heartbeatIntervalMs, 2000);
+  assert.equal(body.ordersEnabled, false);
+});
+
+test("Durable Object status fails closed when no tenant socket exists", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  const session = new BridgeSession({ getWebSockets: () => [] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/status", {
+    headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": TENANT_ID }
+  }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "bridge_not_connected");
+});
+
+
+test("Durable Object records application heartbeat messages on the tenant socket", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  let attachment = { tenantId: TENANT_ID, connectedAt: Date.now(), lastHeartbeat: null };
+  const socket = {
+    deserializeAttachment: () => attachment,
+    serializeAttachment: (value) => { attachment = value; }
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  session.webSocketMessage(socket, JSON.stringify({ type: "heartbeat" }));
+  assert.equal(attachment.tenantId, TENANT_ID);
+  assert.equal(typeof attachment.lastHeartbeat, "number");
+  assert.ok(Date.now() - attachment.lastHeartbeat < 1000);
+});
+
+test("Durable Object status reports stale heartbeat as disconnected", async () => {
+  const { BridgeSession } = await import("./worker.js");
+  const socket = {
+    readyState: 1,
+    deserializeAttachment: () => ({ tenantId: TENANT_ID, lastHeartbeat: Date.now() - 10000 }),
+  };
+  const session = new BridgeSession({ getWebSockets: () => [socket] }, {});
+  const response = await session.fetch(new Request("https://bridge-session.internal/status", {
+    headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": TENANT_ID }
+  }));
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.connected, false);
+  assert.equal(body.websocketConnected, true);
+  assert.ok(body.heartbeatAgeMs >= 10000);
+});

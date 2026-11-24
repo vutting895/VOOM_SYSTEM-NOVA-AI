@@ -51,6 +51,14 @@ Start using the tenant-aware script from the bridge directory:
 
 The script fails closed if the tenant ID or tenant-specific token file is missing or invalid. It binds Uvicorn to `127.0.0.1:8787` and opens an outbound authenticated WSS connection to `https://voom-mt5-bridge-relay.suwapat787.workers.dev`. No custom domain, named Tunnel, or public local port is required. The relay client reconnects with backoff and does not log tokens or account payloads.
 
+## Relay liveness and status
+
+The outbound relay client sends an application-level WebSocket message `{ "type": "heartbeat" }` every 2 seconds while connected. The Durable Object records the latest heartbeat timestamp in the WebSocket attachment (ephemeral memory only; no database or Durable Object storage write per heartbeat). A heartbeat older than 6 seconds is reported as stale. WebSocket transport ping/pong remains separate from this application heartbeat.
+
+The authenticated Cloudflare relay endpoint `GET /status` requires the tenant bearer token and `X-VOOM-TENANT-ID`. It returns tenant-scoped liveness fields (`connected`, `websocketConnected`, `lastHeartbeat`, `heartbeatAgeMs`, `heartbeatIntervalMs`) and explicit safety flags (`mode=read-only`, `ordersEnabled=false`, `liveTradingEnabled=false`, `order_submission_enabled=false`). It returns 401/403 for authentication or tenant failures, 405 for non-GET methods, and 503 when no tenant WebSocket session exists. `websocketConnected=true` with `connected=false` means the socket exists but its application heartbeat is missing or stale.
+
+This endpoint reports relay-session liveness only. It does not by itself prove MT5 account freshness, Supabase Owner Session validity, or Dashboard integration.
+
 ## Endpoints
 
 - `GET /health`
@@ -66,7 +74,7 @@ Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol
 2. Confirm a unique tenant ID and token were provisioned privately and the matching Cloudflare route-map entry exists.
 3. Confirm requests without a bearer token return 401, an invalid token returns 401, a tenant mismatch returns 403 and absent tenant configuration returns 503.
 4. Confirm the proxy checks the Supabase JWT and only returns the authenticated user's own connection row.
-5. Confirm the outbound relay session is active and authenticated read-only health returns a current timestamp with `mode=read-only` and `order_submission_enabled=false`.
+5. Confirm the outbound relay session is active and authenticated `GET /status` reports a fresh application heartbeat (age <= 6 seconds), `heartbeatIntervalMs=2000`, `mode=read-only`, and `order_submission_enabled=false`.
 6. Confirm cross-customer connection IDs fail closed.
 7. Confirm no order method exists and every layer keeps order execution disabled.
 
