@@ -3,11 +3,7 @@
 import {
   MarketOverviewResponse,
   CandlestickBar,
-  IntelligenceResponse,
-  BacktestParams,
-  BacktestResult,
   InfrastructureHealthResponse,
-  LearningUniverseResponse,
 } from './types';
 
 export interface ApiMetricRecord {
@@ -133,27 +129,9 @@ class NovaApiClient {
     return this.fetchJson(`/api/market/candlesticks?${query.toString()}`);
   }
 
-  // 2. Trading Intelligence & AI Models
-  async getIntelligenceModels(): Promise<IntelligenceResponse> {
-    return this.fetchJson<IntelligenceResponse>('/api/intelligence/models');
-  }
-
-  // 3. Backtest Simulation Engine
-  async runBacktest(params: BacktestParams): Promise<BacktestResult> {
-    return this.fetchJson<BacktestResult>('/api/backtest/run', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
-  }
-
   // 4. Trading Infrastructure & Health
   async getInfrastructureHealth(): Promise<InfrastructureHealthResponse> {
     return this.fetchJson<InfrastructureHealthResponse>('/api/infrastructure/health');
-  }
-
-  // 5. Learning Universe & Dataset Management
-  async getLearningUniverse(): Promise<LearningUniverseResponse> {
-    return this.fetchJson<LearningUniverseResponse>('/api/learning/universe');
   }
 
   // 6. Broker Status & Catalog Services
@@ -174,18 +152,6 @@ class NovaApiClient {
       ...(mt5Server ? { mt5Server } : {}),
     });
     return this.fetchJson(`/api/broker/instruments?${query.toString()}`);
-  }
-
-  // 7. Backend Auto-Train Status & Controls
-  async getAutoTrainStatus(): Promise<any> {
-    return this.fetchJson('/api/auto-train/status');
-  }
-
-  async triggerAutoTrain(symbol: string): Promise<any> {
-    return this.fetchJson('/api/auto-train/trigger', {
-      method: 'POST',
-      body: JSON.stringify({ symbol }),
-    });
   }
 
   // 8. NOVA Chat AI & Hybrid Brain
