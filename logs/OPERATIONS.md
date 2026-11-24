@@ -104,3 +104,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No model has been trained or evaluated as part of this code change; no accuracy or performance result is claimed.
 - Training still requires a pinned approved Dataset and registered Universe. Model artifacts remain pending human approval and cannot enable trading.
 - Tests/build not run; deployment remains paused.
+
+
+## OP-20261124-011 — Browser MCP transport and XGBoost UI alignment
+
+- Fixed the frontend MCP client to use the existing Worker's supported legacy transport consistently: initialize body carries protocol version, while notifications and tool calls do not send the modern `MCP-Protocol-Version` header. This avoids the Worker's modern-transport header requirements and keeps the existing Gateway path.
+- Frontend now preserves tool-level validation error text instead of replacing every error with a generic message.
+- Added a static contract test for Supabase session use, Bearer header, Gateway endpoint, and absence of local token storage or modern transport headers.
+- Updated Learning Dashboard to offer XGBoost for classification and regression, matching Datacenter runtime.
+- Updated sync documentation: XGBoost is supported; PyTorch/LSTM and other advanced families remain pending.
+- No browser-to-Datacenter direct call, no second MCP server, no deployment, no secret changes.
+- Tests and build remain unexecuted pending consolidated validation.
+- Outcome: IN PROGRESS. Next: finish source review, then assess PyTorch/LSTM runtime and remaining model families.
