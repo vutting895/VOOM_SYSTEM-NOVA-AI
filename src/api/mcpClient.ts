@@ -71,9 +71,10 @@ export async function callNovaMcpTool<T>(name: string, args: Record<string, unkn
     params: { name, arguments: args },
   }, token);
 
-  if (!response || response.isError) throw new Error('nova_gateway_tool_failed');
+  if (!response) throw new Error('nova_gateway_tool_failed');
   const text = response.content?.find((item) => item.type === 'text' && typeof item.text === 'string')?.text;
   if (!text) throw new Error('nova_gateway_invalid_tool_result');
+  if (response.isError) throw new Error(text);
   try {
     return JSON.parse(text) as T;
   } catch {
