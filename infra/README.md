@@ -1,6 +1,6 @@
 # Infrastructure
 
-Local development is provided by `docker-compose.yml`. Kubernetes manifests and production deployment are intentionally withheld until service health checks, auth boundaries, secret management, and regression tests are in place.
+Local development is provided by `docker-compose.yml`. The default stack includes the frontend, research worker, Redis, and PostgreSQL. The legacy Python MCP prototype is excluded from normal startup and is available only through the explicit `legacy-archive` Compose profile for isolated investigation. Kubernetes manifests and production deployment are intentionally withheld until service health checks, auth boundaries, secret management, and regression tests are in place.
 
 ## Local Compose boundary
 
