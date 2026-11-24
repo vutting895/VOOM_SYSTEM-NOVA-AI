@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 for folder in ("backtest","risk","data-ingestion"):
     sys.path.insert(0,str(ROOT/"workers"/folder))
-from engine import BacktestWorker, BacktestInputError
+from engine import BacktestWorker, BacktestInputError, _ema_series
 from manager_prototype import RiskWorker
 from main_prototype import fetch_ohlcv
 from workers.tuning.engine import TuningWorker
@@ -19,6 +19,13 @@ def candles():
     return rows
 
 class WorkerTests(unittest.TestCase):
+    def test_ema_uses_recursive_exponential_weighting(self):
+        values=[10.0, 20.0, 30.0, 40.0]
+        ema=_ema_series(values,3)
+        self.assertIsNone(ema[0])
+        self.assertIsNone(ema[1])
+        self.assertEqual(ema[2],20.0)
+        self.assertAlmostEqual(ema[3],30.0)
     def test_backtest_is_deterministic(self):
         worker=BacktestWorker(fee=0,slippage=0)
         a=worker.run({"fast_period":3,"slow_period":8},candles())
