@@ -363,3 +363,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No source/runtime/data/model/test/migration/workflow file moved or edited; only governance documentation changed. No PR state, branch, deployment, database, secret, permission or broker state changed.
 - Status: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS; Phase 3 PRELIMINARY/BLOCKED (zero moves approved).
 - Next: reconcile overlapping PRs #397/#399/#400/#395; finish per-PR path coverage and dependency/caller/workflow mapping before revising the zero-move manifest.
+
+
+## WO-2026-11-24-004 — frontend path and PR #399 correction (2026-11-24T17:52Z)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Evidence: root `netlify.toml` + root Vite package/config/index entry establish the root React SPA build for Netlify. `apps/nova-command-center/` is a separate TanStack Start app with its own CI. Current `frontend/` tree has no package.json, package-lock.json or Next.js app source.
+- Blocker: Cloudflare deploy and approval migration workflows reference `frontend/package-lock.json`, run `npm ci` from `frontend`, and Cloudflare deploy invokes `npm run cf:build`; those inputs are absent from current main. No workflow or deployment was run.
+- Correction: #397 changes `datacenter-client.js` but its SMC Research CI path filters omit it. #399 adds the missing path to pull_request and push filters, so #399 complements #397 and is not a duplicate.
+- #400 remains blocked: two identically named test functions in its test file cause Python's later definition to shadow the earlier test.
+- Updated the migration manifest with frontend ownership/deployment-path findings and the corrected PR disposition.
+- Manifest update commit: `b91e95eb5d2debcdce854b1105a7cd45f2294116`.
+- No source/runtime/workflow/data/model/migration files moved or edited; no PR or branch state changed; no deployment, database, secrets, permissions or broker action occurred.
+- Next: keep the three frontend path groups separate; raise workflow remediation as a separate authorized work item; finish caller/import mapping before any move.
