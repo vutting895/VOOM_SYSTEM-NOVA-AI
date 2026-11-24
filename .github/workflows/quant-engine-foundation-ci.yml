@@ -45,4 +45,4 @@ jobs:
       - name: Run real training and checkpoint tests
         env:
           PYTHONPATH: .
-        run: python -m unittest tests.test_residual_mlp -v
+        run: python -m unittest discover -s tests -p "test_residual_mlp.py" -v
