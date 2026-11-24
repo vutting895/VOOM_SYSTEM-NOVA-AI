@@ -70,6 +70,17 @@ class TenantGuardContractTests(unittest.TestCase):
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
 
+    def test_bridge_reuses_healthy_terminal_and_reinitializes_only_when_disconnected(self):
+        functions = function_nodes()
+        ensure = functions["ensure_connection"]
+        ensure_source = SOURCE[SOURCE.index("def ensure_connection"):SOURCE.index("def get_terminal_and_account")]
+        self.assertTrue(has_call(ensure, "terminal_info"))
+        self.assertTrue(has_call(ensure, "account_info"))
+        self.assertTrue(has_call(ensure, "initialize_mt5"))
+        self.assertIn('getattr(terminal, "connected", False)', ensure_source)
+        self.assertIn("terminal, account = ensure_connection()", SOURCE)
+        self.assertIn('detail="MT5 terminal is not connected"', ensure_source)
+
     def test_history_endpoint_enforces_bounded_utc_and_read_only_contract(self):
         functions = function_nodes()
         history = functions["history"]
