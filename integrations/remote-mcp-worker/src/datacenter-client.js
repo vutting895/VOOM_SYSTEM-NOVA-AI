@@ -54,7 +54,24 @@ const definitions = [
     },required:["dataset_id","dataset_version","signal_column"],additionalProperties:false}
   }],
   ["research_run_get", "Retrieve one owner-scoped immutable Datacenter research run.", {run_id:{type:"string"}}],
-  ["research_run_list", "List owner-scoped immutable Datacenter research runs.", {limit:{type:"integer",minimum:1,maximum:200},run_type:{type:"string",enum:["backtest"]}}],
+  ["walk_forward_replay", "Evaluate precomputed signals over non-overlapping chronological OOS windows. This does not refit or retrain models; the train window is context only.", {
+    config:{type:"object",properties:{
+      dataset_id:{type:"string"},dataset_version:{type:"integer",minimum:1},
+      signal_column:{type:"string"},initial_balance:{type:"number",minimum:1,maximum:1000000000000},
+      exposure_fraction:{type:"number",minimum:0.001,maximum:1},
+      commission_bps:{type:"number",minimum:0,maximum:500},
+      spread_bps:{type:"number",minimum:0,maximum:500},
+      slippage_bps:{type:"number",minimum:0,maximum:500},
+      max_holding_bars:{type:"integer",minimum:1,maximum:100000},
+      allow_short:{type:"boolean"},
+      train_window_bars:{type:"integer",minimum:30},
+      test_window_bars:{type:"integer",minimum:3},
+      step_bars:{type:"integer",minimum:1},
+      purge_gap_bars:{type:"integer",minimum:0}
+    },required:["dataset_id","dataset_version","signal_column"],additionalProperties:false}
+  }],
+
+  ["research_run_list", "List owner-scoped immutable Datacenter research runs.", {limit:{type:"integer",minimum:1,maximum:200},run_type:{type:"string",enum:["backtest","walk_forward"]}}],
 
   ["audit_log_list", "Read the signed-in user's append-only Datacenter operation log.", {limit:{type:"integer",minimum:1,maximum:500}}],
 ];
@@ -81,6 +98,7 @@ const requiredArguments = {
   model_evaluate: ["model_id"],
   model_approve: ["model_id"],
   backtest_run: ["config"],
+  walk_forward_replay: ["config"],
   research_run_get: ["run_id"],
 
 };
