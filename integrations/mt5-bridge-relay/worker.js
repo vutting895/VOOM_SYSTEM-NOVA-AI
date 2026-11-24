@@ -4,7 +4,7 @@ const BASE = {
   "Referrer-Policy": "no-referrer"
 };
 const TENANT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
-const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes"]);
+const ALLOWED_READ_PATHS = new Set(["/health", "/api/account", "/api/symbols", "/api/quotes", "/api/positions"]);
 const TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MAX_MESSAGE_BYTES = 1024 * 1024;
 const RESPONSE_TIMEOUT_MS = 7200;
@@ -83,7 +83,7 @@ export function validateReadRequest(url) {
     return { ok: false, error: "duplicate_query_parameter" };
   }
 
-  if (url.pathname === "/health" || url.pathname === "/api/account") {
+  if (url.pathname === "/health" || url.pathname === "/api/account" || url.pathname === "/api/positions") {
     return keys.length === 0 ? { ok: true } : { ok: false, error: "query_not_allowed" };
   }
 

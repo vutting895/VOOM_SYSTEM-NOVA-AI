@@ -4,7 +4,7 @@ This Windows process reads data from the MT5 terminal session already logged in 
 
 ## Safety boundary
 
-- Read-only GET endpoints only: health, account summary, symbol discovery and quotes/candles.
+- Read-only GET endpoints only: health, account summary, symbol discovery, open-position snapshot, deal history and quotes/candles.
 - No order, trade, position-modification, transfer or withdrawal implementation exists.
 - Requests to order/trade/execute/withdraw/transfer paths are denied, and non-GET/OPTIONS methods are rejected.
 - Every protected endpoint requires both `Authorization: Bearer <tenant-specific token>` and `X-VOOM-TENANT-ID: <assigned tenant id>`.
@@ -55,8 +55,12 @@ The script fails closed if the tenant ID or tenant-specific token file is missin
 
 - `GET /health`
 - `GET /api/account`
+- `GET /api/positions` (complete current open-position snapshot, account-currency floating PnL and swap; read-only)
 - `GET /api/symbols?q=XAU&limit=100`
 - `GET /api/quotes?symbol=<exact-terminal-symbol>&timeframe=M5&count=100`
+- `GET /api/history/deals?from_time=2026-11-10T00:00:00Z&to_time=2026-11-11T00:00:00Z&limit=1000` (bounded to 7 days; read-only; returns raw account-currency profit, commission, swap and fee fields for reconciliation)
+
+Profit-First PnL reconciliation must not infer completeness from a boolean flag or detached caller-supplied metadata. Pass the complete `/api/positions` response as the positions snapshot and each complete `/api/history/deals` response as a history chunk. Both responses carry `account_environment=EXNESS_DEMO`; the positions snapshot also carries `mode=read-only`, `order_submission_enabled=false`, `count`, `truncated`, `currency`, `account_login`, `account_server`, and `as_of`. Each history chunk carries its own `deals` array, matching `count`, `currency`, `account_login`, `account_server`, `from_time`, `to_time`, and explicit `truncated=false`. The reconciler rejects mismatched account identities/currencies, detached or count-mismatched deal arrays, non-demo responses, truncated snapshots, gaps/overlaps, chunks longer than seven days, deal timestamps outside their chunk or active-position lifetime, and non-zero account-level deals that cannot be attributed to an active position. It includes current open-position swap and attributed closed-deal swap, and rejects missing/non-finite deal swap metadata. Login/server equality is account-identity consistency only; it does not cryptographically prove a single terminal process/session. This is a data-integrity contract, not proof of a live terminal session or permission to execute broker actions.
 
 Supported timeframes: M1, M5, M15, M30, H1, H4, D1. Discover exact broker symbol names from `/api/symbols`; do not assume a particular gold symbol spelling.
 

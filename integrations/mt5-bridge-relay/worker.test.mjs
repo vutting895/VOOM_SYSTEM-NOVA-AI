@@ -66,15 +66,14 @@ test("valid tenant request is sent only to its named Durable Object", async () =
     observed = { url: new URL(req.url), id, headers: req.headers };
     return Response.json({ connected: true, mode: "read-only", order_submission_enabled: false });
   });
-  const response = await worker.fetch(request("/api/quotes?symbol=XAUUSDm&timeframe=M5&count=20", {
+  const response = await worker.fetch(request("/api/positions", {
     token: TOKEN,
     tenant: TENANT_ID
   }), env);
   assert.equal(response.status, 200);
   assert.equal(observed.id, TENANT_ID);
   assert.equal(observed.url.origin, "https://bridge-session.internal");
-  assert.equal(observed.url.pathname, "/api/quotes");
-  assert.equal(observed.url.searchParams.get("symbol"), "XAUUSDm");
+  assert.equal(observed.url.pathname, "/api/positions");
   assert.equal(observed.headers.get("X-Relay-Internal"), "1");
   assert.equal(observed.headers.get("X-VOOM-TENANT-ID"), TENANT_ID);
   assert.equal(observed.headers.get("Authorization"), null);
@@ -117,6 +116,8 @@ test("order-like routes are denied and not proxied", async () => {
 test("query validation only allows bounded read parameters", () => {
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/symbols?q=XAU&limit=100")), { ok: true });
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&timeframe=M5&count=50")), { ok: true });
+  assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/positions")), { ok: true });
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/positions?symbol=XAUUSDm")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/account?connection_id=abc")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&count=9999")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&symbol=OTHER")).ok, false);

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import math
 import os
 import re
 import threading
@@ -58,6 +59,59 @@ async def enforce_read_only(request: Request, call_next):
             content={"error": "method_not_allowed", "mode": "read-only"},
         )
     return await call_next(request)
+
+
+def _required_deal_integer(deal: Any, field: str, *, allow_zero: bool = False) -> int:
+    raw = getattr(deal, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata unavailable")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid") from None
+    if value < 0 or (value == 0 and not allow_zero):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid")
+    return value
+
+
+def _required_deal_money(deal: Any, field: str) -> float:
+    raw = getattr(deal, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata unavailable")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid") from None
+    if not math.isfinite(value):
+        raise HTTPException(status_code=502, detail=f"MT5 deal {field} metadata invalid")
+    return value
+
+
+
+def _required_position_integer(position: Any, field: str, *, allow_zero: bool = False) -> int:
+    raw = getattr(position, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata unavailable")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid") from None
+    if value < 0 or (value == 0 and not allow_zero):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid")
+    return value
+
+
+def _required_position_number(position: Any, field: str) -> float:
+    raw = getattr(position, field, None)
+    if isinstance(raw, bool) or raw is None:
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata unavailable")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid") from None
+    if not math.isfinite(value):
+        raise HTTPException(status_code=502, detail=f"MT5 position {field} metadata invalid")
+    return value
 
 
 def require_token(authorization: str | None, tenant_id: str | None) -> None:
@@ -184,6 +238,118 @@ def symbols(
             ],
             "count": min(len(found), limit),
             "truncated": len(found) > limit,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+
+@app.get("/api/positions")
+def open_positions(
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return the complete current open-position snapshot; read-only only."""
+    require_token(authorization, tenant_id)
+    with LOCK:
+        get_terminal_and_account()
+        positions = mt5.positions_get()
+        if positions is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 positions unavailable: {error[0]}")
+        account = mt5.account_info()
+        selected = []
+        for position in positions:
+            selected.append({
+                "ticket": _required_position_integer(position, "ticket"),
+                "identifier": _required_position_integer(position, "identifier"),
+                "time": datetime.fromtimestamp(int(position.time), timezone.utc).isoformat(),
+                "type": _required_position_integer(position, "type", allow_zero=True),
+                "magic": int(getattr(position, "magic", 0)),
+                "symbol": str(getattr(position, "symbol", "")),
+                "volume": _required_position_number(position, "volume"),
+                "price_open": _required_position_number(position, "price_open"),
+                "price_current": _required_position_number(position, "price_current"),
+                "sl": _required_position_number(position, "sl"),
+                "tp": _required_position_number(position, "tp"),
+                "profit": _required_position_number(position, "profit"),
+                "swap": _required_position_number(position, "swap"),
+                "comment": str(getattr(position, "comment", "")),
+            })
+        return {
+            "positions": selected,
+            "count": len(selected),
+            "truncated": False,
+            "account_environment": "EXNESS_DEMO",
+            "currency": str(getattr(account, "currency", "")),
+            "account_login": int(getattr(account, "login", 0)),
+            "account_server": str(getattr(account, "server", "")),
+            "mode": "read-only",
+            "order_submission_enabled": False,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/history/deals")
+def deal_history(
+    from_time: str = Query(min_length=20, max_length=40),
+    to_time: str = Query(min_length=20, max_length=40),
+    limit: int = Query(default=1000, ge=1, le=5000),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return bounded, read-only MT5 deal history for commission reconciliation."""
+    require_token(authorization, tenant_id)
+    try:
+        start = datetime.fromisoformat(from_time.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(to_time.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="from_time and to_time must be ISO-8601 timestamps") from None
+    if start.tzinfo is None or end.tzinfo is None:
+        raise HTTPException(status_code=400, detail="timestamps must include a timezone")
+    start = start.astimezone(timezone.utc)
+    end = end.astimezone(timezone.utc)
+    if end <= start:
+        raise HTTPException(status_code=400, detail="to_time must be later than from_time")
+    if (end - start).total_seconds() > 7 * 24 * 60 * 60:
+        raise HTTPException(status_code=400, detail="deal history range cannot exceed 7 days")
+
+    with LOCK:
+        get_terminal_and_account()
+        deals = mt5.history_deals_get(start, end)
+        if deals is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 deal history unavailable: {error[0]}")
+        selected = deals[-limit:]
+        account = mt5.account_info()
+        return {
+            "deals": [
+                {
+                    "ticket": _required_deal_integer(deal, "ticket"),
+                    "order": int(getattr(deal, "order", 0)),
+                    "position_id": _required_deal_integer(deal, "position_id"),
+                    "time": datetime.fromtimestamp(int(deal.time), timezone.utc).isoformat(),
+                    "type": int(getattr(deal, "type", -1)),
+                    "entry": int(getattr(deal, "entry", -1)),
+                    "symbol": str(getattr(deal, "symbol", "")),
+                    "volume": float(getattr(deal, "volume", 0.0)),
+                    "price": float(getattr(deal, "price", 0.0)),
+                    "profit": _required_deal_money(deal, "profit"),
+                    "commission": _required_deal_money(deal, "commission"),
+                    "swap": _required_deal_money(deal, "swap"),
+                    "fee": _required_deal_money(deal, "fee"),
+                }
+                for deal in selected
+            ],
+            "count": len(selected),
+            "truncated": len(deals) > limit,
+            "account_environment": "EXNESS_DEMO",
+            "from_time": start.isoformat(),
+            "to_time": end.isoformat(),
+            "currency": str(getattr(account, "currency", "")),
+            "account_login": int(getattr(account, "login", 0)),
+            "account_server": str(getattr(account, "server", "")),
+            "mode": "read-only",
+            "order_submission_enabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
 

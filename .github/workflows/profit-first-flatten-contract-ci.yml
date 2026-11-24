@@ -1,0 +1,67 @@
+name: Profit-First Flatten Contract CI
+
+on:
+  pull_request:
+    paths:
+      - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/profit_first_pnl.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_pnl.py"
+      - ".github/workflows/profit-first-flatten-contract-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py"
+      - "integrations/mt5-readonly-bridge/profit_first_pnl.py"
+      - "integrations/mt5-readonly-bridge/test_profit_first_pnl.py"
+      - ".github/workflows/profit-first-flatten-contract-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  decision-contract:
+    name: Test non-executing Demo-only decision contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile contract and tests
+        run: |
+          python -m py_compile integrations/mt5-readonly-bridge/profit_first_flatten_contract.py
+          python -m py_compile integrations/mt5-readonly-bridge/test_profit_first_flatten_contract.py
+          python -m py_compile integrations/mt5-readonly-bridge/profit_first_pnl.py
+          python -m py_compile integrations/mt5-readonly-bridge/test_profit_first_pnl.py
+      - name: Run contract tests
+        run: |
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_flatten_contract.py" -v
+          python -m unittest discover -s integrations/mt5-readonly-bridge -p "test_profit_first_pnl.py" -v
+      - name: Assert decision modules contain no broker execution imports or calls
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          files = [
+              Path("integrations/mt5-readonly-bridge/profit_first_flatten_contract.py"),
+              Path("integrations/mt5-readonly-bridge/profit_first_pnl.py"),
+          ]
+          forbidden_imports = {"MetaTrader5", "mt5"}
+          forbidden_calls = {"order_send", "order_check", "positions_close", "order_delete"}
+          for path in files:
+              tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      assert not any(alias.name in forbidden_imports for alias in node.names), f"forbidden import in {path}"
+                  elif isinstance(node, ast.ImportFrom):
+                      assert node.module not in forbidden_imports, f"forbidden import in {path}"
+                  elif isinstance(node, ast.Call):
+                      name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
+                      assert name not in forbidden_calls, f"broker mutation call in {path}"
+          print("Pure decision modules contain no broker execution imports or calls.")
+          PY
