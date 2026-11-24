@@ -1,0 +1,37 @@
+name: NOVA Compose Architecture CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/docker-compose.yml"
+      - ".github/workflows/nova-compose-architecture-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-compose-architecture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose-profile-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate default Compose configuration
+        run: docker compose -f infra/docker-compose.yml config --quiet
+
+      - name: Ensure archived MCP prototype is opt-in only
+        shell: bash
+        run: |
+          default_services="$(docker compose -f infra/docker-compose.yml config --services)"
+          if printf '%s\n' "$default_services" | grep -Fxq "mcp-server-archive"; then
+            echo "Archived MCP prototype unexpectedly appears in default services."
+            exit 1
+          fi
+
+          archive_services="$(docker compose --profile legacy-archive -f infra/docker-compose.yml config --services)"
+          printf '%s\n' "$archive_services" | grep -Fxq "mcp-server-archive"
