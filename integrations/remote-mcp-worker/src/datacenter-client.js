@@ -95,6 +95,34 @@ async function rpc(url, authorization, body, protocolVersion = "") {
   return payload.result;
 }
 
+async function notifyInitialized(url, authorization) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: authorization,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "MCP-Protocol-Version": "2025-03-26",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/initialized",
+        params: {},
+      }),
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch {
+    throw new Error("datacenter_service_unavailable");
+  }
+  if (!response.ok && response.status !== 202) {
+    throw new Error("datacenter_service_protocol_error");
+  }
+}
+
 export async function callDatacenterTool(name, args, request, env) {
   if (!names.has(name)) throw new Error("unknown_datacenter_tool");
   const authorization = request?.headers?.get("Authorization") || "";
@@ -110,11 +138,7 @@ export async function callDatacenterTool(name, args, request, env) {
       clientInfo: {name:"voom-system-mcp",version:"0.3.0"},
     },
   });
-  await rpc(url, authorization, {
-    jsonrpc: "2.0",
-    method: "notifications/initialized",
-    params: {},
-  }, "2025-03-26");
+  await notifyInitialized(url, authorization);
   const result = await rpc(url, authorization, {
     jsonrpc: "2.0",
     id: "nova-datacenter-call",
