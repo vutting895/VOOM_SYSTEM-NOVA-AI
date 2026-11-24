@@ -292,8 +292,6 @@ export default {
       return json({ error: "method_not_allowed", mode: "read-only", ordersEnabled: false }, 405, origin);
     }
 
-    const queryValidation = validateProxyQuery(url);
-    if (!queryValidation.ok) return json({ error: queryValidation.error, mode: "read-only", ordersEnabled: false, liveTradingEnabled: false }, queryValidation.error === "not_found" ? 404 : 400, origin);
 
     const user = await authenticate(request, env);
     if (!user.ok) return json({
