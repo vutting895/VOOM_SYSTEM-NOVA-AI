@@ -192,3 +192,28 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 - Root Vite SPA, legacy `frontend/` residue, and `apps/nova-command-center/` are three distinct path groups with different build/deploy assumptions. They must not be collapsed or moved as a single "frontend" directory.
 - Keep root SPA and Netlify config in place. Keep the app-local Command Center in place until its target hosting and consumer contracts are explicitly selected. Preserve legacy `frontend/` paths until CI references are either corrected under a separate Work Order or proven obsolete.
 - No source or workflow files moved/edited. No CI workflow was run, no deployment was triggered, and no secrets or production configuration were changed.
+
+
+## 11. Command Center API caller and runtime binding audit — 2026-11-25
+
+- Audited exact NOVA main SHA `6114725d5aaee20feeaa73877c67340e5f15fa11`; recursive tree contains 489 entries and is not truncated.
+- Command Center API caller chain is confirmed in source:
+  - `src/lib/nova/auth.tsx` obtains the current Supabase session and supplies its access token through `setTokenGetter`.
+  - `src/lib/nova/api.ts` reads `VITE_NOVA_API_BASE_URL`, sends GET requests with the session bearer token, and provides an unauthenticated health call.
+  - `src/components/nova/useApi.ts`, `src/routes/_authenticated/dashboard.tsx`, and `settings.tsx` consume the API client.
+  - `.env.example` intentionally leaves `VITE_NOVA_API_BASE_URL` blank. The app therefore remains disconnected by default.
+- Current frontend callers require `GET /v1/health`, `/v1/services`, and `/v1/bridge/status`. The documented API contract additionally specifies `/v1/me`, `/v1/bridge/account`, `/v1/risk/policy`, `/v1/approvals`, `/v1/audit`, and `/v1/assistant/status`.
+- The frontend's `ALLOWED_API_PATHS` lists these endpoints, but `assertReadOnlyRequest` currently enforces GET and blocks forbidden path patterns; it does **not** enforce membership in the allow-list. This is a client-side guard gap, not a substitute for server authorization. No client write endpoint is present in the inspected API client.
+- Existing `integrations/system-hub/` is a distinct authenticated broker-connection control plane: it exposes `/v1/integrations`, `/v1/connections`, and per-connection status/check/account/quotes routes. It does not implement the Command Center service/risk/approval/audit API contract. Do not redirect all Command Center calls to System Hub.
+- Existing `integrations/remote-mcp-worker/` is the sole NOVA MCP Gateway (`voom-system-mcp`), exposing `/mcp` and forwarding the user's Supabase bearer session to the configured Datacenter MCP endpoint. It is not a REST replacement for the Command Center API.
+- Deployment/configuration evidence:
+  - The app-local `VITE_NOVA_API_BASE_URL` is blank in the checked-in example.
+  - The app has a dedicated CI workflow, but the inspected Cloudflare deployment workflow targets the legacy `frontend/` directory and the existing System Hub/MCP/MT5 Workers; it does not deploy `integrations/nova-core-api/` or the Command Center app.
+  - No NOVA Core API Worker configuration/deployment target exists on current main. PR #377 documents a separate staging Worker, but its README explicitly says it is not connected to Command Center. No production deployment is established by the inspected evidence.
+- PR comparison against current main:
+  - #373 head `bef349fd9010b39e008b2d2e7960f1e14dff941b`: 18 commits ahead, 134 behind; diverged from merge base `0cceaf5d1d32b4323bcf72f9f26877c6d75886ff`. Its Worker implements the broader documented routes, but several sources remain explicit placeholders/503 (bridge account, risk policy); service and bridge status are static/not verified.
+  - #377 head `1835daca108d993ad98bd878a4f02bb1c4d30fd2`: 40 commits ahead, 134 behind; same stale merge base. Its Worker currently implements health and identity only; README explicitly states the other contract routes are not implemented and the staging Worker is not connected to the Command Center.
+  - Both branches add the same Core API directory and overlap on Worker/package/tests, but #373 adds two Supabase migrations/schema docs and #377 adds distinct Command Center/CI/deployment changes. They are not interchangeable and neither is merge-ready against current main.
+- Preliminary disposition: keep the Command Center REST API boundary as a separate proposed control-plane API only if its authoritative data sources are specified; retain System Hub for broker connections and Remote MCP for MCP/Datacenter. Do not merge either PR wholesale. Port/rebase only after a current-main contract and data-source review.
+- Blockers: no verified production API deployment/binding; no authenticated end-to-end Command Center → API test; no current evidence that #373's claimed production migrations match the actual Supabase migration ledger; no authoritative bridge/risk data integration for all contract routes.
+- No source code, runtime configuration, database, PR state, deployment, secret, permission, or broker state changed during this audit. Trading remains disabled.
