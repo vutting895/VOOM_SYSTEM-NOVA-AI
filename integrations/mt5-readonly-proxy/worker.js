@@ -50,6 +50,8 @@ function validateProxyQuery(url) {
     return { ok: false, error: "valid_connection_id_required" };
   }
   if (url.pathname === "/api/history") {
+    const symbol = url.searchParams.get("symbol") || "";
+    if (!/^[A-Za-z0-9._-]{1,40}$/.test(symbol)) return { ok: false, error: "invalid_symbol" };
     const start = url.searchParams.get("start_utc") || "";
     const end = url.searchParams.get("end_utc") || "";
     const timeframe = (url.searchParams.get("timeframe") || "").toUpperCase();
@@ -271,6 +273,8 @@ export default {
       if (!UI_ORIGINS.has(origin)) return new Response(null, { status: 403, headers: BASE });
       return new Response(null, { status: 204, headers: { ...BASE, ...cors(origin) } });
     }
+    const queryValidation = validateProxyQuery(url);
+    if (!queryValidation.ok) return json({ error: queryValidation.error, mode: "read-only", ordersEnabled: false, liveTradingEnabled: false }, queryValidation.error === "not_found" ? 404 : 400, origin);
     if (request.method === "GET" && url.pathname === "/health" && !url.searchParams.has("connection_id")) {
       return json({
         ok: true,
