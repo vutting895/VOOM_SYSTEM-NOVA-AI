@@ -154,3 +154,10 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Commit: `ac4bb160439ed5118b2bb5b03eb6320c8dac6993`.
 - Validation: instruction write succeeded; read-back verification pending. Documentation-only change; no source tests or deployment performed.
 - Next: read back the instruction and complete the other approved repository rollouts.
+
+
+### Read-back verification — WO-2026-11-24-002
+
+- Verified `WORK_ORDER_INSTRUCTIONS.md` on `main`; blob SHA: `f5b1c5ba43a5fcebc381044a1db6ad82f503943b`.
+- Verified this operation record on `main`; blob SHA: `e59ca7f6929edbf717946a70d9ed6c8c6ccc55bb`.
+- Result: PASS for documentation presence and policy/work-order reference. Source tests not applicable; no runtime behavior or deployment claimed.
