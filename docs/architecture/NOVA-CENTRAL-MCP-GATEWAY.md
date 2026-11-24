@@ -115,7 +115,7 @@ The local `mcp-server/app.py` stdio process is a developer/test harness only. It
 
 - [ ] Exactly one production MCP endpoint is documented and deployed.
 - [ ] No individual adapter Worker implements MCP transport, JSON-RPC, or its own MCP tool catalog.
-- [ ] All MCP tool execution crosses the versioned Hub API contract.
+- [ ] All MCP tool execution crosses the versioned Hub API contract. (Phase 2; not yet complete)
 - [ ] Gateway and Hub independently authenticate/authorize protected requests.
 - [ ] Tenant isolation is tested with at least two distinct users.
 - [ ] Adapter routing is server-side allowlisted and cannot be selected by caller input.
