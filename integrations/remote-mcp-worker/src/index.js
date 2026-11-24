@@ -1,5 +1,5 @@
 import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
-import { getDatasetRecord, getLearningRun, getModelRecord, listDatasetRegistry, listLearningRuns, listModelRegistry } from "./learning-registry.js";
+import { analyzeDatasetReadiness, analyzeModelReadiness, getDatasetRecord, getLearningRun, getModelRecord, listDatasetRegistry, listLearningRuns, listModelRegistry } from "./learning-registry.js";
 
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
@@ -315,6 +315,8 @@ async function callTool(name,args,request,env,user) {
   if (["mt5_connection_status", "mt5_account_summary", "mt5_symbols", "mt5_quotes"].includes(name)) {
     return await runMt5ReadonlyTool(name, args, request, env, user);
   }
+  if (name === "analyze_dataset_readiness") return await analyzeDatasetReadiness(args, request, env);
+  if (name === "analyze_model_readiness") return await analyzeModelReadiness(args, request, env);
   if (name === "list_dataset_registry") return await listDatasetRegistry(args, request, env);
   if (name === "get_dataset_record") return await getDatasetRecord(args, request, env);
   if (name === "list_model_registry") return await listModelRegistry(args, request, env);
@@ -396,6 +398,8 @@ export const tools=[
  {name:"list_workers",description:"List NOVA modules and clearly label local prototypes; execution remains disabled.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"list_nova_skills",description:"List the NOVA skill capability catalog. Metadata only; skills are not executable and grant no permissions.",inputSchema:{type:"object",properties:{domain:{type:"string",enum:["market_data","trading_research","engineering","security","platform","frontend","operations"]}},additionalProperties:false}},
  {name:"get_nova_skill",description:"Read one NOVA skill definition by ID. Metadata only; no skill execution, code writes or trading actions.",inputSchema:{type:"object",properties:{skill_id:{type:"string",minLength:3,maxLength:64,pattern:"^[a-z0-9_]+$"}},required:["skill_id"],additionalProperties:false}},
+ {name:"analyze_dataset_readiness",description:"Evaluate registered dataset metadata against basic quality, validation, hash and UTC-range gates. Does not reopen or rehash source files.",inputSchema:{type:"object",properties:{dataset_id:{type:"string",format:"uuid"}},required:["dataset_id"],additionalProperties:false}},
+ {name:"analyze_model_readiness",description:"Evaluate registered model evidence against artifact, walk-forward, OOS trade, profit-factor, leakage and baseline gates. Does not promote models or authorize trading.",inputSchema:{type:"object",properties:{model_id:{type:"string",format:"uuid"}},required:["model_id"],additionalProperties:false}},
  {name:"list_dataset_registry",description:"List authenticated user's Dataset Registry entries with validation and quality state. Read-only; owner RLS enforced.",inputSchema:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:100},symbol:{type:"string"},timeframe:{type:"string"},validation_status:{type:"string",enum:["pending","passed","failed","blocked"]}},additionalProperties:false}},
  {name:"get_dataset_record",description:"Read one Dataset Registry record by UUID, including manifest and coverage evidence. Owner-scoped read-only.",inputSchema:{type:"object",properties:{dataset_id:{type:"string",format:"uuid"}},required:["dataset_id"],additionalProperties:false}},
  {name:"list_model_registry",description:"List authenticated user's Model Registry entries, architecture, evaluation and OOS gates. Read-only; owner RLS enforced.",inputSchema:{type:"object",properties:{limit:{type:"integer",minimum:1,maximum:100},architecture:{type:"string",enum:["xgboost","lstm","hybrid_xgboost_lstm","meta_ensemble","other"]},lifecycle_status:{type:"string",enum:["candidate","training","evaluating","approved","rejected","retired"]}},additionalProperties:false}},
