@@ -334,3 +334,10 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No PR merged/closed, no branch deleted, no workflow changed, no source/data/model/migration moved or modified, no deployment/DB/secrets/permission/broker action. No tests/builds run or claimed.
 - WO-004 status unchanged: Phase 1 IN_PROGRESS; Phase 2 IN_PROGRESS; Phase 3 PRELIMINARY / BLOCKED with zero moves approved; Phases 4–6 NOT STARTED.
 - Next: inspect exact commit ancestry and full CI/run logs for the latest overlapping PRs; agree one combined Compose proposal with Docker CLI/runtime evidence; continue remaining PR path coverage and current-main caller/config map.
+
+
+## Exact-head GitHub Actions addendum — PR #394
+
+- GitHub Actions run `45447170407` (SMC Research CI, run #590) is attached to exact PR #394 head `08cc8207528012cf0322cb0982d166af4d44894a`.
+- Run conclusion: **SUCCESS**. One job (`smc-tests`) completed successfully. Verified steps include Python dependency setup, SMC module compile, focused SMC tests, pytest regression suite, Cloudflare Worker SMC classification tests, Docker Compose configuration validation, research-worker container build, and frontend container build.
+- This is meaningful exact-head evidence and updates the earlier statement that no exact-head Actions result was verified. It does **not** prove a separate full Remote MCP Node test suite was run: no step is explicitly named as the complete MCP Worker Node test suite. CircleCI status remains error (pipeline 1817), and Vercel context success remains non-production evidence.
