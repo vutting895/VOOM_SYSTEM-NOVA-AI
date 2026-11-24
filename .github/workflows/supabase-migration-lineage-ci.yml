@@ -1,0 +1,62 @@
+name: Supabase Migration Lineage CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-integrity:
+    name: Verify exact Production migration archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify all 28 exact active and archived migration payloads
+        run: node scripts/ci/verify-production-migration-lineage.mjs
+
+  clean-supabase-replay:
+    name: Replay Production migration history on disposable local Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.122.1
+
+      - name: Create an isolated temporary Supabase project and replay all migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d /tmp/nova-migration-replay.XXXXXX)"
+          echo "NOVA_MIGRATION_REPLAY_DIR=$workdir" >> "$GITHUB_ENV"
+          cd "$workdir"
+          supabase init
+          mkdir -p supabase/migrations
+          cp "$GITHUB_WORKSPACE"/supabase/migrations/*.sql supabase/migrations/
+
+          # Local Docker containers and throwaway keys only. No hosted project,
+          # remote access token, Production credentials, or customer data is used.
+          supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          supabase db reset --local
+          supabase migration list --local
+
+      - name: Stop the disposable local Supabase stack
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${NOVA_MIGRATION_REPLAY_DIR:-}" ] && [ -d "$NOVA_MIGRATION_REPLAY_DIR" ]; then
+            cd "$NOVA_MIGRATION_REPLAY_DIR"
+            supabase stop --no-backup || true
+          fi
