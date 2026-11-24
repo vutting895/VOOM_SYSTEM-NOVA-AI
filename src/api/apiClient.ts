@@ -174,25 +174,6 @@ class NovaApiClient {
     return this.fetchJson('/api/quantum/source');
   }
 
-  // 10. Kaggle MCP Compute & Notebook Tools
-  async getKaggleMcpStatus(): Promise<any> {
-    return this.fetchJson('/api/mcp/kaggle/status');
-  }
-
-  async searchKaggleNotebooks(query: string = 'Forex SMC'): Promise<any> {
-    return this.fetchJson('/api/mcp/kaggle/search', {
-      method: 'POST',
-      body: JSON.stringify({ query }),
-    });
-  }
-
-  async triggerKaggleSession(slug: string, machineShape: string = 'NVIDIA T4 x2 Dual GPU'): Promise<any> {
-    return this.fetchJson('/api/mcp/kaggle/session/trigger', {
-      method: 'POST',
-      body: JSON.stringify({ slug, machine_shape: machineShape }),
-    });
-  }
-
   // 11. Live Trading & Read-Only Invariants
   async getLiveTradingStatus(): Promise<any> {
     return this.fetchJson('/api/live-trading/status');
