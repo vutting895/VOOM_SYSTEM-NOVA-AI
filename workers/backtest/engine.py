@@ -75,7 +75,7 @@ class BacktestWorker:
                 entry_cash = cash
                 units = cash * (1 - self.fee) / fill
                 cash = 0.0
-                        fills.append({"side": "buy", "signal_timestamp": candles[i-1]["timestamp"],
+                fills.append({"side": "buy", "signal_timestamp": candles[i-1]["timestamp"],
                               "fill_timestamp": row["timestamp"], "fill_price": fill})
             elif pending_signal == "sell" and units > 0:
                 fill = opens[i] * (1 - self.slippage)
