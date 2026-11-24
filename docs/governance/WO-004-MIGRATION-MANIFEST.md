@@ -126,3 +126,47 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 - **Consumer parity finding — BLOCKED:** adopting only #375 or #376 would create a split schema contract: proxy uses `nova_broker_connections`, while System Hub and documented MCP Gateway still use `broker_connections`. This is not proof of a runtime outage or production schema state; it is a source-level contract mismatch that requires an explicit compatibility plan and tests across all consumers before migration.
 - Current-main source blobs read: proxy Worker `5ae365379a5c255658545a9b058648cac2a8cdc5`; proxy tests `59eadd53e6ed7a07d6d9f7b421680cb8b3366e3f`; System Hub Worker `6d371e4bd619a84fa8d7010309ff517de15bc33e`; Remote MCP README `478a596c0c21f8c6043054ca302f3681022af82c`.
 - Required before reconsideration: map all consumers and migration history; decide canonical schema/view; test proxy, System Hub and Remote MCP together; prove owner isolation and read-only behavior; obtain exact-head CI and rollback evidence. No migration or source change is authorized by this finding.
+
+
+## 10. Live inventory refresh — 2026-11-25 (supersedes older counts)
+
+**Exact source snapshot**
+- Canonical branch: `main`
+- Main SHA: `9b03eaac5d6a3c20a7192cdf375d2446407f6a30`
+- Recursive Git tree SHA equals main; `truncated=false`; 489 tree entries, 374 blobs/files.
+- Branch pagination completed in 5 pages: **331 unique branch names**. This supersedes the earlier 318-branch count.
+- GitHub REST Pull Requests pagination completed: **242 open + 133 closed = 375 PR records**. This supersedes the older 364-PR snapshot (238 open + 126 closed).
+- Root directory counts from the current tree: `apps` 62 entries, `integrations` 72, `workers` 43, `docs` 46, `tests` 32, `.github` 12, `supabase` 6, `infra` 5. Counts include directory entries, not only files.
+
+**Recent PR overlap and disposition refresh**
+| PR | Current evidence | WO-004 disposition |
+|---|---|---|
+| #396 | Open Draft, 14 changed files, base exactly current main. Bounded read-only History API across Bridge, Relay, Proxy and System Hub. PR body records exact-head GitHub Actions run 45452374172 SUCCESS and 27 Bridge/history tests plus Node/Windows checks. Authenticated owner-vs-foreign-tenant Demo E2E not run. | KEEP / REQUIRED CANDIDATE; BLOCKED from merge pending independent security review and tenant-isolation E2E. Existing read-only invariants remain mandatory. |
+| #397 | Open Draft, 7 changed files, base exactly current main. Ports MCP syntax, case-sensitive MT5 symbol validation, RiskWorker gate ordering and full Remote MCP Node tests; adds Datacenter-client workflow path filters. | PREFERRED CONSOLIDATION CANDIDATE over stale #394 and overlapping #400; exact-head CI still pending. Review the #399 workflow overlap before merge. |
+| #398 | Open Draft, 3 changed files, base exactly current main. Archives legacy Python MCP behind opt-in `legacy-archive` Compose profile. Compose-specific validation job passed on exact head; overall SMC CI failed on two failures also reported on main. | KEEP / REQUIRED CANDIDATE; no runtime deployment or Docker startup performed. Keep Draft until unrelated baseline failures are dispositioned and full review completes. |
+| #399 | Open Draft, 1 workflow file. Adds `integrations/remote-mcp-worker/src/datacenter-client.js` to SMC CI path filters. | CONSOLIDATION / DUPLICATE CANDIDATE with #397: #397 already adds the same path to both pull_request and push filters. Do not merge both copies; no PR closure authorized. |
+| #400 | Open Draft, 2 files, current-main base. Narrow RiskWorker gate-order correction. Branch test file contains **two functions with the same name** `test_risk_pass_requires_authenticated_approval_context`; Python's later definition shadows the earlier test, so the intended test coverage is not preserved. | BLOCKED / DEFECT. Overlaps the RiskWorker/test changes in #397; prefer #397 after exact-head validation. Do not merge #400 as-is. |
+| #395 | Open Draft, test-only feature-flag adjustment. Sets `NOVA_APPROVALS_ENABLED=true` in existing approval route tests. | ALTERNATE TEST-ONLY WORKAROUND; likely superseded by #397's runtime gate-order fix and revised tests. Preserve until #397 is validated; no merge/closure. |
+| #394 | Open Draft on stale/diverged base `07afb3f...`; earlier exact-head CI success does not validate current main. | SUPERSEDED implementation candidate by current-main port #397; keep history, no merge. |
+| #388 / #389 | #388 closed/unmerged; #389 open Draft; both are the two-file multi-repo contract documentation pair. | #388 SUPERSEDED candidate by #389; docs only, not implementation or runtime integration proof. |
+| #390 / #391 / #392 / #398 | Earlier Compose archive proposals were closed unmerged; #398 is a clean current-main proposal with focused Compose profile test. | #398 is the current candidate; prior branches are history only. |
+
+**Scope and safety findings**
+- The current tree has both root frontend sources (`src/`, root `package.json`, `frontend/`) and a separate `apps/nova-command-center/` application. Their deployment/build ownership is not fully mapped; do not consolidate or move either yet.
+- The existing canonical Remote MCP Gateway is `integrations/remote-mcp-worker/`; legacy `integrations/nova-ai-mcp-full-clean/` contains both a Python MCP prototype and research/learning code. PR #398 only isolates the legacy service from default Compose startup; it does not authorize relocating or deleting its source directory.
+- Existing System Hub, MT5 Bridge, Relay and Proxy paths are active contract boundaries. PR #396 extends them in place; no directory move is required for this capability.
+- PR #373/#377 Core API overlap and #375/#376 MT5 schema migration collision remain blocked as recorded above.
+- PR #66 and #147 remain isolated. PR #238 remains training-ineligible with its 7,419-hour gap preserved.
+- Complete changed-path lists and exact diff/review/CI reconciliation for every one of the 375 PRs are still not complete. Full repository tree and PR metadata pagination do not equal a completed per-file dependency map.
+
+**Migration decision**
+- Manifest revision 0.1 remains **PRELIMINARY — ZERO FILE MOVES APPROVED**.
+- No source, docs, tests, migrations, workflows, data, model or artifact files were moved in this refresh.
+- No PR merged/closed, no branch deleted, no deployment, DB migration, secret/permission change or broker action occurred.
+- Phase 1 remains IN_PROGRESS; Phase 2 remains IN_PROGRESS; Phase 3 remains PRELIMINARY/BLOCKED; Phases 4–6 remain NOT STARTED.
+
+**Next actions**
+1. Reconcile #397/#399/#400/#395 with exact-head CI and review; do not merge overlapping variants together.
+2. Finish per-PR changed-path coverage for the 375 PRs and map import/caller/workflow/deployment references.
+3. Build a per-directory ownership and dependency matrix for the 374 files, with special attention to the dual frontend roots, legacy MCP, System Hub, and database migrations.
+4. Revise the manifest only when a specific move has proven NOVA ownership, no unresolved callers, passing tests, and rollback evidence.
