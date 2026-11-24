@@ -59,7 +59,7 @@ Explicit limitations: no stop-loss/take-profit, intrabar path modelling, partial
 1. `DATACENTER_MCP_URL` and a production Datacenter host/Tunnel endpoint are not configured or verified.
 2. No authenticated NOVA Gateway → Datacenter end-to-end call is evidenced.
 3. No two-user tenant-isolation integration proof is available yet.
-4. Advanced model families (XGBoost, PyTorch/LSTM, CNN/Vision, GNN, Mamba, continual learning, RL/self-play, etc.) are not yet supported by Datacenter's real training runtime.
+4. Advanced model families beyond the newly supported CPU XGBoost (PyTorch/LSTM, CNN/Vision, GNN, Mamba, continual learning, RL/self-play, etc.) are not yet supported by Datacenter's real training runtime.
 5. Full model walk-forward training/refit is not implemented.
 6. The Learning and Backtest frontend service migration is implemented in source, but no typecheck/build or consolidated test run has been performed after these changes.
 7. Dashboard market overview/candlestick presentation endpoints remain demo/synthetic presentation data and must not be treated as approved training data.
