@@ -634,6 +634,7 @@ export default { async fetch(request, env) {
       liveTradingEnabled: false,
       order_submission_enabled: false,
       ordersEnabled: false,
+      learningServiceConfigured: Boolean(env.DATACENTER_MCP_URL),
       toolCount: tools.length,
       protocolVersions: SUPPORTED_PROTOCOL_VERSIONS
     });
