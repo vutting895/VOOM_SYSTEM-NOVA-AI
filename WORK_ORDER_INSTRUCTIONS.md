@@ -49,3 +49,13 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - You may identify an external repository as a dependency, but must not merge its internal work or progress into a NOVA-local report.
 - Cross-repository reporting is reserved for the central Ecosystem Governance / Master Coordination context, and only for repositories with recorded active or planned work. Each repository must remain separately identified with its own evidence and status.
 - Do not treat GitHub account membership as ecosystem membership. Do not include Voom Studio Affiliate, Voom_system, or unclassified repositories unless the central registry explicitly approves them.
+
+
+## Supplemental approved architecture work — WO-2026-11-24-003
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-24-003-voom-target-architecture.md
+- This Work Order authorizes documentation-only target architecture and repository-structure records in this repository and the central registry.
+- Target: VOOM AI is the main AI automatic-trading application; this repository is the combined VOOM System + NOVA Command Center; Datacenter remains the sole research/learning owner; Shared Contracts remains the canonical schema source.
+- Security & Identity, Infrastructure & DevOps, Knowledge Center, and QA & Testing are internal workstreams, not separate ChatGPT Projects.
+- Every status report must identify the exact repository full name, branch, commit SHA, Work Order/Task ID, status, changed paths, tests/checks, evidence, blockers, and next actions.
+- This Work Order does not authorize code/data migration, API/runtime changes, CI/automation changes, secret/permission changes, deployment, or broker execution. Those require separate scoped approval.
