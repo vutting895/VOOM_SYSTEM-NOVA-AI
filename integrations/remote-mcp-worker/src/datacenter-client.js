@@ -27,12 +27,36 @@ const definitions = [
   ["audit_log_list", "Read the signed-in user's append-only Datacenter operation log.", {limit:{type:"integer",minimum:1,maximum:500}}],
 ];
 
+const requiredArguments = {
+  dataset_get: ["dataset_id"],
+  dataset_register: ["manifest"],
+  dataset_ingest: ["manifest", "rows"],
+  dataset_validate_ohlcv: ["rows", "expected_interval_seconds"],
+  dataset_approve: ["dataset_id", "version"],
+  dataset_consolidate: ["name", "source_dataset_refs", "period", "expected_interval_seconds"],
+  universe_validate: ["definition"],
+  universe_register: ["definition"],
+  universe_get: ["universe_id"],
+  analysis_run: ["dataset_id", "dataset_version", "analysis_type"],
+  analysis_get: ["analysis_id"],
+  analysis_report: ["analysis_id"],
+  learning_submit: ["manifest"],
+  learning_status: ["job_id"],
+  learning_cancel: ["job_id"],
+  learning_logs: ["job_id"],
+  model_get: ["model_id"],
+  model_register: ["job_id"],
+  model_evaluate: ["model_id"],
+  model_approve: ["model_id"],
+};
+
 export const datacenterTools = definitions.map(([name, description, properties]) => ({
   name,
   description,
   inputSchema: {
     type: "object",
     properties,
+    required: requiredArguments[name] || [],
     additionalProperties: false,
   },
 }));
