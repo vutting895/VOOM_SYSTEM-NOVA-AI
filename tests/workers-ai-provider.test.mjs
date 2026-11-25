@@ -148,3 +148,18 @@ test("rejects invalid configuration and non-allowlisted model", () => {
     { code: "UNSUPPORTED_MODEL" },
   );
 });
+
+test("rejects combined prompt content above the configured bound", async () => {
+  const tooLarge = {
+    messages: [
+      { role: "user", content: "x".repeat(16_000) },
+      { role: "assistant", content: "y".repeat(16_000) },
+      { role: "user", content: "z".repeat(1) },
+    ],
+    maxOutputTokens: 128,
+  };
+  await assert.rejects(
+    () => provider(async () => jsonResponse(okEnvelope())).generateText(tooLarge),
+    { code: "INVALID_REQUEST" },
+  );
+});
