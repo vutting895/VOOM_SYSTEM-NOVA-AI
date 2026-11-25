@@ -482,3 +482,20 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Verified current #397 test file has one approval-context test definition; workflow path filters include Datacenter client and approval guard test paths.
 - Manifest update commit: `ddd5ca35e97eb13996f0f79c17071bf31028dea7`. No code, PR, branch, CI, deployment, DB, secret, permission or broker state changed.
 - Decision: no merge while diverged and CI is incomplete. Wait for exact-head check, then reconcile two documentation-only commits on main and review approval auth/RPC behavior.
+
+
+## WO-2026-11-25-003 — NOVA MT5 history and collector implementation (2026-11-25)
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-25-003-nova-mt5-historical-collector.md
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`; current implementation SHA before this log update: `b721d9acd0b9c6781ee3b321910bbe0fa7cc76a4`.
+- User approval: explicitly approved reuse of PR #269 as a reference and direct main development without merging PR #269 or #275.
+- Existing system reused: `dataset_collect_mt5`, the authenticated NOVA Remote MCP Gateway, the existing tenant-bound MT5 proxy/relay, and Datacenter `dataset_ingest`. No new MCP server or Gateway was created.
+- Implemented bounded GET `/api/history` through Bridge, tenant relay and proxy; strict UTC half-open range, timeframe-aligned bounds, closed-candle end cap, 2,000-bar limit, ascending/unique timestamp and OHLCV integrity validation. Hidden Market Watch symbols are not auto-selected; the read path does not mutate symbol visibility.
+- Strengthened Demo check to require the account server itself to identify Exness Demo; terminal company metadata is not used to establish broker identity.
+- Extended existing `dataset_collect_mt5` to accept paired `start_utc`/`end_utc`, fetch bounded timeframe-sized chunks, enforce a 20,000-bar per-call cap, and retain latest-bars mode when range fields are omitted.
+- Added deterministic SHA-256 `ingestion_id` in the existing Datacenter manifest, enabling Datacenter's previously implemented owner-scoped idempotent replay. No Datacenter repository changes were made.
+- Added regression tests for history request validation, tenant-relay routing, proxy query forwarding, history serializer, Demo guard, dataset payload validation and stable ingestion ID. These tests are **AUTHORED, NOT EXECUTED**.
+- Relevant implementation commits: `8e0325a14d74448e4926a714ef18faac50a27db2`, `b688185ccbb6b91a459d7b034bd8829fb2eaa459`, `865f12672b9c67c9c9ed03f30b4ab2a358cf0630`, `80e57177fd9788312beda233a78349c54fe1efbd`, `fab2c8694f025b71cfe864ac7bbc311801c1893b`, `da8ee221c9a294d53d9bbd6121cfd5edc6b43e4b`, `f689378401835f5ee003a842390f2072030a98a9`, `3bead8f7b246b623d92286137f6cf0afba170ec2`, `f4969eeadec95e3649bf76c108304ef0767404e2`, `998072e38677afac42faefb68b0b5278ce9bfce7`, `4c10aaef2d794da587865c20da915e93af5c8d39`, `86d798cbac4c61cb07dce98cbce1771c911d49b9`, `60a9c200c0ab6be4c1d6a6460598c5e84663ef06`, `b721d9acd0b9c6781ee3b321910bbe0fa7cc76a4`.
+- No test runner was available through the connected GitHub tools; no local workspace was used. Exact-head test/CI status is not claimed. No authenticated live MT5 Demo read, Datacenter quality receipt, deployment, secret change or trading operation was performed.
+- Phase 0 source audit DONE. Phase 1 history API implementation IN PROGRESS pending tests. Phase 2 collector/idempotency code authored IN PROGRESS pending exact-head validation. Phase 3 tests authored pending execution. Phase 4 acceptance BLOCKED_DEPENDENCY until tests, live Demo read and Datacenter receipt can be verified.
+- Next: execute Node and Python tests against exact main SHA; review exact-head CI; then conduct authorized read-only Demo collection and verify Datacenter receipt without approving training or enabling trading.
