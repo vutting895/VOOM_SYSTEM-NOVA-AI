@@ -76,6 +76,10 @@ class UnifiedEvaluationTests(unittest.TestCase):
         self.assertEqual(conflict["decision"], "ABSTAIN")
         accepted = fuse_research_signals(0.8, 0.7, 1, 1, 0.9)
         self.assertEqual(accepted["decision"], "LONG")
+        accepted_short = fuse_research_signals(0.2, 0.3, -1, -1, 0.1)
+        self.assertEqual(accepted_short["decision"], "SHORT")
+        neutral_meta = fuse_research_signals(0.8, 0.7, 1, 1, 0.55)
+        self.assertEqual(neutral_meta["decision"], "ABSTAIN")
 
 
 if __name__ == "__main__":
