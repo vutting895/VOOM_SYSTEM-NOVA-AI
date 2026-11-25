@@ -526,3 +526,20 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Updated `docs/governance/WO-004-MIGRATION-MANIFEST.md` with inventory, CI failures, partial #396 supersession, PR states and next actions. No source file moved, PR merged/closed, branch deleted, deployment, DB migration, secret/permission change or broker action occurred.
 - WO-004 Phase 0 DONE; Phase 1–2 IN_PROGRESS; Phase 3 PRELIMINARY/BLOCKED; Phases 4–6 NOT STARTED; zero file moves approved. WO-003 Phase 0 DONE; implementation/tests authored but Phase 4 acceptance BLOCKED.
 - Next: obtain explicit approval for narrow #397 risk-gate and mixed-case symbol fixes; reconcile Supabase project/migration identity read-only; review missing System Hub history route; continue per-file caller mapping.
+
+
+
+## WO-2026-11-25-003 / WO-004 — narrow Risk Gate and MT5 symbol fixes (2026-11-25)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Before SHA: `b8a5be4c5d8ccc17711dcd3984fc0853e7fa2151`.
+- Implementation commits:
+  - `e755507fa7518bb50d7d314cccd77cb2a8b7d905` — `workers/runtime.py`: deterministic RiskWorker rejection now precedes optional approval-service checks.
+  - `915c5be5dad69cb4430c3d5cd03331eabd065066` — `tests/test_research_pipeline.py`: regression coverage for risk rejection with approvals disabled, missing Bearer token, and authenticated fail-closed approval-disabled path.
+  - `f321da6490c434db576a18adbbde707582460532` — `integrations/remote-mcp-worker/src/datacenter-client.js`: symbol allowlist accepts ASCII upper/lowercase while retaining length and character restrictions.
+  - `f9f0de409910499dcd430105126916987fcccd7b` — `integrations/remote-mcp-worker/tests/datacenter-client.test.mjs`: mixed-case `XAUUSDm` acceptance and unsafe-symbol rejection regression.
+  - `408cd711fa34868460de7788a1de7a8242218d92` — `.github/workflows/smc-research-ci.yml`: explicitly execute the Datacenter client/MT5 regression test file.
+- Exact-head SMC Research CI: run [45522509178](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45522509178), head `408cd711fa34868460de7788a1de7a8242218d92`; status at log preparation: IN_PROGRESS. Do not claim tests PASS until run conclusion is success and all relevant steps completed.
+- PR #397 remains OPEN/DRAFT and was not merged. No approval feature flag was enabled; no database migration, secrets/permissions, deployment, broker write, order execution, or live trading action occurred.
+- Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
+- Next: verify exact-head CI conclusion and all test steps; then update Issue #36 with final evidence. If CI fails, inspect logs and stop before further changes.
