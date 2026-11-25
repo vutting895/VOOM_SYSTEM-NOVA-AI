@@ -39,3 +39,14 @@ Acceptance requires source commit, compiler and terminal builds, account mode, s
 - Candidate source SHA-256: `117922854A349331074549A0015178E061820B512AD6778F50621E2742DDA283`.
 - Generated local research EX5 SHA-256: `CA0693620C4182383C1E731691D456A699A3E4D330C1B635AADF9BCE7D417161`.
 - Runtime request interception, common-file concurrency, restart/day-rollover, broker fault-injection, Demo integration and strategy OOS/walk-forward are not executed. The test matrix is not accepted.
+
+
+## Evidence update — 2026-11-26
+
+- Request Audit instrumentation added to the isolated candidate: 8 OrderSend call sites and 1 PositionModify call are routed through audited adapters; ten entry guards emit BLOCKED events.
+- Host-side contract harness: 23 tests passed, 0 failed.
+- Multi-instance fixtures: 16 concurrent Risk Slot claimants produced one winner; 24 concurrent symbol instances shared one simulated daily baseline.
+- Restart, rollover, lock failure, corrupted baseline, multi-symbol risk, USC/USD normalization, partial-close reject/timeout and broker reject/timeout fixtures passed in the host harness.
+- MetaEditor X64 Regular compile: 0 errors, 3 warnings.
+
+**Important:** these are host-side simulations, not MT5 Strategy Tester or MT5 FILE_COMMON runtime results. The actual terminal request log is not yet generated. SAFE/RISK/REC runtime acceptance remains BLOCKED pending isolated MT5 execution and fault-injection evidence.
