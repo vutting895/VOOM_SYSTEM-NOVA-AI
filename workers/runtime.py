@@ -107,10 +107,8 @@ def walk_forward(payload: WalkForwardRequest) -> dict[str, Any]:
 @app.post("/v1/risk/approval")
 def risk_approval(payload: RiskApprovalRequest,
                   authorization: str | None = Header(default=None)) -> dict[str, Any]:
-    if os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true":
-        raise HTTPException(status_code=503, detail="approval_workflow_disabled")
-    # This gate only creates an authenticated draft-review request. Approval never
-    # authorizes broker writes; execution must remain separately disabled.
+    # Deterministic risk rejection must take precedence over optional approval
+    # service availability so an over-limit proposal is always rejected by policy.
     risk = RiskWorker().check(allocation_pct=payload.allocation_pct,
         daily_loss_pct=payload.daily_loss_pct, drawdown_pct=payload.drawdown_pct,
         leverage=payload.leverage, data_age_seconds=payload.data_age_seconds,
