@@ -103,5 +103,7 @@ test('portfolio risk and count include managed positions and pending orders acro
   const counts = candidate.slice(candidate.indexOf('bool V177_MatchesExposure('), candidate.indexOf('bool V177_CanOpenCore('));
   assert.match(counts, /OrdersTotal\(\)/);
   assert.match(counts, /V177_CountOpenTotal\(\) \{ return V177_CountExposure\(0\); \}/);
-  assert.match(candidate, /cross-chart atomic reservation remains a release blocker/);
+  assert.match(candidate, /NOVA_PortfolioReserve\(/);
+  assert.match(candidate, /NOVA_PortfolioReconcile\(\)/);
+  assert.doesNotMatch(openRisk, /gState\[i\]\.inflight_risk_money/);
 });
