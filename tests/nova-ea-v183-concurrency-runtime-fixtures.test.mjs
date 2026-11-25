@@ -184,5 +184,3 @@ test('Runtime safety: pending order cancellation and partial close are individua
   assert.match(functionBody('Trail_SendPartialClose'), /if\(NOVA_PHASE2_EXECUTION_DISABLED\) return false;/);
   assert.match(functionBody('RecoveryPartialClose'), /if\(NOVA_PHASE2_EXECUTION_DISABLED\) return false;/);
 });
-
-[executed on device: 10_3_6_9 (eafcd939-e63c-40af-bf66-4429eb8f9319)]
