@@ -68,3 +68,6 @@ python -m unittest -v
 ## MT5 exporter status
 
 No MQL5 exporter has been wired into the candidate yet. The next step is a local-only JSONL exporter after confirming the exact EA source hash and implementing a safe, provisioned account-scope pseudonym. Do not add WebRequest, OrderSend, trade mutation, or chart-install behavior as part of telemetry export.
+
+
+Important validation limitation: `validate_event.py` enforces provenance, privacy, event-type and safety-critical invariants, but is not a complete implementation of every JSON Schema numeric/range/format constraint. Before production ingestion, the host API must validate against the pinned JSON Schema as well as call this validator. The SQLite adapter is development-only until that full-schema gate and authenticated host integration are present.
