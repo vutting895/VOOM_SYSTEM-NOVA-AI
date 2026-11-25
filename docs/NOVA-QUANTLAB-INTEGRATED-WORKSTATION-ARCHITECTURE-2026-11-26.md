@@ -414,3 +414,33 @@ Before the Integrated Workstation can be called operational, require:
 
 PR: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/427
 Development Branch: `dev/nova-quantlab-integrated-workstation-20261126`
+
+
+## 19. Implementation update — first executable contract slice (2026-11-26)
+
+The Development Branch now contains the first executable research-job domain primitive:
+
+- `workers/quant_engine/job_lifecycle.py`: allowlisted research job types, immutable snapshots, explicit legal state transitions, expected-state conflict protection, terminal-state immutability, tenant-scoped event values and bounded free-CPU timeout.
+- `tests/test_quant_engine.py`: added lifecycle contract tests.
+- `.circleci/config.yml`: added the default CircleCI config after the exact status description identified the missing-configuration error.
+- Quant Engine README and Contract Reconciliation document updated to describe scope and limitations.
+
+This is not yet a durable job service. Persistence, transactionally appended events, distributed idempotency, worker leases, queue delivery, Hub API, authenticated worker dispatch and cross-tenant authorization remain unimplemented.
+
+### CI and local validation
+
+- CircleCI's prior error was explicitly `No configuration was found in your project`; the default config is now present on this branch. Latest `quant-foundation` check must complete successfully before merge.
+- GitHub Actions exact-head Quant Engine check must also be inspected independently.
+- Connected Windows workstation is on the correct development branch, but C: has 0 bytes free; Bun is unavailable. Frontend install/build was not run. No cleanup or deletion was attempted.
+- No production configuration, Cloudflare/Netlify deployment, Supabase migration, secrets, or broker state was changed.
+
+### Updated status
+
+- Architecture and source audit: DONE.
+- Contract reconciliation: DONE.
+- Pure research job lifecycle primitive: IMPLEMENTED; CI pending.
+- Durable job service and Hub integration: NOT STARTED.
+- Registry persistence and RLS verification: BLOCKED.
+- Frontend QuantLab routes/API wiring: NOT STARTED.
+- Real dataset/worker/model/OOS evidence: NOT VERIFIED.
+- Main remains unchanged at `821db357d70d3613b0ca61520eaae5c5307e8fd4`.
