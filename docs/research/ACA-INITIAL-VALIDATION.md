@@ -20,7 +20,7 @@
 
 Each value is the arithmetic mean of the best fitness over 10 independent seeds. ACA consistently outperformed uniform random search on these three synthetic 10D functions. Population 2 was strongest in these particular experiments; this is not evidence that it is universally optimal.
 
-## Unit tests
+## Reproduction\n\nRun the committed benchmark with `python scripts/research/benchmark_aca.py --evaluations 10000 --seeds 10`. It emits a JSON record with per-seed configuration, evaluation budget, ACA population-size comparisons, and a uniform-random baseline.\n\n## Unit tests
 
 Five tests passed locally:
 - exact objective evaluation budget and bound enforcement;
