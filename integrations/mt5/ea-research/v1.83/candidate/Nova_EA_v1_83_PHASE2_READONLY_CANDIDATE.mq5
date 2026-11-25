@@ -1960,6 +1960,7 @@ bool LoadAccountDayBaseline(const datetime day,const double currentEquity,double
          FileWriteDouble(h,baseline);
          FileWriteInteger(h,trusted?1:0,INT_VALUE);
          FileFlush(h);
+         if(FileSize(h)!=20) ok=false; // long + double + int; reject truncated baseline files
       }
    }
    else
