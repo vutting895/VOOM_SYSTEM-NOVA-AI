@@ -5,7 +5,11 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  # Owner-requested single consolidated validation after Datacenter host/API configuration.
+  pull_request:
+    paths:
+      - "integrations/system-hub/**"
+      - ".github/workflows/frontend-ci.yml"
+  # Keep manual full-stack validation available for owner-approved consolidated runs.
   workflow_dispatch:
 
 
