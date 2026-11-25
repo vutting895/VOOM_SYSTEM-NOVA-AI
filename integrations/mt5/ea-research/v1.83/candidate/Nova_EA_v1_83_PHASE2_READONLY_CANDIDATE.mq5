@@ -1941,8 +1941,13 @@ bool LoadAccountDayBaseline(const datetime day,const double currentEquity,double
    string serverKey=IntegerToString((long)TextHash(AccountInfoString(ACCOUNT_SERVER)));
    string fileName=StringFormat("NOVA_DAY_%I64d_%I64d_%s_%I64d.bin",
       AccountInfoInteger(ACCOUNT_LOGIN),InpMagicBase,serverKey,(long)day);
-   int h=FileOpen(fileName,FILE_READ|FILE_WRITE|FILE_BIN|FILE_COMMON);
-   if(h==INVALID_HANDLE) return false; // another instance may own the file; retry next tick
+   int h=INVALID_HANDLE;
+   for(int attempt=0;attempt<20 && h==INVALID_HANDLE;attempt++)
+   {
+      h=FileOpen(fileName,FILE_READ|FILE_WRITE|FILE_BIN|FILE_COMMON);
+      if(h==INVALID_HANDLE) Sleep(50);
+   }
+   if(h==INVALID_HANDLE) return false; // fail closed if the shared baseline cannot be locked
    bool ok=true;
    if(FileSize(h)==0)
    {
