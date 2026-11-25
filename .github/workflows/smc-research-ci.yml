@@ -23,7 +23,8 @@ on:
       - "server.ts"
       - "package-lock.json"
       - "integrations/remote-mcp-worker/src/index.js"
-      - "integrations/remote-mcp-worker/tests/**"
+      - "integrations/remote-mcp-worker/tests/datacenter-client.test.mjs"
+      - "integrations/remote-mcp-worker/tests/smc.test.mjs"
       - "integrations/remote-mcp-worker/package.json"
       - ".github/workflows/smc-research-ci.yml"
   push:
@@ -45,7 +46,8 @@ on:
       - "server.ts"
       - "package-lock.json"
       - "integrations/remote-mcp-worker/src/index.js"
-      - "integrations/remote-mcp-worker/tests/**"
+      - "integrations/remote-mcp-worker/tests/datacenter-client.test.mjs"
+      - "integrations/remote-mcp-worker/tests/smc.test.mjs"
       - "integrations/remote-mcp-worker/package.json"
       - ".github/workflows/smc-research-ci.yml"
 
