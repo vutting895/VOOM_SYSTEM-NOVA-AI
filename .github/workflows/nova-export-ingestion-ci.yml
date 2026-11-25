@@ -32,7 +32,9 @@ jobs:
           node-version: "22"
       - name: Run isolated ingestion Worker tests
         working-directory: workers/data-ingestion
-        run: node --test
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node --test
 
   host-uploader:
     runs-on: ubuntu-latest
