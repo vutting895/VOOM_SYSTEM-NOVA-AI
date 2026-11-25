@@ -27,19 +27,19 @@ Do not claim the three flags are implemented in the current EA candidate: the ea
 ## Implemented in this branch (source exists; not yet runtime-proven)
 
 1. `NOVA_BrainEventExporter.mqh`: local-only JSONL market_snapshot writer; no WebRequest or trade APIs.
-2. `uploader.py`: host-side HMAC-SHA256 account pseudonymization, full Draft 2020-12 validation via jsonschema, HTTPS POST, and receipt digest verification.
-3. `workers/data-ingestion/src/index.js`: Supabase Auth identity validation, tenant-scoped POST/GET event routes, strict safety-critical plus full Draft 2020-12 validation, exact canonical request-byte SHA-256, idempotent insert, conflicting replay rejection, read-back integrity verification.
+2. `uploader.py`: host-side HMAC-SHA256 account pseudonymization, full Draft 2020-12 validation via jsonschema, HTTPS POST, redirect blocking, receipt digest verification, and authenticated read-back digest/content verification.
+3. `workers/data-ingestion/src/index.js`: Supabase Auth identity validation, per-user owner-scoped POST/GET event routes, strict safety-critical plus full Draft 2020-12 validation, exact canonical request-byte SHA-256, idempotent insert, conflicting replay rejection, read-back integrity verification.
 4. `migrations/0001_create_nova_brain_events.sql`: D1 table keyed by (tenant_id,event_id).
 5. Node test suite for authentication, tenant isolation, replay, conflict, forbidden fields, read-only execution audit, and absence of trading routes.
-6. Python tests for HMAC scope/key separation and canonical JSON.
+6. Python tests for HMAC scope/key separation, canonical JSON, schema validation, HTTPS endpoint policy, redirect blocking, and read-back digest verification.
 
 ## Important known limitations
 
 - MQL5 module currently exports market_snapshot only and has not been wired into the EA v1.83 event loop.
 - MQL5 module has not been compiled with MetaEditor. Exact source hash and commit metadata must be supplied by the caller.
 - MQL5 event ID generation is for uniqueness, not cryptographic security.
-- Host uploader and API Worker have not yet been executed against each other.
-- Worker-side validation requires parity tests against the complete JSON Schema. Host-side full Draft 2020-12 validation is mandatory but cannot replace server validation.
+- Host uploader and API Worker have not yet been executed against each other; read-back behavior is currently covered by mocked host-side tests and Worker read-back is covered by mocked D1 tests.
+- Worker and host both invoke the pinned Draft 2020-12 schema; exact semantic parity and real Auth/D1 integration remain to be proven.
 - D1 database is not provisioned. wrangler.toml intentionally contains a placeholder database ID. Do not deploy until provisioned and approved.
 - No Supabase schema or production project has been mutated.
 - No MT5 terminal receipt, ingestion receipt, or read-back receipt exists.
@@ -94,3 +94,11 @@ The current implementation uses the verified Supabase user UUID as the storage o
 ## Serialization and digest contract
 
 The host uploader serializes event objects as deterministic sorted-key compact JSON. The Worker hashes and stores the exact received request bytes rather than re-serializing parsed JSON, avoiding Python/JavaScript numeric formatting drift. Identical uploader retries therefore produce the same digest; differently serialized bodies with the same event ID are treated as conflicting payloads.
+
+
+## CI evidence (exact commit 50fb7726e9bc787b1e7f2345760074077e5fafd3)
+
+- GitHub Actions run 45701861762: ingestion Worker 7/7 tests PASS; Python uploader 8/8 tests PASS; static safety checks PASS.
+- The Node test suite uses mocked Supabase Auth and D1; it does not prove live Supabase or D1 integration.
+- CircleCI reports a separate configuration error because no `.circleci/config.yml` exists on this Main baseline. It is not the result of the passing GitHub Actions jobs.
+- The uploader was subsequently extended with redirect blocking and read-back verification tests; rerun CI on the latest head before treating those additions as validated.
