@@ -103,7 +103,10 @@ class UnifiedEvaluationTests(unittest.TestCase):
     def test_notebook_smc_events_align_at_confirmation_availability_not_pivot_time(self):
         notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-        source = "".join(notebook["cells"][15]["source"])
+        source = next(("".join(cell.get("source", [])) for cell in notebook["cells"]
+                       if cell.get("cell_type") == "code"
+                       and "def signal_maps" in "".join(cell.get("source", []))), "")
+        self.assertTrue(source, "Notebook signal_maps cell was not found")
         self.assertIn("raw_key = event.get('decision_timestamp', event.get('available_at'))", source)
         self.assertIn("if raw_key is None: raise ValueError('SMC replay record has no decision/availability timestamp')", source)
         self.assertNotIn("event.get('timestamp', event.get('event_time'))", source)
@@ -111,7 +114,10 @@ class UnifiedEvaluationTests(unittest.TestCase):
     def test_notebook_lstm_training_return_contract_is_unpacked(self):
         notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-        training_source = "".join(notebook["cells"][15]["source"])
+        training_source = next(("".join(cell.get("source", [])) for cell in notebook["cells"]
+                               if cell.get("cell_type") == "code"
+                               and "def run_training_and_oos" in "".join(cell.get("source", []))), "")
+        self.assertTrue(training_source, "Notebook training cell was not found")
         tree = ast.parse(training_source)
         parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
         calls = [node for node in ast.walk(tree)
@@ -129,6 +135,25 @@ class UnifiedEvaluationTests(unittest.TestCase):
             unpacked.append({item.id for item in target.elts if isinstance(item, ast.Name)})
         self.assertTrue(any("valid_ends" in names for names in unpacked))
         self.assertTrue(any("final_valid_ends" in names for names in unpacked))
+
+    def test_notebook_label_end_timestamps_do_not_cross_session_segments(self):
+        notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = next(("".join(cell.get("source", [])) for cell in notebook["cells"]
+                       if cell.get("cell_type") == "code"
+                       and "research['label_end_timestamp']" in "".join(cell.get("source", []))), "")
+        self.assertIn("market.groupby('segment_id', sort=False).timestamp.shift(-HORIZON)", source)
+        self.assertNotIn("research['label_end_timestamp'] = market.timestamp.shift(-HORIZON)", source)
+
+    def test_notebook_datacenter_import_is_explicitly_disabled_by_default(self):
+        notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = next(("".join(cell.get("source", [])) for cell in notebook["cells"]
+                       if cell.get("cell_type") == "code"
+                       and "def import_approved_datacenter_dataset" in "".join(cell.get("source", []))), "")
+        self.assertIn("dataset_export_chunk", source)
+        self.assertIn("IMPORT_APPROVED_DATASET = False", source)
+        self.assertIn("approval_status') != 'approved'", source)
 
     def test_future_available_feature_is_rejected(self):
         with self.assertRaises(DatasetGateError):
