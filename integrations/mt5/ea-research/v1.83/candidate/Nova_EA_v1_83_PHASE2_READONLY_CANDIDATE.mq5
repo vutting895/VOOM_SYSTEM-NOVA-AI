@@ -2131,6 +2131,11 @@ bool NOVA_PortfolioLatestState(const NOVA_PortfolioRecord &records[],const ulong
 bool NOVA_PortfolioBrokerVisible(const NOVA_PortfolioRecord &record)
 {
    string tag=NOVA_PortfolioTag(record.request_id);
+   if(record.order_ticket>0 && OrderSelect(record.order_ticket))
+   {
+      if(OrderGetInteger(ORDER_MAGIC)==record.magic &&
+         NOVA_PortfolioHashString(OrderGetString(ORDER_SYMBOL))==record.symbol_hash) return true;
+   }
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
       ulong ticket=PositionGetTicket(i); if(ticket==0) continue;
@@ -2144,6 +2149,22 @@ bool NOVA_PortfolioBrokerVisible(const NOVA_PortfolioRecord &record)
       if(OrderGetInteger(ORDER_MAGIC)==record.magic &&
          NOVA_PortfolioHashString(OrderGetString(ORDER_SYMBOL))==record.symbol_hash &&
          StringFind(OrderGetString(ORDER_COMMENT),tag)>=0) return true;
+   }
+   // Broker may replace comments on filled market orders; map order -> deal -> open position.
+   if(record.order_ticket>0 && HistorySelect(record.created_at-120,TimeCurrent()+60))
+   {
+      for(int i=HistoryDealsTotal()-1;i>=0;i--)
+      {
+         ulong deal=HistoryDealGetTicket(i); if(deal==0) continue;
+         if((ulong)HistoryDealGetInteger(deal,DEAL_ORDER)!=record.order_ticket) continue;
+         ulong position_id=(ulong)HistoryDealGetInteger(deal,DEAL_POSITION_ID);
+         if(position_id==0) continue;
+         for(int j=PositionsTotal()-1;j>=0;j--)
+         {
+            ulong ticket=PositionGetTicket(j); if(ticket==0) continue;
+            if((ulong)PositionGetInteger(POSITION_IDENTIFIER)==position_id) return true;
+         }
+      }
    }
    return false;
 }
@@ -2186,7 +2207,9 @@ bool NOVA_PortfolioRecoverLocked(NOVA_PortfolioRecord &records[])
       NOVA_PortfolioRecord latest=records[i];
       if(latest.state==NOVA_PORTFOLIO_PREPARED)
       {
-         if(!NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_RELEASED,0)) return false;
+         // Keep the short write-ahead window live; release only stale PREPARED records.
+         if(TimeCurrent()-latest.created_at>30 &&
+            !NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_RELEASED,0)) return false;
          continue;
       }
       if(latest.state!=NOVA_PORTFOLIO_DISPATCHING && latest.state!=NOVA_PORTFOLIO_ACCEPTED &&
