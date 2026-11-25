@@ -40,3 +40,16 @@ Warnings:
 ## Limitations
 
 Compile and static tests are not runtime proof that zero broker requests are emitted. No MT5 Strategy Tester request-interception, Demo forward, broker fault-injection, restart/day-rollover integration test, or OOS performance test has been run. The candidate remains compile-time disabled and is not production-approved.
+
+
+## Request Audit update — 2026-11-26
+
+- Candidate MQ5 SHA-256: 73D0F395F2F4A81C3543306587BDACDDE48628DBCD2191B00862FFE32214445B.
+- Request Audit wrappers added: all 8 former OrderSend call sites route through NovaAuditOrderSend; the sole raw OrderSend call is inside that adapter.
+- CTrade.PositionModify routes through NovaAuditPositionModify; the sole raw PositionModify call is inside that adapter.
+- Ten hard-disable guards emit structured NOVA_REQUEST_AUDIT BLOCKED events; OnDeinit prints per-instance counters.
+- Recompile with MetaEditor X64 Regular: 0 errors, 3 warnings. The two deprecated POSITION_COMMISSION warnings and one long-to-double conversion warning remain.
+- Combined Node suite: 23 passed, 0 failed. Host-side concurrency/failure fixtures are not MT5 runtime proof.
+- See evidence/runtime-gate-20261126/ for compiler log, test output, request-audit contract, runtime report and SHA-256 manifest.
+
+**Runtime acceptance remains BLOCKED:** Candidate has not been loaded in an isolated MT5 terminal/Strategy Tester. No actual terminal Request Audit log exists. FILE_COMMON concurrency, real terminal restart/rollover, broker fault injection, USC broker account and Demo read-only integration remain untested.
