@@ -246,3 +246,35 @@ This branch may contain documentation and isolated development-only contracts/te
 - report profitability or model readiness without reproducible OOS evidence.
 
 Release requires a separate reviewed PR and evidence bundle. The default state remains research-only and read-only.
+
+
+## 12. Executable slice update — research job lifecycle (2026-11-26)
+
+The first domain-level implementation has been added on the Development Branch:
+
+- `workers/quant_engine/job_lifecycle.py` defines a standard-library-only immutable research job snapshot, append-only event value, allowlisted research job types, legal transition graph, optimistic expected-state check, terminal-state immutability, timezone-aware monotonic event timestamps and a bounded `free-cpu` timeout profile.
+- `workers/quant_engine/__init__.py` exports the public domain types and functions.
+- `tests/test_quant_engine.py` adds lifecycle tests for the happy path, forbidden transitions, terminal immutability, state conflicts, unsafe job types, bounded resources, identity validation, timestamp ordering, event scope and immutable snapshots.
+- `workers/quant_engine/README.md` documents the new primitive.
+- This is intentionally a pure in-memory domain primitive. It does not provide durable persistence, atomic DB transactions, distributed idempotency, worker leases, HTTP routes, queue delivery, cancellation of running processes or cross-tenant authorization. Those remain Hub/job-service responsibilities and must be implemented separately.
+
+### CircleCI configuration repair
+
+The exact GitHub commit status for the previous head reported:
+
+`No configuration was found in your project. Please refer to https://circleci.com/docs/2.0/ to get started with your configuration.`
+
+The repository had no `.circleci/config.yml` at the audited Main SHA. A default `.circleci/config.yml` has now been added on this Development Branch. It uses `cimg/python:3.11`, compiles the Quant Engine/test modules, and runs the standard-library unittest suite without installing third-party dependencies. The new CircleCI check name is `quant-foundation`; its result must be checked at the latest branch head before merge.
+
+### Exact-head verification status
+
+- [x] Confirmed CircleCI failure reason from GitHub commit status description.
+- [x] Added the default CircleCI config path on the Development Branch.
+- [x] Added the research-job lifecycle domain module and unit tests.
+- [ ] CircleCI `quant-foundation` check completed successfully at final head.
+- [ ] GitHub Actions `quant-foundation-tests` completed successfully at final head.
+- [ ] Local Windows frontend validation; blocked because C: drive reported 0 bytes free and Bun was unavailable. No files were deleted to free space.
+- [ ] Durable job persistence/idempotency/lease implementation.
+- [ ] Hub/MCP runtime parity, authenticated worker dispatch and tenant-isolation tests.
+
+The CircleCI config repair is a code/config fix, not proof that CircleCI is green. The domain state machine is not a production queue or evidence of an operational QuantLab runtime.
