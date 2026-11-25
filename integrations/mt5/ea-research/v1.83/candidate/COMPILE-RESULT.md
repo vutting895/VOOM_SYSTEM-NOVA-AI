@@ -22,7 +22,8 @@ The prior possible long-to-double conversion warning was corrected with an expli
 ## Static tests
 
 - Command: node --test tests/nova-ea-v183-source-integrity.test.mjs
-- Result: **9 passed, 0 failed** (re-run after the design update; 130 ms)
+- Original source-integrity suite: **9 passed, 0 failed**.
+- Combined source-integrity + concurrency/risk fixtures: **20 passed, 0 failed** (Windows, 227.9 ms). See `docs/trading/EA-V1.83-CONCURRENCY-FIXTURE-RESULTS-2026-11-26.md`.
 - Coverage includes immutable source hashes, byte identity, hard-disabled execution paths, daily Entry Lock Only, portfolio caps, strict SMC mode, completed-bar H1 filter, confirmed prior-swing logic, and pending-order exposure aggregation.
 
 ## Safety / remaining validation
@@ -33,5 +34,7 @@ The prior possible long-to-double conversion warning was corrected with an expli
 - Multi-symbol pending-order fixtures, cross-chart concurrency, hedging/netting, USC/USD conversion and broker fault-injection: **NOT RUN**.
 - Strategy Tester real-tick backtest, OOS, walk-forward, Monte Carlo and Demo forward test: **NOT RUN**.
 - Cross-chart in-flight reservations remain instance-local and block execution enablement. The separate portfolio reservation design document is a specification only, not implementation.
+- The new concurrency test uses a deterministic atomic-ledger reference model; it does not prove the current EA implementation is atomic across charts/terminals/hosts.
+- The mutation-path checks are source-level guard/call-site audits, not live MT5 request interception. USC is a mathematical fixture, not a broker contract test.
 
 Compile and static-test success do not establish strategy profitability or runtime safety.
