@@ -84,3 +84,16 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - Do not create another Gateway/MCP endpoint, call Datacenter directly from the browser, or modify the Datacenter repository under this Work Order.
 - No broker write, orders, execution, transfer, withdrawal, deployment, production secret/permission changes, paid resources, or live trading.
 - Follow the central Work Order phases and stop conditions. Authored tests are not executed tests; no live collection is proven without a real Demo Bridge response and Datacenter quality receipt.
+
+
+## Approved NOVA Agent Skills System — WO-2026-11-26-001
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-26-001-nova-agent-skills-system.md
+- Cursor-discoverable NOVA Skills live under .cursor/skills/<skill-name>/SKILL.md.
+- Use nova-skill-orchestrator for NOVA repository tasks; load only the smallest relevant specialist Skill(s).
+- Governance preflight always takes precedence: verify current main SHA, local instructions, applicable approved Work Order, Issue #36, operations log, and exact-head PR/check evidence before edits.
+- NOVA remains Main-only. Skills do not authorize feature branches, PRs, merges, deployment, CI/automation changes, secrets, permissions, paid services, broker writes, or trading activation.
+- New NOVA agents default to OpenAI Agents/API tools. Cursor Agent SDK guidance is conditional on an explicit user request.
+- Preserve ordersEnabled=false, executionEnabled=false, and liveTradingEnabled=false. Production deployment remains paused; Datacenter remains the sole research/learning owner.
+- Cursor Skill discovery/selection is model-mediated. Do not claim automatic invocation from file presence alone; record an observed runtime invocation test before making that claim.
+- Initial scope is documentation and agent instructions only. Any runtime, CI, security, permission, deployment, cost, or trading scope requires a separate approved Work Order.
