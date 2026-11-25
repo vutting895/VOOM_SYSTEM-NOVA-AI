@@ -38,3 +38,12 @@ The prior possible long-to-double conversion warning was corrected with an expli
 - The mutation-path checks are source-level guard/call-site audits, not live MT5 request interception. USC is a mathematical fixture, not a broker contract test.
 
 Compile and static-test success do not establish strategy profitability or runtime safety.
+
+
+## Shared Portfolio Coordinator recompile — 2026-11-26
+- Exact branch candidate source SHA-256: BA7BCE4997CC6501A72A8944D6AFA502DBCA239D000F453E66642403A7B81E4D.
+- Exact branch candidate EX5 SHA-256: AF539345C41C248B9B21DB13DE67D5755E2540C5CE142B3E01E04056EA07F800.
+- MetaEditor X64 Regular: 0 errors, 2 deprecated POSITION_COMMISSION warnings, 10,435 ms.
+- Broker adapter runtime self-test script: 0 errors, 0 warnings.
+- Portfolio coordinator harness: 0 errors, 0 warnings.
+- Runtime script OnStart PASS logs were not captured; compile success is not runtime proof.
