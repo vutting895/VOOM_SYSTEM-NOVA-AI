@@ -5,7 +5,7 @@ This module deliberately has no broker, order, deployment, or model-provider cli
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
