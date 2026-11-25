@@ -288,7 +288,11 @@ test("signed-in user can create one pending Exness Demo connection request", asy
     assert.equal(body.connection.recordStatus, "pending");
     assert.equal(body.connection.readiness, "pending_provisioning");
     assert.equal(body.ordersEnabled, false);
+    assert.equal(body.executionEnabled, false);
     assert.equal(body.liveTradingEnabled, false);
+    assert.equal(body.connection.ordersEnabled, false);
+    assert.equal(body.connection.executionEnabled, false);
+    assert.equal(body.connection.liveTradingEnabled, false);
     assert.doesNotMatch(bodyText, /bridge_route_id|access_token|password/);
     assert.ok(insertPayload);
   } finally {
