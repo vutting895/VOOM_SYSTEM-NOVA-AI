@@ -109,7 +109,7 @@ def walk_forward_windows(
     train_bars: int,
     test_bars: int,
     step_bars: int | None = None,
-    purge_bars: int,
+    purge_bars: int = 0,
     expanding: bool = True,
 ) -> tuple[WalkForwardWindow, ...]:
     """Create reproducible rolling or expanding train/test windows.
