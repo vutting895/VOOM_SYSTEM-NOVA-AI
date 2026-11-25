@@ -141,3 +141,41 @@ The project `tlyyxufuiimrbaksoitf` must not be promoted to canonical solely beca
 **NOT DONE:** no schema changes, SQL writes, data copy, secret changes, deployment, merge, broker action, or live-trading enablement.
 
 **Next action:** complete WP-1 by inventorying every repository Supabase consumer and produce the contract matrix; request operator-supplied Dashboard backup/restore evidence before any database test or DDL.
+
+
+## 9. WP-1 initial repository inventory — 2026-11-25
+
+The following source-level consumers/configuration paths were confirmed on the pinned main SHA. This is a repository inventory, not proof of the currently configured Netlify or Cloudflare environment values.
+
+| Consumer / path | Supabase configuration contract | Access pattern / purpose | Status |
+|---|---|---|---|
+| Root Next.js frontend, `frontend/README.md` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser auth/data configuration; publishable key only | Confirmed in README; implementation/env binding still needs tracing |
+| Legacy/root Vite client, `src/lib/supabase.ts` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser Supabase JS client with persisted session and refresh | Confirmed |
+| NOVA Command Center, `apps/nova-command-center/src/lib/nova/config.ts`, `supabase.ts` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Browser Auth client; role is display-only, Worker enforces authorization | Confirmed |
+| Root env template, `.env.example` | `VITE_SUPABASE_URL` points to `rovhmjeowracayicbqij`; blank anon key | Local configuration template; safe defaults disable trading and broker writes | Confirmed |
+| Command Center env template, `apps/nova-command-center/.env.example` | `VITE_SUPABASE_URL` points to `rovhmjeowracayicbqij`; placeholder publishable key | Local browser configuration | Confirmed |
+| NOVA AI Worker, `integrations/nova-ai-worker/README.md` | Deployment maps `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to Worker `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` | Verifies bearer token through Supabase Auth; research-only API | Confirmed in README; live Worker secret values not inspected |
+| System Hub Worker, `integrations/system-hub/README.md` | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` from GitHub Actions deployment configuration | Authenticated owner-scoped PostgREST reads and pending Demo request creation | Confirmed in README; live Worker secret values not inspected |
+| Research Worker, `workers/runtime.py` | `SUPABASE_URL` plus `SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_ANON_KEY` | Authenticated owner-scoped durable approval RPC after deterministic paper-mode risk check | Confirmed in source; deployment/runtime binding not yet confirmed |
+| Approval guard, `integrations/notifications/approval_guard.py` | Constructor receives Supabase URL and publishable key | Approval API integration; caller wiring and deployment binding need tracing | Confirmed interface; end-to-end wiring not yet verified |
+| Alpaca OAuth migration, `supabase/migrations/202610240001_alpaca_oauth.sql` | References server-only `SUPABASE_SERVICE_ROLE_KEY` in comments | OAuth state/token operations must remain server-side; actual consumer inventory remains open | Migration evidence only; active consumer not established |
+| Local/staging integration tests | `NOVA_LOCAL_SUPABASE_*` and `NOVA_STAGING_SUPABASE_*` variables | Local Auth/RLS and staging isolation test harnesses | Confirmed in test sources; secrets and execution status not inspected |
+
+### Initial findings
+
+1. The repository has at least three naming conventions for the project URL: `NEXT_PUBLIC_SUPABASE_URL`, `VITE_SUPABASE_URL`, and Worker-side `SUPABASE_URL`. These are not automatically a defect because they belong to different build/runtime boundaries, but each mapping must be traced to its deployment workflow and actual environment.
+2. The documented target is consistently `rovhmjeowracayicbqij` in the root and Command Center env templates and the NOVA connection document. This confirms the repository configuration baseline, not the target project's migration health.
+3. The research Worker and System Hub rely on publishable/anon credentials for Auth/PostgREST with user bearer tokens. No evidence in this inventory supports putting a service-role key in either Worker.
+4. The Alpaca migration references a service-role key for server-side OAuth state/token operations. The active code consumer and current deployment status are not yet established; do not infer that the migration alone proves an active service.
+5. The frontend README and actual app entrypoints must be separated by application boundary. The Next.js frontend's `NEXT_PUBLIC_*` variables must not be confused with the Vite Command Center's `VITE_*` variables.
+
+### WP-1 remaining tasks
+
+- Trace all workflow files that map GitHub Actions variables/secrets into Netlify and Cloudflare deployments.
+- Inspect Worker source code and `wrangler` bindings for every Supabase consumer, including MT5 read-only Proxy and System Hub.
+- Trace `workers/runtime.py` to its deployment target and identify whether it is active, test-only, or local-only.
+- Search for other Supabase REST/RPC clients, SQLAlchemy/Postgres connections, and Storage consumers not found by the initial token search.
+- Inspect deployment configuration names only; do not reveal or retrieve secret values.
+- Produce a final matrix with environment (production/staging/local), target project reference, key class (publishable vs server-only), tables/RPCs, and owner.
+
+**WP-1 status: IN PROGRESS.** Initial source paths identified; deployment mapping and complete consumer coverage remain unverified.
