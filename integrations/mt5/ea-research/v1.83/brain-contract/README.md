@@ -25,7 +25,7 @@ Provide a versioned, provenance-bound, read-only event envelope for moving MT5 o
 
 - UTC timestamps only; signal/decision events must be based on closed bars.
 - Every event pins EA source SHA-256 and repository commit.
-- Account scope is pseudonymized with SHA-256; raw account login, account number, server name, credentials and tokens are forbidden.
+- Account scope must be pseudonymized with HMAC-SHA-256 using a secret held outside Git; a plain hash of a low-entropy account identifier is not sufficient; raw account login, account number, server name, credentials and tokens are forbidden.
 - `execution_audit` is valid only when mode is `READ_ONLY`, broker request attempted is false, and broker transport calls equal zero.
 - BUY/SELL are research signal labels only. This contract does not authorize order placement.
 - Never export broker credentials, personal identifiers, account statements, or raw broker-specific account metadata to the public repository.
