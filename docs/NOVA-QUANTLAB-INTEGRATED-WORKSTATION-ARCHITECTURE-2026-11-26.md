@@ -444,3 +444,15 @@ This is not yet a durable job service. Persistence, transactionally appended eve
 - Frontend QuantLab routes/API wiring: NOT STARTED.
 - Real dataset/worker/model/OOS evidence: NOT VERIFIED.
 - Main remains unchanged at `821db357d70d3613b0ca61520eaae5c5307e8fd4`.
+
+
+## 20. CI correction status (2026-11-26)
+
+- The prior CircleCI error was a missing configuration file. The default `.circleci/config.yml` is now recognized and CircleCI creates a `quant-foundation` workflow.
+- The first GitHub Actions run found two test-input defects (one legacy split call missing required `purge_bars`, one timestamp test asserting on an equal rather than earlier time). Both test cases were corrected.
+- The latest branch head after the test correction is `eb6172ed9d2816eaf1965aae39f7da0d6a0cfe96`; the follow-up documentation commit records the CI blocker.
+- CircleCI's latest observed job failed after 3 seconds; detailed logs are not available because no CircleCI token/CLI is present in the connected environment.
+- GitHub Actions has no check result recorded for the corrected latest code head. The previous run's failure cannot be treated as a pass after the fix.
+- Local Windows C: drive reports 0 bytes free; frontend dependencies/build remain unverified. No disk cleanup was performed.
+
+**Current classification:** CircleCI config discovery = DONE; CircleCI job = FAILED / ROOT CAUSE UNKNOWN; GitHub Actions at corrected exact head = NOT VERIFIED; Frontend build = BLOCKED. Do not merge this PR.
