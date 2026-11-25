@@ -54,6 +54,13 @@ async function sha256Hex(value) {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+function isFiniteNonNegative(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+function isStringArray(value, min = 0, max = 32) {
+  return Array.isArray(value) && value.length >= min && value.length <= max &&
+    value.every(item => typeof item === "string" && item.length <= 64);
+}
 function validateEvent(event) {
   if (!isObject(event) || !hasOnlyKeys(event, new Set([
     "schema_version", "event_id", "event_type", "occurred_at", "source", "scope",
@@ -66,9 +73,10 @@ function validateEvent(event) {
   if (!isObject(source) || !hasOnlyKeys(source, new Set([
     "component", "ea_version", "source_sha256", "repo_commit", "symbol", "timeframe", "model_version"
   ]))) return "invalid_source";
-  if (source.component !== "mt5_ea" || typeof source.ea_version !== "string" ||
+  if (source.component !== "mt5_ea" || typeof source.ea_version !== "string" || source.ea_version.length < 1 || source.ea_version.length > 32 ||
       !HEX_64.test(source.source_sha256 || "") || !GIT_SHA.test(source.repo_commit || "") ||
-      typeof source.symbol !== "string" || !source.symbol || !TIMEFRAMES.has(source.timeframe)) return "invalid_source_provenance";
+      typeof source.symbol !== "string" || !source.symbol || source.symbol.length > 32 || !TIMEFRAMES.has(source.timeframe) ||
+      (source.model_version !== undefined && (typeof source.model_version !== "string" || source.model_version.length > 64))) return "invalid_source_provenance";
   const scope = event.scope;
   if (!isObject(scope) || !hasOnlyKeys(scope, new Set(["account_scope_hmac", "magic_scope"])) ||
       !HEX_64.test(scope.account_scope_hmac || "") ||
@@ -81,28 +89,55 @@ function validateEvent(event) {
     if (market.bar_time_utc !== undefined && !validUtc(market.bar_time_utc)) return "invalid_market_time";
     if (["bid", "ask", "spread_points", "atr"].some(k => market[k] !== undefined &&
       (typeof market[k] !== "number" || !Number.isFinite(market[k]) || market[k] < 0))) return "invalid_market_value";
+    if (market.bar_closed !== undefined && typeof market.bar_closed !== "boolean") return "invalid_bar_closed";
     if (["signal", "decision"].includes(event.event_type) && market.bar_closed !== true) return "unclosed_bar";
     if (market.data_quality !== undefined && !["PASS", "WARN", "BLOCKED"].includes(market.data_quality)) return "invalid_data_quality";
   }
   if (event.signal !== undefined) {
     const s = event.signal;
     if (!isObject(s) || !hasOnlyKeys(s, new Set(["strategy", "side", "score", "reason_codes", "feature_hash"])) ||
-      typeof s.strategy !== "string" || !["BUY", "SELL", "NONE"].includes(s.side) ||
-      typeof s.score !== "number" || !Number.isFinite(s.score) || s.score < 0 || s.score > 1) return "invalid_signal";
+      typeof s.strategy !== "string" || s.strategy.length < 1 || s.strategy.length > 64 ||
+      !["BUY", "SELL", "NONE"].includes(s.side) ||
+      typeof s.score !== "number" || !Number.isFinite(s.score) || s.score < 0 || s.score > 1 ||
+      (s.reason_codes !== undefined && !isStringArray(s.reason_codes)) ||
+      (s.feature_hash !== undefined && !HEX_64.test(s.feature_hash))) return "invalid_signal";
   }
   if (event.decision !== undefined) {
     const d = event.decision;
     if (!isObject(d) || !hasOnlyKeys(d, new Set(["result", "model_version", "reason_codes", "confidence", "feature_hash"])) ||
       !["ACCEPT", "REJECT", "ABSTAIN"].includes(d.result) || typeof d.model_version !== "string" ||
-      !Array.isArray(d.reason_codes) || d.reason_codes.length < 1 || d.reason_codes.length > 32) return "invalid_decision";
+      d.model_version.length < 1 || d.model_version.length > 64 || !isStringArray(d.reason_codes, 1, 32) ||
+      (d.confidence !== undefined && (typeof d.confidence !== "number" || !Number.isFinite(d.confidence) || d.confidence < 0 || d.confidence > 1)) ||
+      (d.feature_hash !== undefined && !HEX_64.test(d.feature_hash))) return "invalid_decision";
   }
   if (event.execution_audit !== undefined) {
     const a = event.execution_audit;
     if (!isObject(a) || !hasOnlyKeys(a, new Set(["mode", "broker_request_attempted", "broker_transport_calls", "blocked_mutation_attempts"])) ||
-      a.mode !== "READ_ONLY" || a.broker_request_attempted !== false || a.broker_transport_calls !== 0) return "execution_not_read_only";
+      a.mode !== "READ_ONLY" || a.broker_request_attempted !== false || a.broker_transport_calls !== 0 ||
+      (a.blocked_mutation_attempts !== undefined && (!Number.isSafeInteger(a.blocked_mutation_attempts) || a.blocked_mutation_attempts < 0))) return "execution_not_read_only";
   }
-  if (event.risk !== undefined && !isObject(event.risk)) return "invalid_risk";
-  if (event.outcome !== undefined && !isObject(event.outcome)) return "invalid_outcome";
+  if (event.risk !== undefined) {
+    const r = event.risk;
+    if (!isObject(r) || !hasOnlyKeys(r, new Set(["allowed", "account_currency", "proposed_risk_pct", "proposed_risk_money", "open_risk_pct", "position_count", "reason_codes"])) ||
+      typeof r.allowed !== "boolean" || !/^[A-Z]{3}$/.test(r.account_currency || "") ||
+      !isFiniteNonNegative(r.open_risk_pct) || !Number.isSafeInteger(r.position_count) || r.position_count < 0 ||
+      ["proposed_risk_pct", "proposed_risk_money"].some(k => r[k] !== undefined && !isFiniteNonNegative(r[k])) ||
+      (r.reason_codes !== undefined && !isStringArray(r.reason_codes))) return "invalid_risk";
+  }
+  if (event.outcome !== undefined) {
+    const o = event.outcome;
+    if (!isObject(o) || !hasOnlyKeys(o, new Set(["closed_volume", "realized_pnl", "commission", "swap", "account_currency", "close_reason", "position_fingerprint"])) ||
+      ["closed_volume"].some(k => o[k] !== undefined && !isFiniteNonNegative(o[k])) ||
+      ["realized_pnl", "commission", "swap"].some(k => o[k] !== undefined && (typeof o[k] !== "number" || !Number.isFinite(o[k]))) ||
+      (o.account_currency !== undefined && !/^[A-Z]{3}$/.test(o.account_currency)) ||
+      (o.close_reason !== undefined && (typeof o.close_reason !== "string" || o.close_reason.length > 64)) ||
+      (o.position_fingerprint !== undefined && !HEX_64.test(o.position_fingerprint))) return "invalid_outcome";
+  }
+  const requiredByType = {
+    market_snapshot: "market", signal: "signal", decision: "decision",
+    risk_check: "risk", execution_audit: "execution_audit", trade_outcome: "outcome"
+  };
+  if (!event[requiredByType[event.event_type]]) return "event_type_payload_missing";
   return null;
 }
 async function authenticate(request, env) {
@@ -148,7 +183,7 @@ async function ingest(request, env, tenantId) {
   const digest = await sha256Hex(payload);
   const insertedAt = new Date().toISOString();
   try {
-    await env.DB.prepare(
+    const writeResult = await env.DB.prepare(
       "INSERT OR IGNORE INTO nova_brain_events (tenant_id,event_id,schema_version,event_type,occurred_at,payload_json,payload_sha256,received_at) VALUES (?,?,?,?,?,?,?,?)"
     ).bind(tenantId, event.event_id, event.schema_version, event.event_type, event.occurred_at, payload, digest, insertedAt).run();
     const stored = await env.DB.prepare(
@@ -156,7 +191,7 @@ async function ingest(request, env, tenantId) {
     ).bind(tenantId, event.event_id).first();
     if (!stored) return fail(503, "storage_receipt_missing");
     if (stored.payload_sha256 !== digest) return fail(409, "event_id_payload_conflict");
-    const duplicate = stored.received_at !== insertedAt;
+    const duplicate = Number(writeResult?.meta?.changes || 0) === 0;
     return response({
       ok: true, status: duplicate ? "DUPLICATE_CONFIRMED" : "ACCEPTED",
       receipt: { event_id: event.event_id, payload_sha256: digest, received_at: stored.received_at, schema_version: event.schema_version }
