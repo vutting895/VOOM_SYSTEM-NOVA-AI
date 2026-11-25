@@ -26,6 +26,7 @@ The exporter writes timestamps in broker/server time. Do not label them UTC or c
 
 ## Outputs
 
+- `NOVA_XAUUSDm_SYMBOL_SPEC.csv`: server, account currency, digits, point, tick size/value, contract size, volume min/max/step, calculation mode and broker currency fields.
 - `NOVA_XAUUSDm_M5_<from>_<to>.csv`: M5 OHLC, tick volume, broker spread points, real volume.
 - `NOVA_XAUUSDm_TICKS_YYYYMMDD.csv`: bid, ask, last, volume, volume_real, flags and millisecond timestamp, one file per day.
 
