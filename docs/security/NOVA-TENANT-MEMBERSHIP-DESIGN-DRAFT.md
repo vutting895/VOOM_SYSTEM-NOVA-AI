@@ -13,6 +13,12 @@ Do not reinterpret an existing `user_id`, `requested_by`, or `actor` column as `
 
 This document defines the target model and its test contract only. It adds no SQL migration and authorizes no DDL, RLS, grants, data changes, or Supabase settings changes.
 
+### Product cardinality — provisional, not approved
+
+The draft model is designed to support **multiple tenant memberships per user**: the same authenticated user may belong to more than one tenant, with an independent role and membership status in each tenant. The database key is therefore `(tenant_id, user_id)`; do not add a global UNIQUE constraint on `user_id`.
+
+This is an architectural default for the draft, not a confirmed product requirement. The owner must explicitly confirm whether users may join multiple tenants before a migration or tenant-management API is implemented. Until then, keep tenant creation, invitations, membership writes, and tenant APIs unimplemented.
+
 ## 2. Read-only evidence from the selected project
 
 Observed application relations:
@@ -59,7 +65,7 @@ The selected project has a separate migration-reconciliation blocker documented 
 | accepted_at | timestamptz | Nullable until accepted |
 
 Constraints:
-- Primary key or unique constraint on `(tenant_id, user_id)`.
+- Primary key or unique constraint on `(tenant_id, user_id)`; a user may have memberships in multiple tenants, subject to the pending product decision above.
 - A tenant must have exactly one active owner at all times; owner transfer is an atomic privileged operation.
 - At most one pending invite per `(tenant_id, normalized_email)` if email-based invites are introduced. Do not store raw invite tokens in this table.
 - Role and status values are constrained at the database layer.
@@ -138,11 +144,12 @@ Tests must run against an isolated Supabase test target or local Supabase stack 
 
 1. Resolve the existing NOVA migration-ledger/source mismatch and verify a restorable backup or accepted logical export.
 2. Confirm tenant product semantics: who can create tenants, invite members, transfer ownership, suspend tenants, and access audit records.
-3. Write a forward-only migration in a separate PR; do not apply it to the selected project.
-4. Validate schema replay from an empty isolated database and upgrade against a schema snapshot matching the selected project.
-5. Run the full two-user RLS matrix, role escalation tests, and existing NOVA approval/MT5 read-only regression tests.
-6. Review grants, function ownership, SECURITY DEFINER exposure, indexes, and migration rollback/restore plan.
-7. Obtain separate explicit authorization before any production DDL or migration.
+3. Confirm whether users may belong to multiple tenants; the current multi-membership design remains provisional until this decision is explicit.
+4. Write a forward-only migration in a separate PR; do not apply it to the selected project.
+5. Validate schema replay from an empty isolated database and upgrade against a schema snapshot matching the selected project.
+6. Run the full two-user RLS matrix, role escalation tests, and existing NOVA approval/MT5 read-only regression tests.
+7. Review grants, function ownership, SECURITY DEFINER exposure, indexes, and migration rollback/restore plan.
+8. Obtain separate explicit authorization before any production DDL or migration.
 
 ## 9. Explicitly out of scope
 
