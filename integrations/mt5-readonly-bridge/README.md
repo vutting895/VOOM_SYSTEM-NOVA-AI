@@ -51,6 +51,14 @@ Start using the tenant-aware script from the bridge directory:
 
 The script fails closed if the tenant ID or tenant-specific token file is missing or invalid. It binds Uvicorn to `127.0.0.1:8787` and opens an outbound authenticated WSS connection to `https://voom-mt5-bridge-relay.suwapat787.workers.dev`. No custom domain, named Tunnel, or public local port is required. The relay client reconnects with backoff and does not log tokens or account payloads.
 
+## Relay liveness and status
+
+The outbound relay client sends an application-level WebSocket message `{ "type": "heartbeat" }` every 2 seconds while connected. The Durable Object records the latest heartbeat timestamp in the WebSocket attachment (ephemeral memory only; no database or Durable Object storage write per heartbeat). A heartbeat older than 6 seconds is reported as stale. WebSocket transport ping/pong remains separate from this application heartbeat.
+
+The authenticated Cloudflare relay endpoint `GET /status` requires the tenant bearer token and `X-VOOM-TENANT-ID`. It returns tenant-scoped liveness fields (`connected`, `websocketConnected`, `lastHeartbeat`, `heartbeatAgeMs`, `heartbeatIntervalMs`) and explicit safety flags (`mode=read-only`, `ordersEnabled=false`, `liveTradingEnabled=false`, `order_submission_enabled=false`). It returns 401/403 for authentication or tenant failures, 405 for non-GET methods, and 503 when no tenant WebSocket session exists. `websocketConnected=true` with `connected=false` means the socket exists but its application heartbeat is missing or stale.
+
+This endpoint reports relay-session liveness only. It does not by itself prove MT5 account freshness, Supabase Owner Session validity, or Dashboard integration.
+
 ## Endpoints
 
 - `GET /health`
