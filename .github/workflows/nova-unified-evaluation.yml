@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "workers/quant_engine/unified_evaluation.py"
-      - "tests/test_unified_evaluation.py"
+      - "tests/test_quant_unified_evaluation.py"
       - "notebooks/NOVA_Unified_Intelligence_Research.ipynb"
       - ".github/workflows/nova-unified-evaluation.yml"
   workflow_dispatch:
@@ -22,4 +22,4 @@ jobs:
         with:
           python-version: "3.11"
       - name: Validate unified evaluation and notebook contracts
-        run: python -m unittest discover -s tests -p 'test_unified_evaluation.py' -v
+        run: python -m unittest discover -s tests -p 'test_quant_unified_evaluation.py' -v
