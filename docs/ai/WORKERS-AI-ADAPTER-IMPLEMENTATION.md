@@ -17,6 +17,7 @@ The adapter uses Cloudflare's account-scoped REST inference route and keeps the 
 Safety behavior:
 - One allowlisted model only: `@cf/zai-org/glm-4.7-flash`.
 - Output limited to 32–1,024 tokens; default 256.
+- Each message is limited to 16,000 characters and the combined request is limited to 32,000 characters.
 - Request timeout bounded to 500–30,000 ms; default 12 seconds.
 - Thinking disabled using `chat_template_kwargs`; output budget uses `max_completion_tokens`.
 - Accepts only a non-empty text response with `finish_reason: stop`.
@@ -36,6 +37,7 @@ The test file covers:
 6. Request timeout.
 7. Invalid message count and output bounds.
 8. Invalid configuration and unsupported model.
+9. Combined prompt-size limit.
 
 Run locally from the repository root after installing the declared dependencies:
 
