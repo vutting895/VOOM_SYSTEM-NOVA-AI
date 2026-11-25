@@ -318,3 +318,85 @@ Source review of PR #384 migration and UI found:
 - [ ] Resolve current-Main port plan and canonical contract ownership.
 - [ ] Build/test the integrated workstation at exact Development Branch head.
 - [ ] Draft PR only after exact-head validation.
+
+
+## 16. Live infrastructure read-only audit (2026-11-26)
+
+This section records read-only control-plane/database inspection. No Cloudflare configuration, Worker code, Supabase schema, migration, secret, route, deployment or trading setting was changed.
+
+### Cloudflare account and Worker inventory
+
+The connected Cloudflare account exposes these relevant scripts:
+
+- voom-system-mcp
+- voom-system-hub
+- voom-mt5-bridge-relay and voom-mt5-bridge-relay-staging
+- voom-mt5-readonly-proxy and voom-mt5-readonly-proxy-staging
+- nova-core-api-staging
+- voom-system-nova-ai
+- voom-system-nova-ui
+
+Control-plane deployment snapshot:
+
+| Worker | Latest listed deployment | Active version traffic | Observation |
+|---|---|---:|---|
+| voom-system-mcp | 2026-11-01 | 100% | Older than the latest Hub deployment; check protocol compatibility before cutover |
+| voom-system-hub | 2026-11-23 | 100% | Hub exists and has a recent deployment; source-to-deployed parity not proven |
+| voom-mt5-bridge-relay | 2026-11-23 | 100% | Bridge Relay deployment exists |
+| voom-mt5-readonly-proxy | 2026-11-23 | 100% | Read-only Proxy deployment exists |
+| nova-core-api-staging | 2026-11-24 | 100% | Staging API deployment exists |
+
+The account-level Workers subdomain is enabled. Script settings expose Supabase URL/publishable-key bindings for MCP/Hub and secret bindings for MT5 routing/authorization on the broker adapters. Secret values were not read or recorded.
+
+The MCP Worker's latest listed deployment is 2026-11-01, while the Hub's latest listed deployment is 2026-11-23. This does not prove they are incompatible, but it creates a version-skew risk. The Hub PR itself says MCP migration to Hub routes is Phase 2 and is not complete.
+
+A public health URL attempt through the available web retrieval path was not accessible. This is not evidence that the Workers are down; authenticated HTTP health and MCP protocol smoke tests remain unverified. The control-plane API confirms deployment assignments, not successful end-user requests or repository SHA parity.
+
+### Supabase live project snapshot
+
+The inspected project was ACTIVE_HEALTHY, PostgreSQL 17, region ap-northeast-1. Read-only schema inventory across schemas found:
+
+| Schema/table | RLS | Interpretation |
+|---|---|---|
+| nova.audit_events | enabled | Existing NOVA audit store |
+| nova.approvals | enabled | Existing NOVA approval metadata |
+| nova.emergency_stops | enabled | Existing emergency-stop metadata |
+| nova.mt5_broker_connections | enabled | Existing NOVA MT5 Demo connection metadata |
+| public.affiliate_state_snapshots | enabled | VOOM Studio Affiliate durable snapshot table |
+
+No nova_dataset_registry, nova_model_registry or nova_learning_runs tables were present in the live schema inventory. The PR #384 migration 202611240001_nova_learning_registries is not present in the listed migration history. Therefore the PR #384 Learning Dashboard cannot be assumed to work against this database yet.
+
+The same Supabase project contains both NOVA schema tables and an Affiliate-owned public table. This is logical schema separation, not separate Supabase project/database isolation. Before QuantLab adds more data, confirm whether project-level sharing is an accepted zero-cost compromise or whether NOVA and Affiliate require separate project boundaries. Do not move data or create another project as part of this audit.
+
+### Live Supabase security observations
+
+The project's Security Advisor returned:
+- INFO: public.affiliate_state_snapshots has RLS enabled but no policies.
+- WARN: leaked-password protection is disabled.
+
+The RLS-without-policy finding may be an intentional deny-all posture for a private server-side snapshot table; it is not permission to add a broad policy. Verify its intended access path and server-side ownership before changing it. Leaked-password protection is an Auth hardening item, not a QuantLab migration dependency. Both findings are recorded for review; neither was modified.
+
+### Revised runtime integration gate
+
+Before the Integrated Workstation can be called operational, require:
+
+1. Verify the deployed Worker code/version against the intended Git commit for MCP, Hub, Bridge Relay and Read-only Proxy.
+2. Run public health and authenticated MCP/Hub contract smoke tests without exposing credentials.
+3. Verify Hub-to-MCP/Proxy Service Binding behavior and downstream token validation.
+4. Verify the NOVA Supabase schema and RLS with owner A / owner B test identities in an isolated staging environment.
+5. Decide whether NOVA/Affiliate project-level database separation is required; preserve the current schema boundary until that decision.
+6. Only then port the Registry migration design, repair its tenant-local run key and typed plugin model, and test the migration in staging. No production migration is authorized here.
+
+## 17. Final audit status update
+
+- [x] Cloudflare Worker inventory and latest deployment assignments inspected read-only.
+- [x] Relevant Worker binding names/types inspected without reading secret values.
+- [x] Supabase project health and schema inventory inspected read-only.
+- [x] Confirmed NOVA Core tables exist in the nova schema.
+- [x] Confirmed QuantLab Registry tables/migration are not present in the inspected project.
+- [x] Identified shared Supabase project-level boundary between NOVA and Affiliate.
+- [x] Recorded Supabase Security Advisor findings without modifying policies or Auth settings.
+- [ ] Public/authenticated Worker smoke tests and deployed-source parity.
+- [ ] Staging RLS tenant-isolation verification.
+- [ ] Decide project-level NOVA/Affiliate Supabase isolation policy.
+- [ ] Build and test the QuantLab workstation on this Development Branch.
