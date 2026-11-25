@@ -84,3 +84,8 @@ Do not claim the three flags are implemented in the current EA candidate: the ea
 ## Release rule
 
 No merge, auto-merge, deployment, EA installation, Main edit, database production migration, or Live Trading activation before all applicable gates pass. Keep the PR Draft until evidence is complete. Report incomplete gates as BLOCKED, not DONE.
+
+
+## Ownership boundary clarification
+
+The current implementation uses the verified Supabase user UUID as the storage owner namespace. It provides per-user isolation, not shared organization tenant membership. Do not describe this as organization-level multi-tenancy until a trusted tenant-membership model and cross-member authorization tests exist.
