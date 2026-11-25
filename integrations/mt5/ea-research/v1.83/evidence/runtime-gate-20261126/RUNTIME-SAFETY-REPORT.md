@@ -43,3 +43,9 @@ OOS and walk-forward are not part of this safety-harness result.
 ## Decision
 Automated host-side harness and compile pass. MT5 Runtime Safety Gate remains BLOCKED.
 Do not enable execution, Demo forward, merge, or release based on this evidence alone.
+
+## Source fingerprints
+- Candidate MQ5 SHA-256: 73D0F395F2F4A81C3543306587BDACDDE48628DBCD2191B00862FFE32214445B
+- Locally generated research EX5 SHA-256: 476D32453E1A4A461D0FF7BED443009D74E15397AC8E84DF03733B9D682B8B43 (not committed)
+- Pre-audit candidate backup SHA-256: 117922854A349331074549A0015178E061820B512AD6778F50621E2742DDA283
+- Installed original WORKING source SHA-256: 771B05C1A1EE83033AAD8E21BF59279B8A805737BDB485BD189C22FE488D6000 (unchanged)
