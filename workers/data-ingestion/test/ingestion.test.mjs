@@ -10,7 +10,7 @@ function makeEvent(overrides = {}) {
     schema_version: "1.0",
     event_id: "a18c2a31-25c7-4b11-8a22-a1c2a3d4e5f6",
     event_type: "market_snapshot",
-    occurred_at: "2026-11-26T10:00:00Z",
+    occurred_at: "2025-01-01T00:00:00Z",
     source: {
       component: "mt5_ea",
       ea_version: "1.83",
