@@ -2242,7 +2242,10 @@ bool NOVA_PortfolioRecover()
    if(!gPortfolioReady || !gPortfolio.Acquire()) return false;
    NOVA_PortfolioRecord records[];
    bool ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    if(ok) ok=NOVA_PortfolioRecoverLocked(records);
+   if(ok) ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    gPortfolio.Release();
    return ok;
 }
@@ -2255,8 +2258,10 @@ bool NOVA_PortfolioReserve(const long magic,const string symbol,const double ris
    if(!gPortfolio.Acquire()) return false;
    NOVA_PortfolioRecord records[];
    bool ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    if(ok) ok=NOVA_PortfolioRecoverLocked(records);
    if(ok) ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    if(!ok) { gPortfolio.Release(); return false; }
    int reserved_count=0; double reserved_risk=0;
    if(!gPortfolio.ActiveTotals(records,reserved_risk,reserved_count))
@@ -2308,7 +2313,10 @@ void NOVA_PortfolioReconcile()
    if(!gPortfolioReady || !gPortfolio.Acquire()) return;
    NOVA_PortfolioRecord records[];
    bool ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    if(ok) ok=NOVA_PortfolioRecoverLocked(records);
+   if(ok) ok=gPortfolio.Load(records);
+   if(ok) ok=gPortfolio.Compact(records);
    gPortfolio.Release();
    if(!ok) gFatalPause=true;
 }
