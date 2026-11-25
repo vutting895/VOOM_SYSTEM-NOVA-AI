@@ -329,3 +329,54 @@ These are policy definitions only. They do not prove effective access in every r
 5. Do not create a Supabase branch or project until its exact cost is quoted and explicitly approved.
 
 **Execution evidence:** this section is based on Supabase Management API project metadata, table/migration listings, read-only catalog SELECT queries, and advisor output. No DDL/DML, migration, secret retrieval, project restore, deployment, broker connection, or live trading action was performed.
+
+
+## 12. Live grants and function security inspection — 2026-11-25
+
+Read-only catalog queries inspected table grants, RPC EXECUTE grants, `prosecdef`, and function-level `search_path` for approval/broker-related functions in both active projects.
+
+### Observed function metadata
+
+Both `tlyyx...` and `rovhm...` currently expose the following same signatures:
+
+- `public.nova_create_approval(p_thread_id uuid, p_request_type text, p_proposal jsonb, p_proposal_hash text, p_policy_version text, p_expires_at timestamptz)`
+- `public.nova_resolve_approval(p_approval_id uuid, p_decision text, p_decision_note text, p_decision_payload jsonb, p_policy_version text)`
+- `public.set_broker_connections_updated_at()`
+- `nova.set_mt5_broker_connections_updated_at()`
+
+For the functions returned by the inspection:
+- `prosecdef = false` (not SECURITY DEFINER).
+- `proconfig` sets an empty function `search_path`.
+- Owner is `postgres`.
+
+The matching RPC signatures on both projects are not proof of matching function bodies or valid dependencies. In particular, the `rovhm...` project lacks the `public.nova_agent_threads` and `public.nova_approval_requests` tables that the current approval RPC contract expects. The RPC definitions must be inspected and invoked only in an isolated test environment before any readiness claim. Do not try these RPCs with production identities or mutate production rows.
+
+### Observed EXECUTE grants
+
+- On `tlyyx...`, `authenticated` has EXECUTE on both NOVA approval RPCs; `anon` and `service_role` do not.
+- On `rovhm...`, `authenticated` and `service_role` have EXECUTE on both approval RPCs; `anon` does not.
+- The timestamp trigger functions show EXECUTE for `anon`, `authenticated`, and `service_role` in both projects. They are trigger helpers and should not be treated as API endpoints; review whether public EXECUTE is necessary during a later hardening pass.
+
+### Observed table grants relevant to the current Worker contract
+
+- `tlyyx.public.broker_connections`: authenticated has INSERT and SELECT; service_role has SELECT/REFERENCES/TRIGGER/TRUNCATE in the returned grant list, but no INSERT/UPDATE/DELETE grant was returned. The user-scoped pending-only RLS policies further constrain authenticated access.
+- `tlyyx.nova.mt5_broker_connections`: authenticated has INSERT and SELECT; service_role has broad table privileges.
+- `tlyyx.public.nova_agent_threads`: authenticated has INSERT and SELECT.
+- `tlyyx.public.nova_approval_requests`: authenticated has SELECT only; creation/resolution is intended through the authenticated RPCs.
+- `rovhm.nova.approvals`, `audit_events`, `emergency_stops`: authenticated has SELECT only; service_role has broad table privileges.
+- `rovhm.nova.mt5_broker_connections`: authenticated has INSERT and SELECT; service_role has broad table privileges.
+- `rovhm.public.affiliate_state_snapshots`: no authenticated grant was returned; service_role has broad table privileges. RLS is enabled with no policy, so client access is denied by default unless another privileged path is used.
+
+### New blockers / implications
+
+1. **BLOCKER-RPC-01:** same approval RPC signatures exist on both projects, but their expected table dependencies are not equivalent. Verify `pg_get_functiondef` and dependency objects. Do not treat RPC existence as functional proof.
+2. **BLOCKER-GRANT-01:** `service_role` privileges differ materially for `public.broker_connections` versus `nova.mt5_broker_connections`; verify the deployed Worker uses the intended schema/table and authenticated user JWT. Do not switch a Worker to service_role as a workaround.
+3. **BLOCKER-GRANT-02:** `rovhm...` grants `service_role` EXECUTE on approval RPCs while `tlyyx...` does not. This is a security-contract drift requiring an explicit least-privilege decision, not automatic privilege expansion.
+4. **REVIEW-TRIGGER-01:** trigger helper functions are EXECUTE-granted to anon/authenticated/service_role in both projects. Review direct-call exposure and whether explicit revocation is appropriate; do not change grants in this work order.
+5. **REVIEW-AFFILIATE-01:** `rovhm.public.affiliate_state_snapshots` has RLS enabled and no policies; the absence of authenticated grants/policies may be intentional for a server-only persistence path, but its caller and key boundary must be documented.
+
+### WP-2 / WP-4 status
+
+- Live catalog evidence now covers schema/table inventory, RLS policy definitions, selected grants, and selected function security metadata.
+- Exact function bodies, dependency graph, full migration-to-file provenance, and two-user behavior remain unverified.
+- No RPC was executed. No DDL/DML or grant change was performed.
