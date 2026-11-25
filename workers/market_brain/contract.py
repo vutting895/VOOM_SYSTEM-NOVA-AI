@@ -82,20 +82,28 @@ def decision_from_probabilities(*, direction_probabilities: Sequence[float],
         raise ValueError("probabilities must be finite values between zero and one")
     if abs(sum(values[:3]) - 1.0) > 1e-5 or abs(sum(values[3:]) - 1.0) > 1e-5:
         raise ValueError("each probability head must sum to one")
-    if not isfinite(float(expected_move_bps)) or not isfinite(float(estimated_cost_bps)) or estimated_cost_bps < 0:
-        raise ValueError("expected move and non-negative estimated cost must be finite")
-    if not (0.5 < min_confidence <= 1.0) or min_net_edge_bps < 0:
-        raise ValueError("invalid decision thresholds")
+    try:
+        expected_move = float(expected_move_bps)
+        estimated_cost = float(estimated_cost_bps)
+        confidence_floor = float(min_confidence)
+        edge_floor = float(min_net_edge_bps)
+    except (TypeError, ValueError):
+        raise ValueError("edge and decision thresholds must be numeric") from None
+    if not all(isfinite(x) for x in (expected_move, estimated_cost, confidence_floor, edge_floor)):
+        raise ValueError("edge and decision thresholds must be finite")
+    if estimated_cost < 0 or not (0.5 < confidence_floor <= 1.0) or edge_floor < 0:
+        raise ValueError("invalid decision thresholds or negative cost")
     labels = ("SELL", "WAIT", "BUY")
     index = max(range(3), key=lambda i: values[i])
     confidence = values[index]
-    net_edge = abs(float(expected_move_bps)) - float(estimated_cost_bps)
-    action = labels[index] if index != 1 and confidence >= min_confidence and net_edge >= min_net_edge_bps else "WAIT"
+    net_edge = abs(expected_move) - estimated_cost
+    direction_matches_edge = (index == 0 and expected_move < 0) or (index == 2 and expected_move > 0)
+    action = labels[index] if (index != 1 and direction_matches_edge and
+        confidence >= confidence_floor and net_edge >= edge_floor) else "WAIT"
     regime_labels = ("TRENDING", "RANGING", "HIGH_VOLATILITY")
     regime_index = max(range(3), key=lambda i: values[3 + i])
     return {"schema": "voom.market-brain.signal.v1", "action": action,
             "confidence": confidence, "regime": regime_labels[regime_index],
-            "expected_move_bps": float(expected_move_bps),
-            "estimated_cost_bps": float(estimated_cost_bps),
+            "expected_move_bps": expected_move, "estimated_cost_bps": estimated_cost,
             "estimated_net_edge_bps": net_edge, "research_only": True,
             "orders_submitted": False, "live_trading_enabled": False}
