@@ -43,6 +43,41 @@ string MonthTag(const datetime value)
    return StringFormat("%04d%02d", parts.year, parts.mon);
 }
 
+bool ExportSymbolSpec()
+{
+   string filename = "NOVA_" + InpRequiredSymbol + "_SYMBOL_SPEC.csv";
+   int file;
+   if(!OpenCsv(filename, file))
+      return false;
+
+   FileWrite(file, "field", "value");
+   FileWrite(file, "symbol", InpRequiredSymbol);
+   FileWrite(file, "server", AccountInfoString(ACCOUNT_SERVER));
+   FileWrite(file, "account_currency", AccountInfoString(ACCOUNT_CURRENCY));
+   FileWrite(file, "digits", (long)SymbolInfoInteger(InpRequiredSymbol, SYMBOL_DIGITS));
+   FileWrite(file, "point", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_POINT), 10));
+   FileWrite(file, "tick_size", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_TRADE_TICK_SIZE), 10));
+   FileWrite(file, "tick_value", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_TRADE_TICK_VALUE), 10));
+   FileWrite(file, "tick_value_profit", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_TRADE_TICK_VALUE_PROFIT), 10));
+   FileWrite(file, "tick_value_loss", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_TRADE_TICK_VALUE_LOSS), 10));
+   FileWrite(file, "contract_size", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_TRADE_CONTRACT_SIZE), 4));
+   FileWrite(file, "volume_min", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_VOLUME_MIN), 8));
+   FileWrite(file, "volume_max", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_VOLUME_MAX), 8));
+   FileWrite(file, "volume_step", DoubleToString(SymbolInfoDouble(InpRequiredSymbol, SYMBOL_VOLUME_STEP), 8));
+   FileWrite(file, "currency_base", SymbolInfoString(InpRequiredSymbol, SYMBOL_CURRENCY_BASE));
+   FileWrite(file, "currency_profit", SymbolInfoString(InpRequiredSymbol, SYMBOL_CURRENCY_PROFIT));
+   FileWrite(file, "currency_margin", SymbolInfoString(InpRequiredSymbol, SYMBOL_CURRENCY_MARGIN));
+   FileWrite(file, "trade_calc_mode", (long)SymbolInfoInteger(InpRequiredSymbol, SYMBOL_TRADE_CALC_MODE));
+   FileWrite(file, "trade_stops_level_points", (long)SymbolInfoInteger(InpRequiredSymbol, SYMBOL_TRADE_STOPS_LEVEL));
+   FileWrite(file, "trade_freeze_level_points", (long)SymbolInfoInteger(InpRequiredSymbol, SYMBOL_TRADE_FREEZE_LEVEL));
+   FileFlush(file);
+   FileClose(file);
+   PrintFormat("SYMBOL_SPEC_EXPORTED file=%s server=%s currency=%s",
+               filename, AccountInfoString(ACCOUNT_SERVER),
+               AccountInfoString(ACCOUNT_CURRENCY));
+   return true;
+}
+
 bool ExportBars()
 {
    MqlRates rates[];
@@ -175,6 +210,7 @@ void OnStart()
                TimeToString(InpToExclusive, TIME_DATE | TIME_MINUTES),
                AccountInfoString(ACCOUNT_SERVER));
 
+   bool spec_ok = ExportSymbolSpec();
    bool bars_ok = true;
    bool ticks_ok = true;
    if(InpExportM5Bars)
@@ -182,7 +218,8 @@ void OnStart()
    if(InpExportTicks)
       ticks_ok = ExportTicks();
 
-   PrintFormat("NOVA_EXPORT_FINISHED bars=%s ticks=%s common_files=%s",
+   PrintFormat("NOVA_EXPORT_FINISHED spec=%s bars=%s ticks=%s common_files=%s",
+               spec_ok ? "OK" : "FAILED",
                bars_ok ? "OK" : "FAILED",
                ticks_ok ? "OK" : "FAILED",
                InpUseCommonFiles ? "true" : "false");
