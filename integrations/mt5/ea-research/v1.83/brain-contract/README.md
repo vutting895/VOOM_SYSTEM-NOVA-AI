@@ -48,3 +48,23 @@ The validator deliberately checks safety-critical invariants without third-party
 4. Exact-head unit/integration tests and a sanitized MT5 runtime export receipt.
 
 Do not claim an end-to-end Brain connection until those steps are implemented and verified.
+
+
+## Datacenter ingestion adapter (local storage layer)
+
+- `event_inbox.py` provides an append-only SQLite inbox for development and integration tests.
+- Tenant identity is a separate argument supplied by authenticated host context. The event payload cannot choose or override its tenant.
+- Idempotency key is `(tenant_id, event_id)`. Replaying the same canonical payload returns `duplicate`; reusing the same ID with a different payload is rejected.
+- Payload size is capped at 256 KiB. Unknown top-level and nested envelope fields are rejected by the dependency-free validator.
+- This adapter is not an HTTP endpoint, production database integration, or authentication system. It must be called only behind the host's authenticated tenant boundary.
+- The receiver can validate the HMAC pseudonym's format, but cannot independently verify that it was correctly derived without receiving the raw account identifier (which must not be sent) or using a separate trusted attestation design. The HMAC key must remain outside Git and outside MT5 event payloads.
+
+Run all local contract and inbox tests:
+
+```sh
+python -m unittest -v
+```
+
+## MT5 exporter status
+
+No MQL5 exporter has been wired into the candidate yet. The next step is a local-only JSONL exporter after confirming the exact EA source hash and implementing a safe, provisioned account-scope pseudonym. Do not add WebRequest, OrderSend, trade mutation, or chart-install behavior as part of telemetry export.
