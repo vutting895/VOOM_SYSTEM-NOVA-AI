@@ -261,3 +261,48 @@ This raises the number of open PRs with changed-filename lists inspected in the 
 - Current exact-head check run `smc-tests` is still IN_PROGRESS; Supabase Preview is SKIPPED. Earlier success on prior head `3e1db...` does not validate current head `f10a7...`.
 - Inspected current #397 head `tests/test_research_pipeline.py`: exactly one definition of `test_risk_pass_requires_authenticated_approval_context`; duplicate-function defect identified in #400 is not present in #397. SMC workflow includes both `datacenter-client.js` and `tests/test_approval_guard.py` in trigger filters.
 - Disposition remains: retain #397 as preferred candidate, wait for exact-head CI, review JWT/RPC tests, then reconcile the two docs-only commits on main. No merge, rebase, CI trigger or runtime action performed.
+
+
+## 13. Live repository and CI refresh — 2026-11-25T00:47Z
+
+### Exact inventory snapshot
+- Canonical `refs/heads/main`: `2077e6b8b2689a7e1af9a924dcede900e27d3bd6`.
+- Recursive tree SHA matches main; `truncated=false`; **494 tree entries / 379 blobs**.
+- Branch pagination completed: **336 unique branches across 5 pages**.
+- Pull request pagination: **244 open + 137 closed = 381 PR records** (3 open pages, 2 closed pages). This refresh supersedes the prior 331-branch / 375-PR count. Full per-PR changed-path/dependency review remains incomplete.
+- Since `7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2`, main is 25 commits ahead, 0 behind. Recent commits include MT5 historical API/collector implementation, strict Demo identity and history validation, plus canonical stable-ingestion metadata changes. Current tree includes 379 files.
+
+### WO-003 MT5 historical collector — source implementation vs acceptance
+- Main now contains `GET /api/history` in the Python Bridge, tenant-routed Relay and authenticated Proxy; `history_contract.py` validates bounded UTC half-open history, ordering, OHLC and nonnegative volume/spread. The existing Remote MCP Gateway exposes `dataset_collect_mt5`, accepts bounded `start_utc/end_utc`, chunks collection and uses stable ingestion identity through the existing Datacenter `dataset_ingest` contract.
+- The System Integration Hub current-main worker still has no `GET /v1/connections/{id}/history` route. PR #396 adds that route and related tests, but its 14-file patch is 29 ahead / 41 behind current main and diverged. Its Bridge/Relay/Proxy portions overlap the WO-003 implementation already on main; do not merge the entire PR. Keep it as a source for the missing Hub boundary only, pending port/review and owner/foreign-tenant E2E.
+- The collector's regression tests were authored, but no live Exness Demo history read or Datacenter quality receipt has been evidenced. No successful collection is claimed.
+
+### Main CI failure — actionable blocker
+- Latest main `2077e6b8...` has a failed Supabase Preview check: **“Remote migration versions not found in local migrations directory.”** The check links to Supabase project ref `tlyyxufuiimrbaksoitf`, which differs from the selected NOVA project ref `rovhmjeowracayicbqij` recorded in governance. Do not repair migration history, change project refs or apply SQL under WO-004; establish environment identity and migration provenance under a separate approved migration task.
+- Latest main's check-run list contains the Supabase Preview failure only. The last SMC Research CI run on ancestor `be3b585fc9061c307a015922e91a632978141e57` failed at `tests/test_research_pipeline.py`: 14 passed, 2 failed. `test_risk_rejection_never_creates_approval` expected HTTP 200 but got 503; `test_risk_pass_requires_authenticated_approval_context` expected HTTP 401 but got 503. The Windows Bridge safety/bootstrap job passed.
+- Current main `workers/runtime.py` still checks `NOVA_APPROVALS_ENABLED` before running the deterministic RiskWorker gate. The exact-head #397 fix reorders risk rejection before approval-service availability and retains authentication + approval-disabled fail-closed behavior after a risk pass. Main's latest 3 commits after the failing SMC run changed only Datacenter client/test/log paths; they did not change this runtime or the failing tests. Treat the failure as unresolved until a new exact-main SMC run proves otherwise.
+- Current main `datacenter-client.js` validates symbols with uppercase-only `/^[A-Z0-9._-]{1,40}$/` after trim and does not uppercase the symbol. Therefore mixed-case Exness symbol `XAUUSDm` is rejected. #397's candidate changes this to accept both uppercase and lowercase ASCII letters. This blocks the approved WO-003 first acceptance target until a narrow fix and regression test are authorized and verified.
+
+### PR disposition refresh against current main
+| PR | Current comparison/state | Updated disposition |
+|---|---|---|
+| #397 | Open Draft; head `f10a7bcc92a3af830fde5f48c7c39d3f951293d1`; 1 ahead / 25 behind, diverged. Exact-head SMC CI run [45466608076](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45466608076) passed; Supabase Preview skipped. | KEEP / REQUIRED FIX CANDIDATE for risk-gate order, mixed-case symbol validation, approval guard tests and CI paths. Do not merge stale branch; port only reviewed changes to current main after explicit scope authorization and exact-head tests. Approval remains disabled. |
+| #396 | Open Draft; 29 ahead / 41 behind, diverged. Exact-head CI run [45452374172](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45452374172) passed; no authenticated owner-vs-foreign-tenant Demo E2E. | PARTIALLY SUPERSEDED by WO-003 on Bridge/Relay/Proxy/Gateway; System Hub history route remains absent on main. Do not merge full patch; isolate Hub route candidate for separate review. |
+| #398 | Open Draft; 5 ahead / 41 behind, diverged. Compose-specific validation passed; SMC job failed; Supabase Preview skipped. | KEEP / LEGACY ISOLATION CANDIDATE; no merge until current-main port and default/opt-in Docker startup validation. |
+| #402 | Open Draft; 2 ahead / 35 behind, diverged; generic status snapshot based on main `6968e5b...`. | HISTORICAL SNAPSHOT ONLY; do not merge stale README pointer/content. Current Issue #36 and live docs take precedence. |
+| #403 | Open Draft; 2 ahead / 35 behind, diverged; architecture/service-boundary audit based on `6968e5b...`. | SUPPORTING AUDIT ONLY; retain historical findings, do not merge stale README change. |
+| #405 | Open Draft; 2 ahead / 25 behind, diverged; Architecture A control-plane design based on `7a54b753...`. | CANONICAL ARCHITECTURE-A DESIGN CANDIDATE (owner selected control-only direction); keep Draft and refresh baseline before adoption. #403 is supporting audit, not a competing architecture decision. |
+
+### Ownership and migration decision
+- The target folder specification remains logical only. No exact source-to-destination move has passed ownership, import/caller, workflow/deployment, tests and rollback acceptance. **Zero file moves approved.**
+- Root Netlify Vite SPA, `apps/nova-command-center/` and legacy `frontend/` remain separate; workflow references to absent `frontend/package-lock.json` and `frontend/cf:build` remain a separate CI/deployment blocker.
+- PR #66 and #147 remain isolated; #238 remains training-ineligible. Datacenter remains sole research/learning compute owner.
+- WO-004 Phase 0 DONE; Phase 1 IN_PROGRESS (current inventory refreshed); Phase 2 IN_PROGRESS (caller/path mapping incomplete); Phase 3 PRELIMINARY/BLOCKED; Phases 4–6 NOT STARTED.
+- WO-003: Phase 0 source audit DONE; Phases 1–3 implementation/tests authored but acceptance evidence incomplete; Phase 4 BLOCKED by failed/unrun exact-main tests, no live Demo read and no Datacenter quality receipt.
+- No PR merged/closed by this operation, no branch deleted, no source moved, no deployment, SQL migration, secret/permission change or broker action occurred.
+
+### Next actions
+1. Request explicit authorization for the narrow #397 fixes needed by current main: deterministic RiskWorker gate ordering and mixed-case MT5 symbol validation, with focused regression tests; keep approvals disabled and no deployment.
+2. Reconcile Supabase Preview project ref `tlyyxufuiimrbaksoitf` versus selected NOVA ref `rovhmjeowracayicbqij` and migration ledger without writes.
+3. Review/port the missing System Hub history route from #396 only after current-main contract and tenant isolation tests are defined.
+4. Continue full changed-path/import/caller/workflow mapping for 381 PRs and 379 files before approving any moves.
