@@ -329,6 +329,7 @@ async function callTool(name,args,request,env,user) {
     const timeframe = normalizeMt5Timeframe(args.timeframe);
     const hasStart = args.start_utc !== undefined, hasEnd = args.end_utc !== undefined;
     if (hasStart !== hasEnd) throw new Error("start_utc_and_end_utc_must_be_supplied_together");
+    if (hasStart && args.count !== undefined) throw new Error("count_and_history_range_are_mutually_exclusive");
     const bars = [];
     if (hasStart) {
       const validUtc = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString().replace(".000Z", "Z") === value;

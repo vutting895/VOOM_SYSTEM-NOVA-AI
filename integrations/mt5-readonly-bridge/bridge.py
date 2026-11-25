@@ -285,19 +285,15 @@ def history(
         if not info.visible:
             raise HTTPException(status_code=409, detail="symbol_not_selected_in_terminal")
         if closed_end <= start:
-            rates = []
-        else:
-            rates = mt5.copy_rates_range(symbol, timeframe_value(tf), start, closed_end - timedelta(seconds=1))
-            if rates is None:
-                error = mt5.last_error()
-                raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
-        if closed_end <= start:
-            bars = []
-        else:
-            try:
-                bars = serialize_history_rates(rates, start, closed_end, MAX_HISTORY_BARS)
-            except (ValueError, TypeError, KeyError, OverflowError, OSError):
-                raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
+            raise HTTPException(status_code=400, detail="No closed candles exist in the requested range")
+        rates = mt5.copy_rates_range(symbol, timeframe_value(tf), start, closed_end - timedelta(seconds=1))
+        if rates is None:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
+        try:
+            bars = serialize_history_rates(rates, start, closed_end, MAX_HISTORY_BARS)
+        except (ValueError, TypeError, KeyError, OverflowError, OSError):
+            raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
         return {
             "symbol": symbol, "timeframe": tf, "digits": int(info.digits),
             "start_utc": start.isoformat().replace("+00:00", "Z"),
