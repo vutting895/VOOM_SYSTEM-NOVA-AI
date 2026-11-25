@@ -15,11 +15,14 @@ A further execution flaw was found: the session filter `continue` runs before op
 ## Changes in this branch
 
 - Added `workers/quant_engine/causal_smc.py`, a standard-library-only causal event layer.
-- Swing points are emitted at the confirmation bar, not backdated to the pivot bar.
-- BOS/CHOCH is based on already-confirmed swings and close-confirmed breaks.
-- OBs become visible at the structure-break timestamp; as-of queries exclude future OBs.
-- HTF lookup returns only a bar whose full duration has elapsed.
-- Added unit tests for confirmation timing, future-data invariance, OB visibility and HTF close alignment.
+- Refactored the legacy script's swing markers to appear only at the right-side confirmation bar, not at the historical pivot.
+- Prevented repeated BOS/CHOCH events from the same already-broken swing level.
+- OB entries are filtered by their structure-break timestamp; future OBs are excluded from earlier decisions.
+- HTF selection uses the full 4H close timestamp and excludes incomplete 4H aggregates.
+- Session restrictions now gate entries only; open trades continue to be checked for exits outside the entry session.
+- If stop and target are both touched inside one OHLC bar, the legacy simulation now assumes stop-first (conservative).
+- Added eight standard-library unit tests covering confirmation timing, future-data invariance, duplicate breaks, OB visibility and HTF close alignment.
+- Windows validation: 8/8 causal unit tests passed; legacy script passed `py_compile`. This is not a full repository test run or a market backtest.
 
 ## Data QA checkpoint
 
