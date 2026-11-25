@@ -96,6 +96,11 @@ bool NOVA_ExportMarketSnapshot(const string symbol,
       Print("NOVA_EVENT_EXPORT_REJECTED reason=unsupported_timeframe");
       return false;
    }
+   if(data_quality!="PASS" && data_quality!="WARN" && data_quality!="BLOCKED")
+   {
+      Print("NOVA_EVENT_EXPORT_REJECTED reason=invalid_data_quality");
+      return false;
+   }
    string folder="NOVA_BRAIN_EVENTS";
    int common_flag=use_common_files ? FILE_COMMON : 0;
    if(!FolderCreate(folder, common_flag) && GetLastError()!=5019)
