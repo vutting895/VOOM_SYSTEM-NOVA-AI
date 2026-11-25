@@ -88,8 +88,8 @@ def get_terminal_and_account() -> tuple[Any, Any]:
         initialize_mt5()
         terminal = mt5.terminal_info()
         account = mt5.account_info()
-        if terminal is None:
-            raise HTTPException(status_code=503, detail="MT5 terminal status unavailable")
+        if terminal is None or not bool(getattr(terminal, "connected", False)):
+            raise HTTPException(status_code=503, detail="MT5 terminal is not connected")
         if account is None:
             raise HTTPException(status_code=503, detail="No MT5 account session detected")
 
@@ -271,6 +271,8 @@ def history(
     if end - start > timedelta(days=MAX_HISTORY_DAYS[tf]):
         raise HTTPException(status_code=400, detail="Requested range too large; split into smaller chunks")
     interval_seconds = {"M1":60,"M5":300,"M15":900,"M30":1800,"H1":3600,"H4":14400,"D1":86400}[tf]
+    if int(start.timestamp()) % interval_seconds or int(end.timestamp()) % interval_seconds:
+        raise HTTPException(status_code=400, detail="History bounds must align to the selected timeframe")
     now = datetime.now(timezone.utc)
     closed_end_epoch = int(now.timestamp()) // interval_seconds * interval_seconds
     requested_end_epoch = int(end.timestamp()) // interval_seconds * interval_seconds
