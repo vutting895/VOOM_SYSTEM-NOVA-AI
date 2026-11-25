@@ -33,6 +33,8 @@ This is a telemetry receiver only. It has no trading routes and no code path to 
 
 ## Automated test evidence
 
-- GitHub Actions run 45702210797: Worker tests 7/7 PASS; Python host uploader tests 12/12 PASS; static safety checks PASS.
+- GitHub Actions run 45702379295 at exact branch head `9c7c09f9369dad96da36ee6afff57950bfbdf919`: Worker tests 7/7 PASS; Python host uploader tests 12/12 PASS; static safety checks PASS.
 - The run used mocked Supabase Auth and D1 bindings. Live Auth, provisioned D1, Worker deployment and real MT5 end-to-end acceptance remain pending.
 - CircleCI is separately reporting that no project configuration was found on the Main baseline. GitHub Actions is the active test evidence for this branch.
+
+Final exact-head validation is required again if application source changes after this recorded run.
