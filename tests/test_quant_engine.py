@@ -1,10 +1,15 @@
 """Contract tests for the Internal Quant Engine research foundation."""
 import unittest
 from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from workers.quant_engine import (
     DatasetValidationError,
     JobLifecycleError,
+    JobNotFoundError,
+    JobConflictError,
+    SQLiteResearchJobStore,
     JobState,
     create_research_job,
     transition_research_job,
@@ -286,6 +291,123 @@ class QuantJobLifecycleTests(unittest.TestCase):
         for snapshot in malformed:
             with self.subTest(snapshot=snapshot), self.assertRaises(JobLifecycleError):
                 self.transition(snapshot, JobState.VALIDATING, 1)
+
+
+
+
+class QuantJobStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.tempdir = TemporaryDirectory()
+        self.database = Path(self.tempdir.name) / "quant-jobs.sqlite3"
+        self.store = SQLiteResearchJobStore(self.database)
+
+    def tearDown(self):
+        self.tempdir.cleanup()
+
+    def create(self, **overrides):
+        values = {
+            "job_id": "durable-job-001",
+            "tenant_id": "tenant-001",
+            "requester_id": "user-001",
+            "job_type": "backtest",
+            "created_at": "2026-11-26T10:00:00Z",
+            "idempotency_key": "create-key-001",
+        }
+        values.update(overrides)
+        return self.store.create(**values)
+
+    def test_create_is_persistent_and_idempotent(self):
+        first = self.create()
+        second = self.create()
+        reopened = SQLiteResearchJobStore(self.database).get(
+            tenant_id="tenant-001", job_id="durable-job-001"
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(first, reopened)
+
+    def test_create_idempotency_key_cannot_be_reused_for_different_payload(self):
+        self.create()
+        with self.assertRaises(JobConflictError):
+            self.create(job_id="durable-job-002")
+
+    def test_tenant_scope_hides_jobs_and_event_streams(self):
+        self.create()
+        with self.assertRaises(JobNotFoundError):
+            self.store.get(tenant_id="other-tenant", job_id="durable-job-001")
+        with self.assertRaises(JobNotFoundError):
+            self.store.list_events(tenant_id="other-tenant", job_id="durable-job-001")
+
+    def test_transition_and_event_commit_atomically_and_survive_reopen(self):
+        self.create()
+        updated, event = self.store.transition(
+            tenant_id="tenant-001",
+            job_id="durable-job-001",
+            expected_state=JobState.QUEUED,
+            next_state=JobState.VALIDATING,
+            actor_id="worker-001",
+            occurred_at="2026-11-26T10:01:00Z",
+            idempotency_key="transition-key-001",
+        )
+        reopened = SQLiteResearchJobStore(self.database)
+        self.assertEqual(
+            reopened.get(tenant_id="tenant-001", job_id="durable-job-001"), updated
+        )
+        self.assertEqual(reopened.list_events(
+            tenant_id="tenant-001", job_id="durable-job-001"
+        ), (event,))
+
+    def test_transition_replay_returns_original_result_without_duplicate_event(self):
+        self.create()
+        args = {
+            "tenant_id": "tenant-001",
+            "job_id": "durable-job-001",
+            "expected_state": JobState.QUEUED,
+            "next_state": JobState.VALIDATING,
+            "actor_id": "worker-001",
+            "occurred_at": "2026-11-26T10:01:00Z",
+            "idempotency_key": "transition-replay-key",
+        }
+        first = self.store.transition(**args)
+        replay = self.store.transition(**args)
+        self.assertEqual(first, replay)
+        self.assertEqual(len(self.store.list_events(
+            tenant_id="tenant-001", job_id="durable-job-001"
+        )), 1)
+
+    def test_transition_idempotency_key_reuse_with_changed_payload_is_rejected(self):
+        self.create()
+        self.store.transition(
+            tenant_id="tenant-001", job_id="durable-job-001",
+            expected_state=JobState.QUEUED, next_state=JobState.VALIDATING,
+            actor_id="worker-001", occurred_at="2026-11-26T10:01:00Z",
+            idempotency_key="transition-conflict-key",
+        )
+        with self.assertRaises(JobConflictError):
+            self.store.transition(
+                tenant_id="tenant-001", job_id="durable-job-001",
+                expected_state=JobState.VALIDATING, next_state=JobState.RUNNING,
+                actor_id="worker-001", occurred_at="2026-11-26T10:02:00Z",
+                idempotency_key="transition-conflict-key",
+            )
+
+    def test_stale_state_transition_does_not_write_event(self):
+        self.create()
+        with self.assertRaises(JobLifecycleError):
+            self.store.transition(
+                tenant_id="tenant-001", job_id="durable-job-001",
+                expected_state=JobState.RUNNING, next_state=JobState.FINALIZING,
+                actor_id="worker-001", occurred_at="2026-11-26T10:01:00Z",
+                idempotency_key="stale-transition-key",
+            )
+        self.assertEqual(self.store.list_events(
+            tenant_id="tenant-001", job_id="durable-job-001"
+        ), ())
+
+    def test_duplicate_job_id_is_rejected_even_with_new_idempotency_key(self):
+        self.create()
+        with self.assertRaises(JobConflictError):
+            self.create(idempotency_key="create-key-002")
+
 
 
 
