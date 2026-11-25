@@ -98,7 +98,8 @@ The host uploader serializes event objects as deterministic sorted-key compact J
 
 ## CI evidence (exact commit 50fb7726e9bc787b1e7f2345760074077e5fafd3)
 
-- GitHub Actions run 45701861762: ingestion Worker 7/7 tests PASS; Python uploader 8/8 tests PASS; static safety checks PASS.
-- The Node test suite uses mocked Supabase Auth and D1; it does not prove live Supabase or D1 integration.
+- GitHub Actions run 45702210797: ingestion Worker 7/7 tests PASS; Python uploader 12/12 tests PASS; static safety checks PASS.
+- The Worker tests use mocked Supabase Auth and D1; they do not prove live Supabase or D1 integration.
+- The host uploader now blocks redirects and verifies authenticated read-back event content and SHA-256 receipt. Mocked tests cover these paths.
 - CircleCI reports a separate configuration error because no `.circleci/config.yml` exists on this Main baseline. It is not the result of the passing GitHub Actions jobs.
-- The uploader was subsequently extended with redirect blocking and read-back verification tests; rerun CI on the latest head before treating those additions as validated.
+- Run 45702210797 executed at source head `d188ef312b1607605fc2d78da262ee5637f28fae`; the final docs-only update is followed by another exact-head run.
