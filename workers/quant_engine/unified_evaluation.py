@@ -159,15 +159,25 @@ def fuse_research_signals(
         raise ValueError("SMC and LLM signals must be -1, 0, or 1")
     if not 0.5 < min_meta_probability < 1.0:
         raise ValueError("min_meta_probability must be between 0.5 and 1")
+    if meta_probability >= min_meta_probability:
+        meta_direction = 1
+        meta_confidence = meta_probability
+    elif meta_probability <= 1.0 - min_meta_probability:
+        meta_direction = -1
+        meta_confidence = 1.0 - meta_probability
+    else:
+        return {"decision": "ABSTAIN", "reason": "meta probability is inside the neutral band"}
     direction_votes = [
         1 if xgb_probability >= 0.5 else -1,
         1 if lstm_probability >= 0.5 else -1,
         smc_signal,
         llm_signal,
     ]
-    if meta_probability < min_meta_probability:
-        return {"decision": "ABSTAIN", "reason": "meta confidence below threshold"}
-    if direction_votes.count(1) == direction_votes.count(-1):
-        return {"decision": "ABSTAIN", "reason": "directional conflict"}
-    direction = 1 if direction_votes.count(1) > direction_votes.count(-1) else -1
-    return {"decision": "LONG" if direction > 0 else "SHORT", "reason": "meta gate passed"}
+    non_neutral_votes = [vote for vote in direction_votes if vote != 0]
+    if not non_neutral_votes or non_neutral_votes.count(meta_direction) <= len(non_neutral_votes) / 2:
+        return {"decision": "ABSTAIN", "reason": "base-model/strategy votes conflict with meta direction"}
+    return {
+        "decision": "LONG" if meta_direction > 0 else "SHORT",
+        "reason": "meta gate passed",
+        "meta_confidence": float(meta_confidence),
+    }
