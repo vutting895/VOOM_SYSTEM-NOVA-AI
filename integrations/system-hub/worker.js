@@ -452,7 +452,7 @@ async function readAccount(request, env, user, row, origin) {
 }
 const MT5_HISTORY_MAX_DAYS = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 };
 function validUtcInstant(value) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\\.\d{1,3})?Z$/.test(value)) return false;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return false;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) && new Date(parsed).toISOString() === new Date(value).toISOString();
 }
