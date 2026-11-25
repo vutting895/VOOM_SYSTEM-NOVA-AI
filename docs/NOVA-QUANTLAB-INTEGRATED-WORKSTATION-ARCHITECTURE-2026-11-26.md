@@ -245,3 +245,76 @@ These are explicit follow-up audit items, not assumed successes.
 - PR #421 — multimodel evaluation readiness
 - PR #422 — Unified Intelligence & Validation Engine
 - PR #302 — MTRADERS hybrid research engine
+
+
+## 14. Audit refresh — exact-head PR and contract findings (2026-11-26)
+
+The following status snapshot was fetched after the initial document commit. PRs remain independent branches; none was merged or cherry-picked by this audit.
+
+### Exact-head review and CI
+
+| PR | Current head | Current-main ancestry | Exact-head checks | Decision |
+|---|---|---|---|---|
+| #403 | 0d046b7e4cb8ace64ad657bd8679c18f4d7f5f58 | Base SHA 6968e5b... is stale vs current Main | Windows bootstrap/safety PASS; Supabase Preview SKIPPED | Documentation evidence only; rebase/port after wording reconciliation |
+| #421 | 45c2446ea6d87a21424c7c20b42e21cb2e7d131e | Based on current Main SHA | Supabase Preview SKIPPED; no substantive test run surfaced | Keep as readiness audit; note its body contains a different stale head SHA |
+| #422 | 9654dc79dab966a8472e95b58c1bd95df0cfd296 | 44 ahead / 0 behind current Main | contracts PASS; quant-foundation-tests PASS; Supabase Preview SKIPPED | Strongest reusable evaluation implementation; still no data/training/OOS evidence |
+| #382 | 2a659894a05f6c7eb4d288996155d69e1ec2df0e | Diverged: 22 ahead / 184 behind current Main | system-hub-tests PASS (54/54 per PR evidence); broad build FAILURE; production smoke and Supabase Preview SKIPPED | Do not merge directly; port reviewed Hub contracts onto current Main and repair CI |
+| #386 | 3724c9e327c60bf229711d61846b53a9045e0c2a | Diverged: 3 ahead / 184 behind current Main | build FAILURE; smc-tests FAILURE; Supabase Preview SKIPPED | Use inventory findings, but port changes and resolve failures |
+| #384 | e80a06e80098a2c82bd9db880969fd13258ab251 | Diverged: 16 ahead / 184 behind current Main | build, Install/typecheck/lint/test/build, and smc-tests FAILURE; Supabase Preview SKIPPED | Do not merge directly; migration/UI/MCP are candidate assets only |
+| #383 | 3e65f554e1a01524f12a04ab2bf87b473ef1becb | Diverged: 4 ahead / 50 behind current Main | contract-tests PASS (17/17 per PR evidence); Supabase Preview SKIPPED | Port intended XGBoost fixes only after current-Main compatibility review |
+| #370 | 46abf02a72a155c7d6bbe722a1ededb784f8da3d | Diverged: 1 ahead / 184 behind current Main | No passing runtime evidence established in this audit | Reuse as architecture reference only |
+| #319 | d3e0258bad084bc93407b0cddb270716301dd1fd | Diverged: 5 ahead / 268 behind current Main | 17 local tests reported in PR body; exact-current-main CI not established | Do not merge; reconcile with PR #370 and #422 before any port |
+| #302 | d38368ef9b562fb7ed53592b6e4536c1b8e8e64e | Stacked on PR #297 / non-main base | Draft; parent dependency and exact-head CI still required | Research baselines only; no EA source-fidelity claim |
+
+The ancestry figures above compare each fetched head against main@821db357d70d3613b0ca61520eaae5c5307e8fd4. A PR that is many commits behind must not be merged or rebased blindly. Port only reviewed files/contracts and rerun tests against current Main.
+
+### Registry contract review
+
+Source review of PR #384 migration and UI found:
+
+1. The migration creates owner-scoped Dataset, Model and Learning Run tables with RLS and owner-consistent foreign keys. It is a candidate and has not been applied.
+2. Authenticated users can insert only pending Dataset rows and candidate Model rows. There is no authenticated Learning Run insert policy and no authenticated update policy. This is fail-closed, but it means the current UI is a read-only registry, not an operational job queue.
+3. nova_learning_runs.run_key is globally unique rather than owner-scoped. Prefer unique(owner_id, run_key) to avoid cross-tenant key collisions and keep identity tenant-local.
+4. Model architecture enum is limited to xgboost, lstm, hybrid_xgboost_lstm, meta_ensemble and other. QuantLab needs a versioned plugin descriptor/architecture taxonomy for Vision, SMC, LLM replay and future models; do not overload other as the long-term integration contract.
+5. The UI correctly says training is not triggered and the compute worker is not connected. Preserve that distinction until a real worker, durable job claim/lease, idempotency and artifact handoff exist.
+6. Migration/tenant isolation has not been validated on Supabase Preview or staging. Do not apply it to the production project from this branch.
+
+### Hub and MCP review
+
+- PR #382 source defines a bounded Hub contract with authentication, schemas, response envelopes and downstream user-token forwarding. Its dedicated system-hub test suite reports 54/54 passing, but the PR's broader build check is failed and it explicitly says the MCP Worker migration to Hub routes is Phase 2 and not complete.
+- PR #386 inventory distinguishes the actual Remote MCP Worker from a static metadata endpoint and a legacy Python FastAPI prototype with randomized mock metrics. Keep exactly one client-facing MCP endpoint. The prototype remains archive-only.
+- Runtime health endpoint, authenticated MCP endpoint, deployed-code parity, RLS/tenant isolation and actual downstream Service Binding behavior remain unverified in this audit.
+
+### Quant Evaluation review
+
+- PR #422 unified_evaluation.py contains useful pure functions for dataset hash/manifest admission, chronological purged folds, final-OOS boundary purge, session segmentation, point-in-time validation, immutable LLM replay and abstaining signal fusion.
+- Exact-head contract and quant foundation CI checks pass, but Supabase Preview is skipped. No approved dataset, real training run, immutable Brain replay, transaction-cost-complete backtest or final OOS profitability result is established.
+- Keep RUN_TRAINING=False defaults and require an approved immutable dataset receipt. Do not treat a passing unit test as model validation.
+- PR #383 orchestrator is a separate XGBoost-oriented implementation. Avoid a second run registry/orchestrator: extract compatible validators into the shared evaluation contract only after tests establish equivalent semantics.
+
+### Updated ownership decision
+
+| Capability | Canonical owner candidate | QuantLab integration rule |
+|---|---|---|
+| UI shell / navigation | apps/nova-command-center | Extend existing authenticated shell; no second frontend |
+| Authenticated control plane | voom-system-hub | One Hub; port PR #382 contracts after CI repair |
+| Client-facing MCP | voom-system-mcp Remote MCP Worker | One MCP endpoint; no per-service MCP listener |
+| Dataset / Model / Run metadata | Existing NOVA Registry proposal (#384) | Reuse schema after migration redesign and staging RLS proof |
+| Quant evaluation | workers/quant_engine/unified_evaluation.py (#422) | Preferred shared pure evaluation contract |
+| XGBoost learning | PR #383 orchestrator code | Port fixes into shared Quant Engine; no parallel orchestrator |
+| Strategy arbitration | Reconcile #370, #319 and #422 | One versioned candidate/evidence contract; deterministic risk remains separate |
+| Broker data | Existing MT5 read-only Gateway/Relay/Proxy | Read-only only; no broker write methods |
+| Compute | Local / already-available free CPU runtime | No paid queue/GPU/hosted worker; worker remains unconnected until verified |
+
+## 15. Corrected acceptance status
+
+- [x] Exact Main SHA rechecked: 821db357d70d3613b0ca61520eaae5c5307e8fd4.
+- [x] QuantLab Development Branch head rechecked.
+- [x] Exact PR heads and selected CI checks fetched.
+- [x] PR ancestry drift and failed checks recorded.
+- [x] Registry schema and permissions inspected.
+- [x] MCP/Hub ownership and migration boundary inspected.
+- [ ] Runtime/provider and tenant-isolation audit.
+- [ ] Resolve current-Main port plan and canonical contract ownership.
+- [ ] Build/test the integrated workstation at exact Development Branch head.
+- [ ] Draft PR only after exact-head validation.
