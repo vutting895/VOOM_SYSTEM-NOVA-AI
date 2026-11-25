@@ -10,13 +10,14 @@ test('training status and trigger fail closed until a verified runtime exists', 
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   const block = server.slice(start, end);
-  assert.match(block, /TRAINING_RUNTIME_NOT_CONFIGURED/);
+  assert.match(block, /state: 'NOT_CONFIGURED'/);
   assert.match(block, /available: false/);
   assert.match(block, /epoch: null/);
   assert.match(block, /samplesIngested: null/);
   assert.match(block, /validationAccuracyPct: null/);
   assert.match(block, /lastTrainedAt: null/);
-  assert.match(block, /app.get\('\/api\/auto-train\/status'[\s\S]*status\(503\)/);
-  assert.match(block, /app.post\('\/api\/auto-train\/trigger'[\s\S]*status\(503\)/);
+  assert.match(block, /app.get\('\/api\/auto-train\/status'[\s\S]*status\(410\)/);
+  assert.match(block, /app.post\('\/api\/auto-train\/trigger'[\s\S]*status\(410\)/);
+  assert.match(block, /error: 'legacy_route_removed'/);
   assert.doesNotMatch(block, /autoTrainEpoch|autoTrainSamples|lastValidationAcc|runBackendTrainingCycle|setInterval/);
 });
