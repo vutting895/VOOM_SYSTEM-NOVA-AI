@@ -252,7 +252,7 @@ class QuantJobLifecycleTests(unittest.TestCase):
             self.create_job(created_at="2026-11-26T10:00:00")
         job = self.create_job()
         with self.assertRaisesRegex(JobLifecycleError, "cannot precede"):
-            self.transition(job, JobState.VALIDATING, 0)
+            self.transition(job, JobState.VALIDATING, 0, occurred_at="2026-11-26T09:59:00Z")
 
     def test_reason_code_is_bounded_and_event_is_tenant_scoped(self):
         job = self.create_job()
