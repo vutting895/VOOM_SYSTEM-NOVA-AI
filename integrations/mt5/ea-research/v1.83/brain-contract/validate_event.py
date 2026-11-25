@@ -96,9 +96,9 @@ def validate_event(event: Any) -> dict:
     if not isinstance(source["symbol"], str) or not source["symbol"]:
         _fail("source.symbol is required")
 
-    scope = _required_object(event, "scope", {"account_scope_hash", "magic_scope"})
-    if not isinstance(scope["account_scope_hash"], str) or not _SHA256.fullmatch(scope["account_scope_hash"]):
-        _fail("scope.account_scope_hash must be a SHA-256 pseudonymous scope")
+    scope = _required_object(event, "scope", {"account_scope_hmac", "magic_scope"})
+    if not isinstance(scope["account_scope_hmac"], str) or not _SHA256.fullmatch(scope["account_scope_hmac"]):
+        _fail("scope.account_scope_hmac must be an HMAC-SHA-256 pseudonymous scope")
     if not isinstance(scope["magic_scope"], int) or scope["magic_scope"] < 0:
         _fail("scope.magic_scope must be a non-negative integer")
 
