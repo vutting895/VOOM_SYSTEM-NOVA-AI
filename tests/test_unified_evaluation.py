@@ -68,6 +68,11 @@ class UnifiedEvaluationTests(unittest.TestCase):
         }
         with self.assertRaises(DatasetGateError):
             require_immutable_llm_replay(record, 10)
+        record["created_at"] = "2026-01-02T00:00:00Z"
+        with self.assertRaises(DatasetGateError):
+            require_immutable_llm_replay(record, "2026-01-01T00:00:00Z")
+        record["created_at"] = "2026-01-01T00:00:00Z"
+        self.assertEqual(require_immutable_llm_replay(record, "2026-01-01T00:00:01Z"), record)
 
     def test_signal_fusion_abstains_on_missing_or_conflicting_inputs(self):
         missing = fuse_research_signals(0.8, 0.7, 1, None, 0.9)
