@@ -498,3 +498,15 @@ The Development Branch now includes `workers/quant_engine/job_store.py` with a s
 - [ ] Real dataset admission, real model training, immutable artifacts and final OOS evidence.
 
 No live Supabase schema, Cloudflare Worker, Netlify deployment, secret, broker connection or trading flag was changed.
+
+
+## 23. Current-Main synchronization and exact-head verification (2026-11-26)
+
+- Latest Main observed during synchronization: `56bf51d2e719a4cc79d73421e135099175a1e300`.
+- The original draft PR #427 was based on `821db357d70d3613b0ca61520eaae5c5307e8fd4` and became 12 commits behind Main. It was closed as superseded; it was not merged.
+- A replacement branch was created from current Main, the reviewed QuantLab changes were ported, and a two-parent merge commit preserved both the latest Main tree and the QuantLab changes.
+- Replacement branch: `dev/nova-quantlab-integrated-workstation-main-sync-20261126`.
+- PR #429 base is current Main; compare reported 9 commits ahead / 0 behind at synchronization. Main itself was not modified by this work.
+- Exact PR head `6294eb7d3673ba1ec9d77ebeb78d1a625147650c`: GitHub Actions compile passed and all 55 Quant Engine tests passed. Run #304: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45700857422
+- CircleCI status at the same head is FAIL. Detailed job output remains inaccessible in the connected environment; root cause is UNKNOWN and release is blocked.
+- No deployment, database migration, secret change, broker write or trading-flag change was made.
