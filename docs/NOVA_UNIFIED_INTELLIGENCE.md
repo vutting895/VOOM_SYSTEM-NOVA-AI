@@ -20,7 +20,7 @@ The 2026-11-26 readiness audit in PR #421 found:
 - NOVA Brain has no immutable historical request/response replay ledger with model, prompt, response, timestamp and cost provenance.
 - No approved, provenance-verified historical OHLCV artifact was present in the inspected locations; PF, drawdown, trade count and API cost were not measured.
 
-This branch does not modify or silently bless those existing prototypes. The notebook implements a separate, guarded research path.
+This branch does not modify or silently bless those existing prototypes. The notebook implements a separate, guarded research path. Session segment IDs are mandatory: rolling features, forward labels and LSTM sequence windows reset at segment boundaries so weekend/rollover/unknown gaps cannot be silently bridged.
 
 ## Unified architecture
 
@@ -72,4 +72,7 @@ The notebook includes XGBoost, a genuine LSTM, SMC/LLM replay input contracts, O
 - scikit-learn `TimeSeriesSplit`: chronological folds and explicit gap.
 - Google, *Rules of Machine Learning*: feature parity and training-serving skew measurement.
 
-See the PR description for external source links and review notes.
+External methodology references:
+- [López de Prado, Advances in Financial Machine Learning (Wiley)](https://www.wiley.com/en-us/Advances+in+Financial+Machine+Learning-p-9781119482086) — Ch. 7 purging/embargo and overlapping label intervals.
+- [scikit-learn TimeSeriesSplit](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.TimeSeriesSplit.html) — chronological folds and explicit gap.
+- [Google Rules of Machine Learning](https://developers.google.com/machine-learning/guides/rules-of-ml) — training-serving skew and feature parity.
