@@ -212,6 +212,78 @@ public:
       }
       return MathIsValidNumber(risk) && risk>=0 && count>=0;
    }
+
+   bool Compact(NOVA_PortfolioRecord &records[])
+   {
+      int n=ArraySize(records);
+      if(n<512) return true;
+      if(n>NOVA_PORTFOLIO_MAX_RECORDS) return false;
+
+      // The ledger is append-only between compactions. Keep only the latest record
+      // for every active request plus the highest-sequence terminal record as a
+      // monotonic ID watermark. Open requests therefore survive compaction/restart.
+      int slots=1;
+      while(slots<n*2) slots*=2;
+      if(slots>65536) return false;
+      ulong seen[];
+      if(ArrayResize(seen,slots)!=slots) return false;
+      ArrayInitialize(seen,0);
+      NOVA_PortfolioRecord kept[];
+      int kept_count=0;
+      for(int i=n-1;i>=0;i--)
+      {
+         ulong id=records[i].request_id;
+         if(id==0) return false;
+         int slot=(int)(id%(ulong)slots);
+         while(seen[slot]!=0 && seen[slot]!=id) slot=(slot+1)%slots;
+         if(seen[slot]==id) continue;
+         seen[slot]=id;
+         int state=records[i].state;
+         if(state==NOVA_PORTFOLIO_PREPARED || state==NOVA_PORTFOLIO_DISPATCHING ||
+            state==NOVA_PORTFOLIO_ACCEPTED || state==NOVA_PORTFOLIO_UNCERTAIN)
+         {
+            if(ArrayResize(kept,kept_count+1)!=kept_count+1) return false;
+            kept[kept_count++]=records[i];
+         }
+      }
+
+      // Preserve the global sequence high-water mark even if its request is terminal.
+      ulong high_id=records[n-1].request_id;
+      int high_slot=(int)(high_id%(ulong)slots);
+      while(seen[high_slot]!=0 && seen[high_slot]!=high_id) high_slot=(high_slot+1)%slots;
+      if(seen[high_slot]!=high_id)
+      {
+         if(ArrayResize(kept,kept_count+1)!=kept_count+1) return false;
+         kept[kept_count++]=records[n-1];
+      }
+      if(kept_count<=0 || kept_count>=NOVA_PORTFOLIO_MAX_RECORDS) return false;
+
+      string temp_path=m_ledger_path+".compact.tmp";
+      FileDelete(temp_path,FILE_COMMON);
+      int f=FileOpen(temp_path,FILE_WRITE|FILE_BIN|FILE_COMMON);
+      if(f==INVALID_HANDLE) return false;
+      bool written_ok=true;
+      for(int i=0;i<kept_count;i++)
+      {
+         if(FileWriteStruct(f,kept[i])!=sizeof(NOVA_PortfolioRecord))
+         { written_ok=false; break; }
+      }
+      FileFlush(f);
+      FileClose(f);
+      if(!written_ok)
+      {
+         FileDelete(temp_path,FILE_COMMON);
+         return false;
+      }
+      if(!FileMove(temp_path,FILE_COMMON,m_ledger_path,FILE_COMMON|FILE_REWRITE))
+      {
+         FileDelete(temp_path,FILE_COMMON);
+         return false;
+      }
+      if(ArrayResize(records,kept_count)!=kept_count) return false;
+      for(int i=0;i<kept_count;i++) records[i]=kept[i];
+      return true;
+   }
 };
 
 #endif
