@@ -269,6 +269,8 @@ async function runMt5ReadonlyTool(name, args, request, env, user) {
     const timeframe = normalizeMt5Timeframe(args.timeframe);
     const strictUtc = value => typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString().replace(".000Z", "Z") === value;
     if (!strictUtc(args.start_utc) || !strictUtc(args.end_utc) || Date.parse(args.start_utc) >= Date.parse(args.end_utc)) throw new Error("invalid_history_range");
+    const intervalMs = {M1:60000,M5:300000,M15:900000,M30:1800000,H1:3600000,H4:14400000,D1:86400000}[timeframe];
+    if (Date.parse(args.start_utc) % intervalMs !== 0 || Date.parse(args.end_utc) % intervalMs !== 0) throw new Error("history_bounds_must_align_to_timeframe");
     url.searchParams.set("symbol", symbol);
     url.searchParams.set("timeframe", timeframe);
     url.searchParams.set("start_utc", args.start_utc);
