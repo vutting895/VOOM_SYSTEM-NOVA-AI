@@ -499,3 +499,17 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No test runner was available through the connected GitHub tools; no local workspace was used. Exact-head test/CI status is not claimed. No authenticated live MT5 Demo read, Datacenter quality receipt, deployment, secret change or trading operation was performed.
 - Phase 0 source audit DONE. Phase 1 history API implementation IN PROGRESS pending tests. Phase 2 collector/idempotency code authored IN PROGRESS pending exact-head validation. Phase 3 tests authored pending execution. Phase 4 acceptance BLOCKED_DEPENDENCY until tests, live Demo read and Datacenter receipt can be verified.
 - Next: execute Node and Python tests against exact main SHA; review exact-head CI; then conduct authorized read-only Demo collection and verify Datacenter receipt without approving training or enabling trading.
+
+
+
+## WO-2026-11-25-003 — final implementation readback (2026-11-25)
+
+- NOVA repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`; verified current SHA: `38c7a24d8bc6a39eebc1825cd80edd31cd2f14f5`.
+- Additional hardening: history bounds must align to timeframe at the Bridge and relay; a range with no closed candles is rejected; collector rejects simultaneous `count` and explicit range; stable ingestion ID canonicalizes nested object keys before SHA-256.
+- Exact-main readback confirms Bridge, relay, proxy, local relay client, existing NOVA Gateway collector, Datacenter client, history serializer, and regression test files are present on main.
+- PR #269 and #275 remain OPEN and UNMERGED; neither branch was merged or deleted.
+- Current exact-head combined checks: CircleCI Pipeline **ERROR** (pipeline 1964); Vercel contexts **FAILURE / build-rate-limit**. Vercel build-rate-limit is not treated as source-test evidence. No PR-triggered GitHub Actions run is returned for this SHA.
+- Test status: Python and Node regression tests are authored but **NOT EXECUTED**. No local clone/test runner was available; do not report PASS.
+- Live integration status: no authenticated MT5 Demo history collection, no Datacenter quality receipt, no dataset approval, no deployment. These remain unverified.
+- Final status: implementation on main **IN PROGRESS — REVIEW/TEST REQUIRED**; test execution **BLOCKED_DEPENDENCY**; live Demo/Datacenter acceptance **NOT STARTED**; deployment **NOT AUTHORIZED**; trading remains disabled.
+- Next actions: (1) resolve CircleCI pipeline 1964 failure evidence without changing paid/billing policy; (2) run exact-head Python/Node tests; (3) inspect any failures and fix; (4) perform authorized read-only XAUUSDm M15 collection; (5) verify Datacenter quality receipt and idempotent retry without approving training.
