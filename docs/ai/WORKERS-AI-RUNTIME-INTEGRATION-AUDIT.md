@@ -60,3 +60,9 @@ For this repository, any future adapter must:
 **Status: IN PROGRESS — architecture audit complete; runtime adapter NOT implemented.**
 
 No secrets, Cloudflare resources, Gateway settings, billing, deployment, database, Main branch, broker state, or trading flags were changed. Live trading and order execution remain disabled.
+
+## Follow-up model smoke-test evidence
+
+A second GLM-4.7-Flash REST call was made with a larger `max_tokens: 512` budget. The API returned `success: true`, but the assistant `content` was null, `finish_reason` was `length`, and the model placed its output in the `reasoning` field. Usage was 106 prompt tokens, 512 completion tokens, 618 total tokens and 19.2198 Neurons. This is **not a usable text-generation pass**.
+
+The official model schema documents `chat_template_kwargs.enable_thinking` and the newer `max_completion_tokens` field. A bounded retest should explicitly set `chat_template_kwargs: { enable_thinking: false, clear_thinking: true }`, use `max_completion_tokens`, and require non-empty `choices[0].message.content` with `finish_reason: stop`. That configuration is a proposed retest, not yet a verified result. See https://developers.cloudflare.com/workers-ai/models/glm-4.7-flash/ and https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/.
