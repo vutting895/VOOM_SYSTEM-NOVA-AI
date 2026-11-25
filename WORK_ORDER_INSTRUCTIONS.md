@@ -14,7 +14,7 @@ Before every task, including recurring, agent-driven, or automated work:
 3. Read `logs/OPERATIONS.md` and the latest relevant implementation, integration, security, and release-gate records.
 4. Inspect existing instructions, trackers, tests, GitHub Actions, and other automation before proposing changes. Do not create duplicate workflows or trackers.
 5. Reconcile the task with active PRs/issues and the approved architecture boundary before changing code.
-6. Read the current `main` SHA before mutation. NOVA implementation work is main-only under the current repository-owner operating direction; do not follow stale branch instructions that conflict with this current rule. Never force-push or rewrite history.
+6. Read the current `main` SHA before mutation. NOVA implementation work uses the repository-owner-approved Feature Branch + PR workflow: create a scoped branch from the freshly verified `main`, commit only approved changes there, and submit a PR back to `main`. Never write implementation commits directly to `main`, force-push, or rewrite history.
 7. Confirm that the task is explicitly covered by an approved work order. Do not infer approval from a general request or a completed adjacent phase.
 
 ## NOVA ownership and safety boundaries
@@ -73,13 +73,13 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - Preserve legacy modules until a verified replacement, caller parity, rollback plan and consolidated tests are evidenced.
 - Record each operation in `logs/OPERATIONS.md` with UTC timestamp, WO ID, repository, branch, before/after SHA, changed paths, checks/results, evidence, blockers and next action.
 - Existing safety rules remain: deployment paused; `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; no broker writes, order execution, transfers or withdrawals.
-- NOVA remains main-only under this local instruction. Do not create a feature branch, force-push, or rewrite history unless the repository owner explicitly changes this operating rule.
+- NOVA uses Feature Branch + PR under the repository owner's explicit 2026-11-25 direction. For restructuring work, follow the approved migration manifest and preserve all WO-004 inventory/approval gates; use a scoped branch based on freshly verified `main`, submit a PR, and do not merge without separate approval. Never force-push or rewrite history.
 
 
 ## Approved MT5 historical collector — WO-2026-11-25-003
 
 - Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-25-003-nova-mt5-historical-collector.md
-- This Work Order explicitly authorizes NOVA-side MT5 historical read-only collection changes directly on `main`, using PR #269 as a reference only. Do not merge PR #269 or #275.
+- This Work Order authorizes NOVA-side MT5 historical read-only collection changes on a dedicated feature branch based on freshly verified `main`, followed by a review PR to `main`. This supersedes its original direct-main instruction per the repository owner's explicit 2026-11-25 workflow change. Use PR #269 as a reference only. Do not merge PR #269 or #275.
 - Scope is limited to bounded, tenant-isolated, GET-only Exness MT5 Demo history retrieval and delivery through the existing NOVA Gateway to the existing Datacenter ingestion contract.
 - Do not create another Gateway/MCP endpoint, call Datacenter directly from the browser, or modify the Datacenter repository under this Work Order.
 - No broker write, orders, execution, transfer, withdrawal, deployment, production secret/permission changes, paid resources, or live trading.
