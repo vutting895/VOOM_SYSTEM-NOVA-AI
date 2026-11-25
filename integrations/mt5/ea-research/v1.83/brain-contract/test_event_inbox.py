@@ -1,5 +1,4 @@
 """Tests for the tenant-scoped NOVA Brain event inbox."""
-import json
 import os
 import tempfile
 import unittest
