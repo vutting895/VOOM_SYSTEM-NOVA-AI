@@ -73,7 +73,8 @@ export default {
     if (!env.GITHUB_WEBHOOK_SECRET || !env.ALLOWED_REPOSITORIES || !env.EVENT_DB) {
       return json({ error: "receiver_not_configured" }, 503);
     }
-    if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
+    const contentType = (request.headers.get("Content-Type") || "").toLowerCase();
+    if (!contentType.startsWith("application/json")) {
       return json({ error: "content_type_must_be_application_json" }, 415);
     }
 
