@@ -1,3 +1,4 @@
+import ast
 import json
 import tempfile
 import unittest
@@ -80,6 +81,28 @@ class UnifiedEvaluationTests(unittest.TestCase):
         for index, cell in enumerate(notebook["cells"]):
             if cell.get("cell_type") == "code":
                 compile("".join(cell.get("source", [])), f"notebook_cell_{index}", "exec")
+
+    def test_notebook_lstm_training_return_contract_is_unpacked(self):
+        notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        training_source = "".join(notebook["cells"][15]["source"])
+        tree = ast.parse(training_source)
+        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        calls = [node for node in ast.walk(tree)
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                 and node.func.id == "train_lstm_fold"]
+        self.assertEqual(len(calls), 2)
+        unpacked = []
+        for call in calls:
+            parent = parents.get(call)
+            self.assertIsInstance(parent, ast.Assign)
+            self.assertEqual(len(parent.targets), 1)
+            target = parent.targets[0]
+            self.assertIsInstance(target, ast.Tuple)
+            self.assertEqual(len(target.elts), 5)
+            unpacked.append({item.id for item in target.elts if isinstance(item, ast.Name)})
+        self.assertTrue(any("valid_ends" in names for names in unpacked))
+        self.assertTrue(any("final_valid_ends" in names for names in unpacked))
 
     def test_future_available_feature_is_rejected(self):
         with self.assertRaises(DatasetGateError):
