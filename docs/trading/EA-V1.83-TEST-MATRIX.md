@@ -13,11 +13,14 @@ Status: Static code and compile checks pass; runtime acceptance remains blocked.
 | RISK-001 | Daily loss reaches 10% | Entry lock activates |
 | RISK-002 | Existing position while locked | Daily guard does not flatten it |
 | RISK-003 | Restart while locked | Lock state persists |
-| RISK-004 | Broker day rollover | Baseline resets once at broker boundary |
+| RISK-004 | Broker day rollover | Shared baseline resets once at broker boundary |
 | RISK-005 | New entry breaches 9% account-wide NOVA risk | Entry rejected across symbols |
 | RISK-006 | Sixth concurrent NOVA position/order | Entry rejected |
 | RISK-007 | Pending order has no SL or uncomputable risk | New NOVA exposure rejected |
 | RISK-008 | Separate Sniper magic on another symbol | Included in account-wide count and risk |
+| RISK-009 | Multiple chart instances start on same broker day | One shared opening-equity baseline is used |
+| RISK-010 | First attach after 60-second grace with no baseline | Entries stay locked until next broker day |
+| RISK-011 | Shared baseline file lock/read/write failure | Fail closed |
 | REC-001 | Money threshold reached first | Lower money threshold is used |
 | REC-002 | Percentage threshold reached first | Lower percentage threshold is used |
 | REC-003 | USC vs USD account | Equivalent normalized risk |
@@ -31,8 +34,8 @@ Acceptance requires source commit, compiler and terminal builds, account mode, s
 
 ## Execution record — 2026-11-25
 
-- Archived source integrity suite: **9 passed, 0 failed**. Covers five immutable source hashes, WORKING/REPAIRED byte identity, SAFE_READONLY gate, unsafe WORKING defaults, compile-time mutating-path guards, 10% Entry Lock Only, account-wide 9% NOVA risk, positions and pending orders, separate Sniper magic, Recovery path and first-hit threshold semantics.
-- Candidate MetaEditor compile (X64 Regular): **0 errors, 3 warnings**, 9,908 ms.
-- Candidate source SHA-256: `AD54D093FBBC94957E11E8A78699CFFD6FFAF2D70EE072DBDC42E176FAFD042F`.
-- Generated local research EX5 SHA-256: `E9DFB6B3D007F2FDAB39D8FCA4B56973FF24D3AC9B0FD941ED86F0F4DE2F761F`.
-- Remaining runtime tests SAFE-001..006, RISK-003..004, REC-003, EXEC-001..002 and strategy OOS/walk-forward are not executed. The test matrix is not yet accepted.
+- Archived source integrity suite: **10 passed, 0 failed**. Covers five immutable source hashes, WORKING/REPAIRED byte identity, SAFE_READONLY gate, unsafe WORKING defaults, compile-time mutating-path guards, 10% Entry Lock Only, account-wide 9% NOVA risk, positions and pending orders, separate Sniper magic, Recovery path/first-hit semantics, and shared broker-day baseline fail-closed logic.
+- Candidate MetaEditor compile (X64 Regular): **0 errors, 3 warnings**, 10,721 ms.
+- Candidate source SHA-256: `117922854A349331074549A0015178E061820B512AD6778F50621E2742DDA283`.
+- Generated local research EX5 SHA-256: `CA0693620C4182383C1E731691D456A699A3E4D330C1B635AADF9BCE7D417161`.
+- Runtime request interception, common-file concurrency, restart/day-rollover, broker fault-injection, Demo integration and strategy OOS/walk-forward are not executed. The test matrix is not accepted.
