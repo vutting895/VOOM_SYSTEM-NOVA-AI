@@ -37,8 +37,6 @@ Observed ownership fields:
 - `nova.current_role()` reads `auth.jwt() -> 'app_metadata' ->> 'nova_role'`. This is a global NOVA platform role claim; it is not tenant membership and must not be treated as proof that a user belongs to a tenant.
 - `public.affiliate_state_snapshots` has RLS enabled with no policies. Current grants returned no `authenticated` or `anon` access for this table; preserve it as server-only Affiliate state pending a separate project-boundary review. Do not add a client policy merely to silence the Advisor.
 
-The selected project has a separate migration-reconciliation blocker documented in `docs/governance/NOVA-SUPABASE-MIGRATION-RECONCILIATION.md`. Tenant-model work must not bypass its backup/PITR, migration-provenance, or schema-drift gates.
-
 ## 3. Target data model
 
 ### `public.nova_tenants`
@@ -159,3 +157,18 @@ Tests must run against an isolated Supabase test target or local Supabase stack 
 - No deployment, Main merge, or Live Trading activation.
 
 **Current status:** Tenant Membership = NOT IMPLEMENTED. Cross-tenant RLS proof = NOT RUN. Design is a draft pending product semantics and migration-reconciliation gates.
+
+## 10. Confirmed migration-reconciliation blockers — read-only evidence
+
+The separate NOVA migration-reconciliation audit provides concrete blockers that must be resolved before tenant schema work can be considered implementation-ready:
+
+- Supabase project API reported the project as `ACTIVE_HEALTHY`, while its listed `main` database branch reported `MIGRATIONS_FAILED`. Project health must not be treated as migration health.
+- The live migration ledger contained eight entries, but repository provenance did not reconcile: the live durable-approval version `20261030052224` does not match the root migration file `202610300001_nova_durable_approval_lifecycle.sql`.
+- Four later live NOVA migration entries (`20261123120144`, `20261123120159`, `20261123141239`, `20261123172149`) did not have matching files in the inspected root migration directory at the audited Main baseline. Their exact authoritative SQL must be recovered; do not reconstruct or replay from migration names.
+- The live project was missing `public.nova_agent_threads` and `public.nova_approval_requests`, although installed approval functions reference them. Approval lifecycle operations are therefore not proven operational.
+- The `private` schema grants USAGE to `authenticated`; the reconciliation audit flagged granted private approval implementation functions for explicit EXECUTE/ownership review.
+- Backup/PITR inventory and restore-point validation were unavailable through the connected tools. A restorable backup remains UNVERIFIED; project status and database size are not substitutes.
+
+**Tenant work gate:** Do not create or apply tenant migrations, tenant APIs, or tenant-owned application tables against the selected project until migration provenance is reconciled, the missing approval schema/functions are addressed through an independently reviewed plan, and recoverability is evidenced. The audit plan itself remains read-only and does not authorize repair.
+
+**Current status remains:** Tenant Membership = NOT IMPLEMENTED. Cross-tenant RLS proof = NOT RUN. Production DDL = NOT AUTHORIZED.
