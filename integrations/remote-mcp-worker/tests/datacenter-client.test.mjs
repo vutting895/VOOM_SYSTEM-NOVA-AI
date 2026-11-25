@@ -131,7 +131,7 @@ test("MT5 stable ingestion identity canonicalizes object key order", async () =>
     {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
     {time:"2026-01-01T01:00:00Z",open:11,high:13,low:10,close:12,tick_volume:6,spread:2,real_volume:0},
   ];
-  const a = buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars,market_calendar:{closed_intervals:[]},now_ms:Date.parse("2026-01-02T00:00:00Z")});
-  const b = buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars,market_calendar:{other:undefined,closed_intervals:[]},now_ms:Date.parse("2026-01-02T00:00:00Z")});
+  const a = buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars,market_calendar:{closed_intervals:[{start:"2026-01-01T00:00:00Z",end:"2026-01-01T01:00:00Z"}]},now_ms:Date.parse("2026-01-02T00:00:00Z")});
+  const b = buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars,market_calendar:{closed_intervals:[{end:"2026-01-01T01:00:00Z",start:"2026-01-01T00:00:00Z"}]},now_ms:Date.parse("2026-01-02T00:00:00Z")});
   assert.equal(await buildStableMt5IngestionId(a), await buildStableMt5IngestionId(b));
 });
