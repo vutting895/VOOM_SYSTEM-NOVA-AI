@@ -70,6 +70,10 @@ class TenantGuardContractTests(unittest.TestCase):
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
 
+    def test_demo_broker_identity_must_come_from_account_server(self):
+        self.assertIn('"exness" not in server_name.lower()', SOURCE)
+        self.assertNotIn('company_name = str(getattr(terminal, "company"', SOURCE)
+
     def test_history_endpoint_is_tenant_guarded_and_uses_validated_serializer(self):
         history = function_nodes()["history"]
         args = {arg.arg for arg in history.args.args + history.args.kwonlyargs}
