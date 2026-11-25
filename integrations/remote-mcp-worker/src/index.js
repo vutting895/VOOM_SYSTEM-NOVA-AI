@@ -240,7 +240,8 @@ async function runMt5ReadonlyTool(name, args, request, env, user) {
     mt5_connection_status: "/health",
     mt5_account_summary: "/api/account",
     mt5_symbols: "/api/symbols",
-    mt5_quotes: "/api/quotes"
+    mt5_quotes: "/api/quotes",
+    mt5_history: "/api/history"
   };
   const base = String(env.MT5_READONLY_PROXY_URL || DEFAULT_MT5_PROXY_URL).replace(/\/+$/, "");
   let url;
@@ -262,6 +263,16 @@ async function runMt5ReadonlyTool(name, args, request, env, user) {
     url.searchParams.set("symbol", normalizeMt5Symbol(args.symbol));
     url.searchParams.set("timeframe", normalizeMt5Timeframe(args.timeframe));
     url.searchParams.set("count", String(normalizeMt5Count(args.count, 100, 500)));
+  }
+  if (name === "mt5_history") {
+    const symbol = normalizeMt5Symbol(args.symbol);
+    const timeframe = normalizeMt5Timeframe(args.timeframe);
+    const strictUtc = value => typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString().replace(".000Z", "Z") === value;
+    if (!strictUtc(args.start_utc) || !strictUtc(args.end_utc) || Date.parse(args.start_utc) >= Date.parse(args.end_utc)) throw new Error("invalid_history_range");
+    url.searchParams.set("symbol", symbol);
+    url.searchParams.set("timeframe", timeframe);
+    url.searchParams.set("start_utc", args.start_utc);
+    url.searchParams.set("end_utc", args.end_utc);
   }
 
   let response;
@@ -314,21 +325,53 @@ async function callTool(name,args,request,env,user) {
   if (name === "dataset_collect_mt5") {
     const symbol = normalizeMt5Symbol(args.symbol);
     const timeframe = normalizeMt5Timeframe(args.timeframe);
-    const defaultCounts = {M1:500, M5:500, M15:500, M30:337, H1:169, H4:43, D1:8};
-    const count = normalizeMt5Count(args.count, defaultCounts[timeframe], 500);
-    const source = await runMt5ReadonlyTool("mt5_quotes", {symbol, timeframe, count}, request, env, user);
-    if (source.status !== "ok" || !Array.isArray(source.data?.bars)) {
-      return {status:"blocked", source_status:source.status, mode:"read-only",
-        liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false};
+    const hasStart = args.start_utc !== undefined, hasEnd = args.end_utc !== undefined;
+    if (hasStart !== hasEnd) throw new Error("start_utc_and_end_utc_must_be_supplied_together");
+    const bars = [];
+    if (hasStart) {
+      const validUtc = value => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(Date.parse(value)).toISOString().replace(".000Z", "Z") === value;
+      if (!validUtc(args.start_utc) || !validUtc(args.end_utc) || Date.parse(args.start_utc) >= Date.parse(args.end_utc)) throw new Error("invalid_history_range");
+      const seconds = {M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400}[timeframe];
+      const chunkDays = {M1:1,M5:5,M15:15,M30:30,H1:60,H4:180,D1:730}[timeframe];
+      const startMs = Date.parse(args.start_utc), endMs = Date.parse(args.end_utc);
+      if (endMs > Date.now() + seconds * 1000) throw new Error("history_end_must_not_be_in_the_future");
+      if (endMs - startMs > 20000 * seconds * 1000) throw new Error("history_range_exceeds_20000_bar_limit");
+      let cursor = startMs, previous = -Infinity;
+      while (cursor < endMs) {
+        const next = Math.min(cursor + chunkDays * 86400000, endMs);
+        const source = await runMt5ReadonlyTool("mt5_history", {
+          symbol, timeframe, start_utc:new Date(cursor).toISOString().replace(".000Z","Z"),
+          end_utc:new Date(next).toISOString().replace(".000Z","Z")
+        }, request, env, user);
+        if (source.status !== "ok" || !Array.isArray(source.data?.bars)) return {
+          status:"blocked", source_status:source.status, mode:"read-only",
+          liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false
+        };
+        for (const bar of source.data.bars) {
+          const stamp = Date.parse(bar.time);
+          if (!Number.isFinite(stamp) || stamp <= previous) throw new Error("history_chunk_overlap_or_unordered");
+          previous = stamp;
+          bars.push(bar);
+          if (bars.length > 20000) throw new Error("history_range_exceeds_20000_bar_limit");
+        }
+        cursor = next;
+      }
+    } else {
+      const defaults = {M1:500,M5:500,M15:500,M30:337,H1:169,H4:43,D1:8};
+      const count = normalizeMt5Count(args.count, defaults[timeframe], 500);
+      const source = await runMt5ReadonlyTool("mt5_quotes", {symbol,timeframe,count}, request, env, user);
+      if (source.status !== "ok" || !Array.isArray(source.data?.bars)) return {
+        status:"blocked", source_status:source.status, mode:"read-only",
+        liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false
+      };
+      bars.push(...source.data.bars);
     }
-    const payload = buildMt5DatasetPayload({
-      symbol, timeframe, bars:source.data.bars, dataset_name:args.dataset_name,
-      market_calendar:args.market_calendar,
-    });
+    const payload = buildMt5DatasetPayload({symbol,timeframe,bars,dataset_name:args.dataset_name,market_calendar:args.market_calendar});
+    payload.manifest.ingestion_id = await buildStableMt5IngestionId(payload);
     const ingested = await callDatacenterTool("dataset_ingest", payload, request, env);
-    return {...ingested, source:"exness-mt5-demo-readonly", symbol, timeframe,
-      source_bars:source.data.bars.length, closed_bars:payload.rows.length,
-      liveTradingEnabled:false, executionEnabled:false, ordersEnabled:false};
+    return {...ingested,source:"exness-mt5-demo-readonly",symbol,timeframe,source_bars:bars.length,
+      closed_bars:payload.rows.length,ingestion_id:payload.manifest.ingestion_id,
+      liveTradingEnabled:false,executionEnabled:false,ordersEnabled:false};
   }
   if (isDatacenterTool(name)) return await callDatacenterTool(name, args, request, env);
   if (name === "request_mt5_demo_connection") return await requestMt5DemoConnection(request, env, user);
@@ -406,7 +449,7 @@ export const tools=[
  {name:"mt5_account_summary",description:"Read account summary from the signed-in user's own connected Exness MT5 Demo terminal through the tenant-guarded proxy. Read-only; no orders.",inputSchema:{type:"object",properties:{},additionalProperties:false}},
  {name:"mt5_symbols",description:"Read symbol discovery results from the signed-in user's connected Exness MT5 Demo terminal. Optional q substring and limit 1-500. Read-only.",inputSchema:{type:"object",properties:{q:{type:"string"},limit:{type:"integer",minimum:1,maximum:500}},additionalProperties:false}},
  {name:"mt5_quotes",description:"Read quote and OHLC candle data from the signed-in user's connected Exness MT5 Demo terminal. Supported timeframes M1, M5, M15, M30, H1, H4, D1; count 1-500. Read-only.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string"},count:{type:"integer",minimum:1,maximum:500}},required:["symbol"],additionalProperties:false}},
- {name:"dataset_collect_mt5",description:"Read closed OHLCV candles from the signed-in user's connected Exness MT5 Demo Bridge and ingest them into Datacenter. Read-only source; no broker writes. Excludes the still-forming candle. Supply explicit UTC market_calendar.closed_intervals for known closures; unexplained gaps are quarantined.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string",enum:["M1","M5","M15","M30","H1","H4","D1"]},count:{type:"integer",minimum:2,maximum:500},dataset_name:{type:"string",maxLength:80},market_calendar:{type:"object",properties:{closed_intervals:{type:"array",maxItems:5000,items:{type:"object",properties:{start:{type:"string"},end:{type:"string"}},required:["start","end"],additionalProperties:false}}},additionalProperties:false}},required:["symbol","timeframe"],additionalProperties:false}}
+ {name:"dataset_collect_mt5",description:"Read closed OHLCV candles from the signed-in user's connected Exness MT5 Demo Bridge and ingest them into Datacenter. Read-only source; no broker writes. Excludes the still-forming candle. Supply both start_utc and end_utc for bounded historical collection; omit both for latest-bars mode. Supply explicit UTC market_calendar.closed_intervals for known closures; unexplained gaps are quarantined.",inputSchema:{type:"object",properties:{symbol:{type:"string"},timeframe:{type:"string",enum:["M1","M5","M15","M30","H1","H4","D1"]},count:{type:"integer",minimum:2,maximum:500},start_utc:{type:"string"},end_utc:{type:"string"},dataset_name:{type:"string",maxLength:80},market_calendar:{type:"object",properties:{closed_intervals:{type:"array",maxItems:5000,items:{type:"object",properties:{start:{type:"string"},end:{type:"string"}},required:["start","end"],additionalProperties:false}}},additionalProperties:false}},required:["symbol","timeframe"],additionalProperties:false}}
  ...datacenterTools,
 
 ];
