@@ -41,11 +41,13 @@ test('Phase 2 candidate is compile-time disabled at every identified mutating pa
   assert.match(candidate, /^#define NOVA_PHASE2_EXECUTION_DISABLED true\b/m);
   const guarded = ['TradePermission', 'SendClose', 'ModifySL', 'Trail_SendPartialClose', 'RecoverySend', 'RecoveryPartialClose', 'ProcessCandidate', 'CancelOwnPending', 'SniperMTF_Check', 'MoveToBreakeven'];
   for (const name of guarded) {
-    const re = new RegExp('(?:bool|void)\\s+' + name + '\\s*\\([^)]*\\)\\s*\\{\\s*if\\s*\\(NOVA_PHASE2_EXECUTION_DISABLED\\)\\s*return');
-    assert.match(candidate, re, name);
+    assert.ok(candidate.includes('NovaAuditBlocked("' + name + '")'), name);
   }
-  assert.equal((candidate.match(/OrderSend\s*\(/g) || []).length, 8);
-  assert.equal((candidate.match(/\.PositionModify\s*\(/g) || []).length, 1);
+  assert.equal((candidate.match(/\bOrderSend\s*\(/g) || []).length, 1);
+  assert.equal((candidate.match(/NovaAuditOrderSend\s*\(/g) || []).length, 9);
+  assert.equal((candidate.match(/\bgTrade\.PositionModify\s*\(/g) || []).length, 1);
+  assert.match(candidate, /NOVA_REQUEST_AUDIT\|VERSION=1/);
+  assert.match(candidate, /NOVA_REQUEST_AUDIT\|SUMMARY/);
 });
 
 test('Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps', () => {
