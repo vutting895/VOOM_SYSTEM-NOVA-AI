@@ -3,6 +3,7 @@ name: NOVA Unified Evaluation Contracts
 on:
   pull_request:
     paths:
+      - "docs/NOVA_UNIFIED_INTELLIGENCE.md"
       - "workers/quant_engine/unified_evaluation.py"
       - "tests/test_quant_unified_evaluation.py"
       - "notebooks/NOVA_Unified_Intelligence_Research.ipynb"
