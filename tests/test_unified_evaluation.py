@@ -72,6 +72,15 @@ class UnifiedEvaluationTests(unittest.TestCase):
         self.assertEqual(oos, [False, False, True])
         self.assertEqual(purged, [False, True, False])
 
+    def test_notebook_json_and_code_cells_are_valid(self):
+        notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        self.assertEqual(notebook.get("nbformat"), 4)
+        self.assertGreaterEqual(len(notebook.get("cells", [])), 10)
+        for index, cell in enumerate(notebook["cells"]):
+            if cell.get("cell_type") == "code":
+                compile("".join(cell.get("source", [])), f"notebook_cell_{index}", "exec")
+
     def test_future_available_feature_is_rejected(self):
         with self.assertRaises(DatasetGateError):
             validate_point_in_time_rows([1, 2, 3], [1, 2, 4])
