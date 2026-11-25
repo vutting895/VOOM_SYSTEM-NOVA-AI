@@ -50,8 +50,8 @@ def _job_dict(job: ResearchJob) -> dict[str, Any]:
     return value
 
 
-def _job_from_json(value: str) -> ResearchJob:
-    raw = json.loads(value)
+def _job_from_json(value: str | dict[str, Any]) -> ResearchJob:
+    raw = json.loads(value) if isinstance(value, str) else dict(value)
     raw["job_type"] = JobType(raw["job_type"])
     raw["state"] = JobState(raw["state"])
     return ResearchJob(**raw)
@@ -64,8 +64,8 @@ def _event_dict(event: JobEvent) -> dict[str, Any]:
     return value
 
 
-def _event_from_json(value: str) -> JobEvent:
-    raw = json.loads(value)
+def _event_from_json(value: str | dict[str, Any]) -> JobEvent:
+    raw = json.loads(value) if isinstance(value, str) else dict(value)
     raw["from_state"] = JobState(raw["from_state"]) if raw["from_state"] else None
     raw["to_state"] = JobState(raw["to_state"])
     return JobEvent(**raw)
