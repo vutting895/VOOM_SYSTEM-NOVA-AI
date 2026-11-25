@@ -44,11 +44,12 @@ The 19 exact spread formula mismatches are floating-point representation noise: 
 
 ## Remaining Phase 2 gates
 
-- The causal primitives have unit tests, but the legacy script has not yet been refactored to call this module.
-- A complete cost-inclusive XAUUSDm runner is still required. The candidate data is M15; the legacy strategy requests 5M entries. Do not silently substitute M15 entries and claim equivalence. Obtain XAUUSDm M5 data or explicitly define and validate an M15-entry strategy variant.
-- Cost model must consume per-bar spread, commission, slippage and swap/rollover rules; the current prototype has no cost model.
-- Intrabar SL/TP ordering, end-of-data open positions, and session/holiday handling require deterministic conservative rules.
-- Only after these gates pass may the optimizer compare ACA/PSO/GA/Random on market data.
+- The causal primitives have eight passing unit tests. The legacy script was patched for causal swings, one break per swing level, as-of OB visibility, completed 4H alignment, complete 4H aggregates, entry-only session filtering, and stop-first same-bar resolution. The legacy script passed syntax compilation; no end-to-end run was possible because pandas/NumPy are not installed on the paired Windows agent.
+- A complete cost-inclusive XAUUSDm runner is still required. The candidate data is M15; the legacy strategy requests 5M entries. Do not resample M15 into synthetic M5 or silently substitute M15 entries and claim equivalence. Obtain XAUUSDm M5/tick data or explicitly define and validate a separate M15-entry strategy variant.
+- The legacy position-sizing formula assumes one unit of exposure per price unit. It is not valid for XAUUSDm without applying the instrument's contract size (100), tick size/value, minimum lot, lot step, and account-currency conversion.
+- Cost model must consume per-bar spread, commission, slippage and swap/rollover rules; the current prototype has no cost model despite spread fields being present in the candidate CSV.
+- Partial TP behavior, end-of-data open positions, and session/holiday handling require deterministic conservative rules. A 5M strategy cannot be approved using only M15 OHLC.
+- Only after the data calendar and complete causal/cost-inclusive XAUUSDm runner gates pass may the optimizer compare ACA/PSO/GA/Random on market data.
 
 ## Safety
 
