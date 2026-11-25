@@ -179,3 +179,60 @@ The following source-level consumers/configuration paths were confirmed on the p
 - Produce a final matrix with environment (production/staging/local), target project reference, key class (publishable vs server-only), tables/RPCs, and owner.
 
 **WP-1 status: IN PROGRESS.** Initial source paths identified; deployment mapping and complete consumer coverage remain unverified.
+
+
+## 10. Deployment workflow and hosting audit — 2026-11-25
+
+### Verified repository facts
+
+1. **Canonical main recheck:** latest commit search still returns `821db357d70d3613b0ca61520eaae5c5307e8fd4`. All findings below are pinned to this main SHA.
+2. **Actual Netlify build contract:** root `netlify.toml` sets `base = "."`, `command = "npm run build"`, and `publish = "dist"`. Root `package.json` runs `vite build`. This is consistent with the root Vite app, not with the description of a Next.js application in `frontend/README.md`.
+3. **Frontend README drift:** `frontend/README.md` describes a Next.js App Router / OpenNext frontend and names `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` as Netlify settings. The repository's actual Netlify build is rooted at the repository root and uses Vite.
+4. **Cloudflare deployment workflow mismatch:** `.github/workflows/cloudflare-deploy.yml` unconditionally runs Node setup with cache path `frontend/package-lock.json`, then runs `npm ci` with working directory `frontend`. It also uses `frontend` as the working directory for Wrangler operations and optionally runs `npm run cf:build` there. The current-main repository inventory recorded that `frontend/` has no `package.json`, `package-lock.json`, or Next.js app source; it contains README/scripts/stores/Wix export artifacts only. This makes the workflow's dependency/build assumptions inconsistent with the observed tree. No workflow was executed in this audit; do not claim a current failure run, but treat the path mismatch as a release blocker until reconciled.
+5. **Frontend CI trigger:** `.github/workflows/frontend-ci.yml` is `workflow_dispatch` only. It validates the root Vite app and integration Worker contracts. Its Netlify production smoke job is conditioned on `push` to main, so a manual dispatch does not itself establish that production was deployed.
+6. **Cloudflare backend deploy trigger:** `.github/workflows/cloudflare-deploy.yml` listens to successful `Frontend CI` workflow runs on main. It maps GitHub Actions secret names `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` into Worker-side `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. The workflow's deploy concurrency group is production-scoped. Do not dispatch or otherwise trigger it as part of this read-only audit.
+7. **AI Worker deploy trigger:** `.github/workflows/ai-worker-deploy.yml` has a direct `push` trigger on main for changes under `integrations/nova-ai-worker/**` or its workflow. It maps the same GitHub Actions secret names to Worker-side Supabase settings and deploys the Worker. No push to main was made in this task.
+8. **System Hub Worker static configuration:** `integrations/system-hub/wrangler.jsonc` sets the Worker name and allowed UI origins / MT5 proxy URL; it does not declare a Supabase project URL. Supabase settings are supplied by the deployment workflow/runtime variables.
+9. **MT5 read-only Proxy:** its `wrangler.jsonc` does not contain a Supabase URL; its source accepts `SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_ANON_KEY`, and the deployment workflow supplies the publishable key while retaining existing variables.
+10. **NOVA AI Worker:** `integrations/nova-ai-worker/wrangler.toml` declares the Worker and AI binding but no Supabase URL; runtime settings are injected by the deployment workflow.
+11. **Actual configured secret values:** repository source establishes variable-name mappings only. It does not prove the current GitHub Actions secret value, the Netlify environment value, or the live Cloudflare Worker variable value. Those must be checked in their respective dashboards without printing or copying secrets.
+12. **Supabase target baseline:** root `.env.example`, Command Center `.env.example`, and `docs/NOVA-SUPABASE-CONNECTION.md` point to `rovhmjeowracayicbqij`. The deployment workflow uses a shared GitHub Actions secret name for multiple Workers, so a single secret value may fan out to several Worker runtimes. Its actual value remains unverified.
+
+### Confirmed deployment / data-plane matrix
+
+| Surface | Source of config | Supabase URL/key mapping | Current evidence |
+|---|---|---|---|
+| Netlify root Vite app | Netlify site settings, root Vite env | Root app reads `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`; repo templates name `rovhm...` | Build contract confirmed; live Netlify env not inspected |
+| NOVA Command Center app | App-local Vite env | `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`; template names `rovhm...` | Source/template confirmed; actual deployed host/environment not proven |
+| System Hub Worker | GitHub Actions → Cloudflare Worker vars | `NEXT_PUBLIC_SUPABASE_URL` → `SUPABASE_URL`; anon key → `SUPABASE_PUBLISHABLE_KEY` | Workflow mapping confirmed; actual secret value not inspected |
+| MT5 read-only Proxy | Cloudflare deploy workflow / retained Worker vars | publishable key passed; URL expected as `SUPABASE_URL` runtime var | Source/workflow contract confirmed; actual deployed vars not inspected |
+| NOVA AI Worker | AI Worker deploy workflow | Same Actions secret names map to `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Workflow mapping confirmed; actual secret value not inspected |
+| Remote MCP Worker | Cloudflare deploy workflow + `DATACENTER_MCP_URL` | Auth code uses `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | Source/workflow behavior partly confirmed; live deployment/configuration not inspected |
+| Research Worker (`workers/runtime.py`) | Deployment target not found in this pass | `SUPABASE_URL` + publishable/anon key | Runtime contract confirmed; deployment/active status unresolved |
+| Video API | `NEXT_PUBLIC_SUPABASE_URL` / anon key per docs | project/job operations require a migration not yet applied to hosted project per integration doc | Readiness explicitly blocked in docs; no migration applied |
+
+### WP-1 findings and blockers
+
+- **BLOCKER-DEPLOY-01:** Cloudflare deploy workflow references a missing `frontend/package-lock.json` and runs `npm ci` in a directory with no package manifest according to the current-main tree inventory.
+- **BLOCKER-DEPLOY-02:** `frontend/README.md` describes a Next.js/OpenNext app that does not match the actual root Netlify Vite build contract. Clarify whether this README/workflow is stale, or whether an intended frontend artifact was omitted.
+- **BLOCKER-DEPLOY-03:** the Cloudflare deploy workflow is production-scoped and is chained to successful Frontend CI. No workflow was run or dispatched during this audit.
+- **BLOCKER-SUPABASE-01:** shared GitHub Actions secret-name mapping is visible, but the actual URL value is not verifiable from repository source. Dashboard inspection must confirm the URL's project ref for each deployment surface without revealing key values.
+- **BLOCKER-SUPABASE-02:** no evidence yet ties the Research Worker to a concrete deployed service or proves whether it is active.
+- **BLOCKER-SUPABASE-03:** Video API documentation explicitly states its migration is not yet applied to the hosted project; this must remain isolated and not be folded into a generic schema repair.
+
+### WP-1 revised status
+
+**PARTIAL — deployment mappings inventoried; live configuration and full consumer coverage not verified.**
+
+Do not attempt to repair the Cloudflare workflow as part of this database work order. Create a separate deployment-reconciliation work order after confirming whether the intended frontend is the root Vite app or a missing Next.js/OpenNext app. Keep Netlify production unchanged.
+
+### Required next evidence
+
+1. Inspect Netlify site configuration for variable names and the project ref portion of the URL only; never reveal keys.
+2. Inspect GitHub Actions secret presence by name only and, if an authorized safe metadata check exists, verify the URL project ref without exposing the key.
+3. Inspect Cloudflare Worker variable names and URL project refs for System Hub, MT5 Proxy, AI Worker, Remote MCP, and frontend Worker; do not read secret values.
+4. Determine if the deployed Command Center is currently hosted and which environment it targets.
+5. Locate the Research Worker deployment definition or record it as local/un-deployed if no deployment evidence exists.
+6. Resolve the frontend workflow mismatch in a separate approved work order before any Cloudflare production workflow is triggered.
+
+**Safety note:** this update is documentation-only on the work branch. No workflow dispatch, push to main, Worker deployment, Netlify change, secret retrieval, database mutation, broker operation, or live-trading change was performed.
