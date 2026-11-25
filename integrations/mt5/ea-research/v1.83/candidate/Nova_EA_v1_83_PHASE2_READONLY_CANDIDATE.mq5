@@ -6990,18 +6990,48 @@ bool ResearchSMC_H1Trend(const int dir)
    }
    return cachedBias==dir;
 }
+bool ResearchSMC_PriorSwingLevel(const int dir,double &level)
+{
+   level=0;
+   int last=MathMin(20,ArraySize(gRates)-3);
+   if(last<5) return false;
+   // Two older and two newer completed bars confirm the pivot before the sweep candle (shift 2).
+   for(int shift=5;shift<=last;shift++)
+   {
+      bool pivot=true;
+      for(int k=1;k<=2;k++)
+      {
+         if(dir>0 && (gRates[shift].low>=gRates[shift-k].low || gRates[shift].low>=gRates[shift+k].low))
+         { pivot=false; break; }
+         if(dir<0 && (gRates[shift].high<=gRates[shift-k].high || gRates[shift].high<=gRates[shift+k].high))
+         { pivot=false; break; }
+      }
+      if(pivot) { level=(dir>0?gRates[shift].low:gRates[shift].high); return level>0; }
+   }
+   return false;
+}
 int AISniper_CalcScore(int dir)
 {
    gAISniper_Sweep=false; gAISniper_Disp=false; gAISniper_CHoCH=false; gAISniper_Kill=AISniper_IsKillzone();
    if(!gInpAISniper_Enabled) { gAISniper_Score=0; return 0; }
-   if(ArraySize(gRates)<4 || ArraySize(gATR)<2) { gAISniper_Score=0; return 0; }
+   if(ArraySize(gRates)<(InpResearchSMC_Mode?8:4) || ArraySize(gATR)<2) { gAISniper_Score=0; return 0; }
    double atr = gATR[1];
    if(atr<=0) { gAISniper_Score=0; return 0; }
    // Sweep: Closed Bar เท่านั้น - ใช้ gRates[2] เทียบ gRates[3] (ไม่ใช้แท่งกำลังวิ่ง gRates[0])
    if(InpAISniper_UseSweep)
    {
-      if(dir>0) gAISniper_Sweep = (gRates[2].low < gRates[3].low && gRates[1].close > gRates[2].low && gRates[1].close > gRates[3].low);
-      else if(dir<0) gAISniper_Sweep = (gRates[2].high > gRates[3].high && gRates[1].close < gRates[2].high && gRates[1].close < gRates[3].high);
+      if(InpResearchSMC_Mode)
+      {
+         double priorSwing=0;
+         if(!ResearchSMC_PriorSwingLevel(dir,priorSwing)) { gAISniper_Score=0; return 0; }
+         if(dir>0) gAISniper_Sweep=(gRates[2].low<priorSwing && gRates[1].close>priorSwing);
+         else if(dir<0) gAISniper_Sweep=(gRates[2].high>priorSwing && gRates[1].close<priorSwing);
+      }
+      else
+      {
+         if(dir>0) gAISniper_Sweep = (gRates[2].low < gRates[3].low && gRates[1].close > gRates[2].low && gRates[1].close > gRates[3].low);
+         else if(dir<0) gAISniper_Sweep = (gRates[2].high > gRates[3].high && gRates[1].close < gRates[2].high && gRates[1].close < gRates[3].high);
+      }
    }
    // Displacement: Body แรง >0.6 ATR
    if(InpAISniper_UseDisp)
