@@ -266,7 +266,7 @@ No project was created, restored, paused, or modified.
 | `public` | 23 tables | 1 table |
 | `nova` | 1 table | 4 tables |
 | `supabase_migrations` | 1 ledger table | 1 ledger table |
-| Migration ledger entries | 28 | 8 |
+| Migration ledger entries | 30 | 8 |
 
 **Voom_system public schema** includes trading_sessions, strategy_signals, risk_guard_decisions, security_events, system_heartbeats, ai_strategies, customer_ai_subscriptions, signal_delivery_log, strategy_versions, backtest_runs, quality_gate_configs/results, learning_events, mcp_tool_audit, system_controls, alpaca_oauth_states/connections, broker_connections, nova_agent_threads, nova_approval_requests, nova_analysis_jobs, and nova_analysis_audit_events, plus customer_profiles.
 
@@ -408,7 +408,7 @@ The current `main` tree under `supabase/migrations/` contains five SQL files:
 - `202610300001_nova_durable_approval_lifecycle.sql`
 - `202610310001_nova_video_workspace.sql`
 
-The live migration ledgers returned 28 entries for Voom_system and 8 for rovhm. Matching by migration name (not by timestamp, because the live timestamps differ from the repository filenames) gives:
+The live migration ledgers returned 30 entries for Voom_system and 8 for rovhm. Matching by migration name (not by timestamp, because the live timestamps differ from the repository filenames) gives:
 
 | Repository migration | Voom_system ledger | rovhm ledger |
 |---|---|---|
