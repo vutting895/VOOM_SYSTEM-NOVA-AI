@@ -56,7 +56,7 @@ The candidate adds an **opt-in** strict SMC research mode to the existing v1.83 
 
 - Market context: H1 EMA(50), computed from 160 completed H1 bars; trade only when the latest completed H1 close and EMA slope agree with direction.
 - Signal timeframe: existing analysis timeframe (configured as M15 in the target setup).
-- Sweep: the completed bar at shift 2 takes the preceding completed swing extreme at shift 3; the next completed bar at shift 1 reclaims the level.
+- Sweep: the completed bar at shift 2 takes a confirmed prior swing (pivot search shifts 5–20, with two older and two newer closed bars confirming the pivot); the next completed bar at shift 1 reclaims the level.
 - Confirmation: the same completed shift-1 bar must have body greater than 0.6 ATR and close beyond the sweep candle's high/low (the current candidate's causal displacement + CHoCH checks).
 - Session: London / New York GMT windows already represented in the EA's killzone helper (07:00–11:00 and 13:00–17:00 GMT). This is a research filter, not a claim that those hours are universally optimal.
 - Existing pullback: retain the current M15 EMA20 pullback check as the entry timing condition; no unconfirmed FVG/OB interpretation is added.
