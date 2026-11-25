@@ -118,6 +118,8 @@
 #include <Trade\Trade.mqh>
 #include <Trade\SymbolInfo.mqh>
 #include <Trade\PositionInfo.mqh>
+#include "include\\NOVA_PortfolioCoordinator.mqh"
+#include "include\\NOVA_BrokerAdapter.mqh"
 CTrade         gTrade;        // CTrade จาก <Trade/Trade.mqh> - ใช้ Buy/Sell/PositionModify แทน OrderSend เก่า
 CSymbolInfo    gSymbolInfo;   // CSymbolInfo - อ่าน Spread/StopsLevel/FreezeLevel/TickValue
 CPositionInfo  gPosInfo;      // CPositionInfo - อ่าน Position ที่เปิดอยู่
@@ -1321,6 +1323,9 @@ datetime gLastSave=0,gLastJournal=0,gLastDailyHistory=0;
 ulong gLastMarketTickMs=0,gPanelMs=0;
 int gLockHandle=INVALID_HANDLE,gSARHandle=INVALID_HANDLE,gJournalHandle=INVALID_HANDLE;
 string gRoot="",gPrefix="",gJournalDay="";
+CNOVAPortfolioCoordinator gPortfolio;
+bool gPortfolioReady=false;
+ulong gPortfolioLastReconcileMs=0;
 ulong gJournalSeen[];
 int gHoursN[24],gHoursUp[24];
 double gHoursNet[24];
@@ -2104,12 +2109,187 @@ double OpenRiskMoney(int &positions)
       if(!OrderCalcProfit(isBuy?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
       risk+=MathMax(0,-p);
    }
-   // In-flight reservations are local to this EA instance; cross-chart atomic reservation remains a release blocker.
-   for(int i=0;i<MODULES;i++)
-      if(gState[i].inflight_at>0 && FindPosition(i)==0)
-      { risk+=gState[i].inflight_risk_money; positions++; }
+   // In-flight risk is accounted for by the shared portfolio ledger, not per-instance gState.
    return risk;
 }
+
+uint NOVA_PortfolioHashString(const string value)
+{
+   uint hash=2166136261;
+   for(int i=0;i<StringLen(value);i++) hash=(hash^(uint)StringGetCharacter(value,i))*16777619;
+   return hash==0?1:hash;
+}
+string NOVA_PortfolioTag(const ulong request_id) { return StringFormat("NV%I64u",request_id); }
+string NOVA_PortfolioTaggedComment(const string original,const ulong request_id)
+{
+   string tag=NOVA_PortfolioTag(request_id);
+   int max_len=31-StringLen(tag)-1;
+   return StringSubstr(original,0,MathMax(0,max_len))+" "+tag;
+}
+bool NOVA_PortfolioLatestState(const NOVA_PortfolioRecord &records[],const ulong request_id,NOVA_PortfolioRecord &latest)
+{ return gPortfolio.Latest(records,request_id,latest); }
+bool NOVA_PortfolioBrokerVisible(const NOVA_PortfolioRecord &record)
+{
+   string tag=NOVA_PortfolioTag(record.request_id);
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket=PositionGetTicket(i); if(ticket==0) continue;
+      if(PositionGetInteger(POSITION_MAGIC)==record.magic &&
+         NOVA_PortfolioHashString(PositionGetString(POSITION_SYMBOL))==record.symbol_hash &&
+         StringFind(PositionGetString(POSITION_COMMENT),tag)>=0) return true;
+   }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   {
+      ulong ticket=OrderGetTicket(i); if(ticket==0) continue;
+      if(OrderGetInteger(ORDER_MAGIC)==record.magic &&
+         NOVA_PortfolioHashString(OrderGetString(ORDER_SYMBOL))==record.symbol_hash &&
+         StringFind(OrderGetString(ORDER_COMMENT),tag)>=0) return true;
+   }
+   return false;
+}
+bool NOVA_PortfolioBrokerTerminal(const NOVA_PortfolioRecord &record)
+{
+   ulong found=record.order_ticket;
+   long state=-1;
+   if(found>0 && HistoryOrderSelect(found)) state=HistoryOrderGetInteger(found,ORDER_STATE);
+   else if(HistorySelect(record.created_at-120,TimeCurrent()+60))
+   {
+      string tag=NOVA_PortfolioTag(record.request_id);
+      for(int i=HistoryOrdersTotal()-1;i>=0;i--)
+      {
+         ulong ticket=HistoryOrderGetTicket(i); if(ticket==0) continue;
+         if(HistoryOrderGetInteger(ticket,ORDER_MAGIC)!=record.magic) continue;
+         if(NOVA_PortfolioHashString(HistoryOrderGetString(ticket,ORDER_SYMBOL))!=record.symbol_hash) continue;
+         if(StringFind(HistoryOrderGetString(ticket,ORDER_COMMENT),tag)<0) continue;
+         found=ticket; state=HistoryOrderGetInteger(ticket,ORDER_STATE); break;
+      }
+   }
+   if(found==0 || state<0) return false;
+   if(state==ORDER_STATE_CANCELED || state==ORDER_STATE_REJECTED || state==ORDER_STATE_EXPIRED) return true;
+   if(state==ORDER_STATE_FILLED && !NOVA_PortfolioBrokerVisible(record)) return true;
+   return false;
+}
+bool NOVA_PortfolioAppendState(const NOVA_PortfolioRecord &base,const int state,const ulong order_ticket)
+{
+   NOVA_PortfolioRecord next=base;
+   next.state=state; next.order_ticket=order_ticket;
+   return gPortfolio.Append(next);
+}
+bool NOVA_PortfolioRecoverLocked(NOVA_PortfolioRecord &records[])
+{
+   int n=ArraySize(records);
+   for(int i=0;i<n;i++)
+   {
+      bool superseded=false;
+      for(int j=i+1;j<n;j++) if(records[j].request_id==records[i].request_id) { superseded=true; break; }
+      if(superseded) continue;
+      NOVA_PortfolioRecord latest=records[i];
+      if(latest.state==NOVA_PORTFOLIO_PREPARED)
+      {
+         if(!NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_RELEASED,0)) return false;
+         continue;
+      }
+      if(latest.state!=NOVA_PORTFOLIO_DISPATCHING && latest.state!=NOVA_PORTFOLIO_ACCEPTED &&
+         latest.state!=NOVA_PORTFOLIO_UNCERTAIN) continue;
+      if(NOVA_PortfolioBrokerVisible(latest))
+      {
+         if(!NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_RECONCILED,latest.order_ticket)) return false;
+      }
+      else if(NOVA_PortfolioBrokerTerminal(latest))
+      {
+         if(!NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_RELEASED,latest.order_ticket)) return false;
+      }
+      else if(latest.state==NOVA_PORTFOLIO_DISPATCHING)
+      {
+         if(!NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_UNCERTAIN,latest.order_ticket)) return false;
+      }
+   }
+   return true;
+}
+bool NOVA_PortfolioInit()
+{
+   long login=AccountInfoInteger(ACCOUNT_LOGIN);
+   string server=AccountInfoString(ACCOUNT_SERVER);
+   if(login<=0 || server=="") return false;
+   gPortfolioReady=gPortfolio.Init(login,NOVA_PortfolioHashString(server),InpMagicBase);
+   return gPortfolioReady;
+}
+bool NOVA_PortfolioRecover()
+{
+   if(!gPortfolioReady || !gPortfolio.Acquire()) return false;
+   NOVA_PortfolioRecord records[];
+   bool ok=gPortfolio.Load(records);
+   if(ok) ok=NOVA_PortfolioRecoverLocked(records);
+   gPortfolio.Release();
+   return ok;
+}
+bool NOVA_PortfolioReserve(const long magic,const string symbol,const double risk_money,
+                           const double max_risk_pct,const int max_positions,ulong &request_id)
+{
+   request_id=0;
+   if(!gPortfolioReady || magic<=0 || symbol=="" || !ValidNumber(risk_money) ||
+      risk_money<=0 || max_risk_pct<=0 || max_positions<=0) return false;
+   if(!gPortfolio.Acquire()) return false;
+   NOVA_PortfolioRecord records[];
+   bool ok=gPortfolio.Load(records);
+   if(ok) ok=NOVA_PortfolioRecoverLocked(records);
+   if(ok) ok=gPortfolio.Load(records);
+   if(!ok) { gPortfolio.Release(); return false; }
+   int reserved_count=0; double reserved_risk=0;
+   if(!gPortfolio.ActiveTotals(records,reserved_risk,reserved_count))
+   { gPortfolio.Release(); return false; }
+   int open_count=0; double open_risk=OpenRiskMoney(open_count);
+   double equity=AccountInfoDouble(ACCOUNT_EQUITY);
+   if(!ValidNumber(open_risk) || !ValidNumber(equity) || equity<=0 ||
+      open_count+reserved_count>=max_positions ||
+      open_risk+reserved_risk+risk_money>equity*max_risk_pct/100.0+1e-8)
+   { gPortfolio.Release(); return false; }
+   ulong next=gPortfolio.NextId(records);
+   if(next==0) { gPortfolio.Release(); return false; }
+   NOVA_PortfolioRecord record; ZeroMemory(record);
+   record.sequence=next; record.request_id=next; record.magic=magic;
+   record.symbol_hash=NOVA_PortfolioHashString(symbol);
+   record.state=NOVA_PORTFOLIO_PREPARED; record.risk_money=risk_money;
+   record.created_at=TimeCurrent(); record.broker_day=DayStart(TimeCurrent());
+   ok=gPortfolio.Append(record);
+   gPortfolio.Release();
+   if(!ok) return false;
+   request_id=next;
+   return true;
+}
+bool NOVA_PortfolioMarkDispatching(const ulong request_id)
+{
+   if(request_id==0 || !gPortfolioReady || !gPortfolio.Acquire()) return false;
+   NOVA_PortfolioRecord records[],latest;
+   bool ok=gPortfolio.Load(records) && NOVA_PortfolioLatestState(records,request_id,latest);
+   if(ok && latest.state==NOVA_PORTFOLIO_PREPARED)
+      ok=NOVA_PortfolioAppendState(latest,NOVA_PORTFOLIO_DISPATCHING,0);
+   else ok=false;
+   gPortfolio.Release();
+   return ok;
+}
+bool NOVA_PortfolioFinish(const ulong request_id,const int state,const ulong order_ticket)
+{
+   if(request_id==0 || !gPortfolioReady || !gPortfolio.Acquire()) return false;
+   NOVA_PortfolioRecord records[],latest;
+   bool ok=gPortfolio.Load(records) && NOVA_PortfolioLatestState(records,request_id,latest);
+   if(ok && (latest.state==NOVA_PORTFOLIO_PREPARED || latest.state==NOVA_PORTFOLIO_DISPATCHING ||
+             latest.state==NOVA_PORTFOLIO_ACCEPTED || latest.state==NOVA_PORTFOLIO_UNCERTAIN))
+      ok=NOVA_PortfolioAppendState(latest,state,order_ticket);
+   else ok=false;
+   gPortfolio.Release();
+   return ok;
+}
+void NOVA_PortfolioReconcile()
+{
+   if(!gPortfolioReady || !gPortfolio.Acquire()) return;
+   NOVA_PortfolioRecord records[];
+   bool ok=gPortfolio.Load(records);
+   if(ok) ok=NOVA_PortfolioRecoverLocked(records);
+   gPortfolio.Release();
+   if(!ok) gFatalPause=true;
+}
+
 bool SelectLots(const int dir,const double entry,const double sl,double &lots,double &loss,string &reason)
 {
    double eq=AccountInfoDouble(ACCOUNT_EQUITY);
@@ -2162,7 +2342,7 @@ bool SendClose(const ulong ticket)
    req.price=dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="AIO close";
-   bool sent=OrderSend(req,res);
+   bool sent=NOVA_BrokerOrderSend(req,res,NOVA_PHASE2_EXECUTION_DISABLED);
    if(!sent || (res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL &&
                 res.retcode!=TRADE_RETCODE_PLACED))
    { Note(id,"REJECT CLOSE "+IntegerToString((long)res.retcode)); return false; }
@@ -2200,7 +2380,7 @@ bool ModifySL(const ulong ticket,const int dir,const double wanted)
    MqlTradeRequest req; MqlTradeResult res; ZeroMemory(req); ZeroMemory(res);
    req.action=TRADE_ACTION_SLTP; req.symbol=_Symbol; req.position=ticket; req.sl=sl; req.tp=tp;
    req.magic=(ulong)PositionGetInteger(POSITION_MAGIC);
-   return OrderSend(req,res) && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_NO_CHANGES);
+   return NOVA_BrokerOrderSend(req,res) && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_NO_CHANGES);
 }
 bool UsesBE(const int id)
 {
@@ -2340,7 +2520,7 @@ bool Trail_SendPartialClose(const ulong ticket,const double pct)
    req.type=dir>0?ORDER_TYPE_SELL:ORDER_TYPE_BUY;
    req.price=dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode(); req.comment="AIO partial 50%";
-   bool sent=OrderSend(req,res);
+   bool sent=NOVA_BrokerOrderSend(req,res);
    return sent && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL);
 }
 void Trail_ApplyOne(const ulong ticket,const int id,const int dir,const double entry,const double oldSL,const double risk,const double price)
@@ -3471,7 +3651,7 @@ bool RecoverySend(const int dir, const double lots, const string comment, double
    req.price=price; req.volume=vol; req.sl=sl; req.tp=tp;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment=comment;
-   if(!OrderSend(req,res)) return false;
+   if(!NOVA_BrokerOrderSend(req,res)) return false;
    if(res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL && res.retcode!=TRADE_RETCODE_PLACED) return false;
    outPrice = (res.price>0?res.price:price);
    return true;
@@ -3513,7 +3693,7 @@ bool RecoveryPartialClose(const ulong ticket, double vol)
    req.price= dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="NOVA_REC_OVERLAP";
-   if(!OrderSend(req,res)) return false;
+   if(!NOVA_BrokerOrderSend(req,res)) return false;
    if(res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL && res.retcode!=TRADE_RETCODE_PLACED) return false;
    return true;
 }
@@ -4300,7 +4480,7 @@ void ProcessCandidate(const int id)
    gState[id].inflight_order=0; gState[id].inflight_risk_money=loss;
    if(!SaveState())
    { gState[id].consumed_key=oldkey; gState[id].inflight_at=0; Note(id,"ERROR PERSIST INTENT"); return; }
-   bool sent=OrderSend(req,res);
+   bool sent=NOVA_BrokerOrderSend(req,res);
    if(sent && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL ||
                res.retcode==TRADE_RETCODE_PLACED))
    {
@@ -6830,7 +7010,7 @@ void CancelOwnPending()
       if(type==ORDER_TYPE_BUY || type==ORDER_TYPE_SELL) continue;
       MqlTradeRequest req;MqlTradeResult result;ZeroMemory(req);ZeroMemory(result);
       req.action=TRADE_ACTION_REMOVE;req.order=order;req.symbol=_Symbol;
-      bool ok=OrderSend(req,result);
+      bool ok=NOVA_BrokerOrderSend(req,result,NOVA_PHASE2_EXECUTION_DISABLED);
       if(!ok) Print(ENGINE_LABEL,": pending cancellation failed ",result.retcode);
    }
 }
@@ -7172,7 +7352,7 @@ void SniperMTF_Check()
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="SNIPER_MTF TP300 SL100";
    if(!OrderCheck(req,check)) return;
-   if(!OrderSend(req,res)) return;
+   if(!NOVA_BrokerOrderSend(req,res)) return;
    if(res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL || res.retcode==TRADE_RETCODE_PLACED)
    {
       gSniperMTF_Count++;
@@ -7188,6 +7368,7 @@ void MainWork()
    ulong now=GetTickCount64();if(!gTest && now-gLastWorkMs<200) return;
    gLastWorkMs=now;gBusy=true;
    DailyGuard();ReconcileInflight();
+   if(now-gPortfolioLastReconcileMs>=1000) { NOVA_PortfolioReconcile();gPortfolioLastReconcileMs=now; }
    if(gHeader.daily_block!=0 || gHeader.flatten_request!=0)
     {
        if(TradePermission())
@@ -7937,6 +8118,8 @@ int OnInit()
    MathSrand((int)TimeCurrent()); // v1.41 MLP He init seed (บทความ: Fix seed ถ้าอยาก Reproduce)
    gTest=(bool)MQLInfoInteger(MQL_TESTER);RegisterModules();
    if(!ValidateInputs()) { Print(ENGINE_LABEL,": invalid inputs");return INIT_PARAMETERS_INCORRECT; }
+   if(!NOVA_BrokerAdapterSelfTest(gTrade,NOVA_PHASE2_EXECUTION_DISABLED))
+   { Print(ENGINE_LABEL,": broker adapter hard-disable self-test failed");return INIT_FAILED; }
    DetectAutoSettings(); // v1.37 Auto Calculate - ตรวจ Cent / โบรก / สเปรด อัตโนมัติ
    AdaptCheck(); // v1.42 Auto-Adapt - ตั้ง Fingerprint + เทรน MLP บน Symbol ปัจจุบัน
    if(AccountInfoInteger(ACCOUNT_MARGIN_MODE)!=ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
@@ -7948,6 +8131,7 @@ int OnInit()
    FolderCreate("Nova_AIO");
    gRoot="Nova_AIO\\"+(string)AccountInfoInteger(ACCOUNT_LOGIN)+"_"+
          IntegerToString(InpMagicBase)+"_"+IntegerToString((long)TextHash(_Symbol));
+   if(!NOVA_PortfolioInit()) { Print(ENGINE_LABEL,": shared portfolio coordinator init failed");return INIT_FAILED; }
    gPrefix="AIO_"+IntegerToString(InpMagicBase)+"_";
    // An exclusive open file prevents duplicate instances in one terminal.
    gLockHandle=FileOpen(gRoot+"_instance.lock",FILE_READ|FILE_WRITE|FILE_BIN);
@@ -7981,6 +8165,7 @@ int OnInit()
    // execute a historical H1 signal immediately on attachment.
    if(!restored) gState[S_NEURAL].evaluated_bar=iTime(_Symbol,PERIOD_H1,1); // SATMAFlow
    UpdateDailyHistory();
+   if(!NOVA_PortfolioRecover()) { Print(ENGINE_LABEL,": shared portfolio ledger invalid/unavailable; entries disabled");return INIT_FAILED; }
    if(!SaveState()) { Print(ENGINE_LABEL,": cannot write state; entries disabled until storage recovers"); }
    EventSetTimer(1);gInitialized=true;gPanelHistoryDirty=true;DrawPanel(true);V162_UpdateDashboard(); // v1.50
    Print(ENGINE_LABEL,": v1.66 Sniper MTF TP300 SL100 Max2 LOCKED | v1.49 Dashboard | MTF D1-H4-H1-M15 | Cleaned 14 modules | v1.06 Cleaned 14 modules | No Duplicates | Full SMC ON | 32 modules | v1.04 WickReject ON | 31 modules | v1.03 Scanner ON | Regime Auto-Select | v1.02 Governor ON | Risk 1% MaxOpen 8% DailyLoss 6% | 30 modules active on ",_Symbol," using ",EnumToString(InpAnalysisTF),
@@ -8236,7 +8421,7 @@ bool MoveToBreakeven(ulong ticket, bool isBuy, double entryPrice)
       if(gPosInfo.SelectByTicket(ticket))
       {
          double tp = gPosInfo.TakeProfit();
-         return gTrade.PositionModify(ticket, entryPrice, tp);
+         return NOVA_BrokerPositionModify(gTrade,ticket,entryPrice,tp,NOVA_PHASE2_EXECUTION_DISABLED);
       }
    }
    return false;
