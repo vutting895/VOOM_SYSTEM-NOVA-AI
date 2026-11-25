@@ -205,12 +205,17 @@ export class CloudflareWorkersAiProvider implements TextGenerationProvider {
       throw new WorkersAiProviderError("INVALID_REQUEST", "Message count is outside allowed bounds");
     }
 
+    let totalMessageChars = 0;
     for (const message of request.messages) {
       if (!message || !["system", "user", "assistant"].includes(message.role) ||
           typeof message.content !== "string" || !message.content.trim() ||
           message.content.length > MAX_MESSAGE_CHARS) {
         throw new WorkersAiProviderError("INVALID_REQUEST", "Message content or role is invalid");
       }
+      totalMessageChars += message.content.length;
+    }
+    if (totalMessageChars > 32_000) {
+      throw new WorkersAiProviderError("INVALID_REQUEST", "Combined message content exceeds allowed bounds");
     }
 
     const maxOutputTokens = request.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS;
