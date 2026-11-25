@@ -18,12 +18,13 @@ input int InpMaxDaysPerRun = 0; // 0 = all days; use a smaller value for staged 
 bool OpenCsv(const string filename, int &handle)
 {
    int flags = FILE_WRITE | FILE_CSV | FILE_ANSI;
+   string output_path = "NOVA_XAUUSDm_EXPORT\\" + filename;
    if(InpUseCommonFiles)
       flags |= FILE_COMMON;
-   handle = FileOpen(filename, flags, ',');
+   handle = FileOpen(output_path, flags, ',');
    if(handle == INVALID_HANDLE)
    {
-      PrintFormat("EXPORT_ERROR file=%s error=%d", filename, GetLastError());
+      PrintFormat("EXPORT_ERROR file=%s error=%d", "NOVA_XAUUSDm_EXPORT\\" + filename, GetLastError());
       return false;
    }
    return true;
@@ -73,7 +74,7 @@ bool ExportSymbolSpec()
    FileFlush(file);
    FileClose(file);
    PrintFormat("SYMBOL_SPEC_EXPORTED file=%s server=%s currency=%s",
-               filename, AccountInfoString(ACCOUNT_SERVER),
+               "NOVA_XAUUSDm_EXPORT\\" + filename, AccountInfoString(ACCOUNT_SERVER),
                AccountInfoString(ACCOUNT_CURRENCY));
    return true;
 }
@@ -114,7 +115,7 @@ bool ExportBars()
    FileFlush(file);
    FileClose(file);
    PrintFormat("M5_EXPORT_DONE file=%s rows=%d first=%s last=%s",
-               filename, copied,
+               "NOVA_XAUUSDm_EXPORT\\" + filename, copied,
                copied > 0 ? TimeToString(rates[0].time, TIME_DATE | TIME_MINUTES) : "NONE",
                copied > 0 ? TimeToString(rates[copied-1].time, TIME_DATE | TIME_MINUTES) : "NONE");
    return true;
@@ -160,7 +161,7 @@ bool ExportOneTickDay(const datetime day_start)
    FileFlush(file);
    FileClose(file);
    PrintFormat("TICK_DAY_DONE day=%s rows=%d file=%s",
-               TimeToString(day_start, TIME_DATE), copied, filename);
+               TimeToString(day_start, TIME_DATE), copied, "NOVA_XAUUSDm_EXPORT\\" + filename);
    return true;
 }
 
@@ -201,6 +202,11 @@ void OnStart()
       Print("EXPORT_ABORT invalid_date_range");
       return;
    }
+
+   ResetLastError();
+   if(!FolderCreate("NOVA_XAUUSDm_EXPORT", InpUseCommonFiles ? FILE_COMMON : 0))
+      PrintFormat("OUTPUT_DIRECTORY_CREATE_NOTE path=NOVA_XAUUSDm_EXPORT error=%d (continuing; folder may already exist)",
+                  GetLastError());
 
    long digits = 0;
    SymbolInfoInteger(InpRequiredSymbol, SYMBOL_DIGITS, digits);
