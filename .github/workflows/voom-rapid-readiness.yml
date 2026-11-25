@@ -1,0 +1,32 @@
+name: VOOM Rapid Readiness — Backend Safety Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server.ts"
+      - "frontend/app/api/**"
+      - "tests/chat-api-auth-order.test.mjs"
+      - "tests/nova-trading-readonly-guard.test.mjs"
+      - ".github/workflows/voom-rapid-readiness.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: voom-rapid-readiness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-safety-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run backend API auth and trading read-only regression tests
+        run: node --test tests/chat-api-auth-order.test.mjs tests/nova-trading-readonly-guard.test.mjs
