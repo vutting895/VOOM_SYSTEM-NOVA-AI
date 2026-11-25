@@ -100,6 +100,14 @@ class UnifiedEvaluationTests(unittest.TestCase):
             if cell.get("cell_type") == "code":
                 compile("".join(cell.get("source", [])), f"notebook_cell_{index}", "exec")
 
+    def test_notebook_smc_events_align_at_confirmation_availability_not_pivot_time(self):
+        notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = "".join(notebook["cells"][15]["source"])
+        self.assertIn("raw_key = event.get('decision_timestamp', event.get('available_at'))", source)
+        self.assertIn("if raw_key is None: raise ValueError('SMC replay record has no decision/availability timestamp')", source)
+        self.assertNotIn("event.get('timestamp', event.get('event_time'))", source)
+
     def test_notebook_lstm_training_return_contract_is_unpacked(self):
         notebook_path = Path(__file__).resolve().parents[1] / "notebooks" / "NOVA_Unified_Intelligence_Research.ipynb"
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
