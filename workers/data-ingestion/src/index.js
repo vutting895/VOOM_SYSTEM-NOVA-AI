@@ -1,3 +1,11 @@
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+import eventSchema from "../../../integrations/mt5/ea-research/v1.83/brain-contract/nova-brain-event.schema.json" with { type: "json" };
+
+const ajv = new Ajv2020({ allErrors: false, strict: true });
+addFormats(ajv);
+const validateJsonSchema = ajv.compile(eventSchema);
+
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_EVENT_AGE_DAYS = 3650;
 const HEX_64 = /^[a-f0-9]{64}$/i;
@@ -138,6 +146,7 @@ function validateEvent(event) {
     risk_check: "risk", execution_audit: "execution_audit", trade_outcome: "outcome"
   };
   if (!event[requiredByType[event.event_type]]) return "event_type_payload_missing";
+  if (!validateJsonSchema(event)) return "json_schema_validation_failed";
   return null;
 }
 async function authenticate(request, env) {
