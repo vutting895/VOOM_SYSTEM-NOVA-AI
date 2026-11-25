@@ -78,7 +78,7 @@ def normalize_read_path(value: object) -> str:
         symbol = params.get("symbol", [""])[0]
         timeframe = params.get("timeframe", ["H1"])[0].upper()
         start, end = params.get("start_utc", [""])[0], params.get("end_utc", [""])[0]
-        pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+        pattern = r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z"
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", symbol) or timeframe not in TIMEFRAMES:
             raise ValueError("Symbol or timeframe is invalid.")
         if not re.fullmatch(pattern, start) or not re.fullmatch(pattern, end):

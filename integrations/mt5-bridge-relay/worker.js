@@ -112,11 +112,11 @@ export function validateReadRequest(url) {
   if (symbol === undefined || symbol === null || !/^[A-Za-z0-9._-]{1,40}$/.test(symbol)) return { ok: false, error: "invalid_symbol" };
   if (timeframe === undefined || (timeframe !== null && !TIMEFRAMES.has(timeframe.toUpperCase()))) return { ok: false, error: "invalid_timeframe" };
   if (url.pathname === "/api/quotes") {
-    if (count !== null && (count === undefined || !/^\\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) return { ok: false, error: "invalid_count" };
+    if (count !== null && (count === undefined || !/^\d+$/.test(count) || Number(count) < 1 || Number(count) > 500)) return { ok: false, error: "invalid_count" };
     return { ok: true };
   }
   const startUtc = singleParam(url, "start_utc"), endUtc = singleParam(url, "end_utc");
-  const iso = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
   if (startUtc === undefined || endUtc === undefined || !iso.test(startUtc || "") || !iso.test(endUtc || "")) return { ok: false, error: "invalid_history_range" };
   const startMs = Date.parse(startUtc), endMs = Date.parse(endUtc);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) ||
