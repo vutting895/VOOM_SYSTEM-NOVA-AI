@@ -40,7 +40,8 @@ def sample_event():
 
 class BrainEventContractTests(unittest.TestCase):
     def test_valid_closed_bar_signal(self):
-        self.assertIs(validate_event(sample_event()), sample_event() if False else validate_event(sample_event()))
+        event = sample_event()
+        self.assertIs(validate_event(event), event)
 
     def test_rejects_missing_source_hash(self):
         event = sample_event()
