@@ -170,3 +170,11 @@ No source-code behavior was changed in this follow-up. No model was trained, no 
 ### MT5 blocker classification
 
 The immediately evidenced runtime issue is a local port collision on 127.0.0.1:22346, alongside IPC dispatcher startup failure. The log does not identify the owning process, establish whether the running terminal is authenticated to Exness Demo, or show whether history retrieval was attempted. Resolve ownership and terminal-instance configuration before another exporter run; do not kill processes or change ports blindly. Keep the exporter strictly read-only and verify the output artifact after execution.
+
+
+## Port ownership check — 2026-11-26 (read-only)
+
+- Queried the listening socket on `127.0.0.1:22346`: it is owned by PID 432, process `terminal64.exe`, path `C:\\MT5\\terminal64.exe`.
+- Enumerated `terminal64.exe` processes: one process was returned, PID 432, with command line `"C:\\MT5\\terminal64.exe" /profile:NOVA_READONLY`.
+- This narrows the bind error: the listener belongs to the currently running NOVA_READONLY MT5 terminal, not an independently identified process. It does not prove whether the error came from a duplicate internal bind attempt, another service instance, or stale initialization behavior. Do not kill the terminal or change the port based on this evidence alone.
+- No process, terminal configuration, account, or safety setting was changed.
