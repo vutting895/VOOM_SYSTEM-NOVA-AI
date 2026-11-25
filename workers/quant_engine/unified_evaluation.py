@@ -177,6 +177,10 @@ def require_immutable_llm_replay(
 
     created_at = as_datetime(record["created_at"])
     decision_at = as_datetime(decision_timestamp)
+    if not isinstance(created_at, datetime) or not isinstance(decision_at, datetime):
+        raise DatasetGateError("LLM replay timestamps must be timezone-aware datetimes")
+    if created_at.tzinfo is None or decision_at.tzinfo is None:
+        raise DatasetGateError("LLM replay timestamps must include an explicit timezone")
     if created_at > decision_at:
         raise DatasetGateError("LLM response was created after the historical decision time")
     for field in ("prompt_sha256", "response_sha256"):
