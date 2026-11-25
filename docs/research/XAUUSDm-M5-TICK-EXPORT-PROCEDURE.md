@@ -22,13 +22,13 @@ The exporter writes timestamps in broker/server time. Do not label them UTC or c
 4. In MT5, open the Exness Demo terminal, select the exact `XAUUSDm` symbol, and open its M5 chart.
 5. Drag `NOVA_Export_XAUUSDm_M5_Ticks` onto that chart.
 6. Keep `InpExportM5Bars=true`. For the first run, set `InpExportTicks=false` to retrieve the M5 series and confirm history depth. Then run again with `InpExportM5Bars=false` and `InpExportTicks=true`; use `InpMaxDaysPerRun` (for example 5 or 10) to export tick history in bounded batches.
-7. Files are written under the MT5 Common Files folder when `InpUseCommonFiles=true`. The script logs per-day tick counts and a final summary in the Experts tab.
+7. Files are written to `Common\\Files\\NOVA_XAUUSDm_EXPORT\\` when `InpUseCommonFiles=true` (the default). This is the only directory authorized for Desktop Commander to read. The script logs per-day tick counts and a final summary in the Experts tab.
 
 ## Outputs
 
-- `NOVA_XAUUSDm_SYMBOL_SPEC.csv`: server, account currency, digits, point, tick size/value, contract size, volume min/max/step, calculation mode and broker currency fields.
-- `NOVA_XAUUSDm_M5_<from>_<to>.csv`: M5 OHLC, tick volume, broker spread points, real volume.
-- `NOVA_XAUUSDm_TICKS_YYYYMMDD.csv`: bid, ask, last, volume, volume_real, flags and millisecond timestamp, one file per day.
+- `NOVA_XAUUSDm_EXPORT\\NOVA_XAUUSDm_SYMBOL_SPEC.csv`: server, account currency, digits, point, tick size/value, contract size, volume min/max/step, calculation mode and broker currency fields.
+- `NOVA_XAUUSDm_EXPORT\\NOVA_XAUUSDm_M5_<from>_<to>.csv`: M5 OHLC, tick volume, broker spread points, real volume.
+- `NOVA_XAUUSDm_EXPORT\\NOVA_XAUUSDm_TICKS_YYYYMMDD.csv`: bid, ask, last, volume, volume_real, flags and millisecond timestamp, one file per day.
 
 An empty tick day is recorded as a header-only CSV; this is not automatically a missing-data failure because market closures and no-quote periods must be interpreted against the broker session calendar.
 
