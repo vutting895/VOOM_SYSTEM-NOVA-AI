@@ -1,0 +1,28 @@
+version: 2.1
+
+jobs:
+  system-hub-approval-validation:
+    docker:
+      - image: cimg/node:22.11
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Run System Hub and Approval API tests
+          command: node --test integrations/system-hub/tests/*.test.mjs
+      - run:
+          name: Install pinned Wrangler without changing lockfiles
+          command: npm install --no-save --package-lock=false wrangler@4.156.0
+      - run:
+          name: Validate System Hub Worker bundle without deploying
+          command: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+
+workflows:
+  system-hub-approval-validation:
+    jobs:
+      - system-hub-approval-validation:
+          filters:
+            branches:
+              only:
+                - main
+                - feat/port-research-approval-api-20261125
