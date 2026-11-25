@@ -4,10 +4,11 @@ import hmac
 import os
 import re
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import MetaTrader5 as mt5
+from history_contract import serialize_history_rates
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,6 +26,8 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 MAX_BARS = 500
+MAX_HISTORY_BARS = 2000
+MAX_HISTORY_DAYS = {"M1": 1, "M5": 5, "M15": 15, "M30": 30, "H1": 60, "H4": 180, "D1": 730}
 LOCK = threading.RLock()
 
 app = FastAPI(
@@ -237,5 +240,65 @@ def quotes(
             "count": len(bars),
             "mode": "read-only",
             "order_submission_enabled": False,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+@app.get("/api/history")
+def history(
+    symbol: str = Query(min_length=1, max_length=40),
+    timeframe: str = Query(default="H1", max_length=4),
+    start_utc: str = Query(min_length=20, max_length=20),
+    end_utc: str = Query(min_length=20, max_length=20),
+    authorization: str | None = Header(default=None),
+    tenant_id: str | None = Header(default=None, alias="X-VOOM-TENANT-ID"),
+):
+    """Return closed-only UTC history in the half-open interval [start_utc, end_utc)."""
+    require_token(authorization, tenant_id)
+    tf = timeframe.upper()
+    if tf not in MAX_HISTORY_DAYS:
+        raise HTTPException(status_code=400, detail="Unsupported timeframe")
+    pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+    if not re.fullmatch(pattern, start_utc) or not re.fullmatch(pattern, end_utc):
+        raise HTTPException(status_code=400, detail="Timestamps must use strict UTC YYYY-MM-DDTHH:MM:SSZ")
+    try:
+        start = datetime.strptime(start_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        end = datetime.strptime(end_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid UTC history bounds") from None
+    if start >= end:
+        raise HTTPException(status_code=400, detail="start_utc must be earlier than end_utc")
+    if end - start > timedelta(days=MAX_HISTORY_DAYS[tf]):
+        raise HTTPException(status_code=400, detail="Requested range too large; split into smaller chunks")
+    interval_seconds = {"M1":60,"M5":300,"M15":900,"M30":1800,"H1":3600,"H4":14400,"D1":86400}[tf]
+    now = datetime.now(timezone.utc)
+    closed_end_epoch = int(now.timestamp()) // interval_seconds * interval_seconds
+    closed_end = min(end, datetime.fromtimestamp(closed_end_epoch, timezone.utc))
+    with LOCK:
+        get_terminal_and_account()
+        info = mt5.symbol_info(symbol)
+        if info is None:
+            raise HTTPException(status_code=404, detail=f"Unknown MT5 symbol: {symbol}")
+        # A read request must not mutate Market Watch symbol visibility.
+        if not info.visible:
+            raise HTTPException(status_code=409, detail="symbol_not_selected_in_terminal")
+        if closed_end <= start:
+            rates = []
+        else:
+            rates = mt5.copy_rates_range(symbol, timeframe_value(tf), start, closed_end - timedelta(seconds=1))
+            if rates is None:
+                error = mt5.last_error()
+                raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
+        try:
+            bars = serialize_history_rates(rates, start, closed_end, MAX_HISTORY_BARS)
+        except (ValueError, TypeError, KeyError, OverflowError, OSError):
+            raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
+        return {
+            "symbol": symbol, "timeframe": tf, "digits": int(info.digits),
+            "start_utc": start.isoformat().replace("+00:00", "Z"),
+            "end_utc": closed_end.isoformat().replace("+00:00", "Z"),
+            "bars": bars, "count": len(bars), "account_environment": "EXNESS_DEMO",
+            "mode": "read-only", "order_submission_enabled": False,
+            "ordersEnabled": False, "executionEnabled": False, "liveTradingEnabled": False,
             "as_of": datetime.now(timezone.utc).isoformat(),
         }
