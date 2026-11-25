@@ -74,6 +74,13 @@ class TenantGuardContractTests(unittest.TestCase):
         self.assertIn('"exness" not in server_name.lower()', SOURCE)
         self.assertNotIn('company_name = str(getattr(terminal, "company"', SOURCE)
 
+    def test_history_uses_mt5_session_bar_boundary_not_utc_epoch_rounding(self):
+        history = function_nodes()["history"]
+        self.assertTrue(has_call(history, "copy_rates_from_pos"))
+        self.assertIn("current_bar_open", ast.unparse(history))
+        self.assertNotIn("% interval_seconds", ast.unparse(history))
+        self.assertNotIn("closed_end_epoch", ast.unparse(history))
+
     def test_history_endpoint_is_tenant_guarded_and_uses_validated_serializer(self):
         history = function_nodes()["history"]
         args = {arg.arg for arg in history.args.args + history.args.kwonlyargs}

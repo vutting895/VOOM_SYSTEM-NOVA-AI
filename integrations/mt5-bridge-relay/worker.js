@@ -125,8 +125,6 @@ export function validateReadRequest(url) {
   const tf = (timeframe || "H1").toUpperCase();
   const maxDays = {M1:1,M5:5,M15:15,M30:30,H1:60,H4:180,D1:730}[tf];
   if (!maxDays || endMs - startMs > maxDays * 86400000) return { ok: false, error: "history_window_too_large" };
-  const seconds = {M1:60,M5:300,M15:900,M30:1800,H1:3600,H4:14400,D1:86400}[tf];
-  if (startMs % (seconds * 1000) !== 0 || endMs % (seconds * 1000) !== 0) return { ok: false, error: "history_bounds_not_aligned" };
   return { ok: true };
 }
 

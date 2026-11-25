@@ -578,3 +578,12 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Supabase Preview check on the before SHA failed because remote migration versions are absent from the local migration directory; this is separate from the syntax repair and was not modified.
 - Tests have not yet been executed. No MT5 Demo read, Datacenter receipt, deployment, or Live Trading is claimed.
 - Status: syntax repair committed; exact-head validation still required.
+
+
+## WO-2026-11-25-003 — broker-session candle boundary correction (2026-11-25)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`; before SHA: `04f65ecad9098ba8ced28bdcb418a3a0224b9662`.
+- Review found a correctness defect: UTC epoch modulo alignment and epoch-floor closure incorrectly assume H4/D1 candles open on UTC epoch boundaries. Exness MT5 H4/D1 bars can follow broker-session/DST boundaries, so the prior check could reject valid ranges and misclassify the current candle.
+- Corrected Bridge closure detection to use MT5's actual current-bar open from `copy_rates_from_pos(..., 0, 1)`; all earlier bars are closed independent of broker UTC offset. Removed epoch-modulo boundary restrictions from Gateway and tenant relay; UTC timestamps and bounded ranges remain mandatory.
+- Added regression assertions for non-epoch-aligned H4/D1 requests and Bridge current-bar boundary selection. Tests are authored, not executed.
+- No broker reads, Datacenter ingestion, deployment, credentials, permissions, or trading settings changed.

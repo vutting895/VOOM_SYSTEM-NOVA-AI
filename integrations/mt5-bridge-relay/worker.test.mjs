@@ -118,6 +118,9 @@ test("query validation only allows bounded read parameters", () => {
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/symbols?q=XAU&limit=100")), { ok: true });
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/quotes?symbol=XAUUSDm&timeframe=M5&count=50")), { ok: true });
   assert.deepEqual(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z")), { ok: true });
+  // Broker-session H4/D1 bar opens can be offset from UTC epoch boundaries.
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=H4&start_utc=2026-01-01T02:00:00Z&end_utc=2026-01-02T02:00:00Z")).ok, true);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=D1&start_utc=2026-01-01T22:00:00Z&end_utc=2026-01-05T22:00:00Z")).ok, true);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-15T00:00:00Z&end_utc=2026-01-01T00:00:00Z")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-02-01T00:00:00Z")).ok, false);
   assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-02-30T00:00:00Z&end_utc=2026-03-01T00:00:00Z")).ok, false);

@@ -269,13 +269,6 @@ def history(
         raise HTTPException(status_code=400, detail="start_utc must be earlier than end_utc")
     if end - start > timedelta(days=MAX_HISTORY_DAYS[tf]):
         raise HTTPException(status_code=400, detail="Requested range too large; split into smaller chunks")
-    interval_seconds = {"M1":60,"M5":300,"M15":900,"M30":1800,"H1":3600,"H4":14400,"D1":86400}[tf]
-    if int(start.timestamp()) % interval_seconds or int(end.timestamp()) % interval_seconds:
-        raise HTTPException(status_code=400, detail="History bounds must align to the selected timeframe")
-    now = datetime.now(timezone.utc)
-    closed_end_epoch = int(now.timestamp()) // interval_seconds * interval_seconds
-    requested_end_epoch = int(end.timestamp()) // interval_seconds * interval_seconds
-    closed_end = datetime.fromtimestamp(min(requested_end_epoch, closed_end_epoch), timezone.utc)
     with LOCK:
         get_terminal_and_account()
         info = mt5.symbol_info(symbol)
@@ -284,6 +277,14 @@ def history(
         # A read request must not mutate Market Watch symbol visibility.
         if not info.visible:
             raise HTTPException(status_code=409, detail="symbol_not_selected_in_terminal")
+        # MT5 H4/D1 bars follow broker-session boundaries, not necessarily UTC epoch multiples.
+        # Read the terminal's current bar open; every earlier bar is closed regardless of DST/server offset.
+        current_rates = mt5.copy_rates_from_pos(symbol, timeframe_value(tf), 0, 1)
+        if current_rates is None or len(current_rates) != 1:
+            error = mt5.last_error()
+            raise HTTPException(status_code=503, detail=f"MT5 current-bar boundary unavailable: {error[0]}")
+        current_bar_open = datetime.fromtimestamp(int(current_rates[0]["time"]), timezone.utc)
+        closed_end = min(end, current_bar_open)
         if closed_end <= start:
             raise HTTPException(status_code=400, detail="No closed candles exist in the requested range")
         rates = mt5.copy_rates_range(symbol, timeframe_value(tf), start, closed_end - timedelta(seconds=1))
