@@ -75,7 +75,7 @@ test('only the tenant-scoped Exness Demo read-only bridge is retained', () => {
   assert.ok(bridge.includes('@app.get("/api/account")'));
   assert.ok(bridge.includes('@app.get("/api/quotes")'));
   assert.ok(bridge.includes('request.method not in {"GET", "OPTIONS"}'));
-  assert.ok(relay.includes('ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}'));
+  assert.ok(relay.includes('ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/history"}'));
   assert.ok(relay.includes('X-VOOM-TENANT-ID'));
   assert.doesNotMatch(bridge + relay, /order_send|TRADE_ACTION|@app\\.post|0\\.0\\.0\\.0/);
 });
