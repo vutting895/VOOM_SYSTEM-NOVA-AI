@@ -1,38 +1,37 @@
 # Phase 2 Candidate — Compile Evidence
 
-> **Superseded:** The compile evidence below applies to the earlier candidate source SHA only. It does NOT apply to the updated source on branch research/ea-v183-evidence-smc-20261125. The updated source has not yet been compiled.
+**Updated research candidate — exact-source compile completed.**
 
-- Earlier source: Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5
-- Earlier source SHA-256: E29FC5008B5AE128710CB14C6A5853D9AD00AF3562DDDC62276A5A51BB6784F8
-- Earlier generated local EX5 SHA-256: E28E6D3580BB6161D238BE951CE543CAEEDBF2F3918DAC7649ECF60417E66615
-- Earlier compiler: C:\MT5\metaeditor64.exe
-- Earlier target: X64 Regular
-- Earlier result: **0 errors, 3 warnings**
-- Earlier duration reported: 9,600 ms
+- Repository branch: research/ea-v183-evidence-smc-20261125
+- Source path: integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5
+- Source SHA-256 (Windows research workspace): E23FB5D0CD51A5792976C5684852413962CD5BC0F4118771FEBB33D8F283F67D
+- Generated EX5 SHA-256 (Windows research workspace): D4ADB4C373566172891D65DE71098E7E232787D260D394EA503488A88FB9E0D4
+- Compiler: C:\MT5\metaeditor64.exe
+- Target: X64 Regular
+- Result: **0 errors, 2 warnings**
+- Duration: **10,130 ms**
+- Compile log: C:\NOVA_EA_RESEARCH\phase3\metaeditor-compile.log
+- Research source / EX5 output directory: C:\NOVA_EA_RESEARCH\phase3\ (outside MT5 Experts installation)
 
-Earlier warnings:
-1. Line 3363: POSITION_COMMISSION is deprecated.
-2. Line 3547: POSITION_COMMISSION is deprecated.
-3. Line 7708: possible loss of data converting long to double.
+Warnings:
+1. Line 3392: POSITION_COMMISSION is deprecated (legacy commission aggregation).
+2. Line 3576: POSITION_COMMISSION is deprecated (legacy recovery/overlap P/L aggregation).
 
-## Current candidate changes — compile pending
+The prior possible long-to-double conversion warning was corrected with an explicit cast. No new compiler warnings were introduced by the SMC research path.
 
-The research branch adds:
-- Opt-in strict SMC research mode (default OFF).
-- Closed-H1-bar EMA(50) direction filter.
-- Strict Sweep + Displacement + CHoCH confirmation.
-- Structural SL beyond sweep wick, minimum max(0.50 ATR, 3x spread), fixed 2R target.
-- No AI score lot boost in research mode; skip if calculated volume is below broker minimum.
-- Account-wide managed position and pending-order risk aggregation.
-- Account-wide position/order count limits.
+## Static tests
 
-## Current validation state
+- Command: node --test tests/nova-ea-v183-source-integrity.test.mjs
+- Result: **9 passed, 0 failed**
+- Coverage includes immutable source hashes, byte identity, hard-disabled execution paths, daily Entry Lock Only, portfolio caps, strict SMC mode, completed-bar H1 filter, confirmed prior-swing logic, and pending-order exposure aggregation.
 
-- Static Node test suite was extended; exact-branch execution is pending.
-- MetaEditor compile of the updated source: **NOT RUN**.
-- MT5 runtime zero-request interception: **NOT RUN**.
-- Multi-symbol pending-order risk fixtures: **NOT RUN**.
-- Demo forward and OOS performance: **NOT RUN**.
-- Global compile-time execution disable remains enabled in source.
+## Safety / remaining validation
 
-Do not use the earlier compile result as evidence for the updated source. Do not install or attach this candidate.
+- NOVA_PHASE2_EXECUTION_DISABLED=true remains compiled into the candidate.
+- The EX5 was generated only in C:\NOVA_EA_RESEARCH\phase3\; it was not copied to the installed Experts folder and was not attached to a chart.
+- MT5 runtime zero-broker-request interception: **NOT RUN**.
+- Multi-symbol pending-order fixtures, cross-chart concurrency, hedging/netting, USC/USD conversion and broker fault-injection: **NOT RUN**.
+- Strategy Tester real-tick backtest, OOS, walk-forward, Monte Carlo and Demo forward test: **NOT RUN**.
+- Cross-chart in-flight reservations remain instance-local and block execution enablement.
+
+Compile and static-test success do not establish strategy profitability or runtime safety.
