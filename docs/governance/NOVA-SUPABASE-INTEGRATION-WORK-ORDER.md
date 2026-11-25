@@ -236,3 +236,96 @@ Do not attempt to repair the Cloudflare workflow as part of this database work o
 6. Resolve the frontend workflow mismatch in a separate approved work order before any Cloudflare production workflow is triggered.
 
 **Safety note:** this update is documentation-only on the work branch. No workflow dispatch, push to main, Worker deployment, Netlify change, secret retrieval, database mutation, broker operation, or live-trading change was performed.
+
+
+## 11. Live Supabase read-only verification — 2026-11-25 12:28 ICT
+
+### Repository pin
+
+Canonical `main` was rechecked immediately before this database inspection. Latest commit remains:
+`821db357d70d3613b0ca61520eaae5c5307e8fd4`.
+
+### Management API project inventory
+
+The connected Supabase organization returned three projects:
+
+| Project ref | Name | Region | Status |
+|---|---|---|---|
+| `tlyyxufuiimrbaksoitf` | Voom_system | ap-southeast-1 | ACTIVE_HEALTHY |
+| `rovhmjeowracayicbqij` | vutting895's Project | ap-northeast-1 | ACTIVE_HEALTHY |
+| `sblwulsqzlqmycvdolcu` | Mt5 | ap-south-1 | INACTIVE |
+
+No project was created, restored, paused, or modified.
+
+### Live schema inventory (catalog SELECT + Management API)
+
+**Important correction:** the earlier public-schema-only inspection was incomplete. The `rovhm...` project has four tables in schema `nova`; it is not correct to say it has only one NOVA-related table in the entire database.
+
+| Schema | Voom_system (`tlyyx...`) | `rovhm...` |
+|---|---:|---:|
+| `public` | 23 tables | 1 table |
+| `nova` | 1 table | 4 tables |
+| `supabase_migrations` | 1 ledger table | 1 ledger table |
+| Migration ledger entries | 28 | 8 |
+
+**Voom_system public schema** includes trading_sessions, strategy_signals, risk_guard_decisions, security_events, system_heartbeats, ai_strategies, customer_ai_subscriptions, signal_delivery_log, strategy_versions, backtest_runs, quality_gate_configs/results, learning_events, mcp_tool_audit, system_controls, alpaca_oauth_states/connections, broker_connections, nova_agent_threads, nova_approval_requests, nova_analysis_jobs, and nova_analysis_audit_events, plus customer_profiles.
+
+**Voom_system nova schema** includes `nova.mt5_broker_connections`.
+
+**rovhm nova schema** includes `nova.approvals`, `nova.audit_events`, `nova.emergency_stops`, and `nova.mt5_broker_connections`. Its public schema contains `affiliate_state_snapshots`.
+
+### RLS policy inspection
+
+Read-only query of `pg_policies` confirms:
+
+- On `Voom_system.public.broker_connections`: authenticated users may INSERT only their own pending `exness_mt5` Demo connection with `bridge_route_id IS NULL`; SELECT is owner-scoped.
+- On `Voom_system.nova.mt5_broker_connections`: the same owner-scoped pending-only Demo INSERT and owner SELECT pattern is present.
+- On `Voom_system.public.nova_agent_threads`: owner SELECT and owner INSERT restricted to active state / policy version.
+- On `Voom_system.public.nova_approval_requests`: owner SELECT constrained through an owner-matching thread. No authenticated INSERT policy appeared in the inspected policy result.
+- On `rovhm.nova.mt5_broker_connections`: the same pending-only Demo INSERT and owner SELECT pattern is present.
+- On `rovhm.nova.approvals`, `audit_events`, and `emergency_stops`: policies shown are SELECT-only and role-gated through `nova.current_role()`. The approval/audit policies require admin/operator/viewer roles; emergency stop SELECT requires admin/operator.
+
+These are policy definitions only. They do not prove effective access in every role because table grants, function privileges, SECURITY DEFINER functions, JWT claims, and cross-table paths still need separate validation.
+
+### Supabase advisors
+
+**rovhm project — Security**
+- INFO: `public.affiliate_state_snapshots` has RLS enabled but no policies. This may intentionally deny all client access, but must be verified against the server-side access contract.
+- WARN: leaked-password protection is disabled.
+
+**Voom_system — Security**
+- WARN: leaked-password protection is disabled.
+- No additional security lints were returned in this advisor result.
+
+**Voom_system — Performance**
+- INFO: one unindexed foreign key on `public.nova_approval_requests` (`nova_approval_owner_thread_fk`).
+- INFO: 35 unused-index findings. Do not remove indexes from this snapshot alone; the project may have low workload/short observation history.
+
+**rovhm project — Performance**
+- INFO: five unused-index findings in the `nova` schema. No index removals are authorized.
+
+### Evidence interpretation and corrected decision
+
+1. `tlyyx...` has the broader integrated VOOM/NOVA Trading + AI schema and matches more of the current public-schema runtime contract.
+2. `rovhm...` is not an empty or wholly failed database: it contains a separate NOVA governance design under schema `nova`, the MT5 table, and an Affiliate state snapshot in `public`. Its eight migration ledger entries are therefore not equivalent to “no schema”; however, the public schema does not contain the broader VOOM/NOVA runtime tables present in `tlyyx...`.
+3. Both projects contain an MT5 broker connection table in schema `nova`; `tlyyx...` additionally has `public.broker_connections`, which is the current Worker contract identified in repository source.
+4. The `Mt5` project is currently INACTIVE. Its data and schema have not been inspected because database calls against a paused project are unavailable. Do not restore it merely to inspect it; restore has operational/cost implications and requires a separate decision.
+5. The prior “tlyyx should be canonical” conclusion is only a **schema-fit recommendation**, not an approved cutover. The repository still documents `rovhm...` as the NOVA target, and the intended roles of the two ACTIVE_HEALTHY projects have not yet been confirmed by a complete deployment/environment inventory.
+
+### Remaining blockers
+
+- **BLOCKED — runtime endpoint truth:** no read-only proof yet of the actual Supabase project ref configured in Netlify, GitHub Actions secrets, and each deployed Cloudflare Worker.
+- **BLOCKED — effective permissions:** table grants, RPC/function EXECUTE grants, function security/search_path, JWT claims, and two-user isolation tests not yet inspected.
+- **BLOCKED — migration provenance:** live migration names/versions must be reconciled to exact SQL files and the known failed/unmatched history.
+- **BLOCKED — backup/restore:** the available Supabase tools in this session expose project metadata, schema, migrations, SQL, advisors, and logs, but no backup listing/export/restore-point evidence endpoint. A Dashboard/operator evidence check is required. Do not claim backup or restore readiness.
+- **BLOCKED — inactive Mt5 project:** no evidence of its current schema/data or whether it is safe to reuse.
+
+### Next read-only steps
+
+1. Inspect full column/constraint metadata for both projects' broker tables and NOVA governance/approval tables.
+2. Inspect table grants, function signatures, function EXECUTE grants, `prosecdef`, and `proconfig` (including search_path) for relevant RPCs.
+3. Compare all eight `rovhm...` migration versions and all 28 `tlyyx...` migration versions against exact repository migration files.
+4. Continue to avoid dashboard secret values. Request operator verification of project refs only, plus backup timestamp/retention/PITR/restore evidence.
+5. Do not create a Supabase branch or project until its exact cost is quoted and explicitly approved.
+
+**Execution evidence:** this section is based on Supabase Management API project metadata, table/migration listings, read-only catalog SELECT queries, and advisor output. No DDL/DML, migration, secret retrieval, project restore, deployment, broker connection, or live trading action was performed.
