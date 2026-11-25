@@ -3,34 +3,21 @@
 These helpers are deterministic and data-only. They do not connect to brokers
 or submit orders. Heavy backtests and model training belong in an isolated worker.
 """
-
 from .aca import ACAOptimizer, ACAResult
+from .optimizers import OptimizerResult, optimize
+from .objective import TradeMetrics, calculate_trade_metrics, make_trade_objective, score_trade_metrics
 from .identity import build_run_fingerprint
 from .experiment import ExperimentValidationError, validate_quant_experiment
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
 from .splits import (
-    ChronologicalSplit,
-    PurgePolicy,
-    WalkForwardWindow,
-    chronological_split,
-    derive_purge_policy,
-    walk_forward_windows,
+    ChronologicalSplit, PurgePolicy, WalkForwardWindow, chronological_split,
+    derive_purge_policy, walk_forward_windows,
 )
-
 __all__ = [
-    "ACAOptimizer",
-    "ACAResult",
-    "ChronologicalSplit",
-    "DatasetQualityReport",
-    "DatasetValidationError",
-    "ExperimentValidationError",
-    "PurgePolicy",
-    "WalkForwardWindow",
-    "build_run_fingerprint",
-    "canonical_dataset_sha256",
-    "chronological_split",
-    "derive_purge_policy",
-    "validate_ohlcv",
-    "validate_quant_experiment",
-    "walk_forward_windows",
+    "ACAOptimizer", "ACAResult", "OptimizerResult", "optimize", "TradeMetrics",
+    "calculate_trade_metrics", "make_trade_objective", "score_trade_metrics",
+    "ChronologicalSplit", "DatasetQualityReport", "DatasetValidationError",
+    "ExperimentValidationError", "PurgePolicy", "WalkForwardWindow",
+    "build_run_fingerprint", "canonical_dataset_sha256", "chronological_split",
+    "derive_purge_policy", "validate_ohlcv", "validate_quant_experiment", "walk_forward_windows",
 ]
