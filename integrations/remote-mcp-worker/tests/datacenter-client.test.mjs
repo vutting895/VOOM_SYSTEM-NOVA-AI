@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildMt5DatasetPayload, callDatacenterTool, datacenterTools } from "../src/datacenter-client.js";
+import { buildMt5DatasetPayload, buildStableMt5IngestionId, callDatacenterTool, datacenterTools } from "../src/datacenter-client.js";
 
 test("Learning tools are exposed by the existing NOVA Remote MCP catalog", () => {
   const names = new Set(datacenterTools.map((tool) => tool.name));
@@ -102,4 +102,25 @@ test("MT5 ingestion adapter rejects reversed source bars instead of silently sor
     symbol:"XAUUSDm", timeframe:"H1", bars,
     now_ms:Date.parse("2026-01-02T00:00:00Z"),
   }), /must_be_valid_and_ascending/);
+});
+
+
+test("MT5 stable ingestion identity is deterministic and changes with payload", async () => {
+  const bars = [
+    {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
+    {time:"2026-01-01T01:00:00Z",open:11,high:13,low:10,close:12,tick_volume:6,spread:2,real_volume:0},
+  ];
+  const payload = buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars,now_ms:Date.parse("2026-01-02T00:00:00Z")});
+  const first = await buildStableMt5IngestionId(payload);
+  const second = await buildStableMt5IngestionId(payload);
+  assert.equal(first, second);
+  assert.match(first, /^mt5-[a-f0-9]{64}$/);
+  const changed = {...payload,rows:payload.rows.map((row,index)=>index===0?{...row,close:10.5}:row)};
+  assert.notEqual(await buildStableMt5IngestionId(changed), first);
+});
+
+test("MT5 dataset builder rejects malformed OHLC and negative volume", () => {
+  const base = {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0};
+  assert.throws(() => buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars:[base,{...base,time:"2026-01-01T01:00:00Z",low:12}],now_ms:Date.parse("2026-01-02T00:00:00Z")}), /invalid_ohlc/);
+  assert.throws(() => buildMt5DatasetPayload({symbol:"XAUUSDm",timeframe:"H1",bars:[base,{...base,time:"2026-01-01T01:00:00Z",tick_volume:-1}],now_ms:Date.parse("2026-01-02T00:00:00Z")}), /invalid_volume_or_spread/);
 });

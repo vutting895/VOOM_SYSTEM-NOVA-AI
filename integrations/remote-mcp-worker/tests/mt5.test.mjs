@@ -55,3 +55,13 @@ test("the authenticated MCP registry must never expose broker-write tools", () =
     "MCP registry must not expose order, position or fund mutation tools"
   );
 });
+
+
+test("dataset collector accepts explicit UTC historical range without adding another MCP tool", () => {
+  const tool = tools.find((item) => item.name === "dataset_collect_mt5");
+  assert.ok(tool);
+  assert.equal(tool.inputSchema.properties.start_utc.type, "string");
+  assert.equal(tool.inputSchema.properties.end_utc.type, "string");
+  assert.deepEqual(tool.inputSchema.required, ["symbol", "timeframe"]);
+  assert.equal(names.has("mt5_history"), false);
+});
