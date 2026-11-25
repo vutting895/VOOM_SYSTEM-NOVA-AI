@@ -400,3 +400,17 @@ Before the Integrated Workstation can be called operational, require:
 - [ ] Staging RLS tenant-isolation verification.
 - [ ] Decide project-level NOVA/Affiliate Supabase isolation policy.
 - [ ] Build and test the QuantLab workstation on this Development Branch.
+
+
+## 18. Delivery update — Contract Reconciliation PR #427 (2026-11-26)
+
+- [x] Contract reconciliation and implementation blueprint added at `docs/NOVA-QUANTLAB-CONTRACT-RECONCILIATION-2026-11-26.md`.
+- [x] Draft PR #427 opened against Main; base SHA remains `821db357d70d3613b0ca61520eaae5c5307e8fd4`.
+- [x] Draft PR contains documentation only; no app code, migration, production configuration or deployment changed.
+- [x] Rechecked Main SHA and Development Branch head after PR creation.
+- [ ] CI/build validation: NOT PASSED. The commit status currently reports CircleCI Pipeline = `error`; failure details have not been retrieved, so root cause is UNKNOWN.
+- [ ] Authenticated Hub/MCP/MT5 smoke tests, tenant isolation, real dataset admission and Quant Worker execution remain NOT VERIFIED.
+- [ ] Do not merge PR #427 until the CircleCI error is understood and all required documentation/review gates pass.
+
+PR: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/427
+Development Branch: `dev/nova-quantlab-integrated-workstation-20261126`
