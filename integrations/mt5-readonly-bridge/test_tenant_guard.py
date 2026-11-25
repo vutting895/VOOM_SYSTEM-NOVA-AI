@@ -62,13 +62,22 @@ class TenantGuardContractTests(unittest.TestCase):
 
     def test_every_private_read_endpoint_checks_bearer_and_tenant(self):
         functions = function_nodes()
-        for name in ("health", "account_summary", "symbols", "quotes"):
+        for name in ("health", "account_summary", "symbols", "quotes", "history"):
             with self.subTest(endpoint=name):
                 function = functions[name]
                 args = {arg.arg for arg in function.args.args + function.args.kwonlyargs}
                 self.assertIn("authorization", args)
                 self.assertIn("tenant_id", args)
                 self.assertTrue(has_call(function, "require_token", ["authorization", "tenant_id"]))
+
+    def test_history_endpoint_is_tenant_guarded_and_uses_validated_serializer(self):
+        history = function_nodes()["history"]
+        args = {arg.arg for arg in history.args.args + history.args.kwonlyargs}
+        self.assertIn("authorization", args)
+        self.assertIn("tenant_id", args)
+        self.assertTrue(has_call(history, "require_token", ["authorization", "tenant_id"]))
+        self.assertTrue(has_call(history, "serialize_history_rates"))
+        self.assertIn('"/api/history"', SOURCE)
 
     def test_tenant_header_is_allowed_by_cors(self):
         self.assertIn('"X-VOOM-TENANT-ID"', SOURCE)
