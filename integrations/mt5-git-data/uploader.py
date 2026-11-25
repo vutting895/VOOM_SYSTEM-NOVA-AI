@@ -97,7 +97,7 @@ def main():
     ap.add_argument("--symbol", default="XAUUSDm")
     ap.add_argument("--timeframe", choices=["M5", "TICK"], required=True)
     ap.add_argument("--kind", choices=["bars", "ticks"], required=True)
-    ap.add_argument("--source-server", default="EXNESS_DEMO")
+    ap.add_argument("--source-server", default="UNVERIFIED")
     ap.add_argument("--rows-per-shard", type=int, default=50000)
     args = ap.parse_args()
     if args.rows_per_shard < 1 or args.rows_per_shard > 50000: ap.error("--rows-per-shard must be 1..50000")
