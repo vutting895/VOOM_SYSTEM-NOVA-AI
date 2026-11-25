@@ -71,9 +71,7 @@ function asFiniteNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-function parseUsage(value: CloudflareChatEnvelope["result"] extends infer T
-  ? T extends { usage?: infer U } ? U : never
-  : never): ProviderUsage {
+function parseUsage(value: unknown): ProviderUsage {
   if (!value || typeof value !== "object") return {};
   const usage = value as Record<string, unknown>;
   return {
