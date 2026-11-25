@@ -97,3 +97,16 @@ test('Recovery first-hit thresholds use the lower money or equity-percent limit'
   assert.match(candidate, /hardMoney\s*=\s*MathMin\(AutoMoney\(InpRecoveryMaxDDMoney\),\s*eq\*InpRecoveryMaxDDPct\/100\.0\)/);
   assert.match(candidate, /hardMoney2\s*=\s*MathMin\(AutoMoney\(InpRecoveryMaxDDMoney\),\s*eq\*InpRecoveryMaxDDPct\/100\.0\)/);
 });
+
+test('broker-day baseline is shared across symbols and fails closed when first attach is late', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  const baseline = candidate.slice(candidate.indexOf('bool LoadAccountDayBaseline('), candidate.indexOf('void DailyGuard('));
+  assert.match(baseline, /FILE_COMMON/);
+  assert.match(baseline, /ACCOUNT_LOGIN/);
+  assert.match(baseline, /InpMagicBase/);
+  assert.match(baseline, /ACCOUNT_SERVER/);
+  assert.match(baseline, /NOVA_DAILY_BASELINE_GRACE_SECONDS 60/);
+  assert.match(baseline, /trusted=\(TimeCurrent\(\)-day\)<=NOVA_DAILY_BASELINE_GRACE_SECONDS/);
+  assert.match(candidate, /gHeader\.daily_block=baselineTrusted\?0:1/);
+  assert.match(candidate, /no trusted broker-day opening baseline; entries locked until next broker day/);
+});
