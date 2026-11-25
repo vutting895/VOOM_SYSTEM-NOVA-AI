@@ -272,7 +272,10 @@ export function buildMt5DatasetPayload({
 
 export async function buildStableMt5IngestionId(payload) {
   if (!payload || !payload.manifest || !Array.isArray(payload.rows) || !payload.rows.length) throw new Error("invalid_mt5_ingestion_payload");
-  const canonical = JSON.stringify({
+  const canonicalize = value => Array.isArray(value) ? value.map(canonicalize)
+    : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonicalize(value[key])]))
+    : value;
+  const canonical = JSON.stringify(canonicalize({
     manifest: {
       name:payload.manifest.name, source:payload.manifest.source, symbols:payload.manifest.symbols,
       timeframe:payload.manifest.timeframe, timezone:payload.manifest.timezone,
@@ -281,7 +284,7 @@ export async function buildStableMt5IngestionId(payload) {
       schema:payload.manifest.schema, market_calendar:payload.manifest.market_calendar ?? null
     },
     rows:payload.rows
-  });
+  }));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   const hex = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,"0")).join("");
   return "mt5-" + hex;
