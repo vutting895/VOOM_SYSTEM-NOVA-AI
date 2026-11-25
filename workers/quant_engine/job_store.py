@@ -80,7 +80,7 @@ class SQLiteResearchJobStore:
     """
 
     def __init__(self, database_path: str | Path, *, busy_timeout_ms: int = 5000):
-        self.database_path = str(database_path)
+        self.database_path = str(Path(database_path).expanduser())
         if self.database_path == ":memory:":
             raise ValueError("a persistent database path is required")
         if isinstance(busy_timeout_ms, bool) or not isinstance(busy_timeout_ms, int) or busy_timeout_ms < 1:
