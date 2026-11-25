@@ -74,3 +74,13 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - Record each operation in `logs/OPERATIONS.md` with UTC timestamp, WO ID, repository, branch, before/after SHA, changed paths, checks/results, evidence, blockers and next action.
 - Existing safety rules remain: deployment paused; `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; no broker writes, order execution, transfers or withdrawals.
 - NOVA remains main-only under this local instruction. Do not create a feature branch, force-push, or rewrite history unless the repository owner explicitly changes this operating rule.
+
+
+## Approved MT5 historical collector — WO-2026-11-25-003
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-25-003-nova-mt5-historical-collector.md
+- This Work Order explicitly authorizes NOVA-side MT5 historical read-only collection changes directly on `main`, using PR #269 as a reference only. Do not merge PR #269 or #275.
+- Scope is limited to bounded, tenant-isolated, GET-only Exness MT5 Demo history retrieval and delivery through the existing NOVA Gateway to the existing Datacenter ingestion contract.
+- Do not create another Gateway/MCP endpoint, call Datacenter directly from the browser, or modify the Datacenter repository under this Work Order.
+- No broker write, orders, execution, transfer, withdrawal, deployment, production secret/permission changes, paid resources, or live trading.
+- Follow the central Work Order phases and stop conditions. Authored tests are not executed tests; no live collection is proven without a real Demo Bridge response and Datacenter quality receipt.
