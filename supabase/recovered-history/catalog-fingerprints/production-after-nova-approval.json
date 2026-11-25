@@ -1,0 +1,4939 @@
+{
+  "grants": [
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "ai_strategies",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "alpaca_oauth_states",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "backtest_runs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "broker_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "broker_connections",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "broker_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "broker_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "broker_connections",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "customer_ai_subscriptions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "customer_profiles",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "learning_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "mcp_tool_audit",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "nova_agent_threads",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "nova_agent_threads",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "nova_agent_threads",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "nova_agent_threads",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "nova_agent_threads",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "nova_approval_requests",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "nova_approval_requests",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "nova_approval_requests",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "nova_approval_requests",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "quality_gate_configs",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "quality_gate_results",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "risk_guard_decisions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "security_events",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "signal_delivery_log",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "strategy_signals",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "strategy_versions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "system_controls",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "system_heartbeats",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "anon",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "authenticated",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "DELETE"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "INSERT"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "REFERENCES"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "SELECT"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRIGGER"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "table": "trading_sessions",
+      "grantee": "service_role",
+      "grantable": "NO",
+      "privilege": "UPDATE"
+    }
+  ],
+  "tables": [
+    {
+      "rls": true,
+      "name": "ai_strategies",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "alpaca_connections",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "alpaca_oauth_states",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "backtest_runs",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "broker_connections",
+      "comment": "Per-customer Exness MT5 Demo requests. Clients can create pending requests only; trusted admins assign dedicated routes.",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "customer_ai_subscriptions",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "customer_profiles",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "learning_events",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "mcp_tool_audit",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "nova_agent_threads",
+      "comment": "Owner-scoped durable thread metadata for draft reviews; no chat transcript, access token or broker secret is stored.",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "nova_approval_requests",
+      "comment": "Owner-scoped expiring strategy-draft review requests. Acceptance never grants broker or order execution.",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "quality_gate_configs",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "quality_gate_results",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "risk_guard_decisions",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "security_events",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "signal_delivery_log",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "strategy_signals",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "strategy_versions",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "system_controls",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "system_heartbeats",
+      "comment": null,
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "trading_sessions",
+      "comment": null,
+      "force_rls": false
+    }
+  ],
+  "columns": [
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "ai_strategies",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "strategy_key",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "display_name",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "version",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "description",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": "''::text",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "_text",
+      "name": "supported_symbols",
+      "type": "ARRAY",
+      "table": "ai_strategies",
+      "default": "'{}'::text[]",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "_text",
+      "name": "supported_timeframes",
+      "type": "ARRAY",
+      "table": "ai_strategies",
+      "default": "'{}'::text[]",
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "risk_profile",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": "'moderate'::text",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "lifecycle_status",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": "'draft'::text",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "trading_mode",
+      "type": "text",
+      "table": "ai_strategies",
+      "default": "'paper'::text",
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "backtest_passed",
+      "type": "boolean",
+      "table": "ai_strategies",
+      "default": "false",
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "out_of_sample_passed",
+      "type": "boolean",
+      "table": "ai_strategies",
+      "default": "false",
+      "ordinal": 12,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "demo_passed",
+      "type": "boolean",
+      "table": "ai_strategies",
+      "default": "false",
+      "ordinal": 13,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "risk_review_passed",
+      "type": "boolean",
+      "table": "ai_strategies",
+      "default": "false",
+      "ordinal": 14,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "approved_by",
+      "type": "uuid",
+      "table": "ai_strategies",
+      "default": null,
+      "ordinal": 15,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "approved_at",
+      "type": "timestamp with time zone",
+      "table": "ai_strategies",
+      "default": null,
+      "ordinal": 16,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "ai_strategies",
+      "default": "now()",
+      "ordinal": 17,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "ai_strategies",
+      "default": "now()",
+      "ordinal": 18,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "alpaca_connections",
+      "default": null,
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "token_ciphertext",
+      "type": "text",
+      "table": "alpaca_connections",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "_text",
+      "name": "scopes",
+      "type": "ARRAY",
+      "table": "alpaca_connections",
+      "default": "'{}'::text[]",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "environment",
+      "type": "text",
+      "table": "alpaca_connections",
+      "default": "'paper'::text",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "connected_at",
+      "type": "timestamp with time zone",
+      "table": "alpaca_connections",
+      "default": "now()",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "state_hash",
+      "type": "text",
+      "table": "alpaca_oauth_states",
+      "default": null,
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "alpaca_oauth_states",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "alpaca_oauth_states",
+      "default": "now()",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "table": "alpaca_oauth_states",
+      "default": "(now() + '00:10:00'::interval)",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "backtest_runs",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_version_id",
+      "type": "uuid",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "kind",
+      "type": "text",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "symbol",
+      "type": "text",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "timeframe",
+      "type": "text",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "period_start",
+      "type": "timestamp with time zone",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "period_end",
+      "type": "timestamp with time zone",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "int4",
+      "name": "trades_count",
+      "type": "integer",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "win_rate",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "profit_factor",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "sharpe",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "max_drawdown_pct",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 12,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "net_return_pct",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 13,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "expectancy_r",
+      "type": "numeric",
+      "table": "backtest_runs",
+      "default": null,
+      "ordinal": 14,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "assumptions",
+      "type": "jsonb",
+      "table": "backtest_runs",
+      "default": "'{}'::jsonb",
+      "ordinal": 15,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "backtest_runs",
+      "default": "now()",
+      "ordinal": 16,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "broker_connections",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "broker_connections",
+      "default": "auth.uid()",
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "provider",
+      "type": "text",
+      "table": "broker_connections",
+      "default": "'exness_mt5'::text",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "environment",
+      "type": "text",
+      "table": "broker_connections",
+      "default": "'demo'::text",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "status",
+      "type": "text",
+      "table": "broker_connections",
+      "default": "'pending'::text",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "account_label",
+      "type": "text",
+      "table": "broker_connections",
+      "default": "'Exness MT5 Demo'::text",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "bridge_route_id",
+      "type": "text",
+      "table": "broker_connections",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "last_verified_at",
+      "type": "timestamp with time zone",
+      "table": "broker_connections",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "broker_connections",
+      "default": "now()",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "broker_connections",
+      "default": "now()",
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "customer_ai_subscriptions",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "customer_ai_subscriptions",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_id",
+      "type": "uuid",
+      "table": "customer_ai_subscriptions",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "strategy_version",
+      "type": "text",
+      "table": "customer_ai_subscriptions",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "account_session_id",
+      "type": "uuid",
+      "table": "customer_ai_subscriptions",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "status",
+      "type": "text",
+      "table": "customer_ai_subscriptions",
+      "default": "'pending'::text",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "risk_profile",
+      "type": "text",
+      "table": "customer_ai_subscriptions",
+      "default": "'moderate'::text",
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "approved_for_live",
+      "type": "boolean",
+      "table": "customer_ai_subscriptions",
+      "default": "false",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "customer_ai_subscriptions",
+      "default": "now()",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "customer_ai_subscriptions",
+      "default": "now()",
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "customer_profiles",
+      "default": null,
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "display_name",
+      "type": "text",
+      "table": "customer_profiles",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "account_status",
+      "type": "text",
+      "table": "customer_profiles",
+      "default": "'active'::text",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "customer_profiles",
+      "default": "now()",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "customer_profiles",
+      "default": "now()",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "role",
+      "type": "text",
+      "table": "customer_profiles",
+      "default": "'customer'::text",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "learning_events",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_id",
+      "type": "uuid",
+      "table": "learning_events",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_version_id",
+      "type": "uuid",
+      "table": "learning_events",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "event_type",
+      "type": "text",
+      "table": "learning_events",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "details",
+      "type": "jsonb",
+      "table": "learning_events",
+      "default": "'{}'::jsonb",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "learning_events",
+      "default": "now()",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "mcp_tool_audit",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "tool_name",
+      "type": "text",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "caller",
+      "type": "text",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "actor_user_id",
+      "type": "uuid",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "input",
+      "type": "jsonb",
+      "table": "mcp_tool_audit",
+      "default": "'{}'::jsonb",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "ok",
+      "type": "boolean",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "error_code",
+      "type": "text",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "int4",
+      "name": "duration_ms",
+      "type": "integer",
+      "table": "mcp_tool_audit",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "mcp_tool_audit",
+      "default": "now()",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "nova_agent_threads",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "nova_agent_threads",
+      "default": "auth.uid()",
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "title",
+      "type": "text",
+      "table": "nova_agent_threads",
+      "default": "'NOVA review'::text",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "state",
+      "type": "text",
+      "table": "nova_agent_threads",
+      "default": "'active'::text",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "policy_version",
+      "type": "text",
+      "table": "nova_agent_threads",
+      "default": "'nova-approval.v1'::text",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "nova_agent_threads",
+      "default": "now()",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "nova_agent_threads",
+      "default": "now()",
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "last_activity_at",
+      "type": "timestamp with time zone",
+      "table": "nova_agent_threads",
+      "default": "now()",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "nova_approval_requests",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "thread_id",
+      "type": "uuid",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "nova_approval_requests",
+      "default": "auth.uid()",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "request_type",
+      "type": "text",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "proposal",
+      "type": "jsonb",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "proposal_hash",
+      "type": "text",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "policy_version",
+      "type": "text",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "status",
+      "type": "text",
+      "table": "nova_approval_requests",
+      "default": "'pending'::text",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "decision_note",
+      "type": "text",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "decision_payload",
+      "type": "jsonb",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "nova_approval_requests",
+      "default": "now()",
+      "ordinal": 12,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "nova_approval_requests",
+      "default": "now()",
+      "ordinal": 13,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "decided_at",
+      "type": "timestamp with time zone",
+      "table": "nova_approval_requests",
+      "default": null,
+      "ordinal": 14,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "quality_gate_configs",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "name",
+      "type": "text",
+      "table": "quality_gate_configs",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "stage",
+      "type": "text",
+      "table": "quality_gate_configs",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "thresholds",
+      "type": "jsonb",
+      "table": "quality_gate_configs",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "active",
+      "type": "boolean",
+      "table": "quality_gate_configs",
+      "default": "false",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "quality_gate_configs",
+      "default": "now()",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "quality_gate_results",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_version_id",
+      "type": "uuid",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "config_id",
+      "type": "uuid",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "stage",
+      "type": "text",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "passed",
+      "type": "boolean",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "score",
+      "type": "numeric",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "checks",
+      "type": "jsonb",
+      "table": "quality_gate_results",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "evaluated_by",
+      "type": "text",
+      "table": "quality_gate_results",
+      "default": "'gate_worker'::text",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "quality_gate_results",
+      "default": "now()",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "risk_guard_decisions",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "risk_guard_decisions",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "signal_id",
+      "type": "uuid",
+      "table": "risk_guard_decisions",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "decision",
+      "type": "text",
+      "table": "risk_guard_decisions",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "reason_code",
+      "type": "text",
+      "table": "risk_guard_decisions",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "details",
+      "type": "jsonb",
+      "table": "risk_guard_decisions",
+      "default": "'{}'::jsonb",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "risk_guard_decisions",
+      "default": "now()",
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "security_events",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "severity",
+      "type": "text",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "event_type",
+      "type": "text",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "source",
+      "type": "text",
+      "table": "security_events",
+      "default": "'backend'::text",
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "ip_hash",
+      "type": "text",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "request_id",
+      "type": "text",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "summary",
+      "type": "text",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "details",
+      "type": "jsonb",
+      "table": "security_events",
+      "default": "'{}'::jsonb",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "acknowledged_at",
+      "type": "timestamp with time zone",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "acknowledged_by",
+      "type": "uuid",
+      "table": "security_events",
+      "default": null,
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "security_events",
+      "default": "now()",
+      "ordinal": 12,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "signal_delivery_log",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "signal_id",
+      "type": "uuid",
+      "table": "signal_delivery_log",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "subscription_id",
+      "type": "uuid",
+      "table": "signal_delivery_log",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "delivery_status",
+      "type": "text",
+      "table": "signal_delivery_log",
+      "default": "'queued'::text",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "idempotency_key",
+      "type": "text",
+      "table": "signal_delivery_log",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "int4",
+      "name": "attempt_count",
+      "type": "integer",
+      "table": "signal_delivery_log",
+      "default": "0",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "last_error_code",
+      "type": "text",
+      "table": "signal_delivery_log",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "signal_delivery_log",
+      "default": "now()",
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "delivered_at",
+      "type": "timestamp with time zone",
+      "table": "signal_delivery_log",
+      "default": null,
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "strategy_signals",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "session_id",
+      "type": "uuid",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "symbol",
+      "type": "text",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "timeframe",
+      "type": "text",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "direction",
+      "type": "text",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "entry_price",
+      "type": "numeric",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "stop_loss",
+      "type": "numeric",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "take_profit_1",
+      "type": "numeric",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "take_profit_2",
+      "type": "numeric",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "numeric",
+      "name": "score",
+      "type": "numeric",
+      "table": "strategy_signals",
+      "default": null,
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "source",
+      "type": "text",
+      "table": "strategy_signals",
+      "default": "'source1'::text",
+      "ordinal": 12,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "bool",
+      "name": "paper_only",
+      "type": "boolean",
+      "table": "strategy_signals",
+      "default": "true",
+      "ordinal": 13,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "strategy_signals",
+      "default": "now()",
+      "ordinal": 14,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "strategy_versions",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "strategy_id",
+      "type": "uuid",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "int4",
+      "name": "version_no",
+      "type": "integer",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "spec",
+      "type": "jsonb",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "spec_hash",
+      "type": "text",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "origin",
+      "type": "text",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "parent_version_id",
+      "type": "uuid",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "llm_model",
+      "type": "text",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "generation_prompt",
+      "type": "text",
+      "table": "strategy_versions",
+      "default": null,
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "status",
+      "type": "text",
+      "table": "strategy_versions",
+      "default": "'candidate'::text",
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "strategy_versions",
+      "default": "now()",
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "key",
+      "type": "text",
+      "table": "system_controls",
+      "default": null,
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "value",
+      "type": "jsonb",
+      "table": "system_controls",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "updated_by",
+      "type": "uuid",
+      "table": "system_controls",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "system_controls",
+      "default": "now()",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "component",
+      "type": "text",
+      "table": "system_heartbeats",
+      "default": null,
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "status",
+      "type": "text",
+      "table": "system_heartbeats",
+      "default": "'unknown'::text",
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "last_seen_at",
+      "type": "timestamp with time zone",
+      "table": "system_heartbeats",
+      "default": "now()",
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "details",
+      "type": "jsonb",
+      "table": "system_heartbeats",
+      "default": "'{}'::jsonb",
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "id",
+      "type": "uuid",
+      "table": "trading_sessions",
+      "default": "gen_random_uuid()",
+      "ordinal": 1,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "uuid",
+      "name": "user_id",
+      "type": "uuid",
+      "table": "trading_sessions",
+      "default": null,
+      "ordinal": 2,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "terminal_id",
+      "type": "text",
+      "table": "trading_sessions",
+      "default": null,
+      "ordinal": 3,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "broker",
+      "type": "text",
+      "table": "trading_sessions",
+      "default": null,
+      "ordinal": 4,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "account_label",
+      "type": "text",
+      "table": "trading_sessions",
+      "default": null,
+      "ordinal": 5,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "environment",
+      "type": "text",
+      "table": "trading_sessions",
+      "default": "'demo'::text",
+      "ordinal": 6,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "text",
+      "name": "connection_status",
+      "type": "text",
+      "table": "trading_sessions",
+      "default": "'offline'::text",
+      "ordinal": 7,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "last_seen_at",
+      "type": "timestamp with time zone",
+      "table": "trading_sessions",
+      "default": null,
+      "ordinal": 8,
+      "identity": "NO",
+      "nullable": "YES",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "jsonb",
+      "name": "metadata",
+      "type": "jsonb",
+      "table": "trading_sessions",
+      "default": "'{}'::jsonb",
+      "ordinal": 9,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "trading_sessions",
+      "default": "now()",
+      "ordinal": 10,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    },
+    {
+      "udt": "timestamptz",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "trading_sessions",
+      "default": "now()",
+      "ordinal": 11,
+      "identity": "NO",
+      "nullable": "NO",
+      "generated": "NEVER"
+    }
+  ],
+  "indexes": [
+    {
+      "name": "ai_strategies_approved_by_idx",
+      "table": "ai_strategies",
+      "definition": "CREATE INDEX ai_strategies_approved_by_idx ON public.ai_strategies USING btree (approved_by)"
+    },
+    {
+      "name": "ai_strategies_pkey",
+      "table": "ai_strategies",
+      "definition": "CREATE UNIQUE INDEX ai_strategies_pkey ON public.ai_strategies USING btree (id)"
+    },
+    {
+      "name": "ai_strategies_status_idx",
+      "table": "ai_strategies",
+      "definition": "CREATE INDEX ai_strategies_status_idx ON public.ai_strategies USING btree (lifecycle_status, updated_at DESC)"
+    },
+    {
+      "name": "ai_strategies_strategy_key_key",
+      "table": "ai_strategies",
+      "definition": "CREATE UNIQUE INDEX ai_strategies_strategy_key_key ON public.ai_strategies USING btree (strategy_key)"
+    },
+    {
+      "name": "alpaca_connections_pkey",
+      "table": "alpaca_connections",
+      "definition": "CREATE UNIQUE INDEX alpaca_connections_pkey ON public.alpaca_connections USING btree (user_id)"
+    },
+    {
+      "name": "alpaca_oauth_states_expires_at_idx",
+      "table": "alpaca_oauth_states",
+      "definition": "CREATE INDEX alpaca_oauth_states_expires_at_idx ON public.alpaca_oauth_states USING btree (expires_at)"
+    },
+    {
+      "name": "alpaca_oauth_states_pkey",
+      "table": "alpaca_oauth_states",
+      "definition": "CREATE UNIQUE INDEX alpaca_oauth_states_pkey ON public.alpaca_oauth_states USING btree (state_hash)"
+    },
+    {
+      "name": "alpaca_oauth_states_user_id_idx",
+      "table": "alpaca_oauth_states",
+      "definition": "CREATE INDEX alpaca_oauth_states_user_id_idx ON public.alpaca_oauth_states USING btree (user_id)"
+    },
+    {
+      "name": "backtest_runs_pkey",
+      "table": "backtest_runs",
+      "definition": "CREATE UNIQUE INDEX backtest_runs_pkey ON public.backtest_runs USING btree (id)"
+    },
+    {
+      "name": "backtest_runs_version_idx",
+      "table": "backtest_runs",
+      "definition": "CREATE INDEX backtest_runs_version_idx ON public.backtest_runs USING btree (strategy_version_id, kind)"
+    },
+    {
+      "name": "broker_connections_bridge_route_id_key",
+      "table": "broker_connections",
+      "definition": "CREATE UNIQUE INDEX broker_connections_bridge_route_id_key ON public.broker_connections USING btree (bridge_route_id)"
+    },
+    {
+      "name": "broker_connections_pkey",
+      "table": "broker_connections",
+      "definition": "CREATE UNIQUE INDEX broker_connections_pkey ON public.broker_connections USING btree (id)"
+    },
+    {
+      "name": "broker_connections_status_provider_idx",
+      "table": "broker_connections",
+      "definition": "CREATE INDEX broker_connections_status_provider_idx ON public.broker_connections USING btree (provider, environment, status)"
+    },
+    {
+      "name": "broker_connections_user_provider_environment_unique",
+      "table": "broker_connections",
+      "definition": "CREATE UNIQUE INDEX broker_connections_user_provider_environment_unique ON public.broker_connections USING btree (user_id, provider, environment)"
+    },
+    {
+      "name": "customer_ai_subscriptions_account_session_id_idx",
+      "table": "customer_ai_subscriptions",
+      "definition": "CREATE INDEX customer_ai_subscriptions_account_session_id_idx ON public.customer_ai_subscriptions USING btree (account_session_id)"
+    },
+    {
+      "name": "customer_ai_subscriptions_pkey",
+      "table": "customer_ai_subscriptions",
+      "definition": "CREATE UNIQUE INDEX customer_ai_subscriptions_pkey ON public.customer_ai_subscriptions USING btree (id)"
+    },
+    {
+      "name": "customer_ai_subscriptions_strategy_id_idx",
+      "table": "customer_ai_subscriptions",
+      "definition": "CREATE INDEX customer_ai_subscriptions_strategy_id_idx ON public.customer_ai_subscriptions USING btree (strategy_id)"
+    },
+    {
+      "name": "customer_ai_subscriptions_user_id_strategy_id_account_sessi_key",
+      "table": "customer_ai_subscriptions",
+      "definition": "CREATE UNIQUE INDEX customer_ai_subscriptions_user_id_strategy_id_account_sessi_key ON public.customer_ai_subscriptions USING btree (user_id, strategy_id, account_session_id)"
+    },
+    {
+      "name": "customer_ai_subscriptions_user_status_idx",
+      "table": "customer_ai_subscriptions",
+      "definition": "CREATE INDEX customer_ai_subscriptions_user_status_idx ON public.customer_ai_subscriptions USING btree (user_id, status)"
+    },
+    {
+      "name": "customer_profiles_pkey",
+      "table": "customer_profiles",
+      "definition": "CREATE UNIQUE INDEX customer_profiles_pkey ON public.customer_profiles USING btree (user_id)"
+    },
+    {
+      "name": "learning_events_pkey",
+      "table": "learning_events",
+      "definition": "CREATE UNIQUE INDEX learning_events_pkey ON public.learning_events USING btree (id)"
+    },
+    {
+      "name": "learning_events_strategy_idx",
+      "table": "learning_events",
+      "definition": "CREATE INDEX learning_events_strategy_idx ON public.learning_events USING btree (strategy_id, created_at DESC)"
+    },
+    {
+      "name": "learning_events_version_idx",
+      "table": "learning_events",
+      "definition": "CREATE INDEX learning_events_version_idx ON public.learning_events USING btree (strategy_version_id)"
+    },
+    {
+      "name": "mcp_tool_audit_actor_idx",
+      "table": "mcp_tool_audit",
+      "definition": "CREATE INDEX mcp_tool_audit_actor_idx ON public.mcp_tool_audit USING btree (actor_user_id)"
+    },
+    {
+      "name": "mcp_tool_audit_created_idx",
+      "table": "mcp_tool_audit",
+      "definition": "CREATE INDEX mcp_tool_audit_created_idx ON public.mcp_tool_audit USING btree (created_at DESC)"
+    },
+    {
+      "name": "mcp_tool_audit_pkey",
+      "table": "mcp_tool_audit",
+      "definition": "CREATE UNIQUE INDEX mcp_tool_audit_pkey ON public.mcp_tool_audit USING btree (id)"
+    },
+    {
+      "name": "mcp_tool_audit_tool_idx",
+      "table": "mcp_tool_audit",
+      "definition": "CREATE INDEX mcp_tool_audit_tool_idx ON public.mcp_tool_audit USING btree (tool_name, created_at DESC)"
+    },
+    {
+      "name": "nova_agent_threads_id_user_id_key",
+      "table": "nova_agent_threads",
+      "definition": "CREATE UNIQUE INDEX nova_agent_threads_id_user_id_key ON public.nova_agent_threads USING btree (id, user_id)"
+    },
+    {
+      "name": "nova_agent_threads_pkey",
+      "table": "nova_agent_threads",
+      "definition": "CREATE UNIQUE INDEX nova_agent_threads_pkey ON public.nova_agent_threads USING btree (id)"
+    },
+    {
+      "name": "nova_agent_threads_user_updated_idx",
+      "table": "nova_agent_threads",
+      "definition": "CREATE INDEX nova_agent_threads_user_updated_idx ON public.nova_agent_threads USING btree (user_id, updated_at DESC)"
+    },
+    {
+      "name": "nova_approval_requests_pkey",
+      "table": "nova_approval_requests",
+      "definition": "CREATE UNIQUE INDEX nova_approval_requests_pkey ON public.nova_approval_requests USING btree (id)"
+    },
+    {
+      "name": "nova_approval_user_thread_created_idx",
+      "table": "nova_approval_requests",
+      "definition": "CREATE INDEX nova_approval_user_thread_created_idx ON public.nova_approval_requests USING btree (user_id, thread_id, created_at DESC)"
+    },
+    {
+      "name": "nova_one_pending_approval_per_thread",
+      "table": "nova_approval_requests",
+      "definition": "CREATE UNIQUE INDEX nova_one_pending_approval_per_thread ON public.nova_approval_requests USING btree (thread_id) WHERE (status = 'pending'::text)"
+    },
+    {
+      "name": "quality_gate_configs_name_key",
+      "table": "quality_gate_configs",
+      "definition": "CREATE UNIQUE INDEX quality_gate_configs_name_key ON public.quality_gate_configs USING btree (name)"
+    },
+    {
+      "name": "quality_gate_configs_one_active_per_stage",
+      "table": "quality_gate_configs",
+      "definition": "CREATE UNIQUE INDEX quality_gate_configs_one_active_per_stage ON public.quality_gate_configs USING btree (stage) WHERE active"
+    },
+    {
+      "name": "quality_gate_configs_pkey",
+      "table": "quality_gate_configs",
+      "definition": "CREATE UNIQUE INDEX quality_gate_configs_pkey ON public.quality_gate_configs USING btree (id)"
+    },
+    {
+      "name": "quality_gate_results_config_idx",
+      "table": "quality_gate_results",
+      "definition": "CREATE INDEX quality_gate_results_config_idx ON public.quality_gate_results USING btree (config_id)"
+    },
+    {
+      "name": "quality_gate_results_pkey",
+      "table": "quality_gate_results",
+      "definition": "CREATE UNIQUE INDEX quality_gate_results_pkey ON public.quality_gate_results USING btree (id)"
+    },
+    {
+      "name": "quality_gate_results_version_idx",
+      "table": "quality_gate_results",
+      "definition": "CREATE INDEX quality_gate_results_version_idx ON public.quality_gate_results USING btree (strategy_version_id, stage)"
+    },
+    {
+      "name": "risk_guard_created_idx",
+      "table": "risk_guard_decisions",
+      "definition": "CREATE INDEX risk_guard_created_idx ON public.risk_guard_decisions USING btree (created_at DESC)"
+    },
+    {
+      "name": "risk_guard_decisions_pkey",
+      "table": "risk_guard_decisions",
+      "definition": "CREATE UNIQUE INDEX risk_guard_decisions_pkey ON public.risk_guard_decisions USING btree (id)"
+    },
+    {
+      "name": "risk_guard_decisions_signal_id_idx",
+      "table": "risk_guard_decisions",
+      "definition": "CREATE INDEX risk_guard_decisions_signal_id_idx ON public.risk_guard_decisions USING btree (signal_id)"
+    },
+    {
+      "name": "risk_guard_decisions_user_id_idx",
+      "table": "risk_guard_decisions",
+      "definition": "CREATE INDEX risk_guard_decisions_user_id_idx ON public.risk_guard_decisions USING btree (user_id)"
+    },
+    {
+      "name": "security_events_acknowledged_by_idx",
+      "table": "security_events",
+      "definition": "CREATE INDEX security_events_acknowledged_by_idx ON public.security_events USING btree (acknowledged_by)"
+    },
+    {
+      "name": "security_events_created_idx",
+      "table": "security_events",
+      "definition": "CREATE INDEX security_events_created_idx ON public.security_events USING btree (created_at DESC)"
+    },
+    {
+      "name": "security_events_pkey",
+      "table": "security_events",
+      "definition": "CREATE UNIQUE INDEX security_events_pkey ON public.security_events USING btree (id)"
+    },
+    {
+      "name": "security_events_severity_created_idx",
+      "table": "security_events",
+      "definition": "CREATE INDEX security_events_severity_created_idx ON public.security_events USING btree (severity, created_at DESC)"
+    },
+    {
+      "name": "security_events_user_created_idx",
+      "table": "security_events",
+      "definition": "CREATE INDEX security_events_user_created_idx ON public.security_events USING btree (user_id, created_at DESC)"
+    },
+    {
+      "name": "signal_delivery_log_idempotency_key_key",
+      "table": "signal_delivery_log",
+      "definition": "CREATE UNIQUE INDEX signal_delivery_log_idempotency_key_key ON public.signal_delivery_log USING btree (idempotency_key)"
+    },
+    {
+      "name": "signal_delivery_log_pkey",
+      "table": "signal_delivery_log",
+      "definition": "CREATE UNIQUE INDEX signal_delivery_log_pkey ON public.signal_delivery_log USING btree (id)"
+    },
+    {
+      "name": "signal_delivery_log_signal_id_idx",
+      "table": "signal_delivery_log",
+      "definition": "CREATE INDEX signal_delivery_log_signal_id_idx ON public.signal_delivery_log USING btree (signal_id)"
+    },
+    {
+      "name": "signal_delivery_log_subscription_id_idx",
+      "table": "signal_delivery_log",
+      "definition": "CREATE INDEX signal_delivery_log_subscription_id_idx ON public.signal_delivery_log USING btree (subscription_id)"
+    },
+    {
+      "name": "signal_delivery_status_idx",
+      "table": "signal_delivery_log",
+      "definition": "CREATE INDEX signal_delivery_status_idx ON public.signal_delivery_log USING btree (delivery_status, created_at DESC)"
+    },
+    {
+      "name": "strategy_signals_pkey",
+      "table": "strategy_signals",
+      "definition": "CREATE UNIQUE INDEX strategy_signals_pkey ON public.strategy_signals USING btree (id)"
+    },
+    {
+      "name": "strategy_signals_session_id_idx",
+      "table": "strategy_signals",
+      "definition": "CREATE INDEX strategy_signals_session_id_idx ON public.strategy_signals USING btree (session_id)"
+    },
+    {
+      "name": "strategy_signals_symbol_created_idx",
+      "table": "strategy_signals",
+      "definition": "CREATE INDEX strategy_signals_symbol_created_idx ON public.strategy_signals USING btree (symbol, created_at DESC)"
+    },
+    {
+      "name": "strategy_signals_user_created_idx",
+      "table": "strategy_signals",
+      "definition": "CREATE INDEX strategy_signals_user_created_idx ON public.strategy_signals USING btree (user_id, created_at DESC)"
+    },
+    {
+      "name": "strategy_versions_parent_idx",
+      "table": "strategy_versions",
+      "definition": "CREATE INDEX strategy_versions_parent_idx ON public.strategy_versions USING btree (parent_version_id)"
+    },
+    {
+      "name": "strategy_versions_pkey",
+      "table": "strategy_versions",
+      "definition": "CREATE UNIQUE INDEX strategy_versions_pkey ON public.strategy_versions USING btree (id)"
+    },
+    {
+      "name": "strategy_versions_strategy_id_spec_hash_key",
+      "table": "strategy_versions",
+      "definition": "CREATE UNIQUE INDEX strategy_versions_strategy_id_spec_hash_key ON public.strategy_versions USING btree (strategy_id, spec_hash)"
+    },
+    {
+      "name": "strategy_versions_strategy_id_version_no_key",
+      "table": "strategy_versions",
+      "definition": "CREATE UNIQUE INDEX strategy_versions_strategy_id_version_no_key ON public.strategy_versions USING btree (strategy_id, version_no)"
+    },
+    {
+      "name": "system_controls_pkey",
+      "table": "system_controls",
+      "definition": "CREATE UNIQUE INDEX system_controls_pkey ON public.system_controls USING btree (key)"
+    },
+    {
+      "name": "system_controls_updated_by_idx",
+      "table": "system_controls",
+      "definition": "CREATE INDEX system_controls_updated_by_idx ON public.system_controls USING btree (updated_by)"
+    },
+    {
+      "name": "system_heartbeats_pkey",
+      "table": "system_heartbeats",
+      "definition": "CREATE UNIQUE INDEX system_heartbeats_pkey ON public.system_heartbeats USING btree (component)"
+    },
+    {
+      "name": "trading_sessions_pkey",
+      "table": "trading_sessions",
+      "definition": "CREATE UNIQUE INDEX trading_sessions_pkey ON public.trading_sessions USING btree (id)"
+    },
+    {
+      "name": "trading_sessions_user_seen_idx",
+      "table": "trading_sessions",
+      "definition": "CREATE INDEX trading_sessions_user_seen_idx ON public.trading_sessions USING btree (user_id, last_seen_at DESC)"
+    }
+  ],
+  "policies": [
+    {
+      "name": "ai_strategies_read_catalog_or_staff",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "ai_strategies",
+      "using": "((lifecycle_status = ANY (ARRAY['paper_ready'::text, 'approved'::text])) OR ( SELECT private.is_active_staff() AS is_active_staff))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "deny browser access to alpaca_connections",
+      "check": "false",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "table": "alpaca_connections",
+      "using": "false",
+      "command": "ALL",
+      "permissive": "RESTRICTIVE"
+    },
+    {
+      "name": "deny browser access to alpaca_oauth_states",
+      "check": "false",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "table": "alpaca_oauth_states",
+      "using": "false",
+      "command": "ALL",
+      "permissive": "RESTRICTIVE"
+    },
+    {
+      "name": "backtest_runs_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "backtest_runs",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "broker_connections_insert_own_pending",
+      "check": "((user_id = ( SELECT auth.uid() AS uid)) AND (provider = 'exness_mt5'::text) AND (environment = 'demo'::text) AND (status = 'pending'::text) AND (bridge_route_id IS NULL))",
+      "roles": [
+        "authenticated"
+      ],
+      "table": "broker_connections",
+      "using": null,
+      "command": "INSERT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "broker_connections_select_own",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "broker_connections",
+      "using": "(user_id = ( SELECT auth.uid() AS uid))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "customer_ai_subscriptions_read_owner_or_staff",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "customer_ai_subscriptions",
+      "using": "((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT private.is_active_staff() AS is_active_staff))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "customer_profiles_read_self_or_staff",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "customer_profiles",
+      "using": "((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT private.is_active_staff() AS is_active_staff))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "profile owner can update own profile",
+      "check": "(( SELECT auth.uid() AS uid) = user_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "table": "customer_profiles",
+      "using": "(( SELECT auth.uid() AS uid) = user_id)",
+      "command": "UPDATE",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "learning_events_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "learning_events",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "mcp_tool_audit_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "mcp_tool_audit",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "nova_agent_threads_insert_own_active",
+      "check": "((user_id = ( SELECT auth.uid() AS uid)) AND (state = 'active'::text) AND (policy_version = 'nova-approval.v1'::text))",
+      "roles": [
+        "authenticated"
+      ],
+      "table": "nova_agent_threads",
+      "using": null,
+      "command": "INSERT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "nova_agent_threads_select_own",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "nova_agent_threads",
+      "using": "(user_id = ( SELECT auth.uid() AS uid))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "nova_approval_select_own",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "nova_approval_requests",
+      "using": "((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM nova_agent_threads t\n  WHERE ((t.id = nova_approval_requests.thread_id) AND (t.user_id = ( SELECT auth.uid() AS uid))))))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "quality_gate_configs_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "quality_gate_configs",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "quality_gate_results_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "quality_gate_results",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "risk_guard_decisions_read_owner_or_staff",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "risk_guard_decisions",
+      "using": "((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT private.is_active_staff() AS is_active_staff))",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "security_events_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "security_events",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "signal_delivery_log_deny_client_access",
+      "check": "false",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "table": "signal_delivery_log",
+      "using": "false",
+      "command": "ALL",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "signal owner can read own signals",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "strategy_signals",
+      "using": "(( SELECT auth.uid() AS uid) = user_id)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "strategy_versions_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "strategy_versions",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "system_controls_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "system_controls",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "system_heartbeats_read_staff_only",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "system_heartbeats",
+      "using": "( SELECT private.is_active_staff() AS is_active_staff)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    },
+    {
+      "name": "session owner can read own sessions",
+      "check": null,
+      "roles": [
+        "authenticated"
+      ],
+      "table": "trading_sessions",
+      "using": "(( SELECT auth.uid() AS uid) = user_id)",
+      "command": "SELECT",
+      "permissive": "PERMISSIVE"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "broker_connections_updated_at",
+      "table": "broker_connections",
+      "definition": "CREATE TRIGGER broker_connections_updated_at BEFORE UPDATE ON broker_connections FOR EACH ROW EXECUTE FUNCTION set_broker_connections_updated_at()"
+    },
+    {
+      "name": "customer_profiles_updated_at",
+      "table": "customer_profiles",
+      "definition": "CREATE TRIGGER customer_profiles_updated_at BEFORE UPDATE ON customer_profiles FOR EACH ROW EXECUTE FUNCTION voom_set_updated_at()"
+    },
+    {
+      "name": "nova_approval_guard_update",
+      "table": "nova_approval_requests",
+      "definition": "CREATE TRIGGER nova_approval_guard_update BEFORE UPDATE ON nova_approval_requests FOR EACH ROW EXECUTE FUNCTION private.nova_approval_guard_update()"
+    },
+    {
+      "name": "strategy_versions_immutable",
+      "table": "strategy_versions",
+      "definition": "CREATE TRIGGER strategy_versions_immutable BEFORE UPDATE ON strategy_versions FOR EACH ROW EXECUTE FUNCTION private.strategy_versions_immutable()"
+    },
+    {
+      "name": "trading_sessions_updated_at",
+      "table": "trading_sessions",
+      "definition": "CREATE TRIGGER trading_sessions_updated_at BEFORE UPDATE ON trading_sessions FOR EACH ROW EXECUTE FUNCTION voom_set_updated_at()"
+    }
+  ],
+  "functions": [
+    {
+      "name": "is_active_staff",
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "schema": "private",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION private.is_active_staff()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\n  SELECT EXISTS (\n    SELECT 1\n    FROM public.customer_profiles cp\n    WHERE cp.user_id = auth.uid()\n      AND cp.role IN ('staff', 'admin')\n      AND cp.account_status = 'active'\n  );\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "nova_approval_guard_update",
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "schema": "private",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION private.nova_approval_guard_update()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nBEGIN\n  IF OLD.id IS DISTINCT FROM NEW.id OR OLD.thread_id IS DISTINCT FROM NEW.thread_id\n     OR OLD.user_id IS DISTINCT FROM NEW.user_id OR OLD.request_type IS DISTINCT FROM NEW.request_type\n     OR OLD.proposal IS DISTINCT FROM NEW.proposal OR OLD.proposal_hash IS DISTINCT FROM NEW.proposal_hash\n     OR OLD.policy_version IS DISTINCT FROM NEW.policy_version OR OLD.expires_at IS DISTINCT FROM NEW.expires_at\n     OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN\n    RAISE EXCEPTION 'nova_approval_immutable_fields';\n  END IF;\n  IF OLD.status <> 'pending' THEN RAISE EXCEPTION 'nova_approval_already_resolved'; END IF;\n  IF NEW.status = 'expired' THEN\n    IF OLD.expires_at > now() THEN RAISE EXCEPTION 'nova_approval_not_expired'; END IF;\n  ELSE\n    IF NEW.status NOT IN ('approved','rejected','edited') OR OLD.expires_at <= now()\n       OR OLD.policy_version <> 'nova-approval.v1' THEN\n      RAISE EXCEPTION 'nova_approval_invalid_transition';\n    END IF;\n  END IF;\n  IF NEW.decision_note IS NOT NULL AND char_length(NEW.decision_note) > 300 THEN\n    RAISE EXCEPTION 'nova_approval_note_too_long';\n  END IF;\n  IF NEW.status = 'edited' THEN\n    IF NOT private.nova_valid_strategy_draft_proposal(NEW.decision_payload) THEN\n      RAISE EXCEPTION 'nova_approval_invalid_edit';\n    END IF;\n  ELSIF NEW.decision_payload IS NOT NULL THEN\n    RAISE EXCEPTION 'nova_approval_unexpected_decision_payload';\n  END IF;\n  NEW.decided_at := now();\n  NEW.updated_at := now();\n  RETURN NEW;\nEND;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "nova_create_approval_impl",
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "schema": "private",
+      "identity": "p_thread_id uuid, p_request_type text, p_proposal jsonb, p_proposal_hash text, p_policy_version text, p_expires_at timestamp with time zone",
+      "definition": "CREATE OR REPLACE FUNCTION private.nova_create_approval_impl(p_thread_id uuid, p_request_type text, p_proposal jsonb, p_proposal_hash text, p_policy_version text, p_expires_at timestamp with time zone)\n RETURNS TABLE(id uuid, thread_id uuid, request_type text, proposal jsonb, proposal_hash text, policy_version text, status text, expires_at timestamp with time zone, created_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE v_user uuid := (SELECT auth.uid()); v_state text; v_id uuid;\nBEGIN\n  IF v_user IS NULL THEN RAISE EXCEPTION 'authentication_required' USING ERRCODE = '42501'; END IF;\n  IF p_request_type IS NULL OR p_request_type <> 'strategy_draft_review'\n     OR p_policy_version IS NULL OR p_policy_version <> 'nova-approval.v1'\n     OR p_proposal_hash IS NULL OR p_proposal_hash !~ '^[a-f0-9]{64}$'\n     OR p_expires_at IS NULL\n     OR NOT private.nova_valid_strategy_draft_proposal(p_proposal)\n     OR p_expires_at <= now() + interval '1 minute'\n     OR p_expires_at > now() + interval '15 minutes' THEN\n    RAISE EXCEPTION 'nova_approval_request_invalid' USING ERRCODE = '22023';\n  END IF;\n  SELECT t.state INTO v_state FROM public.nova_agent_threads t\n    WHERE t.id = p_thread_id AND t.user_id = v_user FOR UPDATE;\n  IF NOT FOUND OR v_state <> 'active' THEN\n    RAISE EXCEPTION 'nova_thread_not_found_or_not_active' USING ERRCODE = 'P0001';\n  END IF;\n  -- Calculate the persisted hash in Postgres from jsonb's canonical representation.\n  -- The client checksum is format-checked but never trusted as the stored integrity value.\n  INSERT INTO public.nova_approval_requests AS a\n    (thread_id,user_id,request_type,proposal,proposal_hash,policy_version,status,expires_at)\n  VALUES (\n    p_thread_id, v_user, p_request_type, p_proposal,\n    encode(extensions.digest(convert_to(p_proposal::text, 'UTF8'), 'sha256'), 'hex'),\n    p_policy_version, 'pending', p_expires_at\n  )\n  RETURNING a.id INTO v_id;\n  UPDATE public.nova_agent_threads t SET state='awaiting_review',updated_at=now(),last_activity_at=now()\n    WHERE t.id=p_thread_id AND t.user_id=v_user;\n  RETURN QUERY SELECT a.id,a.thread_id,a.request_type,a.proposal,a.proposal_hash,\n    a.policy_version,a.status,a.expires_at,a.created_at\n    FROM public.nova_approval_requests a WHERE a.id=v_id AND a.user_id=v_user;\nEND;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "nova_resolve_approval_impl",
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "schema": "private",
+      "identity": "p_approval_id uuid, p_decision text, p_decision_note text, p_decision_payload jsonb, p_policy_version text",
+      "definition": "CREATE OR REPLACE FUNCTION private.nova_resolve_approval_impl(p_approval_id uuid, p_decision text, p_decision_note text, p_decision_payload jsonb, p_policy_version text)\n RETURNS TABLE(result_code text, request_id uuid, thread_id uuid, status text, decided_at timestamp with time zone, decision_payload jsonb)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\nDECLARE v_user uuid := (SELECT auth.uid()); v_row public.nova_approval_requests%ROWTYPE; v_status text;\nBEGIN\n  IF v_user IS NULL THEN RAISE EXCEPTION 'authentication_required' USING ERRCODE = '42501'; END IF;\n  SELECT a.* INTO v_row FROM public.nova_approval_requests a\n    WHERE a.id=p_approval_id AND a.user_id=v_user FOR UPDATE;\n  IF NOT FOUND THEN\n    RETURN QUERY SELECT 'not_found'::text,NULL::uuid,NULL::uuid,NULL::text,NULL::timestamptz,NULL::jsonb; RETURN;\n  END IF;\n  IF v_row.status <> 'pending' THEN\n    RETURN QUERY SELECT 'already_resolved'::text,v_row.id,v_row.thread_id,v_row.status,v_row.decided_at,v_row.decision_payload; RETURN;\n  END IF;\n  IF v_row.expires_at <= now() THEN\n    UPDATE public.nova_approval_requests a SET status='expired',decision_note=NULL,decision_payload=NULL\n      WHERE a.id=v_row.id AND a.user_id=v_user;\n    UPDATE public.nova_agent_threads t SET state='active',updated_at=now(),last_activity_at=now()\n      WHERE t.id=v_row.thread_id AND t.user_id=v_user;\n    RETURN QUERY SELECT 'expired'::text,v_row.id,v_row.thread_id,'expired'::text,now(),NULL::jsonb; RETURN;\n  END IF;\n  IF p_policy_version IS NULL OR v_row.policy_version <> 'nova-approval.v1'\n     OR p_policy_version <> 'nova-approval.v1' THEN\n    RETURN QUERY SELECT 'policy_mismatch'::text,v_row.id,v_row.thread_id,v_row.status,v_row.decided_at,NULL::jsonb; RETURN;\n  END IF;\n  IF p_decision IS NULL OR p_decision NOT IN ('approve','reject','edit')\n     OR (p_decision_note IS NOT NULL AND char_length(p_decision_note) > 300)\n     OR (p_decision='edit' AND NOT private.nova_valid_strategy_draft_proposal(p_decision_payload))\n     OR (p_decision<>'edit' AND p_decision_payload IS NOT NULL) THEN\n    RETURN QUERY SELECT 'invalid_decision'::text,v_row.id,v_row.thread_id,v_row.status,v_row.decided_at,NULL::jsonb; RETURN;\n  END IF;\n  v_status := CASE p_decision WHEN 'approve' THEN 'approved' WHEN 'reject' THEN 'rejected' ELSE 'edited' END;\n  UPDATE public.nova_approval_requests a\n    SET status=v_status,decision_note=NULLIF(btrim(p_decision_note), ''),\n        decision_payload=CASE WHEN p_decision='edit' THEN p_decision_payload ELSE NULL END\n    WHERE a.id=v_row.id AND a.user_id=v_user AND a.status='pending';\n  IF NOT FOUND THEN\n    RETURN QUERY SELECT 'already_resolved'::text,v_row.id,v_row.thread_id,v_row.status,v_row.decided_at,NULL::jsonb; RETURN;\n  END IF;\n  UPDATE public.nova_agent_threads t SET state='active',updated_at=now(),last_activity_at=now()\n    WHERE t.id=v_row.thread_id AND t.user_id=v_user;\n  RETURN QUERY SELECT 'resolved'::text,a.id,a.thread_id,a.status,a.decided_at,a.decision_payload\n    FROM public.nova_approval_requests a WHERE a.id=v_row.id AND a.user_id=v_user;\nEND;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "nova_valid_strategy_draft_proposal",
+      "config": [
+        "search_path=pg_catalog"
+      ],
+      "schema": "private",
+      "identity": "p jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION private.nova_valid_strategy_draft_proposal(p jsonb)\n RETURNS boolean\n LANGUAGE plpgsql\n IMMUTABLE\n SET search_path TO 'pg_catalog'\nAS $function$\nBEGIN\n  IF p IS NULL OR jsonb_typeof(p) <> 'object' OR (SELECT count(*) FROM jsonb_object_keys(p)) <> 5\n     OR (p - ARRAY['title','summary','market','timeframe','riskProfile']::text[]) <> '{}'::jsonb THEN\n    RETURN false;\n  END IF;\n  IF jsonb_typeof(p->'title') <> 'string' OR char_length(btrim(p->>'title')) NOT BETWEEN 1 AND 120\n     OR jsonb_typeof(p->'summary') <> 'string' OR char_length(btrim(p->>'summary')) NOT BETWEEN 1 AND 600 THEN\n    RETURN false;\n  END IF;\n  IF jsonb_typeof(p->'market') NOT IN ('string','null')\n     OR (jsonb_typeof(p->'market') = 'string' AND p->>'market' NOT IN ('BTC/USDT','ETH/USDT','EUR/USD','XAU/USD','US30')) THEN\n    RETURN false;\n  END IF;\n  IF jsonb_typeof(p->'timeframe') NOT IN ('string','null')\n     OR (jsonb_typeof(p->'timeframe') = 'string' AND p->>'timeframe' NOT IN ('5m','15m','1h','4h','1d')) THEN\n    RETURN false;\n  END IF;\n  IF jsonb_typeof(p->'riskProfile') NOT IN ('string','null')\n     OR (jsonb_typeof(p->'riskProfile') = 'string' AND p->>'riskProfile' NOT IN ('low','medium','high')) THEN\n    RETURN false;\n  END IF;\n  RETURN true;\nEND;\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "strategy_versions_immutable",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "private",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION private.strategy_versions_immutable()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n  if new.spec is distinct from old.spec\n     or new.spec_hash is distinct from old.spec_hash\n     or new.version_no is distinct from old.version_no\n     or new.strategy_id is distinct from old.strategy_id\n     or new.origin is distinct from old.origin then\n    raise exception 'strategy_versions: spec and lineage are immutable';\n  end if;\n  return new;\nend;\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_marketplace_list_strategies_impl",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "private",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION private.voom_marketplace_list_strategies_impl()\n RETURNS TABLE(id uuid, strategy_key text, display_name text, version text, description text, supported_symbols text[], supported_timeframes text[], risk_profile text, lifecycle_status text, trading_mode text, backtest_passed boolean, out_of_sample_passed boolean, demo_passed boolean, risk_review_passed boolean, approved_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  v_user_id uuid := auth.uid();\nbegin\n  if v_user_id is null then\n    raise exception 'authentication_required' using errcode = '28000';\n  end if;\n  if not exists (\n    select 1 from public.customer_profiles p\n    where p.user_id = v_user_id and p.account_status = 'active' and p.role = 'customer'\n  ) then\n    raise exception 'active_customer_required' using errcode = '42501';\n  end if;\n  return query\n  select s.id, s.strategy_key, s.display_name, s.version, s.description,\n         s.supported_symbols, s.supported_timeframes, s.risk_profile,\n         s.lifecycle_status, s.trading_mode, s.backtest_passed,\n         s.out_of_sample_passed, s.demo_passed, s.risk_review_passed, s.approved_at\n  from public.ai_strategies s\n  where s.lifecycle_status = 'approved'\n    and s.trading_mode in ('paper','demo')\n    and s.backtest_passed and s.out_of_sample_passed\n    and s.demo_passed and s.risk_review_passed\n  order by s.updated_at desc\n  limit 100;\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "voom_marketplace_my_subscriptions_impl",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "private",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION private.voom_marketplace_my_subscriptions_impl()\n RETURNS TABLE(id uuid, strategy_id uuid, strategy_version text, account_session_id uuid, status text, risk_profile text, approved_for_live boolean, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_user_id uuid := auth.uid();\nbegin\n  if v_user_id is null then\n    raise exception 'authentication_required' using errcode = '28000';\n  end if;\n  if not exists (\n    select 1 from public.customer_profiles p\n    where p.user_id = v_user_id and p.account_status = 'active' and p.role = 'customer'\n  ) then\n    raise exception 'active_customer_required' using errcode = '42501';\n  end if;\n  return query\n  select sub.id, sub.strategy_id, sub.strategy_version, sub.account_session_id,\n         sub.status, sub.risk_profile, sub.approved_for_live, sub.created_at, sub.updated_at\n  from public.customer_ai_subscriptions sub\n  where sub.user_id = v_user_id\n  order by sub.created_at desc\n  limit 100;\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "voom_marketplace_pause_impl",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "private",
+      "identity": "p_subscription_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION private.voom_marketplace_pause_impl(p_subscription_id uuid)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n v_user_id uuid := auth.uid();\n v_updated public.customer_ai_subscriptions%rowtype;\nbegin\n if v_user_id is null then\n   raise exception 'authentication_required' using errcode = '28000';\n end if;\n if not exists (\n   select 1 from public.customer_profiles p\n   where p.user_id = v_user_id and p.account_status = 'active' and p.role = 'customer'\n ) then\n   raise exception 'active_customer_required' using errcode = '42501';\n end if;\n update public.customer_ai_subscriptions sub\n set status = 'paused', updated_at = now()\n where sub.id = p_subscription_id and sub.user_id = v_user_id\n   and sub.status in ('pending','paper_active','demo_active')\n returning * into v_updated;\n if not found then\n   raise exception 'active_subscription_not_found' using errcode = 'P0002';\n end if;\n return jsonb_build_object('id',v_updated.id,'status',v_updated.status,\n   'mode','paper_only','order_execution','disabled');\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "voom_marketplace_subscribe_impl",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "private",
+      "identity": "p_strategy_id uuid, p_account_session_id uuid, p_risk_profile text",
+      "definition": "CREATE OR REPLACE FUNCTION private.voom_marketplace_subscribe_impl(p_strategy_id uuid, p_account_session_id uuid DEFAULT NULL::uuid, p_risk_profile text DEFAULT 'moderate'::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n v_user_id uuid := auth.uid();\n v_strategy public.ai_strategies%rowtype;\n v_session public.trading_sessions%rowtype;\n v_existing public.customer_ai_subscriptions%rowtype;\n v_new public.customer_ai_subscriptions%rowtype;\nbegin\n if v_user_id is null then raise exception 'authentication_required' using errcode = '28000'; end if;\n if not exists (select 1 from public.customer_profiles p where p.user_id=v_user_id and p.account_status='active' and p.role='customer') then\n   raise exception 'active_customer_required' using errcode = '42501';\n end if;\n if p_risk_profile not in ('conservative','moderate','aggressive') then raise exception 'invalid_risk_profile' using errcode = '22023'; end if;\n select * into v_strategy from public.ai_strategies s\n where s.id=p_strategy_id and s.lifecycle_status='approved' and s.trading_mode in ('paper','demo')\n   and s.backtest_passed and s.out_of_sample_passed and s.demo_passed and s.risk_review_passed;\n if not found then raise exception 'strategy_not_approved_for_paper_or_demo' using errcode = '42501'; end if;\n if p_account_session_id is not null then\n   select * into v_session from public.trading_sessions t where t.id=p_account_session_id and t.user_id=v_user_id;\n   if not found then raise exception 'session_not_owned_by_customer' using errcode = '42501'; end if;\n   if v_session.environment='live' then raise exception 'live_sessions_not_supported' using errcode = '42501'; end if;\n end if;\n perform pg_advisory_xact_lock(hashtextextended(v_user_id::text || ':' || p_strategy_id::text || ':' || coalesce(p_account_session_id::text,'no-session'),0));\n select * into v_existing from public.customer_ai_subscriptions sub\n where sub.user_id=v_user_id and sub.strategy_id=p_strategy_id\n   and sub.account_session_id is not distinct from p_account_session_id\n   and sub.status in ('pending','paper_active','demo_active') limit 1;\n if found then raise exception 'subscription_already_active' using errcode = '23505'; end if;\n -- Reuse the customer's paused row to respect the unique key and preserve audit history.\n select * into v_existing from public.customer_ai_subscriptions sub\n where sub.user_id=v_user_id and sub.strategy_id=p_strategy_id\n   and sub.account_session_id is not distinct from p_account_session_id\n   and sub.status='paused' order by sub.updated_at desc limit 1;\n if found then\n   update public.customer_ai_subscriptions sub\n   set status='paper_active', strategy_version=v_strategy.version, risk_profile=p_risk_profile,\n       approved_for_live=false, updated_at=now()\n   where sub.id=v_existing.id returning * into v_new;\n   return jsonb_build_object('id',v_new.id,'strategy_id',v_new.strategy_id,'strategy_version',v_new.strategy_version,\n     'account_session_id',v_new.account_session_id,'status',v_new.status,'risk_profile',v_new.risk_profile,\n     'approved_for_live',false,'mode','paper_only','order_execution','disabled');\n end if;\n insert into public.customer_ai_subscriptions(user_id,strategy_id,strategy_version,account_session_id,status,risk_profile,approved_for_live)\n values(v_user_id,v_strategy.id,v_strategy.version,p_account_session_id,'paper_active',p_risk_profile,false)\n returning * into v_new;\n return jsonb_build_object('id',v_new.id,'strategy_id',v_new.strategy_id,'strategy_version',v_new.strategy_version,\n   'account_session_id',v_new.account_session_id,'status',v_new.status,'risk_profile',v_new.risk_profile,\n   'approved_for_live',false,'mode','paper_only','order_execution','disabled');\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "cleanup_expired_alpaca_oauth_states",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.cleanup_expired_alpaca_oauth_states()\n RETURNS void\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\n  delete from public.alpaca_oauth_states where expires_at <= now();\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "consume_alpaca_oauth_state",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "p_state_hash text",
+      "definition": "CREATE OR REPLACE FUNCTION public.consume_alpaca_oauth_state(p_state_hash text)\n RETURNS TABLE(user_id uuid)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  return query\n    delete from public.alpaca_oauth_states s\n    where s.state_hash = p_state_hash and s.expires_at > now()\n    returning s.user_id;\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "nova_create_approval",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "p_thread_id uuid, p_request_type text, p_proposal jsonb, p_proposal_hash text, p_policy_version text, p_expires_at timestamp with time zone",
+      "definition": "CREATE OR REPLACE FUNCTION public.nova_create_approval(p_thread_id uuid, p_request_type text, p_proposal jsonb, p_proposal_hash text, p_policy_version text, p_expires_at timestamp with time zone)\n RETURNS TABLE(id uuid, thread_id uuid, request_type text, proposal jsonb, proposal_hash text, policy_version text, status text, expires_at timestamp with time zone, created_at timestamp with time zone)\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT * FROM private.nova_create_approval_impl(\n    p_thread_id,p_request_type,p_proposal,p_proposal_hash,p_policy_version,p_expires_at\n  );\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "nova_resolve_approval",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "p_approval_id uuid, p_decision text, p_decision_note text, p_decision_payload jsonb, p_policy_version text",
+      "definition": "CREATE OR REPLACE FUNCTION public.nova_resolve_approval(p_approval_id uuid, p_decision text, p_decision_note text DEFAULT NULL::text, p_decision_payload jsonb DEFAULT NULL::jsonb, p_policy_version text DEFAULT 'nova-approval.v1'::text)\n RETURNS TABLE(result_code text, request_id uuid, thread_id uuid, status text, decided_at timestamp with time zone, decision_payload jsonb)\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT * FROM private.nova_resolve_approval_impl(\n    p_approval_id,p_decision,p_decision_note,p_decision_payload,p_policy_version\n  );\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "set_broker_connections_updated_at",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.set_broker_connections_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin new.updated_at=now(); return new; end;\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_handle_new_auth_user",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_handle_new_auth_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  insert into public.customer_profiles (user_id, display_name, account_status, role)\n  values (\n    new.id,\n    nullif(trim(coalesce(new.raw_user_meta_data ->> 'display_name', '')), ''),\n    'active',\n    'customer'\n  )\n  on conflict (user_id) do nothing;\n  return new;\nend;\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "name": "voom_marketplace_list_strategies",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_marketplace_list_strategies()\n RETURNS TABLE(id uuid, strategy_key text, display_name text, version text, description text, supported_symbols text[], supported_timeframes text[], risk_profile text, lifecycle_status text, trading_mode text, backtest_passed boolean, out_of_sample_passed boolean, demo_passed boolean, risk_review_passed boolean, approved_at timestamp with time zone)\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT * FROM private.voom_marketplace_list_strategies_impl();\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_marketplace_my_subscriptions",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_marketplace_my_subscriptions()\n RETURNS TABLE(id uuid, strategy_id uuid, strategy_version text, account_session_id uuid, status text, risk_profile text, approved_for_live boolean, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT * FROM private.voom_marketplace_my_subscriptions_impl();\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_marketplace_pause",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "p_subscription_id uuid",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_marketplace_pause(p_subscription_id uuid)\n RETURNS jsonb\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT private.voom_marketplace_pause_impl(p_subscription_id);\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_marketplace_subscribe",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "p_strategy_id uuid, p_account_session_id uuid, p_risk_profile text",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_marketplace_subscribe(p_strategy_id uuid, p_account_session_id uuid DEFAULT NULL::uuid, p_risk_profile text DEFAULT 'moderate'::text)\n RETURNS jsonb\n LANGUAGE sql\n SET search_path TO ''\nAS $function$\n  SELECT private.voom_marketplace_subscribe_impl(\n    p_strategy_id,\n    p_account_session_id,\n    p_risk_profile\n  );\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "name": "voom_set_updated_at",
+      "config": [
+        "search_path=\"\""
+      ],
+      "schema": "public",
+      "identity": "",
+      "definition": "CREATE OR REPLACE FUNCTION public.voom_set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin new.updated_at := now(); return new; end;\n$function$\n",
+      "security_definer": false
+    }
+  ],
+  "extensions": [
+    {
+      "name": "pg_stat_statements",
+      "schema": "extensions"
+    },
+    {
+      "name": "pgcrypto",
+      "schema": "extensions"
+    },
+    {
+      "name": "plpgsql",
+      "schema": "pg_catalog"
+    },
+    {
+      "name": "supabase_vault",
+      "schema": "vault"
+    },
+    {
+      "name": "uuid-ossp",
+      "schema": "extensions"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "ai_strategies_approved_by_fkey",
+      "type": "f",
+      "table": "ai_strategies",
+      "definition": "FOREIGN KEY (approved_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "ai_strategies_check",
+      "type": "c",
+      "table": "ai_strategies",
+      "definition": "CHECK (lifecycle_status <> 'approved'::text OR backtest_passed AND out_of_sample_passed AND demo_passed AND risk_review_passed AND approved_by IS NOT NULL AND approved_at IS NOT NULL)"
+    },
+    {
+      "name": "ai_strategies_check1",
+      "type": "c",
+      "table": "ai_strategies",
+      "definition": "CHECK (trading_mode <> 'live'::text OR lifecycle_status = 'approved'::text)"
+    },
+    {
+      "name": "ai_strategies_lifecycle_status_check",
+      "type": "c",
+      "table": "ai_strategies",
+      "definition": "CHECK (lifecycle_status = ANY (ARRAY['draft'::text, 'testing'::text, 'paper_ready'::text, 'approved'::text, 'suspended'::text, 'retired'::text]))"
+    },
+    {
+      "name": "ai_strategies_pkey",
+      "type": "p",
+      "table": "ai_strategies",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "ai_strategies_risk_profile_check",
+      "type": "c",
+      "table": "ai_strategies",
+      "definition": "CHECK (risk_profile = ANY (ARRAY['conservative'::text, 'moderate'::text, 'aggressive'::text]))"
+    },
+    {
+      "name": "ai_strategies_strategy_key_key",
+      "type": "u",
+      "table": "ai_strategies",
+      "definition": "UNIQUE (strategy_key)"
+    },
+    {
+      "name": "ai_strategies_trading_mode_check",
+      "type": "c",
+      "table": "ai_strategies",
+      "definition": "CHECK (trading_mode = ANY (ARRAY['paper'::text, 'demo'::text, 'live'::text]))"
+    },
+    {
+      "name": "alpaca_connections_environment_check",
+      "type": "c",
+      "table": "alpaca_connections",
+      "definition": "CHECK (environment = 'paper'::text)"
+    },
+    {
+      "name": "alpaca_connections_pkey",
+      "type": "p",
+      "table": "alpaca_connections",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "name": "alpaca_connections_user_id_fkey",
+      "type": "f",
+      "table": "alpaca_connections",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "alpaca_oauth_states_pkey",
+      "type": "p",
+      "table": "alpaca_oauth_states",
+      "definition": "PRIMARY KEY (state_hash)"
+    },
+    {
+      "name": "alpaca_oauth_states_user_id_fkey",
+      "type": "f",
+      "table": "alpaca_oauth_states",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "backtest_runs_check",
+      "type": "c",
+      "table": "backtest_runs",
+      "definition": "CHECK (period_end > period_start)"
+    },
+    {
+      "name": "backtest_runs_kind_check",
+      "type": "c",
+      "table": "backtest_runs",
+      "definition": "CHECK (kind = ANY (ARRAY['in_sample'::text, 'out_of_sample'::text, 'walk_forward'::text]))"
+    },
+    {
+      "name": "backtest_runs_max_drawdown_pct_check",
+      "type": "c",
+      "table": "backtest_runs",
+      "definition": "CHECK (max_drawdown_pct >= 0::numeric)"
+    },
+    {
+      "name": "backtest_runs_pkey",
+      "type": "p",
+      "table": "backtest_runs",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "backtest_runs_strategy_version_id_fkey",
+      "type": "f",
+      "table": "backtest_runs",
+      "definition": "FOREIGN KEY (strategy_version_id) REFERENCES strategy_versions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "backtest_runs_trades_count_check",
+      "type": "c",
+      "table": "backtest_runs",
+      "definition": "CHECK (trades_count >= 0)"
+    },
+    {
+      "name": "backtest_runs_win_rate_check",
+      "type": "c",
+      "table": "backtest_runs",
+      "definition": "CHECK (win_rate >= 0::numeric AND win_rate <= 1::numeric)"
+    },
+    {
+      "name": "broker_connections_account_label_check",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (char_length(account_label) >= 1 AND char_length(account_label) <= 80)"
+    },
+    {
+      "name": "broker_connections_bridge_route_id_check",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (bridge_route_id IS NULL OR bridge_route_id ~ '^[A-Za-z0-9_-]{8,100}$'::text)"
+    },
+    {
+      "name": "broker_connections_bridge_route_id_key",
+      "type": "u",
+      "table": "broker_connections",
+      "definition": "UNIQUE (bridge_route_id)"
+    },
+    {
+      "name": "broker_connections_connected_requires_route",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (status = 'connected'::text AND bridge_route_id IS NOT NULL OR status <> 'connected'::text AND bridge_route_id IS NULL)"
+    },
+    {
+      "name": "broker_connections_environment_check",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (environment = 'demo'::text)"
+    },
+    {
+      "name": "broker_connections_pkey",
+      "type": "p",
+      "table": "broker_connections",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "broker_connections_provider_check",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (provider = 'exness_mt5'::text)"
+    },
+    {
+      "name": "broker_connections_status_check",
+      "type": "c",
+      "table": "broker_connections",
+      "definition": "CHECK (status = ANY (ARRAY['pending'::text, 'connected'::text, 'disabled'::text]))"
+    },
+    {
+      "name": "broker_connections_user_id_fkey",
+      "type": "f",
+      "table": "broker_connections",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "broker_connections_user_provider_environment_unique",
+      "type": "u",
+      "table": "broker_connections",
+      "definition": "UNIQUE (user_id, provider, environment)"
+    },
+    {
+      "name": "customer_ai_subscriptions_account_session_id_fkey",
+      "type": "f",
+      "table": "customer_ai_subscriptions",
+      "definition": "FOREIGN KEY (account_session_id) REFERENCES trading_sessions(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "customer_ai_subscriptions_pkey",
+      "type": "p",
+      "table": "customer_ai_subscriptions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "customer_ai_subscriptions_risk_profile_check",
+      "type": "c",
+      "table": "customer_ai_subscriptions",
+      "definition": "CHECK (risk_profile = ANY (ARRAY['conservative'::text, 'moderate'::text, 'aggressive'::text]))"
+    },
+    {
+      "name": "customer_ai_subscriptions_status_check",
+      "type": "c",
+      "table": "customer_ai_subscriptions",
+      "definition": "CHECK (status = ANY (ARRAY['pending'::text, 'paper_active'::text, 'demo_active'::text, 'paused'::text, 'revoked'::text]))"
+    },
+    {
+      "name": "customer_ai_subscriptions_strategy_id_fkey",
+      "type": "f",
+      "table": "customer_ai_subscriptions",
+      "definition": "FOREIGN KEY (strategy_id) REFERENCES ai_strategies(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "customer_ai_subscriptions_user_id_fkey",
+      "type": "f",
+      "table": "customer_ai_subscriptions",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "customer_ai_subscriptions_user_id_strategy_id_account_sessi_key",
+      "type": "u",
+      "table": "customer_ai_subscriptions",
+      "definition": "UNIQUE (user_id, strategy_id, account_session_id)"
+    },
+    {
+      "name": "customer_profiles_account_status_check",
+      "type": "c",
+      "table": "customer_profiles",
+      "definition": "CHECK (account_status = ANY (ARRAY['active'::text, 'suspended'::text, 'pending'::text, 'closed'::text]))"
+    },
+    {
+      "name": "customer_profiles_pkey",
+      "type": "p",
+      "table": "customer_profiles",
+      "definition": "PRIMARY KEY (user_id)"
+    },
+    {
+      "name": "customer_profiles_role_check",
+      "type": "c",
+      "table": "customer_profiles",
+      "definition": "CHECK (role = ANY (ARRAY['customer'::text, 'staff'::text, 'admin'::text]))"
+    },
+    {
+      "name": "customer_profiles_user_id_fkey",
+      "type": "f",
+      "table": "customer_profiles",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "learning_events_event_type_check",
+      "type": "c",
+      "table": "learning_events",
+      "definition": "CHECK (event_type = ANY (ARRAY['drift_detected'::text, 'refinement_proposed'::text, 'refinement_rejected'::text, 'version_promoted'::text, 'version_demoted'::text, 'strategy_suspended'::text, 'strategy_retired'::text]))"
+    },
+    {
+      "name": "learning_events_pkey",
+      "type": "p",
+      "table": "learning_events",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "learning_events_strategy_id_fkey",
+      "type": "f",
+      "table": "learning_events",
+      "definition": "FOREIGN KEY (strategy_id) REFERENCES ai_strategies(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "learning_events_strategy_version_id_fkey",
+      "type": "f",
+      "table": "learning_events",
+      "definition": "FOREIGN KEY (strategy_version_id) REFERENCES strategy_versions(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "mcp_tool_audit_actor_user_id_fkey",
+      "type": "f",
+      "table": "mcp_tool_audit",
+      "definition": "FOREIGN KEY (actor_user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "mcp_tool_audit_duration_ms_check",
+      "type": "c",
+      "table": "mcp_tool_audit",
+      "definition": "CHECK (duration_ms >= 0)"
+    },
+    {
+      "name": "mcp_tool_audit_pkey",
+      "type": "p",
+      "table": "mcp_tool_audit",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "nova_agent_threads_id_user_id_key",
+      "type": "u",
+      "table": "nova_agent_threads",
+      "definition": "UNIQUE (id, user_id)"
+    },
+    {
+      "name": "nova_agent_threads_pkey",
+      "type": "p",
+      "table": "nova_agent_threads",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "nova_agent_threads_policy_version_check",
+      "type": "c",
+      "table": "nova_agent_threads",
+      "definition": "CHECK (policy_version = 'nova-approval.v1'::text)"
+    },
+    {
+      "name": "nova_agent_threads_state_check",
+      "type": "c",
+      "table": "nova_agent_threads",
+      "definition": "CHECK (state = ANY (ARRAY['active'::text, 'awaiting_review'::text, 'closed'::text]))"
+    },
+    {
+      "name": "nova_agent_threads_title_check",
+      "type": "c",
+      "table": "nova_agent_threads",
+      "definition": "CHECK (char_length(btrim(title)) >= 1 AND char_length(btrim(title)) <= 120)"
+    },
+    {
+      "name": "nova_agent_threads_user_id_fkey",
+      "type": "f",
+      "table": "nova_agent_threads",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "nova_approval_owner_thread_fk",
+      "type": "f",
+      "table": "nova_approval_requests",
+      "definition": "FOREIGN KEY (thread_id, user_id) REFERENCES nova_agent_threads(id, user_id) ON DELETE CASCADE"
+    },
+    {
+      "name": "nova_approval_requests_decision_note_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (decision_note IS NULL OR char_length(decision_note) <= 300)"
+    },
+    {
+      "name": "nova_approval_requests_pkey",
+      "type": "p",
+      "table": "nova_approval_requests",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "nova_approval_requests_policy_version_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (policy_version = 'nova-approval.v1'::text)"
+    },
+    {
+      "name": "nova_approval_requests_proposal_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (jsonb_typeof(proposal) = 'object'::text)"
+    },
+    {
+      "name": "nova_approval_requests_proposal_hash_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (proposal_hash ~ '^[a-f0-9]{64}$'::text)"
+    },
+    {
+      "name": "nova_approval_requests_request_type_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (request_type = 'strategy_draft_review'::text)"
+    },
+    {
+      "name": "nova_approval_requests_status_check",
+      "type": "c",
+      "table": "nova_approval_requests",
+      "definition": "CHECK (status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'edited'::text, 'expired'::text, 'cancelled'::text]))"
+    },
+    {
+      "name": "nova_approval_requests_user_id_fkey",
+      "type": "f",
+      "table": "nova_approval_requests",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "quality_gate_configs_name_key",
+      "type": "u",
+      "table": "quality_gate_configs",
+      "definition": "UNIQUE (name)"
+    },
+    {
+      "name": "quality_gate_configs_pkey",
+      "type": "p",
+      "table": "quality_gate_configs",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "quality_gate_configs_stage_check",
+      "type": "c",
+      "table": "quality_gate_configs",
+      "definition": "CHECK (stage = ANY (ARRAY['backtest_to_paper'::text, 'paper_to_demo'::text, 'demo_to_live'::text]))"
+    },
+    {
+      "name": "quality_gate_results_config_id_fkey",
+      "type": "f",
+      "table": "quality_gate_results",
+      "definition": "FOREIGN KEY (config_id) REFERENCES quality_gate_configs(id) ON DELETE RESTRICT"
+    },
+    {
+      "name": "quality_gate_results_pkey",
+      "type": "p",
+      "table": "quality_gate_results",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "quality_gate_results_stage_check",
+      "type": "c",
+      "table": "quality_gate_results",
+      "definition": "CHECK (stage = ANY (ARRAY['backtest_to_paper'::text, 'paper_to_demo'::text, 'demo_to_live'::text]))"
+    },
+    {
+      "name": "quality_gate_results_strategy_version_id_fkey",
+      "type": "f",
+      "table": "quality_gate_results",
+      "definition": "FOREIGN KEY (strategy_version_id) REFERENCES strategy_versions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "risk_guard_decisions_decision_check",
+      "type": "c",
+      "table": "risk_guard_decisions",
+      "definition": "CHECK (decision = ANY (ARRAY['approved'::text, 'rejected'::text, 'review'::text, 'paper_only'::text]))"
+    },
+    {
+      "name": "risk_guard_decisions_pkey",
+      "type": "p",
+      "table": "risk_guard_decisions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "risk_guard_decisions_signal_id_fkey",
+      "type": "f",
+      "table": "risk_guard_decisions",
+      "definition": "FOREIGN KEY (signal_id) REFERENCES strategy_signals(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "risk_guard_decisions_user_id_fkey",
+      "type": "f",
+      "table": "risk_guard_decisions",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "security_events_acknowledged_by_fkey",
+      "type": "f",
+      "table": "security_events",
+      "definition": "FOREIGN KEY (acknowledged_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "security_events_pkey",
+      "type": "p",
+      "table": "security_events",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "security_events_severity_check",
+      "type": "c",
+      "table": "security_events",
+      "definition": "CHECK (severity = ANY (ARRAY['info'::text, 'low'::text, 'medium'::text, 'high'::text, 'critical'::text]))"
+    },
+    {
+      "name": "security_events_user_id_fkey",
+      "type": "f",
+      "table": "security_events",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "signal_delivery_log_attempt_count_check",
+      "type": "c",
+      "table": "signal_delivery_log",
+      "definition": "CHECK (attempt_count >= 0)"
+    },
+    {
+      "name": "signal_delivery_log_delivery_status_check",
+      "type": "c",
+      "table": "signal_delivery_log",
+      "definition": "CHECK (delivery_status = ANY (ARRAY['queued'::text, 'sent_to_ea'::text, 'acknowledged'::text, 'rejected'::text, 'failed'::text, 'duplicate_blocked'::text]))"
+    },
+    {
+      "name": "signal_delivery_log_idempotency_key_key",
+      "type": "u",
+      "table": "signal_delivery_log",
+      "definition": "UNIQUE (idempotency_key)"
+    },
+    {
+      "name": "signal_delivery_log_pkey",
+      "type": "p",
+      "table": "signal_delivery_log",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "signal_delivery_log_signal_id_fkey",
+      "type": "f",
+      "table": "signal_delivery_log",
+      "definition": "FOREIGN KEY (signal_id) REFERENCES strategy_signals(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "signal_delivery_log_subscription_id_fkey",
+      "type": "f",
+      "table": "signal_delivery_log",
+      "definition": "FOREIGN KEY (subscription_id) REFERENCES customer_ai_subscriptions(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "strategy_signals_direction_check",
+      "type": "c",
+      "table": "strategy_signals",
+      "definition": "CHECK (direction = ANY (ARRAY['BUY'::text, 'SELL'::text, 'HOLD'::text]))"
+    },
+    {
+      "name": "strategy_signals_pkey",
+      "type": "p",
+      "table": "strategy_signals",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "strategy_signals_session_id_fkey",
+      "type": "f",
+      "table": "strategy_signals",
+      "definition": "FOREIGN KEY (session_id) REFERENCES trading_sessions(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "strategy_signals_user_id_fkey",
+      "type": "f",
+      "table": "strategy_signals",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "strategy_versions_origin_check",
+      "type": "c",
+      "table": "strategy_versions",
+      "definition": "CHECK (origin = ANY (ARRAY['human'::text, 'llm_generate'::text, 'auto_learn'::text]))"
+    },
+    {
+      "name": "strategy_versions_parent_version_id_fkey",
+      "type": "f",
+      "table": "strategy_versions",
+      "definition": "FOREIGN KEY (parent_version_id) REFERENCES strategy_versions(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "strategy_versions_pkey",
+      "type": "p",
+      "table": "strategy_versions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "strategy_versions_status_check",
+      "type": "c",
+      "table": "strategy_versions",
+      "definition": "CHECK (status = ANY (ARRAY['candidate'::text, 'testing'::text, 'passed'::text, 'failed'::text, 'active'::text, 'retired'::text]))"
+    },
+    {
+      "name": "strategy_versions_strategy_id_fkey",
+      "type": "f",
+      "table": "strategy_versions",
+      "definition": "FOREIGN KEY (strategy_id) REFERENCES ai_strategies(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "strategy_versions_strategy_id_spec_hash_key",
+      "type": "u",
+      "table": "strategy_versions",
+      "definition": "UNIQUE (strategy_id, spec_hash)"
+    },
+    {
+      "name": "strategy_versions_strategy_id_version_no_key",
+      "type": "u",
+      "table": "strategy_versions",
+      "definition": "UNIQUE (strategy_id, version_no)"
+    },
+    {
+      "name": "strategy_versions_version_no_check",
+      "type": "c",
+      "table": "strategy_versions",
+      "definition": "CHECK (version_no > 0)"
+    },
+    {
+      "name": "system_controls_pkey",
+      "type": "p",
+      "table": "system_controls",
+      "definition": "PRIMARY KEY (key)"
+    },
+    {
+      "name": "system_controls_updated_by_fkey",
+      "type": "f",
+      "table": "system_controls",
+      "definition": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+    },
+    {
+      "name": "system_heartbeats_pkey",
+      "type": "p",
+      "table": "system_heartbeats",
+      "definition": "PRIMARY KEY (component)"
+    },
+    {
+      "name": "system_heartbeats_status_check",
+      "type": "c",
+      "table": "system_heartbeats",
+      "definition": "CHECK (status = ANY (ARRAY['healthy'::text, 'degraded'::text, 'offline'::text, 'unknown'::text]))"
+    },
+    {
+      "name": "trading_sessions_connection_status_check",
+      "type": "c",
+      "table": "trading_sessions",
+      "definition": "CHECK (connection_status = ANY (ARRAY['online'::text, 'offline'::text, 'degraded'::text, 'blocked'::text]))"
+    },
+    {
+      "name": "trading_sessions_environment_check",
+      "type": "c",
+      "table": "trading_sessions",
+      "definition": "CHECK (environment = ANY (ARRAY['demo'::text, 'paper'::text, 'live'::text]))"
+    },
+    {
+      "name": "trading_sessions_pkey",
+      "type": "p",
+      "table": "trading_sessions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "trading_sessions_user_id_fkey",
+      "type": "f",
+      "table": "trading_sessions",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS alpaca_oauth_states_user_id_idx ON public.alpaca_oauth_states (user_id);

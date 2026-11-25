@@ -1,0 +1,97 @@
+name: Supabase Recovered History Replay
+
+on:
+  pull_request:
+    paths:
+      - "supabase/recovered-history/**"
+      - "tests/sql/recovered-*-history-assertions.sql"
+      - "tests/sql/normalize-local-replay-default-grants.sql"
+      - "tests/supabase-catalog-fingerprint-compare.mjs"
+      - ".github/workflows/supabase-recovered-history-replay.yml"
+jobs:
+  clean-replay:
+    name: Clean replay — ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [production, staging, production-plus-nova]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: latest
+
+      - name: Ensure PostgreSQL client is available
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Prepare isolated replay workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d /tmp/nova-recovered-${{ matrix.environment }}.XXXXXX)"
+          echo "REPLAY_WORKDIR=$workdir" >> "$GITHUB_ENV"
+          mkdir -p "$workdir/supabase/migrations"
+          cd "$workdir"
+          supabase init
+
+          if [ "${{ matrix.environment }}" = "production-plus-nova" ]; then
+            cp "$GITHUB_WORKSPACE"/supabase/recovered-history/production/*.sql "$workdir/supabase/migrations/"
+            cp "$GITHUB_WORKSPACE"/supabase/migrations/202610300001_nova_durable_approval_lifecycle.sql "$workdir/supabase/migrations/"
+          else
+            cp "$GITHUB_WORKSPACE"/supabase/recovered-history/${{ matrix.environment }}/*.sql "$workdir/supabase/migrations/"
+          fi
+
+          if [ "${{ matrix.environment }}" = "staging" ]; then
+            cat > "$workdir/supabase/migrations/20261030000000_ci_extensions.sql" <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+          SQL
+          fi
+
+      - name: Start disposable local Supabase and replay every recovered migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REPLAY_WORKDIR"
+          if ! supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit > "$REPLAY_WORKDIR/start.log" 2>&1; then
+            sed -E 's/sb_(publishable|secret)_[A-Za-z0-9_-]+/[REDACTED]/g; s#(postgres(ql)?://[^:[:space:]]+):[^@[:space:]]+@#\1:[REDACTED]@#g' "$REPLAY_WORKDIR/start.log" | tail -n 80
+            exit 1
+          fi
+          supabase migration list --local
+          supabase status -o env > "$REPLAY_WORKDIR/status.env"
+          set -a
+          source "$REPLAY_WORKDIR/status.env"
+          set +a
+          test -n "${DB_URL:-}"
+          if [ "${{ matrix.environment }}" = "production" ]; then
+            # Normalize only Supabase CLI bootstrap ACLs in this disposable local replay.
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/normalize-local-replay-default-grants.sql"
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-history-assertions.sql"
+            psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/production-catalog-fingerprint.sql" > "$REPLAY_WORKDIR/production-fingerprint.json"
+            node "$GITHUB_WORKSPACE/tests/supabase-catalog-fingerprint-compare.mjs" "$GITHUB_WORKSPACE/supabase/recovered-history/catalog-fingerprints/production.json" "$REPLAY_WORKDIR/production-fingerprint.json"
+          elif [ "${{ matrix.environment }}" = "staging" ]; then
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-staging-history-assertions.sql"
+          else
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/normalize-local-replay-default-grants.sql"
+            psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/recovered-production-plus-nova-assertions.sql"
+            psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -f "$GITHUB_WORKSPACE/tests/sql/production-catalog-fingerprint.sql" > "$REPLAY_WORKDIR/production-after-nova-fingerprint.json"
+            node "$GITHUB_WORKSPACE/tests/supabase-catalog-fingerprint-compare.mjs" "$GITHUB_WORKSPACE/supabase/recovered-history/catalog-fingerprints/production-after-nova-approval.json" "$REPLAY_WORKDIR/production-after-nova-fingerprint.json"
+          fi
+
+      - name: Stop disposable local Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${REPLAY_WORKDIR:-}" ] && [ -d "$REPLAY_WORKDIR" ]; then
+            cd "$REPLAY_WORKDIR"
+            supabase stop --no-backup || true
+          fi

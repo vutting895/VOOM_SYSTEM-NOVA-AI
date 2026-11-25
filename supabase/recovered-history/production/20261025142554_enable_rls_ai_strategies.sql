@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_strategies ENABLE ROW LEVEL SECURITY;
