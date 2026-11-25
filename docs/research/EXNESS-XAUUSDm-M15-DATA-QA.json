@@ -1,0 +1,106 @@
+{
+  "report_id": "exness-demo-xauusdm-m15-2022-07-21-to-2026-10-29-data-qa",
+  "executed_on": "paired Windows agent",
+  "source_pr": 197,
+  "dataset_id": "exness-demo-xauusdm-m15-2022-07-21-to-2026-10-29",
+  "instrument": "XAUUSDm",
+  "timeframe": "M15",
+  "eligibility": "candidate_only",
+  "actual_csv": {
+    "bytes": 8584488,
+    "expected_bytes": 8584488,
+    "sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "expected_sha256": "7d16e54327bfeabe9bd2c416548ee378f2bdb173827a494af7a7458c113c99d7",
+    "rows": 101076,
+    "expected_rows": 101076,
+    "first_bar_utc": "2022-07-21T00:00:00+00:00",
+    "last_closed_bar_utc": "2026-10-29T16:45:00+00:00",
+    "columns": [
+      "timestamp",
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "tick_volume",
+      "spread_points",
+      "spread_price",
+      "real_volume"
+    ]
+  },
+  "structural_checks": {
+    "status": "PASS",
+    "duplicate_or_unsorted_timestamps": 0,
+    "invalid_ohlc": 0,
+    "non_finite_numeric_values": 0,
+    "non_positive_prices": 0,
+    "negative_volume_or_spread": 0,
+    "zero_volume_rows": 0,
+    "zero_tick_volume_rows": 0,
+    "zero_real_volume_rows": 101076,
+    "volume_equals_tick_volume_rows": 101076,
+    "spread_formula_rounding_rows": 19,
+    "spread_formula_max_abs_diff": "1E-16",
+    "spread_formula_tolerance": "1E-12"
+  },
+  "gap_analysis": {
+    "status": "PENDING_BROKER_SESSION_CALENDAR",
+    "non_15m_intervals": 1106,
+    "repeating_daily_75m_intervals": 845,
+    "repeating_weekend_2955m_intervals": 200,
+    "nonstandard_intervals": 61,
+    "interval_counts_minutes": {
+      "30": 1,
+      "45": 1,
+      "60": 1,
+      "75": 845,
+      "90": 2,
+      "135": 3,
+      "210": 1,
+      "225": 6,
+      "240": 8,
+      "285": 2,
+      "300": 9,
+      "1515": 2,
+      "1725": 2,
+      "2895": 4,
+      "2955": 200,
+      "3015": 4,
+      "3090": 1,
+      "3165": 3,
+      "3195": 2,
+      "3210": 1,
+      "4395": 8
+    },
+    "unclassified_examples": [
+      {
+        "previous_bar_utc": "2025-01-03T11:45:00+00:00",
+        "next_bar_utc": "2025-01-03T12:45:00+00:00",
+        "elapsed_minutes": 60
+      },
+      {
+        "previous_bar_utc": "2025-11-28T08:00:00+00:00",
+        "next_bar_utc": "2025-11-28T08:45:00+00:00",
+        "elapsed_minutes": 45
+      },
+      {
+        "previous_bar_utc": "2025-12-07T23:15:00+00:00",
+        "next_bar_utc": "2025-12-07T23:45:00+00:00",
+        "elapsed_minutes": 30
+      }
+    ],
+    "note": "Non-15-minute intervals are not automatically missing data. The 75m and 2955m patterns are recurrent session/weekend closure signatures; all 61 other intervals remain pending exact Exness-MT5Trial7 historical session-calendar reconciliation."
+  },
+  "overall_status": "PARTIAL_PASS",
+  "reproducibility": {
+    "validator": "scripts/research/qa_exness_xauusdm_m15.py",
+    "command": "python scripts/research/qa_exness_xauusdm_m15.py --csv <actual-csv> --manifest <dataset_manifest.json> --output <report.json>",
+    "execution": "Windows agent; actual Git LFS object; validator emitted PARTIAL_PASS"
+  },
+  "limitations": [
+    "Structural integrity is verified, but historical broker session/holiday reconciliation is incomplete.",
+    "Dataset remains candidate_only and is not the frozen Wave3 benchmark.",
+    "No strategy backtest, optimizer run on market data, OOS evaluation, or MT5 Demo execution was performed.",
+    "M15 dataset does not satisfy the legacy strategy's 5M entry timeframe."
+  ]
+}
