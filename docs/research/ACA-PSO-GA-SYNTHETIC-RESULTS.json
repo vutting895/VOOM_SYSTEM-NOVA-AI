@@ -1,0 +1,27 @@
+{
+  "benchmark_type": "synthetic_optimizer_only_not_market_backtest",
+  "dimensions": 10,
+  "evaluation_budget_per_method_seed_objective": 10000,
+  "population_size": 10,
+  "results": {
+    "rastrigin": {
+      "aca": {"calls_per_seed":10000,"mean_best_fitness":-1.8664287817824685,"median_best_fitness":-1.6476493350242336,"stdev_best_fitness":1.0061663374598337,"total_objective_calls":100000},
+      "ga": {"calls_per_seed":10000,"mean_best_fitness":-25.152094367725248,"median_best_fitness":-25.205994551805347,"stdev_best_fitness":3.781850568543049,"total_objective_calls":100000},
+      "pso": {"calls_per_seed":10000,"mean_best_fitness":-16.81476153403842,"median_best_fitness":-13.929406625310698,"stdev_best_fitness":8.80349384643286,"total_objective_calls":100000},
+      "random": {"calls_per_seed":10000,"mean_best_fitness":-72.0342931401465,"median_best_fitness":-71.59799112851297,"stdev_best_fitness":6.434970143638795,"total_objective_calls":100000}
+    },
+    "sphere": {
+      "aca": {"calls_per_seed":10000,"mean_best_fitness":-0.0005262397555473506,"median_best_fitness":-0.0004836105898560636,"stdev_best_fitness":0.00021555727644709705,"total_objective_calls":100000},
+      "ga": {"calls_per_seed":10000,"mean_best_fitness":-0.21463060856938987,"median_best_fitness":-0.21210201120027125,"stdev_best_fitness":0.07649448791480794,"total_objective_calls":100000},
+      "pso": {"calls_per_seed":10000,"mean_best_fitness":-3.9258927301497993e-35,"median_best_fitness":-3.992313750608907e-37,"stdev_best_fitness":7.907067629426405e-35,"total_objective_calls":100000},
+      "random": {"calls_per_seed":10000,"mean_best_fitness":-11.364245536739194,"median_best_fitness":-11.12467382502182,"stdev_best_fitness":2.0113310436565413,"total_objective_calls":100000}
+    },
+    "step_rounded": {
+      "aca": {"calls_per_seed":10000,"mean_best_fitness":0.0,"median_best_fitness":0.0,"stdev_best_fitness":0.0,"total_objective_calls":100000},
+      "ga": {"calls_per_seed":10000,"mean_best_fitness":-0.6,"median_best_fitness":-1.0,"stdev_best_fitness":0.4898979485566356,"total_objective_calls":100000},
+      "pso": {"calls_per_seed":10000,"mean_best_fitness":0.0,"median_best_fitness":0.0,"stdev_best_fitness":0.0,"total_objective_calls":100000},
+      "random": {"calls_per_seed":10000,"mean_best_fitness":-44.7,"median_best_fitness":-46.5,"stdev_best_fitness":8.246817568007673,"total_objective_calls":100000}
+    }
+  },
+  "seeds": [0,1,2,3,4,5,6,7,8,9]
+}
