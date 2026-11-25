@@ -1,0 +1,82 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from workers.quant_engine.unified_evaluation import (
+    DatasetGateError,
+    expanding_purged_walk_forward,
+    fuse_research_signals,
+    require_immutable_llm_replay,
+    validate_dataset_manifest,
+    validate_point_in_time_rows,
+)
+
+
+class UnifiedEvaluationTests(unittest.TestCase):
+    def test_manifest_requires_complete_hash_and_read_only_flags(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bars.csv"
+            path.write_bytes(b"timestamp,open,high,low,close,volume\n")
+            import hashlib
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            manifest = {
+                "dataset_id": "fixture", "provider": "fixture", "symbol": "XAUUSDm",
+                "timeframe": "H1", "timezone": "UTC",
+                "actual_start_utc": "2026-01-01T00:00:00Z",
+                "actual_end_utc": "2026-02-01T00:00:00Z", "row_count": 1,
+                "completeness_status": "PASS", "training_eligible": True,
+                "content_sha256": digest, "ordersEnabled": False,
+                "executionEnabled": False, "liveTradingEnabled": False,
+            }
+            self.assertEqual(validate_dataset_manifest(manifest, path), digest)
+            manifest["executionEnabled"] = True
+            with self.assertRaises(DatasetGateError):
+                validate_dataset_manifest(manifest, path)
+
+    def test_hash_mismatch_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bars.csv"
+            path.write_bytes(b"data")
+            with self.assertRaises(DatasetGateError):
+                validate_dataset_manifest({}, path)
+
+    def test_walk_forward_is_chronological_and_purged(self):
+        folds = expanding_purged_walk_forward(1200, n_splits=4, min_train_size=400, horizon=8)
+        self.assertEqual(len(folds), 4)
+        for fold in folds:
+            self.assertEqual(fold.train_end + fold.purge_bars, fold.valid_start)
+            self.assertLess(fold.train_end, fold.valid_start)
+            self.assertLess(fold.valid_start, fold.valid_end)
+
+    def test_walk_forward_rejects_insufficient_rows(self):
+        with self.assertRaises(ValueError):
+            expanding_purged_walk_forward(20, n_splits=5, min_train_size=10, horizon=5)
+
+    def test_future_available_feature_is_rejected(self):
+        with self.assertRaises(DatasetGateError):
+            validate_point_in_time_rows([1, 2, 3], [1, 2, 4])
+
+    def test_non_monotonic_timestamps_are_rejected(self):
+        with self.assertRaises(DatasetGateError):
+            validate_point_in_time_rows([1, 3, 2])
+
+    def test_llm_replay_must_precede_decision(self):
+        record = {
+            "model_id": "local-model-v1", "prompt_sha256": "a" * 64,
+            "response_sha256": "b" * 64, "created_at": 12, "decision": "LONG",
+        }
+        with self.assertRaises(DatasetGateError):
+            require_immutable_llm_replay(record, 10)
+
+    def test_signal_fusion_abstains_on_missing_or_conflicting_inputs(self):
+        missing = fuse_research_signals(0.8, 0.7, 1, None, 0.9)
+        self.assertEqual(missing["decision"], "ABSTAIN")
+        conflict = fuse_research_signals(0.8, 0.7, -1, -1, 0.9)
+        self.assertEqual(conflict["decision"], "ABSTAIN")
+        accepted = fuse_research_signals(0.8, 0.7, 1, 1, 0.9)
+        self.assertEqual(accepted["decision"], "LONG")
+
+
+if __name__ == "__main__":
+    unittest.main()
