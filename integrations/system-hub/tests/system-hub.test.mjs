@@ -231,8 +231,12 @@ test("pending connection does not call the proxy", async () => {
   const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
     method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
   }), env);
+  const body = await response.json();
   assert.equal(response.status, 409);
-  assert.equal((await response.json()).state, "pending_provisioning");
+  assert.equal(body.state, "pending_provisioning");
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
 });
 
 test("untrusted browser origin and order route are rejected", async () => {
