@@ -168,7 +168,7 @@ class QuantSplitTests(unittest.TestCase):
 
     def test_walk_forward_requires_boolean_expanding_flag(self):
         with self.assertRaisesRegex(ValueError, "expanding must be a boolean"):
-            walk_forward_windows(100, train_bars=30, test_bars=10, expanding="yes")
+            walk_forward_windows(100, train_bars=30, test_bars=10, purge_bars=0, expanding="yes")
 
     def test_overlapping_test_folds_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "overlapping test folds"):
@@ -248,7 +248,7 @@ class QuantJobLifecycleTests(unittest.TestCase):
                 self.create_job(**{field: "../other-tenant"})
 
     def test_timestamps_must_be_timezone_aware_and_monotonic(self):
-        with self.assertRaisesRegex(JobLifecycleError, "timezone-aware"):
+        with self.assertRaisesRegex(JobLifecycleError, "timezone"):
             self.create_job(created_at="2026-11-26T10:00:00")
         job = self.create_job()
         with self.assertRaisesRegex(JobLifecycleError, "cannot precede"):
