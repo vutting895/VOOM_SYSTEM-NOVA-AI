@@ -18,7 +18,7 @@ def sample_event():
             "symbol": "XAUUSDm",
             "timeframe": "M15",
         },
-        "scope": {"account_scope_hash": "c" * 64, "magic_scope": 991830},
+        "scope": {"account_scope_hmac": "c" * 64, "magic_scope": 991830},
         "market": {
             "bid": 2640.1,
             "ask": 2640.3,
