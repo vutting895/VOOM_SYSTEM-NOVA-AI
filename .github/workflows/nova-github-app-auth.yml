@@ -2,22 +2,17 @@ name: NOVA GitHub App Authentication
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "dev/**"
-    paths:
-      - ".github/workflows/nova-github-app-auth.yml"
-      - "docs/ci/GITHUB-APP-AUTOMATION.md"
 
 permissions:
   contents: read
 
 concurrency:
-  group: nova-github-app-auth-${{ github.ref }}
-  cancel-in-progress: true
+  group: nova-github-app-auth-main
+  cancel-in-progress: false
 
 jobs:
   installation-auth-smoke:
+    if: ${{ github.ref == 'refs/heads/main' }}
     name: Verify scoped GitHub App installation token
     runs-on: ubuntu-latest
     timeout-minutes: 5
