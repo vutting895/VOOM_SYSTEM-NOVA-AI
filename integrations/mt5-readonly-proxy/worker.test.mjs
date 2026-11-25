@@ -208,3 +208,38 @@ test("Cloudflare rollback UI remains CORS-allowed while Netlify is primary", asy
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+
+test("history query is forwarded to the stable tenant relay after owner authentication", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayRequest;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({id:"user-test-id"});
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"),"eq.user-test-id");
+      return Response.json([{id:CONNECTION_ID,user_id:"user-test-id",provider:"exness_mt5",environment:"demo",status:"connected",bridge_route_id:TENANT_ID}]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      relayRequest = {url,headers:new Headers(init.headers || {})};
+      return Response.json({symbol:"XAUUSDm",timeframe:"M15",bars:[],mode:"read-only"});
+    }
+    throw new Error("Unexpected outbound request to "+url.origin+url.pathname);
+  };
+  try {
+    const query = "symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z";
+    const response = await worker.fetch(new Request("https://proxy.test/api/history?connection_id="+CONNECTION_ID+"&"+query,{
+      headers:{Authorization:"Bearer "+USER_TOKEN,Origin:UI_ORIGIN}
+    }),envWithRoutes());
+    assert.equal(response.status,200);
+    assert.equal(relayRequest.url.pathname,"/api/history");
+    assert.equal(relayRequest.url.searchParams.get("symbol"),"XAUUSDm");
+    assert.equal(relayRequest.url.searchParams.get("timeframe"),"M15");
+    assert.equal(relayRequest.url.searchParams.get("start_utc"),"2026-01-01T00:00:00Z");
+    assert.equal(relayRequest.url.searchParams.get("end_utc"),"2026-01-15T00:00:00Z");
+    assert.equal(relayRequest.url.searchParams.has("connection_id"),false);
+    assert.equal(relayRequest.headers.get("X-VOOM-TENANT-ID"),TENANT_ID);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
