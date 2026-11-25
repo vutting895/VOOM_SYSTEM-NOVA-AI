@@ -89,3 +89,11 @@ test('Phase 2 portfolio risk and caps aggregate NOVA positions and pending order
   assert.doesNotMatch(counts, /POSITION_SYMBOL.*_Symbol/);
   assert.doesNotMatch(counts, /ORDER_SYMBOL.*_Symbol/);
 });
+
+test('Recovery first-hit thresholds use the lower money or equity-percent limit', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  assert.match(candidate, /triggerMoney\s*=\s*MathMin\(AutoMoney\(InpRecoveryTriggerMoney\),\s*eq\*InpRecoveryTriggerPct\/100\.0\)/);
+  assert.match(candidate, /targetMoney\s*=\s*MathMin\(AutoMoney\(InpRecoveryTargetMoney\),\s*eq\*InpRecoveryTargetPct\/100\.0\)/);
+  assert.match(candidate, /hardMoney\s*=\s*MathMin\(AutoMoney\(InpRecoveryMaxDDMoney\),\s*eq\*InpRecoveryMaxDDPct\/100\.0\)/);
+  assert.match(candidate, /hardMoney2\s*=\s*MathMin\(AutoMoney\(InpRecoveryMaxDDMoney\),\s*eq\*InpRecoveryMaxDDPct\/100\.0\)/);
+});
