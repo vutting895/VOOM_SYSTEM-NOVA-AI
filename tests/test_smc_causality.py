@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 
 from workers.quant_engine.causal_smc import (
-    Candle, StructureBreak, confirm_swings, detect_order_blocks,
+    Candle, StructureBreak, confirm_swings, detect_order_blocks, detect_structure_breaks,
     last_closed_higher_timeframe_index, visible_order_blocks,
 )
 
@@ -45,6 +45,22 @@ class CausalSwingTests(unittest.TestCase):
         bars = [candle(0, 10, 11, 9, 10), candle(0, 10, 11, 9, 10)]
         with self.assertRaises(ValueError):
             confirm_swings(bars, 1)
+
+    def test_each_confirmed_swing_level_breaks_only_once(self):
+        bars = [
+            candle(0, 10, 11, 9, 10),
+            candle(1, 10, 12, 9, 11),
+            candle(2, 11, 11, 8, 9),
+            candle(3, 9, 10, 8.5, 9),
+            candle(4, 9, 11, 9, 10),
+            candle(5, 10, 14, 9, 13),  # first close above confirmed 12 level
+            candle(6, 13, 15, 10, 13.5),  # remains above 12; no duplicate BOS
+            candle(7, 13.5, 14, 10, 13.5),
+        ]
+        _, breaks = detect_structure_breaks(bars, lookback=1)
+        bullish_breaks = [event for event in breaks if event.direction == "bullish"]
+        self.assertEqual(len(bullish_breaks), 1)
+        self.assertEqual(bullish_breaks[0].index, 5)
 
 
 class CausalOrderBlockTests(unittest.TestCase):
