@@ -332,7 +332,7 @@ async function requestMt5Proxy(env, user, row, path, query = {}) {
     proxy = new URL(proxyBase);
     if (proxy.protocol !== "https:" || proxy.username || proxy.password ||
       !proxy.hostname.endsWith(".workers.dev") ||
-      !["/api/account", "/api/quotes"].includes(path)) throw new Error("invalid proxy");
+      !["/api/account", "/api/quotes", "/api/history"].includes(path)) throw new Error("invalid proxy");
   } catch {
     return { ok: false, status: 503, error: "mt5_proxy_not_configured" };
   }
@@ -450,6 +450,58 @@ async function readAccount(request, env, user, row, origin) {
     liveTradingEnabled: false
   }, 200, origin, env);
 }
+const MT5_HISTORY_MAX_DAYS = { M1: 1, M5: 5, M15: 15, M30: 30, H1: 60, H4: 180, D1: 730 };
+function validUtcInstant(value) {
+  if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$/.test(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString() === new Date(value).toISOString();
+}
+async function readHistory(request, env, user, row, origin) {
+  const url = new URL(request.url);
+  const symbol = String(url.searchParams.get("symbol") || "").trim();
+  const timeframe = String(url.searchParams.get("timeframe") || "M15").toUpperCase();
+  const startUtc = url.searchParams.get("start_utc") || "";
+  const endUtc = url.searchParams.get("end_utc") || "";
+  if (!MT5_SYMBOL.test(symbol)) return json({ error: "valid_mt5_symbol_required" }, 400, origin, env);
+  if (!Object.hasOwn(MT5_HISTORY_MAX_DAYS, timeframe)) return json({ error: "unsupported_mt5_timeframe" }, 400, origin, env);
+  if (!validUtcInstant(startUtc) || !validUtcInstant(endUtc) || Date.parse(startUtc) >= Date.parse(endUtc)) {
+    return json({ error: "invalid_utc_history_range" }, 400, origin, env);
+  }
+  if (Date.parse(endUtc) - Date.parse(startUtc) > MT5_HISTORY_MAX_DAYS[timeframe] * 86400000) {
+    return json({ error: "history_window_too_large" }, 400, origin, env);
+  }
+  const result = await requestMt5Proxy(env, user, row, "/api/history", {
+    symbol, timeframe, start_utc: startUtc, end_utc: endUtc
+  });
+  if (!result.ok) {
+    return json({
+      connectionId: row.id, state: result.error, detail: result.detail,
+      dataVerified: false, ordersEnabled: false, liveTradingEnabled: false
+    }, result.status, origin, env);
+  }
+  const data = result.body;
+  if (data.connected !== true || !Array.isArray(data.bars) || data.bars.length > 2000) {
+    return json({ error: "mt5_history_invalid_response", dataVerified: false, ordersEnabled: false, liveTradingEnabled: false }, 502, origin, env);
+  }
+  return json({
+    connectionId: row.id,
+    state: "data_verified",
+    dataVerified: true,
+    history: {
+      symbol: typeof data.symbol === "string" ? data.symbol : symbol,
+      timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
+      startUtc, endUtc,
+      bars: data.bars,
+      count: Number.isInteger(data.count) ? data.count : data.bars.length,
+      mode: "read-only",
+      order_submission_enabled: false,
+      as_of: typeof data.as_of === "string" ? data.as_of : null
+    },
+    ordersEnabled: false,
+    liveTradingEnabled: false
+  }, 200, origin, env);
+}
+
 async function readQuotes(request, env, user, row, origin) {
   const url = new URL(request.url);
   const symbol = String(url.searchParams.get("symbol") || "").trim();
@@ -552,9 +604,9 @@ export default {
       }, 200, origin, env);
     }
 
-    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes)$/.exec(url.pathname);
+    const match = /^\/v1\/connections\/([^/]+)\/(status|check|account|quotes|history)$/.exec(url.pathname);
     if (match && (
-      (["status", "account", "quotes"].includes(match[2]) && request.method === "GET") ||
+      (["status", "account", "quotes", "history"].includes(match[2]) && request.method === "GET") ||
       (match[2] === "check" && request.method === "POST")
     )) {
       const auth = await authenticate(request, env);
