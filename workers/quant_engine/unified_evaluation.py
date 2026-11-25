@@ -102,6 +102,43 @@ def expanding_purged_walk_forward(
     return folds
 
 
+
+def split_development_final_oos(
+    event_timestamps: Iterable[Any],
+    label_end_timestamps: Iterable[Any],
+    final_oos_start: Any,
+) -> tuple[list[bool], list[bool], list[bool]]:
+    """Separate development and final OOS while purging labels crossing the boundary."""
+    events = list(event_timestamps)
+    label_ends = list(label_end_timestamps)
+    if len(events) != len(label_ends) or not events:
+        raise DatasetGateError("event and label-end timestamps must be non-empty and aligned")
+    development: list[bool] = []
+    final_oos: list[bool] = []
+    boundary_purged: list[bool] = []
+    for event_time, label_end in zip(events, label_ends):
+        if event_time is None or label_end is None:
+            development.append(False)
+            final_oos.append(False)
+            boundary_purged.append(False)
+        elif event_time < final_oos_start and label_end >= final_oos_start:
+            development.append(False)
+            final_oos.append(False)
+            boundary_purged.append(True)
+        elif event_time < final_oos_start and label_end < final_oos_start:
+            development.append(True)
+            final_oos.append(False)
+            boundary_purged.append(False)
+        elif event_time >= final_oos_start:
+            development.append(False)
+            final_oos.append(True)
+            boundary_purged.append(False)
+        else:
+            development.append(False)
+            final_oos.append(False)
+            boundary_purged.append(False)
+    return development, final_oos, boundary_purged
+
 def validate_point_in_time_rows(
     timestamps: Iterable[Any],
     available_at: Iterable[Any] | None = None,
