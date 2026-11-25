@@ -160,6 +160,34 @@ def create_research_job(
     )
 
 
+
+def _validate_job_snapshot(job: ResearchJob) -> None:
+    """Reject malformed snapshots before deriving a new state or event."""
+    if not isinstance(job, ResearchJob):
+        raise JobLifecycleError("job must be a ResearchJob snapshot")
+    _identifier(job.job_id, "job_id")
+    _identifier(job.tenant_id, "tenant_id")
+    _identifier(job.requester_id, "requester_id")
+    if not isinstance(job.job_type, JobType):
+        raise JobLifecycleError("job_type must be an allowlisted JobType")
+    if not isinstance(job.state, JobState):
+        raise JobLifecycleError("state must be a valid JobState")
+    if isinstance(job.sequence, bool) or not isinstance(job.sequence, int) or job.sequence < 0:
+        raise JobLifecycleError("sequence must be a non-negative integer")
+    if job.resource_profile != "free-cpu":
+        raise JobLifecycleError("resource_profile must be free-cpu")
+    if (
+        isinstance(job.timeout_seconds, bool)
+        or not isinstance(job.timeout_seconds, int)
+        or not 1 <= job.timeout_seconds <= 900
+    ):
+        raise JobLifecycleError("timeout_seconds must be in range 1..900")
+    created_time = _timestamp(job.created_at, "created_at")
+    updated_time = _timestamp(job.updated_at, "updated_at")
+    if updated_time < created_time:
+        raise JobLifecycleError("updated_at cannot precede created_at")
+
+
 def transition_research_job(
     job: ResearchJob,
     *,
@@ -176,6 +204,7 @@ def transition_research_job(
     Terminal jobs are immutable; retry must create a new job linked by the
     persistence layer rather than mutate a completed/failed job.
     """
+    _validate_job_snapshot(job)
     try:
         expected = JobState(expected_state)
         target = JobState(next_state)
