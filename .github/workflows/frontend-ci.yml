@@ -8,6 +8,9 @@ on:
   pull_request:
     paths:
       - "integrations/system-hub/**"
+      - "tests/nova-trading-readonly-guard.test.mjs"
+      - "tests/nova-training-status-honesty.test.mjs"
+      - "tests/secret-vault-readiness.test.mjs"
       - ".github/workflows/frontend-ci.yml"
   # Keep manual full-stack validation available for owner-approved consolidated runs.
   workflow_dispatch:
