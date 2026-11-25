@@ -5,6 +5,7 @@ This module deliberately has no broker, order, deployment, or model-provider cli
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Iterable
@@ -130,9 +131,22 @@ def require_immutable_llm_replay(
     missing = [key for key in required if key not in record]
     if missing:
         raise DatasetGateError(f"LLM replay record missing fields: {missing}")
-    if record["created_at"] > decision_timestamp:
+    def as_datetime(value: Any) -> Any:
+        if isinstance(value, str):
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if hasattr(value, "to_pydatetime"):
+            return value.to_pydatetime()
+        return value
+
+    created_at = as_datetime(record["created_at"])
+    decision_at = as_datetime(decision_timestamp)
+    if created_at > decision_at:
         raise DatasetGateError("LLM response was created after the historical decision time")
-    if not record["model_id"] or not record["prompt_sha256"] or not record["response_sha256"]:
+    for field in ("prompt_sha256", "response_sha256"):
+        digest = record[field]
+        if not isinstance(digest, str) or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest.lower()):
+            raise DatasetGateError(f"LLM replay {field} is not a SHA-256 hex digest")
+    if not record["model_id"]:
         raise DatasetGateError("LLM replay provenance is incomplete")
     return record
 
