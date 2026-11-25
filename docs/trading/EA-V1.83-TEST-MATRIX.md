@@ -1,6 +1,6 @@
 # NOVA EA v1.83 Safety Acceptance Matrix
 
-Status: Specification only. No tests have been executed or passed.
+Status: Test specification with initial execution evidence; full acceptance remains blocked.
 
 | ID | Scenario | Expected result |
 |---|---|---|
@@ -26,3 +26,9 @@ Status: Specification only. No tests have been executed or passed.
 | BUILD-001 | Target MetaEditor build | Zero errors; warnings triaged |
 
 Acceptance requires source commit, compiler and terminal builds, account mode, symbol, timeframe, fixtures, assertion output, and logs. Any untested order-mutating path blocks release. Demo/read-only only; no profitability claim.
+
+## Execution record — 2026-11-25
+
+- `tests/nova-ea-v183-source-integrity.test.mjs`: **5 passed, 0 failed**. Covers all five archived source hashes, WORKING/REPAIRED byte identity, SAFE_READONLY gate presence, WORKING unsafe defaults, and compile-time guard presence in all identified mutating functions.
+- Phase 2 candidate MetaEditor compile: **0 errors, 3 warnings**. This is compile-only evidence; no runtime order-request interception test has been run.
+- Existing `tests/nova-trading-readonly-guard.test.mjs` was also invoked during the combined check: 15 passed, 1 failed due to an existing bridge-source assertion mismatch at the Exness server-name check. This is not counted as a Phase 2 pass and has not been modified in this workstream.

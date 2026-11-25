@@ -1,7 +1,7 @@
 # NOVA EA v1.83 — Phase 1–2 Repair Plan
 
-**Status:** Proposed implementation contract; source patches not yet applied  
-**Base:** `main@821db357d70d3613b0ca61520eaae5c5307e8fd4`  
+**Status:** Contract defined; candidate fail-closed gate compiled. NOVA risk-policy implementation remains outstanding.
+**Base:** `main@821db357d70d3613b0ca61520eaae5c5307e8fd4`
 **Working branch:** `audit/ea-v183-phase1-2-20261125`
 
 ## Phase 1 — Source integrity
@@ -90,3 +90,12 @@ For overlap close, partial close, and multi-leg operations:
 ## Release gate
 
 Phase 2 is complete only when the code review, static call-site audit, compile, unit tests, negative tests, integration tests, and MT5 Demo read-only verification all have inspectable evidence. Passing compile alone is insufficient.
+
+## Current implementation evidence (2026-11-25)
+
+- Phase 1 source archive created at `integrations/mt5/ea-research/v1.83/source-variants/` with five MQ5 variants and full SHA-256 manifest.
+- Phase 2 read-only research candidate created separately at `integrations/mt5/ea-research/v1.83/candidate/`; it is derived from WORKING and is not an installed EA.
+- Static audit found 9 broker-mutating API calls in WORKING: 8 `OrderSend()` calls and 1 `PositionModify()` call. Early compile-time disable guards were inserted into the 9 containing functions plus `TradePermission()`.
+- Candidate compiled with MetaEditor at `C:\MT5\metaeditor64.exe`: 0 errors, 3 warnings. Warnings are two deprecated `POSITION_COMMISSION` uses and one possible `long` to `double` conversion.
+- New source-integrity and candidate-gate test file: 5 tests passed.
+- Not yet completed: runtime zero-broker-request proof, full Daily Entry Lock Only implementation, 9% aggregate open-risk cap, max-5 position contract, Recovery semantic repair, and MT5 Demo integration tests.
