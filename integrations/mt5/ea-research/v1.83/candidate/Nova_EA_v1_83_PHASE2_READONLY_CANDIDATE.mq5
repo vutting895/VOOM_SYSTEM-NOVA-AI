@@ -1933,14 +1933,54 @@ double DayChangeMoney()
    return AccountInfoDouble(ACCOUNT_EQUITY)-gHeader.day_equity-
           (CashAdjustments(gHeader.day)-gHeader.day_cash);
 }
+// One shared broker-day baseline per account + NOVA magic scope, not one baseline per chart symbol.
+// If first attach occurs after the broker-day grace window and no baseline exists, fail closed until next day.
+#define NOVA_DAILY_BASELINE_GRACE_SECONDS 60
+bool LoadAccountDayBaseline(const datetime day,const double currentEquity,double &baseline,bool &trusted)
+{
+   string serverKey=IntegerToString((long)TextHash(AccountInfoString(ACCOUNT_SERVER)));
+   string fileName=StringFormat("NOVA_DAY_%I64d_%I64d_%s_%I64d.bin",
+      AccountInfoInteger(ACCOUNT_LOGIN),InpMagicBase,serverKey,(long)day);
+   int h=FileOpen(fileName,FILE_READ|FILE_WRITE|FILE_BIN|FILE_COMMON);
+   if(h==INVALID_HANDLE) return false; // another instance may own the file; retry next tick
+   bool ok=true;
+   if(FileSize(h)==0)
+   {
+      baseline=currentEquity;
+      trusted=(TimeCurrent()-day)<=NOVA_DAILY_BASELINE_GRACE_SECONDS;
+      if(!ValidNumber(baseline) || baseline<=0) ok=false;
+      else
+      {
+         FileWriteLong(h,(long)day);
+         FileWriteDouble(h,baseline);
+         FileWriteInteger(h,trusted?1:0,INT_VALUE);
+         FileFlush(h);
+      }
+   }
+   else
+   {
+      FileSeek(h,0,SEEK_SET);
+      long storedDay=FileReadLong(h);
+      baseline=FileReadDouble(h);
+      int trustedFlag=FileReadInteger(h,INT_VALUE);
+      trusted=(trustedFlag==1);
+      if(storedDay!=(long)day || !ValidNumber(baseline) || baseline<=0 || (trustedFlag!=0 && trustedFlag!=1)) ok=false;
+   }
+   FileClose(h);
+   return ok;
+}
 void DailyGuard()
 {
    datetime day=DayStart(TimeCurrent());
    double eq=AccountInfoDouble(ACCOUNT_EQUITY);
    if(day!=gHeader.day)
    {
-      gHeader.day=day; gHeader.day_equity=eq; gHeader.day_cash=CashAdjustments(day);
-      gHeader.daily_block=0;
+      double dayBaseline=0; bool baselineTrusted=false;
+      if(!LoadAccountDayBaseline(day,eq,dayBaseline,baselineTrusted))
+      { gHeader.daily_block=1;gAccountHistoryOK=false;Print(ENGINE_LABEL,": shared broker-day baseline unavailable; entry lock");return; }
+      gHeader.day=day; gHeader.day_equity=dayBaseline; gHeader.day_cash=CashAdjustments(day);
+      gHeader.daily_block=baselineTrusted?0:1;
+      if(!baselineTrusted) Print(ENGINE_LABEL,": broker-day baseline missing at attach; entries locked until next broker day");
       gTotalEntriesToday=0; gV177_CoreToday=0; gV177_Day=day; // v1.77: รีเซ็ต Core ต่อวัน
       for(int i=0;i<MODULES;i++)
       {
@@ -7888,8 +7928,23 @@ int OnInit()
    if(!restored)
    {
       ZeroMemory(gHeader);
-      gHeader.day=DayStart(TimeCurrent());gHeader.day_equity=AccountInfoDouble(ACCOUNT_EQUITY);
+      datetime brokerDay=DayStart(TimeCurrent());
+      double dayBaseline=0; bool baselineTrusted=false;
+      if(!LoadAccountDayBaseline(brokerDay,AccountInfoDouble(ACCOUNT_EQUITY),dayBaseline,baselineTrusted))
+      { Print(ENGINE_LABEL,": shared broker-day baseline unavailable; refusing to initialize");return INIT_FAILED; }
+      gHeader.day=brokerDay;gHeader.day_equity=dayBaseline;
       gHeader.day_cash=CashAdjustments(gHeader.day);gHeader.peak_equity=gHeader.day_equity;
+      gHeader.daily_block=baselineTrusted?0:1;
+      if(!baselineTrusted) Print(ENGINE_LABEL,": no trusted broker-day opening baseline; entries locked until next broker day");
+      if(!gAccountHistoryOK) { Print(ENGINE_LABEL,": account history unavailable; attach again after synchronization");return INIT_FAILED; }
+   }
+   else if(gHeader.day==DayStart(TimeCurrent()))
+   {
+      double dayBaseline=0; bool baselineTrusted=false;
+      if(!LoadAccountDayBaseline(gHeader.day,AccountInfoDouble(ACCOUNT_EQUITY),dayBaseline,baselineTrusted))
+      { Print(ENGINE_LABEL,": shared broker-day baseline unavailable; refusing to initialize");return INIT_FAILED; }
+      gHeader.day_equity=dayBaseline;gHeader.day_cash=CashAdjustments(gHeader.day);
+      if(!baselineTrusted) gHeader.daily_block=1;
       if(!gAccountHistoryOK) { Print(ENGINE_LABEL,": account history unavailable; attach again after synchronization");return INIT_FAILED; }
    }
    gSARHandle=iSAR(_Symbol,InpAnalysisTF,0.02,0.2);
