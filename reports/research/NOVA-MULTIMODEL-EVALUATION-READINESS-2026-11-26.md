@@ -157,3 +157,16 @@ This addendum records a second read-only inspection after the initial audit.
 - CircleCI remains UNDIAGNOSED at job level; inspect pipeline 2187 jobs/logs before attributing cause.
 
 No source-code behavior was changed in this follow-up. No model was trained, no backtest was run, and no broker request or order was submitted. All execution flags remain false.
+
+
+## MT5 follow-up inspection — 2026-11-26 (read-only)
+
+- Re-listed the authorized export directory `C:\\Users\\Administrator\\AppData\\Roaming\\MetaQuotes\\Terminal\\Common\\Files\\NOVA_XAUUSDm_EXPORT`: it still contains only `NOVA_Export_compile.log`.
+- Re-read the compile log tail: `code generated`; `Result: 0 errors, 0 warnings`. This remains compile-only evidence.
+- Re-read the latest available `C:\\MT5\\logs\\20261126.log`: two terminal startup sequences report IPC dispatcher initialization failure; both report a bind error on `127.0.0.1:22346` with Windows socket error 10048 (address/port already in use); `NOVA_BrokerAdapter_RuntimeSelfTest (XAUUSDm,M1)` is logged as loaded successfully twice.
+- A successful exporter execution, authenticated Demo history read, and output-file creation are still not evidenced. Do not infer successful data access from the script-load line.
+- No process was launched and no MT5 settings, account state, port ownership, scripts, or safety controls were changed during this read-only follow-up.
+
+### MT5 blocker classification
+
+The immediately evidenced runtime issue is a local port collision on 127.0.0.1:22346, alongside IPC dispatcher startup failure. The log does not identify the owning process, establish whether the running terminal is authenticated to Exness Demo, or show whether history retrieval was attempted. Resolve ownership and terminal-instance configuration before another exporter run; do not kill processes or change ports blindly. Keep the exporter strictly read-only and verify the output artifact after execution.
