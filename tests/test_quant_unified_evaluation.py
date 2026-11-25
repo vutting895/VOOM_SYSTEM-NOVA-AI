@@ -12,6 +12,7 @@ from workers.quant_engine.unified_evaluation import (
     validate_dataset_manifest,
     validate_point_in_time_rows,
     split_development_final_oos,
+    assign_session_segments,
 )
 
 
@@ -42,6 +43,23 @@ class UnifiedEvaluationTests(unittest.TestCase):
             path.write_bytes(b"data")
             with self.assertRaises(DatasetGateError):
                 validate_dataset_manifest({}, path)
+
+    def test_session_segments_break_at_every_missing_or_irregular_bar(self):
+        stamps = [
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T01:00:00Z",
+            "2026-01-01T02:00:00Z",
+            "2026-01-01T04:00:00Z",
+            "2026-01-01T04:30:00Z",
+            "2026-01-01T05:30:00Z",
+        ]
+        self.assertEqual(assign_session_segments(stamps, 3600), [0, 0, 0, 1, 2, 2])
+
+    def test_session_segments_reject_naive_and_non_monotonic_times(self):
+        with self.assertRaises(DatasetGateError):
+            assign_session_segments(["2026-01-01T00:00:00", "2026-01-01T01:00:00"], 3600)
+        with self.assertRaises(DatasetGateError):
+            assign_session_segments(["2026-01-01T01:00:00Z", "2026-01-01T00:00:00Z"], 3600)
 
     def test_walk_forward_is_chronological_and_purged(self):
         folds = expanding_purged_walk_forward(1200, n_splits=4, min_train_size=400, horizon=8)
