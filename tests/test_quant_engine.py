@@ -3,6 +3,10 @@ import unittest
 
 from workers.quant_engine import (
     DatasetValidationError,
+    JobLifecycleError,
+    JobState,
+    create_research_job,
+    transition_research_job,
     build_run_fingerprint,
     canonical_dataset_sha256,
     chronological_split,
@@ -169,6 +173,102 @@ class QuantSplitTests(unittest.TestCase):
     def test_overlapping_test_folds_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "overlapping test folds"):
             walk_forward_windows(100, train_bars=30, test_bars=10, step_bars=5, purge_bars=0)
+
+
+class QuantJobLifecycleTests(unittest.TestCase):
+    def create_job(self, **overrides):
+        values = {
+            "job_id": "job-001",
+            "tenant_id": "tenant-001",
+            "requester_id": "user-001",
+            "job_type": "backtest",
+            "created_at": "2026-11-26T10:00:00Z",
+        }
+        values.update(overrides)
+        return create_research_job(**values)
+
+    def transition(self, job, target, minute, **overrides):
+        values = {
+            "expected_state": job.state,
+            "next_state": target,
+            "actor_id": "worker-001",
+            "occurred_at": f"2026-11-26T10:{minute:02d}:00Z",
+        }
+        values.update(overrides)
+        return transition_research_job(job, **values)
+
+    def test_job_starts_queued_and_runs_complete_happy_path(self):
+        job = self.create_job()
+        self.assertEqual(job.state, JobState.QUEUED)
+        self.assertEqual(job.resource_profile, "free-cpu")
+        job, event = self.transition(job, JobState.VALIDATING, 1)
+        self.assertEqual((job.state, event.sequence), (JobState.VALIDATING, 1))
+        job, _ = self.transition(job, JobState.RUNNING, 2)
+        job, _ = self.transition(job, JobState.FINALIZING, 3)
+        job, event = self.transition(job, JobState.SUCCEEDED, 4)
+        self.assertEqual(job.state, JobState.SUCCEEDED)
+        self.assertEqual(event.from_state, JobState.FINALIZING)
+        self.assertEqual(event.sequence, 4)
+
+    def test_rejects_skipping_validation_and_finalization(self):
+        job = self.create_job()
+        with self.assertRaisesRegex(JobLifecycleError, "illegal job transition"):
+            self.transition(job, JobState.RUNNING, 1)
+        running, _ = self.transition(job, JobState.VALIDATING, 1)
+        running, _ = self.transition(running, JobState.RUNNING, 2)
+        with self.assertRaisesRegex(JobLifecycleError, "illegal job transition"):
+            self.transition(running, JobState.SUCCEEDED, 3)
+
+    def test_terminal_states_are_immutable(self):
+        job = self.create_job()
+        job, _ = self.transition(job, JobState.REJECTED, 1)
+        with self.assertRaisesRegex(JobLifecycleError, "terminal"):
+            self.transition(job, JobState.RUNNING, 2)
+
+    def test_optimistic_state_conflict_is_rejected(self):
+        job = self.create_job()
+        with self.assertRaisesRegex(JobLifecycleError, "state conflict"):
+            self.transition(job, JobState.VALIDATING, 1, expected_state=JobState.RUNNING)
+
+    def test_only_allowlisted_research_job_types_are_accepted(self):
+        for unsafe in ("order", "execute", "withdraw", "transfer", "close-position", "broker.trade"):
+            with self.subTest(job_type=unsafe), self.assertRaises(JobLifecycleError):
+                self.create_job(job_type=unsafe)
+
+    def test_resource_profile_and_timeout_are_bounded(self):
+        with self.assertRaisesRegex(JobLifecycleError, "free-cpu"):
+            self.create_job(resource_profile="gpu")
+        for timeout in (0, 901, True, 1.5):
+            with self.subTest(timeout=timeout), self.assertRaises(JobLifecycleError):
+                self.create_job(timeout_seconds=timeout)
+
+    def test_server_resolved_identity_fields_are_validated(self):
+        for field in ("job_id", "tenant_id", "requester_id"):
+            with self.subTest(field=field), self.assertRaises(JobLifecycleError):
+                self.create_job(**{field: "../other-tenant"})
+
+    def test_timestamps_must_be_timezone_aware_and_monotonic(self):
+        with self.assertRaisesRegex(JobLifecycleError, "timezone-aware"):
+            self.create_job(created_at="2026-11-26T10:00:00")
+        job = self.create_job()
+        with self.assertRaisesRegex(JobLifecycleError, "cannot precede"):
+            self.transition(job, JobState.VALIDATING, 0)
+
+    def test_reason_code_is_bounded_and_event_is_tenant_scoped(self):
+        job = self.create_job()
+        updated, event = self.transition(job, JobState.VALIDATING, 1, reason_code="manifest_valid")
+        self.assertEqual(event.tenant_id, job.tenant_id)
+        self.assertEqual(event.job_id, job.job_id)
+        self.assertEqual(updated.sequence, 1)
+        with self.assertRaisesRegex(JobLifecycleError, "reason_code"):
+            self.transition(job, JobState.VALIDATING, 1, reason_code="Unsafe Reason!")
+
+    def test_transition_does_not_mutate_previous_snapshot(self):
+        job = self.create_job()
+        updated, _ = self.transition(job, JobState.VALIDATING, 1)
+        self.assertEqual(job.state, JobState.QUEUED)
+        self.assertEqual(job.sequence, 0)
+        self.assertEqual(updated.sequence, 1)
 
 
 if __name__ == "__main__":
