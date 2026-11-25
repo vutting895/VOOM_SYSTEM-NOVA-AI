@@ -146,7 +146,8 @@ jobs:
           npx wrangler deploy --config ../integrations/system-hub/wrangler.jsonc --keep-vars \
             --var "ALLOWED_ORIGINS:https://voomsystem.netlify.app,https://voom-system-nova-ui.suwapat787.workers.dev" \
             --var "SUPABASE_URL:$SUPABASE_URL" \
-            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY"
+            --var "SUPABASE_PUBLISHABLE_KEY:$SUPABASE_PUBLISHABLE_KEY" \
+            --var "NOVA_APPROVALS_ENABLED:false"
 
       - name: Smoke-test Cloudflare backend worker safety contracts
         shell: bash
