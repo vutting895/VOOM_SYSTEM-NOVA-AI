@@ -71,3 +71,8 @@ Do not merge these PRs wholesale. Port or reuse only reviewed components with ex
 ## Release rule
 
 Keep this branch and any resulting PR in Draft until every applicable acceptance gate passes. Main remains the source of truth and must not be changed as part of this work.
+
+
+## Additional source-level safety finding (2026-11-26)
+
+The exact PR #417 candidate source was inspected. It contains the compile-time macro `NOVA_PHASE2_EXECUTION_DISABLED true` and routes several broker adapter calls through that macro, but the literal identifiers `ordersEnabled`, `executionEnabled`, and `liveTradingEnabled` are absent from the candidate source. Therefore the three requested booleans are **not yet verified as implemented configuration flags**. Do not represent the macro as proof that all three requested controls exist. The next source change must either add explicit, immutable false controls with tests, or document and independently prove a one-to-one mapping from each requested control to the hard-disable adapter. Every broker mutation adapter must be tested to return blocked and record zero broker transport calls. The presence of `OrderSend` adapter references in the candidate is not itself proof of execution, but it requires call-graph and runtime interception evidence.
