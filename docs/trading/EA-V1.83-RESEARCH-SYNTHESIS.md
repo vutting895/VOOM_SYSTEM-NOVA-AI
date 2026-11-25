@@ -81,7 +81,8 @@ The candidate adds an **opt-in** strict SMC research mode to the existing v1.83 
 - Runtime interception proving zero broker requests has not been run. Compile-time guards and source tests are not runtime proof.
 - Cross-symbol account aggregation must be tested with actual hedging/netting behavior and USC/USD conversions. OrderCalcProfit() is used per symbol, but broker-specific contract/tick behavior still needs verification.
 - The candidate's legacy Recovery/Hedge/Averaging paths are not endorsed by this research and remain outside this new strategy. Do not enable them as a workaround.
-- The current source change has not yet been compiled with MetaEditor. Prior 0-error/3-warning results apply to the earlier candidate revision only.
+- Updated candidate compiled in the isolated Windows research directory with MetaEditor X64 Regular: **0 errors, 2 legacy POSITION_COMMISSION deprecation warnings** (10,130 ms). Source SHA-256: E23FB5D0CD51A5792976C5684852413962CD5BC0F4118771FEBB33D8F283F67D; EX5 SHA-256: D4ADB4C373566172891D65DE71098E7E232787D260D394EA503488A88FB9E0D4. The EX5 remains outside MT5 Experts and is not installed.
+- Exact-branch static Node suite: **9 passed, 0 failed**.
 
 ## 6. Acceptance plan
 
