@@ -7842,7 +7842,7 @@ void AutoConfigure()
    double effBalance = isCent ? balance / 100.0 : balance;
    if(effBalance <= 0) effBalance = 10000;
    // --- 2. สัญลักษณ์ ---
-   double spreadPoints = SymbolInfoInteger(sym, SYMBOL_SPREAD);
+   double spreadPoints = (double)SymbolInfoInteger(sym, SYMBOL_SPREAD);
    double tickSize = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
    double tickValue = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE);
    // --- 3. ตลาด: ATR M15 + SMA Daily ---
