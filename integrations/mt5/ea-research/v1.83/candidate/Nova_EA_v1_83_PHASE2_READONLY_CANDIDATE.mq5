@@ -1103,7 +1103,12 @@ input bool            InpAISniper_UseCHoCH    = true;   // v1.72: CHoCH - ปิ
 input bool            InpAISniper_UseKillzone = true;   // v1.72: Killzone - London 07-11 + NY 13-17 GMT (Voom เทรด 70% ในโซนนี้)
 input double          InpAISniper_Boost2      = 1.10;   // v1.72: Score 2 (Sweep+Disp) = Lot x1.10
 input double          InpAISniper_Boost3      = 1.20;   // v1.72: Score 3 (Sweep+Disp+CHoCH) = Lot x1.20
-input bool            InpAISniper_NeverBlock  = true;   // v1.72: ห้าม Block Voom - Score 0 ก็ยังเข้าได้ (แค่ไม่ Boost)
+input bool            InpAISniper_NeverBlock  = true;   // legacy score mode only
+input group "=== Research SMC Mode (disabled by default; evidence-gated) ==="
+input bool            InpResearchSMC_Mode = false; // strict Sweep+Displacement+CHoCH + H1 EMA50 trend; research only
+input double          InpResearchSMC_MinStopATR = 0.50; // minimum structural stop distance
+input double          InpResearchSMC_SweepBufferATR = 0.10; // buffer beyond sweep extreme
+input double          InpResearchSMC_RewardRisk = 2.0; // fixed 2R target; no optimization before OOS
  // v1.66: รอ Pullback สูงสุด 3 แท่ง M15 = 6 แท่ง M5
  // Refinement: รอ Pullback 0.5 ATR (0.3 ATR แย่กว่า +568 / 0.5 ATR ดีสุด Full +714 PF 2.55)
 // Sniper v2 พัฒนา 3 ชั้น - ผลทดสอบจริง May-Nov 2026:
@@ -2060,22 +2065,46 @@ bool LossAtSL(const int dir,const double lots,const double entry,const double sl
       !ValidNumber(p) || p>=0) return false;
    loss=-p; return loss>0;
 }
+bool NOVA_IsManagedMagic(const long magic)
+{
+   return MagicId(magic)>=0 || magic==(long)InpSniperMTF_Magic;
+}
 double OpenRiskMoney(int &positions)
 {
+   // Account-wide open risk: managed positions plus pending entry orders, across symbols.
    positions=0; double risk=0;
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
-      ulong t=PositionGetTicket(i); if(t==0) continue;
-       long magic=PositionGetInteger(POSITION_MAGIC);
-       if(PositionGetString(POSITION_SYMBOL)!=_Symbol || (MagicId(magic)<0 && magic!=(long)InpSniperMTF_Magic)) continue;
-      positions++;
+      ulong ticket=PositionGetTicket(i); if(ticket==0) continue;
+      long magic=PositionGetInteger(POSITION_MAGIC);
+      if(!NOVA_IsManagedMagic(magic)) continue;
+      string symbol=PositionGetString(POSITION_SYMBOL);
       int dir=PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY?1:-1;
       double sl=PositionGetDouble(POSITION_SL),entry=PositionGetDouble(POSITION_PRICE_OPEN);
       double lots=PositionGetDouble(POSITION_VOLUME),p=0;
-      if(sl<=0) return 1e99; // A missing stop blocks additional entries.
-      if(!OrderCalcProfit(dir>0?ORDER_TYPE_BUY:ORDER_TYPE_SELL,_Symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
+      positions++;
+      if(sl<=0) return 1e99;
+      if(!OrderCalcProfit(dir>0?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
       risk+=MathMax(0,-p);
    }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   {
+      ulong ticket=OrderGetTicket(i); if(ticket==0) continue;
+      long magic=OrderGetInteger(ORDER_MAGIC);
+      if(!NOVA_IsManagedMagic(magic)) continue;
+      ENUM_ORDER_TYPE type=(ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+      bool isBuy=(type==ORDER_TYPE_BUY_LIMIT || type==ORDER_TYPE_BUY_STOP || type==ORDER_TYPE_BUY_STOP_LIMIT);
+      bool isSell=(type==ORDER_TYPE_SELL_LIMIT || type==ORDER_TYPE_SELL_STOP || type==ORDER_TYPE_SELL_STOP_LIMIT);
+      if(!isBuy && !isSell) continue;
+      string symbol=OrderGetString(ORDER_SYMBOL);
+      double sl=OrderGetDouble(ORDER_SL),entry=OrderGetDouble(ORDER_PRICE_OPEN);
+      double lots=OrderGetDouble(ORDER_VOLUME_CURRENT),p=0;
+      positions++;
+      if(sl<=0 || lots<=0) return 1e99;
+      if(!OrderCalcProfit(isBuy?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
+      risk+=MathMax(0,-p);
+   }
+   // In-flight reservations are local to this EA instance; cross-chart atomic reservation remains a release blocker.
    for(int i=0;i<MODULES;i++)
       if(gState[i].inflight_at>0 && FindPosition(i)==0)
       { risk+=gState[i].inflight_risk_money; positions++; }
@@ -6875,10 +6904,36 @@ void CheckClosedTradesLearning()
 //| TP 300 SL 100 Max 2/day RR 1:5 - เทสจริง PF 2.07              |
 //+------------------------------------------------------------------+
 // --- v1.77 Order Limits Helpers: Total 10 = Core 3 + Sniper 4 + Recovery 3 ---
-int V177_CountOpenTotal() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition() && PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
-int V177_CountOpenSniper() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
-int V177_CountOpenRecovery() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; if(PositionGetInteger(POSITION_MAGIC)!=Magic(19)) continue; c++; } return c; }
-int V177_CountOpenCore() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; long m=PositionGetInteger(POSITION_MAGIC); if(m==(long)InpSniperMTF_Magic) continue; if(m==Magic(19)) continue; c++; } return c; }
+bool V177_MatchesExposure(const long magic,const int mode)
+{
+   int id=MagicId(magic);
+   bool sniper=(magic==(long)InpSniperMTF_Magic);
+   bool recovery=(id==19);
+   bool core=(id>=0 && id!=19);
+   if(mode==0) return sniper || id>=0;
+   if(mode==1) return sniper;
+   if(mode==2) return recovery;
+   return core;
+}
+int V177_CountExposure(const int mode)
+{
+   int count=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket=PositionGetTicket(i); if(ticket==0) continue;
+      if(V177_MatchesExposure(PositionGetInteger(POSITION_MAGIC),mode)) count++;
+   }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   {
+      ulong ticket=OrderGetTicket(i); if(ticket==0) continue;
+      if(V177_MatchesExposure(OrderGetInteger(ORDER_MAGIC),mode)) count++;
+   }
+   return count;
+}
+int V177_CountOpenTotal() { return V177_CountExposure(0); }
+int V177_CountOpenSniper() { return V177_CountExposure(1); }
+int V177_CountOpenRecovery() { return V177_CountExposure(2); }
+int V177_CountOpenCore() { return V177_CountExposure(3); }
 bool V177_CanOpenCore(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenCore()>=InpV177_MaxCoreOpen){ reason="WAIT CORE 3"; return false; } if(gV177_CoreToday>=InpV177_MaxCorePerDay){ reason="WAIT CORE DAY 3"; return false; } if(gTotalEntriesToday>=InpV177_MaxTotalPerDay){ reason="WAIT TOTAL DAY 10"; return false; } reason="READY"; return true; }
 bool V177_CanOpenSniper(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenSniper()>=InpV177_MaxSniperOpen){ reason="WAIT SNIPER 4"; return false; } if(gSniperMTF_Count>=InpV177_MaxSniperPerDay){ reason="WAIT SNIPER DAY 4"; return false; } reason="READY"; return true; }
 bool V177_CanOpenRecovery(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenRecovery()>=InpV177_MaxRecoveryOpen){ reason="WAIT RECOVERY 3"; return false; } reason="READY"; return true; }
@@ -6905,6 +6960,35 @@ bool AISniper_IsKillzone()
 {
    int hourGMT = (int)((TimeGMT()%86400)/3600);
    return (hourGMT>=7 && hourGMT<=11) || (hourGMT>=13 && hourGMT<=17);
+}
+// Uses only completed H1 bars. Cache once per newly closed H1 candle.
+bool ResearchSMC_H1Trend(const int dir)
+{
+   static datetime cachedClosedBar=0;
+   static int cachedBias=0;
+   datetime closedBar=iTime(_Symbol,PERIOD_H1,1);
+   if(closedBar<=0) return false;
+   if(closedBar!=cachedClosedBar)
+   {
+      MqlRates h1[];
+      ArraySetAsSeries(h1,true);
+      int copied=CopyRates(_Symbol,PERIOD_H1,1,160,h1);
+      if(copied<160) { cachedClosedBar=0; cachedBias=0; return false; }
+      const double alpha=2.0/51.0;
+      double ema=h1[copied-1].close;
+      double emaPrevious=0;
+      for(int i=copied-2;i>=0;i--)
+      {
+         ema=alpha*h1[i].close+(1.0-alpha)*ema;
+         if(i==1) emaPrevious=ema;
+      }
+      if(emaPrevious<=0) { cachedClosedBar=0; cachedBias=0; return false; }
+      if(h1[0].close>ema && ema>emaPrevious) cachedBias=1;
+      else if(h1[0].close<ema && ema<emaPrevious) cachedBias=-1;
+      else cachedBias=0;
+      cachedClosedBar=closedBar;
+   }
+   return cachedBias==dir;
 }
 int AISniper_CalcScore(int dir)
 {
@@ -6967,7 +7051,8 @@ void SniperMTF_Check()
    { string v177r=""; if(!V177_CanOpenSniper(v177r)) return; } // v1.77: Sniper เปิดพร้อมกัน 4 / ต่อวัน 4 / รวม 5
    // Session BKK = GMT+7
    int hourBKK=(int)((TimeGMT()+7*3600)%86400/3600);
-   if(hourBKK<InpSniperMTF_SessionStart || hourBKK>InpSniperMTF_SessionEnd) return;
+   if(InpResearchSMC_Mode) { if(!AISniper_IsKillzone()) return; }
+   else if(hourBKK<InpSniperMTF_SessionStart || hourBKK>InpSniperMTF_SessionEnd) return;
    // Spread
    long spread=(long)SymbolInfoInteger(_Symbol,SYMBOL_SPREAD);
    if(spread>InpSniperMTF_SpreadMaxPoints) return;
@@ -6983,7 +7068,12 @@ void SniperMTF_Check()
    if(close1>ema50 && close1>ema20 && rsi>=40 && rsi<=65) dir=1;
    else if(close1<ema50 && close1<ema20 && rsi>=35 && rsi<=60) dir=-1;
    if(dir==0) { gSniperMTF_PendingDir=0; return; }
-   int aiScore = AISniper_CalcScore(dir); // v1.72 AI Sniper - ไม่ Block ถ้า Score 0 (NeverBlock)
+   int aiScore = AISniper_CalcScore(dir); // legacy score mode uses boost only
+   if(InpResearchSMC_Mode)
+   {
+      // Require sweep + displacement + CHoCH and aligned closed-bar H1 trend.
+      if(aiScore<3 || !ResearchSMC_H1Trend(dir)) return;
+   }
    // Pending window: เก็บเทรนด์ไว้ 3 แท่ง M15 รอ Pullback
    if(gSniperMTF_PendingDir!=dir)
    {
@@ -7008,6 +7098,17 @@ void SniperMTF_Check()
    double tpDist=InpSniperMTF_TP_Points*_Point;
    double sl=entry-dir*slDist;
    double tp=entry+dir*tpDist;
+   if(InpResearchSMC_Mode)
+   {
+      // Structural stop beyond sweep wick; enforce >=0.5 ATR and >=3x current spread.
+      double minStop=MathMax(InpResearchSMC_MinStopATR*atr,3.0*(double)spread*_Point);
+      double sweepExtreme=(dir>0?gRates[2].low:gRates[2].high);
+      if(dir>0) sl=MathMin(sweepExtreme-InpResearchSMC_SweepBufferATR*atr,entry-minStop);
+      else      sl=MathMax(sweepExtreme+InpResearchSMC_SweepBufferATR*atr,entry+minStop);
+      slDist=MathAbs(entry-sl);
+      tpDist=slDist*InpResearchSMC_RewardRisk;
+      tp=entry+dir*tpDist;
+   }
    if(!NormalizeStops(dir,tick,sl,tp)) return;
    if(!DirectionAllowed(dir)) return;
    // Lot จาก Risk 0.10% (แยกจาก Core EffRiskPct)
@@ -7019,8 +7120,13 @@ void SniperMTF_Check()
    if(!LossAtSL(dir,vmin,entry,sl,unitLoss)) return;
    double budget=eq*InpSniperMTF_RiskPercent/100.0;
    lots=VolumeFloor(budget/unitLoss*vmin,step);
-   if(lots<vmin) lots=vmin;
-   double aiBoost = AISniper_LotBoost(aiScore); if(aiBoost>1.0) lots = MathMin(lots*aiBoost, VolumeFloor(vmax,step)); // v1.72 AI Sniper Boost
+   if(lots<vmin)
+   {
+      if(InpResearchSMC_Mode) return; // never round risk upward to broker minimum volume
+      lots=vmin;
+   }
+   double aiBoost = (InpResearchSMC_Mode?1.0:AISniper_LotBoost(aiScore));
+   if(aiBoost>1.0) lots = MathMin(lots*aiBoost, VolumeFloor(vmax,step)); // legacy mode only; research mode keeps fixed risk
    lots=MathMin(lots,VolumeFloor(vmax,step));
    if(lots<vmin || !LossAtSL(dir,lots,entry,sl,loss)) return;
    if(loss>eq*InpMaxSingleRiskPct/100.0+1e-8) return;
