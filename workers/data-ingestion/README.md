@@ -8,7 +8,7 @@ Authenticated, tenant-scoped, telemetry-only ingestion API. This worker is separ
 - `POST /v1/events`: authenticated JSON event ingestion.
 - `GET /v1/events/{event_id}`: authenticated tenant-scoped read-back.
 
-Identity is derived by validating the caller's Supabase access token against the configured Supabase Auth `/auth/v1/user` endpoint. A tenant ID in the request body or headers is never trusted. The D1 primary key is `(tenant_id,event_id)`. Identical replay is idempotent; same ID with a different canonical payload returns HTTP 409.
+Identity is derived by validating the caller's Supabase access token against the configured Supabase Auth `/auth/v1/user` endpoint. The verified Supabase user UUID is currently the owner namespace; this is per-user isolation, not a shared organization-tenant membership model. A tenant ID in the request body or headers is never trusted. The D1 primary key is `(tenant_id,event_id)`. Identical replay is idempotent; same ID with a different canonical payload returns HTTP 409.
 
 ## Required configuration
 
