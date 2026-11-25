@@ -273,7 +273,8 @@ def history(
     interval_seconds = {"M1":60,"M5":300,"M15":900,"M30":1800,"H1":3600,"H4":14400,"D1":86400}[tf]
     now = datetime.now(timezone.utc)
     closed_end_epoch = int(now.timestamp()) // interval_seconds * interval_seconds
-    closed_end = min(end, datetime.fromtimestamp(closed_end_epoch, timezone.utc))
+    requested_end_epoch = int(end.timestamp()) // interval_seconds * interval_seconds
+    closed_end = datetime.fromtimestamp(min(requested_end_epoch, closed_end_epoch), timezone.utc)
     with LOCK:
         get_terminal_and_account()
         info = mt5.symbol_info(symbol)
@@ -289,10 +290,13 @@ def history(
             if rates is None:
                 error = mt5.last_error()
                 raise HTTPException(status_code=503, detail=f"MT5 history unavailable: {error[0]}")
-        try:
-            bars = serialize_history_rates(rates, start, closed_end, MAX_HISTORY_BARS)
-        except (ValueError, TypeError, KeyError, OverflowError, OSError):
-            raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
+        if closed_end <= start:
+            bars = []
+        else:
+            try:
+                bars = serialize_history_rates(rates, start, closed_end, MAX_HISTORY_BARS)
+            except (ValueError, TypeError, KeyError, OverflowError, OSError):
+                raise HTTPException(status_code=502, detail="MT5 returned invalid historical data") from None
         return {
             "symbol": symbol, "timeframe": tf, "digits": int(info.digits),
             "start_utc": start.isoformat().replace("+00:00", "Z"),
