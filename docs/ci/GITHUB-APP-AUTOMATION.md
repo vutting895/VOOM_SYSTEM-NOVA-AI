@@ -3,8 +3,9 @@
 ## Status and scope
 
 This integration is introduced on `ci/nova-github-app-auth-20261126`, based on main commit
-`56bf51d2e719a4cc79d73421e135099175a1e300`. It is a draft integration until the
-repository owner configures the GitHub App secrets and a real workflow run succeeds.
+`56bf51d2e719a4cc79d73421e135099175a1e300`. It remains a Draft PR until
+reviewed. The authenticated smoke test is a post-merge setup verification:
+the workflow must be dispatched from `main`, never from a PR or feature ref.
 
 The smoke workflow is deliberately read-only. It verifies that a GitHub App can
 mint an installation access token scoped to this repository and use it to read
@@ -45,17 +46,21 @@ minutes; installation tokens expire after one hour.
 1. Pull-request validation runs with the built-in `GITHUB_TOKEN` and minimal
    read permissions. It checks PR-controlled code but receives no App private
    key and no write-capable installation token.
-2. A separate trusted automation job may mint a short-lived App token only
-   after a trusted event (for example, a maintainer-dispatched workflow or a
-   push to an approved development branch). It must not check out or execute
-   untrusted PR-head code while the write-capable token is available.
-3. Scope each token to this single repository and request only the permissions
+2. The App authentication smoke test is `workflow_dispatch` only and refuses
+   to run unless `github.ref == refs/heads/main`. Do not dispatch it against
+   a PR or feature branch. This keeps PR-controlled workflow code away from
+   App secrets.
+3. A future trusted automation job may mint a short-lived App token only from
+   a trusted main-owned workflow after a maintainer-approved trigger. It must
+   not check out or execute untrusted PR-head code while a write-capable token
+   is available.
+4. Scope each token to this single repository and request only the permissions
    required for that job. For PR creation/update automation, use a separate
    job with Contents: write and Pull requests: write; do not add those scopes
    to the read-only smoke workflow.
-4. Never use `pull_request_target` to check out and execute PR-head code with
+5. Never use `pull_request_target` to check out and execute PR-head code with
    privileged secrets. Do not expose App credentials to fork PRs.
-5. The App may open/update a PR from a development branch, but must never merge
+6. The App may open/update a PR from a development branch, but must never merge
    it, mark it ready, bypass review, modify `main` directly, deploy production,
    or enable trading.
 
@@ -72,21 +77,24 @@ minutes; installation tokens expire after one hour.
 
 The current active repository ruleset `Root` already requires a pull request,
 one approval, and approval of the latest push. Its required status-check list
-is currently empty. After the smoke workflow has produced its first successful
-check, configure that exact check as required in the ruleset. Do not guess a
-check name before GitHub reports it.
+is currently empty. After this PR has passed review and is merged, configure
+the exact successful authentication check as required in the ruleset. Do not
+guess a check name before GitHub reports it.
 
 ## First-run procedure
 
-1. Configure the two repository Actions secrets.
-2. Confirm the App is installed on this repository and has the read-only
-   permissions above.
-3. Open Actions → NOVA GitHub App Authentication → Run workflow.
-4. Confirm `Verify scoped GitHub App installation token` passes.
-5. Confirm the logs contain no token, PEM, or JWT.
-6. Add the exact successful check to the `Root` ruleset as a required check.
-7. Only after this read-only gate is proven should a separate write-capable
-   automation job be proposed and reviewed in its own PR.
+1. Review and merge this PR through the existing human PR gate only after
+   ordinary review and static validation are complete.
+2. Configure the two repository Actions secrets.
+3. Confirm the dedicated App is installed on this repository with the
+   read-only permissions above.
+4. Open Actions → NOVA GitHub App Authentication → Run workflow, selecting
+   `main` as the branch.
+5. Confirm `Verify scoped GitHub App installation token` passes.
+6. Confirm the logs contain no token, PEM, or JWT.
+7. Add the exact successful check to the `Root` ruleset as a required check.
+8. Propose any write-capable automation in a separate Draft PR and review its
+   permission scope and event trust model before enabling it.
 
 ## Trading safety
 
