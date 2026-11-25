@@ -82,16 +82,28 @@ def fetch_data(symbol: str, start: str, end: str) -> tuple[pd.DataFrame, pd.Data
     return df_4h, df_5m
 
 def find_swing_points(df: pd.DataFrame, lookback: int = 10) -> pd.DataFrame:
+    """Mark a swing only when its right-side confirmation bars have closed.
+
+    The value is deliberately written at the confirmation index, not at the
+    historical pivot index, so downstream logic cannot observe it early.
+    """
+    if lookback < 1:
+        raise ValueError("lookback must be >= 1")
     df = df.copy()
     df["swing_high"] = np.nan
     df["swing_low"] = np.nan
-    for i in range(lookback, len(df) - lookback):
-        window_h = df["high"].iloc[i - lookback : i + lookback + 1]
-        window_l = df["low"].iloc[i - lookback : i + lookback + 1]
-        if df["high"].iloc[i] == window_h.max():
-            df.iloc[i, df.columns.get_loc("swing_high")] = df["high"].iloc[i]
-        if df["low"].iloc[i] == window_l.min():
-            df.iloc[i, df.columns.get_loc("swing_low")] = df["low"].iloc[i]
+    high_col = df.columns.get_loc("swing_high")
+    low_col = df.columns.get_loc("swing_low")
+    for pivot_idx in range(lookback, len(df) - lookback):
+        confirm_idx = pivot_idx + lookback
+        window_h = df["high"].iloc[pivot_idx - lookback : confirm_idx + 1]
+        window_l = df["low"].iloc[pivot_idx - lookback : confirm_idx + 1]
+        pivot_high = df["high"].iloc[pivot_idx]
+        pivot_low = df["low"].iloc[pivot_idx]
+        if pivot_high == window_h.max() and int((window_h == pivot_high).sum()) == 1:
+            df.iloc[confirm_idx, high_col] = pivot_high
+        if pivot_low == window_l.min() and int((window_l == pivot_low).sum()) == 1:
+            df.iloc[confirm_idx, low_col] = pivot_low
     return df
 
 def detect_market_structure(df: pd.DataFrame) -> pd.DataFrame:
@@ -181,16 +193,17 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
     trades = []
     equity_curve = [equity]
     open_trade = None
-    df4_ts = df4.index.tolist()
+    # A 4H candle is usable only after its full 4-hour interval has closed.
+    df4_close_ts = df4.index + pd.Timedelta(hours=4)
 
     for i in range(2, len(df_5m)):
         ts_now = df_5m.index[i]
         bar = df_5m.iloc[i]
 
-        if cfg["SESSION_FILTER"]:
-            hour_utc = ts_now.hour
-            if not (cfg["LONDON_OPEN"] <= hour_utc < cfg["NY_CLOSE"]):
-                continue
+        in_entry_session = (
+            not cfg["SESSION_FILTER"]
+            or cfg["LONDON_OPEN"] <= ts_now.hour < cfg["NY_CLOSE"]
+        )
 
         if open_trade is not None:
             d = open_trade["direction"]
@@ -205,7 +218,9 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
             hit_sl = (d == "long" and bar["low"] <= sl) or (d == "short" and bar["high"] >= sl)
 
             exit_price, result = None, None
-            if hit_sl and not hit_tp1:
+            # Conservative intrabar assumption: if stop and any target are
+            # touched in the same OHLC candle, assume the stop was hit first.
+            if hit_sl:
                 exit_price = sl
                 pnl = size * (sl - en) if d == "long" else size * (en - sl)
                 result = "SL"
@@ -230,8 +245,11 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
                 trades.append(open_trade)
                 open_trade = None
         else:
-            # Look for entry
-            h4_idx = df4_ts.searchsorted(ts_now, side="right") - 1
+            # Session filters restrict entries only; open positions are managed above.
+            if not in_entry_session:
+                continue
+            # Look for entry using the most recent fully closed 4H candle.
+            h4_idx = df4_close_ts.searchsorted(ts_now, side="right") - 1
             if h4_idx < 0:
                 continue
             h4_row = df4.iloc[h4_idx]
@@ -239,7 +257,8 @@ def run_backtest(df_4h: pd.DataFrame, df_5m: pd.DataFrame, cfg: dict) -> dict:
 
             # Check if price is inside recent bullish/bearish OB
             price = bar["close"]
-            for ob in obs[-10:]:  # check recent OBs
+            eligible_obs = [ob for ob in obs if ob["ts"] <= ts_now][-10:]
+            for ob in eligible_obs:  # only OBs observable by this entry timestamps
                 if ob["type"] == "bullish" and trend == 1:
                     if ob["bottom"] <= price <= ob["top"] and is_rejection_candle(bar, "bullish"):
                         sl = ob["bottom"] - (ob["top"] - ob["bottom"]) * 0.2
