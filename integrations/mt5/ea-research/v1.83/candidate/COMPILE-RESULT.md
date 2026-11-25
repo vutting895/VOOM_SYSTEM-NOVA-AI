@@ -1,49 +1,54 @@
-# Phase 2 Candidate — Compile Evidence
+# Phase 2 Candidate — Compile and Test Evidence
 
-**Updated research candidate — exact-source compile re-run completed.**
+Status: research-only. Execution hard-disable remains compiled in. This is not a release approval.
 
-- Repository branch: research/ea-v183-evidence-smc-20261125
-- Source path: integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5
-- Source SHA-256 (Windows research workspace): E23FB5D0CD51A5792976C5684852413962CD5BC0F4118771FEBB33D8F283F67D
-- Generated EX5 SHA-256 (Windows research workspace): E449D96B99F6ECC639D0889A06A0DC0B7943B4BD7197FFB445DF3108791740EF
-- Compiler: C:\\MT5\\metaeditor64.exe
-- Target: X64 Regular
-- Result: **0 errors, 2 warnings**
-- Duration: **9,618 ms**
-- Compile log: C:\\NOVA_EA_RESEARCH\\phase3\\metaeditor-compile-next.log
-- Research source / EX5 output directory: C:\\NOVA_EA_RESEARCH\\phase3\\ (outside MT5 Experts installation)
+## Current exact candidate build — 2026-11-26
 
-Warnings:
-1. Line 3392: POSITION_COMMISSION is deprecated (legacy commission aggregation).
-2. Line 3576: POSITION_COMMISSION is deprecated (legacy recovery/overlap P/L aggregation).
+- Branch: `research/ea-v183-evidence-smc-20261125`
+- Source: `integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5`
+- Source SHA-256: `2A39EE9CDB2587AE5CF2810207F77EFA39EFDA8F076153B22F5EA5B2159AE604`
+- EX5 SHA-256: `AF01ABCC5DFE50A9A30AFA53BEC19EB32058C416637D46F5933578070926DD82`
+- Compiler: MetaEditor X64 Regular, `C:\\MT5\\metaeditor64.exe`
+- Result: **0 errors, 2 warnings**, 12,640 ms.
+- Compile log: `C:\\MT5\\logs\\NOVA-v183-candidate-compaction.log`
+- Candidate output: `C:\\MT5\\MQL5\\Scripts\\NOVA_Research\\` (research workspace; not installed under Experts and not attached).
 
-The prior possible long-to-double conversion warning was corrected with an explicit cast. No new compiler warnings were introduced by the SMC research path.
+Warnings are the two pre-existing deprecated `POSITION_COMMISSION` usages (legacy commission/P&L aggregation). No new compiler warnings were introduced by the coordinator compaction change.
 
-## Static tests
+## Harness compilation
 
-- Command: node --test tests/nova-ea-v183-source-integrity.test.mjs
-- Original source-integrity suite: **9 passed, 0 failed**.
-- Combined source-integrity + concurrency/risk fixtures: **20 passed, 0 failed** (Windows, 227.9 ms). See `docs/trading/EA-V1.83-CONCURRENCY-FIXTURE-RESULTS-2026-11-26.md`.
-- Coverage includes immutable source hashes, byte identity, hard-disabled execution paths, daily Entry Lock Only, portfolio caps, strict SMC mode, completed-bar H1 filter, confirmed prior-swing logic, and pending-order exposure aggregation.
+| Harness | Result | Log |
+|---|---:|---|
+| Broker adapter self-test | 0 errors, 0 warnings | `C:\\MT5\\logs\\NOVA-broker-selftest-compaction.log` |
+| Portfolio coordinator harness | 0 errors, 0 warnings | `C:\\MT5\\logs\\NOVA-portfolio-harness-compaction.log` |
 
-## Safety / remaining validation
+The MQL5 harnesses were compiled, but their `OnStart` functions have **not** been executed with captured receipts. These are compile receipts only.
 
-- NOVA_PHASE2_EXECUTION_DISABLED=true remains compiled into the candidate.
-- The EX5 was generated only in C:\\NOVA_EA_RESEARCH\\phase3\\; it was not copied to the installed Experts folder and was not attached to a chart. The exact Experts-path check returned false.
-- MT5 runtime zero-broker-request interception: **NOT RUN**.
-- Multi-symbol pending-order fixtures, cross-chart concurrency, hedging/netting, USC/USD conversion and broker fault-injection: **NOT RUN**.
-- Strategy Tester real-tick backtest, OOS, walk-forward, Monte Carlo and Demo forward test: **NOT RUN**.
-- Cross-chart in-flight reservations remain instance-local and block execution enablement. The separate portfolio reservation design document is a specification only, not implementation.
-- The new concurrency test uses a deterministic atomic-ledger reference model; it does not prove the current EA implementation is atomic across charts/terminals/hosts.
-- The mutation-path checks are source-level guard/call-site audits, not live MT5 request interception. USC is a mathematical fixture, not a broker contract test.
+## Node test suite — 2026-11-26
 
-Compile and static-test success do not establish strategy profitability or runtime safety.
+Command:
+```powershell
+node --test tests\\nova-ea-v183-source-integrity.test.mjs tests\\nova-ea-v183-concurrency-runtime-fixtures.test.mjs
+```
 
+Result: **24 passed, 0 failed**, 328.0457 ms. This includes:
+- 64-way concurrency in a deterministic JavaScript reference model (one reservation wins).
+- Source wiring assertions for Core, Sniper MTF and Recovery.
+- Broker adapter routing and hard-disable guard assertions.
+- Ledger compaction source assertions.
+- Archived source SHA-256 and read-only/hard-disable invariants.
 
-## Shared Portfolio Coordinator recompile — 2026-11-26
-- Exact branch candidate source SHA-256: BA7BCE4997CC6501A72A8944D6AFA502DBCA239D000F453E66642403A7B81E4D.
-- Exact branch candidate EX5 SHA-256: AF539345C41C248B9B21DB13DE67D5755E2540C5CE142B3E01E04056EA07F800.
-- MetaEditor X64 Regular: 0 errors, 2 deprecated POSITION_COMMISSION warnings, 10,435 ms.
-- Broker adapter runtime self-test script: 0 errors, 0 warnings.
-- Portfolio coordinator harness: 0 errors, 0 warnings.
-- Runtime script OnStart PASS logs were not captured; compile success is not runtime proof.
+These are local Node tests. They do not execute MQL5 code or prove terminal-level concurrency or zero broker requests.
+
+## Safety and remaining gates
+
+- `NOVA_PHASE2_EXECUTION_DISABLED=true` remains compiled into the candidate.
+- No Main modification, merge, deployment, EA installation under Experts, chart attachment, broker order, or Live Trading.
+- Dynamic broker interceptor `OnStart` receipt: **NOT RUN / NOT VERIFIED**.
+- Actual multi-chart and multi-terminal contention: **NOT RUN / NOT VERIFIED**.
+- Process-kill restart, rollover, lock failure and corrupt-ledger fault injection against a live FILE_COMMON ledger: **NOT RUN / NOT VERIFIED**.
+- USC and XAUUSDm contract/tick-value/commission/swap/margin fixtures against Exness account metadata: **NOT VERIFIED**.
+- CircleCI pipeline 2123 provider logs and exact-head run: **NOT VERIFIED**.
+- Real Tick, sealed OOS, walk-forward, Monte Carlo and Demo Forward: **NOT RUN**.
+
+Compile and Node test success do not establish runtime safety, broker compatibility, or strategy profitability. Keep PR #417 Draft and keep execution disabled.
