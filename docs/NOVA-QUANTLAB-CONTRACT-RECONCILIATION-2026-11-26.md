@@ -278,3 +278,24 @@ The repository had no `.circleci/config.yml` at the audited Main SHA. A default 
 - [ ] Hub/MCP runtime parity, authenticated worker dispatch and tenant-isolation tests.
 
 The CircleCI config repair is a code/config fix, not proof that CircleCI is green. The domain state machine is not a production queue or evidence of an operational QuantLab runtime.
+
+
+## 13. CI follow-up — failure details and current blockers (2026-11-26)
+
+The first GitHub Actions run for the new lifecycle slice executed 46 Quant Engine tests and exposed two issues:
+1. An existing split test omitted the now-required `purge_bars` argument.
+2. The new timestamp test used an event timestamp equal to job creation time while asserting that an earlier timestamp must be rejected.
+
+Both test inputs were corrected on the Development Branch. The latest head is `eb6172ed9d2816eaf1965aae39f7da0d6a0cfe96`.
+
+CI evidence must be interpreted carefully:
+- GitHub Actions run at the preceding code head `f61de11b0477d7d01ceec582e533161d52be4336` still failed on the equal-timestamp assertion. The correction was committed afterward. No GitHub Actions check run is currently available for the latest head, so the corrected suite is NOT VERIFIED at final head.
+- CircleCI now recognizes the newly added default config and creates the `quant-foundation` workflow. The latest observed CircleCI job still failed after 3 seconds. The available GitHub status gives only a generic job-failed summary; detailed logs require CircleCI CLI/API access.
+- The connected Windows environment has no `CIRCLE_TOKEN`, no CircleCI CLI, and no free disk space. The browser connector is not attached to an authenticated browser context. Therefore CircleCI job logs could not be retrieved; do not guess the remaining failure cause.
+- The earlier `No configuration was found in your project` status has been replaced by a real CircleCI workflow/job result. This confirms config discovery, not job success.
+
+### Required next verification
+
+1. Retrieve CircleCI job logs from pipeline `#2308` / workflow `5853dc7c-cebb-439c-a348-00e708ba9e6f` / job `91d60be7-eeb5-441d-b750-cde5719778f2`.
+2. Run or dispatch the GitHub Actions `quant-foundation-tests` workflow against exact head `eb6172ed9d2816eaf1965aae39f7da0d6a0cfe96`.
+3. Do not mark the lifecycle slice CI-green until both outcomes are available and successful.
