@@ -2,6 +2,15 @@
 
 #include "..\include\NOVA_PortfolioCoordinator.mqh"
 
+void NOVA_PortfolioHarnessWriteReceipt(const string value)
+{
+   int report=FileOpen("NOVA_PortfolioCoordinator_Harness.result.txt",FILE_WRITE|FILE_TXT|FILE_COMMON|FILE_ANSI);
+   if(report==INVALID_HANDLE) return;
+   FileWrite(report,value);
+   FileFlush(report);
+   FileClose(report);
+}
+
 void OnStart()
 {
    Print("[NOVA PORTFOLIO HARNESS] START");
@@ -14,7 +23,7 @@ void OnStart()
 
    CNOVAPortfolioCoordinator first,second,restarted,after_rollover;
    if(!first.Init(login,server_hash,magic_base) || !second.Init(login,server_hash,magic_base))
-   { Print("[NOVA PORTFOLIO HARNESS] FAIL init"); return; }
+   { Print("[NOVA PORTFOLIO HARNESS] FAIL init"); NOVA_PortfolioHarnessWriteReceipt("FAIL init"); return; }
 
    // Same-host multi-chart lock contention: second coordinator must fail while first owns FILE_COMMON lock.
    if(!first.Acquire()) { passed=false; failures+="first lock;"; }
@@ -112,4 +121,5 @@ void OnStart()
 
    PrintFormat("[NOVA PORTFOLIO HARNESS] %s | exclusive-lock=%s | restart-state=UNCERTAIN | rollover-risk=25 | corrupt-ledger=FAIL-CLOSED | %s",
                passed?"PASS":"FAIL",passed?"PASS":"FAIL",failures);
+   NOVA_PortfolioHarnessWriteReceipt(StringFormat("%s failures=%s",passed?"PASS":"FAIL",failures));
 }
