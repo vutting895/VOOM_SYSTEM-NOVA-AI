@@ -2061,9 +2061,50 @@ double VolumeFloor(const double v,const double step)
    if(step<=0 || !ValidNumber(v) || v<0) return 0;
    return NormalizeDouble(MathFloor((v+step*1e-8)/step)*step,8);
 }
+// NOVA_REQUEST_AUDIT|VERSION=1 — terminal Experts log is the durable event stream.
+long gNOVA_AuditAttempts=0, gNOVA_AuditBlocked=0, gNOVA_AuditApiCalls=0;
+long gNOVA_AuditApiAccepted=0, gNOVA_AuditApiRejected=0;
+void NovaAuditLog(const string stage,const string operation,const string detail,const int retcode)
+{
+   PrintFormat("NOVA_REQUEST_AUDIT|%I64d|%s|%s|%s|%d|%I64d",
+      AccountInfoInteger(ACCOUNT_LOGIN),stage,operation,detail,retcode,GetTickCount64());
+}
+void NovaAuditBlocked(const string path)
+{
+   gNOVA_AuditAttempts++; gNOVA_AuditBlocked++;
+   NovaAuditLog("BLOCKED",path,"EXECUTION_DISABLED",0);
+}
+bool NovaAuditOrderSend(MqlTradeRequest &request,MqlTradeResult &result)
+{
+   gNOVA_AuditAttempts++;
+   if(NOVA_PHASE2_EXECUTION_DISABLED)
+   { gNOVA_AuditBlocked++; NovaAuditLog("BLOCKED","OrderSend","EXECUTION_DISABLED",0); return false; }
+   gNOVA_AuditApiCalls++;
+   bool sent=OrderSend(request,result);
+   if(sent) gNOVA_AuditApiAccepted++; else gNOVA_AuditApiRejected++;
+   NovaAuditLog("API_CALL","OrderSend",sent?"RETURN_TRUE":"RETURN_FALSE",(int)result.retcode);
+   return sent;
+}
+bool NovaAuditPositionModify(const ulong ticket,const double sl,const double tp)
+{
+   gNOVA_AuditAttempts++;
+   if(NOVA_PHASE2_EXECUTION_DISABLED)
+   { gNOVA_AuditBlocked++; NovaAuditLog("BLOCKED","PositionModify","EXECUTION_DISABLED",0); return false; }
+   gNOVA_AuditApiCalls++;
+   bool ok=gTrade.PositionModify(ticket,sl,tp);
+   if(ok) gNOVA_AuditApiAccepted++; else gNOVA_AuditApiRejected++;
+   NovaAuditLog("API_CALL","PositionModify",ok?"RETURN_TRUE":"RETURN_FALSE",(int)gTrade.ResultRetcode());
+   return ok;
+}
+void NovaAuditSummary()
+{
+   PrintFormat("NOVA_REQUEST_AUDIT|SUMMARY|attempts=%I64d|blocked=%I64d|api_calls=%I64d|accepted=%I64d|rejected=%I64d",
+      gNOVA_AuditAttempts,gNOVA_AuditBlocked,gNOVA_AuditApiCalls,gNOVA_AuditApiAccepted,gNOVA_AuditApiRejected);
+}
+
 bool TradePermission()
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("TradePermission"); return false;
    return TerminalInfoInteger(TERMINAL_TRADE_ALLOWED)!=0 &&
           MQLInfoInteger(MQL_TRADE_ALLOWED)!=0 &&
           AccountInfoInteger(ACCOUNT_TRADE_ALLOWED)!=0 &&
@@ -2194,7 +2235,7 @@ bool SelectLots(const int dir,const double entry,const double sl,double &lots,do
 }
 bool SendClose(const ulong ticket)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("SendClose"); return false;
    if(!PositionSelectByTicket(ticket)) return true;
    long originalMagic=PositionGetInteger(POSITION_MAGIC);
    bool sniperPosition=(originalMagic==(long)InpSniperMTF_Magic);
@@ -2209,7 +2250,7 @@ bool SendClose(const ulong ticket)
    req.price=dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="AIO close";
-   bool sent=OrderSend(req,res);
+   bool sent=NovaAuditOrderSend(req,res);
    if(!sent || (res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL &&
                 res.retcode!=TRADE_RETCODE_PLACED))
    { Note(id,"REJECT CLOSE "+IntegerToString((long)res.retcode)); return false; }
@@ -2236,7 +2277,7 @@ void CloseAllOwn()
 }
 bool ModifySL(const ulong ticket,const int dir,const double wanted)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("ModifySL"); return false;
    if(!PositionSelectByTicket(ticket) || !OwnSelectedPosition() || !TradePermission()) return false;
    MqlTick tick; if(!SymbolInfoTick(_Symbol,tick)) return false;
    double minD=StopsDistance(true),old=PositionGetDouble(POSITION_SL);
@@ -2247,7 +2288,7 @@ bool ModifySL(const ulong ticket,const int dir,const double wanted)
    MqlTradeRequest req; MqlTradeResult res; ZeroMemory(req); ZeroMemory(res);
    req.action=TRADE_ACTION_SLTP; req.symbol=_Symbol; req.position=ticket; req.sl=sl; req.tp=tp;
    req.magic=(ulong)PositionGetInteger(POSITION_MAGIC);
-   return OrderSend(req,res) && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_NO_CHANGES);
+   return NovaAuditOrderSend(req,res) && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_NO_CHANGES);
 }
 bool UsesBE(const int id)
 {
@@ -2372,7 +2413,7 @@ double Trail_CalcNewSL(const int dir,const double entry,const double oldSL,const
 }
 bool Trail_SendPartialClose(const ulong ticket,const double pct)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("Trail_SendPartialClose"); return false;
    if(!PositionSelectByTicket(ticket) || !OwnSelectedPosition()) return false;
    double vol=PositionGetDouble(POSITION_VOLUME);
    double step=SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
@@ -2387,7 +2428,7 @@ bool Trail_SendPartialClose(const ulong ticket,const double pct)
    req.type=dir>0?ORDER_TYPE_SELL:ORDER_TYPE_BUY;
    req.price=dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode(); req.comment="AIO partial 50%";
-   bool sent=OrderSend(req,res);
+   bool sent=NovaAuditOrderSend(req,res);
    return sent && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL);
 }
 void Trail_ApplyOne(const ulong ticket,const int id,const int dir,const double entry,const double oldSL,const double risk,const double price)
@@ -3485,7 +3526,7 @@ double RecoveryBreakeven()
 }
 bool RecoverySend(const int dir, const double lots, const string comment, double &outPrice)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("RecoverySend"); return false;
    if(gHeader.daily_block!=0) return false; // Entry Lock Only: no new recovery exposure
    outPrice=0;
    MqlTick tick; if(!SymbolInfoTick(_Symbol,tick)) return false;
@@ -3518,7 +3559,7 @@ bool RecoverySend(const int dir, const double lots, const string comment, double
    req.price=price; req.volume=vol; req.sl=sl; req.tp=tp;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment=comment;
-   if(!OrderSend(req,res)) return false;
+   if(!NovaAuditOrderSend(req,res)) return false;
    if(res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL && res.retcode!=TRADE_RETCODE_PLACED) return false;
    outPrice = (res.price>0?res.price:price);
    return true;
@@ -3539,7 +3580,7 @@ void RecoveryCloseAll(const string reason)
 //| v1.37 Auto Calculate + v1.36 Overlap + Worst Case - เพิ่มโดยไม่แตะ Logic v1.35 เดิม |
 bool RecoveryPartialClose(const ulong ticket, double vol)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("RecoveryPartialClose"); return false;
    if(!PositionSelectByTicket(ticket)) return false;
    if(PositionGetString(POSITION_SYMBOL)!=_Symbol) return false;
    double curVol = PositionGetDouble(POSITION_VOLUME);
@@ -3560,7 +3601,7 @@ bool RecoveryPartialClose(const ulong ticket, double vol)
    req.price= dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="NOVA_REC_OVERLAP";
-   if(!OrderSend(req,res)) return false;
+   if(!NovaAuditOrderSend(req,res)) return false;
    if(res.retcode!=TRADE_RETCODE_DONE && res.retcode!=TRADE_RETCODE_DONE_PARTIAL && res.retcode!=TRADE_RETCODE_PLACED) return false;
    return true;
 }
@@ -4252,7 +4293,7 @@ void GovernorOnDealClosed(const int id, const double profit)
 
 void ProcessCandidate(const int id)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return;
+   NovaAuditBlocked("ProcessCandidate"); return ;
    // v1.35 Recovery: ตอนกำลังแก้พอร์ต หยุดเปิดไม้ใหม่ของระบบปกติ
    if(gInpUseRecovery && gRecoveryActive && InpRecoveryPauseNew) { Note(id,"WAIT RECOVERY"); return; }
    // v1.03: สแกน Regime ก่อน - ถ้ากลุ่มนี้ไม่เหมาะกับตลาดตอนนี้ บล็อกเลย
@@ -4347,7 +4388,7 @@ void ProcessCandidate(const int id)
    gState[id].inflight_order=0; gState[id].inflight_risk_money=loss;
    if(!SaveState())
    { gState[id].consumed_key=oldkey; gState[id].inflight_at=0; Note(id,"ERROR PERSIST INTENT"); return; }
-   bool sent=OrderSend(req,res);
+   bool sent=NovaAuditOrderSend(req,res);
    if(sent && (res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL ||
                res.retcode==TRADE_RETCODE_PLACED))
    {
@@ -6868,7 +6909,7 @@ bool ValidateInputs()
 }
 void CancelOwnPending()
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return;
+   NovaAuditBlocked("CancelOwnPending"); return ;
    for(int i=OrdersTotal()-1;i>=0;i--)
    {
       ulong order=OrderGetTicket(i);
@@ -6877,7 +6918,7 @@ void CancelOwnPending()
       if(type==ORDER_TYPE_BUY || type==ORDER_TYPE_SELL) continue;
       MqlTradeRequest req;MqlTradeResult result;ZeroMemory(req);ZeroMemory(result);
       req.action=TRADE_ACTION_REMOVE;req.order=order;req.symbol=_Symbol;
-      bool ok=OrderSend(req,result);
+      bool ok=NovaAuditOrderSend(req,result);
       if(!ok) Print(ENGINE_LABEL,": pending cancellation failed ",result.retcode);
    }
 }
@@ -7061,7 +7102,7 @@ string AISniper_StatusText()
 
 void SniperMTF_Check()
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return;
+   NovaAuditBlocked("SniperMTF_Check"); return ;
    if(!gInpSniperMTF_Enabled) return;
    if(!gDataOK) return;
    if(!TradePermission()) return;
@@ -7143,7 +7184,7 @@ void SniperMTF_Check()
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
    req.comment="SNIPER_MTF TP300 SL100";
    if(!OrderCheck(req,check)) return;
-   if(!OrderSend(req,res)) return;
+   if(!NovaAuditOrderSend(req,res)) return;
    if(res.retcode==TRADE_RETCODE_DONE || res.retcode==TRADE_RETCODE_DONE_PARTIAL || res.retcode==TRADE_RETCODE_PLACED)
    {
       gSniperMTF_Count++;
@@ -7975,6 +8016,7 @@ int OnInit()
 }
 void OnDeinit(const int reason)
 {
+   NovaAuditSummary();
    ObjectDelete(0, g_V162_BtnAuto); ObjectDelete(0, g_V162_BtnLive); ObjectDelete(0, g_V162_BtnPause); ObjectDelete(0, g_V162_BtnClose); ObjectDelete(0, g_V162_Bg); ObjectDelete(0, g_V162_HeaderBg); ObjectDelete(0, g_V162_Card1); ObjectDelete(0, g_V162_Card2); ObjectDelete(0, g_V162_Card3); ObjectDelete(0, g_V162_Card4); ObjectDelete(0, g_V162_LblTitle); ObjectDelete(0, g_V162_LblSub); ObjectDelete(0, g_V162_LblEquity); ObjectDelete(0, g_V162_LblDaily); ObjectDelete(0, g_V162_LblDD); ObjectDelete(0, g_V162_LblPos); ObjectDelete(0, g_V162_LblAutoInfo); ObjectDelete(0, g_V162_LblStatus); ObjectDelete(0, g_V162_LblRose);
    EventKillTimer();
    if(gInitialized) SaveState();
@@ -8210,7 +8252,7 @@ double ONNXEnsemblePredict(double &features[])
 //--- I) BreakEven + Partial Close แบบถูกต้อง - จาก Moving Stop to BE without rejected modifies ---
 bool MoveToBreakeven(ulong ticket, bool isBuy, double entryPrice)
 {
-   if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   NovaAuditBlocked("MoveToBreakeven"); return false;
    double minDist = MinStopDistancePrice();
    double price = isBuy ? SymbolInfoDouble(_Symbol, SYMBOL_BID) : SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    // ต้องห่างจาก Entry >= minDist ไม่งั้น Modify จะโดน Reject
@@ -8222,7 +8264,7 @@ bool MoveToBreakeven(ulong ticket, bool isBuy, double entryPrice)
       if(gPosInfo.SelectByTicket(ticket))
       {
          double tp = gPosInfo.TakeProfit();
-         return gTrade.PositionModify(ticket, entryPrice, tp);
+         return NovaAuditPositionModify(ticket, entryPrice, tp);
       }
    }
    return false;
