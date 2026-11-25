@@ -36,5 +36,9 @@ class MarketBrainContractTests(unittest.TestCase):
         result = decision_from_probabilities(direction_probabilities=[0.05,0.05,0.90],
             regime_probabilities=[0.8,0.1,0.1], expected_move_bps=12.0, estimated_cost_bps=3.0)
         self.assertEqual(result["action"], "BUY"); self.assertEqual(result["regime"], "TRENDING")
+    def test_wait_when_predicted_direction_conflicts_with_expected_move(self):
+        result = decision_from_probabilities(direction_probabilities=[0.05,0.05,0.90],
+            regime_probabilities=[0.8,0.1,0.1], expected_move_bps=-12.0, estimated_cost_bps=3.0)
+        self.assertEqual(result["action"], "WAIT")
 
 if __name__ == "__main__": unittest.main()
