@@ -73,7 +73,7 @@ export default {
     if (!env.GITHUB_WEBHOOK_SECRET || !env.ALLOWED_REPOSITORIES || !env.EVENT_DB) {
       return json({ error: "receiver_not_configured" }, 503);
     }
-    if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
+    if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get("Content-Type") || "")) {
       return json({ error: "content_type_must_be_application_json" }, 415);
     }
 
@@ -95,7 +95,9 @@ export default {
     if (!validSignature) return json({ error: "invalid_signature" }, 401);
 
     const deliveryId = request.headers.get("X-GitHub-Delivery") || "";
-    if (!/^[a-f0-9-]{36}$/i.test(deliveryId)) return json({ error: "invalid_delivery_id" }, 400);
+    if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(deliveryId)) {
+      return json({ error: "invalid_delivery_id" }, 400);
+    }
     const eventName = request.headers.get("X-GitHub-Event") || "";
     if (!ALLOWED_EVENTS.has(eventName)) return json({ error: "unsupported_event" }, 400);
 
@@ -121,12 +123,11 @@ export default {
     if (!envelope) return json({ error: "invalid_repository_payload" }, 400);
 
     try {
-      const result = await env.EVENT_DB.prepare(
-        \`INSERT OR IGNORE INTO github_deliveries
-        (delivery_id, repository, event_name, action, ref, commit_sha, pull_request_number,
-         issue_number, workflow_status, payload_sha256, received_at, processing_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received')\`,
-      ).bind(
+      const sql = "INSERT OR IGNORE INTO github_deliveries " +
+        "(delivery_id, repository, event_name, action, ref, commit_sha, pull_request_number, " +
+        "issue_number, workflow_status, payload_sha256, received_at, processing_status) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received')";
+      const result = await env.EVENT_DB.prepare(sql).bind(
         envelope.deliveryId, envelope.repository, envelope.eventName, envelope.action, envelope.ref,
         envelope.commitSha, envelope.pullRequestNumber, envelope.issueNumber, envelope.workflowStatus,
         envelope.payloadHash, envelope.receivedAt,
