@@ -61,7 +61,16 @@ def fetch_data(symbol: str, start: str, end: str) -> tuple[pd.DataFrame, pd.Data
         df_1h.index = pd.to_datetime(df_1h.index, utc=True)
         df_1h = df_1h[["open", "high", "low", "close", "volume"]].dropna()
 
-    df_4h = df_1h.resample("4h").agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}).dropna() if not df_1h.empty else pd.DataFrame()
+    if not df_1h.empty:
+        # Do not treat partial 4H aggregates as completed higher-timeframe bars.
+        h4_counts = df_1h["close"].resample("4h").count()
+        df_4h = df_1h.resample("4h").agg({
+            "open": "first", "high": "max", "low": "min",
+            "close": "last", "volume": "sum"
+        }).dropna()
+        df_4h = df_4h.loc[h4_counts.reindex(df_4h.index).fillna(0) == 4]
+    else:
+        df_4h = pd.DataFrame()
 
     chunks = []
     cur = start_dt
@@ -112,29 +121,35 @@ def detect_market_structure(df: pd.DataFrame) -> pd.DataFrame:
     df["choch"] = 0
     df["trend"] = 0
     last_sh, last_sl, trend = np.nan, np.nan, 0
+    last_sh_broken = False
+    last_sl_broken = False
 
     for i in range(1, len(df)):
         if not np.isnan(df["swing_high"].iloc[i]):
             last_sh = df["swing_high"].iloc[i]
+            last_sh_broken = False
         if not np.isnan(df["swing_low"].iloc[i]):
             last_sl = df["swing_low"].iloc[i]
+            last_sl_broken = False
         close = df["close"].iloc[i]
 
         if not np.isnan(last_sh) and not np.isnan(last_sl):
-            if close > last_sh:
+            if close > last_sh and not last_sh_broken:
                 if trend == -1:
                     df.iloc[i, df.columns.get_loc("choch")] = 1
                     trend = 1
                 else:
                     df.iloc[i, df.columns.get_loc("bos")] = 1
                     trend = 1
-            elif close < last_sl:
+                last_sh_broken = True
+            elif close < last_sl and not last_sl_broken:
                 if trend == 1:
                     df.iloc[i, df.columns.get_loc("choch")] = -1
                     trend = -1
                 else:
                     df.iloc[i, df.columns.get_loc("bos")] = -1
                     trend = -1
+                last_sl_broken = True
         df.iloc[i, df.columns.get_loc("trend")] = trend
     return df
 
