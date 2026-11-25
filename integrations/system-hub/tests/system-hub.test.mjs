@@ -491,3 +491,25 @@ test("history rejects invalid UTC bounds and oversized windows before proxy acce
   assert.equal(oversized.status, 400);
   assert.equal((await oversized.json()).error, "history_window_too_large");
 });
+
+
+test("history rejects invalid calendar dates and fractional UTC timestamps", async () => {
+  const cases = [
+    ["2026-02-30T00:00:00Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-29T00:00:00Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-28T00:00:00.123Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-28T00:00:00Z", "2026-03-01T00:00:00.123Z"]
+  ];
+  for (const [startUtc, endUtc] of cases) {
+    mockAuthAndRest({ rows: [{
+      id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+      status: "connected", bridge_route_id: "tenant-a"
+    }] });
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID +
+      "/history?symbol=XAUUSDm&timeframe=M15&start_utc=" + encodeURIComponent(startUtc) +
+      "&end_utc=" + encodeURIComponent(endUtc),
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }), env);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, "invalid_utc_history_range");
+  }
+});
