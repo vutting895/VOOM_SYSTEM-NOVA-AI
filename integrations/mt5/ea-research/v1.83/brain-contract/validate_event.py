@@ -67,6 +67,15 @@ def validate_event(event: Any) -> dict:
         _fail("event must be an object")
     _walk_forbidden(event)
 
+    allowed = {
+        "schema_version", "event_id", "event_type", "occurred_at",
+        "source", "scope", "market", "signal", "decision", "risk",
+        "execution_audit", "outcome",
+    }
+    unknown = event.keys() - allowed
+    if unknown:
+        _fail(f"unknown top-level fields: {', '.join(sorted(unknown))}")
+
     required = {"schema_version", "event_id", "event_type", "occurred_at", "source", "scope"}
     missing = required - event.keys()
     if missing:
