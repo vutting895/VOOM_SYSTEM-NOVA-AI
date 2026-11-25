@@ -1,5 +1,4 @@
 #property strict
-#property script_show_inputs
 
 #define NOVA_PHASE2_EXECUTION_DISABLED true
 #include <Trade\Trade.mqh>
@@ -7,6 +6,7 @@
 
 void OnStart()
 {
+   Print("[NOVA DYNAMIC BROKER INTERCEPT] START");
    CTrade trade;
    bool passed=NOVA_BrokerAdapterSelfTest(trade,NOVA_PHASE2_EXECUTION_DISABLED);
    if(!passed)
