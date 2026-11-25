@@ -121,6 +121,12 @@ def risk_approval(payload: RiskApprovalRequest,
     access_token = authorization[7:].strip()
     if not access_token:
         raise HTTPException(status_code=401, detail="authenticated_user_token_required")
+
+    # Approval creation remains independently disabled by default. A valid token
+    # cannot bypass this feature gate or enable broker execution.
+    if os.getenv("NOVA_APPROVALS_ENABLED", "false").lower() != "true":
+        raise HTTPException(status_code=503, detail="approval_workflow_disabled")
+
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
     publishable_key = (os.getenv("SUPABASE_PUBLISHABLE_KEY", "") or
                        os.getenv("SUPABASE_ANON_KEY", ""))
