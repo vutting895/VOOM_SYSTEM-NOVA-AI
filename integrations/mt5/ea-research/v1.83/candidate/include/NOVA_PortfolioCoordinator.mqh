@@ -93,11 +93,8 @@ public:
       if(login<=0 || server_hash==0 || magic_base<=0) return false;
       if(m_lock_handle!=INVALID_HANDLE) return false;
       m_login=login; m_server_hash=server_hash; m_magic_base=magic_base;
-      if(!FolderCreate("NOVA_PORTFOLIO",FILE_COMMON) && GetLastError()!=5018)
-      {
-         // FolderCreate may report an existing directory as a failure on some builds.
-         ResetLastError();
-      }
+      FolderCreate("NOVA_PORTFOLIO",FILE_COMMON);
+      ResetLastError();
       string scope=StringFormat("NOVA_PORTFOLIO\\NOVA_%I64d_%u_%I64d",m_login,m_server_hash,m_magic_base);
       m_lock_path=scope+".lock";
       m_ledger_path=scope+".ledger";
