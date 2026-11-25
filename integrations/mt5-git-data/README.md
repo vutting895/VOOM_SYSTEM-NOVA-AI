@@ -1,6 +1,6 @@
 # NOVA MT5 → Git Market Data Store
 
-This component publishes MT5-exported **market data only** to the NOVA repository and reads it back by immutable manifest. It does not modify the NOVA EA and contains no order/execution functionality.
+This component includes the read-only MT5 exporter source plus the Git uploader/reader. It publishes **market data only** to the NOVA repository and reads it back by immutable manifest. It does not modify NOVA EA v1.83 and contains no order/execution functionality.
 
 ## Data flow
 
@@ -35,7 +35,7 @@ Use the exact manifest path printed by the uploader. For reproducible training, 
 
 ## Public-repository safety
 
-The NOVA repository is public. Only upload non-personal market OHLC/tick fields. The uploader rejects unknown columns, including account/order/position/balance/equity fields. Review source file headers and broker data redistribution terms before publishing. Do not upload account identifiers, login IDs, trade history, credentials, terminal logs, or EA settings.
+The NOVA repository is public. Only upload non-personal market OHLC/tick fields. The uploader rejects unknown columns, including account/order/position/balance/equity fields. The MT5 exporter also creates a SYMBOL_SPEC CSV containing broker server and account currency; **never upload that file** (it is intentionally rejected by the uploader). Review source file headers and broker data redistribution terms before publishing. Do not upload account identifiers, login IDs, trade history, credentials, terminal logs, or EA settings.
 
 ## Current limits and known gaps
 
