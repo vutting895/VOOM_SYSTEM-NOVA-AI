@@ -380,3 +380,58 @@ The matching RPC signatures on both projects are not proof of matching function 
 - Live catalog evidence now covers schema/table inventory, RLS policy definitions, selected grants, and selected function security metadata.
 - Exact function bodies, dependency graph, full migration-to-file provenance, and two-user behavior remain unverified.
 - No RPC was executed. No DDL/DML or grant change was performed.
+
+
+## 13. Approval RPC implementation and migration provenance — 2026-11-25
+
+### Approval RPC implementation (read-only catalog inspection)
+
+Both active projects return identical public wrapper definitions and identical private implementation bodies for:
+
+- `private.nova_create_approval_impl(uuid,text,jsonb,text,text,timestamptz)`
+- `private.nova_resolve_approval_impl(uuid,text,text,jsonb,text)`
+- `private.nova_valid_strategy_draft_proposal(jsonb)`
+
+The two private implementation functions are `SECURITY DEFINER`, owned by the database owner as established in the prior catalog audit, and set `search_path=pg_catalog`. Their code explicitly calls `auth.uid()`, rejects a null identity, constrains approval rows by `user_id`, locks the thread/approval row with `FOR UPDATE`, restricts request type and policy version, validates the proposal shape, limits expiry to the 1–15 minute window, and restricts decisions to approve/reject/edit. Table and schema references in the bodies are schema-qualified.
+
+The public wrapper functions are SECURITY INVOKER and delegate to those private implementations. The private implementation functions have EXECUTE for authenticated and not for anon or service_role in both projects. The private proposal validator has no direct EXECUTE for anon/authenticated/service_role; it is called inside the SECURITY DEFINER implementation. No function was invoked during this inspection.
+
+**Critical compatibility finding:** both private implementations directly reference `public.nova_agent_threads` and `public.nova_approval_requests`. Those tables are present in Voom_system (`tlyyx...`) but absent from the public schema of `rovhm...`. Therefore the matching RPC signatures and copied function bodies on `rovhm...` do not establish a working approval lifecycle. The function body is structurally incompatible with the current rovhm public schema and should be treated as **BLOCKED / expected runtime failure** until an isolated test schema proves otherwise. Do not call the RPC in either production project to test it.
+
+### Migration ledger versus repository files
+
+The current `main` tree under `supabase/migrations/` contains five SQL files:
+
+- `202610240001_alpaca_oauth.sql`
+- `202610270001_mt5_customer_connections.sql`
+- `202610290001_security_definer_marketplace_hardening.sql`
+- `202610300001_nova_durable_approval_lifecycle.sql`
+- `202610310001_nova_video_workspace.sql`
+
+The live migration ledgers returned 28 entries for Voom_system and 8 for rovhm. Matching by migration name (not by timestamp, because the live timestamps differ from the repository filenames) gives:
+
+| Repository migration | Voom_system ledger | rovhm ledger |
+|---|---|---|
+| `alpaca_oauth` | Present, version `20261024154354` | Not present |
+| `mt5_customer_connections` | Present, version `20261027160402` | Present, version `20261030125402` |
+| `security_definer_marketplace_hardening` | Present, version `20261029084244` | Not present |
+| `nova_durable_approval_lifecycle` | Present, version `20261031070311` | Present, version `20261030052224` |
+| `nova_video_workspace` | No matching ledger name | No matching ledger name |
+
+The remaining ledger entries in Voom_system include the VOOM core/auth/customer marketplace/dashboard/security, customer profile, NOVA governance/analysis, FK/index/null-guard, and NOVA MT5 connection/view grants migrations. The remaining rovhm entries include Affiliate cleanup/state persistence, NOVA owner-scoped core schema/indexes, and NOVA MT5 connection/view-contract migrations. Those live ledger entries do not have corresponding SQL files in the current `supabase/migrations/` directory listing.
+
+This is a **migration provenance gap**, not proof that the database schema is wrong: migrations may have been applied from historical branches, another repository path, or an earlier source snapshot. However, the current main branch alone is not a complete replayable migration history for either live database. Do not reset, replay, or generate corrective migrations until the authoritative historical SQL and backup/restore evidence are recovered.
+
+### Revised database-fit assessment
+
+- **Voom_system (`tlyyx...`)**: strongest current schema fit for the integrated VOOM/NOVA approval and Trading contract; approval implementation dependencies exist. Still not approved for cutover because live runtime URL refs, backup/restore, effective two-user isolation, and full migration provenance remain unverified.
+- **rovhm (`rovhm...`)**: remains the repository-documented NOVA target in templates, but its public schema is incompatible with the currently installed approval implementation. It also has a distinct Affiliate persistence role. Do not assume it is safe to repurpose or merge into Voom_system.
+- **Mt5 (`sblw...`)**: remains inactive and untouched; no restore authorized.
+
+### WP-2 / WP-4 status after this pass
+
+- **DONE (read-only evidence):** public wrapper and private implementation bodies inspected on both active projects; implementation security flags, search_path, and role EXECUTE checks inspected.
+- **BLOCKED:** rovhm approval RPC compatibility; complete historical migration SQL provenance; live runtime project-ref verification; backup/restore proof; isolated two-user authorization tests.
+- **NOT RUN:** production RPC calls, DDL/DML, migrations, grants, secret retrieval, project restore, deployment, broker connection, or trading execution.
+
+**Next actions:** recover the missing historical migration sources (including prior branches/releases or deployment artifacts); obtain operator-only evidence for backup timestamp/retention/restore procedure and runtime project refs; then create a disposable isolated test database to replay the authoritative migrations and run two-user approval/RLS tests. Keep all production projects read-only until those gates pass.
