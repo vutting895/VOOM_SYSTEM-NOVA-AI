@@ -105,7 +105,7 @@ test('broker-day baseline is shared across symbols and fails closed when first a
   assert.match(baseline, /ACCOUNT_LOGIN/);
   assert.match(baseline, /InpMagicBase/);
   assert.match(baseline, /ACCOUNT_SERVER/);
-  assert.match(baseline, /NOVA_DAILY_BASELINE_GRACE_SECONDS 60/);
+  assert.match(candidate, /#define NOVA_DAILY_BASELINE_GRACE_SECONDS 60/);
   assert.match(baseline, /trusted=\(TimeCurrent\(\)-day\)<=NOVA_DAILY_BASELINE_GRACE_SECONDS/);
   assert.match(candidate, /gHeader\.daily_block=baselineTrusted\?0:1/);
   assert.match(candidate, /no trusted broker-day opening baseline; entries locked until next broker day/);
