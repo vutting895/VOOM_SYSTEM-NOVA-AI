@@ -70,3 +70,31 @@ test('portfolio limits include the separate Sniper magic and recovery entry path
   assert.match(candidate, /req\.magic=\(ulong\)originalMagic/);
   assert.match(candidate, /if\(id<0\) \{ SendClose\(t\); continue; \}/);
 });
+
+
+test('research SMC mode is opt-in, closed-bar based, and requires a confirmed sequence', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  assert.match(candidate, /InpResearchSMC_Mode\s*=\s*false/);
+  assert.match(candidate, /CopyRates\(_Symbol,PERIOD_H1,1,160,h1\)/);
+  assert.match(candidate, /iTime\(_Symbol,PERIOD_H1,1\)/);
+  assert.match(candidate, /if\(aiScore<3 \|\| !ResearchSMC_H1Trend\(dir\)\) return/);
+  assert.match(candidate, /InpResearchSMC_MinStopATR\*atr/);
+  assert.match(candidate, /3\.0\*\(double\)spread\*_Point/);
+  assert.match(candidate, /tpDist=slDist\*InpResearchSMC_RewardRisk/);
+  assert.match(candidate, /InpResearchSMC_Mode\?1\.0:AISniper_LotBoost\(aiScore\)/);
+  assert.match(candidate, /if\(InpResearchSMC_Mode\) return; \/\/ never round risk upward to broker minimum volume/);
+});
+
+test('portfolio risk and count include managed positions and pending orders across symbols', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  const openRisk = candidate.slice(candidate.indexOf('double OpenRiskMoney('), candidate.indexOf('bool SelectLots('));
+  assert.match(openRisk, /OrderGetTicket\(i\)/);
+  assert.match(openRisk, /ORDER_VOLUME_CURRENT/);
+  assert.match(openRisk, /OrderCalcProfit\(isBuy\?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p\)/);
+  assert.match(openRisk, /if\(sl<=0 \|\| lots<=0\) return 1e99/);
+  assert.doesNotMatch(openRisk, /POSITION_SYMBOL\)!=_Symbol/);
+  const counts = candidate.slice(candidate.indexOf('bool V177_MatchesExposure('), candidate.indexOf('bool V177_CanOpenCore('));
+  assert.match(counts, /OrdersTotal\(\)/);
+  assert.match(counts, /V177_CountOpenTotal\(\) \{ return V177_CountExposure\(0\); \}/);
+  assert.match(candidate, /cross-chart atomic reservation remains a release blocker/);
+});
