@@ -6,7 +6,11 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const candidatePath = resolve(here, '../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5');
+const coordinatorPath = resolve(here, '../integrations/mt5/ea-research/v1.83/candidate/include/NOVA_PortfolioCoordinator.mqh');
+const adapterPath = resolve(here, '../integrations/mt5/ea-research/v1.83/candidate/include/NOVA_BrokerAdapter.mqh');
 const source = readFileSync(candidatePath, 'utf8');
+const coordinator = readFileSync(coordinatorPath, 'utf8');
+const adapter = readFileSync(adapterPath, 'utf8');
 
 function functionBody(name) {
   const re = new RegExp('\\b(?:bool|void|int|double|string)\\s+' + name + '\\s*\\([^)]*\\)\\s*\\{', 'm');
@@ -168,15 +172,51 @@ test('Runtime safety: compile-time hard-disable is true and all identified mutat
   }
 });
 
-test('Runtime safety: direct OrderSend and CTrade PositionModify call sites are only inside hard-disabled wrappers', () => {
-  const mutationFunctions = ['SendClose', 'ModifySL', 'Trail_SendPartialClose', 'RecoverySend', 'RecoveryPartialClose', 'ProcessCandidate', 'CancelOwnPending', 'SniperMTF_Check', 'MoveToBreakeven'];
-  const callCount = (source.match(/\bOrderSend\s*\(/g) || []).length;
-  const covered = mutationFunctions.reduce((sum, name) => {
+test('Runtime safety: every candidate broker mutation is routed through the centralized hard-disable adapter', () => {
+  const rawCandidateCalls = (source.match(/(?<!NOVA_Broker)OrderSend\s*\(/g) || []).length;
+  const wrappedOrderCalls = (source.match(/NOVA_BrokerOrderSend\s*\(/g) || []).length;
+  const wrappedModifyCalls = (source.match(/NOVA_BrokerPositionModify\s*\(/g) || []).length;
+  assert.equal(rawCandidateCalls, 0, 'candidate must not call OrderSend directly');
+  assert.equal(wrappedOrderCalls, 8, 'all 8 OrderSend callsites must route through adapter');
+  assert.equal(wrappedModifyCalls, 1, 'CTrade PositionModify must route through adapter');
+  assert.equal((adapter.match(/\bOrderSend\s*\(/g) || []).length, 1, 'only adapter may call OrderSend');
+  assert.equal((adapter.match(/trade\.PositionModify\s*\(/g) || []).length, 1, 'only adapter may call CTrade PositionModify');
+  assert.match(adapter, /if\(hard_disabled\)[\s\S]*?gNOVA_BrokerMutationBlocked\+\+[\s\S]*?return false;[\s\S]*?gNOVA_BrokerTransportCalls\+\+/);
+});
+
+test('Portfolio Coordinator: Core, Sniper and Recovery share the same durable reservation boundary', () => {
+  for (const name of ['ProcessCandidate', 'SniperMTF_Check', 'RecoverySend']) {
     const body = functionBody(name);
-    return sum + (body.match(/\bOrderSend\s*\(/g) || []).length + (body.match(/\.PositionModify\s*\(/g) || []).length;
-  }, 0);
-  assert.equal(callCount, 8);
-  assert.equal(covered, 9, 'every broker mutation callsite must be inside a guarded wrapper');
+    assert.match(body, /NOVA_PortfolioReserve\(/, name + ' must reserve through the account coordinator');
+    assert.match(body, /NOVA_PortfolioMarkDispatching\(/, name + ' must persist DISPATCHING before broker transport');
+    assert.match(body, /NOVA_PortfolioFinish\(/, name + ' must finalize accepted/rejected/uncertain state');
+  }
+  const openRisk = source.slice(source.indexOf('double OpenRiskMoney('), source.indexOf('uint NOVA_PortfolioHashString('));
+  assert.doesNotMatch(openRisk, /gState\[i\]\.inflight_risk_money/, 'local in-flight risk must not double count shared ledger reservations');
+  const reserve = functionBody('NOVA_PortfolioReserve');
+  assert.match(reserve, /gPortfolio\.Acquire\(\)/);
+  assert.match(reserve, /gPortfolio\.ActiveTotals\(/);
+  assert.match(reserve, /OpenRiskMoney\(open_count\)/);
+});
+
+test('Portfolio Coordinator: FILE_COMMON exclusive lock, checksummed append-only ledger and fail-closed corruption checks exist', () => {
+  assert.match(coordinator, /FILE_READ\|FILE_WRITE\|FILE_BIN\|FILE_COMMON/);
+  assert.doesNotMatch(coordinator.match(/m_lock_handle=FileOpen\([^;]+/)?.[0] || '', /FILE_SHARE_READ|FILE_SHARE_WRITE/);
+  assert.match(coordinator, /FileWriteStruct\(f,record\)/);
+  assert.match(coordinator, /FileFlush\(f\)/);
+  assert.match(coordinator, /bytes%record_bytes!=0/);
+  assert.match(coordinator, /r\.checksum==RecordChecksum\(r\)/);
+  assert.match(source, /NOVA_PORTFOLIO_DISPATCHING/);
+  assert.match(source, /NOVA_PORTFOLIO_UNCERTAIN/);
+  assert.match(source, /TimeCurrent\(\)-latest\.created_at>30/);
+});
+
+test('Broker adapter self-test measures blocked attempts and proves zero transport calls by construction', () => {
+  assert.match(adapter, /gNOVA_BrokerMutationAttempts\+\+/);
+  assert.match(adapter, /gNOVA_BrokerMutationBlocked\+\+/);
+  assert.match(adapter, /gNOVA_BrokerTransportCalls\+\+/);
+  assert.match(adapter, /gNOVA_BrokerTransportCalls==0/);
+  assert.match(source, /NOVA_BrokerAdapterSelfTest\(gTrade,NOVA_PHASE2_EXECUTION_DISABLED\)/);
 });
 
 test('Runtime safety: pending order cancellation and partial close are individually guarded', () => {
