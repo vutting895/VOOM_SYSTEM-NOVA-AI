@@ -64,9 +64,28 @@ test('Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps',
 test('portfolio limits include the separate Sniper magic and recovery entry path', () => {
   const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
   const openRisk = candidate.slice(candidate.indexOf('double OpenRiskMoney('), candidate.indexOf('bool SelectLots('));
-  assert.match(openRisk, /MagicId\(magic\)<0 && magic!=\(long\)InpSniperMTF_Magic/);
+  assert.match(openRisk, /IsNOVAMagic\(magic\)/);
+  assert.match(openRisk, /PositionGetString\(POSITION_SYMBOL\)/);
+  assert.match(openRisk, /OrderGetString\(ORDER_SYMBOL\)/);
+  assert.match(openRisk, /ORDER_PRICE_STOPLIMIT/);
+  assert.match(openRisk, /OrderGetDouble\(ORDER_SL\)/);
+  assert.match(candidate, /bool IsNOVAMagic\(const long magic\)/);
   assert.match(candidate, /V177_CountOpenTotal\(\).*?InpSniperMTF_Magic/s);
   assert.equal((candidate.match(/openPositions>=InpMaxPositions \|\| openRisk\+loss>eq\*InpMaxOpenRiskPct\/100\.0/g) || []).length, 2);
   assert.match(candidate, /req\.magic=\(ulong\)originalMagic/);
   assert.match(candidate, /if\(id<0\) \{ SendClose\(t\); continue; \}/);
+});
+
+test('Phase 2 portfolio risk and caps aggregate NOVA positions and pending orders across symbols', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  const risk = candidate.slice(candidate.indexOf('double OpenRiskMoney('), candidate.indexOf('bool SelectLots('));
+  assert.match(risk, /IsNOVAMagic\(magic\)/);
+  assert.match(risk, /OrderGetInteger\(ORDER_MAGIC\)/);
+  assert.match(risk, /OrderGetDouble\(ORDER_VOLUME_CURRENT\)/);
+  assert.match(risk, /if\(sl<=0 \|\| entry<=0 \|\| lots<=0\) return 1e99/);
+  const counts = candidate.slice(candidate.indexOf('int V177_CountOpenTotal('), candidate.indexOf('int SniperMTF_CountOpen('));
+  assert.match(counts, /PositionsTotal\(\)/);
+  assert.match(counts, /OrdersTotal\(\)/);
+  assert.doesNotMatch(counts, /POSITION_SYMBOL.*_Symbol/);
+  assert.doesNotMatch(counts, /ORDER_SYMBOL.*_Symbol/);
 });
