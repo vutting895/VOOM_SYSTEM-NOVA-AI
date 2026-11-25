@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
 
-const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key", RATE_LIMITER: { limit: async () => ({ success: true }) } };
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
@@ -114,6 +114,54 @@ test("cross-origin Supabase Auth redirects are blocked without forwarding creden
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error, "authentication_provider_unavailable");
   assert.equal(calls, 1);
+});
+
+test("AI endpoints fail closed when the rate-limit binding is missing", async () => {
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA" }] }),
+  }), { ...env, RATE_LIMITER: undefined });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "rate_limit_not_configured");
+});
+
+test("AI endpoints reject requests after the per-user rate limit is exceeded", async () => {
+  authFetch();
+  let key;
+  const limitedEnv = {
+    ...env,
+    RATE_LIMITER: {
+      limit: async (input) => {
+        key = input.key;
+        return { success: false };
+      },
+    },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA" }] }),
+  }), limitedEnv);
+  assert.equal(key, "/api/chat:user-test");
+  assert.equal(response.status, 429);
+  assert.equal((await response.json()).error, "rate_limit_exceeded");
+});
+
+test("AI endpoints fail closed when the rate-limit binding throws", async () => {
+  authFetch();
+  const unavailableEnv = {
+    ...env,
+    RATE_LIMITER: { limit: async () => { throw new Error("rate limiter unavailable"); } },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI" }),
+  }), unavailableEnv);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "rate_limit_unavailable");
 });
 
 test("valid session can create research fallback but never execution", async () => {
