@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "integrations/system-hub/**"
+      - "integrations/remote-mcp-worker/tests/**"
       - "tests/nova-trading-readonly-guard.test.mjs"
       - "tests/nova-training-status-honesty.test.mjs"
       - "tests/secret-vault-readiness.test.mjs"
