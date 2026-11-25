@@ -5,10 +5,14 @@ import { buildMt5DatasetPayload, buildStableMt5IngestionId, callDatacenterTool, 
 test("Learning tools are exposed by the existing NOVA Remote MCP catalog", () => {
   const names = new Set(datacenterTools.map((tool) => tool.name));
   for (const name of [
-    "dataset_ingest", "dataset_approve", "universe_register", "analysis_run",
+    "dataset_ingest", "dataset_approve", "dataset_export_chunk", "universe_register", "analysis_run",
     "learning_submit", "learning_status", "model_list", "model_approve", "audit_log_list",
     "backtest_run", "walk_forward_replay", "research_run_get", "research_run_list",
   ]) assert.ok(names.has(name), name);
+  const exportTool = datacenterTools.find((tool) => tool.name === "dataset_export_chunk");
+  assert.deepEqual(exportTool.inputSchema.required, ["dataset_id", "version"]);
+  assert.equal(exportTool.inputSchema.properties.limit.maximum, 1000);
+  assert.equal(exportTool.inputSchema.properties.offset.maximum, 100000);
 });
 
 test("Datacenter calls forward the authenticated Supabase session and use stateless MCP", async () => {
