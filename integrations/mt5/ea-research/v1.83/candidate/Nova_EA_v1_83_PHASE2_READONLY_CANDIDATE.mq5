@@ -3605,9 +3605,9 @@ void RecoveryManage()
    if(eq<=0) return;
    double floating = RecoveryFloating();
    int cnt = RecoveryOwnCount();
-   double triggerMoney = MathMax(AutoMoney(InpRecoveryTriggerMoney), eq*InpRecoveryTriggerPct/100.0); // v1.37 Auto: $200 -> Cent 20000 อัตโนมัติ
-   double targetMoney  = MathMax(AutoMoney(InpRecoveryTargetMoney),  eq*InpRecoveryTargetPct/100.0);
-   double hardMoney    = MathMax(AutoMoney(InpRecoveryMaxDDMoney),   eq*InpRecoveryMaxDDPct/100.0);
+   double triggerMoney = MathMin(AutoMoney(InpRecoveryTriggerMoney), eq*InpRecoveryTriggerPct/100.0); // v1.37 Auto: $200 -> Cent 20000 อัตโนมัติ
+   double targetMoney  = MathMin(AutoMoney(InpRecoveryTargetMoney),  eq*InpRecoveryTargetPct/100.0);
+   double hardMoney    = MathMin(AutoMoney(InpRecoveryMaxDDMoney),   eq*InpRecoveryMaxDDPct/100.0);
 
    // --- ยังไม่เข้า Recovery: เช็ค Trigger ---
    if(!gRecoveryActive)
@@ -3621,7 +3621,7 @@ void RecoveryManage()
             double hedgeLot=0, avgLots=0, totalLots=0;
             double worst = RecoveryWorstCase(hedgeLot, avgLots, totalLots);
             gRecoveryWorstCase = worst;
-            double hardMoney2 = MathMax(AutoMoney(InpRecoveryMaxDDMoney), eq*InpRecoveryMaxDDPct/100.0);
+            double hardMoney2 = MathMin(AutoMoney(InpRecoveryMaxDDMoney), eq*InpRecoveryMaxDDPct/100.0);
             double currentLoss = MathAbs(floating);
             double totalWorst = currentLoss + worst;
             Print(ENGINE_LABEL, " | WORST CASE CALC: Floating ตอนนี้ -", DoubleToString(currentLoss,2), " + ถัวครบ ", IntegerToString(InpRecoveryMaxSteps), " ไม้ + Hedge ", DoubleToString(hedgeLot,2), " + Avg ", DoubleToString(avgLots,2), " Total Lots ", DoubleToString(totalLots,2), " ถ้าราคาสวนอีก ", DoubleToString(InpWorstCaseATR,1), " ATR จะขาดทุนเพิ่ม ~$", DoubleToString(worst,2), " รวมแย่สุด ~-$", DoubleToString(totalWorst,2), " Hard Cap -$", DoubleToString(hardMoney2,2));
