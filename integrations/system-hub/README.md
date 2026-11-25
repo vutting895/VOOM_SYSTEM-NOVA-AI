@@ -17,6 +17,18 @@ This is the control plane for viewing integration metadata, listing the signed-i
 
 Protected endpoints validate the Supabase access token with Supabase Auth, then scope database reads to the authenticated user ID and forward the user token to PostgREST so RLS remains in force. A different user's connection is returned as not found. Upstream URLs are fixed/allowlisted; callers cannot choose an arbitrary URL.
 
+## NOVA research-draft Approval API (separately gated)
+
+- `GET|POST /v1/agent/threads` — list/create owner-scoped review-thread metadata.
+- `GET|POST /v1/agent/threads/:threadId/approvals` — list/create a bounded `strategy_draft_review` request.
+- `POST /v1/agent/approvals/:approvalId/decision` — approve, reject, or save an edited research draft through the existing database RPC.
+
+The routes reuse the existing `public.nova_agent_threads`, `public.nova_approval_requests`, `public.nova_create_approval`, and `public.nova_resolve_approval` lifecycle. No new database migration or approval table is introduced. Supabase Auth validates the bearer token; requests use the same user JWT and publishable key with owner-scoped RLS. Request bodies, proposal fields, identifiers, response sizes, and query limits are bounded.
+
+The API is disabled unless `NOVA_APPROVALS_ENABLED=true`. The Cloudflare deployment workflow explicitly supplies `NOVA_APPROVALS_ENABLED=false` to the System Hub deployment, including when Wrangler preserves existing variables. This API approves research drafts only; it does not resume an Agent graph or authorize broker/account/order actions. `ordersEnabled`, `executionEnabled`, `liveTradingEnabled`, and `brokerMutationEnabled` remain false.
+
+Contract tests: `node --test integrations/system-hub/tests/agent-approval-contract.test.mjs`. The full System Hub suite is `node --test integrations/system-hub/tests/*.test.mjs`.
+
 ## Deployment
 
 `wrangler.jsonc` declares the Worker name and the fixed UI/MT5 adapter URLs. The GitHub Actions Cloudflare deployment workflow passes `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from existing Actions secrets at deploy time. The customer-facing Broker Settings page uses `NEXT_PUBLIC_SYSTEM_HUB_URL` (defaulting to this Worker) and sends the signed-in Supabase access token; it no longer calls the MT5 Proxy directly. Do not put credentials or tokens in source control.

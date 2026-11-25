@@ -1,0 +1,30 @@
+version: 2.1
+
+jobs:
+  system-hub-approval-validation:
+    docker:
+      - image: cimg/node:22.11.0
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Verify Node.js toolchain
+          command: |
+            node --version
+            npm --version
+      - run:
+          name: Run System Hub and Approval API tests
+          command: node --test integrations/system-hub/tests/*.test.mjs
+      - run:
+          name: Validate System Hub Worker bundle without deploying
+          command: npx --yes wrangler@4.156.0 deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+
+workflows:
+  system-hub-approval-validation:
+    jobs:
+      - system-hub-approval-validation:
+          filters:
+            branches:
+              only:
+                - main
+                - feat/port-research-approval-api-20261125
