@@ -44,8 +44,12 @@ test('Phase 2 candidate is compile-time disabled at every identified mutating pa
     const re = new RegExp('(?:bool|void)\\s+' + name + '\\s*\\([^)]*\\)\\s*\\{\\s*if\\s*\\(NOVA_PHASE2_EXECUTION_DISABLED\\)\\s*return');
     assert.match(candidate, re, name);
   }
-  assert.equal((candidate.match(/OrderSend\s*\(/g) || []).length, 8);
-  assert.equal((candidate.match(/\.PositionModify\s*\(/g) || []).length, 1);
+  const adapter = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/include/NOVA_BrokerAdapter.mqh', import.meta.url), 'utf8');
+  assert.equal((candidate.match(/(?<!NOVA_Broker)OrderSend\s*\(/g) || []).length, 0);
+  assert.equal((candidate.match(/NOVA_BrokerOrderSend\s*\(/g) || []).length, 8);
+  assert.equal((candidate.match(/NOVA_BrokerPositionModify\s*\(/g) || []).length, 1);
+  assert.equal((adapter.match(/\bOrderSend\s*\(/g) || []).length, 1);
+  assert.equal((adapter.match(/trade\.PositionModify\s*\(/g) || []).length, 1);
 });
 
 test('Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps', () => {
