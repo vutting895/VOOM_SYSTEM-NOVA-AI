@@ -64,7 +64,7 @@ test('Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps',
 test('portfolio limits include the separate Sniper magic and recovery entry path', () => {
   const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
   const openRisk = candidate.slice(candidate.indexOf('double OpenRiskMoney('), candidate.indexOf('bool SelectLots('));
-  assert.match(openRisk, /MagicId\(magic\)<0 && magic!=\(long\)InpSniperMTF_Magic/);
+  assert.match(openRisk, /NOVA_IsManagedMagic\(magic\)/);
   assert.match(candidate, /V177_CountOpenTotal\(\).*?InpSniperMTF_Magic/s);
   assert.equal((candidate.match(/openPositions>=InpMaxPositions \|\| openRisk\+loss>eq\*InpMaxOpenRiskPct\/100\.0/g) || []).length, 2);
   assert.match(candidate, /req\.magic=\(ulong\)originalMagic/);
