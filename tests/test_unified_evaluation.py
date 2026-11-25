@@ -10,6 +10,7 @@ from workers.quant_engine.unified_evaluation import (
     require_immutable_llm_replay,
     validate_dataset_manifest,
     validate_point_in_time_rows,
+    split_development_final_oos,
 )
 
 
@@ -52,6 +53,24 @@ class UnifiedEvaluationTests(unittest.TestCase):
     def test_walk_forward_rejects_insufficient_rows(self):
         with self.assertRaises(ValueError):
             expanding_purged_walk_forward(20, n_splits=5, min_train_size=10, horizon=5)
+
+    def test_final_oos_boundary_purges_crossing_forward_labels(self):
+        from datetime import datetime, timezone
+        cutoff = datetime(2026, 7, 1, tzinfo=timezone.utc)
+        events = [
+            datetime(2026, 6, 25, tzinfo=timezone.utc),
+            datetime(2026, 6, 30, tzinfo=timezone.utc),
+            datetime(2026, 7, 1, tzinfo=timezone.utc),
+        ]
+        label_ends = [
+            datetime(2026, 6, 30, tzinfo=timezone.utc),
+            datetime(2026, 7, 5, tzinfo=timezone.utc),
+            datetime(2026, 7, 6, tzinfo=timezone.utc),
+        ]
+        dev, oos, purged = split_development_final_oos(events, label_ends, cutoff)
+        self.assertEqual(dev, [True, False, False])
+        self.assertEqual(oos, [False, False, True])
+        self.assertEqual(purged, [False, True, False])
 
     def test_future_available_feature_is_rejected(self):
         with self.assertRaises(DatasetGateError):
