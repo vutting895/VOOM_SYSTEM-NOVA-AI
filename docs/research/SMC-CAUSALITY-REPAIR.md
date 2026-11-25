@@ -26,6 +26,8 @@ A further execution flaw was found: the session filter `continue` runs before op
 
 ## Data QA checkpoint
 
+The reproducible validator `scripts/research/qa_exness_xauusdm_m15.py` was run on the actual Windows-downloaded Git LFS object against the PR #197 manifest. It returned `PARTIAL_PASS`: all byte/hash/schema/row/timestamp/OHLC/numeric/spread-tolerance checks passed, while 61 non-standard timestamp intervals remain pending exact broker-calendar reconciliation. The summarized evidence is stored in `docs/research/EXNESS-XAUUSDm-M15-DATA-QA.json`.
+
 The Exness Demo XAUUSDm M15 Git LFS object was downloaded on the paired Windows agent to a temporary directory. Actual bytes verified:
 
 - Bytes: 8,584,488
