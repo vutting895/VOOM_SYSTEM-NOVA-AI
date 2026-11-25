@@ -116,6 +116,21 @@ test("maps aborted request to timeout", async () => {
   );
 });
 
+test("keeps timeout active while reading the response body", async () => {
+  const fetchImpl = async (_url, init) => ({
+    status: 200,
+    ok: true,
+    json: () => new Promise((_resolve, reject) => {
+      init.signal.addEventListener("abort", () => reject(new Error("body read aborted")), { once: true });
+    }),
+  });
+
+  await assert.rejects(
+    () => provider(fetchImpl, { timeoutMs: 500 }).generateText(request),
+    { code: "TIMEOUT" },
+  );
+});
+
 test("rejects invalid message and output bounds before network call", async () => {
   let called = false;
   const fetchImpl = async () => {

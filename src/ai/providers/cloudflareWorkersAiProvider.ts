@@ -122,9 +122,9 @@ export class CloudflareWorkersAiProvider implements TextGenerationProvider {
     const url =
       `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/ai/run/${this.model}`;
 
-    let response: Response;
+    let envelope: CloudflareChatEnvelope;
     try {
-      response = await this.fetchImpl(url, {
+      const response = await this.fetchImpl(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.apiToken}`,
@@ -143,36 +143,39 @@ export class CloudflareWorkersAiProvider implements TextGenerationProvider {
           },
         }),
       });
-    } catch {
+
+      if (response.status === 401) {
+        throw new WorkersAiProviderError("AUTHENTICATION", "Workers AI authentication failed");
+      }
+      if (response.status === 403) {
+        throw new WorkersAiProviderError("FORBIDDEN", "Workers AI request is not permitted");
+      }
+      if (response.status === 429) {
+        throw new WorkersAiProviderError("QUOTA", "Workers AI quota or rate limit reached", true);
+      }
+      if (response.status >= 500) {
+        throw new WorkersAiProviderError("UPSTREAM", "Workers AI service is unavailable", true);
+      }
+      if (!response.ok) {
+        throw new WorkersAiProviderError("UPSTREAM", "Workers AI rejected the request");
+      }
+
+      try {
+        envelope = (await response.json()) as CloudflareChatEnvelope;
+      } catch {
+        if (controller.signal.aborted) {
+          throw new WorkersAiProviderError("TIMEOUT", "Workers AI request timed out", true);
+        }
+        throw new WorkersAiProviderError("INVALID_RESPONSE", "Workers AI returned invalid JSON");
+      }
+    } catch (error) {
+      if (error instanceof WorkersAiProviderError) throw error;
       if (controller.signal.aborted) {
         throw new WorkersAiProviderError("TIMEOUT", "Workers AI request timed out", true);
       }
       throw new WorkersAiProviderError("NETWORK", "Workers AI network request failed", true);
     } finally {
       clearTimeout(timeout);
-    }
-
-    if (response.status === 401) {
-      throw new WorkersAiProviderError("AUTHENTICATION", "Workers AI authentication failed");
-    }
-    if (response.status === 403) {
-      throw new WorkersAiProviderError("FORBIDDEN", "Workers AI request is not permitted");
-    }
-    if (response.status === 429) {
-      throw new WorkersAiProviderError("QUOTA", "Workers AI quota or rate limit reached", true);
-    }
-    if (response.status >= 500) {
-      throw new WorkersAiProviderError("UPSTREAM", "Workers AI service is unavailable", true);
-    }
-    if (!response.ok) {
-      throw new WorkersAiProviderError("UPSTREAM", "Workers AI rejected the request");
-    }
-
-    let envelope: CloudflareChatEnvelope;
-    try {
-      envelope = (await response.json()) as CloudflareChatEnvelope;
-    } catch {
-      throw new WorkersAiProviderError("INVALID_RESPONSE", "Workers AI returned invalid JSON");
     }
 
     if (envelope.success !== true || !envelope.result || !Array.isArray(envelope.result.choices)) {
