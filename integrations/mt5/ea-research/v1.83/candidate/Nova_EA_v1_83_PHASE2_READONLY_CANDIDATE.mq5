@@ -1643,6 +1643,11 @@ int MagicId(const long m)
    if(m<InpMagicBase || m>=InpMagicBase+MODULES) return -1;
    return (int)(m-InpMagicBase);
 }
+// Portfolio ownership is account-wide: include all NOVA core modules and the separate Sniper magic.
+bool IsNOVAMagic(const long magic)
+{
+   return MagicId(magic)>=0 || magic==(long)InpSniperMTF_Magic;
+}
 void Note(const int id,const string reason)
 {
    if(id<0 || id>=MODULES) return;
@@ -2062,22 +2067,47 @@ bool LossAtSL(const int dir,const double lots,const double entry,const double sl
 }
 double OpenRiskMoney(int &positions)
 {
+   // positions is the total NOVA exposure count: open positions + pending orders + local reservations.
    positions=0; double risk=0;
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
       ulong t=PositionGetTicket(i); if(t==0) continue;
-       long magic=PositionGetInteger(POSITION_MAGIC);
-       if(PositionGetString(POSITION_SYMBOL)!=_Symbol || (MagicId(magic)<0 && magic!=(long)InpSniperMTF_Magic)) continue;
+      long magic=PositionGetInteger(POSITION_MAGIC);
+      if(!IsNOVAMagic(magic)) continue;
       positions++;
+      string symbol=PositionGetString(POSITION_SYMBOL);
       int dir=PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY?1:-1;
       double sl=PositionGetDouble(POSITION_SL),entry=PositionGetDouble(POSITION_PRICE_OPEN);
       double lots=PositionGetDouble(POSITION_VOLUME),p=0;
-      if(sl<=0) return 1e99; // A missing stop blocks additional entries.
-      if(!OrderCalcProfit(dir>0?ORDER_TYPE_BUY:ORDER_TYPE_SELL,_Symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
+      if(sl<=0) return 1e99; // Unknown downside blocks additional entries.
+      if(!OrderCalcProfit(dir>0?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
+      risk+=MathMax(0,-p);
+   }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   {
+      ulong ticket=OrderGetTicket(i); if(ticket==0) continue;
+      long magic=OrderGetInteger(ORDER_MAGIC);
+      if(!IsNOVAMagic(magic)) continue;
+      ENUM_ORDER_TYPE type=(ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+      bool buy=(type==ORDER_TYPE_BUY_LIMIT || type==ORDER_TYPE_BUY_STOP || type==ORDER_TYPE_BUY_STOP_LIMIT);
+      bool sell=(type==ORDER_TYPE_SELL_LIMIT || type==ORDER_TYPE_SELL_STOP || type==ORDER_TYPE_SELL_STOP_LIMIT);
+      if(!buy && !sell) continue;
+      positions++;
+      string symbol=OrderGetString(ORDER_SYMBOL);
+      double sl=OrderGetDouble(ORDER_SL);
+      double entry=OrderGetDouble(ORDER_PRICE_OPEN);
+      if(type==ORDER_TYPE_BUY_STOP_LIMIT || type==ORDER_TYPE_SELL_STOP_LIMIT)
+      {
+         double limitPrice=OrderGetDouble(ORDER_PRICE_STOPLIMIT);
+         if(limitPrice>0) entry=buy?MathMax(entry,limitPrice):MathMin(entry,limitPrice);
+      }
+      double lots=OrderGetDouble(ORDER_VOLUME_CURRENT),p=0;
+      if(sl<=0 || entry<=0 || lots<=0) return 1e99; // Pending order without a bounded SL blocks new exposure.
+      if(!OrderCalcProfit(buy?ORDER_TYPE_BUY:ORDER_TYPE_SELL,symbol,lots,entry,sl,p) || !ValidNumber(p)) return 1e99;
       risk+=MathMax(0,-p);
    }
    for(int i=0;i<MODULES;i++)
-      if(gState[i].inflight_at>0 && FindPosition(i)==0)
+      if(gState[i].inflight_at>0 && FindPosition(i)==0 && !HasActiveOrder(i))
       { risk+=gState[i].inflight_risk_money; positions++; }
    return risk;
 }
@@ -6875,10 +6905,42 @@ void CheckClosedTradesLearning()
 //| TP 300 SL 100 Max 2/day RR 1:5 - เทสจริง PF 2.07              |
 //+------------------------------------------------------------------+
 // --- v1.77 Order Limits Helpers: Total 10 = Core 3 + Sniper 4 + Recovery 3 ---
-int V177_CountOpenTotal() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition() && PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
-int V177_CountOpenSniper() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
-int V177_CountOpenRecovery() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; if(PositionGetInteger(POSITION_MAGIC)!=Magic(19)) continue; c++; } return c; }
-int V177_CountOpenCore() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; long m=PositionGetInteger(POSITION_MAGIC); if(m==(long)InpSniperMTF_Magic) continue; if(m==Magic(19)) continue; c++; } return c; }
+int V177_CountOpenTotal()
+{
+   int c=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   { ulong t=PositionGetTicket(i); if(t!=0 && IsNOVAMagic(PositionGetInteger(POSITION_MAGIC))) c++; }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   { ulong t=OrderGetTicket(i); if(t!=0 && IsNOVAMagic(OrderGetInteger(ORDER_MAGIC))) c++; }
+   return c;
+}
+int V177_CountOpenSniper()
+{
+   int c=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   { ulong t=PositionGetTicket(i); if(t!=0 && PositionGetInteger(POSITION_MAGIC)==(long)InpSniperMTF_Magic) c++; }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   { ulong t=OrderGetTicket(i); if(t!=0 && OrderGetInteger(ORDER_MAGIC)==(long)InpSniperMTF_Magic) c++; }
+   return c;
+}
+int V177_CountOpenRecovery()
+{
+   int c=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   { ulong t=PositionGetTicket(i); if(t!=0 && PositionGetInteger(POSITION_MAGIC)==Magic(19)) c++; }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   { ulong t=OrderGetTicket(i); if(t!=0 && OrderGetInteger(ORDER_MAGIC)==Magic(19)) c++; }
+   return c;
+}
+int V177_CountOpenCore()
+{
+   int c=0;
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   { ulong t=PositionGetTicket(i); if(t!=0) { long m=PositionGetInteger(POSITION_MAGIC); if(MagicId(m)>=0 && m!=Magic(19)) c++; } }
+   for(int i=OrdersTotal()-1;i>=0;i--)
+   { ulong t=OrderGetTicket(i); if(t!=0) { long m=OrderGetInteger(ORDER_MAGIC); if(MagicId(m)>=0 && m!=Magic(19)) c++; } }
+   return c;
+}
 bool V177_CanOpenCore(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenCore()>=InpV177_MaxCoreOpen){ reason="WAIT CORE 3"; return false; } if(gV177_CoreToday>=InpV177_MaxCorePerDay){ reason="WAIT CORE DAY 3"; return false; } if(gTotalEntriesToday>=InpV177_MaxTotalPerDay){ reason="WAIT TOTAL DAY 10"; return false; } reason="READY"; return true; }
 bool V177_CanOpenSniper(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenSniper()>=InpV177_MaxSniperOpen){ reason="WAIT SNIPER 4"; return false; } if(gSniperMTF_Count>=InpV177_MaxSniperPerDay){ reason="WAIT SNIPER DAY 4"; return false; } reason="READY"; return true; }
 bool V177_CanOpenRecovery(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenRecovery()>=InpV177_MaxRecoveryOpen){ reason="WAIT RECOVERY 3"; return false; } reason="READY"; return true; }
