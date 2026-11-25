@@ -1,0 +1,31 @@
+โ” Request Audit wraps every OrderSend and PositionModify call and keeps compile-time hard-off (5.3339ms)
+โ” 16 simultaneous instances: exactly one wins the shared Risk Slot (474.2764ms)
+โ” 24 symbol instances serialize shared daily baseline initialization (825.9541ms)
+โ” Restart retains daily lock state from durable state file (1.2075ms)
+โ” Broker-day rollover creates a new baseline exactly once (1.912ms)
+โ” Lock acquisition failure fails closed and never fabricates a baseline (0.9691ms)
+โ” Corrupt or truncated baseline fails closed (1.2711ms)
+โ” Multi-symbol exposure is aggregated account-wide (0.2211ms)
+โ” USC and USD fixtures normalize to equivalent account risk (0.1888ms)
+โ” Partial-close rejection reconciles actual broker volume without optimistic reduction (0.2731ms)
+โ” Partial-close timeout requires broker-state reconciliation and locks new entries (0.1534ms)
+โ” Broker reject and timeout fixtures never assume request success (0.152ms)
+โ” Runtime harness records immutable candidate source fingerprint (2.0296ms)
+โ” all archived v1.83 source variants match their captured SHA-256 (5.9588ms)
+โ” WORKING and REPAIRED are byte-identical (1.2801ms)
+โ” SAFE_READONLY declares immutable read-only mode and a permission gate (1.8871ms)
+โ” WORKING is unsafe research evidence, not a deployable default (2.8283ms)
+โ” Phase 2 candidate is compile-time disabled at every identified mutating path (2.9542ms)
+โ” Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps (2.5088ms)
+โ” portfolio limits include the separate Sniper magic and recovery entry path (2.0009ms)
+โ” Phase 2 portfolio risk and caps aggregate NOVA positions and pending orders across symbols (2.5574ms)
+โ” Recovery first-hit thresholds use the lower money or equity-percent limit (2.6923ms)
+โ” broker-day baseline is shared across symbols and fails closed when first attach is late (2.125ms)
+โน tests 23
+โน suites 0
+โน pass 23
+โน fail 0
+โน cancelled 0
+โน skipped 0
+โน todo 0
+โน duration_ms 1522.5844
