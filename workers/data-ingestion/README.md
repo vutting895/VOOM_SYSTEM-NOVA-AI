@@ -29,3 +29,10 @@ This is a telemetry receiver only. It has no trading routes and no code path to 
 - Real Supabase Auth/D1 end-to-end tests, owner-isolation tests and concurrent duplicate-race tests are pending.
 - No MT5 terminal export/ingestion/read-back receipt exists yet.
 - This worker does not start model training or promote models after ingestion.
+
+
+## Automated test evidence
+
+- GitHub Actions run 45702210797: Worker tests 7/7 PASS; Python host uploader tests 12/12 PASS; static safety checks PASS.
+- The run used mocked Supabase Auth and D1 bindings. Live Auth, provisioned D1, Worker deployment and real MT5 end-to-end acceptance remain pending.
+- CircleCI is separately reporting that no project configuration was found on the Main baseline. GitHub Actions is the active test evidence for this branch.
