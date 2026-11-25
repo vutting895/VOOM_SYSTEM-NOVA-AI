@@ -20,7 +20,7 @@ The 2026-11-26 readiness audit in PR #421 found:
 - NOVA Brain has no immutable historical request/response replay ledger with model, prompt, response, timestamp and cost provenance.
 - No approved, provenance-verified historical OHLCV artifact was present in the inspected locations; PF, drawdown, trade count and API cost were not measured.
 
-This branch does not modify or silently bless those existing prototypes. The notebook implements a separate, guarded research path. Session segment IDs are mandatory: rolling features, forward labels and LSTM sequence windows reset at segment boundaries so weekend/rollover/unknown gaps cannot be silently bridged.
+This branch does not modify or silently bless those existing prototypes. The notebook implements a separate, guarded research path. Session segment IDs are derived from UTC timestamps and the declared cadence: every non-cadence interval starts a new segment, so rolling features, forward labels and LSTM sequence windows cannot bridge weekend, rollover or unexplained gaps.
 
 ## Unified architecture
 
@@ -46,6 +46,14 @@ This branch does not modify or silently bless those existing prototypes. The not
 - Report per-fold and aggregate closed trades, net PnL, PF, expectancy, max drawdown, exposure, turnover, win/loss distribution, Sharpe/Sortino with stated annualization, classification metrics vs baseline, calibration, uncertainty and regime breakdown.
 - For NOVA Brain also report response coverage, schema failures, abstentions, latency, tokens, retries and cost.
 - Do not select the best of repeated OOS trials. Record every experiment, including failures.
+
+## Canonical data acquisition and handoff
+
+- The canonical current-main source path is the existing authenticated NOVA Gateway `dataset_collect_mt5` → tenant-isolated `GET /api/history` Bridge/Relay/Proxy → Datacenter `dataset_ingest`. It reads closed bars from the signed-in user's own Exness Demo connection, preserves broker symbol casing and source order, and does not grant broker write access. Do not create a second broker gateway or use a direct broker credential in Colab.
+- The Windows `NOVA_Export_XAUUSDm_M5_Ticks.mq5` file was compiled successfully, but the inspected Common Files directory contained only its compile log. There is no evidence it was executed or that it exported data. It is not the accepted training dataset.
+- Datacenter `dataset_get` currently returns owner-scoped dataset metadata, manifest, quality receipt and an `artifact_available` flag; it does not return Parquet bytes or a signed download URL. The notebook's Drive CSV input therefore cannot yet be populated automatically from the approved Datacenter artifact through the existing Gateway.
+- This is an explicit integration blocker: implement and independently review an owner-scoped, bounded dataset artifact export/download contract before claiming end-to-end ingestion-to-notebook training. Do not bypass Datacenter approval or copy broker credentials into the notebook.
+- The notebook derives conservative segment IDs from the UTC timestamps and declared H1 cadence. Any interval other than exactly 3,600 seconds starts a new sequence segment; the separate dataset quality receipt must still classify/approve all gaps before training.
 
 ## Notebook
 
