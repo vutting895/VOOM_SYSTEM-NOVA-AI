@@ -7,7 +7,7 @@
 ## State machine
 
 1. **Context:** H1 completed-bar EMA(50) close and slope must agree with trade direction. Insufficient H1 history => no signal.
-2. **Liquidity event:** M15 shift-2 bar takes the preceding shift-3 low (buy) or high (sell).
+2. **Liquidity event:** M15 shift-2 bar takes a confirmed prior swing low/high found in shifts 5–20; two older and two newer completed bars must confirm the pivot before the sweep.
 3. **Reclaim + displacement + structure:** M15 shift-1 completed bar closes back beyond the sweep level, has body > 0.6 × ATR, and closes beyond the sweep candle high/low. All three checks must pass.
 4. **Timing:** retain existing M15 EMA20 pullback check and bounded pending expiry. Research mode uses the configured GMT London/NY killzone windows.
 5. **Risk geometry:** SL beyond sweep extreme by 0.10 × ATR, with minimum distance max(0.50 × ATR, 3 × spread). TP = 2 × actual entry-to-SL distance.
