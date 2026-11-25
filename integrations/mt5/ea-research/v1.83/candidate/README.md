@@ -1,9 +1,18 @@
-# NOVA EA v1.83 Phase 2 Read-only Candidate
+# NOVA EA v1.83 Phase 2 candidate
 
-This is a derived research candidate copied from the archived WORKING source. It is not the installed EA and must not be deployed.
+This file is a separate research candidate derived from the archived WORKING source. It is not the installed EA.
 
-A compile-time constant `NOVA_PHASE2_EXECUTION_DISABLED` is set to true. An early return was inserted into the centralized permission function and all 9 functions containing detected broker-mutating API calls (8 `OrderSend` calls and 1 `PositionModify` call). This candidate is intended only to verify that the code compiles with all identified trade-mutating paths fail-closed.
+The candidate has:
+- A compile-time hard-disabled execution gate.
+- Guards at all identified order-mutating call paths.
+- A 10% broker-day daily-loss Entry Lock Only policy.
+- Pending-order cancellation on daily lock without flattening existing positions.
+- A 9% aggregate open-risk cap.
+- A maximum of five concurrent positions, including the separate Sniper magic.
+- Recovery and Sniper checks against the same portfolio caps.
 
-It does **not** yet implement the complete NOVA risk contract (10% daily Entry Lock Only, 9% aggregate open risk, maximum 5 positions). Recovery semantics, Learning, journal grouping, CSV schema, and OOS validation remain outstanding.
+Compile evidence and remaining limitations are in `COMPILE-RESULT.md`.
 
-Compile evidence: see `COMPILE-RESULT.md`. The generated EX5 and raw compiler log are local artifacts and are intentionally excluded from Git.
+Not yet proven: runtime zero broker requests, restart/day-rollover persistence, broker fault handling, MT5 Demo integration, Strategy Tester performance, and OOS robustness.
+
+Do not install or attach this candidate to a trading chart. The EX5 and raw compiler log are local ignored artifacts.

@@ -47,3 +47,26 @@ test('Phase 2 candidate is compile-time disabled at every identified mutating pa
   assert.equal((candidate.match(/OrderSend\s*\(/g) || []).length, 8);
   assert.equal((candidate.match(/\.PositionModify\s*\(/g) || []).length, 1);
 });
+
+test('Phase 2 candidate enforces NOVA daily Entry Lock Only and portfolio caps', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  assert.match(candidate, /InpDailyLossPct\s*=\s*10\.0/);
+  assert.match(candidate, /InpMaxOpenRiskPct\s*=\s*9\.0/);
+  assert.match(candidate, /InpMaxPositions\s*=\s*5/);
+  assert.match(candidate, /InpV177_MaxTotalOpen\s*=\s*5/);
+  assert.match(candidate, /gHeader\.daily_block=1;SaveState\(\);Print\(ENGINE_LABEL,": daily equity entry lock"\);/);
+  assert.doesNotMatch(candidate, /gHeader\.daily_block=1;gHeader\.flatten_request=1;SaveState\(\);Print\(ENGINE_LABEL,": daily equity loss block"\);/);
+  assert.match(candidate, /if\(gHeader\.flatten_request!=0\) CloseAllOwn\(\);/);
+  assert.match(candidate, /if\(gHeader\.daily_block!=0\) return false; \/\/ Entry Lock Only: no new recovery exposure/);
+  assert.match(candidate, /openRisk\+loss>eq\*InpMaxOpenRiskPct\/100\.0/);
+});
+
+test('portfolio limits include the separate Sniper magic and recovery entry path', () => {
+  const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
+  const openRisk = candidate.slice(candidate.indexOf('double OpenRiskMoney('), candidate.indexOf('bool SelectLots('));
+  assert.match(openRisk, /MagicId\(magic\)<0 && magic!=\(long\)InpSniperMTF_Magic/);
+  assert.match(candidate, /V177_CountOpenTotal\(\).*?InpSniperMTF_Magic/s);
+  assert.equal((candidate.match(/openPositions>=InpMaxPositions \|\| openRisk\+loss>eq\*InpMaxOpenRiskPct\/100\.0/g) || []).length, 2);
+  assert.match(candidate, /req\.magic=\(ulong\)originalMagic/);
+  assert.match(candidate, /if\(id<0\) \{ SendClose\(t\); continue; \}/);
+});

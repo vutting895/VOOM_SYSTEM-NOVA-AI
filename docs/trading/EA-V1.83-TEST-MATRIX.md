@@ -32,3 +32,7 @@ Acceptance requires source commit, compiler and terminal builds, account mode, s
 - `tests/nova-ea-v183-source-integrity.test.mjs`: **5 passed, 0 failed**. Covers all five archived source hashes, WORKING/REPAIRED byte identity, SAFE_READONLY gate presence, WORKING unsafe defaults, and compile-time guard presence in all identified mutating functions.
 - Phase 2 candidate MetaEditor compile: **0 errors, 3 warnings**. This is compile-only evidence; no runtime order-request interception test has been run.
 - Existing `tests/nova-trading-readonly-guard.test.mjs` was also invoked during the combined check: 15 passed, 1 failed due to an existing bridge-source assertion mismatch at the Exness server-name check. This is not counted as a Phase 2 pass and has not been modified in this workstream.
+
+- Updated candidate compile: **0 errors, 3 warnings** after the risk-policy and Sniper aggregation changes.
+- Expanded source-integrity suite: **7 passed, 0 failed**. Added static assertions for Entry Lock Only behavior, 10% daily loss, 9% aggregate open risk, maximum five positions, Recovery/Sniper risk checks, and inclusion of the separate Sniper magic in portfolio totals.
+- Runtime zero-order-request proof and broker-day restart/rollover tests remain pending.

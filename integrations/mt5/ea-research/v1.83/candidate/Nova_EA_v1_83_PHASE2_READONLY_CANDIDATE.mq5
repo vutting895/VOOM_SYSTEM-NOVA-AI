@@ -42,7 +42,7 @@
 //   เดิม Sniper TP 300 SL 100 RR 1:5 Risk 0.10% | Train +$1058 PF 1.47 WR 28.3% DD 1.4% N293 | Val +$234 PF 1.48 | Test +$288 PF 2.18 -> ใหม่ชนะทุกชุด (PF +0.47 / +0.34 / +0.86)
 //   หมายเหตุ: TP 500-600 ชนะมากกว่าในชุดนี้ (PF 2.19-2.48) แต่เป็น Overfit ตลาดขาลง - เลือก TP 400 เป็นจุดกลางที่ชนะทุกชุดแบบไม่สุดโต่ง ไม่เลือก TP 600 RR 1:7.5
 //   Sniper จริง v1.66 (276 ไม้): TP300 SL100 PF 1.85 WR 44.2% PnL +$784 - เป็น Baseline ที่ใหม่ต้องชนะ ซึ่ง TP400 SL80 ชนะแล้ว
-// ลิมิต v1.77 ยังคง: รวม 10 = Core 3 + Sniper 4 + Recovery 3 / ไอคอน v1.78 ยังคง
+// ลิมิต v1.77 ยังคง: รวม 5 = Core 3 + Sniper 4 + Recovery 3 / ไอคอน v1.78 ยังคง
 // [v1.78] สถานะเปลี่ยนเป็นไอคอนสวยๆ - ไม่เปลี่ยน Logic
 // ปุ่ม + สถานะทุกแถว ใส่ไอคอนนำหน้า: START ▶ / SNIPER 🎯 / ปรับตั้งค่า ⚙️ / Core 🧠 / News 📰 / Learning 🎓 / Recovery 🛡️ / Trailing 📈 / Filters 🔍 / Daily 📅 / BBPro 🔄 / AI Sniper 🤖 / Limit 📦
 // ใน MT5 ไอคอนเป็น Unicode Emoji - ถ้าฟอนต์เครื่องไม่แสดง Emoji จะเห็นเป็นสี่เหลี่ยม ให้เปลี่ยนฟอนต์ Chart เป็น Segoe UI Emoji
@@ -52,7 +52,7 @@
 // ใหม่: รวมเปิดพร้อมกัน 10 ไม้ = Core เปิดพร้อมกัน 3 + Sniper เปิดพร้อมกัน 4 + Recovery เปิดพร้อมกัน 3
 //       รวมต่อวัน 10 ไม้ = Core ต่อวัน 3 + Sniper ต่อวัน 4 + Recovery ต่อรอบ 3 (BBPro MaxLayers 3 เดิม)
 //       Daily Loss -$200 / Hard Stop Recovery 5% / $500 ยังคงเดิม ไม่เปลี่ยน Risk
-//       ถ้าโหมดไหนเต็ม จะขึ้น WAIT CORE 3 / WAIT SNIPER 4 / WAIT RECOVERY 3 / WAIT TOTAL 10 แล้วไม่เปิดเพิ่ม โหมดอื่นยังเปิดได้
+//       ถ้าโหมดไหนเต็ม จะขึ้น WAIT CORE 3 / WAIT SNIPER 4 / WAIT RECOVERY 3 / WAIT TOTAL 5 แล้วไม่เปิดเพิ่ม โหมดอื่นยังเปิดได้
 // [v1.76] แยกโหมด Sniper ออกจาก START - ทำงานอิสระกัน
 // START/STOP = คุม Core เท่านั้น (Voom Brain + Recovery + BBPro + Learning) ไม่คุม Sniper แล้ว
 // SNIPER ON/OFF = คุม Sniper MTF + AI Sniper เท่านั้น ไม่เกี่ยวกับ START
@@ -719,10 +719,10 @@ input group "=== Speculative risk defaults ==="
 input double          InpRiskPercent          = 1.0;      // [v1.83 LEGACY - ไม่ได้ใช้แล้ว] Core Risk ใช้ InpRisk_Tuned แทน
 input bool            InpAllowBoundedMinLot    = true;
 input double          InpMaxSingleRiskPct      = 2.5;     // v1.02: 10% -> 2.5%
-input double          InpMaxOpenRiskPct        = 8.0;      // v1.02: 30% -> 8% รวมพอร์ต
-input int             InpMaxPositions          = 10;       // v1.77: 8 -> 10 ไม้ รวมเปิดพร้อมกัน = Core 3 + Sniper 4 + Recovery 3
-input group "=== v1.77 Order Limits - Total 10 แยก Core 3 Sniper 4 Recovery 3 ==="
-input int             InpV177_MaxTotalOpen      = 10;       // v1.77: เปิดพร้อมกันรวมสูงสุด 10 ไม้
+input double          InpMaxOpenRiskPct        = 9.0;      // v1.02: 30% -> 8% รวมพอร์ต
+input int             InpMaxPositions          = 5;       // v1.77: 8 -> 10 ไม้ รวมเปิดพร้อมกัน = Core 3 + Sniper 4 + Recovery 3
+input group "=== NOVA Global Order Limit: 5 (module caps are secondary) ==="
+input int             InpV177_MaxTotalOpen      = 5;       // v1.77: เปิดพร้อมกันรวมสูงสุด 5 ไม้
 input int             InpV177_MaxCoreOpen       = 3;        // v1.77: Core เปิดพร้อมกันสูงสุด 3 ไม้
 input int             InpV177_MaxSniperOpen      = 4;        // v1.77: Sniper เปิดพร้อมกันสูงสุด 4 ไม้ (เดิม 1)
 input int             InpV177_MaxRecoveryOpen    = 3;        // v1.77: Recovery เปิดพร้อมกันสูงสุด 3 ไม้ (BBPro Cap 3)
@@ -730,7 +730,7 @@ input int             InpV177_MaxTotalPerDay     = 10;       // v1.77: เปิ
 input int             InpV177_MaxCorePerDay      = 3;        // v1.77: Core เปิดใหม่ต่อวันสูงสุด 3 ไม้
 input int             InpV177_MaxSniperPerDay     = 4;        // v1.77: Sniper เปิดใหม่ต่อวันสูงสุด 4 ไม้ (ซิงก์กับ InpSniperMTF_MaxTradesPerDay)
 input double          InpMaxMarginUsedPct      = 30.0;     // v1.02: 60% -> 30%
-input double          InpDailyLossPct          = 6.0;      // v1.02: 35% -> 6% ต่อวัน ห้ามล้างพอร์ตในวันเดียว
+input double          InpDailyLossPct          = 10.0;      // v1.02: 35% -> 6% ต่อวัน ห้ามล้างพอร์ตในวันเดียว
 input group "=== Execution and display ==="
 input double          InpMaxSpreadATR         = 0.12;
 // Normalized points: a 3/5-digit quote uses 10 broker points per unit.
@@ -1949,7 +1949,7 @@ void DailyGuard()
    double pnl=DayChangeMoney();
    if(!gAccountHistoryOK) return;
    if(InpDailyLossPct>0 && pnl<=-gHeader.day_equity*InpDailyLossPct/100.0)
-   { gHeader.daily_block=1;gHeader.flatten_request=1;SaveState();Print(ENGINE_LABEL,": daily equity loss block"); }
+   { gHeader.daily_block=1;SaveState();Print(ENGINE_LABEL,": daily equity entry lock"); }
    else if(0>0 && pnl>=gHeader.day_equity*0/100.0)
    { gHeader.daily_block=2;gHeader.flatten_request=1;SaveState();Print(ENGINE_LABEL,": daily equity profit block"); }
 }
@@ -2065,7 +2065,9 @@ double OpenRiskMoney(int &positions)
    positions=0; double risk=0;
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
-      ulong t=PositionGetTicket(i); if(t==0 || !OwnSelectedPosition()) continue;
+      ulong t=PositionGetTicket(i); if(t==0) continue;
+       long magic=PositionGetInteger(POSITION_MAGIC);
+       if(PositionGetString(POSITION_SYMBOL)!=_Symbol || (MagicId(magic)<0 && magic!=(long)InpSniperMTF_Magic)) continue;
       positions++;
       int dir=PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY?1:-1;
       double sl=PositionGetDouble(POSITION_SL),entry=PositionGetDouble(POSITION_PRICE_OPEN);
@@ -2117,13 +2119,16 @@ bool SelectLots(const int dir,const double entry,const double sl,double &lots,do
 bool SendClose(const ulong ticket)
 {
    if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
-   if(!PositionSelectByTicket(ticket) || !OwnSelectedPosition()) return true;
-   int id=MagicId(PositionGetInteger(POSITION_MAGIC));
+   if(!PositionSelectByTicket(ticket)) return true;
+   long originalMagic=PositionGetInteger(POSITION_MAGIC);
+   bool sniperPosition=(originalMagic==(long)InpSniperMTF_Magic);
+   if(PositionGetString(POSITION_SYMBOL)!=_Symbol || (!OwnSelectedPosition() && !sniperPosition)) return true;
+   int id=MagicId(originalMagic);
    int dir=PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY?1:-1;
    MqlTick tick; if(!SymbolInfoTick(_Symbol,tick)) return false;
    MqlTradeRequest req; MqlTradeResult res; ZeroMemory(req); ZeroMemory(res);
    req.action=TRADE_ACTION_DEAL; req.position=ticket; req.symbol=_Symbol;
-   req.magic=(ulong)Magic(id); req.volume=PositionGetDouble(POSITION_VOLUME);
+   req.magic=(ulong)originalMagic; req.volume=PositionGetDouble(POSITION_VOLUME);
    req.type=dir>0?ORDER_TYPE_SELL:ORDER_TYPE_BUY;
    req.price=dir>0?tick.bid:tick.ask;
    req.deviation=DeviationPoints(); req.type_filling=FillMode();
@@ -2142,12 +2147,15 @@ void CloseAllOwn()
    for(int i=PositionsTotal()-1;i>=0;i--)
    {
       ulong t=PositionGetTicket(i);
-      if(t!=0 && OwnSelectedPosition())
-      {
-         int id=MagicId(PositionGetInteger(POSITION_MAGIC));
-         if(TimeCurrent()<gState[id].retry_at) continue;
-         gState[id].retry_at=TimeCurrent()+3;SendClose(t);
-      }
+      if(t==0) continue;
+      long magic=PositionGetInteger(POSITION_MAGIC);
+      bool sniperPosition=(magic==(long)InpSniperMTF_Magic);
+      if(!OwnSelectedPosition() && !(PositionGetString(POSITION_SYMBOL)==_Symbol && sniperPosition)) continue;
+      int id=MagicId(magic);
+      if(id<0) { SendClose(t); continue; }
+      if(TimeCurrent()<gState[id].retry_at) continue;
+      gState[id].retry_at=TimeCurrent()+3;
+      SendClose(t);
    }
 }
 bool ModifySL(const ulong ticket,const int dir,const double wanted)
@@ -3402,6 +3410,7 @@ double RecoveryBreakeven()
 bool RecoverySend(const int dir, const double lots, const string comment, double &outPrice)
 {
    if(NOVA_PHASE2_EXECUTION_DISABLED) return false;
+   if(gHeader.daily_block!=0) return false; // Entry Lock Only: no new recovery exposure
    outPrice=0;
    MqlTick tick; if(!SymbolInfoTick(_Symbol,tick)) return false;
    double price = dir>0?tick.ask:tick.bid;
@@ -3422,6 +3431,11 @@ bool RecoverySend(const int dir, const double lots, const string comment, double
    if(vol>maxLot) vol=maxLot;
    if(stepLot>0) vol = MathFloor(vol/stepLot)*stepLot;
    if(vol<=0) return false;
+   double eq=AccountInfoDouble(ACCOUNT_EQUITY),loss=0;
+   if(eq<=0 || !LossAtSL(dir,vol,price,sl,loss) || loss>eq*InpMaxSingleRiskPct/100.0+1e-8) return false;
+   int openPositions=0; double openRisk=OpenRiskMoney(openPositions);
+   if(openPositions>=InpMaxPositions || openRisk+loss>eq*InpMaxOpenRiskPct/100.0+1e-8) return false;
+   string recoveryLimitReason=""; if(!V177_CanOpenRecovery(recoveryLimitReason)) return false;
    MqlTradeRequest req; MqlTradeResult res; ZeroMemory(req); ZeroMemory(res);
    req.action=TRADE_ACTION_DEAL; req.symbol=_Symbol; req.magic=(ulong)Magic(19); // ใช้ Magic 19 เพื่อให้ระบบนับรวม
    req.type= dir>0?ORDER_TYPE_BUY:ORDER_TYPE_SELL;
@@ -6861,13 +6875,13 @@ void CheckClosedTradesLearning()
 //| TP 300 SL 100 Max 2/day RR 1:5 - เทสจริง PF 2.07              |
 //+------------------------------------------------------------------+
 // --- v1.77 Order Limits Helpers: Total 10 = Core 3 + Sniper 4 + Recovery 3 ---
-int V177_CountOpenTotal() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; c++; } return c; }
+int V177_CountOpenTotal() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition() && PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
 int V177_CountOpenSniper() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(PositionGetInteger(POSITION_MAGIC)!=(long)InpSniperMTF_Magic) continue; c++; } return c; }
 int V177_CountOpenRecovery() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; if(PositionGetInteger(POSITION_MAGIC)!=Magic(19)) continue; c++; } return c; }
 int V177_CountOpenCore() { int c=0; for(int i=PositionsTotal()-1;i>=0;i--){ ulong t=PositionGetTicket(i); if(t==0) continue; if(PositionGetString(POSITION_SYMBOL)!=_Symbol) continue; if(!OwnSelectedPosition()) continue; long m=PositionGetInteger(POSITION_MAGIC); if(m==(long)InpSniperMTF_Magic) continue; if(m==Magic(19)) continue; c++; } return c; }
-bool V177_CanOpenCore(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 10"; return false; } if(V177_CountOpenCore()>=InpV177_MaxCoreOpen){ reason="WAIT CORE 3"; return false; } if(gV177_CoreToday>=InpV177_MaxCorePerDay){ reason="WAIT CORE DAY 3"; return false; } if(gTotalEntriesToday>=InpV177_MaxTotalPerDay){ reason="WAIT TOTAL DAY 10"; return false; } reason="READY"; return true; }
-bool V177_CanOpenSniper(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 10"; return false; } if(V177_CountOpenSniper()>=InpV177_MaxSniperOpen){ reason="WAIT SNIPER 4"; return false; } if(gSniperMTF_Count>=InpV177_MaxSniperPerDay){ reason="WAIT SNIPER DAY 4"; return false; } reason="READY"; return true; }
-bool V177_CanOpenRecovery(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 10"; return false; } if(V177_CountOpenRecovery()>=InpV177_MaxRecoveryOpen){ reason="WAIT RECOVERY 3"; return false; } reason="READY"; return true; }
+bool V177_CanOpenCore(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenCore()>=InpV177_MaxCoreOpen){ reason="WAIT CORE 3"; return false; } if(gV177_CoreToday>=InpV177_MaxCorePerDay){ reason="WAIT CORE DAY 3"; return false; } if(gTotalEntriesToday>=InpV177_MaxTotalPerDay){ reason="WAIT TOTAL DAY 10"; return false; } reason="READY"; return true; }
+bool V177_CanOpenSniper(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenSniper()>=InpV177_MaxSniperOpen){ reason="WAIT SNIPER 4"; return false; } if(gSniperMTF_Count>=InpV177_MaxSniperPerDay){ reason="WAIT SNIPER DAY 4"; return false; } reason="READY"; return true; }
+bool V177_CanOpenRecovery(string &reason) { if(V177_CountOpenTotal()>=InpV177_MaxTotalOpen){ reason="WAIT TOTAL 5"; return false; } if(V177_CountOpenRecovery()>=InpV177_MaxRecoveryOpen){ reason="WAIT RECOVERY 3"; return false; } reason="READY"; return true; }
 int SniperMTF_CountOpen()
 {
    int c=0;
@@ -6950,7 +6964,7 @@ void SniperMTF_Check()
    datetime today=DayStart(TimeCurrent());
    if(gSniperMTF_Day!=today) { gSniperMTF_Day=today; gSniperMTF_Count=0; gSniperMTF_PendingDir=0; gSniperMTF_PendingExpiry=0; }
    if(gSniperMTF_Count>=InpSniperMTF_MaxTradesPerDay) return;
-   { string v177r=""; if(!V177_CanOpenSniper(v177r)) return; } // v1.77: Sniper เปิดพร้อมกัน 4 / ต่อวัน 4 / รวม 10
+   { string v177r=""; if(!V177_CanOpenSniper(v177r)) return; } // v1.77: Sniper เปิดพร้อมกัน 4 / ต่อวัน 4 / รวม 5
    // Session BKK = GMT+7
    int hourBKK=(int)((TimeGMT()+7*3600)%86400/3600);
    if(hourBKK<InpSniperMTF_SessionStart || hourBKK>InpSniperMTF_SessionEnd) return;
@@ -7010,7 +7024,9 @@ void SniperMTF_Check()
    lots=MathMin(lots,VolumeFloor(vmax,step));
    if(lots<vmin || !LossAtSL(dir,lots,entry,sl,loss)) return;
    if(loss>eq*InpMaxSingleRiskPct/100.0+1e-8) return;
-   // OrderSend แบบ ProcessCandidate (ไม่ผ่าน Module)
+    int openPositions=0; double openRisk=OpenRiskMoney(openPositions);
+    if(openPositions>=InpMaxPositions || openRisk+loss>eq*InpMaxOpenRiskPct/100.0+1e-8) return;
+    // OrderSend แบบ ProcessCandidate (ไม่ผ่าน Module)
    MqlTradeRequest req; MqlTradeResult res; MqlTradeCheckResult check;
    ZeroMemory(req); ZeroMemory(res); ZeroMemory(check);
    req.action=TRADE_ACTION_DEAL; req.symbol=_Symbol; req.magic=(ulong)InpSniperMTF_Magic;
@@ -7036,8 +7052,12 @@ void MainWork()
    gLastWorkMs=now;gBusy=true;
    DailyGuard();ReconcileInflight();
    if(gHeader.daily_block!=0 || gHeader.flatten_request!=0)
-   {
-      if(TradePermission()) { CancelOwnPending();CloseAllOwn(); }
+    {
+       if(TradePermission())
+       {
+          CancelOwnPending();
+          if(gHeader.flatten_request!=0) CloseAllOwn();
+       }
       if(gHeader.flatten_request!=0 && AllFlat()) { gHeader.flatten_request=0;SaveState(); }
    }
    datetime bar=iTime(_Symbol,InpAnalysisTF,0);

@@ -99,3 +99,7 @@ Phase 2 is complete only when the code review, static call-site audit, compile, 
 - Candidate compiled with MetaEditor at `C:\MT5\metaeditor64.exe`: 0 errors, 3 warnings. Warnings are two deprecated `POSITION_COMMISSION` uses and one possible `long` to `double` conversion.
 - New source-integrity and candidate-gate test file: 5 tests passed.
 - Not yet completed: runtime zero-broker-request proof, full Daily Entry Lock Only implementation, 9% aggregate open-risk cap, max-5 position contract, Recovery semantic repair, and MT5 Demo integration tests.
+
+- Updated candidate compile: **0 errors, 3 warnings** after the risk-policy and Sniper aggregation changes.
+- Expanded source-integrity suite: **7 passed, 0 failed**. Added static assertions for Entry Lock Only behavior, 10% daily loss, 9% aggregate open risk, maximum five positions, Recovery/Sniper risk checks, and inclusion of the separate Sniper magic in portfolio totals.
+- Runtime zero-order-request proof and broker-day restart/rollover tests remain pending.
