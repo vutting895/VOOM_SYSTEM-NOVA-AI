@@ -43,19 +43,32 @@ Record:
 - timestamp timezone/server offset evidence, including DST handling;
 - source terminal identity as Demo, and confirmation that no trade actions were enabled.
 
+## Verified preparation evidence (2026-11-26)
+
+- Source file installed at `C:\\MT5\\MQL5\\Scripts\\NOVA_Export_XAUUSDm_M5_Ticks.mq5`.
+- MetaEditor compile result: **0 errors, 0 warnings**, 767 ms, X64 Regular.
+- Source SHA-256: `DA307C3DB47054F396BA8645A4E68409531CF0CEA177B8FD4DD211077F110C42`.
+- Compiled EX5 SHA-256: `669719962397A82903F9273E2C1635A562DD8CD3AD144AC99E490EAD3B89F05E`.
+- Compile log SHA-256: `AB933F8F4707554ABA65FC4136D069DEF15854E411FEA0E7C95E6D5111D5234E`.
+- Compile log: `Common\\Files\\NOVA_XAUUSDm_EXPORT\\NOVA_Export_compile.log`.
+- This proves compilation only; it does not prove broker login, correct Demo server, symbol/chart selection, or successful history export.
+
 ## Important limitations
 
+- The current terminal process is `C:\\MT5\\terminal64.exe /profile:NOVA_READONLY`; current logs do not establish a successful Exness Demo broker session or identify its server.
+- Port `127.0.0.1:22346` is already listening under the MT5 process. An unauthenticated HTTP request returns 401; do not treat that as broker-login proof or create a second listener.
+- The export folder currently contains only the compile log; no M5, tick, or symbol-spec CSV has been produced.
 - The MT5 terminal can only return history available from the connected broker server and its history service. A requested start date does not guarantee the full period exists.
 - Tick data can be very large. Export in bounded day batches and verify every file before combining.
 - MT5 bar timestamps are broker/server time. Do not compare directly with UTC M15 until timezone mapping is verified.
 - The public Exness Tick History archive is a separate indicative source; it is not a replacement for the exact Demo server's XAUUSDm feed.
-- This exporter has been added to the research branch but has not yet been compiled in MetaEditor or executed against the user's Demo terminal. No data acquisition is claimed complete.
 
 ## Next processing gates
 
-1. Compile the script and archive the MetaEditor compile log.
-2. Export M5 first, then ticks in bounded batches.
-3. Build a SHA-256 inventory and coverage receipt.
-4. Validate duplicate/order/schema/OHLC/spread/volume and session gaps.
-5. Verify server-time to UTC mapping.
-6. Reconcile broker specification and costs before any backtest.
+1. Confirm the terminal is logged into the intended Exness Demo server and that the chart is exactly `XAUUSDm,M5`; do not put credentials in chat.
+2. Run M5-only export first and confirm history depth.
+3. Export ticks in bounded batches.
+4. Build a SHA-256 inventory and coverage receipt.
+5. Validate duplicate/order/schema/OHLC/spread/volume and session gaps.
+6. Verify server-time to UTC mapping.
+7. Reconcile broker specification and costs before any backtest.
