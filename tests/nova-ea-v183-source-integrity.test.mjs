@@ -76,6 +76,9 @@ test('research SMC mode is opt-in, closed-bar based, and requires a confirmed se
   const candidate = readFileSync(new URL('../integrations/mt5/ea-research/v1.83/candidate/Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5', import.meta.url), 'utf8');
   assert.match(candidate, /InpResearchSMC_Mode\s*=\s*false/);
   assert.match(candidate, /CopyRates\(_Symbol,PERIOD_H1,1,160,h1\)/);
+  assert.match(candidate, /bool ResearchSMC_PriorSwingLevel\(const int dir,double &level\)/);
+  assert.match(candidate, /for\(int shift=5;shift<=last;shift\+\+\)/);
+  assert.match(candidate, /gRates\[shift\+k\]\.low/);
   assert.match(candidate, /iTime\(_Symbol,PERIOD_H1,1\)/);
   assert.match(candidate, /if\(aiScore<3 \|\| !ResearchSMC_H1Trend\(dir\)\) return/);
   assert.match(candidate, /InpResearchSMC_MinStopATR\*atr/);
