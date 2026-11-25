@@ -6993,7 +6993,8 @@ bool ResearchSMC_H1Trend(const int dir)
 bool ResearchSMC_PriorSwingLevel(const int dir,double &level)
 {
    level=0;
-   int last=MathMin(20,ArraySize(gRates)-3);
+   int last=ArraySize(gRates)-3;
+   if(last>20) last=20;
    if(last<5) return false;
    // Two older and two newer completed bars confirm the pivot before the sweep candle (shift 2).
    for(int shift=5;shift<=last;shift++)
