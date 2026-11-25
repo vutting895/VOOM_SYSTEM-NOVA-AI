@@ -139,6 +139,35 @@ def split_development_final_oos(
             boundary_purged.append(False)
     return development, final_oos, boundary_purged
 
+def assign_session_segments(
+    timestamps: Iterable[Any],
+    expected_interval_seconds: int,
+) -> list[int]:
+    """Create conservative contiguous-sequence IDs; every cadence break starts a new segment."""
+    times = list(timestamps)
+    if isinstance(expected_interval_seconds, bool) or not isinstance(expected_interval_seconds, int) or expected_interval_seconds <= 0:
+        raise DatasetGateError("expected interval must be a positive integer number of seconds")
+    if not times:
+        raise DatasetGateError("cannot segment an empty timestamp sequence")
+    normalized: list[datetime] = []
+    for value in times:
+        if not isinstance(value, datetime):
+            try:
+                value = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except (TypeError, ValueError) as exc:
+                raise DatasetGateError("segment timestamps must be valid ISO datetimes") from exc
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise DatasetGateError("segment timestamps must be timezone-aware")
+        normalized.append(value.astimezone(timezone.utc))
+    segments = [0]
+    for previous, current in zip(normalized, normalized[1:]):
+        delta = (current - previous).total_seconds()
+        if delta <= 0:
+            raise DatasetGateError("segment timestamps must be strictly increasing and unique")
+        segments.append(segments[-1] + (1 if delta != expected_interval_seconds else 0))
+    return segments
+
+
 def validate_point_in_time_rows(
     timestamps: Iterable[Any],
     available_at: Iterable[Any] | None = None,
