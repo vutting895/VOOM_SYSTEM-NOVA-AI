@@ -142,3 +142,30 @@ test("a wrong bearer token cannot attach to a tenant session", () => {
   const result = authorizeBridge(fakeRequest, { MT5_TENANT_ROUTES: RELAY_ROUTES });
   assert.deepEqual(result, { ok: false, status: 401, error: "invalid_bridge_token" });
 });
+
+
+test("history request is forwarded only through the authenticated tenant session", async () => {
+  let observed;
+  const env = makeEnv(async (req, id) => {
+    observed = {url:new URL(req.url), id, method:req.method, headers:req.headers};
+    return Response.json({symbol:"XAUUSDm",timeframe:"M15",bars:[],mode:"read-only",ordersEnabled:false});
+  });
+  const query = "symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z";
+  const response = await worker.fetch(request("/api/history?" + query,{token:TOKEN,tenant:TENANT_ID}),env);
+  assert.equal(response.status,200);
+  assert.equal(observed.id,TENANT_ID);
+  assert.equal(observed.method,"GET");
+  assert.equal(observed.url.pathname,"/api/history");
+  assert.equal(observed.url.search,"?"+query);
+  assert.equal(observed.headers.get("X-Relay-Internal"),"1");
+  assert.equal(observed.headers.get("X-VOOM-TENANT-ID"),TENANT_ID);
+  assert.equal(observed.headers.get("Authorization"),null);
+});
+
+test("history route rejects duplicate, reversed, oversized and non-UTC ranges", () => {
+  const base = "symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-01-15T00:00:00Z";
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?"+base+"&symbol=EURUSD")).ok,false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-15T00:00:00Z&end_utc=2026-01-01T00:00:00Z")).ok,false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00Z&end_utc=2026-02-01T00:00:00Z")).ok,false);
+  assert.equal(validateReadRequest(new URL("https://relay.test/api/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-01-01T00:00:00%2B07:00&end_utc=2026-01-02T00:00:00Z")).ok,false);
+});
