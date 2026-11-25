@@ -6,6 +6,7 @@ identity must be resolved by the trusted Hub before calling this module.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 import hashlib
@@ -99,8 +100,22 @@ class SQLiteResearchJobStore:
         connection.execute(f"PRAGMA busy_timeout = {self.busy_timeout_ms}")
         return connection
 
+    @contextmanager
+    def _connection(self):
+        connection = self._connect()
+        try:
+            yield connection
+            if connection.in_transaction:
+                connection.commit()
+        except Exception:
+            if connection.in_transaction:
+                connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("PRAGMA journal_mode = WAL")
             connection.executescript(
                 """
@@ -256,7 +271,7 @@ class SQLiteResearchJobStore:
             "timeout_seconds": timeout_seconds,
         }
         digest = _canonical_hash(request)
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             replay = self._idempotent_response(
                 connection, tenant_id=tenant_id, idempotency_key=key,
@@ -276,7 +291,7 @@ class SQLiteResearchJobStore:
             return job
 
     def get(self, *, tenant_id: str, job_id: str) -> ResearchJob:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM research_jobs WHERE tenant_id = ? AND job_id = ?",
                 (tenant_id, job_id),
@@ -294,7 +309,7 @@ class SQLiteResearchJobStore:
     def list_events(self, *, tenant_id: str, job_id: str) -> tuple[JobEvent, ...]:
         # Verify tenant ownership before returning the event stream.
         self.get(tenant_id=tenant_id, job_id=job_id)
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(
                 """SELECT * FROM research_job_events
                    WHERE tenant_id = ? AND job_id = ? ORDER BY sequence ASC""",
@@ -333,7 +348,7 @@ class SQLiteResearchJobStore:
             "reason_code": reason_code,
         }
         digest = _canonical_hash(request)
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             replay = self._idempotent_response(
                 connection, tenant_id=tenant_id, idempotency_key=key,
