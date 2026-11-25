@@ -1,56 +1,64 @@
 # NOVA EA v1.83 — Concurrency and Broker Risk Fixture Results
 
 Date: 2026-11-26
-Scope: research candidate source `Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5`.
-Status: local deterministic test harness PASS; production reservation/runtime implementation remains NOT COMPLETE.
+Scope: research candidate `Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5`.
+Status: **24 Node tests PASS; MQL compile PASS; terminal runtime tests NOT VERIFIED.**
 
 ## Exact candidate identity
 
-- Source SHA-256: `E23FB5D0CD51A5792976C5684852413962CD5BC0F4118771FEBB33D8F283F67D`.
+- Source SHA-256: `2A39EE9CDB2587AE5CF2810207F77EFA39EFDA8F076153B22F5EA5B2159AE604`.
+- EX5 SHA-256: `AF01ABCC5DFE50A9A30AFA53BEC19EB32058C416637D46F5933578070926DD82`.
 - Compile-time gate: `NOVA_PHASE2_EXECUTION_DISABLED=true`.
-- Candidate source was not modified during this test-harness addition.
 
-## Test execution
+## Node test execution
 
-Command on connected Windows research workspace:
-
+Command:
 ```powershell
-node --test tests/nova-ea-v183-source-integrity.test.mjs tests/nova-ea-v183-concurrency-runtime-fixtures.test.mjs
+node --test tests\\nova-ea-v183-source-integrity.test.mjs tests\\nova-ea-v183-concurrency-runtime-fixtures.test.mjs
 ```
 
-Result: **20 passed, 0 failed**, 227.9 ms.
+Result: **24 passed, 0 failed**, 328.0457 ms.
 
-### New 11-test fixture coverage
-
-1. 64 concurrent chart-instance requests competing for the final account risk slot: exactly one reservation succeeds in the deterministic atomic-ledger reference model.
-2. Missing SL / invalid numeric risk cannot reserve.
-3. UNCERTAIN request remains risk-consuming after lease expiry until explicit reconciliation.
+Coverage:
+1. 64 concurrent chart-instance requests competing for the final portfolio risk slot: exactly one reservation succeeds in a deterministic JavaScript reference model.
+2. Missing SL / invalid risk cannot reserve.
+3. UNCERTAIN request remains risk-consuming after lease expiry until reconciliation.
 4. Accepted pending exposure is reconciled idempotently in the reference model.
-5. Cross-symbol positions and pending orders share one modelled account risk cap.
-6. USC fixture checks account-currency amounts and a single explicit USD-to-USC threshold conversion.
-7. Hedging accepted / Netting rejected according to the candidate's explicit initialization requirement.
-8. Missing SL / failed OrderCalcProfit paths fail closed in the candidate's portfolio risk function.
-9. Compile-time hard-disable and nine mutation wrapper guards are source-checked.
-10. All eight direct OrderSend call sites and one CTrade PositionModify call site are source-checked as contained within guarded wrappers.
-11. Pending cancellation and partial-close wrappers are independently source-checked.
+5. Cross-symbol positions and pending orders share one modeled account risk cap.
+6. USC amounts remain in account currency in a mathematical fixture; this is not broker verification.
+7. Candidate explicitly rejects NETTING and requires HEDGING.
+8. Missing SL / failed OrderCalcProfit paths fail closed in candidate source.
+9. Compile-time hard-disable and mutation guards are source-checked.
+10. All eight candidate OrderSend call sites and one CTrade PositionModify call site route through the adapter.
+11. Core, Sniper MTF and Recovery use the same durable reservation boundary.
+12. FILE_COMMON lock, checksummed ledger, DISPATCHING/UNCERTAIN states and corruption fail-closed logic are source-checked.
+13. Ledger compaction retains latest active reservations and a monotonic sequence watermark (source assertions only).
+14. Broker adapter self-test counters and zero-transport condition are source-checked.
+15. Pending cancellation and partial-close wrappers are independently source-checked.
+16. Archived source SHA-256, byte identity, read-only mode, hard-disable, daily Entry Lock Only, portfolio caps, SMC closed-bar logic and cross-symbol risk tests pass.
 
-The original nine source-integrity tests also passed, for 20 total.
+## MQL5 compile evidence
+
+- Candidate: **0 errors, 2 deprecated POSITION_COMMISSION warnings**, 12,640 ms.
+- Broker adapter self-test script: **0 errors, 0 warnings**.
+- Portfolio coordinator harness: **0 errors, 0 warnings**.
+- Logs are under `C:\\MT5\\logs\\` with names `NOVA-v183-candidate-compaction.log`, `NOVA-broker-selftest-compaction.log`, and `NOVA-portfolio-harness-compaction.log`.
 
 ## Critical interpretation
 
-The concurrency ledger in the test file is a deterministic reference model, not an MQL5 production coordinator. The one-winner result proves the model's serialized check-and-reserve behavior only. It does **not** prove that the current EA's instance-local `gState[]` reservations are atomic across charts, terminals, or hosts. That production implementation is still absent and remains a release blocker.
+The 64-instance concurrency test is a deterministic JavaScript reference model. It does not prove MQL5 cross-chart or cross-terminal atomicity. The Node source assertions do not execute the broker adapter or ledger implementation.
 
-The so-called runtime safety checks are source-level guard/call-site audits. They are not a live MT5 interception test and do not prove the terminal emitted zero broker requests at runtime. A proper dynamic proof still requires an injectable broker adapter or Strategy Tester instrumentation around every mutating request path, with the execution hard-disable enabled.
+The MQL5 test programs compile, but their `OnStart` PASS receipts were not captured. Therefore:
+- Dynamic broker interception proving `attempts > 0`, `blocked = attempts`, `transport = 0`: **NOT VERIFIED**.
+- Real multi-chart and multi-terminal lock contention: **NOT VERIFIED**.
+- Process-kill restart, rollover, lock failure, and corrupt-ledger runtime fault injection: **NOT VERIFIED**.
+- Ledger compaction crash-boundary durability: **NOT VERIFIED**.
 
-The USC fixture is a mathematical unit test, not a live broker contract test. Actual broker denomination, tick value, contract size, profit currency, and conversion must be verified on a read-only Demo account before any execution-enabled build. The candidate explicitly rejects NETTING accounts; no netting support is claimed.
+## Broker and strategy gates not run
 
-## Not run
+- Live Exness USC / XAUUSDm broker contract metadata verification.
+- Real Tick Strategy Tester.
+- Sealed OOS from the frozen date.
+- Walk-forward, Monte Carlo, and Demo Forward.
 
-- MT5 terminal multi-chart/multi-terminal race test.
-- Cross-host central coordinator test.
-- Crash/restart persistence against a real shared ledger.
-- Runtime interception of OrderSend / CTrade mutations.
-- Live broker USC / XAUUSDm contract fixtures.
-- Real-tick Strategy Tester, sealed OOS, walk-forward, Monte Carlo, or Demo forward.
-
-No profitability, runtime-safety, or execution-readiness claim is made. Keep PR #417 Draft; keep execution hard-disabled.
+No profitability, runtime-safety, broker-compatibility, or execution-readiness claim is made. Keep PR #417 Draft and execution hard-disabled.
