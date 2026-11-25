@@ -136,3 +136,24 @@ Required next evidence:
 No model performance score is published. PF, max drawdown, win rate, trade count and API cost are **NOT MEASURED** for this requested combined evaluation because no eligible, provenance-verified historical input was available in the inspected locations.
 
 This branch is an audit record only. Main is unchanged. No deployment, migration, secret change, broker write, order submission, or Live Trading action was performed.
+
+
+## Follow-up verification — 2026-11-26
+
+This addendum records a second read-only inspection after the initial audit.
+
+- `main` still resolves to `821db357d70d3613b0ca61520eaae5c5307e8fd4`.
+- PR #421 remains open, Draft, unmerged, and targets `main`. Its base SHA remains `821db357d70d3613b0ca61520eaae5c5307e8fd4`.
+- PR head at the start of this follow-up remained `6fbbf44c923a2cd4ebec8d408b1055ab5bcdb26e`, parented directly on the recorded Main SHA.
+- Combined status for that PR head: CircleCI Pipeline = `error`; Vercel deployment context = `success`. The CircleCI target is pipeline 2187. No CircleCI job-level log/root-cause evidence was available in this inspection, so the failure is not classified as a code defect or infrastructure defect.
+- A fresh listing of the authorized MT5 Common Files export directory still shows only `NOVA_Export_compile.log`; no data export artifact is present.
+- Direct source inspection of `workers/quant_engine/smc_mean_rejection_backtest.py` confirms `find_swing_points()` inspects a centered window from `i-lookback` through `i+lookback`, then writes the detected swing value at index `i`. This makes the pivot known only after the right-side bars close. Any downstream use at the pivot timestamp is look-ahead leakage unless the signal is shifted to the actual confirmation/availability time. The current implementation has not passed that event-time audit.
+
+### Updated blockers
+
+- Dataset intake remains BLOCKED: no NOVA historical artifact or MT5 export file is available in the inspected locations.
+- Model training and final OOS remain NOT RUN.
+- SMC mean-rejection implementation remains FAIL/PENDING event-time correction and tests; it must not be used to claim performance until the pivot availability time and 4H-to-5M bar availability are corrected.
+- CircleCI remains UNDIAGNOSED at job level; inspect pipeline 2187 jobs/logs before attributing cause.
+
+No source-code behavior was changed in this follow-up. No model was trained, no backtest was run, and no broker request or order was submitted. All execution flags remain false.
