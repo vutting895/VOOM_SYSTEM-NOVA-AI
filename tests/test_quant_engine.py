@@ -1,5 +1,6 @@
 """Contract tests for the Internal Quant Engine research foundation."""
 import unittest
+from dataclasses import replace
 
 from workers.quant_engine import (
     DatasetValidationError,
@@ -269,6 +270,23 @@ class QuantJobLifecycleTests(unittest.TestCase):
         self.assertEqual(job.state, JobState.QUEUED)
         self.assertEqual(job.sequence, 0)
         self.assertEqual(updated.sequence, 1)
+
+
+    def test_transition_rejects_malformed_job_snapshots(self):
+        job = self.create_job()
+        malformed = (
+            replace(job, sequence=-1),
+            replace(job, sequence=True),
+            replace(job, resource_profile="unbounded"),
+            replace(job, timeout_seconds=901),
+            replace(job, updated_at="2026-11-26T09:59:00Z"),
+            replace(job, job_type="broker.trade"),
+            replace(job, state="RUNNING"),
+        )
+        for snapshot in malformed:
+            with self.subTest(snapshot=snapshot), self.assertRaises(JobLifecycleError):
+                self.transition(snapshot, JobState.VALIDATING, 1)
+
 
 
 if __name__ == "__main__":
