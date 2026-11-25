@@ -188,7 +188,9 @@ async function ingest(request, env, tenantId) {
   if (occurred > Date.now() + 5 * 60 * 1000 || occurred < Date.now() - MAX_EVENT_AGE_DAYS * 86400 * 1000) {
     return fail(422, "event_timestamp_out_of_policy");
   }
-  const payload = canonical(event);
+  // Hash and persist the exact request bytes. The host uploader sends deterministic canonical JSON;
+  // hashing raw bytes avoids cross-language float/number serialization drift.
+  const payload = raw;
   const digest = await sha256Hex(payload);
   const insertedAt = new Date().toISOString();
   try {
