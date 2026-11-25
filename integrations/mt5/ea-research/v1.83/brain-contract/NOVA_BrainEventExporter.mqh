@@ -38,6 +38,18 @@ string NOVA_TimeframeName(const ENUM_TIMEFRAMES timeframe)
    return "";
 }
 
+bool NOVA_IsHex(const string value)
+{
+   if(StringLen(value)!=64 && StringLen(value)!=40) return false;
+   for(int i=0; i<StringLen(value); i++)
+   {
+      ushort ch=StringGetCharacter(value, i);
+      if(!((ch>='0' && ch<='9') || (ch>='a' && ch<='f') || (ch>='A' && ch<='F')))
+         return false;
+   }
+   return true;
+}
+
 string NOVA_NewEventId()
 {
    static bool seeded=false;
@@ -51,7 +63,8 @@ string NOVA_NewEventId()
    uint c=(uint)(MathRand() & 0x0FFF);
    uint d=(uint)((MathRand() & 0x3FFF) | 0x8000);
    uint e=(uint)GetMicrosecondCount();
-   return StringFormat("%08X-%04X-4%03X-%04X-%08X", a, b, c, d, e);
+   uint f=(uint)(MathRand() & 0xFFFF);
+   return StringFormat("%08X-%04X-4%03X-%04X-%08X%04X", a, b, c, d, e, f);
 }
 
 // Emits only market_snapshot observations. HMAC is deliberately a placeholder:
@@ -71,8 +84,8 @@ bool NOVA_ExportMarketSnapshot(const string symbol,
                                const string data_quality,
                                const bool use_common_files=true)
 {
-   if(symbol=="" || ea_version=="" || StringLen(source_sha256)!=64 ||
-      StringLen(repo_commit)!=40 || magic_scope<0 ||
+   if(symbol=="" || ea_version=="" || !NOVA_IsHex(source_sha256) ||
+      StringLen(repo_commit)!=40 || !NOVA_IsHex(repo_commit) || magic_scope<0 ||
       bid<0 || ask<0 || spread_points<0 || atr<0)
    {
       Print("NOVA_EVENT_EXPORT_REJECTED reason=invalid_input");
@@ -99,6 +112,17 @@ bool NOVA_ExportMarketSnapshot(const string symbol,
       PrintFormat("NOVA_EVENT_EXPORT_REJECTED reason=file_open error=%d", GetLastError());
       return false;
    }
+   int symbol_digits=(int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
+   if(symbol_digits<0 || symbol_digits>12)
+   {
+      FileClose(file);
+      Print("NOVA_EVENT_EXPORT_REJECTED reason=symbol_digits_unavailable");
+      return false;
+   }
+   string source_hash=source_sha256;
+   string commit_hash=repo_commit;
+   StringToLower(source_hash);
+   StringToLower(commit_hash);
    string event_id=NOVA_NewEventId();
    string event="{";
    event+="\"schema_version\":\"1.0\",";
@@ -108,17 +132,17 @@ bool NOVA_ExportMarketSnapshot(const string symbol,
    event+="\"source\":{";
    event+="\"component\":\"mt5_ea\",";
    event+="\"ea_version\":\""+NOVA_JsonEscape(ea_version)+"\",";
-   event+="\"source_sha256\":\""+StringToLower(source_sha256)+"\",";
-   event+="\"repo_commit\":\""+StringToLower(repo_commit)+"\",";
+   event+="\"source_sha256\":\""+source_hash+"\",";
+   event+="\"repo_commit\":\""+commit_hash+"\",";
    event+="\"symbol\":\""+NOVA_JsonEscape(symbol)+"\",";
    event+="\"timeframe\":\""+NOVA_TimeframeName(timeframe)+"\"},";
    event+="\"scope\":{\"account_scope_hmac\":\""+StringFormat("%064d",0)+"\",";
    event+="\"magic_scope\":"+IntegerToString(magic_scope)+"},";
    event+="\"market\":{";
-   event+="\"bid\":"+DoubleToString(bid, _Digits)+",";
-   event+="\"ask\":"+DoubleToString(ask, _Digits)+",";
+   event+="\"bid\":"+DoubleToString(bid, symbol_digits)+",";
+   event+="\"ask\":"+DoubleToString(ask, symbol_digits)+",";
    event+="\"spread_points\":"+DoubleToString(spread_points, 2)+",";
-   event+="\"atr\":"+DoubleToString(atr, _Digits)+",";
+   event+="\"atr\":"+DoubleToString(atr, symbol_digits)+",";
    event+="\"bar_closed\":"+(bar_closed ? "true" : "false")+",";
    event+="\"data_quality\":\""+NOVA_JsonEscape(data_quality)+"\"}}";
    FileSeek(file, 0, SEEK_END);
