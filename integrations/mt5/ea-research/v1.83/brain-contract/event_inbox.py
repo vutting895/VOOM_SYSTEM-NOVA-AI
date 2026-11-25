@@ -10,7 +10,7 @@ import json
 import re
 import sqlite3
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from validate_event import validate_event
 
