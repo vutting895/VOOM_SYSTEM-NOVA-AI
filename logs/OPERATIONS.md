@@ -567,3 +567,14 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
 - Status: approved Risk Gate and mixed-case symbol changes are committed; their focused Python and Node regression suites pass. Full repository CI remains BLOCKED by the unrelated Remote MCP registry syntax defect. Do not fix that defect under this authorization; request separate scope approval.
 - Next: obtain a separate narrow approval to fix the missing comma in `integrations/remote-mcp-worker/src/index.js`, then rerun exact-main CI. Reconcile Supabase Preview project/migration mismatch independently; no DB changes authorized.
+
+
+## WO-2026-11-25-003 — Remote MCP registry syntax repair (2026-11-25)
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Before SHA: `ebdf85dcc786af4a17823b83bded19ec81f4e5dd`.
+- Source review found a missing comma after the `dataset_collect_mt5` tool definition immediately before `...datacenterTools` in `integrations/remote-mcp-worker/src/index.js`. This prevents the Worker module from parsing and blocks the existing Gateway collector from running.
+- Applied the minimal syntax-only correction; no tool schema, behavior, credentials, permissions, or trading capabilities changed.
+- Supabase Preview check on the before SHA failed because remote migration versions are absent from the local migration directory; this is separate from the syntax repair and was not modified.
+- Tests have not yet been executed. No MT5 Demo read, Datacenter receipt, deployment, or Live Trading is claimed.
+- Status: syntax repair committed; exact-head validation still required.
