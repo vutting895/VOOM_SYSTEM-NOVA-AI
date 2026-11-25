@@ -5,9 +5,9 @@ Status: IN PROGRESS. Development branch only. No production deployment or Main c
 ## Baseline and scope
 
 - Canonical repository: `vutting895/VOOM_SYSTEM-NOVA-AI`
-- Main baseline: `821db357d70d3613b0ca61520eaae5c5307e8fd4`
-- Clean integration branch: `feature/nova-v183-export-api-clean-20261126`
-- This branch starts directly from Main. It does not inherit the 73-commit PR #426 stack.
+- Main baseline: `56bf51d2e719a4cc79d73421e135099175a1e300`
+- Clean integration branch: `feature/nova-v183-export-api-clean-20261126-r2`
+- This branch starts directly from Main SHA 56bf51d2e719a4cc79d73421e135099175a1e300. It does not inherit the 73-commit PR #426 stack or the earlier 13-ahead/13-behind experiment.
 - Reuse the existing NOVA Remote MCP Gateway and MT5 read-only bridge; do not create a second broker bridge or MCP server.
 - `workers/data-ingestion` was a README-only scaffold on Main. This branch adds a separate telemetry ingestion Worker and D1 migration.
 
@@ -28,7 +28,7 @@ Do not claim the three flags are implemented in the current EA candidate: the ea
 
 1. `NOVA_BrainEventExporter.mqh`: local-only JSONL market_snapshot writer; no WebRequest or trade APIs.
 2. `uploader.py`: host-side HMAC-SHA256 account pseudonymization, full Draft 2020-12 validation via jsonschema, HTTPS POST, and receipt digest verification.
-3. `workers/data-ingestion/src/index.js`: Supabase Auth identity validation, tenant-scoped POST/GET event routes, strict safety-critical validation, canonical payload SHA-256, idempotent insert, conflicting replay rejection, read-back integrity verification.
+3. `workers/data-ingestion/src/index.js`: Supabase Auth identity validation, tenant-scoped POST/GET event routes, strict safety-critical plus full Draft 2020-12 validation, exact canonical request-byte SHA-256, idempotent insert, conflicting replay rejection, read-back integrity verification.
 4. `migrations/0001_create_nova_brain_events.sql`: D1 table keyed by (tenant_id,event_id).
 5. Node test suite for authentication, tenant isolation, replay, conflict, forbidden fields, read-only execution audit, and absence of trading routes.
 6. Python tests for HMAC scope/key separation and canonical JSON.
@@ -89,3 +89,8 @@ No merge, auto-merge, deployment, EA installation, Main edit, database productio
 ## Ownership boundary clarification
 
 The current implementation uses the verified Supabase user UUID as the storage owner namespace. It provides per-user isolation, not shared organization tenant membership. Do not describe this as organization-level multi-tenancy until a trusted tenant-membership model and cross-member authorization tests exist.
+
+
+## Serialization and digest contract
+
+The host uploader serializes event objects as deterministic sorted-key compact JSON. The Worker hashes and stores the exact received request bytes rather than re-serializing parsed JSON, avoiding Python/JavaScript numeric formatting drift. Identical uploader retries therefore produce the same digest; differently serialized bodies with the same event ID are treated as conflicting payloads.
