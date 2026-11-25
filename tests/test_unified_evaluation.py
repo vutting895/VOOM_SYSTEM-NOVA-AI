@@ -92,10 +92,10 @@ class UnifiedEvaluationTests(unittest.TestCase):
     def test_llm_replay_must_precede_decision(self):
         record = {
             "model_id": "local-model-v1", "prompt_sha256": "a" * 64,
-            "response_sha256": "b" * 64, "created_at": 12, "decision": "LONG",
+            "response_sha256": "b" * 64, "created_at": "2026-01-02T00:00:00Z", "decision": "LONG",
         }
         with self.assertRaises(DatasetGateError):
-            require_immutable_llm_replay(record, 10)
+            require_immutable_llm_replay(record, "2026-01-01T00:00:00Z")
         record["created_at"] = "2026-01-02T00:00:00Z"
         with self.assertRaises(DatasetGateError):
             require_immutable_llm_replay(record, "2026-01-01T00:00:00Z")
