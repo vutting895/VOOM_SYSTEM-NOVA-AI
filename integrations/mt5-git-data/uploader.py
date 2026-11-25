@@ -56,8 +56,9 @@ class GitHub:
         })
         return new_commit["sha"]
 
-def csv_shards(source: Path, kind: str):
-    raw = source.read_text(encoding="utf-8-sig", newline="")
+def csv_shards(source: Path, kind: str, rows_per_shard: int):
+    with source.open("r", encoding="utf-8-sig", newline="") as handle:
+        raw = handle.read()
     reader = csv.reader(io.StringIO(raw))
     try: header = [h.strip().lower() for h in next(reader)]
     except StopIteration: raise ValueError("CSV is empty")
@@ -74,7 +75,7 @@ def csv_shards(source: Path, kind: str):
         if not row: continue
         if len(row) != len(header): raise ValueError("CSV row has a different column count")
         rows.append(row)
-        if len(rows) >= 50000:
+        if len(rows) >= rows_per_shard:
             shards.append((header, rows)); rows = []
     if rows: shards.append((header, rows))
     if not shards: raise ValueError("CSV has no data rows")
@@ -102,9 +103,7 @@ def main():
     if args.rows_per_shard < 1 or args.rows_per_shard > 50000: ap.error("--rows-per-shard must be 1..50000")
     token = os.getenv("NOVA_GITHUB_TOKEN")
     if not token: ap.error("Set NOVA_GITHUB_TOKEN in the environment; never put it in source code or CLI arguments")
-    # csv_shards currently uses a conservative fixed 50k row bound; reject unsupported overrides.
-    if args.rows_per_shard != 50000: ap.error("This build currently supports the fixed 50000-row shard size")
-    header, shards = csv_shards(args.csv_file, args.kind)
+    header, shards = csv_shards(args.csv_file, args.kind, args.rows_per_shard)
     now = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     root = f"datasets/market-data/{args.symbol}/{args.timeframe}/{args.kind}/{now}"
     objects, records = {}, []
