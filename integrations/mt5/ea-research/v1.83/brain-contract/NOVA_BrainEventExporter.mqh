@@ -84,7 +84,7 @@ bool NOVA_ExportMarketSnapshot(const string symbol,
                                const string data_quality,
                                const bool use_common_files=true)
 {
-   if(symbol=="" || ea_version=="" || !NOVA_IsHex(source_sha256) ||
+   if(symbol=="" || ea_version=="" || StringLen(source_sha256)!=64 || !NOVA_IsHex(source_sha256) ||
       StringLen(repo_commit)!=40 || !NOVA_IsHex(repo_commit) || magic_scope<0 ||
       bid<0 || ask<0 || spread_points<0 || atr<0)
    {
