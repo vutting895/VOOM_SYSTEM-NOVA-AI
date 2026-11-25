@@ -26,3 +26,11 @@ The dedicated GitHub Actions workflow deploys this Worker only when this folder 
 - The shared schema is `shared/nova-intent-envelope.schema.json`; the allow-listed renderer is `frontend/components/intent-result.jsx`. No model-generated HTML/JavaScript is evaluated.
 - This first pass is deterministic and research-only. It does not yet connect MCP tools, persist conversation threads, or implement LangGraph checkpoint/approval/resume.
 - Live Trading, order submission and broker mutations remain disabled.
+
+## AI usage controls
+
+- `POST /api/chat` and `POST /api/gen-ai/generate` require the Cloudflare Workers Rate Limiting binding named `RATE_LIMITER`.
+- The proposed binding allows 20 requests per 60 seconds per verified Supabase user ID and route key. The Worker fails closed with HTTP 503 if the binding is missing or unavailable and returns HTTP 429 when the limit is exceeded.
+- Cloudflare's Workers Rate Limiting API is approximate and location-scoped; it is not a global billing quota or a substitute for account-level spend alerts and hard budget controls.
+- The namespace ID in `wrangler.toml` is a stable account-local identifier. Confirm it is unique in the target Cloudflare account before any deployment.
+- This PR only prepares source/configuration and tests. It does not create the binding in Cloudflare, alter the deployed Worker, or change traffic. Do not deploy until the binding is provisioned and validated in a non-production environment.
