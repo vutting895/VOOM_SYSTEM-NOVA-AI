@@ -171,7 +171,7 @@ async function createConnection(request, env, user, origin) {
       connection: publicConnection(existing),
       created: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, 200, origin, env);
   }
 
@@ -215,7 +215,7 @@ async function createConnection(request, env, user, origin) {
         connection: publicConnection(row),
         created: true,
         ordersEnabled: false,
-        liveTradingEnabled: false
+        executionEnabled: false,        liveTradingEnabled: false
       }, 201, origin, env);
     }
   }
@@ -230,7 +230,7 @@ async function createConnection(request, env, user, origin) {
         connection: publicConnection(row),
         created: false,
         ordersEnabled: false,
-        liveTradingEnabled: false
+        executionEnabled: false,        liveTradingEnabled: false
       }, 200, origin, env);
     }
   }
@@ -258,7 +258,7 @@ function publicConnection(row) {
       orderSubmission: false
     },
     ordersEnabled: false,
-    liveTradingEnabled: false
+    executionEnabled: false,    liveTradingEnabled: false
   };
 }
 function integrationRegistry(env) {
@@ -368,7 +368,7 @@ function connectionNotReady(row, origin, env) {
     state: row.status === "disabled" ? "connection_disabled" : "pending_provisioning",
     dataVerified: false,
     ordersEnabled: false,
-    liveTradingEnabled: false
+    executionEnabled: false,    liveTradingEnabled: false
   }, row.status === "disabled" ? 403 : 409, origin, env);
 }
 async function checkConnection(request, env, user, row, origin) {
@@ -380,7 +380,7 @@ async function checkConnection(request, env, user, row, origin) {
       detail: result.detail,
       dataVerified: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, result.status, origin, env);
   }
   if (result.body.connected === false) {
@@ -389,7 +389,7 @@ async function checkConnection(request, env, user, row, origin) {
       state: "bridge_unavailable",
       dataVerified: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, 502, origin, env);
   }
   // Intentionally discard account payload: this endpoint verifies reachability only.
@@ -400,7 +400,7 @@ async function checkConnection(request, env, user, row, origin) {
     accountReadSucceeded: true,
     checkedAt: new Date().toISOString(),
     ordersEnabled: false,
-    liveTradingEnabled: false
+    executionEnabled: false,    liveTradingEnabled: false
   }, 200, origin, env);
 }
 async function readAccount(request, env, user, row, origin) {
@@ -412,7 +412,7 @@ async function readAccount(request, env, user, row, origin) {
       detail: result.detail,
       dataVerified: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, result.status, origin, env);
   }
   const data = result.body;
@@ -422,7 +422,7 @@ async function readAccount(request, env, user, row, origin) {
       state: "bridge_unavailable",
       dataVerified: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, 502, origin, env);
   }
   return json({
@@ -447,7 +447,7 @@ async function readAccount(request, env, user, row, origin) {
       as_of: typeof data.as_of === "string" ? data.as_of : null
     },
     ordersEnabled: false,
-    liveTradingEnabled: false
+    executionEnabled: false,    liveTradingEnabled: false
   }, 200, origin, env);
 }
 async function readQuotes(request, env, user, row, origin) {
@@ -469,7 +469,7 @@ async function readQuotes(request, env, user, row, origin) {
       detail: result.detail,
       dataVerified: false,
       ordersEnabled: false,
-      liveTradingEnabled: false
+      executionEnabled: false,      liveTradingEnabled: false
     }, result.status, origin, env);
   }
   const data = result.body;
@@ -494,7 +494,7 @@ async function readQuotes(request, env, user, row, origin) {
       as_of: typeof data.as_of === "string" ? data.as_of : null
     },
     ordersEnabled: false,
-    liveTradingEnabled: false
+    executionEnabled: false,    liveTradingEnabled: false
   }, 200, origin, env);
 }
 
@@ -534,7 +534,7 @@ export default {
         integrations: integrationRegistry(env),
         mode: "read-only",
         ordersEnabled: false,
-        liveTradingEnabled: false
+        executionEnabled: false,        liveTradingEnabled: false
       }, 200, origin, env);
     }
 
@@ -548,7 +548,7 @@ export default {
         connections: result.rows.map(publicConnection),
         count: result.rows.length,
         ordersEnabled: false,
-        liveTradingEnabled: false
+        executionEnabled: false,        liveTradingEnabled: false
       }, 200, origin, env);
     }
 

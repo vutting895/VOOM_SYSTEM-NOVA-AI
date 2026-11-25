@@ -129,6 +129,7 @@ test("integration registry requires a valid Supabase session", async () => {
   assert.equal(body.service, "voom-system-hub");
   assert.equal(body.integrations.some((item) => item.id === "exness-mt5-demo"), true);
   assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
 });
@@ -150,8 +151,15 @@ test("connections are filtered by the authenticated user and expose no credentia
   const response = await worker.fetch(request("/v1/connections", {
     headers: { Authorization: "Bearer " + USER_TOKEN }
   }), env);
-  const text = await response.text();
+  const body = await response.json();
   assert.equal(response.status, 200);
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(body.connections[0].ordersEnabled, false);
+  assert.equal(body.connections[0].executionEnabled, false);
+  assert.equal(body.connections[0].liveTradingEnabled, false);
+  const text = JSON.stringify(body);
   assert.match(text, /"readiness":"configured"/);
   assert.doesNotMatch(text, /must-not-leak|password|access_token|bridge_route_id/);
   assert.match(text, /"dataVerified":false/);
