@@ -470,3 +470,31 @@ The subsequent branch update was documentation-only; no Quant Engine code change
 CircleCI config is now discovered, but CircleCI pipeline #2310 still reports a failed job (1-second duration). Detailed job logs are not accessible with the current connected tools/credentials. Therefore overall PR CI is not green.
 
 **Revised status:** Quant Engine unit/contract tests = PASS; CircleCI = FAIL / root cause unknown; frontend build = BLOCKED (Windows C: drive has 0 bytes free); Hub/Worker runtime = NOT VERIFIED; registry migration/RLS = BLOCKED; production release = NOT APPROVED.
+
+
+## 22. Durable research job persistence slice (2026-11-26)
+
+The Development Branch now includes `workers/quant_engine/job_store.py` with a standard-library SQLite persistence adapter:
+
+- Tenant-scoped job reads and event-stream reads.
+- Atomic job snapshot update plus append-only transition event within one SQLite write transaction.
+- `BEGIN IMMEDIATE` serialization and expected state/sequence checks to reject stale concurrent transitions.
+- Tenant-scoped idempotency records for create and transition operations; same-key/same-request replay returns the original result, while same-key/different-request reuse is rejected.
+- Persistent-path requirement, WAL mode, foreign-key enforcement, bounded busy timeout, and connection close/commit/rollback handling.
+- Tests cover persistence after reopening, tenant-scoped lookup, duplicate job IDs, idempotent replay, idempotency-key conflict, and stale state rejection.
+
+**Explicit deployment boundary:** this is a single-node SQLite persistence adapter requiring a persistent filesystem volume. It is not a distributed queue, Cloudflare Durable Object, Supabase Registry, Hub HTTP API, authenticated worker dispatcher, lease/heartbeat system, artifact store, or multi-region database. Do not mount it on ephemeral serverless storage and do not treat it as the production multi-tenant control plane without Hub authorization and operational backup/restore.
+
+### Updated implementation status
+
+- [x] In-memory research job state machine and validation.
+- [x] SQLite durable job/event persistence foundation with tenant-scoped reads and idempotent writes.
+- [ ] Current-head GitHub Actions run for the SQLite persistence tests.
+- [ ] CircleCI job root-cause diagnosis; current failure remains unclassified because logs are unavailable.
+- [ ] Hub authenticated API and tenant identity enforcement.
+- [ ] Worker dispatch, leases, heartbeats, retries and cancellation.
+- [ ] Supabase registry schema/migration, RLS and preview/rollback verification.
+- [ ] Frontend routes/API wiring and browser build.
+- [ ] Real dataset admission, real model training, immutable artifacts and final OOS evidence.
+
+No live Supabase schema, Cloudflare Worker, Netlify deployment, secret, broker connection or trading flag was changed.
