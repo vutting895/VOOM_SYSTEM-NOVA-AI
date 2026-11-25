@@ -1,10 +1,10 @@
 #property strict
-#property script_show_inputs
 
 #include "..\include\NOVA_PortfolioCoordinator.mqh"
 
 void OnStart()
 {
+   Print("[NOVA PORTFOLIO HARNESS] START");
    bool passed=true;
    string failures="";
    ulong stamp=GetTickCount64();
