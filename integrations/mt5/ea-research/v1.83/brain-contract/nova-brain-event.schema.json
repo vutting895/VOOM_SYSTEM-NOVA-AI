@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://voomsystem.netlify.app/schemas/nova-brain-event-v1.json",
+  "title": "NOVA EA v1.83 Brain Event",
+  "description": "Read-only, provenance-bound telemetry contract. It carries observations and recommendations only; it does not authorize broker execution.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "event_type", "occurred_at", "source", "scope"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": {
+      "enum": ["market_snapshot", "signal", "decision", "risk_check", "execution_audit", "trade_outcome"]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$",
+      "description": "UTC timestamp; local broker time must be normalized before export."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component", "ea_version", "source_sha256", "repo_commit", "symbol", "timeframe"],
+      "properties": {
+        "component": { "const": "mt5_ea" },
+        "ea_version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "repo_commit": { "$ref": "#/$defs/gitSha" },
+        "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "timeframe": { "type": "string", "enum": ["M1", "M5", "M15", "M30", "H1", "H4", "D1"] },
+        "model_version": { "type": "string", "maxLength": 64 }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account_scope_hmac", "magic_scope"],
+      "properties": {
+        "account_scope_hmac": { "$ref": "#/$defs/sha256" },
+        "magic_scope": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "market": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bid": { "$ref": "#/$defs/nonNegativeNumber" },
+        "ask": { "$ref": "#/$defs/nonNegativeNumber" },
+        "spread_points": { "$ref": "#/$defs/nonNegativeNumber" },
+        "atr": { "$ref": "#/$defs/nonNegativeNumber" },
+        "bar_time_utc": { "type": "string", "format": "date-time", "pattern": "Z$" },
+        "bar_closed": { "type": "boolean" },
+        "data_quality": { "enum": ["PASS", "WARN", "BLOCKED"] }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "side", "score"],
+      "properties": {
+        "strategy": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "side": { "enum": ["BUY", "SELL", "NONE"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason_codes": { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxItems": 32 },
+        "feature_hash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result", "model_version", "reason_codes"],
+      "properties": {
+        "result": { "enum": ["ACCEPT", "REJECT", "ABSTAIN"] },
+        "model_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "reason_codes": { "type": "array", "items": { "type": "string", "maxLength": 64 }, "minItems": 1, "maxItems": 32 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "feature_hash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "account_currency", "open_risk_pct", "position_count"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "account_currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "proposed_risk_pct": { "$ref": "#/$defs/nonNegativeNumber" },
+        "proposed_risk_money": { "$ref": "#/$defs/nonNegativeNumber" },
+        "open_risk_pct": { "$ref": "#/$defs/nonNegativeNumber" },
+        "position_count": { "type": "integer", "minimum": 0 },
+        "reason_codes": { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxItems": 32 }
+      }
+    },
+    "execution_audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "broker_request_attempted", "broker_transport_calls"],
+      "properties": {
+        "mode": { "const": "READ_ONLY" },
+        "broker_request_attempted": { "const": false },
+        "broker_transport_calls": { "const": 0 },
+        "blocked_mutation_attempts": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "closed_volume": { "$ref": "#/$defs/nonNegativeNumber" },
+        "realized_pnl": { "type": "number" },
+        "commission": { "type": "number" },
+        "swap": { "type": "number" },
+        "account_currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "close_reason": { "type": "string", "maxLength": 64 },
+        "position_fingerprint": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+    "gitSha": { "type": "string", "pattern": "^[A-Fa-f0-9]{40}$" },
+    "nonNegativeNumber": { "type": "number", "minimum": 0 }
+  }
+}
