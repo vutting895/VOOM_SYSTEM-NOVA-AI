@@ -1,14 +1,14 @@
 # NOVA Data Ingestion Worker
 
-Authenticated, tenant-scoped, telemetry-only ingestion API. This worker is separate from the Remote MCP Gateway and does not expose broker, order, execution, or trading routes.
+Authenticated, per-user owner-scoped, telemetry-only ingestion API. This worker is separate from the Remote MCP Gateway and does not expose broker, order, execution, or trading routes.
 
 ## Routes
 
 - `GET /health`: non-sensitive service/mode response.
 - `POST /v1/events`: authenticated JSON event ingestion.
-- `GET /v1/events/{event_id}`: authenticated tenant-scoped read-back.
+- `GET /v1/events/{event_id}`: authenticated owner-scoped read-back.
 
-Identity is derived by validating the caller's Supabase access token against the configured Supabase Auth `/auth/v1/user` endpoint. The verified Supabase user UUID is currently the owner namespace; this is per-user isolation, not a shared organization-tenant membership model. A tenant ID in the request body or headers is never trusted. The D1 primary key is `(tenant_id,event_id)`. Identical replay is idempotent; same ID with a different canonical payload returns HTTP 409.
+Identity is derived by validating the caller's Supabase access token against the configured Supabase Auth `/auth/v1/user` endpoint. The verified Supabase user UUID is currently the owner namespace; this is per-user isolation, not a shared organization-tenant membership model. A tenant ID in the request body or headers is never trusted. The D1 primary key is `(tenant_id,event_id)`. Identical replay is idempotent; same ID with different request bytes returns HTTP 409; the host uploader sends deterministic canonical JSON.
 
 ## Required configuration
 
@@ -24,8 +24,8 @@ This is a telemetry receiver only. It has no trading routes and no code path to 
 
 ## Current limitations — do not claim production readiness
 
-- Host uploader performs full Draft 2020-12 JSON Schema validation; the Worker repeats strict safety-critical validation. The server validator still requires parity tests against the complete schema before release.
+- Both host uploader and Worker validate against the pinned Draft 2020-12 JSON Schema. Worker additionally applies safety-critical semantic checks. Exact schema-parity and real authenticated integration tests remain required.
 - D1 has not been provisioned or migrated. No deployment has been performed.
-- Authenticated end-to-end tests, tenant isolation tests and concurrency tests are pending.
+- Real Supabase Auth/D1 end-to-end tests, owner-isolation tests and concurrent duplicate-race tests are pending.
 - No MT5 terminal export/ingestion/read-back receipt exists yet.
 - This worker does not start model training or promote models after ingestion.
