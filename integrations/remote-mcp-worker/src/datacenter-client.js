@@ -210,8 +210,8 @@ export function buildMt5DatasetPayload({
   const interval = mt5Intervals[normalizedTimeframe];
   if (!/^[A-Z0-9._-]{1,40}$/.test(normalizedSymbol)) throw new Error("invalid_mt5_dataset_symbol");
   if (!interval) throw new Error("unsupported_mt5_dataset_timeframe");
-  if (!Array.isArray(bars) || bars.length < 2 || bars.length > 500) {
-    throw new Error("mt5_dataset_requires_2_to_500_source_bars");
+  if (!Array.isArray(bars) || bars.length < 2 || bars.length > 20000) {
+    throw new Error("mt5_dataset_requires_2_to_20000_source_bars");
   }
   const name = String(dataset_name || (normalizedSymbol + "-" + normalizedTimeframe.toLowerCase() + "-exness-demo")).trim();
   if (!/^[A-Za-z0-9._-]{1,80}$/.test(name)) throw new Error("invalid_dataset_name");
@@ -224,6 +224,13 @@ export function buildMt5DatasetPayload({
       throw new Error("mt5_source_bars_must_be_valid_and_ascending");
     }
     previous = timestamp;
+    const open = Number(bar.open), high = Number(bar.high), low = Number(bar.low), close = Number(bar.close);
+    if (![open, high, low, close].every(Number.isFinite) || low > Math.min(open, close) || high < Math.max(open, close) || low > high) {
+      throw new Error("mt5_source_bar_contains_invalid_ohlc");
+    }
+    if (![bar.tick_volume, bar.spread, bar.real_volume].every(value => Number.isInteger(value) && value >= 0)) {
+      throw new Error("mt5_source_bar_contains_invalid_volume_or_spread");
+    }
     // Exclude the still-forming candle. Source order is preserved; no sorting or filling.
     if (timestamp + interval * 1000 > now_ms) continue;
     const values = ["open", "high", "low", "close", "tick_volume", "spread", "real_volume"];
@@ -260,6 +267,24 @@ export function buildMt5DatasetPayload({
   };
   if (market_calendar !== undefined) manifest.market_calendar = market_calendar;
   return {manifest, rows};
+}
+
+
+export async function buildStableMt5IngestionId(payload) {
+  if (!payload || !payload.manifest || !Array.isArray(payload.rows) || !payload.rows.length) throw new Error("invalid_mt5_ingestion_payload");
+  const canonical = JSON.stringify({
+    manifest: {
+      name:payload.manifest.name, source:payload.manifest.source, symbols:payload.manifest.symbols,
+      timeframe:payload.manifest.timeframe, timezone:payload.manifest.timezone,
+      expected_interval_seconds:payload.manifest.expected_interval_seconds,
+      coverage_start:payload.manifest.coverage_start, coverage_end:payload.manifest.coverage_end,
+      schema:payload.manifest.schema, market_calendar:payload.manifest.market_calendar ?? null
+    },
+    rows:payload.rows
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  const hex = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,"0")).join("");
+  return "mt5-" + hex;
 }
 
 export async function callDatacenterTool(name, args, request, env) {

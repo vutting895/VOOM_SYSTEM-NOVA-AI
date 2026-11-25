@@ -1,5 +1,5 @@
 import { getNovaSkill, listNovaSkills } from "./skill-registry.js";
-import { buildMt5DatasetPayload, callDatacenterTool, datacenterTools, isDatacenterTool } from "./datacenter-client.js";
+import { buildMt5DatasetPayload, buildStableMt5IngestionId, callDatacenterTool, datacenterTools, isDatacenterTool } from "./datacenter-client.js";
 
 const ALLOWED_PROTOCOLS = new Set(["2025-03-26"]);
 const NETLIFY_UI_ORIGIN = "https://voomsystem.netlify.app";
