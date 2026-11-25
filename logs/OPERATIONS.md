@@ -587,3 +587,30 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Corrected Bridge closure detection to use MT5's actual current-bar open from `copy_rates_from_pos(..., 0, 1)`; all earlier bars are closed independent of broker UTC offset. Removed epoch-modulo boundary restrictions from Gateway and tenant relay; UTC timestamps and bounded ranges remain mandatory.
 - Added regression assertions for non-epoch-aligned H4/D1 requests and Bridge current-bar boundary selection. Tests are authored, not executed.
 - No broker reads, Datacenter ingestion, deployment, credentials, permissions, or trading settings changed.
+
+
+## 2026-11-25T20:54:30Z — WO-2026-11-26-001 NOVA Agent Skills System — Phase 2
+
+- Repository: vutting895/VOOM_SYSTEM-NOVA-AI; branch: main.
+- Baseline Main SHA before Skill implementation: 821db357d70d3613b0ca61520eaae5c5307e8fd4.
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-26-001-nova-agent-skills-system.md (APPROVED).
+- User approval: explicitly confirmed the proposed NOVA Skill System, limited initially to documentation and agent instructions.
+- Added seven Cursor Skill documents:
+  - .cursor/skills/nova-skill-orchestrator/SKILL.md
+  - .cursor/skills/nova-governance/SKILL.md
+  - .cursor/skills/nova-architecture/SKILL.md
+  - .cursor/skills/nova-api-exporter/SKILL.md
+  - .cursor/skills/nova-agent-engineering/SKILL.md
+  - .cursor/skills/nova-evaluation/SKILL.md
+  - .cursor/skills/nova-trading-safety/SKILL.md
+- Updated WORK_ORDER_INSTRUCTIONS.md to reference WO-2026-11-26-001 and define Skill routing, precedence, and invocation-evidence constraints.
+- Skill file commits: 1c9a111defa6f70705bd17a23bb644d495784c0c; bc2a2ac053a4b1de855891c3682ea99e14a6ccf8; eb913f88d3dd9ab74fb052f9d51888d8bd485d33; 6e999e85e9ea2cd1139d8dc3ded4573f1a369a1c; 0829a159609d0c0958a8aef8a78f10a4d36f539e; 732ce1eee4c2c2fe5899624dc4207488f03ef0b8; 16a01cd94e1ff4dc57b6ade16ae4dbeecd21bd80.
+- Local instruction commit: 80efd13dddf00bcd64897f729937f690a6365d1f.
+- Implementation Main SHA before this log append: 80efd13dddf00bcd64897f729937f690a6365d1f.
+- No runtime/source code, CI/workflow, secret, permission, database, deployment, paid service, broker, or trading permission was changed. No tests are claimed executed at this point.
+- Existing PR #428 was not modified or merged; its review findings and check state remain separate blockers.
+- Safety remains unchanged: ordersEnabled=false, executionEnabled=false, liveTradingEnabled=false; production deployment paused.
+- Phase 1 central registration: DONE (central Work Order, README link, and changelog entry read back).
+- Phase 2 Skill documentation: IMPLEMENTED; readback/static validation pending.
+- Phase 3: NOT STARTED at log time.
+- Next: read back all seven Skill files and local instructions from exact Main, run frontmatter/path/description/overlap checks, update central Work Order phase status and report actual validation limits.
