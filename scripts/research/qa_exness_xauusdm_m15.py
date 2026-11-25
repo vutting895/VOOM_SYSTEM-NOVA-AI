@@ -43,7 +43,7 @@ def decimal_field(row: dict[str, str], key: str) -> Decimal:
 
 
 def validate(csv_path: Path, manifest_path: Path) -> dict[str, Any]:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
     errors: Counter[str] = Counter()
     interval_counts: Counter[int] = Counter()
     nonstandard_gaps: list[dict[str, Any]] = []
