@@ -72,6 +72,8 @@ jobs:
       - name: Validate NOVA System Integration Hub Worker bundle
         working-directory: .
         run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Type-check root TypeScript project
+        run: npm run lint
       - name: Build root Vite frontend
         run: npm run build
 
