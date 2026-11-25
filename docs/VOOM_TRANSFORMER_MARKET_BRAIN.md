@@ -1,68 +1,72 @@
-# VOOM Transformer Market Brain v1
+# VOOM Transformer Market Brain — Architecture and Work Order Proposal
 
-Status: isolated research implementation on a feature branch. No model training, predictive edge, or production readiness is claimed.
+Status: ARCHITECTURE PROPOSAL ONLY. Research implementation belongs in `vutting895/Datacenter`, not this NOVA repository. No model training, predictive edge, or production readiness is claimed.
 
-## Decision
+## Ownership boundary
 
-Build a dedicated intraday Market Intelligence Brain as the future primary analysis engine. Do not expand it into the general VOOM/NOVA language, vision, or automation core. Existing SMC, Elliott/Wave3, XGBoost and LSTM work remains a frozen comparison/reference during migration. No legacy path is removed until the replacement passes parity, walk-forward and sealed-OOS gates.
+The repository ownership contract is explicit:
 
-## Architecture
+- **Datacenter** owns authoritative research computation and lineage: market-data validation, dataset/universe registry, feature and label engineering, strategy research, model training, calibration, evaluation, backtesting, walk-forward refitting, model artifacts and research approval.
+- **VOOM AI / NOVA** owns user-facing workflow, authenticated Supabase session, the existing single Remote MCP Gateway, read-only broker-data connectivity, signal presentation, Risk Engine and execution safety.
+- NOVA must not duplicate model training or calculate authoritative research metrics. NOVA calls Datacenter only through the existing authenticated Gateway and the one Datacenter MCP endpoint.
 
-1. **Data gate:** completed, timestamped OHLCV bars; timezone-aware strictly increasing timestamps; valid OHLC bounds. Dataset identity, provenance, gaps, symbol and timeframe must be verified upstream before training.
-2. **Causal features:** log return, range/close, body/close, close location and rolling volume z-score. Features use current and earlier completed bars only. Multi-timeframe alignment must use only bars closed and available at decision time.
-3. **Patch Transformer:** causal patch encoder with triangular attention mask. Heads produce direction (SELL/WAIT/BUY), regime (TRENDING/RANGING/HIGH_VOLATILITY) and volatility scale.
-4. **Decision policy:** default WAIT. A directional signal requires calibrated confidence and expected net edge after spread, commission and slippage. Probability is not expected return or proof of edge.
-5. **Risk boundary:** emits typed research signals only. Existing independent Risk Engine and human approval controls remain authoritative. No broker client or order method is imported.
-6. **Evaluation:** chronological train/validation/test, purge gap from maximum label horizon, walk-forward refit per fold, sealed final OOS from 2026-07-01T00:00:00Z, and cost-aware simulation. Existing signal-replay walk-forward is not full model retraining; a dedicated refit runner is still required.
+The initial implementation files previously prototyped under NOVA's `workers/market_brain/` were removed from this branch after the ownership review. This PR now preserves only the architecture proposal.
 
-## Intraday operating policy
+## Proposed new brain
 
-- Intraday only; no position may be held across the broker trading-day boundary.
-- Daily close/flatten is enforced by the execution/risk layer, not model prediction.
-- The model may return WAIT/NO TRADE for an entire session.
-- Missing/stale data, unverified source, unsupported timeframe alignment, or unavailable model artifact must fail closed to WAIT.
-- Evaluate net P&L after costs, profit factor, drawdown, trade count, calibration, turnover and regime-specific performance; not accuracy alone.
+Build a dedicated **Intraday Transformer Market Brain** as the future primary analysis model within Datacenter's existing Learning/Research service. It is not a general-purpose VOOM LLM, vision, or automation core.
 
-## Replacement gates
+### Model architecture
 
-The new Brain becomes primary only after all gates pass:
+1. **Point-in-time data gate** — approved, immutable OHLCV dataset versions only; verified symbol, timeframe, UTC timestamps, cadence, broker-session calendar, data provenance and gap receipts.
+2. **Causal multi-timeframe feature layer** — completed-bar features from M1/M5/M15/M30/H1 (subject to dataset availability), with strict as-of joins. No forming candle, future close, or forward-filled future data.
+3. **Patch-based causal Transformer** — patch embedding plus causal attention; independent heads for direction (SELL/WAIT/BUY), market regime (TREND/RANGE/HIGH_VOLATILITY), volatility distribution and expected net move.
+4. **Structure-aware feature branch** — deterministic SMC structure (BOS/CHoCH, liquidity, FVG, premium/discount) as timestamped, auditable features. Do not hard-code a trade decision inside the Transformer.
+5. **Hybrid challenger** — compare Transformer against current Datacenter-supported Logistic Regression / Random Forest / XGBoost baselines and separately approved legacy LSTM/SMC references. Use a calibrated Meta Decision Layer only if ablation proves incremental net value.
+6. **Decision policy** — default WAIT/NO TRADE; require calibrated directional probability, expected move consistent with direction, and positive expected edge after commission, spread and slippage. A model probability is not expected return.
+7. **Research outputs** — versioned model artifact, feature schema, training config, dataset/universe lineage, calibration, inference metrics and reproducible evaluation report.
 
-- Exact dataset manifest and provenance; no synthetic dashboard data.
-- No leakage, future timestamp access, duplicate bars or unhandled gaps.
-- At least 30 closed trades in sealed OOS beginning 2026-07-01 UTC.
-- Positive net OOS profit after realistic costs and profit factor > 1.0.
-- Walk-forward robustness across regimes and no single-fold dependency.
-- Same-data, same-cost, same-execution benchmark against frozen incumbent SMC/Wave3/XGBoost/LSTM.
-- Inference latency and memory fit target runtime; artifact and feature schema versioned.
-- Risk boundary, tenant isolation and fail-closed tests pass.
+### Intraday constraints
 
-If any gate fails, do not cut over. Newer or more complex does not mean better.
+- Daily-profit objective is a research objective, not a guaranteed outcome.
+- No overnight positions. The model must not be responsible for enforcing daily flatten; that is an independent Risk/Execution control.
+- WAIT/NO TRADE for the entire session is a valid output.
+- Stale/missing/unapproved data, unknown model version, low confidence, adverse cost, high volatility or unsupported timeframe alignment must fail closed to WAIT.
+- Do not optimize accuracy alone. Evaluate net P&L after realistic costs, PF, max drawdown, expectancy, calibration, trade count, turnover, session/regime stability and inference latency.
 
-## Migration sequence
+## Evaluation and replacement gates
 
-A. Implement isolated feature and model contract (this branch).
-B. Add deterministic contract tests and optional PyTorch shape/causality tests.
-C. Add training, calibration and walk-forward refit only after approved historical data is available.
-D. Run incumbent-vs-challenger shadow comparison without execution.
-E. Require independent review and explicit cutover approval.
-F. Only after separate approval retire old analysis paths.
+Do not replace the existing analysis stack until every gate is independently evidenced:
 
-## Safety flags
+- Dataset provenance and approved immutable version are valid; no synthetic bars or silent gap filling.
+- Leakage audit, point-in-time feature lineage and label-horizon purge are clean.
+- Chronological train/validation/test and true walk-forward **per-fold model refitting** are implemented. Existing signal replay is not equivalent to model refitting.
+- Sealed OOS begins at `2026-07-01T00:00:00Z`; never tune against this period.
+- At least 30 closed OOS trades, positive net profit after realistic costs, PF > 1.0, and robustness across multiple folds/regimes.
+- Challenger and incumbent use identical data, signal timing, execution assumptions and costs.
+- Ablation demonstrates that Transformer/SMC/Meta components add measurable value; otherwise remove unnecessary complexity.
+- Artifact checksum, reproducibility, calibration, resource/latency limits, tenant isolation and fail-closed behavior pass.
+- Explicit human model approval and separate owner approval for any production cutover.
 
-- orders_enabled=false
-- execution_enabled=false
-- live_trading_enabled=false
-- research_only=true
-- orders_submitted=false
-- overnight_positions_allowed=false
-- promotion_enabled=false
-- deployment_enabled=false
-- broker_connection_enabled=false
+If any gate fails, the incumbent remains the reference. No legacy implementation is deleted merely because a Transformer exists.
 
-## Known limitations
+## Work order required before Datacenter implementation
 
-- No trained weights or training loop.
-- No calibration artifact or expected-return model.
-- Volume feature assumes comparable tick-volume semantics within input stream.
-- Cross-timeframe synchronization and news features are not implemented in v1.
-- This is a research foundation, not a profitable or production-ready trading system.
+This document is a proposal, not authorization to modify Datacenter. Datacenter's `WORK_ORDER_INSTRUCTIONS.md` requires an explicitly approved Work Order and main-SHA verification before each mutation. The next implementation needs a dedicated Work Order covering:
+
+1. Research and code ownership confirmation.
+2. Approved dataset/universe and exact target symbol/timeframes.
+3. Model family and bounded CPU-first dependency/resource budget.
+4. Training API/job lifecycle and model registry changes.
+5. Causal feature and label schema, target horizon, purge/embargo rules.
+6. Walk-forward refit, sealed OOS and cost model.
+7. Tests, reproducibility, audit records and acceptance evidence.
+8. NOVA Gateway contract additions only after Datacenter tools exist.
+9. Rollback and incumbent comparison plan.
+
+## Safety boundary
+
+- No broker connection, order submission, execution permission, deployment, or live trading.
+- `orders_enabled=false`, `execution_enabled=false`, `live_trading_enabled=false`.
+- `overnight_positions_allowed=false`.
+- Research and model approval do not enable trading.
