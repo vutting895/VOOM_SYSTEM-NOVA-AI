@@ -10,8 +10,8 @@ from pathlib import Path
 
 API = "https://api.github.com"
 ALLOWED = {
-    "bars": {"time", "timestamp", "datetime", "open", "high", "low", "close", "tick_volume", "real_volume", "volume", "spread"},
-    "ticks": {"time", "timestamp", "time_msc", "bid", "ask", "last", "volume", "volume_real", "flags"},
+    "bars": {"symbol", "timeframe", "time_server", "time_epoch", "time", "timestamp", "datetime", "open", "high", "low", "close", "tick_volume", "real_volume", "volume", "spread", "spread_points"},
+    "ticks": {"symbol", "time_server", "time", "timestamp", "time_msc", "bid", "ask", "last", "volume", "volume_real", "flags"},
 }
 MAX_COMPRESSED = 4 * 1024 * 1024
 
