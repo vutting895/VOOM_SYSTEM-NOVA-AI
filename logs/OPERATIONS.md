@@ -543,3 +543,27 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - PR #397 remains OPEN/DRAFT and was not merged. No approval feature flag was enabled; no database migration, secrets/permissions, deployment, broker write, order execution, or live trading action occurred.
 - Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
 - Next: verify exact-head CI conclusion and all test steps; then update Issue #36 with final evidence. If CI fails, inspect logs and stop before further changes.
+
+
+
+## WO-2026-11-25-003 / WO-004 — CI correction and validation outcome (2026-11-25)
+
+- This entry supersedes the earlier note that run `45522509178` was IN_PROGRESS.
+- Latest implementation/test commits before this log update:
+  - `e755507fa7518bb50d7d314cccd77cb2a8b7d905` — deterministic risk rejection before approval-service availability.
+  - `915c5be5dad69cb4430c3d5cd03331eabd065066` — Python regression coverage.
+  - `f321da6490c434db576a18adbbde707582460532` — ASCII mixed-case MT5 symbol allowlist.
+  - `f9f0de409910499dcd430105126916987fcccd7b` — Node regression coverage for `XAUUSDm` and unsafe symbols.
+  - `408cd711fa34868460de7788a1de7a8242218d92` and `0215f5d719ef15d09d634cd3f36e4811d2e74c59` — wire and order focused MT5 test before legacy SMC test in CI.
+  - `17e2070196a07ba71f6367123181855a637dbfa2` — restore approval feature flag after Bearer validation; authenticated requests remain fail-closed by default.
+- First CI run [45522509178](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45522509178) failed because the new authenticated fail-closed regression exposed missing post-auth feature-flag enforcement. Corrected in `17e2070...`.
+- Second exact-head CI run [45522728755](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/45522728755), head `0215f5d719ef15d09d634cd3f36e4811d2e74c59`:
+  - Python pytest regression: **17 passed**.
+  - Focused Datacenter client / MT5 ingestion Node tests: **PASS**.
+  - Legacy Cloudflare Worker SMC classification test: **FAIL** before later steps, due existing syntax error in `integrations/remote-mcp-worker/src/index.js:456` at `...datacenterTools` (missing comma before spread). This is outside the approved two-fix scope and was not modified.
+  - Docker Compose and image build steps: SKIPPED because the earlier SMC step failed.
+  - Overall SMC Research CI: **FAIL**. Do not mark the full validation as PASS.
+- PR #397 remains OPEN / DRAFT / UNMERGED. No PR merge, branch deletion, deployment, SQL migration, secret/permission change, approval feature enablement, broker write, order execution or live trading action occurred.
+- Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
+- Status: approved Risk Gate and mixed-case symbol changes are committed; their focused Python and Node regression suites pass. Full repository CI remains BLOCKED by the unrelated Remote MCP registry syntax defect. Do not fix that defect under this authorization; request separate scope approval.
+- Next: obtain a separate narrow approval to fix the missing comma in `integrations/remote-mcp-worker/src/index.js`, then rerun exact-main CI. Reconcile Supabase Preview project/migration mismatch independently; no DB changes authorized.
