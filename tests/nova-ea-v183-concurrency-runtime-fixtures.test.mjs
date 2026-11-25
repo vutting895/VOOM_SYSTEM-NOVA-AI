@@ -211,6 +211,18 @@ test('Portfolio Coordinator: FILE_COMMON exclusive lock, checksummed append-only
   assert.match(source, /TimeCurrent\(\)-latest\.created_at>30/);
 });
 
+test('Portfolio Coordinator: ledger compaction retains active reservations and monotonic request IDs', () => {
+  assert.match(coordinator, /bool Compact\(NOVA_PortfolioRecord &records\[\]\)/);
+  assert.match(coordinator, /latest record[\s\S]*?active request/i);
+  assert.match(coordinator, /NOVA_PORTFOLIO_PREPARED \|\| state==NOVA_PORTFOLIO_DISPATCHING/);
+  assert.match(coordinator, /high-sequence record|sequence high-water mark/i);
+  assert.match(coordinator, /FileMove\(temp_path,FILE_COMMON,m_ledger_path,FILE_COMMON\|FILE_REWRITE\)/);
+  assert.match(source, /gPortfolio\.Compact\(records\)/);
+  for (const name of ['NOVA_PortfolioRecover', 'NOVA_PortfolioReserve', 'NOVA_PortfolioReconcile']) {
+    assert.match(functionBody(name), /gPortfolio\.Compact\(records\)/, name + ' must compact before risk aggregation');
+  }
+});
+
 test('Broker adapter self-test measures blocked attempts and proves zero transport calls by construction', () => {
   assert.match(adapter, /gNOVA_BrokerMutationAttempts\+\+/);
   assert.match(adapter, /gNOVA_BrokerMutationBlocked\+\+/);
