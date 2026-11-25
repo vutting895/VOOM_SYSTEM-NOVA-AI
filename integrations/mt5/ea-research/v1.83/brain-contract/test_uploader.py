@@ -1,6 +1,7 @@
-import unittest
+import unittest, hashlib
 from pathlib import Path
-from uploader import account_scope_hmac, canonical, load_schema, validate_event
+from unittest.mock import patch
+from uploader import account_scope_hmac, canonical, load_schema, validate_event, validate_endpoint, read_back, NoRedirect
 
 class EventUploaderTests(unittest.TestCase):
     @classmethod
@@ -46,6 +47,33 @@ class EventUploaderTests(unittest.TestCase):
         event["account_login"] = "not-allowed"
         with self.assertRaises(Exception):
             validate_event(event, self.validator)
+
+    def test_endpoint_requires_clean_https(self):
+        self.assertEqual(validate_endpoint("https://api.example.test/ingest/"), "https://api.example.test/ingest")
+        for value in ("http://api.example.test", "https://user:pass@api.example.test", "https://api.example.test?token=x"):
+            with self.assertRaises(ValueError): validate_endpoint(value)
+
+    def test_read_back_verifies_exact_payload_and_receipt(self):
+        event = self.valid_event()
+        payload = canonical(event).encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+        result = {"event": event, "receipt": {"event_id": event["event_id"], "payload_sha256": digest}}
+        with patch("uploader.request_json", return_value=(200, result)):
+            receipt = read_back("https://api.example.test", "token", event["event_id"], payload, self.validator)
+        self.assertEqual(receipt["payload_sha256"], digest)
+
+    def test_read_back_rejects_digest_mismatch(self):
+        event = self.valid_event()
+        payload = canonical(event).encode("utf-8")
+        result = {"event": event, "receipt": {"event_id": event["event_id"], "payload_sha256": "0" * 64}}
+        with patch("uploader.request_json", return_value=(200, result)):
+            with self.assertRaises(RuntimeError):
+                read_back("https://api.example.test", "token", event["event_id"], payload, self.validator)
+
+    def test_redirect_handler_never_creates_redirect_request(self):
+        from urllib.request import Request
+        handler = NoRedirect()
+        self.assertIsNone(handler.redirect_request(Request("https://api.example.test"), None, 302, "Found", {}, "https://other.example.test"))
 
     def test_execution_audit_requires_zero_transport_calls(self):
         event = self.valid_event()
