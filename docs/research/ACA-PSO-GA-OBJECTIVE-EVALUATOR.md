@@ -11,6 +11,18 @@ Status: **IN PROGRESS / MARKET VALIDATION BLOCKED**
 - Objective hard-gates fewer than 30 closed trades, non-positive net profit, PF <= 1, and drawdown at/above the configured limit (default 20%; research default only, not an approved live-risk policy).
 - Added deterministic tests for repeatability, exact budgets, finite objectives, cost attestation, parameter mapping and trade metrics.
 
+## Synthetic optimizer benchmark (not trading performance)
+
+Executed 10 independent seeds (0–9), 10 dimensions, population 10, and exactly 10,000 objective calls per method per seed. Every method consumed 100,000 calls per synthetic objective. Higher (less negative) fitness is better.
+
+| Synthetic objective | ACA mean best | PSO mean best | GA mean best | Random mean best |
+|---|---:|---:|---:|---:|
+| Sphere 10D | -0.000526 | approximately 0 | -0.214631 | -11.364246 |
+| Rastrigin 10D | -1.866429 | -16.814762 | -25.152094 | -72.034293 |
+| Step-rounded 10D | 0.000000 | 0.000000 | -0.600000 | -44.700000 |
+
+ACA was strongest on the Rastrigin and step-rounded functions; PSO was strongest on Sphere and tied ACA on step-rounded. This is evidence only about these synthetic objective functions and this implementation/configuration. It does not select a trading optimizer. Full per-seed summaries are in `scripts/research/benchmark_optimizer_algorithms.py` and `docs/research/ACA-PSO-GA-SYNTHETIC-RESULTS.json`.
+
 ## Test evidence
 
 Local Python validation: 6/6 tests passed for the new optimizer/objective modules; `py_compile` passed. Tests use synthetic numeric objectives and synthetic net trade records. They are unit tests only, not market backtests or evidence of trading edge. The ACA module used was the branch source; the local test harness used import shims for unrelated Quant Engine modules because a full repository checkout was unavailable. No full-repository CI run is claimed.
@@ -20,7 +32,7 @@ Local Python validation: 6/6 tests passed for the new optimizer/objective module
 - The research branch tree contains no approved XAUUSDm M15 CSV/Parquet market dataset. The only matching data-related file found is source code, not historical market data.
 - Historical collection dependencies remain open: PR #269 (bounded tenant-isolated history API) and PR #275 (bridge reconnect/account snapshot) are not merged. Work order WO-2026-11-25-003 requires a real Demo read and Datacenter receipt before collection is considered proven.
 - Existing `workers/quant_engine/smc_mean_rejection_backtest.py` obtains BTC-USD data via yfinance at 1H/5M, not Exness XAUUSDm M15, and is not an approved source for this evaluation.
-- Its `find_swing_points` scans a symmetric window (`i-lookback:i+lookback+1`) and assigns a swing to the historical center bar. That uses future bars to confirm a past swing and can leak information. Do not use it as an optimization runner until swing confirmation is timestamped at the actual confirmation bar and higher-timeframe features are forward-as-of aligned.
+- Its `find_swing_points` scans a symmetric window (`i-lookback:i+lookback+1`) and assigns a swing to the historical center bar. That uses future bars to confirm a past swing and can leak information. Do not use it as an optimization runner until swing confirmation is timestamped at the actual confirmation bar and higher-timeframe features are forward-as-of aligned. In addition, order blocks are precomputed over the entire dataframe and the final 10 are queried for every earlier bar, which introduces further future leakage.
 - No runner currently satisfies the causal, cost-inclusive callback contract. The objective adapter is infrastructure only; it has not generated strategy scores.
 
 ## Required protocol after data approval
