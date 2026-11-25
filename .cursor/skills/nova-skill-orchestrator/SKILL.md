@@ -40,3 +40,6 @@ Report exact repository, branch, before/after SHA, Work Order ID, changed paths,
 
 ## Invocation limitation
 Cursor may select a Skill based on its description and task context. This file's existence does not prove Cursor selected or executed it. Do not claim automatic runtime invocation until observed in a real supported Cursor session.
+
+## Distinguish Cursor Skills from the MCP catalog
+The Cursor Skills in .cursor/skills are agent instruction documents selected by Cursor from repository context. NOVA's existing Remote MCP skill registry is a separate catalog-only runtime metadata API exposed through list_nova_skills/get_nova_skill. Do not duplicate, replace, merge, or claim runtime execution from either system. The MCP registry currently exposes metadata only and has its own authorization/tests; this Work Order does not modify it.
