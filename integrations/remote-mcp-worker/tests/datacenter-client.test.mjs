@@ -73,6 +73,23 @@ test("Datacenter URL must be HTTPS and end at the fixed MCP path", async () => {
   );
 });
 
+test("MT5 symbol validation preserves mixed-case broker suffixes", () => {
+  const bars = [
+    {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
+    {time:"2026-01-01T01:00:00Z",open:11,high:13,low:10,close:12,tick_volume:6,spread:2,real_volume:0},
+  ];
+  const payload = buildMt5DatasetPayload({
+    symbol:"XAUUSDm", timeframe:"H1", bars,
+    now_ms:Date.parse("2026-01-02T00:00:00Z"),
+  });
+  assert.deepEqual(payload.manifest.symbols, ["XAUUSDm"]);
+  assert.throws(() => buildMt5DatasetPayload({
+    symbol:"XAUUSDm/../other", timeframe:"H1", bars,
+    now_ms:Date.parse("2026-01-02T00:00:00Z"),
+  }), /invalid_mt5_dataset_symbol/);
+});
+
+
 test("MT5 ingestion adapter excludes the forming candle and preserves source order", () => {
   const bars = [
     {time:"2026-01-01T00:00:00Z",open:10,high:12,low:9,close:11,tick_volume:5,spread:2,real_volume:0},
