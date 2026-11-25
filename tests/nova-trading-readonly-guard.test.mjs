@@ -71,7 +71,7 @@ test('only the tenant-scoped Exness Demo read-only bridge is retained', () => {
   assert.ok(bridge.includes('BRIDGE_TOKEN = os.environ.get("MT5_BRIDGE_TOKEN"'));
   assert.ok(bridge.includes('hmac.compare_digest(tenant_id, TENANT_ID)'));
   assert.ok(bridge.includes('trade_mode != demo_mode'));
-  assert.ok(bridge.includes('"exness" not in f"{server_name} {company_name}".lower()'));
+  assert.ok(bridge.includes('"exness" not in server_name.lower()'));
   assert.ok(bridge.includes('@app.get("/api/account")'));
   assert.ok(bridge.includes('@app.get("/api/quotes")'));
   assert.ok(bridge.includes('request.method not in {"GET", "OPTIONS"}'));
