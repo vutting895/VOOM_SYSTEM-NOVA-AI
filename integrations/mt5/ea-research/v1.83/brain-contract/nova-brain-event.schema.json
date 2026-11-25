@@ -35,9 +35,9 @@
     "scope": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["account_scope_hash", "magic_scope"],
+      "required": ["account_scope_hmac", "magic_scope"],
       "properties": {
-        "account_scope_hash": { "$ref": "#/$defs/sha256" },
+        "account_scope_hmac": { "$ref": "#/$defs/sha256" },
         "magic_scope": { "type": "integer", "minimum": 0 }
       }
     },
