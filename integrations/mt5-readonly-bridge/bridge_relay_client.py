@@ -24,7 +24,7 @@ LOCAL_ORIGIN = "http://127.0.0.1:8787"
 MAX_MESSAGE_BYTES = 1024 * 1024
 TENANT_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{8,100}$")
 REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes"}
+ALLOWED_PATHS = {"/health", "/api/account", "/api/symbols", "/api/quotes", "/api/history"}
 TIMEFRAMES = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
 
 
@@ -72,6 +72,25 @@ def normalize_read_path(value: object) -> str:
         limit = params.get("limit", ["100"])[0]
         if not limit.isdigit() or not 1 <= int(limit) <= 500:
             raise ValueError("Symbol limit is invalid.")
+    elif parsed.path == "/api/history":
+        if set(params) - {"symbol", "timeframe", "start_utc", "end_utc"}:
+            raise ValueError("Query parameter is not allowed.")
+        symbol = params.get("symbol", [""])[0]
+        timeframe = params.get("timeframe", ["H1"])[0].upper()
+        start, end = params.get("start_utc", [""])[0], params.get("end_utc", [""])[0]
+        pattern = r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z"
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,40}", symbol) or timeframe not in TIMEFRAMES:
+            raise ValueError("Symbol or timeframe is invalid.")
+        if not re.fullmatch(pattern, start) or not re.fullmatch(pattern, end):
+            raise ValueError("History bounds must be strict UTC timestamps.")
+        from datetime import datetime
+        try:
+            start_dt = datetime.strptime(start, "%Y-%m-%dT%H:%M:%SZ")
+            end_dt = datetime.strptime(end, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as exc:
+            raise ValueError("History bounds are invalid.") from exc
+        if start_dt >= end_dt:
+            raise ValueError("History range must be increasing.")
     else:
         if set(params) - {"symbol", "timeframe", "count"}:
             raise ValueError("Query parameter is not allowed.")
