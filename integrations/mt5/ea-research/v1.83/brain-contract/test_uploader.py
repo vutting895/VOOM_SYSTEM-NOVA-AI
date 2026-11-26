@@ -60,10 +60,23 @@ class EventUploaderTests(unittest.TestCase):
         with self.assertRaises(Exception):
             validate_event(event, self.validator)
 
-    def test_endpoint_requires_clean_https(self):
-        self.assertEqual(validate_endpoint("https://api.example.test/ingest/"), "https://api.example.test/ingest")
-        for value in ("http://api.example.test", "https://user:pass@api.example.test", "https://api.example.test?token=x"):
-            with self.assertRaises(ValueError): validate_endpoint(value)
+    def test_endpoint_requires_clean_https_and_exact_host_allowlist(self):
+        allowed = {"api.example.test"}
+        self.assertEqual(
+            validate_endpoint("https://api.example.test/ingest/", allowed),
+            "https://api.example.test/ingest"
+        )
+        for value in (
+            "http://api.example.test",
+            "https://user:pass@api.example.test",
+            "https://api.example.test?token=x",
+            "https://evil.example.test/ingest",
+            "https://api.example.test:8443/ingest"
+        ):
+            with self.assertRaises(ValueError):
+                validate_endpoint(value, allowed)
+        with self.assertRaises(ValueError):
+            validate_endpoint("https://api.example.test/ingest", set())
 
     def test_read_back_verifies_exact_payload_and_receipt(self):
         event = self.valid_event()
