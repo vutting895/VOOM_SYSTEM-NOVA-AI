@@ -6,7 +6,7 @@ import { describeApiError } from "@/lib/nova/api";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/bridge")({
-  head: pageHead("MT5 Bridge", "Bridge heartbeat monitor."),
+  head: () => pageHead("MT5 Bridge", "Bridge heartbeat monitor."),
   component: Bridge,
 });
 
