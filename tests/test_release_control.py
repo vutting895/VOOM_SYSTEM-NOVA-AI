@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from scripts.release_control import (
@@ -8,6 +9,7 @@ from scripts.release_control import (
     create_release_marker,
     validate_release_marker,
     write_immutable_json,
+    create_rollback_request,
 )
 
 
@@ -89,6 +91,34 @@ class ReleaseControlTests(unittest.TestCase):
                 commit_sha=self.sha, root=self.root,
                 review_evidence_reference="not-a-url",
                 approval_build_url="https://app.circleci.com/pipelines/123",
+            )
+
+    @patch("scripts.release_control.subprocess.run")
+    def test_rollback_request_is_pending_handoff_only(self, run):
+        run.side_effect = [
+            type("Result", (), {"returncode": 0})(),
+            type("Result", (), {"returncode": 0})(),
+        ]
+        request = create_rollback_request(
+            target_sha=self.sha,
+            evidence_reference="https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/123",
+            reason="Restore prior verified release",
+            repository="vutting895/VOOM_SYSTEM-NOVA-AI",
+            root=self.root,
+        )
+        self.assertEqual(request["request_status"], "PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION")
+        self.assertEqual(request["execution_owner"], "GitHub Actions")
+        self.assertEqual(request["execution_status"], "NOT_EXECUTED")
+        self.assertFalse(request["circleci_deploy_or_rollback_executed"])
+
+    def test_rollback_request_rejects_non_deployment_evidence(self):
+        with self.assertRaises(EvidenceError):
+            create_rollback_request(
+                target_sha=self.sha,
+                evidence_reference="https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/issues/36",
+                reason="Restore prior release",
+                repository="vutting895/VOOM_SYSTEM-NOVA-AI",
+                root=self.root,
             )
 
     def test_immutable_write_is_idempotent_but_rejects_replacement(self):
