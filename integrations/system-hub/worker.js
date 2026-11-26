@@ -1,5 +1,6 @@
 import { parseBrainIntent, buildBrainPlan } from "./brain-core.js";
 import { authorizeCapability, TRADING_SAFETY_FLAGS } from "./permission-engine.js";
+import { DATA_SOURCE_CATALOG_VERSION, getDataSourceCatalog } from "./data-source-catalog.js";
 
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
@@ -610,6 +611,25 @@ export default {
         integrations: integrationRegistry(env),
         mode: "read-only",
         ordersEnabled: false,
+        liveTradingEnabled: false
+      }, 200, origin, env);
+    }
+
+    if (url.pathname === "/v1/data/sources" && request.method === "GET") {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      return json({
+        service: "voom-system-hub",
+        catalogVersion: DATA_SOURCE_CATALOG_VERSION,
+        sources: getDataSourceCatalog(),
+        semantics: {
+          listed: "registered_source_path_only",
+          reachability: "not_implied",
+          dataVerification: "must_be_checked_per_resource_and_connection"
+        },
+        mode: "read-only",
+        ordersEnabled: false,
+        executionEnabled: false,
         liveTradingEnabled: false
       }, 200, origin, env);
     }
