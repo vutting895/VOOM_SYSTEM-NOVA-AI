@@ -74,9 +74,26 @@ jobs:
         run: node --test integrations/remote-mcp-worker/tests/datacenter-client.test.mjs
       - name: Run Cloudflare Worker SMC classification tests
         run: node --test integrations/remote-mcp-worker/tests/smc.test.mjs
-      - name: Validate Docker Compose configuration
-        run: docker compose -f infra/docker-compose.yml config --quiet
       - name: Build research worker container
         run: docker build -f workers/Dockerfile -t nova-research-worker:ci .
       - name: Build frontend container
         run: docker build -f Dockerfile -t nova-frontend:ci .
+
+  compose-profile-validation:
+    name: Validate default and legacy-archive Compose profiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate default Compose configuration
+        run: docker compose -f infra/docker-compose.yml config --quiet
+      - name: Ensure archived MCP prototype is opt-in only
+        shell: bash
+        run: |
+          default_services="$(docker compose -f infra/docker-compose.yml config --services)"
+          if printf '%s\n' "$default_services" | grep -Fxq "mcp-server-archive"; then
+            echo "Archived MCP prototype unexpectedly appears in default services."
+            exit 1
+          fi
+          archive_services="$(docker compose --profile legacy-archive -f infra/docker-compose.yml config --services)"
+          printf '%s\n' "$archive_services" | grep -Fxq "mcp-server-archive"
