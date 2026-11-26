@@ -11,6 +11,11 @@ JARVIS-inspired multi-broker trading command center, AI research chat, Gen-AI st
 - **Learning Universe 16**: 16 research and AI worker learning modules.
 - **Markets & Video Workspace**: Multi-asset telemetry and Gen-AI video studio.
 
+## Architecture and service boundaries
+
+- 2026-11-25 architecture documentation audit: [NOVA Architecture Documentation Audit](docs/architecture/NOVA-ARCHITECTURE-DOCUMENTATION-AUDIT-2026-11-25.md)
+- Current governance and development status: [NOVA Master Tracker #36](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/issues/36)
+
 ## Running Locally
 - Install dependencies: `npm install`
 - Start development server: `npm run dev` (runs on port 3000)
