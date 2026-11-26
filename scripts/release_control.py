@@ -83,6 +83,8 @@ def create_release_marker(
     root: Path,
     review_evidence_reference: str,
     approval_build_url: str,
+    circleci_workflow_id: str = "",
+    circleci_build_number: str = "",
     created_at_utc: str | None = None,
 ) -> dict[str, Any]:
     _require_sha(commit_sha)
@@ -107,6 +109,8 @@ def create_release_marker(
         "circleci_approval": {
             "status": "approval_gate_completed",
             "pipeline_url": approval_build_url,
+            "workflow_id": circleci_workflow_id,
+            "build_number": circleci_build_number,
             "approver_identity": None,
             "approver_timestamp_utc": None,
             "identity_limitation": "CircleCI approval-job completion is recorded; approver identity/timestamp are not asserted.",
@@ -131,6 +135,8 @@ def validate_release_marker(
     marker: dict[str, Any], *, repository: str, commit_sha: str, root: Path
 ) -> None:
     _require_sha(commit_sha)
+    if marker.get("schema_version") != 1 or marker.get("marker_type") != "nova-release-candidate":
+        raise EvidenceError("unsupported marker schema or type")
     if marker.get("repository") != repository or marker.get("commit_sha") != commit_sha:
         raise EvidenceError("marker repository/SHA does not match the exact candidate checkout")
     if marker.get("workflow_version") != WORKFLOW_VERSION:
@@ -147,8 +153,11 @@ def validate_release_marker(
     if {item.get("name") for item in checks if item.get("status") == "passed"} != set(REQUIRED_CHECKS):
         raise EvidenceError("required CircleCI checks are missing or not passed")
     approval = marker.get("circleci_approval", {})
-    if approval.get("status") != "approval_gate_completed" or not approval.get("pipeline_url"):
-        raise EvidenceError("CircleCI approval gate has not completed")
+    if (
+        approval.get("status") != "approval_gate_completed"
+        or not str(approval.get("pipeline_url", "")).startswith("https://app.circleci.com/pipelines/")
+    ):
+        raise EvidenceError("CircleCI approval gate has not completed or pipeline evidence is invalid")
     if marker.get("github_review_evidence", {}).get("verification") != "NOT_MACHINE_VERIFIED":
         raise EvidenceError("GitHub review evidence state is invalid")
     if marker.get("production_deploy_owner") != "GitHub Actions":
@@ -239,6 +248,8 @@ def main() -> int:
     marker_parser.add_argument("--sha", required=True)
     marker_parser.add_argument("--review-evidence", required=True)
     marker_parser.add_argument("--approval-build-url", required=True)
+    marker_parser.add_argument("--workflow-id", default=os.environ.get("CIRCLE_WORKFLOW_ID", ""))
+    marker_parser.add_argument("--build-number", default=os.environ.get("CIRCLE_BUILD_NUM", ""))
     marker_parser.add_argument("--output", default="release-evidence/release-marker.json")
     validate_parser = sub.add_parser("validate-marker")
     validate_parser.add_argument("--repository", required=True)
@@ -257,6 +268,8 @@ def main() -> int:
             repository=args.repository, commit_sha=args.sha, root=root,
             review_evidence_reference=args.review_evidence,
             approval_build_url=args.approval_build_url,
+            circleci_workflow_id=args.workflow_id,
+            circleci_build_number=args.build_number,
         )
         result = write_immutable_json(root / args.output, payload)
         print(json.dumps({"result": result, "marker_id": payload["marker_id"]}, indent=2))
