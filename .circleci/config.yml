@@ -74,7 +74,8 @@ jobs:
                 "production_deploy_owner": "GitHub Actions",
                 "circleci_scope": ["release-validation", "release-markers", "rollback-orchestration"],
                 "production_deploy_executed": False,
-                  "executionEnabled": False,
+                "ordersEnabled": False,
+                "executionEnabled": False,
                 "liveTradingEnabled": False
             }, indent=2))
             PY
@@ -93,7 +94,7 @@ jobs:
           command: |
             set -euo pipefail
             SHA="$(git rev-parse HEAD)"
-            REQUESTED_SHA="<< pipeline.parameters.release_sha >>"
+            REQUESTED_SHA="$REQUESTED_RELEASE_SHA"
             if [ -n "$REQUESTED_SHA" ] && [ "$REQUESTED_SHA" != "$SHA" ]; then
               echo "Release SHA mismatch; refusing to create marker."
               exit 1
@@ -219,9 +220,17 @@ jobs:
             ROLLBACK_REASON: "<< pipeline.parameters.rollback_reason >>"
           command: |
             set -euo pipefail
-            TARGET="<< pipeline.parameters.rollback_target_sha >>"
-            EVIDENCE="<< pipeline.parameters.rollback_evidence >>"
-            REASON="<< pipeline.parameters.rollback_reason >>"
+            TARGET="$ROLLBACK_TARGET_SHA"
+            EVIDENCE="$ROLLBACK_EVIDENCE"
+            REASON="$ROLLBACK_REASON"
+            if [ -z "$EVIDENCE" ] || [ "${#EVIDENCE}" -gt 2048 ]; then
+              echo "rollback_evidence is required and must be at most 2048 characters."
+              exit 1
+            fi
+            if [ "${#REASON}" -gt 1000 ]; then
+              echo "rollback_reason must be at most 1000 characters."
+              exit 1
+            fi
             git fetch origin main --quiet
             git cat-file -e "${TARGET}^{commit}"
             if ! git merge-base --is-ancestor "$TARGET" origin/main; then
