@@ -1,7 +1,32 @@
 version: 2.1
 
+parameters:
+  operation:
+    type: enum
+    enum: ["validate", "mark-release", "rollback-request"]
+    default: "validate"
+  release_id:
+    type: string
+    default: ""
+  release_sha:
+    type: string
+    default: ""
+  environment:
+    type: enum
+    enum: ["staging", "production"]
+    default: "staging"
+  rollback_target_sha:
+    type: string
+    default: ""
+  rollback_evidence:
+    type: string
+    default: ""
+  rollback_reason:
+    type: string
+    default: "Operator-requested rollback"
+
 jobs:
-  quant-foundation-tests:
+  release-validation:
     docker:
       - image: cimg/python:3.11
     working_directory: ~/project
@@ -15,8 +40,216 @@ jobs:
           name: Run Quant Engine contract tests
           command: |
             PYTHONPATH=. python -m unittest discover -s tests -p "test_quant*.py" -v
+      - run:
+          name: Validate release identity, deploy ownership, and trading safety
+          command: |
+            set -euo pipefail
+            ACTUAL_SHA="$(git rev-parse HEAD)"
+            REQUESTED_SHA="<< pipeline.parameters.release_sha >>"
+            if [ -n "$REQUESTED_SHA" ] && [ "$REQUESTED_SHA" != "$ACTUAL_SHA" ]; then
+              echo "Requested release SHA does not match the exact CircleCI checkout."
+              exit 1
+            fi
+            test -f .github/workflows/cloudflare-deploy.yml
+            grep -q 'workflow_run:' .github/workflows/cloudflare-deploy.yml
+            grep -q 'wrangler deploy' .github/workflows/cloudflare-deploy.yml
+            grep -q 'NOVA_APPROVALS_ENABLED: "false"' .github/workflows/cloudflare-deploy.yml
+            grep -q 'ordersEnabled.*false' .github/workflows/cloudflare-deploy.yml
+            grep -q 'liveTradingEnabled.*false' .github/workflows/cloudflare-deploy.yml
+            python - <<'PY'
+            import json, os, subprocess
+            sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            branch = os.environ.get("CIRCLE_BRANCH", "")
+            print(json.dumps({
+                "status": "validated",
+                "commit_sha": sha,
+                "branch": branch,
+                "circleci_build_num": os.environ.get("CIRCLE_BUILD_NUM", ""),
+                "production_deploy_owner": "GitHub Actions",
+                "circleci_scope": ["release-validation", "release-markers", "rollback-orchestration"],
+                "production_deploy_executed": False,
+                "ordersEnabled": False,
+                "executionEnabled": False,
+                "liveTradingEnabled": False
+            }, indent=2))
+            PY
+      - store_artifacts:
+          path: /tmp
+          destination: validation-temp
+
+  create-release-marker:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Create immutable release-candidate marker
+          command: |
+            set -euo pipefail
+            SHA="$(git rev-parse HEAD)"
+            REQUESTED_SHA="<< pipeline.parameters.release_sha >>"
+            if [ -n "$REQUESTED_SHA" ] && [ "$REQUESTED_SHA" != "$SHA" ]; then
+              echo "Release SHA mismatch; refusing to create marker."
+              exit 1
+            fi
+            RELEASE_ID="<< pipeline.parameters.release_id >>"
+            if [ -z "$RELEASE_ID" ]; then RELEASE_ID="nova-${SHA:0:12}-${CIRCLE_BUILD_NUM}"; fi
+            export SHA RELEASE_ID
+            python - <<'PY'
+            import datetime, json, os
+            marker = {
+                "schema_version": 1,
+                "marker_type": "release-candidate",
+                "release_id": os.environ["RELEASE_ID"],
+                "commit_sha": os.environ["SHA"],
+                "environment": "<< pipeline.parameters.environment >>",
+                "circleci_project": os.environ.get("CIRCLE_PROJECT_REPONAME", ""),
+                "circleci_build_num": os.environ.get("CIRCLE_BUILD_NUM", ""),
+                "circleci_build_url": os.environ.get("CIRCLE_BUILD_URL", ""),
+                "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "production_deploy_owner": "GitHub Actions",
+                "deployment_status": "NOT_DEPLOYED_BY_CIRCLECI",
+                "validation_status": "PASSED",
+                "safety": {"ordersEnabled": False, "executionEnabled": False, "liveTradingEnabled": False}
+            }
+            os.makedirs("release-evidence", exist_ok=True)
+            with open("release-evidence/release-marker.json", "w") as f:
+                json.dump(marker, f, indent=2)
+                f.write("\n")
+            with open("release-evidence/release-marker.env", "w") as f:
+                for key in ("release_id", "commit_sha", "environment", "deployment_status", "validation_status"):
+                    f.write(f"{key.upper()}={marker[key]}\n")
+            print(json.dumps(marker, indent=2))
+            PY
+      - store_artifacts:
+          path: release-evidence
+          destination: release-markers
+
+  rollback-preflight:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Validate rollback target and evidence
+          command: |
+            set -euo pipefail
+            TARGET="<< pipeline.parameters.rollback_target_sha >>"
+            EVIDENCE="<< pipeline.parameters.rollback_evidence >>"
+            REASON="<< pipeline.parameters.rollback_reason >>"
+            if ! [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "rollback_target_sha must be a full 40-character Git commit SHA."
+              exit 1
+            fi
+            if [ -z "$EVIDENCE" ]; then
+              echo "rollback_evidence is required (for example, a prior GitHub Actions deployment/run URL or retained release-marker reference)."
+              exit 1
+            fi
+            git fetch origin main --quiet
+            git cat-file -e "${TARGET}^{commit}"
+            if ! git merge-base --is-ancestor "$TARGET" origin/main; then
+              echo "Rollback target is not an ancestor of current origin/main; refusing request."
+              exit 1
+            fi
+            export TARGET EVIDENCE REASON
+            python - <<'PY'
+            import datetime, json, os, subprocess
+            target = os.environ["TARGET"]
+            current_main = subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
+            request = {
+                "schema_version": 1,
+                "request_type": "production-rollback",
+                "target_sha": target,
+                "target_subject": subprocess.check_output(["git", "show", "-s", "--format=%s", target], text=True).strip(),
+                "current_main_sha_at_preflight": current_main,
+                "evidence_reference": os.environ["EVIDENCE"],
+                "reason": os.environ["REASON"],
+                "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "requested_by": os.environ.get("CIRCLE_USERNAME", "unknown"),
+                "approval_required": True,
+                "execution_owner": "GitHub Actions",
+                "execution_status": "NOT_EXECUTED",
+                "execution_method": "Create and review a revert/rollback change, then let the existing GitHub Actions production workflow deploy the approved commit.",
+                "safety": {"ordersEnabled": False, "executionEnabled": False, "liveTradingEnabled": False}
+            }
+            os.makedirs("rollback-evidence", exist_ok=True)
+            with open("rollback-evidence/rollback-request.json", "w") as f:
+                json.dump(request, f, indent=2)
+                f.write("\n")
+            print(json.dumps(request, indent=2))
+            PY
+      - store_artifacts:
+          path: rollback-evidence
+          destination: rollback-preflight
+
+  publish-rollback-request:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Publish approved rollback orchestration evidence
+          command: |
+            set -euo pipefail
+            TARGET="<< pipeline.parameters.rollback_target_sha >>"
+            EVIDENCE="<< pipeline.parameters.rollback_evidence >>"
+            REASON="<< pipeline.parameters.rollback_reason >>"
+            export TARGET EVIDENCE REASON
+            python - <<'PY'
+            import datetime, json, os, subprocess
+            target = os.environ["TARGET"]
+            if not subprocess.run(["git", "cat-file", "-e", f"{target}^{{commit}}"], check=False).returncode == 0:
+                raise SystemExit("Rollback target is unavailable in this checkout.")
+            payload = {
+                "schema_version": 1,
+                "request_type": "production-rollback",
+                "target_sha": target,
+                "evidence_reference": os.environ["EVIDENCE"],
+                "reason": os.environ["REASON"],
+                "approval_status": "CIRCLECI_MANUAL_APPROVAL_GRANTED",
+                "execution_owner": "GitHub Actions",
+                "execution_status": "AWAITING_GITHUB_ACTIONS_OPERATOR",
+                "created_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "safety": {"ordersEnabled": False, "executionEnabled": False, "liveTradingEnabled": False}
+            }
+            os.makedirs("rollback-evidence-approved", exist_ok=True)
+            with open("rollback-evidence-approved/approved-rollback-request.json", "w") as f:
+                json.dump(payload, f, indent=2)
+                f.write("\n")
+            print(json.dumps(payload, indent=2))
+            PY
+      - store_artifacts:
+          path: rollback-evidence-approved
+          destination: rollback-approved-request
 
 workflows:
-  quant-foundation:
+  validate-release:
+    when:
+      equal: ["validate", << pipeline.parameters.operation >>]
     jobs:
-      - quant-foundation-tests
+      - release-validation
+
+  mark-release:
+    when:
+      equal: ["mark-release", << pipeline.parameters.operation >>]
+    jobs:
+      - release-validation
+      - create-release-marker:
+          requires:
+            - release-validation
+
+  rollback-orchestration:
+    when:
+      equal: ["rollback-request", << pipeline.parameters.operation >>]
+    jobs:
+      - rollback-preflight
+      - approve-production-rollback:
+          type: approval
+          requires:
+            - rollback-preflight
+      - publish-rollback-request:
+          requires:
+            - approve-production-rollback
