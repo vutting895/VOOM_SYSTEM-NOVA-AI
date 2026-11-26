@@ -138,6 +138,15 @@ class FinishRequest(BaseModel):
     lease_token: str = Field(min_length=32, max_length=256)
     state: str
     error_code: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")
+    result: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def validate_result(self):
+        if self.state == "SUCCEEDED" and not isinstance(self.result, dict):
+            raise ValueError("result_required_for_success")
+        if self.result is not None and len(self.model_dump_json().encode("utf-8")) > 262_144:
+            raise ValueError("result_too_large")
+        return self
 
 
 @router.get("/v1/jobs")
@@ -236,7 +245,7 @@ def finish_job(job_id: str, payload: FinishRequest,
     try:
         job = queue().finish(job_id=job_id, worker_id=payload.worker_id,
                              lease_token=payload.lease_token, state=payload.state,
-                             error_code=payload.error_code)
+                             error_code=payload.error_code, result=payload.result)
         return {"job": job}
     except QueueNotFound:
         raise HTTPException(status_code=404, detail="job_not_found") from None
