@@ -8,10 +8,11 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Report Node.js runtime
+          command: node --version
+      - run:
           name: Run System Hub unit and contract tests
-          command: |
-            cd integrations/system-hub
-            node --test tests/*.test.mjs
+          command: node --test integrations/system-hub/tests/*.test.mjs
       - run:
           name: Syntax-check System Hub Worker and catalog
           command: |
