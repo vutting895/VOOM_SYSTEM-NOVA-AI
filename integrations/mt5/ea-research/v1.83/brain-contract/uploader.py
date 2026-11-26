@@ -34,7 +34,7 @@ def load_schema(schema_path: Path):
         raise RuntimeError("Install jsonschema>=4.20; full Draft 2020-12 validation is mandatory") from exc
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.Draft202012Validator.check_schema(schema)
-    return jsonschema.Draft202012Validator(schema)
+    return jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker())
 
 def validate_event(event, validator):
     validator.validate(event)
