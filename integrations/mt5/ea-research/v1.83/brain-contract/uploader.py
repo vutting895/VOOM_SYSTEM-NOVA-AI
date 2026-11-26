@@ -21,10 +21,20 @@ def account_scope_hmac(account_scope: str, key: str) -> str:
         raise ValueError("local account scope and HMAC key are required")
     return hmac.new(key.encode(), account_scope.encode(), hashlib.sha256).hexdigest()
 
-def validate_endpoint(endpoint: str) -> str:
+def validate_endpoint(endpoint: str, allowed_hosts: set[str]) -> str:
     parsed = urlsplit(endpoint)
     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("ingestion endpoint must be a clean HTTPS origin/path without credentials, query or fragment")
+    host = (parsed.hostname or "").lower().rstrip(".")
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("ingestion endpoint has an invalid port") from exc
+    normalized_hosts = {item.strip().lower().rstrip(".") for item in allowed_hosts if item.strip()}
+    if not host or port not in (None, 443):
+        raise ValueError("ingestion endpoint must use an allowlisted host on HTTPS port 443")
+    if not normalized_hosts or host not in normalized_hosts:
+        raise ValueError("ingestion endpoint host is not in NOVA_INGESTION_ALLOWED_HOSTS")
     return endpoint.rstrip("/")
 
 def load_schema(schema_path: Path):
@@ -89,8 +99,13 @@ def main():
     parser.add_argument("jsonl", type=Path)
     parser.add_argument("--schema", type=Path, required=True)
     args = parser.parse_args()
+    allowed_hosts = {
+        host.strip().lower().rstrip(".")
+        for host in os.environ.get("NOVA_INGESTION_ALLOWED_HOSTS", "").split(",")
+        if host.strip()
+    }
     try:
-        endpoint = validate_endpoint(os.environ.get("NOVA_INGESTION_API_URL", "").strip())
+        endpoint = validate_endpoint(os.environ.get("NOVA_INGESTION_API_URL", "").strip(), allowed_hosts)
     except ValueError as exc:
         parser.error(str(exc))
     token = os.environ.get("NOVA_SUPABASE_ACCESS_TOKEN", "")
