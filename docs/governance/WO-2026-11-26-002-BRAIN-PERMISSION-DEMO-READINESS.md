@@ -55,3 +55,12 @@ Phase 0 IN_PROGRESS. No runtime code, broker mutation, test PASS, deployment or 
 - Netlify: no deploy initiated; published production remains at commit 03b71d01ce2ddedf7da1ee17d296f8880dde6e10; recent main deploys skipped for credit usage exceeded.
 - Phases 1–3: IMPLEMENTED / REVIEW_REQUIRED (thin slice/scaffold only). Phase 4: BLOCKED_DEPENDENCY. Phase 5: NOT STARTED.
 - Safety flags remain false. No broker writes, Demo activation, Live Trading, production changes, secrets/permissions or Datacenter changes.
+
+
+## Additional validation update — 2026-11-26
+
+- Added an AST-based source regression test for absence of MetaTrader5 imports and broker mutation calls in adapter.py.
+- Re-ran local exact-blob tests: Node 8/8 PASS; Python 8/8 PASS; py_compile PASS; route integration test syntax check PASS.
+- Updated Python test Git blob SHA: f6c0c3795db67249cf000d8bc636dbf3e26fe126; it matches the locally tested file.
+- System Hub route integration tests remain NOT EXECUTED; full Worker bundle check, exact-head hosted CI and independent security review remain outstanding.
+- Latest NOVA Main at this checkpoint: 9f386a6c4f4c8f7a3b11ad8e6b7bd503768d0f23.
