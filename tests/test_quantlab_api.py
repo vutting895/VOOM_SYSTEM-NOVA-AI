@@ -139,7 +139,8 @@ def test_invalid_payload_and_dispatcher_lease_cannot_be_reused(client):
     assert finish.status_code == 200
     replay = client.post(
         f"/v1/internal/leases/{job_id}/finish", headers=internal,
-        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED",\n         "result": {"ok": True}},
+        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED",
+              "result": {"ok": True}},
     )
     assert replay.status_code == 409
 
