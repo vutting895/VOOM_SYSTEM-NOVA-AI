@@ -90,7 +90,7 @@ def create_release_marker(
         raise EvidenceError("repository must be owner/name")
     if not review_evidence_reference.startswith("https://github.com/"):
         raise EvidenceError("review_evidence_reference must be a GitHub URL")
-    if not approval_build_url.startswith("https://app.circleci.com/"):
+    if not approval_build_url.startswith("https://app.circleci.com/pipelines/"):
         raise EvidenceError("approval_build_url must identify the CircleCI approval pipeline")
     digests = artifact_digests(root)
     marker = {
@@ -171,7 +171,14 @@ def write_immutable_json(path: Path, payload: dict[str, Any]) -> str:
         existing = path.read_text(encoding="utf-8")
         if existing == encoded:
             return "already_exists_identical"
-        raise EvidenceError("immutable evidence path already exists with different content")
+        try:
+            existing_payload = json.loads(existing)
+        except json.JSONDecodeError as exc:
+            raise EvidenceError("immutable evidence path contains invalid JSON") from exc
+        stable_key = "marker_id" if "marker_id" in payload else "request_id"
+        if payload.get(stable_key) and existing_payload.get(stable_key) == payload.get(stable_key):
+            return "already_exists_same_identity"
+        raise EvidenceError("immutable evidence path already exists with different identity")
 
 
 def create_rollback_request(
@@ -199,8 +206,15 @@ def create_rollback_request(
     )
     if ancestor.returncode != 0:
         raise EvidenceError("rollback target is not an ancestor of current origin/main")
+    request_identity = {
+        "repository": repository,
+        "target_sha": target_sha,
+        "deployment_evidence_reference": evidence_reference,
+        "reason": reason,
+    }
     return {
         "schema_version": 1,
+        "request_id": _sha256(_canonical(request_identity)),
         "request_type": "production-rollback",
         "request_status": "PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION",
         "repository": repository,
