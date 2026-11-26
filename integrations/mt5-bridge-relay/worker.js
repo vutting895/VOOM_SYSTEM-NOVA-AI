@@ -167,6 +167,18 @@ export default {
       return env.BRIDGE_SESSIONS.get(id).fetch(request);
     }
 
+    if (url.pathname === "/status") {
+      if (request.method !== "GET") return unavailable("method_not_allowed", 405);
+      const auth = authorizeBridge(request, env);
+      if (!auth.ok) return unavailable(auth.error, auth.status);
+      if (!env.BRIDGE_SESSIONS) return unavailable("bridge_session_binding_not_configured");
+      const id = env.BRIDGE_SESSIONS.idFromName(auth.tenantId);
+      const internalRequest = new Request("https://bridge-session.internal/status", {
+        method: "GET",
+        headers: { "X-Relay-Internal": "1", "X-VOOM-TENANT-ID": auth.tenantId }
+      });
+      return env.BRIDGE_SESSIONS.get(id).fetch(internalRequest);
+    }
     if (/\/(orders?|trades?|execute|withdraw|transfer)(\/|$)/i.test(url.pathname)) {
       return unavailable("forbidden", 403);
     }
@@ -215,7 +227,7 @@ export class BridgeSession {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       this.ctx.acceptWebSocket(server);
-      server.serializeAttachment({ tenantId: auth.tenantId, connectedAt: Date.now() });
+      server.serializeAttachment({ tenantId: auth.tenantId, connectedAt: Date.now(), lastHeartbeat: null });
       return new Response(null, { status: 101, webSocket: client });
     }
 
@@ -223,10 +235,32 @@ export class BridgeSession {
       return unavailable("internal_route_only", 403);
     }
     if (request.method !== "GET") return unavailable("method_not_allowed", 405);
+    const tenantId = request.headers.get("X-VOOM-TENANT-ID") || "";
+    if (url.pathname === "/status") {
+      const activeSocket = this.ctx.getWebSockets().find((item) => {
+        if (item.readyState !== 1) return false;
+        try { return item.deserializeAttachment()?.tenantId === tenantId; } catch { return false; }
+      });
+      if (!activeSocket) return unavailable("bridge_not_connected", 503);
+      let attachment;
+      try { attachment = activeSocket.deserializeAttachment() || {}; } catch { attachment = {}; }
+      const lastHeartbeat = Number.isFinite(attachment.lastHeartbeat) ? attachment.lastHeartbeat : null;
+      const heartbeatAgeMs = lastHeartbeat === null ? null : Math.max(0, Date.now() - lastHeartbeat);
+      return json({
+        connected: heartbeatAgeMs !== null && heartbeatAgeMs <= 6000,
+        websocketConnected: true,
+        lastHeartbeat: lastHeartbeat === null ? null : new Date(lastHeartbeat).toISOString(),
+        heartbeatAgeMs,
+        heartbeatIntervalMs: 2000,
+        mode: "read-only",
+        order_submission_enabled: false,
+        liveTradingEnabled: false,
+        ordersEnabled: false
+      });
+    }
     const validation = validateReadRequest(url);
     if (!validation.ok) return unavailable(validation.error, 400);
 
-    const tenantId = request.headers.get("X-VOOM-TENANT-ID") || "";
     const socket = this.ctx.getWebSockets().find((item) => {
       if (item.readyState !== 1) return false;
       try {
@@ -264,6 +298,13 @@ export class BridgeSession {
     if (typeof message !== "string" || message.length > MAX_MESSAGE_BYTES) return;
     let data;
     try { data = JSON.parse(message); } catch { return; }
+    if (data?.type === "heartbeat") {
+      try {
+        const attachment = socket.deserializeAttachment() || {};
+        socket.serializeAttachment({ ...attachment, lastHeartbeat: Date.now() });
+      } catch {}
+      return;
+    }
     if (data?.type !== "response" || typeof data.id !== "string") return;
 
     const pending = this.pending.get(data.id);

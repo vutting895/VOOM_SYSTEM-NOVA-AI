@@ -188,6 +188,17 @@ async def wait_for_local_bridge(process: asyncio.subprocess.Process, tenant_id: 
     raise RuntimeError("Local MT5 Bridge did not pass the protected read-only health check.")
 
 
+async def send_heartbeats(websocket, send_lock: asyncio.Lock) -> None:
+    """Send an application-level liveness signal every two seconds."""
+    while True:
+        try:
+            async with send_lock:
+                await websocket.send(json.dumps({"type": "heartbeat"}, separators=(",", ":")))
+        except Exception:
+            return
+        await asyncio.sleep(2)
+
+
 async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
     backoff = 2
     headers = {
@@ -207,14 +218,22 @@ async def run_relay(relay_url: str, tenant_id: str, token: str) -> None:
                 print("[mt5-relay] authenticated outbound connection established; read-only mode")
                 backoff = 2
                 send_lock = asyncio.Lock()
-                async for raw in websocket:
-                    if not isinstance(raw, str) or len(raw.encode("utf-8")) > MAX_MESSAGE_BYTES:
-                        continue
+                heartbeat_task = asyncio.create_task(send_heartbeats(websocket, send_lock))
+                try:
+                    async for raw in websocket:
+                        if not isinstance(raw, str) or len(raw.encode("utf-8")) > MAX_MESSAGE_BYTES:
+                            continue
+                        try:
+                            message = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        await serve_request(websocket, send_lock, message, tenant_id, token)
+                finally:
+                    heartbeat_task.cancel()
                     try:
-                        message = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-                    await serve_request(websocket, send_lock, message, tenant_id, token)
+                        await heartbeat_task
+                    except asyncio.CancelledError:
+                        pass
         except asyncio.CancelledError:
             raise
         except Exception:

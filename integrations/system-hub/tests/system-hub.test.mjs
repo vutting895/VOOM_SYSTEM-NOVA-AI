@@ -437,3 +437,79 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
 });
+
+test("history endpoint forwards bounded UTC range through the authenticated read-only proxy", async () => {
+  let forwarded = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      assert.equal(url.searchParams.get("user_id"), "eq.user-a");
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/history") {
+      forwarded = { method: init.method, connectionId: url.searchParams.get("connection_id"),
+        symbol: url.searchParams.get("symbol"), timeframe: url.searchParams.get("timeframe"),
+        start: url.searchParams.get("start_utc"), end: url.searchParams.get("end_utc"),
+        authorization: init.headers.Authorization };
+      return Response.json({ connected: true, symbol: "XAUUSDm", timeframe: "M15",
+        bars: [{ time: "2026-11-25T00:00:00Z", open: 4000, high: 4002, low: 3999, close: 4001 }],
+        count: 1, as_of: "2026-11-25T00:15:00Z" });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID +
+    "/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-11-25T00:00:00Z&end_utc=2026-11-25T01:00:00Z",
+    { headers: { Authorization: "Bearer " + USER_TOKEN } }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.history.symbol, "XAUUSDm");
+  assert.equal(body.history.count, 1);
+  assert.equal(body.history.bars.length, 1);
+  assert.equal(body.history.order_submission_enabled, false);
+  assert.deepEqual(forwarded, { method: "GET", connectionId: CONNECTION_ID, symbol: "XAUUSDm",
+    timeframe: "M15", start: "2026-11-25T00:00:00Z", end: "2026-11-25T01:00:00Z",
+    authorization: "Bearer " + USER_TOKEN });
+});
+
+test("history rejects invalid UTC bounds and oversized windows before proxy access", async () => {
+  mockAuthAndRest({ rows: [{
+    id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+    status: "connected", bridge_route_id: "tenant-a"
+  }] });
+  const invalid = await worker.fetch(request("/v1/connections/" + CONNECTION_ID +
+    "/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-11-25T01:00:00Z&end_utc=2026-11-25T00:00:00Z",
+    { headers: { Authorization: "Bearer " + USER_TOKEN } }), env);
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error, "invalid_utc_history_range");
+  const oversized = await worker.fetch(request("/v1/connections/" + CONNECTION_ID +
+    "/history?symbol=XAUUSDm&timeframe=M15&start_utc=2026-11-01T00:00:00Z&end_utc=2026-11-25T00:00:00Z",
+    { headers: { Authorization: "Bearer " + USER_TOKEN } }), env);
+  assert.equal(oversized.status, 400);
+  assert.equal((await oversized.json()).error, "history_window_too_large");
+});
+
+
+test("history rejects invalid calendar dates and fractional UTC timestamps", async () => {
+  const cases = [
+    ["2026-02-30T00:00:00Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-29T00:00:00Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-28T00:00:00.123Z", "2026-03-01T00:00:00Z"],
+    ["2026-02-28T00:00:00Z", "2026-03-01T00:00:00.123Z"]
+  ];
+  for (const [startUtc, endUtc] of cases) {
+    mockAuthAndRest({ rows: [{
+      id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+      status: "connected", bridge_route_id: "tenant-a"
+    }] });
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID +
+      "/history?symbol=XAUUSDm&timeframe=M15&start_utc=" + encodeURIComponent(startUtc) +
+      "&end_utc=" + encodeURIComponent(endUtc),
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }), env);
+    assert.equal(response.status, 400);
+    assert.equal((await response.json()).error, "invalid_utc_history_range");
+  }
+});
