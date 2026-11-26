@@ -5,6 +5,7 @@ advertised as a distributed/multi-region queue.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -52,8 +53,22 @@ class SQLiteQuantLabQueue:
         db.execute(f"PRAGMA busy_timeout={self.busy_timeout_ms}")
         return db
 
+    @contextmanager
+    def connection(self):
+        db = self.connect()
+        try:
+            yield db
+            if db.in_transaction:
+                db.commit()
+        except Exception:
+            if db.in_transaction:
+                db.rollback()
+            raise
+        finally:
+            db.close()
+
     def initialize(self) -> None:
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
               CREATE TABLE IF NOT EXISTS quantlab_jobs (
@@ -131,7 +146,7 @@ class SQLiteQuantLabQueue:
     def create(self, *, tenant_id: str, requester_id: str, job_type: str,
                payload: dict[str, Any], timeout_seconds: int, idempotency_key: str) -> tuple[dict, bool]:
         request_hash = canonical_hash({"job_type": job_type, "payload": payload, "timeout_seconds": timeout_seconds})
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             old = db.execute(
                 "SELECT request_sha256,job_id FROM quantlab_idempotency WHERE tenant_id=? AND idempotency_key=?",
@@ -250,7 +265,7 @@ class SQLiteQuantLabQueue:
             self._event(db, tenant=row["tenant_id"], job_id=row["job_id"], sequence=seq,
                         previous="QUEUED", target="RUNNING", actor=worker_id, reason="lease_claimed")
             updated = db.execute("SELECT * FROM quantlab_jobs WHERE job_id=?", (row["job_id"],)).fetchone()
-            return {"job": self.public_job(updated), "payload": json.loads(updated["payload_json"]),
+            return {"job": {**self.public_job(updated), "tenant_id": updated["tenant_id"], "requester_id": updated["requester_id"]}, "payload": json.loads(updated["payload_json"]),
                     "lease_token": token, "lease_expires_at": expiry}
 
     def heartbeat(self, *, job_id: str, worker_id: str, lease_token: str, lease_seconds: int = 30) -> str:
