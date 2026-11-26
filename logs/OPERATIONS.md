@@ -692,3 +692,13 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Safety: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`. No broker write, Demo activation, Live Trading, production DB/schema, secrets/permissions, CI policy, paid service or Datacenter mutation.
 - Phase status: Phase 0 partial/in progress; Phases 1–3 implemented as a thin read-only slice/preflight scaffold and REVIEW_REQUIRED; Phase 4 BLOCKED_DEPENDENCY; Phase 5 NOT STARTED.
 - Next action: execute the five route integration tests and full System Hub regression suite on a verified runner; complete risk-policy integration and independent security review; only then assemble the Demo readiness dossier. Do not enable dispatch.
+
+
+## 2026-11-26 — WO-2026-11-26-002 — additional adapter security test
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`; Main before this log update: `686e2484f0a57dcc6c7ae5de695d24a04d31b7c1`.
+- Added AST-based test `test_adapter_contains_no_broker_transport_or_mutation_api` to `integrations/mt5-demo-execution/test_adapter.py`. It checks imports and call nodes, avoiding false positives from documentation strings.
+- Updated test file commit: `9f386a6c4f4c8f7a3b11ad8e6b7bd503768d0f23`; exact Git blob `f6c0c3795db67249cf000d8bc636dbf3e26fe126` matches the local test file.
+- Local rerun: Node unit tests 8/8 PASS; Python adapter tests 8/8 PASS; Python py_compile PASS; route integration test syntax check PASS.
+- System Hub route integration tests remain NOT EXECUTED. No full worker bundle check, exact-head hosted CI PASS, authenticated live MT5 read, risk decision, or broker test is claimed.
+- All trading flags remain false; no broker mutation or deployment occurred.
