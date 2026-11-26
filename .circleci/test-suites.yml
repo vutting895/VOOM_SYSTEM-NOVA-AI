@@ -1,0 +1,6 @@
+---
+name: nova node tests
+discover: find tests integrations -type f -name '*.test.mjs' -print | sort
+run: mkdir -p test-reports && node --test --test-reporter=junit --test-reporter-destination=<< outputs.junit >> << test.atoms >>
+outputs:
+  junit: test-reports/junit.xml
