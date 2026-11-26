@@ -1,5 +1,6 @@
 """Contract tests for the Internal Quant Engine research foundation."""
 import unittest
+import sqlite3
 from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -402,6 +403,52 @@ class QuantJobStoreTests(unittest.TestCase):
         self.assertEqual(self.store.list_events(
             tenant_id="tenant-001", job_id="durable-job-001"
         ), ())
+
+    def test_event_ledger_rejects_direct_update_and_delete(self):
+        self.create()
+        self.store.transition(
+            tenant_id="tenant-001",
+            job_id="durable-job-001",
+            expected_state=JobState.QUEUED,
+            next_state=JobState.VALIDATING,
+            actor_id="worker-001",
+            occurred_at="2026-11-26T10:01:00Z",
+            idempotency_key="append-only-key",
+        )
+        with sqlite3.connect(self.database) as connection:
+            with self.assertRaisesRegex(sqlite3.IntegrityError, "append-only"):
+                connection.execute(
+                    "UPDATE research_job_events SET actor_id = ? WHERE job_id = ?",
+                    ("tampered-actor", "durable-job-001"),
+                )
+            with self.assertRaisesRegex(sqlite3.IntegrityError, "append-only"):
+                connection.execute(
+                    "DELETE FROM research_job_events WHERE job_id = ?",
+                    ("durable-job-001",),
+                )
+        events = self.store.list_events(tenant_id="tenant-001", job_id="durable-job-001")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].actor_id, "worker-001")
+
+    def test_event_foreign_key_rejects_cross_tenant_job_reference(self):
+        self.create()
+        with sqlite3.connect(self.database) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    """INSERT INTO research_job_events
+                       (job_id, tenant_id, sequence, from_state, to_state,
+                        actor_id, occurred_at, reason_code)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        "durable-job-001", "attacker-tenant", 1, None,
+                        "QUEUED", "attacker", "2026-11-26T10:01:00Z", None,
+                    ),
+                )
+        self.assertEqual(
+            self.store.list_events(tenant_id="tenant-001", job_id="durable-job-001"),
+            (),
+        )
 
     def test_duplicate_job_id_is_rejected_even_with_new_idempotency_key(self):
         self.create()

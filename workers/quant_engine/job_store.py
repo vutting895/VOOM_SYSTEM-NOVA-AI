@@ -134,6 +134,8 @@ class SQLiteResearchJobStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_research_jobs_tenant_created
                     ON research_jobs(tenant_id, created_at DESC);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_research_jobs_tenant_job
+                    ON research_jobs(tenant_id, job_id);
                 CREATE TABLE IF NOT EXISTS research_job_events (
                     job_id TEXT NOT NULL,
                     tenant_id TEXT NOT NULL,
@@ -144,7 +146,8 @@ class SQLiteResearchJobStore:
                     occurred_at TEXT NOT NULL,
                     reason_code TEXT,
                     PRIMARY KEY(job_id, sequence),
-                    FOREIGN KEY(job_id) REFERENCES research_jobs(job_id)
+                    FOREIGN KEY(tenant_id, job_id)
+                        REFERENCES research_jobs(tenant_id, job_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_research_job_events_tenant
                     ON research_job_events(tenant_id, job_id, sequence);
@@ -157,6 +160,66 @@ class SQLiteResearchJobStore:
                     created_at TEXT NOT NULL,
                     PRIMARY KEY(tenant_id, idempotency_key)
                 );
+                """
+            )
+
+
+            # Upgrade databases created with the earlier job_id-only foreign key.
+            # The constrained copy fails closed if historical tenant/job pairs mismatch.
+            fk_rows = connection.execute(
+                "PRAGMA foreign_key_list(research_job_events)"
+            ).fetchall()
+            fk_pairs = {
+                (row["from"], row["to"])
+                for row in fk_rows
+                if row["table"] == "research_jobs"
+            }
+            if fk_pairs != {("tenant_id", "tenant_id"), ("job_id", "job_id")}:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    """
+                    CREATE TABLE research_job_events_v2 (
+                        job_id TEXT NOT NULL,
+                        tenant_id TEXT NOT NULL,
+                        sequence INTEGER NOT NULL CHECK(sequence > 0),
+                        from_state TEXT,
+                        to_state TEXT NOT NULL,
+                        actor_id TEXT NOT NULL,
+                        occurred_at TEXT NOT NULL,
+                        reason_code TEXT,
+                        PRIMARY KEY(job_id, sequence),
+                        FOREIGN KEY(tenant_id, job_id)
+                            REFERENCES research_jobs(tenant_id, job_id)
+                    )
+                    """
+                )
+                connection.execute(
+                    """INSERT INTO research_job_events_v2
+                       (job_id, tenant_id, sequence, from_state, to_state,
+                        actor_id, occurred_at, reason_code)
+                       SELECT job_id, tenant_id, sequence, from_state, to_state,
+                              actor_id, occurred_at, reason_code
+                       FROM research_job_events"""
+                )
+                connection.execute("DROP TABLE research_job_events")
+                connection.execute(
+                    "ALTER TABLE research_job_events_v2 RENAME TO research_job_events"
+                )
+                connection.execute("COMMIT")
+
+            # Protect event history at the database boundary, including direct SQL.
+            connection.executescript(
+                """
+                CREATE TRIGGER IF NOT EXISTS research_job_events_no_update
+                BEFORE UPDATE ON research_job_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'research_job_events is append-only');
+                END;
+                CREATE TRIGGER IF NOT EXISTS research_job_events_no_delete
+                BEFORE DELETE ON research_job_events
+                BEGIN
+                    SELECT RAISE(ABORT, 'research_job_events is append-only');
+                END;
                 """
             )
 
