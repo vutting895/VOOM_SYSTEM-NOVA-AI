@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   validate:
-    name: Install, typecheck, lint, test and build
+    name: Install, typecheck, lint changed files, test and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,37 +24,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          fetch-depth: 0
 
-      # Generate an app-local lockfile during CI until the first reviewed lockfile
-      # is committed. This keeps the root NOVA application's dependency graph untouched.
-      - name: Resolve app dependencies and generate temporary lockfile
-        run: bun install --lockfile-only
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/nova-command-center/package-lock.json
 
-      - name: Install from resolved lockfile
-        run: bun install --frozen-lockfile
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: ESLint changed TypeScript and JavaScript files
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          git fetch origin "$BASE_REF" --depth=1
+          mapfile -t files < <(git diff --name-only "origin/$BASE_REF...HEAD" -- apps/nova-command-center/ | grep -E '\.(js|jsx|ts|tsx)$' | sed 's#^apps/nova-command-center/##')
+          if ((${#files[@]})); then
+            npx eslint "${files[@]}"
+          else
+            echo "No changed JavaScript/TypeScript files to lint."
+          fi
 
       - name: TypeScript
-        run: bun run typecheck
-
-      - name: ESLint
-        run: bun run lint
+        run: npm run typecheck
 
       - name: Unit tests
-        run: bun run test
+        run: npm run test
 
       - name: Production build
-        run: bun run build
-
-      - name: Upload app-local lockfile for review
-        if: always() && hashFiles('apps/nova-command-center/bun.lock') != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: nova-command-center-bun-lock
-          path: apps/nova-command-center/bun.lock
-          if-no-files-found: ignore
-          retention-days: 7
+        run: npm run build

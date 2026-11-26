@@ -1,12 +1,7 @@
 [build]
-  base = "."
+  base = "apps/nova-command-center"
   command = "npm run build"
-  publish = "dist"
+  publish = "dist/client"
 
 [build.environment]
   NODE_VERSION = "22"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
