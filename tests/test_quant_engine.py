@@ -317,6 +317,118 @@ class QuantJobStoreTests(unittest.TestCase):
         values.update(overrides)
         return self.store.create(**values)
 
+    def _create_legacy_database(self, *, mismatched_tenant=False):
+        # Reproduce the pre-hardening schema: events reference job_id only.
+        with sqlite3.connect(self.database) as connection:
+            connection.execute(
+                """CREATE TABLE research_jobs (
+                    job_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
+                    requester_id TEXT NOT NULL,
+                    job_type TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence >= 0),
+                    resource_profile TEXT NOT NULL CHECK(resource_profile = 'free-cpu'),
+                    timeout_seconds INTEGER NOT NULL CHECK(timeout_seconds BETWEEN 1 AND 900),
+                    UNIQUE(tenant_id, job_id)
+                )"""
+            )
+            connection.execute(
+                """CREATE TABLE research_job_events (
+                    job_id TEXT NOT NULL,
+                    tenant_id TEXT NOT NULL,
+                    sequence INTEGER NOT NULL CHECK(sequence > 0),
+                    from_state TEXT,
+                    to_state TEXT NOT NULL,
+                    actor_id TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    reason_code TEXT,
+                    PRIMARY KEY(job_id, sequence),
+                    FOREIGN KEY(job_id) REFERENCES research_jobs(job_id)
+                )"""
+            )
+            connection.execute(
+                """INSERT INTO research_jobs
+                   (job_id, tenant_id, requester_id, job_type, state, created_at,
+                    updated_at, sequence, resource_profile, timeout_seconds)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                ("legacy-job-001", "tenant-001", "user-001", "backtest", "VALIDATING",
+                 "2026-11-26T10:00:00Z", "2026-11-26T10:01:00Z", 1, "free-cpu", 900),
+            )
+            connection.execute(
+                """INSERT INTO research_job_events
+                   (job_id, tenant_id, sequence, from_state, to_state,
+                    actor_id, occurred_at, reason_code)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                ("legacy-job-001", "wrong-tenant" if mismatched_tenant else "tenant-001",
+                 1, "QUEUED", "VALIDATING", "worker-001", "2026-11-26T10:01:00Z", None),
+            )
+
+    def test_legacy_schema_migrates_preserving_events_and_is_idempotent(self):
+        self._create_legacy_database()
+        migrated = SQLiteResearchJobStore(self.database)
+        events = migrated.list_events(tenant_id="tenant-001", job_id="legacy-job-001")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].actor_id, "worker-001")
+
+        with sqlite3.connect(self.database) as connection:
+            fk_rows = connection.execute(
+                "PRAGMA foreign_key_list(research_job_events)"
+            ).fetchall()
+            fk_pairs = {(row[3], row[4]) for row in fk_rows if row[2] == "research_jobs"}
+            self.assertEqual(fk_pairs, {("tenant_id", "tenant_id"), ("job_id", "job_id")})
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    """INSERT INTO research_job_events
+                       (job_id, tenant_id, sequence, from_state, to_state,
+                        actor_id, occurred_at, reason_code)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ("legacy-job-001", "attacker-tenant", 2, "VALIDATING",
+                     "RUNNING", "attacker", "2026-11-26T10:02:00Z", None),
+                )
+
+        reopened = SQLiteResearchJobStore(self.database)
+        self.assertEqual(
+            reopened.list_events(tenant_id="tenant-001", job_id="legacy-job-001"),
+            events,
+        )
+        with sqlite3.connect(self.database) as connection:
+            trigger_names = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+                )
+            }
+        self.assertTrue({
+            "research_job_events_no_update",
+            "research_job_events_no_delete",
+        }.issubset(trigger_names))
+
+    def test_legacy_migration_fails_closed_and_preserves_original_table(self):
+        self._create_legacy_database(mismatched_tenant=True)
+        with self.assertRaises(sqlite3.IntegrityError):
+            SQLiteResearchJobStore(self.database)
+
+        with sqlite3.connect(self.database) as connection:
+            row = connection.execute(
+                "SELECT tenant_id, actor_id FROM research_job_events WHERE job_id = ?",
+                ("legacy-job-001",),
+            ).fetchone()
+            self.assertEqual(row, ("wrong-tenant", "worker-001"))
+            table_names = {
+                item[0] for item in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            self.assertIn("research_job_events", table_names)
+            self.assertNotIn("research_job_events_v2", table_names)
+            fk_rows = connection.execute(
+                "PRAGMA foreign_key_list(research_job_events)"
+            ).fetchall()
+            fk_pairs = {(item[3], item[4]) for item in fk_rows if item[2] == "research_jobs"}
+            self.assertEqual(fk_pairs, {("job_id", "job_id")})
+
     def test_create_is_persistent_and_idempotent(self):
         first = self.create()
         second = self.create()
