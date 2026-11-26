@@ -453,7 +453,7 @@ test("QuantLab job creation validates bounded research-only payload before dispa
     method: "POST",
     headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json", "Idempotency-Key": "idem-key-12345678" },
     body: JSON.stringify({ job_type: "order", experiment: {} })
-  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev", QUANTLAB_WORKER_ALLOWED_HOSTS: "quantlab-worker.workers.dev" });
   assert.equal(invalid.status, 400);
   assert.equal((await invalid.json()).error, "invalid_quant_job_request");
 });
@@ -464,7 +464,7 @@ test("QuantLab job creation requires idempotency and never accepts client tenant
     method: "POST",
     headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
     body: JSON.stringify({ job_type: "backtest", experiment: {} })
-  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev", QUANTLAB_WORKER_ALLOWED_HOSTS: "quantlab-worker.workers.dev" });
   assert.equal(missingKey.status, 400);
   assert.equal((await missingKey.json()).error, "valid_idempotency_key_required");
 
@@ -472,7 +472,7 @@ test("QuantLab job creation requires idempotency and never accepts client tenant
     method: "POST",
     headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json", "Idempotency-Key": "idem-key-12345678" },
     body: JSON.stringify({ job_type: "backtest", experiment: {}, tenant_id: "victim" })
-  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev", QUANTLAB_WORKER_ALLOWED_HOSTS: "quantlab-worker.workers.dev" });
   assert.equal(tenantSpoof.status, 400);
   assert.equal((await tenantSpoof.json()).error, "invalid_quant_job_request");
 });
@@ -501,7 +501,7 @@ test("QuantLab job creation forwards verified session and bounded payload to con
         Origin: UI_ORIGIN
       },
       body: JSON.stringify({ job_type: "backtest", resource_profile: "free-cpu", timeout_seconds: 600, experiment: { spec: "nova.quant-experiment.v1" } })
-    }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+    }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev", QUANTLAB_WORKER_ALLOWED_HOSTS: "quantlab-worker.workers.dev" });
     const body = await response.json();
     assert.equal(response.status, 202);
     assert.equal(body.job.job_id, "job-123");
@@ -529,7 +529,7 @@ test("QuantLab list and event routes preserve tenant bearer token and bounded fi
     throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
   };
   try {
-    const config = { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" };
+    const config = { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev", QUANTLAB_WORKER_ALLOWED_HOSTS: "quantlab-worker.workers.dev" };
     const list = await worker.fetch(request("/v1/quantlab/jobs?limit=20&state=RUNNING", {
       headers: { Authorization: "Bearer " + USER_TOKEN }
     }), config);
