@@ -4,6 +4,11 @@ Cloudflare Worker name: `voom-system-hub`
 
 This is the control plane for viewing integration metadata, listing the signed-in user's own connection records, and verifying the read-only Exness MT5 account-read path. It is deliberately separate from provider adapters and does not contain the legacy Alpaca OAuth callback.
 
+## Central data catalog
+
+- `GET /v1/data/sources` — authenticated, read-only catalog of source paths currently consumed by the Hub. It describes supported resources and tenant boundaries; it does **not** assert that a source is reachable or that a customer's data has been verified.
+- Use the existing connection/account/quotes endpoints for actual provider reads. The catalog is metadata, not a second data store or a parallel integration registry.
+
 ## Endpoints
 
 - `GET /health` — public process/readiness status only. It does not prove Supabase, a bridge, or a broker terminal is reachable.
