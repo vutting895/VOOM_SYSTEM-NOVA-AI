@@ -73,10 +73,6 @@ jobs:
                 "liveTradingEnabled": False
             }, indent=2))
             PY
-      - store_artifacts:
-          path: /tmp
-          destination: validation-temp
-
   create-release-marker:
     docker:
       - image: cimg/python:3.11
@@ -197,12 +193,16 @@ jobs:
             TARGET="<< pipeline.parameters.rollback_target_sha >>"
             EVIDENCE="<< pipeline.parameters.rollback_evidence >>"
             REASON="<< pipeline.parameters.rollback_reason >>"
+            git fetch origin main --quiet
+            git cat-file -e "${TARGET}^{commit}"
+            if ! git merge-base --is-ancestor "$TARGET" origin/main; then
+              echo "Rollback target is no longer an ancestor of current origin/main; refusing handoff."
+              exit 1
+            fi
             export TARGET EVIDENCE REASON
             python - <<'PY'
             import datetime, json, os, subprocess
             target = os.environ["TARGET"]
-            if not subprocess.run(["git", "cat-file", "-e", f"{target}^{{commit}}"], check=False).returncode == 0:
-                raise SystemExit("Rollback target is unavailable in this checkout.")
             payload = {
                 "schema_version": 1,
                 "request_type": "production-rollback",
