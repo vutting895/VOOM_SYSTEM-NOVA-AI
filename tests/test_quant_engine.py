@@ -320,6 +320,8 @@ class QuantJobStoreTests(unittest.TestCase):
     def _create_legacy_database(self, *, mismatched_tenant=False):
         # Reproduce the pre-hardening schema: events reference job_id only.
         with sqlite3.connect(self.database) as connection:
+            connection.execute("DROP TABLE IF EXISTS research_job_events")
+            connection.execute("DROP TABLE IF EXISTS research_jobs")
             connection.execute(
                 """CREATE TABLE research_jobs (
                     job_id TEXT PRIMARY KEY,
