@@ -2,6 +2,7 @@ version: 2.1
 
 jobs:
   system-hub-tests:
+    resource_class: medium
     docker:
       - image: cimg/node:22.11
     working_directory: ~/project
