@@ -42,20 +42,26 @@ jobs:
             PYTHONPATH=. python -m unittest discover -s tests -p "test_quant*.py" -v
       - run:
           name: Validate release identity, deploy ownership, and trading safety
+          environment:
+            REQUESTED_RELEASE_SHA: "<< pipeline.parameters.release_sha >>"
           command: |
             set -euo pipefail
             ACTUAL_SHA="$(git rev-parse HEAD)"
-            REQUESTED_SHA="<< pipeline.parameters.release_sha >>"
+            REQUESTED_SHA="$REQUESTED_RELEASE_SHA"
+            if [ -n "$REQUESTED_SHA" ] && ! [[ "$REQUESTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "release_sha must be a full 40-character lowercase Git SHA."
+              exit 1
+            fi
             if [ -n "$REQUESTED_SHA" ] && [ "$REQUESTED_SHA" != "$ACTUAL_SHA" ]; then
               echo "Requested release SHA does not match the exact CircleCI checkout."
               exit 1
             fi
             test -f .github/workflows/cloudflare-deploy.yml
             grep -q 'workflow_run:' .github/workflows/cloudflare-deploy.yml
+            grep -q 'branches: \[main\]' .github/workflows/cloudflare-deploy.yml
+            grep -q "head_branch == 'main'" .github/workflows/cloudflare-deploy.yml
             grep -q 'wrangler deploy' .github/workflows/cloudflare-deploy.yml
             grep -q 'NOVA_APPROVALS_ENABLED: "false"' .github/workflows/cloudflare-deploy.yml
-            grep -q 'ordersEnabled.*false' .github/workflows/cloudflare-deploy.yml
-            grep -q 'liveTradingEnabled.*false' .github/workflows/cloudflare-deploy.yml
             python - <<'PY'
             import json, os, subprocess
             sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
@@ -68,8 +74,7 @@ jobs:
                 "production_deploy_owner": "GitHub Actions",
                 "circleci_scope": ["release-validation", "release-markers", "rollback-orchestration"],
                 "production_deploy_executed": False,
-                "ordersEnabled": False,
-                "executionEnabled": False,
+                  "executionEnabled": False,
                 "liveTradingEnabled": False
             }, indent=2))
             PY
@@ -81,6 +86,10 @@ jobs:
       - checkout
       - run:
           name: Create immutable release-candidate marker
+          environment:
+            REQUESTED_RELEASE_SHA: "<< pipeline.parameters.release_sha >>"
+            REQUESTED_RELEASE_ID: "<< pipeline.parameters.release_id >>"
+            RELEASE_ENVIRONMENT: "<< pipeline.parameters.environment >>"
           command: |
             set -euo pipefail
             SHA="$(git rev-parse HEAD)"
@@ -89,8 +98,12 @@ jobs:
               echo "Release SHA mismatch; refusing to create marker."
               exit 1
             fi
-            RELEASE_ID="<< pipeline.parameters.release_id >>"
+            RELEASE_ID="$REQUESTED_RELEASE_ID"
             if [ -z "$RELEASE_ID" ]; then RELEASE_ID="nova-${SHA:0:12}-${CIRCLE_BUILD_NUM}"; fi
+            if ! [[ "$RELEASE_ID" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
+              echo "release_id must contain 1-128 safe characters: letters, digits, dot, underscore, or hyphen."
+              exit 1
+            fi
             export SHA RELEASE_ID
             python - <<'PY'
             import datetime, json, os
@@ -99,7 +112,7 @@ jobs:
                 "marker_type": "release-candidate",
                 "release_id": os.environ["RELEASE_ID"],
                 "commit_sha": os.environ["SHA"],
-                "environment": "<< pipeline.parameters.environment >>",
+                "environment": os.environ["RELEASE_ENVIRONMENT"],
                 "circleci_project": os.environ.get("CIRCLE_PROJECT_REPONAME", ""),
                 "circleci_build_num": os.environ.get("CIRCLE_BUILD_NUM", ""),
                 "circleci_build_url": os.environ.get("CIRCLE_BUILD_URL", ""),
@@ -130,11 +143,23 @@ jobs:
       - checkout
       - run:
           name: Validate rollback target and evidence
+          environment:
+            ROLLBACK_TARGET_SHA: "<< pipeline.parameters.rollback_target_sha >>"
+            ROLLBACK_EVIDENCE: "<< pipeline.parameters.rollback_evidence >>"
+            ROLLBACK_REASON: "<< pipeline.parameters.rollback_reason >>"
           command: |
             set -euo pipefail
-            TARGET="<< pipeline.parameters.rollback_target_sha >>"
-            EVIDENCE="<< pipeline.parameters.rollback_evidence >>"
-            REASON="<< pipeline.parameters.rollback_reason >>"
+            TARGET="$ROLLBACK_TARGET_SHA"
+            EVIDENCE="$ROLLBACK_EVIDENCE"
+            REASON="$ROLLBACK_REASON"
+            if [ -z "$EVIDENCE" ] || [ "${#EVIDENCE}" -gt 2048 ]; then
+              echo "rollback_evidence is required and must be at most 2048 characters."
+              exit 1
+            fi
+            if [ "${#REASON}" -gt 1000 ]; then
+              echo "rollback_reason must be at most 1000 characters."
+              exit 1
+            fi
             if ! [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]]; then
               echo "rollback_target_sha must be a full 40-character Git commit SHA."
               exit 1
@@ -188,6 +213,10 @@ jobs:
       - checkout
       - run:
           name: Publish approved rollback orchestration evidence
+          environment:
+            ROLLBACK_TARGET_SHA: "<< pipeline.parameters.rollback_target_sha >>"
+            ROLLBACK_EVIDENCE: "<< pipeline.parameters.rollback_evidence >>"
+            ROLLBACK_REASON: "<< pipeline.parameters.rollback_reason >>"
           command: |
             set -euo pipefail
             TARGET="<< pipeline.parameters.rollback_target_sha >>"
