@@ -55,7 +55,7 @@ export function assertQuantLabRequest(method: string, path: string): void {
   if (isForbiddenPath(path)) {
     throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
   }
-  if (normalized === "GET" && QUANTLAB_GET_PATH.test(path.split("?")[0])) return;
+  if (normalized === "GET" && QUANTLAB_GET_PATH.test(path.split("?")[0] ?? "")) return;
   if (normalized === "POST" && path === "/v1/quantlab/jobs") return;
   throw new Error(`Blocked by safety policy: ${normalized} ${path} is not an allowlisted QuantLab operation`);
 }
