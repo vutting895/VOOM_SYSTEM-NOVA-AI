@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "workers/quant_engine/**"
+      - "integrations/system-hub/**"
+      - ".github/workflows/quant-engine-foundation-ci.yml"
       - "tests/test_quant_engine.py"
       - "tests/test_quant_experiment_contract.py"
       - "docs/INTERNAL-QUANT-ENGINE-ARCHITECTURE.md"
@@ -18,6 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up Node.js for System Hub contract tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run authenticated System Hub API and tenant boundary tests
+        run: node --test integrations/system-hub/tests/*.test.mjs
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
