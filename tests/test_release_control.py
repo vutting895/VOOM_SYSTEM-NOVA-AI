@@ -64,6 +64,24 @@ class ReleaseControlTests(unittest.TestCase):
         second = self.marker()
         self.assertEqual(first["marker_id"], second["marker_id"])
 
+    def test_marker_rejects_missing_required_check(self):
+        marker = self.marker()
+        marker["required_circleci_checks"].pop()
+        with self.assertRaises(EvidenceError):
+            validate_release_marker(
+                marker, repository="vutting895/VOOM_SYSTEM-NOVA-AI",
+                commit_sha=self.sha, root=self.root,
+            )
+
+    def test_marker_rejects_missing_artifact(self):
+        marker = self.marker()
+        (self.root / EVIDENCE_FILES[-1]).unlink()
+        with self.assertRaises(EvidenceError):
+            validate_release_marker(
+                marker, repository="vutting895/VOOM_SYSTEM-NOVA-AI",
+                commit_sha=self.sha, root=self.root,
+            )
+
     def test_marker_requires_review_reference_and_circleci_approval_url(self):
         with self.assertRaises(EvidenceError):
             create_release_marker(
