@@ -238,14 +238,18 @@ class SQLiteQuantLabQueue:
             ).fetchall()
             for row in expired:
                 seq = row["sequence"] + 1
+                exhausted = row["attempt_count"] >= 3
+                target_state = "FAILED" if exhausted else "QUEUED"
+                reason = "lease_expired_max_attempts" if exhausted else "lease_expired"
                 db.execute(
-                    """UPDATE quantlab_jobs SET state='QUEUED',updated_at=?,sequence=?,
-                       lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=NULL,last_error_code='lease_expired'
+                    """UPDATE quantlab_jobs SET state=?,updated_at=?,sequence=?,
+                       lease_owner=NULL,lease_token_hash=NULL,lease_expires_at=?,last_error_code=?
                        WHERE tenant_id=? AND job_id=? AND state='RUNNING' AND sequence=?""",
-                    (now.isoformat(), seq, row["tenant_id"], row["job_id"], row["sequence"]),
+                    (target_state, now.isoformat(), seq, None, reason,
+                     row["tenant_id"], row["job_id"], row["sequence"]),
                 )
                 self._event(db, tenant=row["tenant_id"], job_id=row["job_id"], sequence=seq,
-                            previous="RUNNING", target="QUEUED", actor="dispatcher", reason="lease_expired")
+                            previous="RUNNING", target=target_state, actor="dispatcher", reason=reason)
             row = db.execute(
                 "SELECT * FROM quantlab_jobs WHERE state='QUEUED' ORDER BY created_at,job_id LIMIT 1"
             ).fetchone()
