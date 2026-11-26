@@ -674,3 +674,21 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Safety: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; no broker write, order, production DB/schema, secret/permission, CI policy, deployment, paid service or Datacenter change.
 - Phase 0 status: PARTIAL / IN_PROGRESS. Candidate overlap and high-level status reviewed; complete per-file security review and exact-head runnable CI evidence remain outstanding.
 - Next action: finish exact candidate code review, update Issue #36 with the scoped Work Order and Main-only exception, then implement only the minimal reusable Brain/Permission contracts and non-dispatching Demo scaffold. Do not enable broker dispatch.
+
+
+## 2026-11-26 — WO-2026-11-26-002 — Brain Core / Permission Engine / Demo preflight implementation
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- Main baseline before source implementation: `4ff47c773255b65dd3c9a43dc33c35c162ecdd2a`.
+- Source implementation Main: `442f59f906786af78fe70d8dc3a0cc7dc0043915`; documentation status sync Main: `612d944dd2f07555b85b66f1ee205707af0f5d59`.
+- Changed paths: `integrations/system-hub/brain-core.js`; `integrations/system-hub/permission-engine.js`; `integrations/system-hub/worker.js`; `integrations/system-hub/tests/brain-core.test.mjs`; `integrations/system-hub/tests/brain-core-runtime.test.mjs`; `integrations/mt5-demo-execution/adapter.py`; `integrations/mt5-demo-execution/command_contract.py`; `integrations/mt5-demo-execution/test_adapter.py`; `integrations/mt5-demo-execution/README.md`; Work Order/instructions/log records.
+- Brain Core implementation: strict schema and bounded typed intents; existing System Hub routes only authenticated owner-scoped Demo account/quote reads. Broker-order submit capability is blocked before connection lookup with HTTP 423 and all flags false. No second Gateway was added.
+- Permission Engine: deterministic backend allowlist for owner-scoped connected Demo read capabilities; mutation, transfer and withdrawal capabilities deny by default. Client-supplied tenant/permission fields are rejected.
+- Demo adapter: signed HMAC envelope binds tenant, connection, pinned login/server, expiry and nonce; SQLite replay guard; Exness Demo identity verification; Decimal-safe volume/SL/TP validation. Preflight is not risk approval (`riskDecision=not_evaluated`); broker dispatch always raises `ExecutionDisabled`. No MetaTrader5 import, network listener or broker mutation function.
+- Local validation environment: Node v22.16.0; Python 3.13.5.
+- Local tests: 8 Brain Core/Permission Engine unit tests PASS; 7 Demo adapter tests PASS; `py_compile` PASS. Blob SHA-1s for the locally tested modules/tests were checked against the corresponding exact Main Git blob SHAs. The five System Hub route integration tests are authored and syntax-checked, but NOT EXECUTED.
+- Exact-head CI: GitHub Actions returned no workflow runs for Main SHA `442f59f906786af78fe70d8dc3a0cc7dc0043915`; combined status reports CircleCI Pipeline ERROR (#2528) and Vercel context failures. No claim that the new tests passed in hosted CI. Phase 4 remains BLOCKED_DEPENDENCY.
+- Deployment check: Netlify site `voomsystem` current published deploy is commit `03b71d01ce2ddedf7da1ee17d296f8880dde6e10` (published 2026-11-22). The five latest listed Main production deploys are skipped with `account credit usage exceeded`; no active deploy exists. No deployment was initiated by this operation.
+- Safety: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`. No broker write, Demo activation, Live Trading, production DB/schema, secrets/permissions, CI policy, paid service or Datacenter mutation.
+- Phase status: Phase 0 partial/in progress; Phases 1–3 implemented as a thin read-only slice/preflight scaffold and REVIEW_REQUIRED; Phase 4 BLOCKED_DEPENDENCY; Phase 5 NOT STARTED.
+- Next action: execute the five route integration tests and full System Hub regression suite on a verified runner; complete risk-policy integration and independent security review; only then assemble the Demo readiness dossier. Do not enable dispatch.
