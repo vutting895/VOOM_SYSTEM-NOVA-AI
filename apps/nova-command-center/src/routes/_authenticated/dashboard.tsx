@@ -14,7 +14,7 @@ import { describeApiError, type QuantLabCapabilities } from "@/lib/nova/api";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: pageHead("Overview", "System health and alerts."),
+  head: () => pageHead("Overview", "System health and alerts."),
   component: Dashboard,
 });
 
