@@ -1,0 +1,18 @@
+version: 2.1
+
+jobs:
+  delegated-checks:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Confirm canonical CI ownership
+          command: |
+            echo "NOVA source and runtime tests are executed by GitHub Actions."
+            echo "CircleCI is intentionally a lightweight integration placeholder."
+            echo "No build, deployment, secret access, or production operation is performed."
+
+workflows:
+  verify:
+    jobs:
+      - delegated-checks
