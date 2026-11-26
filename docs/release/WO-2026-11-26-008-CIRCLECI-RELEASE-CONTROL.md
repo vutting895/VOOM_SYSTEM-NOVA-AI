@@ -27,7 +27,7 @@ Push and scheduled events do not run the PR validation workflow.
 
 `scripts/release_control.py` creates a deterministic marker identity from repository, exact commit SHA, workflow version, and SHA-256 digests of the configuration, contract, helper, and tests. The marker also records a UTC timestamp, the required CircleCI check names, the CircleCI approval pipeline reference, and explicit deployment/trading safety fields.
 
-The marker is written with exclusive-create semantics. Repeating the same payload is idempotent; attempting to replace an existing marker with different content fails. CircleCI build artifacts are immutable after a completed build. The marker is a release-candidate record only and does not authorize or prove a production deployment.
+The marker is written with exclusive-create semantics. Repeating the same payload is idempotent; attempting to replace an existing marker with different content fails. CircleCI build artifacts are immutable after a completed build. The marker is a release-candidate record only and does not authorize or prove a production deployment. Its deterministic `marker_id` gives the same logical identity for the same repository/SHA/workflow/artifact set. CircleCI stores artifacts per pipeline run; without a separately authorized durable registry, duplicate pipeline runs can retain separate immutable artifacts with the same marker ID. Therefore global duplicate suppression is **NOT IMPLEMENTED** and remains an acceptance limitation.
 
 **Known evidence limitation:** CircleCI approval-job completion does not expose a verified approver identity/timestamp in this artifact. The GitHub review URL is recorded as an operator-supplied reference and is explicitly marked `NOT_MACHINE_VERIFIED`. Therefore the full review-evidence acceptance criterion remains **BLOCKED / NOT VERIFIED** until an approved read-only evidence mechanism is separately authorized and available. No production credential is to be added to CircleCI to work around this limitation.
 
@@ -49,7 +49,7 @@ The config uses standard hosted Docker executors and does not request paid resou
 | PR opened/synchronize/reopened triggers | IMPLEMENTED / NOT PROVIDER-VALIDATED | exact-head provider event runs |
 | Exact SHA binding | IMPLEMENTED IN JOBS / NOT RUN | executed job logs showing checkout SHA = CIRCLE_SHA1 |
 | Deterministic marker identity and artifact SHA-256 | IMPLEMENTED / TESTS NOT RUN | unit tests and stored artifact readback |
-| Immutable/idempotent marker write | IMPLEMENTED / TESTS NOT RUN | duplicate and conflicting-write tests |
+| Per-run immutable artifact and local idempotent write | IMPLEMENTED / TESTS NOT RUN; global dedup NOT IMPLEMENTED | duplicate/conflicting-write tests plus durable registry authorization if global suppression is required |
 | Missing/altered artifact rejection | IMPLEMENTED / TESTS NOT RUN | regression test output |
 | GitHub review approval evidence | BLOCKED / NOT MACHINE VERIFIED | authorized read-only evidence mechanism and independent review |
 | Rollback known-good verification | BLOCKED / NOT MACHINE VERIFIED | independently verified GitHub Actions deployment + health evidence |
