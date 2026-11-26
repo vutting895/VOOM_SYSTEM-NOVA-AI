@@ -7,10 +7,12 @@ on:
     paths:
       - "integrations/system-hub/**"
       - ".github/workflows/system-hub-ci.yml"
+      - ".circleci/config.yml"
   pull_request:
     paths:
       - "integrations/system-hub/**"
       - ".github/workflows/system-hub-ci.yml"
+      - ".circleci/config.yml"
 
 permissions:
   contents: read
