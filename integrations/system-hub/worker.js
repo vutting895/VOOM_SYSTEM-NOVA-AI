@@ -433,6 +433,7 @@ async function readAccount(request, env, user, row, origin) {
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
+    executionEnabled: false,
     checkedAt: new Date().toISOString(),
     account: {
       connected: true,
@@ -481,6 +482,7 @@ async function readQuotes(request, env, user, row, origin) {
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
+    executionEnabled: false,
     quote: {
       symbol: typeof data.symbol === "string" ? data.symbol : symbol,
       timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
