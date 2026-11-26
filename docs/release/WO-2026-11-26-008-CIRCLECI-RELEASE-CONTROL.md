@@ -65,7 +65,7 @@ No acceptance criterion is marked DONE based solely on source implementation. Ci
 1. In CircleCI, confirm the project is connected to this private repository on the Free plan and that current quota permits the run. Do not add a payment method, upgrade, or enable paid features.
 2. Validate `.circleci/config.yml` with a supported CircleCI CLI path.
 3. Trigger a PR event and confirm all six jobs receive a runner and execute steps against the exact PR SHA.
-4. For manual validation, use API operation `validate`; confirm the validation job is downstream of all six checks.
+4. For manual validation, use API operation `validate`; confirm the validation job is downstream of all six checks. The pipeline URL is assembled from CircleCI's `pipeline.number` value injected into the job environment; it is not assumed to be a built-in environment variable.
 5. For a candidate marker, use API operation `mark-release`, provide a GitHub review-evidence URL, and complete the CircleCI approval job. Inspect the marker JSON and SHA-256 digests.
 6. For a rollback request, use API operation `rollback-request` with a full target SHA, prior GitHub Actions deployment-run URL, and reason. Complete the approval gate, then inspect the handoff artifact. Do not execute from CircleCI.
 7. A GitHub Actions operator independently verifies a previously deployed known-good SHA and decides whether a separate approved GitHub Actions rollback action is appropriate.
