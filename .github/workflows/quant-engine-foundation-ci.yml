@@ -7,6 +7,7 @@ on:
       - "workers/quantlab_api.py"
       - "workers/quant_engine/dataset_artifact.py"
       - "workers/quant_engine/dataset_executor.py"
+      - "tests/test_quantlab_dispatcher.py"
       - "workers/runtime.py"
       - "integrations/system-hub/**"
       - "tests/test_quant_engine.py"
@@ -38,7 +39,7 @@ jobs:
       - name: Install API runtime and test dependencies
         run: python -m pip install -r workers/requirements.txt
       - name: Compile Quant Engine package and focused tests
-        run: python -m compileall -q workers/quant_engine workers/quantlab_api.py workers/runtime.py tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_quantlab_api.py tests/test_quantlab_dataset_executor.py
+        run: python -m compileall -q workers/quant_engine workers/quantlab_api.py workers/runtime.py tests/test_quant_engine.py tests/test_quant_experiment_contract.py tests/test_quantlab_api.py tests/test_quantlab_dataset_executor.py tests/test_quantlab_dispatcher.py
       - name: Run Quant Engine contract tests
         env:
           PYTHONPATH: .
@@ -46,4 +47,4 @@ jobs:
       - name: Run QuantLab authenticated API and queue tests
         env:
           PYTHONPATH: .
-        run: python -m pytest tests/test_quantlab_api.py tests/test_quantlab_dataset_executor.py -q
+        run: python -m pytest tests/test_quantlab_api.py tests/test_quantlab_dataset_executor.py tests/test_quantlab_dispatcher.py -q
