@@ -209,7 +209,7 @@ jobs:
             echo "Exact candidate SHA verified; GitHub Actions remains the production deploy owner."
       - run:
           name: Test release marker and rollback evidence contracts
-          command: python -m unittest discover -s tests -p "test_release_control.py" -v
+          command: PYTHONPATH=. python -m unittest discover -s tests -p "test_release_control.py" -v
 
   create-release-marker:
     docker:
