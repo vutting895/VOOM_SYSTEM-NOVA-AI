@@ -688,3 +688,12 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - GitHub review identity and known-good deployment/health evidence remain unverified; no read-only GitHub evidence credential or permission was added.
 - Tests remain authored but NOT EXECUTED. CircleCI CLI validation and provider run remain NOT VERIFIED.
 - Status remains IMPLEMENTATION IN PROGRESS / ACCEPTANCE NOT VERIFIED. No merge, deployment, or production mutation.
+
+
+## 2026-11-26T04:06:39.802Z — WO-2026-11-26-008 — CircleCI pipeline provenance correction
+
+- CircleCI official variable documentation was checked. The config now injects the documented `pipeline.number` pipeline value into the marker and rollback handoff jobs instead of assuming `CIRCLE_PIPELINE_NUMBER` is a built-in environment variable.
+- `CIRCLE_WORKFLOW_ID` remains the built-in workflow provenance identifier.
+- Files updated: `.circleci/config.yml`, `docs/release/WO-2026-11-26-008-CIRCLECI-RELEASE-CONTROL.md`.
+- Tests remain authored but not executed. CircleCI CLI validation and exact-head provider run remain NOT VERIFIED.
+- No merge, deployment, production mutation, secrets/permissions change, or billing change.
