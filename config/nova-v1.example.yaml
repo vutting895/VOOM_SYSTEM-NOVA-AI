@@ -1,0 +1,23 @@
+# NOVA v1.0 safe defaults (template only; no secrets)
+market:
+  symbol: XAUUSD
+  aliases: [XAUUSD, XAUUSDm]
+  base_timeframe: M1
+  context_timeframes: [M5, M15, M30, H1]
+  timezone: UTC
+  closed_bars_only: true
+
+runtime:
+  environment: research
+  orders_enabled: false
+  execution_enabled: false
+  live_trading_enabled: false
+
+models:
+  xgboost: baseline_candidate
+  lstm: experimental
+  llm_authoritative: false
+
+bridge:
+  enabled: false
+  read_only: true

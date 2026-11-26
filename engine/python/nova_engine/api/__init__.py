@@ -1,0 +1,1 @@
+"""Service/API boundary; implementation added after contracts are reviewed."""

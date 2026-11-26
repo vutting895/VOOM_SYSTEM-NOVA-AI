@@ -1,0 +1,1 @@
+"""Deterministic technical and SMC feature calculations."""

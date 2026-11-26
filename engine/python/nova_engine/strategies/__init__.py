@@ -1,0 +1,1 @@
+"""Strategy signal producers; no broker execution."""
