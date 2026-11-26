@@ -248,6 +248,7 @@ jobs:
             ROLLBACK_REASON: "<< pipeline.parameters.rollback_reason >>"
           command: |
             set -euo pipefail
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
             git fetch origin main --quiet
             python scripts/release_control.py rollback-request \
               --repository "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" \
@@ -270,7 +271,7 @@ jobs:
           command: |
             set -euo pipefail
             python - <<'PY'
-            import json
+            import json, os
             from pathlib import Path
             payload = json.loads(Path("rollback-evidence/rollback-request.json").read_text())
             assert payload["execution_owner"] == "GitHub Actions"
@@ -279,8 +280,8 @@ jobs:
             assert payload["request_status"] == "PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION"
             payload["circleci_approval"] = {
                 "status": "approval_gate_completed",
-                "pipeline_url": f"https://app.circleci.com/pipelines/github/{__import__('os').environ['CIRCLE_PROJECT_USERNAME']}/{__import__('os').environ['CIRCLE_PROJECT_REPONAME']}/{__import__('os').environ['CIRCLE_PIPELINE_NUMBER']}",
-                "workflow_id": __import__('os').environ.get("CIRCLE_WORKFLOW_ID", ""),
+                "pipeline_url": f"https://app.circleci.com/pipelines/github/{os.environ['CIRCLE_PROJECT_USERNAME']}/{os.environ['CIRCLE_PROJECT_REPONAME']}/{os.environ['CIRCLE_PIPELINE_NUMBER']}",
+                "workflow_id": os.environ.get("CIRCLE_WORKFLOW_ID", ""),
                 "approver_identity": None,
                 "approver_timestamp_utc": None,
             }
