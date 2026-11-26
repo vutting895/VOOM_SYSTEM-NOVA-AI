@@ -1,0 +1,27 @@
+name: NOVA Dataset Integrity
+
+on:
+  pull_request:
+    paths:
+      - "datasets/**"
+      - "reports/legacy-learning-universe/**"
+      - "scripts/validate_exness_dataset.py"
+      - "scripts/validate_market_datasets.py"
+      - ".github/workflows/nova-dataset-integrity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-market-datasets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate imported historical sources and provenance
+        run: python scripts/validate_market_datasets.py
