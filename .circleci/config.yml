@@ -228,7 +228,9 @@ jobs:
               --repository "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" \
               --sha "$CIRCLE_SHA1" \
               --review-evidence "$REVIEW_EVIDENCE_URL" \
-              --approval-build-url "https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PIPELINE_NUMBER"
+              --approval-build-url "https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/$CIRCLE_PIPELINE_NUMBER" \
+              --workflow-id "$CIRCLE_WORKFLOW_ID" \
+              --build-number "$CIRCLE_BUILD_NUM"
       - store_artifacts:
           path: release-evidence
           destination: immutable-release-candidate-marker
@@ -275,6 +277,16 @@ jobs:
             assert payload["execution_status"] == "NOT_EXECUTED"
             assert payload["circleci_deploy_or_rollback_executed"] is False
             assert payload["request_status"] == "PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION"
+            payload["circleci_approval"] = {
+                "status": "approval_gate_completed",
+                "pipeline_url": f"https://app.circleci.com/pipelines/github/{__import__('os').environ['CIRCLE_PROJECT_USERNAME']}/{__import__('os').environ['CIRCLE_PROJECT_REPONAME']}/{__import__('os').environ['CIRCLE_PIPELINE_NUMBER']}",
+                "workflow_id": __import__('os').environ.get("CIRCLE_WORKFLOW_ID", ""),
+                "approver_identity": None,
+                "approver_timestamp_utc": None,
+            }
+            Path("rollback-evidence/approved-rollback-request.json").write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\\n"
+            )
             print("Rollback handoff validated; no deployment or rollback was executed.")
             PY
       - store_artifacts:
