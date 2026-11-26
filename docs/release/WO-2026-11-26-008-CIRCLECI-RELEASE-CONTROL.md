@@ -50,7 +50,7 @@ The config uses standard hosted Docker executors and does not request paid resou
 | Exact SHA binding | IMPLEMENTED IN JOBS / NOT PROVIDER-EXECUTED | executed job logs showing checkout SHA = CIRCLE_SHA1 |
 | Deterministic marker identity and artifact SHA-256 | IMPLEMENTED / 10 UNIT TESTS PASS LOCALLY | CI run and stored artifact readback |
 | Per-run immutable artifact and local idempotent write | IMPLEMENTED / 10 UNIT TESTS PASS LOCALLY; global dedup NOT IMPLEMENTED | duplicate/conflicting-write tests plus durable registry authorization if global suppression is required |
-| Missing/altered artifact rejection | IMPLEMENTED / TESTS NOT RUN | regression test output |
+| Missing/altered artifact rejection | IMPLEMENTED / 10 UNIT TESTS PASS LOCALLY | exact-head provider run and artifact readback |
 | GitHub review approval evidence | BLOCKED / NOT MACHINE VERIFIED | authorized read-only evidence mechanism and independent review |
 | Rollback known-good verification | BLOCKED / NOT MACHINE VERIFIED | independently verified GitHub Actions deployment + health evidence |
 | No CircleCI production deploy authority | SOURCE REVIEW ONLY | CircleCI project/context/secret inventory |
