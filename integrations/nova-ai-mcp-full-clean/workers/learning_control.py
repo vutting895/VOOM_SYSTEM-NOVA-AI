@@ -1,1 +1,35 @@
-{"text":"[Reading 55 lines from start (total: 55 lines, 0 remaining)]\n\n\n\"\"\"\nLearning Control Plane - รวมทุก Learning Type ที่คุณสรุปไว้\nจัดการ เปิด/ปิด เทรน ดู performance\n\"\"\"\nfrom feature.supervised_xgboost import SupervisedWorker\nfrom feature.unsupervised_clustering import UnsupervisedWorker\nfrom feature.gnn_correlation import CoinCorrelationGNN\nfrom rl.ppo_trader import PPOTraderWorker\nfrom gen_ai.llm_strategy import GenAIStrategyWorker\nfrom backtest.engine import BacktestWorker\nfrom tuning.optuna_tuner import TuningWorker\nfrom risk.manager import RiskWorker\n\nclass LearningControlPlane:\n    def __init__(self):\n        print(\"🧠 Initializing Learning Universe - ทั้งหมดที่คุณสรุปไว้\")\n        self.workers = {\n            \"supervised\": {\"instance\": SupervisedWorker(), \"enabled\": True, \"type\": \"Supervised Learning - มีเฉลย XGBoost\"},\n            \"unsupervised\": {\"instance\": UnsupervisedWorker(), \"enabled\": True, \"type\": \"Unsupervised - K-Means\"},\n            \"rl\": {\"instance\": PPOTraderWorker(), \"enabled\": True, \"type\": \"Reinforcement Learning - ลองผิดถูก AlphaGo\"},\n            \"cnn_vision\": {\"instance\": None, \"enabled\": True, \"type\": \"Self-supervised Vision - DINO MAE\"},\n            \"gnn\": {\"instance\": CoinCorrelationGNN(), \"enabled\": True, \"type\": \"GNN - กราฟความสัมพันธ์\"},\n            \"mamba\": {\"instance\": None, \"enabled\": True, \"type\": \"Mamba RWKV - จำยาวกว่า Transformer\"},\n            \"gen_ai\": {\"instance\": GenAIStrategyWorker(), \"enabled\": True, \"type\": \"Gen AI - LLM สร้างกลยุทธ์\"},\n            \"backtest\": {\"instance\": BacktestWorker(), \"enabled\": True, \"type\": \"Backtest 3Y\"},\n            \"tuning\": {\"instance\": TuningWorker(), \"enabled\": True, \"type\": \"Optuna 50 trials + Genetic\"},\n            \"risk\": {\"instance\": RiskWorker(), \"enabled\": True, \"type\": \"Risk - VaR\"},\n        }\n        \n    def list_workers(self):\n        for name, info in self.workers.items():\n            status = \"🟢 ON\" if info[\"enabled\"] else \"🔴 OFF\"\n            print(f\"{status} {name}: {info['type']}\")\n    \n    def toggle(self, name, enabled):\n        if name in self.workers:\n            self.workers[name][\"enabled\"] = enabled\n            print(f\"Toggled {name} -> {'ON' if enabled else 'OFF'}\")\n    \n    def run_pipeline(self, user_prompt):\n        print(\"\\n🚀 Running Full Pipeline - 11 Steps\")\n        print(\"1. Data Ingestion -> 2. Feature (All Learning Types) -> 3. Gen AI -> 4. Backtest -> 5. Tuning -> 6. Gate 60% -> 7. Risk -> 8. Portfolio\")\n        # Simulate\n        gen = self.workers[\"gen_ai\"][\"instance\"].generate(\"Bull\", {\"rsi\":30}, user_prompt)\n        backtest = self.workers[\"backtest\"][\"instance\"].run(gen, [0]*10000)\n        tuning = self.workers[\"tuning\"][\"instance\"].tune(gen, None)\n        score = (backtest[\"winrate\"]/100*0.4 + min(tuning[\"best_sharpe\"]/3,1)*0.3 + 0.6*0.3)*100\n        print(f\"\\n📊 Final Score: {score:.1f}% - {'✅ ผ่าน >60%' if score>=60 else '❌ ไม่ผ่าน'}\")\n        return {\"strategy\": gen, \"backtest\": backtest, \"tuning\": tuning, \"score\": score}\n\nif __name__ == \"__main__\":\n    plane = LearningControlPlane()\n    plane.list_workers()\n    plane.run_pipeline(\"เน้นทำกำไรสั้นตอนผันผวน ใช้ RSI + Volume\")\n\n[executed on device: 10_3_6_9 (85294689-03d5-431e-abd5-9e27d4c94814)]"}
+"""Evidence-based learning control plane. No synthetic inputs or simulated scores."""
+from workers.feature.supervised_xgboost import SupervisedWorker
+from workers.learning_orchestrator import LearningGateError
+
+class LearningControlPlane:
+    def __init__(self):
+        self.workers = {
+            "supervised_xgboost": {"instance": SupervisedWorker(), "enabled": True, "status": "READY"},
+            "unsupervised": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "rl": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "cnn_vision": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "gnn": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "mamba": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "gen_ai": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "backtest": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "tuning": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+            "risk": {"instance": None, "enabled": False, "status": "NOT_IMPLEMENTED"},
+        }
+
+    def list_workers(self):
+        return {name: {"enabled": item["enabled"], "status": item["status"]}
+                for name, item in self.workers.items()}
+
+    def run_xgboost_training(self, frame, *, dataset_id, source, code_revision):
+        worker = self.workers["supervised_xgboost"]
+        if not worker["enabled"] or worker["instance"] is None:
+            raise LearningGateError("xgboost_worker_not_ready")
+        return worker["instance"].train(
+            frame, dataset_id=dataset_id, source=source, code_revision=code_revision
+        )
+
+    def run_pipeline(self, *_args, **_kwargs):
+        raise LearningGateError(
+            "explicit_dataset_and_provenance_required; use run_xgboost_training(frame, dataset_id, source, code_revision)"
+        )
