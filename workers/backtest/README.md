@@ -28,7 +28,15 @@ The frontend is published on port 3000. The research worker is internal to the C
 
 ## Test
 
-Install `workers/requirements.txt`, then run `python -m pytest tests -q` and `python -m unittest discover -s tests -v`. CI runs the focused SMC pytest suite and the existing SMC unittest regression tests.
+Install runtime dependencies and the pinned test runner, then run the test suites:
+
+```bash
+python -m pip install -r workers/requirements.txt pytest==9.0.3
+python -m pytest tests -q
+python -m unittest discover -s tests -v
+```
+
+`pytest` is intentionally excluded from the research-worker runtime image. CI installs the same pinned test runner separately. CI runs the focused SMC pytest suite and the existing SMC unittest regression tests.
 
 ## Combined SMC + Elliott Wave research pipeline
 
