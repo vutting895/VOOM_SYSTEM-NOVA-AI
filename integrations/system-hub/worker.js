@@ -510,8 +510,11 @@ function quantWorkerBase(env) {
   if (!raw) return null;
   try {
     const url = new URL(raw);
-    if (url.protocol !== "https:" || url.username || url.password ||
-        !url.hostname.endsWith(".workers.dev") || (url.pathname !== "" && url.pathname !== "/") || url.search || url.hash) return null;
+    const allowedHosts = new Set(String(env.QUANTLAB_WORKER_ALLOWED_HOSTS || "")
+      .split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
+    if (url.protocol !== "https:" || url.username || url.password || url.port ||
+        !allowedHosts.has(url.hostname.toLowerCase()) ||
+        (url.pathname !== "" && url.pathname !== "/") || url.search || url.hash) return null;
     return url;
   } catch {
     return null;
