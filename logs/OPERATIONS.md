@@ -676,3 +676,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Status: IMPLEMENTATION IN PROGRESS / ACCEPTANCE NOT VERIFIED. No acceptance criterion is marked DONE.
 - Safety: no Main edits, merge, auto-merge, deployment, production mutation, secrets/permissions changes, billing changes, broker writes, or training. `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
 - Next: validate the YAML with CircleCI CLI, run exact-head CircleCI jobs under existing Free quota, inspect runner/job logs/artifacts, close the review-evidence gaps, and obtain independent security/maintainer review before any release decision.
+
+
+## 2026-11-26T04:05:57.716Z — WO-2026-11-26-008 — implementation hardening and evidence limits
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `work/wo-2026-11-26-008-circleci-release-control`.
+- Implementation hardening: marker records CircleCI workflow/build provenance; validation checks marker schema, exact repository/SHA, workflow version, required check set, artifact digests, approval-gate reference, deployment ownership, and trading safety flags.
+- Rollback preflight now checks the exact CircleCI checkout SHA, validates a full target SHA and GitHub Actions deployment-run URL, and checks target ancestry against fetched `origin/main`. The post-approval artifact explicitly records CircleCI approval-gate completion but remains `PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION` and `NOT_EXECUTED`.
+- Added regression coverage for missing required checks, missing artifacts, rollback handoff safety, and invalid deployment evidence. Total authored tests in `tests/test_release_control.py`: 10.
+- Marker semantics clarified: deterministic marker identity is stable for the same repository/SHA/workflow/artifact set; CircleCI artifacts are immutable per pipeline. Global duplicate suppression across separate pipelines is not implemented because no durable shared registry/authorization is in scope. This limitation is explicitly recorded; do not claim global idempotent storage.
+- GitHub review identity and known-good deployment/health evidence remain unverified; no read-only GitHub evidence credential or permission was added.
+- Tests remain authored but NOT EXECUTED. CircleCI CLI validation and provider run remain NOT VERIFIED.
+- Status remains IMPLEMENTATION IN PROGRESS / ACCEPTANCE NOT VERIFIED. No merge, deployment, or production mutation.
