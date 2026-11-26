@@ -697,3 +697,16 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Files updated: `.circleci/config.yml`, `docs/release/WO-2026-11-26-008-CIRCLECI-RELEASE-CONTROL.md`.
 - Tests remain authored but not executed. CircleCI CLI validation and exact-head provider run remain NOT VERIFIED.
 - No merge, deployment, production mutation, secrets/permissions change, or billing change.
+
+
+## 2026-11-26T04:14:05.607Z — WO-2026-11-26-008 — local validation results and test-path correction
+
+- Fetched branch `work/wo-2026-11-26-008-circleci-release-control` to the authorized Windows development workstation and created an isolated detached verification worktree at `C:\Users\Administrator\Documents\NOVA-DEV\WO-008-VERIFY`.
+- First local unit-test attempt exposed an import-path defect: unittest discovery did not include repository root, so `scripts.release_control` could not be imported. No tests ran on that first attempt.
+- Corrected the CircleCI release validation job to invoke `PYTHONPATH=. python -m unittest discover -s tests -p "test_release_control.py" -v`.
+- Re-ran at branch commit `fd3405ec4f987139325ec9434ece12453ad05b79`: all 10 tests passed (10 tests, 0 failures, 0 errors).
+- Parsed `.circleci/config.yml` locally with the already-installed `js-yaml` parser: YAML parse passed; 10 jobs, 4 workflows, and the 3 declared operations were found.
+- CircleCI CLI is not installed on the workstation. No CircleCI provider run was triggered; no provider runner, quota, logs, or CircleCI artifacts are evidenced.
+- Public CircleCI plan documentation currently states Free has 30,000 monthly credits and 5 active users; personal builds are blocked at zero credits. This is not evidence of NOVA's actual plan, active-user count, remaining credits, or paid-refill settings.
+- Status: local static validation and unit tests PASS; provider validation and acceptance remain NOT VERIFIED.
+- No Main edit, merge, deployment, production mutation, secret/permission change, billing change, or broker execution. Safety flags remain false.
