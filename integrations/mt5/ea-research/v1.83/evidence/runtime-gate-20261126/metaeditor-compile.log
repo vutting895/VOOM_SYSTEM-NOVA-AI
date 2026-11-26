@@ -1,0 +1,50 @@
+
+
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5 : information: compiling C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5 : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Object.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Object.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\StdLibErr.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\OrderInfo.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\HistoryOrderInfo.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\PositionInfo.mqh
+C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\Trade.mqh : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\DealInfo.mqh
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5 : information: including C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\E23367DD11DBEB0EF97D08185EAB7295\MQL5\Include\Trade\SymbolInfo.mqh
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5(3480,102) : warning 89: 'POSITION_COMMISSION' is deprecated
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5(3664,109) : warning 89: 'POSITION_COMMISSION' is deprecated
+C:\NOVA_EA_RESEARCH\phase2\repo\integrations\mt5\ea-research\v1.83\candidate\Nova_EA_v1_83_PHASE2_READONLY_CANDIDATE.mq5(7857,24) : warning 43: possible loss of data due to type conversion from 'long' to 'double'
+ : information: generating code
+ : information: generating code 3%
+ : information: generating code 6%
+ : information: generating code 9%
+ : information: generating code 12%
+ : information: generating code 15%
+ : information: generating code 18%
+ : information: generating code 21%
+ : information: generating code 24%
+ : information: generating code 27%
+ : information: generating code 30%
+ : information: generating code 33%
+ : information: generating code 36%
+ : information: generating code 39%
+ : information: generating code 42%
+ : information: generating code 45%
+ : information: generating code 48%
+ : information: generating code 51%
+ : information: generating code 54%
+ : information: generating code 57%
+ : information: generating code 60%
+ : information: generating code 63%
+ : information: generating code 66%
+ : information: generating code 69%
+ : information: generating code 72%
+ : information: generating code 75%
+ : information: generating code 78%
+ : information: generating code 81%
+ : information: generating code 84%
+ : information: generating code 87%
+ : information: generating code 90%
+ : information: generating code 93%
+ : information: generating code 95%
+ : information: generating code 100%
+ : information: code generated
+Result: 0 errors, 3 warnings, 10716 ms elapsed, cpu='X64 Regular'
