@@ -1,0 +1,23 @@
+---
+name: nova command center tests
+discover: bunx vitest list --filesOnly
+run: bunx vitest run --outputFile="<< outputs.junit >>" --silent --bail 0 << test.atoms >>
+analysis: cross-env CIRCLECI_COVERAGE="<< outputs.circleci-coverage >>" bunx vitest run --silent --bail 0 << test.atoms >>
+outputs:
+  junit: test-reports/junit.xml
+options:
+  store-test-results: true
+  impact-key: nova-command-center
+  test-impact-analysis: true
+  dynamic-test-splitting: true
+  max-auto-rerun: 2
+  full-test-run-paths:
+    - package.json
+    - bun.lock
+    - tsconfig.json
+    - vite.config.ts
+    - vitest.config.ts
+    - src/test/setup.ts
+    - .circleci/test-suites.yml
+    - ../../.circleci/config.yml
+    - ../../.github/workflows/nova-command-center-ci.yml

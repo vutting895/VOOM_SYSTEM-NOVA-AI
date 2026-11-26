@@ -43,3 +43,7 @@ mt5-tenant-routes*.json
 Thumbs.db
 .vscode/
 frontend/next-env.d.ts
+
+# CircleCI Smarter Testing local impact and doctor state (never commit local cache)
+**/.circleci/impact-*.json
+**/.circleci/state*
