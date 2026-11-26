@@ -42,6 +42,18 @@ class EventUploaderTests(unittest.TestCase):
     def test_full_draft_2020_12_schema_accepts_valid_event(self):
         validate_event(self.valid_event(), self.validator)
 
+    def test_full_schema_rejects_invalid_uuid_format(self):
+        event = self.valid_event()
+        event["event_id"] = "not-a-uuid"
+        with self.assertRaises(Exception):
+            validate_event(event, self.validator)
+
+    def test_full_schema_rejects_invalid_date_time_format(self):
+        event = self.valid_event()
+        event["occurred_at"] = "2026-13-26T10:00:00Z"
+        with self.assertRaises(Exception):
+            validate_event(event, self.validator)
+
     def test_full_schema_rejects_unknown_root_field(self):
         event = self.valid_event()
         event["account_login"] = "not-allowed"
