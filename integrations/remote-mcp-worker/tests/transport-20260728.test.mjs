@@ -122,7 +122,7 @@ test("modern tools/list returns complete result with private cache metadata", as
   assert.equal(payload.result.resultType, "complete");
   assert.ok(Array.isArray(payload.result.tools));
   assert.equal(payload.result.cacheScope, "private");
-  assert.equal(payload.result._meta[SERVER_INFO].version, "0.3.0");
+  assert.equal(payload.result._meta[SERVER_INFO].version, "0.4.0");
 });
 
 test("modern tools/call returns a complete read-only tool result", async () => {
