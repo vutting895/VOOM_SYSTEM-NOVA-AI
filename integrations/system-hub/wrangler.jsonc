@@ -10,5 +10,15 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  "services": [
+    {
+      "binding": "MT5_READONLY_PROXY",
+      "service": "voom-mt5-readonly-proxy"
+    },
+    {
+      "binding": "NOVA_AI",
+      "service": "voom-system-nova-ai"
+    }
+  ]
 }
