@@ -1,53 +1,57 @@
-# NOVA QuantLab Hub API contract (Development)
+# NOVA QuantLab Hub and Worker API contract
 
-Status: gateway contract implemented on the NOVA development branch; the downstream Quant Worker is not yet implemented or configured.
+Status: **Development implementation present; not deployed; no compute executor is registered.** The Hub gateway and Python queue API now exist. This is not yet an operational training/backtest service.
 
-## Trust boundary
+## Trust and tenant boundary
 
-1. The System Hub validates the Supabase access token against the configured Supabase Auth endpoint.
-2. The Hub forwards the same bearer session to the configured Quant Worker over HTTPS. It does not accept `tenant_id`, `requester_id`, `actor_id`, worker identity, or tenant scope from the browser payload.
-3. The downstream worker MUST independently validate the bearer token against the same trusted Supabase project, derive user and tenant membership server-side, and enforce tenant-scoped reads/writes. It MUST NOT trust a tenant header or user ID supplied by the caller.
-4. The worker must return JSON objects only. The Hub rejects redirects, non-JSON responses, malformed JSON, and responses larger than 256 KiB.
-5. The Hub has no broker execution, order, funds-movement, or account-mutation route in this API.
+1. The System Hub validates the Supabase access token, then forwards the same bearer token over HTTPS.
+2. The Python worker independently validates that token against the same Supabase Auth project.
+3. Until a canonical organization-membership/tenant registry is approved, the worker maps each authenticated Supabase user ID to their own isolated tenant ID. This is user-per-tenant isolation, not shared organization tenancy. No client-supplied tenant/user headers or payload fields are trusted.
+4. The worker rejects redirects to avoid forwarding bearer credentials to another origin.
+5. Internal dispatcher lease endpoints use a separate `QUANTLAB_DISPATCHER_TOKEN` and are not exposed through the System Hub gateway.
+6. This API has no broker order, execution, funds-transfer, or account-mutation operation.
 
 ## Hub endpoints
 
-- `GET /v1/quantlab/capabilities` — authenticated gateway configuration and allowlisted job types. `configured` means only that a syntactically valid worker URL is configured; it does not prove worker health.
-- `GET /v1/quantlab/jobs?limit=25&state=QUEUED&cursor=...` — list the authenticated user's jobs. Limit 1–100; state is allowlisted; cursor <=256 chars.
-- `POST /v1/quantlab/jobs` — create a research job. Requires `Idempotency-Key` matching `[A-Za-z0-9][A-Za-z0-9._:-]{7,127}`; body <=64 KiB.
-- `GET /v1/quantlab/jobs/{job_id}` — retrieve a tenant-scoped job.
-- `GET /v1/quantlab/jobs/{job_id}/events` — retrieve a tenant-scoped append-only event stream.
+- `GET /v1/quantlab/capabilities`
+- `GET /v1/quantlab/jobs?limit=25&state=QUEUED&cursor=...`
+- `POST /v1/quantlab/jobs` with `Idempotency-Key`
+- `GET /v1/quantlab/jobs/{job_id}`
+- `GET /v1/quantlab/jobs/{job_id}/events`
 
-Create body is an allowlisted object with only:
-```json
-{
-  "job_type": "backtest",
-  "resource_profile": "free-cpu",
-  "timeout_seconds": 600,
-  "experiment": {
-    "spec": "nova.quant-experiment.v1"
-  }
-}
-```
+The Hub validates allowlisted job types (`dataset.validate`, `backtest`, `train`, `evaluate`), resource profile `free-cpu`, timeout 1–900 seconds, a 64 KiB body limit, and bounded query filters. Browser-supplied tenant, requester, actor, or worker identity fields are rejected.
 
-Allowed job types: `dataset.validate`, `backtest`, `train`, `evaluate`. Resource profile is `free-cpu`; timeout is 1–900 seconds. Browser-supplied identity and tenant fields are rejected.
+## Python worker user API
 
-## Downstream worker contract
+- `GET /v1/jobs` — tenant-scoped list with bounded cursor pagination.
+- `POST /v1/jobs` — idempotent enqueue; returns HTTP 202.
+- `GET /v1/jobs/{job_id}` — tenant-scoped job detail.
+- `GET /v1/jobs/{job_id}/events` — tenant-scoped append-only event history.
 
-The worker receives:
-- `GET /v1/jobs[?limit=&state=&cursor=]`
-- `POST /v1/jobs` with the validated JSON body and `Idempotency-Key`
-- `GET /v1/jobs/{job_id}`
-- `GET /v1/jobs/{job_id}/events`
+The queue stores the submitted experiment payload, job state, requester, idempotency key, and append-only state events in SQLite. Same-tenant replay with the same key and same request returns the original job; reuse with a different request returns 409. Cross-tenant lookup returns 404.
 
-It must respond with JSON object bodies and preserve meaningful HTTP status codes (202 for accepted creation, 400 for invalid request, 401/403 for auth/tenant denial, 404 for jobs outside the caller's tenant, 409 for idempotency/state conflicts, 429 for quotas, 5xx for service faults).
+## Internal dispatcher/lease API
 
-The worker implementation must provide durable persistence, tenant-scoped idempotency, append-only events, worker leases/heartbeats, retry/recovery semantics, quotas, audit metadata, and persistent artifact references. The existing SQLite adapter is single-node only and is not itself this HTTP worker.
+These endpoints require `X-QuantLab-Dispatcher-Token`, configured separately from user Supabase sessions:
 
-## Configuration and rollout
+- `POST /v1/internal/leases/claim` — claim one queued job and receive a one-time lease token.
+- `POST /v1/internal/leases/{job_id}/heartbeat` — extend a valid, unexpired lease.
+- `POST /v1/internal/leases/{job_id}/finish` — complete with `SUCCEEDED`, `FAILED`, `REJECTED`, or `TIMED_OUT`.
 
-Set `QUANTLAB_WORKER_URL` on the System Hub Worker only after the downstream worker exists and has passed its own auth/tenant/lifecycle contract tests. The Hub accepts only an HTTPS `*.workers.dev` origin with no credentials, path, query, or fragment. This environment variable is intentionally not configured by this change.
+Claim is serialized with `BEGIN IMMEDIATE`. A lease expires after its bounded TTL; the next claim operation returns expired RUNNING jobs to QUEUED and appends a recovery event before claiming. Lease tokens are stored as SHA-256 hashes. A stale, expired, wrong-worker, or reused token is rejected. The event table has database-level UPDATE/DELETE guards.
 
-Before production routing: implement and deploy the downstream worker separately; configure the Hub variable through approved secret/config management; run end-to-end tenant isolation, idempotency, quota, lifecycle, timeout, crash recovery, and audit tests; verify persistent storage/backup/restore; then perform a staged non-trading rollout. Do not apply Supabase migrations or enable broker writes as part of this contract.
+**Not implemented:** a polling dispatcher process, execution-handler registry, actual model-training/backtest executor, retry policy beyond lease-expiry requeue, result/artifact persistence, quotas/rate limiting, cancellation, and automated backup/restore. The lease API is a queue/worker boundary, not proof that work is being executed.
 
-Safety invariants remain false: `ordersEnabled`, `executionEnabled`, and `liveTradingEnabled`.
+## Storage and deployment
+
+- `QUANTLAB_DB_PATH` must be an absolute path on a persistent volume. Default: `/data/nova-quantlab/quantlab.sqlite3`.
+- SQLite WAL mode is enabled. This is a **single-node queue**; do not mount the same SQLite database for concurrent replicas or treat it as a distributed queue.
+- Backups must include a consistent SQLite backup/checkpoint procedure and a restore test before production.
+- Python service must run as a container/hosted process with persistent disk. It is not a Cloudflare Worker. The Hub therefore accepts only HTTPS and an exact hostname in `QUANTLAB_WORKER_ALLOWED_HOSTS` (comma-separated exact hostnames); `QUANTLAB_WORKER_URL` must be a root HTTPS origin with no credentials, custom port, path, query, or fragment.
+- Neither environment variable is configured by this change. No secret/configuration changes or deployments were made.
+
+## Production gates
+
+Before routing production traffic: register an actual dispatcher/executor; implement bounded concurrency, hard process timeout, retry policy, artifact storage, quotas, cancellation and audit; choose an explicitly approved persistent hosting option and verify cost; configure user auth and dispatcher credentials; perform tenant-isolation, idempotency, lease expiry/recovery, worker-crash, timeout, backup/restore and end-to-end tests. Do not apply Supabase migrations or enable broker writes as part of this work order.
+
+Safety invariants remain false: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
