@@ -16,7 +16,7 @@ Run a CircleCI pipeline with:
 - `operation=validate`
 - optional `release_sha=<full 40-character SHA>`
 
-The pipeline compiles the Quant Engine, runs the Quant Engine contract tests, and verifies that the repository's GitHub Actions deployment workflow remains the production deploy owner and retains read-only trading safety checks.
+The pipeline compiles the Quant Engine, runs the Quant Engine contract tests, validates an optional full commit SHA, and checks that the GitHub Actions production workflow is restricted to `main`, is triggered by the successful frontend workflow, and keeps `NOVA_APPROVALS_ENABLED` set to `false`. CircleCI's marker records the required trading safety flags as policy metadata; it is not runtime proof that broker endpoints or deployed services are read-only. Runtime safety must be verified separately from the deployed services' health/smoke-test evidence.
 
 ### Create a release marker
 
