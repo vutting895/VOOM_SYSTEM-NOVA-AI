@@ -64,3 +64,11 @@ Phase 0 IN_PROGRESS. No runtime code, broker mutation, test PASS, deployment or 
 - Updated Python test Git blob SHA: f6c0c3795db67249cf000d8bc636dbf3e26fe126; it matches the locally tested file.
 - System Hub route integration tests remain NOT EXECUTED; full Worker bundle check, exact-head hosted CI and independent security review remain outstanding.
 - Latest NOVA Main at this checkpoint: 9f386a6c4f4c8f7a3b11ad8e6b7bd503768d0f23.
+
+
+## Latest status recheck — 2026-11-26
+
+- Latest Main including operations log and Issue #36 synchronization: 20f753d945b74a6b92a563fec8b30dae4502f64e.
+- Exact Main combined status: CircleCI Pipeline ERROR (#2533), Vercel deployment-context failures, no GitHub Actions run returned. Provider status does not prove source tests executed or failed.
+- Netlify production remains on older published commit 03b71d01ce2ddedf7da1ee17d296f8880dde6e10; latest listed production deploys are skipped for credit usage exceeded.
+- Work remains IN_PROGRESS; route integration tests and full Worker bundle tests remain NOT EXECUTED. Broker dispatch and all trading flags remain hard-disabled.
