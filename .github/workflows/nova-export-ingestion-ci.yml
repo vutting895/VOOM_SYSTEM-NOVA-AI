@@ -44,7 +44,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install JSON Schema validator
-        run: python -m pip install "jsonschema>=4.20,<5"
+        run: python -m pip install "jsonschema[format]>=4.20,<5"
       - name: Compile uploader and run unit tests
         run: |
           python -m py_compile integrations/mt5/ea-research/v1.83/brain-contract/uploader.py
