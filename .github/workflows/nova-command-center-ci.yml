@@ -9,6 +9,12 @@ on:
     paths:
       - "apps/nova-command-center/**"
       - ".github/workflows/nova-command-center-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/nova-command-center/**"
+      - ".github/workflows/nova-command-center-ci.yml"
   workflow_dispatch:
 
 permissions:
