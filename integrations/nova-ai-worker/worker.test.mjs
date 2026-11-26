@@ -141,6 +141,21 @@ test("untrusted browser origin is rejected", async () => {
   assert.equal(response.status, 403);
 });
 
+test("NOVA Chat deploy preview origin is allowed for authenticated browser requests", async () => {
+  const previewOrigin = "https://deploy-preview-358--voomsystem.netlify.app";
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "OPTIONS",
+    headers: {
+      Origin: previewOrigin,
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,content-type"
+    }
+  }), env);
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), previewOrigin);
+  assert.match(response.headers.get("Access-Control-Allow-Headers"), /Authorization/i);
+});
+
 test("bad input and oversized payload fail closed", async () => {
   authFetch();
   const invalid = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
@@ -231,6 +246,189 @@ test("chat rejects system-role messages and oversized conversations", async () =
   assert.equal((await oversized.json()).error, "invalid_message_length");
 });
 
+
+test("chat prefers Gemini and maps assistant history to the Gemini model role", async () => {
+  let requestBody;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
+    assert.equal(new Headers(init.headers).get("x-goog-api-key"), "gemini-test-key");
+    assert.equal(init.redirect, "manual");
+    requestBody = JSON.parse(String(init.body));
+    assert.equal(requestBody.generationConfig.thinkingConfig.thinkingLevel, "LOW");
+    assert.equal("temperature" in requestBody.generationConfig, false);
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "Gemini research answer" }] } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [
+        { role: "user", content: "Explain SMC" },
+        { role: "assistant", content: "SMC is a market-structure framework." },
+        { role: "user", content: "Continue" }
+      ]
+    }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "gemini-test-key",
+    AI: { run: async () => { throw new Error("Cloudflare fallback must not run when Gemini succeeds"); } }
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.message, "Gemini research answer");
+  assert.equal(body.provider, "gemini");
+  assert.equal(body.model, "gemini-3.8-flash");
+  assert.equal(body.fallbackUsed, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.deepEqual(requestBody.contents.map((turn) => turn.role), ["user", "model", "user"]);
+  assert.match(requestBody.systemInstruction.parts[0].text, /Live trading and order submission are disabled/);
+});
+
+test("chat falls back to Cloudflare AI when Gemini returns an unavailable status", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
+    return new Response(JSON.stringify({ error: { status: "UNAVAILABLE" } }), { status: 503 });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain RSI" }] }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "gemini-test-key",
+    AI: {
+      run: async (model) => {
+        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
+        return { response: "Cloudflare fallback answer" };
+      }
+    }
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.message, "Cloudflare fallback answer");
+  assert.equal(body.provider, "cloudflare-workers-ai");
+  assert.equal(body.fallbackUsed, true);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("strategy generation uses Gemini first and validates the research draft", async () => {
+  const strategyJson = JSON.stringify({
+    name: "NOVA Gemini Draft",
+    entryWorkers: ["EMATrendWorker"],
+    exit: { takeProfitPct: 2, stopLossPct: 1 },
+    rationale: "Trend research hypothesis only."
+  });
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    assert.equal(String(url), "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
+    assert.equal(new Headers(init.headers).get("x-goog-api-key"), "gemini-test-key");
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: strategyJson }] } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA trend research", market: "XAU/USD", timeframe: "1h", risk: "medium" }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "gemini-test-key",
+    AI: { run: async () => { throw new Error("Cloudflare fallback must not run when Gemini succeeds"); } }
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.strategy.source, "gemini-api");
+  assert.equal(body.strategy.modelUsed, "gemini-3.8-flash");
+  assert.equal(body.strategy.executionEnabled, false);
+  assert.equal(body.strategy.backtestStatus, "not_run");
+  assert.equal(body.llm.provider, "gemini");
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("invalid Gemini strategy output falls back to validated Cloudflare output", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: "not valid strategy JSON" }] } }]
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA trend research", market: "XAU/USD", timeframe: "1h", risk: "medium" }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "gemini-test-key",
+    AI: {
+      run: async () => ({
+        response: JSON.stringify({
+          name: "NOVA Cloudflare Draft",
+          entryWorkers: ["RSIWorker"],
+          exit: { takeProfitPct: 1.5, stopLossPct: 0.8 },
+          rationale: "Validated fallback research hypothesis."
+        })
+      })
+    }
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.strategy.source, "cloudflare-workers-ai");
+  assert.equal(body.strategy.modelUsed, "@cf/meta/llama-3.2-3b-instruct");
+  assert.equal(body.llm.provider, "cloudflare-workers-ai");
+  assert.equal(body.llm.fallbackUsed, true);
+  assert.equal(body.strategy.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("health reports Gemini primary and Cloudflare fallback without exposing the key", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/health"),
+    {
+      ...env,
+      GEMINI_API_KEY: "gemini-test-key",
+      AI: { run: async () => ({ response: "unused" }) },
+    },
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.version, "1.2.0");
+  assert.equal(body.primaryProvider, "gemini");
+  assert.equal(body.primaryModel, "gemini-3.8-flash");
+  assert.equal(body.fallbackProvider, "cloudflare-workers-ai");
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(JSON.stringify(body).includes("gemini-test-key"), false);
+});
+
+test("health reports Cloudflare AI as primary when Gemini is not configured", async () => {
+  const response = await worker.fetch(
+    new Request("https://worker.test/health"),
+    {
+      ...env,
+      GEMINI_API_KEY: undefined,
+      AI: { run: async () => ({ response: "unused" }) },
+    },
+  );
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.primaryProvider, "cloudflare-workers-ai");
+  assert.equal(body.primaryModel, "@cf/meta/llama-3.2-3b-instruct");
+  assert.equal(body.fallbackProvider, null);
+});
 test("unknown order route cannot execute", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/orders", {
     method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },

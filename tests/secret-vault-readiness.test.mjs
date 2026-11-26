@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = new URL("../", import.meta.url);
 const sql = readFileSync(new URL("supabase/verification/secret-vault-readiness.sql", root), "utf8");
 const compose = readFileSync(new URL("infra/docker-compose.yml", root), "utf8");
+const netlify = readFileSync(new URL("netlify.toml", root), "utf8");
 const readinessDoc = readFileSync(new URL("docs/implementation/NOVA-AUTO-API-SECRET-MANAGER-READINESS.md", root), "utf8");
 
 test("Vault readiness SQL is read-only and never selects credential values", () => {
@@ -24,7 +25,7 @@ test("local frontend Compose service does not receive provider or Bridge credent
   assert.doesNotMatch(compose, /BYBIT_API_(KEY|SECRET)/i);
   assert.doesNotMatch(compose, /MT5_BRIDGE_(TOKEN|HEALTH_URL)/i);
   assert.match(compose, /frontend:/);
-  assert.match(compose, /NODE_ENV: development/);
+  assert.match(compose, /NODE_ENV: production/);
 });
 
 test("readiness document keeps credential operations disabled until every Vault gate passes", () => {
@@ -33,4 +34,15 @@ test("readiness document keeps credential operations disabled until every Vault 
   assert.match(readinessDoc, /dedicated server-side role\/path/);
   assert.match(readinessDoc, /two staging users/);
   assert.match(readinessDoc, /Live Trading/);
+});
+
+
+test("Netlify maps only public Supabase and System Hub values into Vite", () => {
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SUPABASE_URL\\"'));
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SUPABASE_ANON_KEY\\"'));
+  assert.ok(netlify.includes('test -n \\"$NEXT_PUBLIC_SYSTEM_HUB_URL\\"'));
+  assert.ok(netlify.includes('export VITE_SUPABASE_URL=\\"$NEXT_PUBLIC_SUPABASE_URL\\"'));
+  assert.ok(netlify.includes('VITE_SUPABASE_ANON_KEY=\\"$NEXT_PUBLIC_SUPABASE_ANON_KEY\\"'));
+  assert.ok(netlify.includes('VITE_NOVA_API_BASE_URL=\\"$NEXT_PUBLIC_SYSTEM_HUB_URL\\"'));
+  assert.doesNotMatch(netlify, /SUPABASE_SERVICE_ROLE|DATABASE_URL|GEMINI_API_KEY|MT5_BRIDGE_TOKEN/i);
 });

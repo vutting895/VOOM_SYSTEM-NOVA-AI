@@ -41,9 +41,13 @@ export function isForbiddenPath(path: string): boolean {
 
 export function assertReadOnlyRequest(method: string, path: string): void {
   if (method.toUpperCase() !== "GET") {
-    throw new Error(`Blocked by safety policy: ${method} ${path} (client is read-only)`);
+    throw new Error(
+      `Blocked by safety policy: ${method} ${path} (client is read-only)`,
+    );
   }
   if (isForbiddenPath(path)) {
-    throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
+    throw new Error(
+      `Blocked by safety policy: ${path} is a trading/funds endpoint`,
+    );
   }
 }

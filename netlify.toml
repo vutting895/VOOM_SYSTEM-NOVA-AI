@@ -1,12 +1,8 @@
 [build]
-  base = "."
-  command = "npm run build"
-  publish = "dist"
+  base = "apps/nova-command-center"
+  command = "bun install --lockfile-only && bun install --frozen-lockfile && test -n \"$NEXT_PUBLIC_SUPABASE_URL\" && test -n \"$NEXT_PUBLIC_SUPABASE_ANON_KEY\" && test -n \"$NEXT_PUBLIC_SYSTEM_HUB_URL\" && export VITE_SUPABASE_URL=\"$NEXT_PUBLIC_SUPABASE_URL\" VITE_SUPABASE_ANON_KEY=\"$NEXT_PUBLIC_SUPABASE_ANON_KEY\" VITE_NOVA_API_BASE_URL=\"$NEXT_PUBLIC_SYSTEM_HUB_URL\" && bun run build"
+  publish = "dist/client"
 
 [build.environment]
   NODE_VERSION = "22"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+  BUN_VERSION = "1.4.5"

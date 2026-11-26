@@ -10,9 +10,15 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Sign in — NOVA AI" },
-      { name: "description", content: "Sign in to the NOVA AI command center." },
+      {
+        name: "description",
+        content: "Sign in to the NOVA AI command center.",
+      },
       { property: "og:title", content: "Sign in — NOVA AI" },
-      { property: "og:description", content: "Sign in to the NOVA AI command center." },
+      {
+        property: "og:description",
+        content: "Sign in to the NOVA AI command center.",
+      },
     ],
   }),
   component: Login,
@@ -27,7 +33,8 @@ function Login() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (auth.status === "signed_in") navigate({ to: "/dashboard", replace: true });
+    if (auth.status === "signed_in")
+      navigate({ to: "/dashboard", replace: true });
   }, [auth.status, navigate]);
 
   return (
@@ -35,13 +42,16 @@ function Login() {
       <SafetyBanner />
       <div className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-glow">
-          <div className="font-mono text-xl font-bold tracking-[0.2em] text-primary">NOVA AI</div>
+          <div className="font-mono text-xl font-bold tracking-[0.2em] text-primary">
+            NOVA AI
+          </div>
           <div className="terminal-label mt-1">Operator authentication</div>
           {auth.status === "unconfigured" ? (
             <div className="mt-6 rounded-md border border-warning/50 bg-warning/10 p-3 text-sm text-warning">
-              Sign-in is not configured. Set <code className="font-mono">VITE_SUPABASE_URL</code>{" "}
-              and <code className="font-mono">VITE_SUPABASE_ANON_KEY</code> (see README). Access is
-              denied until then.
+              Sign-in is not configured. Set{" "}
+              <code className="font-mono">VITE_SUPABASE_URL</code> and{" "}
+              <code className="font-mono">VITE_SUPABASE_ANON_KEY</code> (see
+              README). Access is denied until then.
             </div>
           ) : (
             <form
@@ -82,11 +92,15 @@ function Login() {
                   {err}
                 </p>
               )}
-              <Button className="w-full" disabled={busy || auth.status === "loading"}>
+              <Button
+                className="w-full"
+                disabled={busy || auth.status === "loading"}
+              >
                 {busy ? "Signing in…" : "Sign in"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Accounts are provisioned by an administrator. Roles are assigned server-side.
+                Accounts are provisioned by an administrator. Roles are assigned
+                server-side.
               </p>
             </form>
           )}

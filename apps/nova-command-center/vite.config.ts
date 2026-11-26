@@ -1,4 +1,15 @@
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { defineConfig } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import netlify from "@netlify/vite-plugin-tanstack-start";
+import tsconfigPaths from "vite-tsconfig-paths";
 
-/** Use the default TanStack Start server entry; the imported snapshot has no custom src/server.ts. */
-export default defineConfig({});
+export default defineConfig({
+  plugins: [tanstackStart(), react(), tailwindcss(), tsconfigPaths(), netlify()],
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    hmr: false,
+  },
+});

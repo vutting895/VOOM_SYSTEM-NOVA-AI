@@ -84,7 +84,10 @@ function Dashboard() {
             </span>
           }
         />
-        <Stat label="Data freshness" value={bridge.data?.lastHeartbeat ?? "Not connected"} />
+        <Stat
+          label="Data freshness"
+          value={bridge.data?.lastHeartbeat ?? "Not connected"}
+        />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Panel title="Services" right={!isApiConfigured && <NotConnected />}>
@@ -97,7 +100,13 @@ function Dashboard() {
                 >
                   <span className="flex items-center gap-2">
                     <StatusDot
-                      tone={s.status === "ok" ? "ok" : s.status === "degraded" ? "warn" : "down"}
+                      tone={
+                        s.status === "ok"
+                          ? "ok"
+                          : s.status === "degraded"
+                            ? "warn"
+                            : "down"
+                      }
                     />
                     {s.name}
                   </span>

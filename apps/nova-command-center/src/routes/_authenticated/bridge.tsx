@@ -1,5 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Panel, PageHeader, Stat, StatusDot, NotConnected } from "@/components/nova/primitives";
+import {
+  Panel,
+  PageHeader,
+  Stat,
+  StatusDot,
+  NotConnected,
+} from "@/components/nova/primitives";
 import { Badge } from "@/components/ui/badge";
 import { useNovaQuery } from "@/components/nova/useApi";
 import { describeApiError } from "@/lib/nova/api";
@@ -38,16 +44,27 @@ function Bridge() {
           value={
             <span className="flex items-center gap-2">
               <StatusDot tone={st.data?.connected ? "ok" : "off"} />
-              {st.data ? (st.data.connected ? "Connected" : "Disconnected") : nc}
+              {st.data
+                ? st.data.connected
+                  ? "Connected"
+                  : "Disconnected"
+                : nc}
             </span>
           }
           hint={st.isError ? describeApiError(st.error) : undefined}
         />
         <Stat label="Last heartbeat" value={st.data?.lastHeartbeat ?? nc} />
         <Stat label="Last sync" value={st.data?.lastSync ?? nc} />
-        <Stat label="Latency" value={st.data?.latencyMs != null ? `${st.data.latencyMs} ms` : nc} />
+        <Stat
+          label="Latency"
+          value={st.data?.latencyMs != null ? `${st.data.latencyMs} ms` : nc}
+        />
       </div>
-      <Panel title="Account metadata" className="mt-4" right={!acct.data && <NotConnected />}>
+      <Panel
+        title="Account metadata"
+        className="mt-4"
+        right={!acct.data && <NotConnected />}
+      >
         <dl className="grid gap-3 font-mono text-sm sm:grid-cols-2 lg:grid-cols-4">
           {(["server", "login", "currency", "leverage"] as const).map((k) => (
             <div key={k}>
