@@ -48,7 +48,7 @@ export function assertReadOnlyRequest(method: string, path: string): void {
   }
 }
 
-const QUANTLAB_GET_PATH = /^\\/v1\\/quantlab\\/(capabilities|jobs(?:\\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(?:\\/events)?)?)$/;
+const QUANTLAB_GET_PATH = new RegExp("^/v1/quantlab/(capabilities|jobs(?:/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(?:/events)?)?)$");
 
 export function assertQuantLabRequest(method: string, path: string): void {
   const normalized = method.toUpperCase();
