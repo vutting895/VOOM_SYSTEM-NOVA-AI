@@ -1,6 +1,6 @@
 # WO-2026-11-26-002 — NOVA Brain Core, Permission Engine and Exness Demo Execution Readiness
 
-Status: APPROVED — engineering and testing only; broker execution activation is NOT AUTHORIZED.
+Status: IN_PROGRESS — read-only Brain/Permission slice and Demo preflight scaffold committed; full validation remains blocked.
 Central registry: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-26-002-nova-brain-permission-demo-readiness.md
 Approval: User explicitly approved this scoped Work Order and autonomous continuation on 2026-11-26 (Asia/Bangkok).
 Baseline: NOVA main 56bf51d2e719a4cc79d73421e135099175a1e300.
@@ -42,3 +42,16 @@ BLOCKED_DECISION for scope expansion, authentication/authorization policy change
 
 ## Initial status
 Phase 0 IN_PROGRESS. No runtime code, broker mutation, test PASS, deployment or activation is claimed by this registration.
+
+
+## Implementation checkpoint — 2026-11-26
+
+- Main after implementation: `442f59f906786af78fe70d8dc3a0cc7dc0043915`.
+- Brain Core: `integrations/system-hub/brain-core.js` plus a typed `POST /v1/brain/intents` route in the existing System Hub. Only account/quote reads are routed; order submission is rejected with 423.
+- Permission Engine: `integrations/system-hub/permission-engine.js`; owner-scoped connected Demo read allowlist; mutation/transfer/withdrawal denied; no caller-supplied permissions.
+- Demo adapter scaffold: `integrations/mt5-demo-execution/adapter.py`, `command_contract.py`, tests and README. HMAC tenant/account binding, replay guard, Demo identity verification, Decimal-safe values, preflight only, risk not evaluated, dispatch hard-denied.
+- Local exact-blob tests: Node 8/8 PASS; Python 7/7 PASS; py_compile PASS. Route integration tests authored but NOT EXECUTED.
+- Exact-head CI: no GitHub Actions run returned; CircleCI Pipeline ERROR (#2528). Hosted integration validation BLOCKED_DEPENDENCY.
+- Netlify: no deploy initiated; published production remains at commit 03b71d01ce2ddedf7da1ee17d296f8880dde6e10; recent main deploys skipped for credit usage exceeded.
+- Phases 1–3: IMPLEMENTED / REVIEW_REQUIRED (thin slice/scaffold only). Phase 4: BLOCKED_DEPENDENCY. Phase 5: NOT STARTED.
+- Safety flags remain false. No broker writes, Demo activation, Live Trading, production changes, secrets/permissions or Datacenter changes.
