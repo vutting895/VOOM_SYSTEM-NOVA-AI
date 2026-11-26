@@ -655,3 +655,22 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Safety remains: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; production deployment paused.
 - Status: REUSE IMPLEMENTED ON MAIN; static review complete; runtime invocation unverified.
 - Next action: observe the existing `nova-agent-engineering` Skill being selected in a supported Cursor session; do not infer runtime invocation from GitHub file presence.
+
+
+## 2026-11-26 — WO-2026-11-26-002 — registration and Phase 0 overlap audit
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `main`.
+- User approval: explicit approval to register and execute the engineering/test scope on Main; user requested autonomous continuation without repeated routine approvals.
+- NOVA Main before this documentation operation: `56bf51d2e719a4cc79d73421e135099175a1e300`.
+- Central Work Order registered: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-26-002-nova-brain-permission-demo-readiness.md; central registration commit `73c63674e936fec5e66fefce5bb44c5a14fa98a0`.
+- Central README link commit: `ebbad786b923fbd44e27c1d5115c6fb3c6d02c78`; central changelog commit: `0b6622284bdda28d61166102bb50d0ba6b687ab9`.
+- Added local Work Order copy: `docs/governance/WO-2026-11-26-002-BRAIN-PERMISSION-DEMO-READINESS.md`; commit `0f319b09e88683135a8cbe247d635021aa678f12`.
+- Updated `WORK_ORDER_INSTRUCTIONS.md` with the Work Order link, exact scope, narrow Main-only approval, candidate reuse rules and activation stop conditions; commit `41c20dae2a92b33ac1573c326a30ec3c1139c1d9`.
+- Phase 0 overlap review: PR #334 is a hard-disabled authenticated intent/status stub and proposed SQLite ledger; PR #336 is a separate Demo adapter policy/command-contract candidate with no broker dispatch implementation in the inspected files; PR #276 is policy documentation; PR #277 is USD normalization code with a CircleCI success status on its own stale branch; PR #278 changes the existing read-only Bridge/Proxy/Relay and has CircleCI failure, so it must not be merged or used to broaden read-only routes; PR #414 is an audit document with CircleCI error; PR #426 is a read-only event contract on a stale stacked branch; PR #429 is a Main-based durable research-job candidate, not a broker permission/execution runtime.
+- PR #334/#336/#276/#277/#278 are 254–291 commits behind current Main in their comparison bases; PR #414 is 13 commits behind; PR #426 is 13 commits behind and stacked; PR #429 is based on current Main but has 73 commits of proposed changes. No candidate PR was merged, changed, closed, rebased or force-pushed.
+- CI evidence reviewed: #334/#336/#276 only Netlify Deploy Preview success (not tests); #277 CircleCI currency-normalization status success (candidate branch only); #278 CircleCI build-and-verify failure; #414 CircleCI error; #426 Vercel deployment status only; #429 no combined status returned. None establishes integrated exact-Main validation.
+- Existing Main already contains System Hub Supabase authentication/owner-scoped connection lookup, Remote MCP Gateway, research-only `workers/runtime.py`, approval guard, and hard-disabled trading safety. The inspected Main runtime has no verified broker order route.
+- Important policy conflict: Issue #36 says PR-only while local instructions and current owner-approved Work Orders prescribe Main-only. The user explicitly approved Main-only delivery for WO-2026-11-26-002 only. This narrow exception is recorded in the local Work Order and instructions; unrelated work remains subject to its existing policy.
+- Safety: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; no broker write, order, production DB/schema, secret/permission, CI policy, deployment, paid service or Datacenter change.
+- Phase 0 status: PARTIAL / IN_PROGRESS. Candidate overlap and high-level status reviewed; complete per-file security review and exact-head runnable CI evidence remain outstanding.
+- Next action: finish exact candidate code review, update Issue #36 with the scoped Work Order and Main-only exception, then implement only the minimal reusable Brain/Permission contracts and non-dispatching Demo scaffold. Do not enable broker dispatch.
