@@ -178,7 +178,7 @@ class SQLiteQuantLabQueue:
             return self.public_job(row), False
 
     def get(self, *, tenant_id: str, job_id: str) -> dict:
-        with self.connect() as db:
+        with self.connection() as db:
             row = db.execute("SELECT * FROM quantlab_jobs WHERE tenant_id=? AND job_id=?",
                              (tenant_id, job_id)).fetchone()
         if not row:
@@ -200,7 +200,7 @@ class SQLiteQuantLabQueue:
                 raise ValueError("invalid_cursor") from exc
             where += " AND (created_at < ? OR (created_at = ? AND job_id < ?))"
             params.extend([created_at, created_at, job_id])
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(
                 f"SELECT * FROM quantlab_jobs WHERE {where} ORDER BY created_at DESC,job_id DESC LIMIT ?",
                 (*params, limit + 1),
@@ -217,7 +217,7 @@ class SQLiteQuantLabQueue:
 
     def events(self, *, tenant_id: str, job_id: str) -> dict:
         self.get(tenant_id=tenant_id, job_id=job_id)
-        with self.connect() as db:
+        with self.connection() as db:
             rows = db.execute(
                 """SELECT sequence,from_state,to_state,actor_id,occurred_at,reason_code
                    FROM quantlab_events WHERE tenant_id=? AND job_id=? ORDER BY sequence""",
@@ -228,7 +228,7 @@ class SQLiteQuantLabQueue:
     def claim(self, *, worker_id: str, lease_seconds: int = 30) -> dict | None:
         now = datetime.now(timezone.utc)
         expiry = (now + timedelta(seconds=lease_seconds)).isoformat()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             # Expired leases are returned to the queue; attempts remain recorded.
             expired = db.execute(
@@ -271,7 +271,7 @@ class SQLiteQuantLabQueue:
     def heartbeat(self, *, job_id: str, worker_id: str, lease_token: str, lease_seconds: int = 30) -> str:
         token_hash = hashlib.sha256(lease_token.encode()).hexdigest()
         expiry = (datetime.now(timezone.utc) + timedelta(seconds=lease_seconds)).isoformat()
-        with self.connect() as db:
+        with self.connection() as db:
             cur = db.execute(
                 """UPDATE quantlab_jobs SET lease_expires_at=?,updated_at=?
                    WHERE job_id=? AND state='RUNNING' AND lease_owner=? AND lease_token_hash=?
@@ -288,7 +288,7 @@ class SQLiteQuantLabQueue:
             raise ValueError("invalid_terminal_state")
         token_hash = hashlib.sha256(lease_token.encode()).hexdigest()
         now = utcnow()
-        with self.connect() as db:
+        with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT * FROM quantlab_jobs WHERE job_id=?", (job_id,)).fetchone()
             if not row:
