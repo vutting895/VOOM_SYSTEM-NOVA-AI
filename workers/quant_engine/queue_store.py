@@ -87,6 +87,7 @@ class SQLiteQuantLabQueue:
                 lease_token_hash TEXT,
                 lease_expires_at TEXT,
                 last_error_code TEXT,
+                result_json TEXT,
                 UNIQUE(tenant_id, job_id)
               );
               CREATE INDEX IF NOT EXISTS idx_quantlab_jobs_tenant_created
@@ -123,6 +124,9 @@ class SQLiteQuantLabQueue:
                 FOREIGN KEY(tenant_id, job_id) REFERENCES quantlab_jobs(tenant_id, job_id)
               );
             """)
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(quantlab_jobs)").fetchall()}
+            if "result_json" not in columns:
+                db.execute("ALTER TABLE quantlab_jobs ADD COLUMN result_json TEXT")
 
     @staticmethod
     def public_job(row: sqlite3.Row) -> dict[str, Any]:
@@ -131,6 +135,7 @@ class SQLiteQuantLabQueue:
             "created_at": row["created_at"], "updated_at": row["updated_at"],
             "timeout_seconds": row["timeout_seconds"], "attempt_count": row["attempt_count"],
             "last_error_code": row["last_error_code"],
+            "result": json.loads(row["result_json"]) if row["result_json"] else None,
         }
 
     @staticmethod
@@ -287,9 +292,16 @@ class SQLiteQuantLabQueue:
         return expiry
 
     def finish(self, *, job_id: str, worker_id: str, lease_token: str,
-               state: str, error_code: str | None = None) -> dict:
+               state: str, error_code: str | None = None, result: dict[str, Any] | None = None) -> dict:
         if state not in {"SUCCEEDED", "FAILED", "REJECTED", "TIMED_OUT"}:
             raise ValueError("invalid_terminal_state")
+        if state == "SUCCEEDED" and not isinstance(result, dict):
+            raise ValueError("result_required_for_success")
+        result_json = None
+        if result is not None:
+            result_json = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            if len(result_json.encode("utf-8")) > 262_144:
+                raise ValueError("result_too_large")
         token_hash = hashlib.sha256(lease_token.encode()).hexdigest()
         now = utcnow()
         with self.connection() as db:
@@ -304,9 +316,9 @@ class SQLiteQuantLabQueue:
             seq = row["sequence"] + 1
             db.execute(
                 """UPDATE quantlab_jobs SET state=?,updated_at=?,sequence=?,lease_owner=NULL,
-                   lease_token_hash=NULL,lease_expires_at=NULL,last_error_code=?
+                   lease_token_hash=NULL,lease_expires_at=NULL,last_error_code=?,result_json=?
                    WHERE job_id=? AND state='RUNNING' AND sequence=?""",
-                (state, now, seq, error_code, job_id, row["sequence"]),
+                (state, now, seq, error_code, result_json, job_id, row["sequence"]),
             )
             self._event(db, tenant=row["tenant_id"], job_id=job_id, sequence=seq,
                         previous="RUNNING", target=state, actor=worker_id, reason=error_code)
