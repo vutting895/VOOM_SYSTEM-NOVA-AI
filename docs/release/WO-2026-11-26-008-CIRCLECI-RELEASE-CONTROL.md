@@ -39,22 +39,22 @@ Ancestry and a URL string do not prove that a SHA was previously deployed or hea
 
 ## Free-plan / runner policy
 
-The config uses standard hosted Docker executors and does not request paid resource classes, contexts, self-hosted runners, new infrastructure, or billing changes. This source configuration alone does not prove the account's live Free-plan quota or available minutes. CircleCI account-plan/quota and a real non-zero runner assignment must be verified in the provider UI/run evidence. If the Free quota is unavailable, stop and mark execution BLOCKED; do not upgrade or add payment.
+The config uses standard hosted Docker executors and does not request paid resource classes, contexts, self-hosted runners, new infrastructure, or billing changes. Public plan terms currently list 30,000 monthly credits and 5 active users for Free; personal builds stop when credits reach zero. Additional active users consume credits and must be counted. This does not prove the NOVA organization's current plan, remaining credits, active-user count, or whether any paid refill/Performance subscription is configured. CircleCI account-plan/quota and a real non-zero runner assignment must be verified in the provider UI/run evidence. If the Free quota is unavailable, stop and mark execution BLOCKED; do not upgrade or add payment.
 
 ## Validation and acceptance status
 
 | Acceptance item | Current status | Evidence required |
 |---|---|---|
-| One authoritative CircleCI config | IMPLEMENTED / NOT PROVIDER-VALIDATED | exact branch readback; CircleCI CLI validation |
+| One authoritative CircleCI config | YAML PARSE PASS LOCALLY / NOT PROVIDER-VALIDATED | exact branch readback; CircleCI CLI validation |
 | PR opened/synchronize/reopened triggers | IMPLEMENTED / NOT PROVIDER-VALIDATED | exact-head provider event runs |
-| Exact SHA binding | IMPLEMENTED IN JOBS / NOT RUN | executed job logs showing checkout SHA = CIRCLE_SHA1 |
-| Deterministic marker identity and artifact SHA-256 | IMPLEMENTED / TESTS NOT RUN | unit tests and stored artifact readback |
-| Per-run immutable artifact and local idempotent write | IMPLEMENTED / TESTS NOT RUN; global dedup NOT IMPLEMENTED | duplicate/conflicting-write tests plus durable registry authorization if global suppression is required |
+| Exact SHA binding | IMPLEMENTED IN JOBS / NOT PROVIDER-EXECUTED | executed job logs showing checkout SHA = CIRCLE_SHA1 |
+| Deterministic marker identity and artifact SHA-256 | IMPLEMENTED / 10 UNIT TESTS PASS LOCALLY | CI run and stored artifact readback |
+| Per-run immutable artifact and local idempotent write | IMPLEMENTED / 10 UNIT TESTS PASS LOCALLY; global dedup NOT IMPLEMENTED | duplicate/conflicting-write tests plus durable registry authorization if global suppression is required |
 | Missing/altered artifact rejection | IMPLEMENTED / TESTS NOT RUN | regression test output |
 | GitHub review approval evidence | BLOCKED / NOT MACHINE VERIFIED | authorized read-only evidence mechanism and independent review |
 | Rollback known-good verification | BLOCKED / NOT MACHINE VERIFIED | independently verified GitHub Actions deployment + health evidence |
 | No CircleCI production deploy authority | SOURCE REVIEW ONLY | CircleCI project/context/secret inventory |
-| Free-plan/no additional spend | NOT VERIFIED | account plan/quota evidence |
+| Free-plan/no additional spend | PUBLIC PLAN TERMS VERIFIED / ACCOUNT QUOTA NOT VERIFIED | account Plan/Usage page, active-user count, remaining credits, no payment/refill enabled |
 | Exact-head CircleCI run, non-zero runner, logs/artifacts | NOT VERIFIED | provider pipeline run on this exact branch SHA |
 | Independent security and maintainer reviews | PENDING | recorded reviews |
 
