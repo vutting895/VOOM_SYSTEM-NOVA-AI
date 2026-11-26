@@ -4,7 +4,7 @@ jobs:
   system-hub-tests:
     resource_class: medium
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/node:22.14
     working_directory: ~/project
     steps:
       - checkout
