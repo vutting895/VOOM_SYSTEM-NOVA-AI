@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useHealth, useNovaQuery } from "@/components/nova/useApi";
 import { isApiConfigured, isSupabaseConfigured } from "@/lib/nova/config";
-import { describeApiError } from "@/lib/nova/api";
+import { describeApiError, type QuantLabCapabilities } from "@/lib/nova/api";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -31,6 +31,8 @@ function Dashboard() {
   const health = useHealth();
   const services = useNovaQuery<{ services: Service[] }>("/v1/services");
   const bridge = useNovaQuery<Bridge>("/v1/bridge/status");
+  const quantCapabilities = useNovaQuery<QuantLabCapabilities>("/v1/quantlab/capabilities");
+  const quantJobs = useNovaQuery<{ jobs?: Array<{ job_id: string; state: string; job_type?: string; created_at?: string }> }>("/v1/quantlab/jobs?limit=5");
   const apiTone = !isApiConfigured
     ? "off"
     : health.isError
@@ -137,6 +139,57 @@ function Dashboard() {
           </ul>
         </Panel>
       </div>
+      <Panel
+        title="QuantLab Research"
+        className="mt-4"
+        right={
+          <Badge variant={
+            !isApiConfigured || quantCapabilities.isError || !quantCapabilities.data?.configured
+              ? "offline"
+              : "warn"
+          }>
+            {!isApiConfigured
+              ? "API NOT CONNECTED"
+              : quantCapabilities.isLoading
+                ? "CHECKING"
+                : quantCapabilities.data?.configured
+                  ? "WORKER URL CONFIGURED — NOT PROBED"
+                  : "WORKER NOT CONFIGURED"}
+          </Badge>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Stat label="Research API" value={quantCapabilities.data ? "Authenticated gateway" : "Not verified"} />
+          <Stat label="Worker" value={quantCapabilities.data?.configured ? "Configured / health unknown" : "Not configured"} />
+          <Stat label="Broker execution" value="Disabled" />
+        </div>
+        <div className="mt-4">
+          <div className="mb-2 font-mono text-xs text-muted-foreground">RECENT RESEARCH JOBS</div>
+          {quantJobs.data?.jobs?.length ? (
+            <ul className="divide-y divide-border">
+              {quantJobs.data.jobs.map((job) => (
+                <li key={job.job_id} className="flex flex-wrap items-center justify-between gap-2 py-2 font-mono text-xs">
+                  <span>{job.job_id}</span>
+                  <span className="text-muted-foreground">{job.job_type ?? "research"}</span>
+                  <Badge variant={job.state === "SUCCEEDED" ? "online" : job.state === "FAILED" ? "danger" : "secondary"}>{job.state}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={
+              !isApiConfigured
+                ? "NOVA Hub is not connected"
+                : quantJobs.isError
+                  ? describeApiError(quantJobs.error)
+                  : quantCapabilities.data?.configured
+                    ? "No research jobs returned"
+                    : "Quant Worker is not configured"
+            }>
+              The dashboard does not generate synthetic job rows. Jobs appear only after the downstream authenticated worker is deployed and returns tenant-scoped data.
+            </EmptyState>
+          )}
+        </div>
+      </Panel>
     </>
   );
 }
