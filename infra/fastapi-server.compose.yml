@@ -1,0 +1,42 @@
+services:
+  nova-fastapi:
+    build:
+      context: ..
+      dockerfile: workers/Dockerfile
+    image: nova-fastapi:server-candidate
+    container_name: nova-fastapi
+    init: true
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+    expose:
+      - "8000"
+    # Intentionally no host port mapping. Do not expose this API publicly
+    # until authentication is enforced for every route and a TLS proxy is configured.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - nova-api
+
+networks:
+  nova-api:
+    driver: bridge
