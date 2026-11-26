@@ -505,7 +505,8 @@ const QUANT_IDEMPOTENCY_KEY = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const QUANT_STATES = new Set(["QUEUED", "VALIDATING", "RUNNING", "FINALIZING", "SUCCEEDED", "REJECTED", "FAILED", "CANCELLED", "TIMED_OUT"]);
 
 function quantWorkerBase(env) {
-  const raw = String(env.QUANTLAB_WORKER_URL || "").replace(/\\/+$/, "");
+  let raw = String(env.QUANTLAB_WORKER_URL || "");
+  while (raw.endsWith("/")) raw = raw.slice(0, -1);
   if (!raw) return null;
   try {
     const url = new URL(raw);
@@ -622,7 +623,7 @@ async function handleQuantLab(request, env, auth, url, origin) {
     return quantLabProxy(request, env, auth, "/v1/jobs", origin, { body, idempotencyKey: key });
   }
 
-  const match = /^\\/v1\\/quantlab\\/jobs\\/([^/]+)(?:\\/(events))?$/.exec(url.pathname);
+  const match = new RegExp("^/v1/quantlab/jobs/([^/]+)(?:/(events))?$").exec(url.pathname);
   if (match && request.method === "GET") {
     if (!QUANT_JOB_ID.test(match[1])) return json({ error: "invalid_job_id" }, 400, origin, env);
     const path = "/v1/jobs/" + encodeURIComponent(match[1]) + (match[2] ? "/events" : "");
