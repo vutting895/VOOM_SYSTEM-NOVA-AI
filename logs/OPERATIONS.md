@@ -722,3 +722,13 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - No CircleCI pipeline was triggered; no credits were consumed by a pipeline; no CircleCI account settings or billing were changed.
 - Acceptance status: local unit tests and YAML parse PASS; CircleCI CLI schema validation, account quota, exact-head provider execution, non-zero runner, provider logs/artifacts, review evidence, rollback known-good evidence, and independent reviews remain NOT VERIFIED / PENDING.
 - No merge, deployment, Main edit, production mutation, secrets/permissions change, billing change, broker action, or model training. Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
+
+## 2026-11-26T04:18:45.713Z — WO-2026-11-26-008 — static review correction and rerun
+
+- Read current CircleCI pipeline/event documentation. The config's `pipeline.event.name` / `pipeline.event.action` values for GitHub App PR events (opened, synchronize, reopened) and `pipeline.number` are documented pipeline values. Forked PRs do not trigger GitHub App pipelines; this limitation is noted for future review.
+- Static source review found the rollback handoff Python step wrote a literal backslash-n sequence rather than a newline after JSON. Corrected `.circleci/config.yml` to write valid newline-terminated JSON.
+- Corrected the acceptance table to reflect that missing/altered artifact rejection is covered by the local 10-test suite.
+- Re-fetched and tested latest code/config at exact SHA `6818198d4924c6a77805d4f9d4596adb02322cf5`: Python unit tests PASS 10/10; Node js-yaml parse PASS (10 jobs / 4 workflows). Config parse readback confirms the rollback JSON writer now uses a single escaped newline.
+- Current Free public plan terms were rechecked: up to 6,000 build minutes on small Docker, 30,000 credits/month, 5 active users; additional active users beyond five consume 25,000 credits each/month. Account-level balance and active-user count remain unavailable. No pipeline was triggered.
+- CircleCI CLI validation and exact-head provider execution remain NOT VERIFIED. No CircleCI credentials were added, no pipeline/credits consumed.
+- No Main edit, merge, deployment, production mutation, secrets/permissions change, billing change, broker action, or training. Safety flags remain false.
