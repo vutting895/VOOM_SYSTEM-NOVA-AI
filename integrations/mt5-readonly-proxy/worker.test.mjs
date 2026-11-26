@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import worker from "./worker.js";
 
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
+const STAGING_RELAY_ORIGIN = "https://voom-mt5-bridge-relay-staging.suwapat787.workers.dev";
 const UI_ORIGIN = "https://voomsystem.netlify.app";
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const USER_TOKEN = "supabase_test_access_token";
@@ -14,6 +15,7 @@ function envWithRoutes() {
   return {
     SUPABASE_URL: "https://supabase.test",
     SUPABASE_ANON_KEY: "public-test-key",
+    MT5_BRIDGE_RELAY_URL: RELAY_ORIGIN,
     MT5_TENANT_ROUTES: JSON.stringify({
       [TENANT_ID]: {
         tenantId: TENANT_ID,
@@ -127,8 +129,10 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-test-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-test-id");
+      assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
+      assert.equal(url.searchParams.get("select"), "id,user_id,provider,environment,status,bridge_route_id");
       return Response.json([{
         id: CONNECTION_ID,
         user_id: "user-test-id",
@@ -139,7 +143,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
       }]);
     }
     if (url.origin === RELAY_ORIGIN) {
-      relayRequest = { url, headers: new Headers(init.headers || {}) };
+      relayRequest = { url, headers: new Headers(init.headers || {}), redirect: init.redirect };
       return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
     }
     throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
@@ -154,6 +158,7 @@ test("connected user is routed only to the stable workers.dev relay", async () =
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
     assert.equal(response.headers.get("Vary"), "Origin");
     assert.equal(new URL(relayRequest.url).origin, RELAY_ORIGIN);
+    assert.equal(relayRequest.redirect, "manual");
     assert.equal(new URL(relayRequest.url).pathname, "/api/account");
     assert.equal(new URL(relayRequest.url).searchParams.has("connection_id"), false);
     assert.equal(relayRequest.headers.get("Authorization"), "Bearer " + BRIDGE_TOKEN);
@@ -165,6 +170,110 @@ test("connected user is routed only to the stable workers.dev relay", async () =
 });
 
 
+test("missing relay endpoint fails closed before bridge forwarding", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayCalls = 0;
+  const env = envWithRoutes();
+  delete env.MT5_BRIDGE_RELAY_URL;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    relayCalls += 1;
+    throw new Error("Relay must not be called without an explicit endpoint");
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).error, "relay_endpoint_not_configured");
+    assert.equal(relayCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("staging configuration routes only to the dedicated staging relay", async () => {
+  const originalFetch = globalThis.fetch;
+  let relayOrigin;
+  const env = envWithRoutes();
+  env.MT5_BRIDGE_RELAY_URL = STAGING_RELAY_ORIGIN;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === STAGING_RELAY_ORIGIN) {
+      relayOrigin = url.origin;
+      return Response.json({ status: "ok", mode: "read-only", order_submission_enabled: false });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    assert.equal(response.status, 200);
+    assert.equal(relayOrigin, STAGING_RELAY_ORIGIN);
+    assert.notEqual(relayOrigin, RELAY_ORIGIN);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("relay redirects are rejected without following the Location target", async () => {
+  const originalFetch = globalThis.fetch;
+  const seenOrigins = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    seenOrigins.push(url.origin);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-test-id" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-test-id", provider: "exness_mt5",
+        environment: "demo", status: "connected", bridge_route_id: TENANT_ID
+      }]);
+    }
+    if (url.origin === RELAY_ORIGIN) {
+      assert.equal(init.redirect, "manual");
+      return new Response(null, { status: 302, headers: { Location: "https://attacker.example/collect" } });
+    }
+    throw new Error("Unexpected outbound request to " + url.origin + url.pathname);
+  };
+
+  try {
+    const response = await worker.fetch(new Request(
+      "https://proxy.test/api/account?connection_id=" + CONNECTION_ID,
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), envWithRoutes());
+    assert.equal(response.status, 502);
+    assert.equal((await response.json()).error, "dedicated_bridge_redirect_rejected");
+    assert.deepEqual(seenOrigins, ["https://supabase.test", "https://supabase.test", RELAY_ORIGIN]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("foreign user's connection ID is not forwarded to the Bridge", async () => {
   const originalFetch = globalThis.fetch;
   let relayCalls = 0;
@@ -173,10 +282,11 @@ test("foreign user's connection ID is not forwarded to the Bridge", async () => 
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "different-test-user-id" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       // Both predicates must be present: a valid row ID alone is not enough.
       assert.equal(url.searchParams.get("id"), "eq." + CONNECTION_ID);
       assert.equal(url.searchParams.get("user_id"), "eq.different-test-user-id");
+      assert.equal(url.searchParams.get("select"), "id,user_id,provider,environment,status,bridge_route_id");
       // Simulate the owner-scoped Supabase response when this ID belongs to another user.
       return Response.json([]);
     }

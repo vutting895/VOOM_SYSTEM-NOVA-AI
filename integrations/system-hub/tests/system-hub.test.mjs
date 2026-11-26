@@ -26,7 +26,7 @@ function mockAuthAndRest({ authStatus = 200, userId = "user-a", rows = [] } = {}
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       return Response.json(authStatus === 200 ? { id: userId } : { message: "redacted" }, { status: authStatus });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       assert.equal(url.searchParams.get("user_id"), "eq." + userId);
       return Response.json(rows);
@@ -187,7 +187,7 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-a" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
         status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
@@ -248,10 +248,11 @@ test("signed-in user can create one pending Exness Demo connection request", asy
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       return Response.json({ id: "user-a" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       if (init.method === "POST") {
-        assert.equal(url.searchParams.get("on_conflict"), "user_id,provider,environment");
+        assert.equal(url.searchParams.has("on_conflict"), false);
+        assert.equal(init.headers.Prefer, "return=representation");
         insertPayload = JSON.parse(init.body);
         assert.equal(insertPayload.provider, "exness_mt5");
         assert.equal(insertPayload.environment, "demo");
@@ -296,7 +297,7 @@ test("account endpoint returns a minimal read-only account summary through the u
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
       return Response.json({ id: "user-a" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       assert.equal(url.searchParams.get("user_id"), "eq.user-a");
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
@@ -344,7 +345,7 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-a" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
         status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
@@ -409,7 +410,7 @@ test("account read does not reach proxy while a connection remains pending", asy
     if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
       return Response.json({ id: "user-a" });
     }
-    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/nova_broker_connections") {
       return Response.json([{
         id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
         status: "pending", account_label: "Exness MT5 Demo", bridge_route_id: null

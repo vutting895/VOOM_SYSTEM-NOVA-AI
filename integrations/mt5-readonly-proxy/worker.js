@@ -3,6 +3,27 @@ const UI_ORIGINS = new Set([
   "https://voom-system-nova-ui.suwapat787.workers.dev"
 ]);
 const RELAY_ORIGIN = "https://voom-mt5-bridge-relay.suwapat787.workers.dev";
+const STAGING_RELAY_ORIGIN = "https://voom-mt5-bridge-relay-staging.suwapat787.workers.dev";
+const ALLOWED_RELAY_ORIGINS = new Set([RELAY_ORIGIN, STAGING_RELAY_ORIGIN]);
+
+function configuredRelayOrigin(env) {
+  const value = String(env.MT5_BRIDGE_RELAY_URL || "");
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      !ALLOWED_RELAY_ORIGINS.has(url.origin) ||
+      url.pathname !== "/" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) return "";
+    return url.origin;
+  } catch {
+    return "";
+  }
+}
 const BASE = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
@@ -120,7 +141,7 @@ async function loadConnection(request, env, user) {
   const connectionId = new URL(request.url).searchParams.get("connection_id") || "";
   if (!uuid.test(connectionId)) return { ok: false, status: 400, error: "valid_connection_id_required" };
 
-  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/broker_connections");
+  const url = new URL(env.SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/nova_broker_connections");
   url.searchParams.set("select", "id,user_id,provider,environment,status,bridge_route_id");
   url.searchParams.set("id", "eq." + connectionId);
   url.searchParams.set("user_id", "eq." + user.userId);
@@ -164,11 +185,13 @@ async function loadConnection(request, env, user) {
       return { ok: false, status: 503, error: "dedicated_bridge_not_provisioned" };
     }
 
-    // Ignore legacy per-tenant URLs. All bridge traffic now uses the stable Worker relay;
-    // no custom DNS zone or public Windows origin is involved.
+    // Ignore legacy per-tenant URLs. Relay origin is deployment-scoped so staging
+    // cannot forward tenant traffic into the production Durable Object namespace.
+    const relayUrl = configuredRelayOrigin(env);
+    if (!relayUrl) return { ok: false, status: 503, error: "relay_endpoint_not_configured" };
     return {
       ok: true,
-      route: { url: RELAY_ORIGIN, token: route.token, tenantId: route.tenantId }
+      route: { url: relayUrl, token: route.token, tenantId: route.tenantId }
     };
   } catch {
     return { ok: false, status: 503, error: "connection_lookup_unavailable" };
@@ -192,9 +215,18 @@ async function forward(request, route, path, origin) {
         Accept: "application/json"
       },
       cache: "no-store",
-      redirect: "error",
+      // Cloudflare Workers reliably supports manual redirects; never forward tenant credentials.
+      redirect: "manual",
       signal: AbortSignal.timeout(8000)
     });
+    if (response.status >= 300 && response.status < 400) {
+      return json({
+        error: "dedicated_bridge_redirect_rejected",
+        mode: "read-only",
+        order_submission_enabled: false,
+        ordersEnabled: false
+      }, 502, origin);
+    }
     return new Response(await response.text(), {
       status: response.status,
       headers: {
