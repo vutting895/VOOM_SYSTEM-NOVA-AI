@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import json
 import tempfile
@@ -130,6 +131,20 @@ class DemoAdapterTests(unittest.TestCase):
         payload["payload_hash"] = hashlib.sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()).hexdigest()
         with self.assertRaisesRegex(PolicyRejected, "binary floats are forbidden"):
             validate_order_intent(payload, now=NOW)
+
+    def test_adapter_contains_no_broker_transport_or_mutation_api(self):
+        source = (Path(__file__).with_name("adapter.py")).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        forbidden_imports = {"MetaTrader5", "mt5"}
+        forbidden_calls = {"order_send", "order_check", "positions_close", "order_delete"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                self.assertFalse(any(alias.name in forbidden_imports for alias in node.names))
+            elif isinstance(node, ast.ImportFrom):
+                self.assertNotIn(node.module, forbidden_imports)
+            elif isinstance(node, ast.Call):
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
+                self.assertNotIn(name, forbidden_calls)
 
     def test_broker_dispatch_is_hard_disabled(self):
         with self.assertRaises(ExecutionDisabled):
