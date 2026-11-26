@@ -431,6 +431,19 @@ test("account read does not reach proxy while a connection remains pending", asy
 });
 
 
+test("QuantLab POST idempotency header is permitted by CORS preflight", async () => {
+  const response = await worker.fetch(request("/v1/quantlab/jobs", {
+    method: "OPTIONS",
+    headers: {
+      Origin: UI_ORIGIN,
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization,content-type,idempotency-key"
+    }
+  }), env);
+  assert.equal(response.status, 204);
+  assert.match(response.headers.get("Access-Control-Allow-Headers") || "", /Idempotency-Key/i);
+});
+
 test("QuantLab capabilities are authenticated and explicitly report unconfigured worker", async () => {
   const denied = await worker.fetch(request("/v1/quantlab/capabilities"), env);
   assert.equal(denied.status, 401);
