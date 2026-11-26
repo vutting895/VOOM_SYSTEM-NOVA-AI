@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+import sqlite3
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -138,3 +139,40 @@ def test_invalid_payload_and_dispatcher_lease_cannot_be_reused(client):
         json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED"},
     )
     assert replay.status_code == 409
+
+
+
+def test_expired_leases_requeue_and_stop_after_three_claim_attempts(client, tmp_path, monkeypatch):
+    headers = {"Authorization": "Bearer valid-user-a", "Idempotency-Key": "idem-key-12345678"}
+    created = client.post("/v1/jobs", headers=headers, json=create_payload())
+    job_id = created.json()["job"]["job_id"]
+    internal = {"X-QuantLab-Dispatcher-Token": "dispatcher-test-token"}
+    db_path = tmp_path / "quantlab.sqlite3"
+
+    for expected_attempt in (1, 2, 3):
+        claim_response = client.post("/v1/internal/leases/claim", headers=internal,
+                                     json={"worker_id": f"worker-{expected_attempt}"})
+        assert claim_response.status_code == 200
+        claim = claim_response.json()["claim"]
+        assert claim["job"]["attempt_count"] == expected_attempt
+        with sqlite3.connect(db_path) as db:
+            db.execute("UPDATE quantlab_jobs SET lease_expires_at=? WHERE job_id=?",
+                       ("2000-01-01T00:00:00+00:00", job_id))
+
+    # The next claim observes the third expired attempt and fails it closed.
+    empty = client.post("/v1/internal/leases/claim", headers=internal, json={"worker_id": "worker-final"})
+    assert empty.status_code == 200
+    assert empty.json()["claim"] is None
+    final = client.get(f"/v1/jobs/{job_id}", headers=headers)
+    assert final.json()["job"]["state"] == "FAILED"
+    assert final.json()["job"]["last_error_code"] == "lease_expired_max_attempts"
+
+
+def test_worker_rejects_sensitive_and_oversized_experiment_payloads(client):
+    headers = {"Authorization": "Bearer valid-user-a", "Idempotency-Key": "idem-key-12345678"}
+    secret = client.post("/v1/jobs", headers=headers,
+                         json=create_payload(experiment={"schema": "x", "account_id": "123"}))
+    assert secret.status_code == 422
+    oversized = client.post("/v1/jobs", headers=headers,
+                            json=create_payload(experiment={"blob": "x" * 65000}))
+    assert oversized.status_code == 422
