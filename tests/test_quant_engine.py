@@ -376,6 +376,7 @@ class QuantJobStoreTests(unittest.TestCase):
         self.assertEqual(events[0].actor_id, "worker-001")
 
         with sqlite3.connect(self.database) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
             fk_rows = connection.execute(
                 "PRAGMA foreign_key_list(research_job_events)"
             ).fetchall()
