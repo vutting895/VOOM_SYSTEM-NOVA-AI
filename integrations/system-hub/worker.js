@@ -1,3 +1,6 @@
+import { parseBrainIntent, buildBrainPlan } from "./brain-core.js";
+import { authorizeCapability, TRADING_SAFETY_FLAGS } from "./permission-engine.js";
+
 const DEFAULT_UI_ORIGIN = "https://voomsystem.netlify.app";
 const CLOUDFLARE_FALLBACK_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const DEFAULT_MT5_PROXY_URL = "https://voom-mt5-readonly-proxy.suwapat787.workers.dev";
@@ -498,6 +501,72 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+
+async function handleBrainIntent(request, env, user, origin) {
+  let raw;
+  try {
+    raw = await request.text();
+  } catch {
+    return json({ error: "invalid_intent_body" }, 400, origin, env);
+  }
+  if (raw.length > 16384) return json({ error: "intent_body_too_large" }, 413, origin, env);
+
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return json({ error: "invalid_intent_json" }, 400, origin, env);
+  }
+
+  let intent;
+  try {
+    intent = parseBrainIntent(payload);
+  } catch (error) {
+    const code = typeof error?.code === "string" ? error.code : "invalid_intent";
+    return json({ error: code }, 400, origin, env);
+  }
+
+  const plan = buildBrainPlan(intent);
+  if (intent.capability === "broker.order.submit") {
+    const decision = authorizeCapability({ principal: user, capability: intent.capability });
+    return json({
+      error: decision.reason,
+      state: "blocked",
+      intentId: intent.intentId,
+      capability: intent.capability,
+      brainCore: { version: "1.0", target: plan.target, dispatchAllowed: false },
+      ...TRADING_SAFETY_FLAGS
+    }, 423, origin, env);
+  }
+
+  const connection = await getConnection(request, env, user, intent.connectionId, origin);
+  if (connection.response) return connection.response;
+  const decision = authorizeCapability({
+    principal: user,
+    connection: connection.row,
+    capability: intent.capability
+  });
+  if (!decision.allowed) return json({ error: decision.reason }, 403, origin, env);
+
+  if (intent.capability === "mt5.account.read") {
+    return readAccount(request, env, user, connection.row, origin);
+  }
+  if (intent.capability === "mt5.quotes.read") {
+    const target = new URL(request.url);
+    target.pathname = "/v1/connections/" + intent.connectionId + "/quotes";
+    target.searchParams.set("symbol", intent.parameters.symbol);
+    target.searchParams.set("timeframe", intent.parameters.timeframe);
+    target.searchParams.set("count", String(intent.parameters.count));
+    const internalRequest = new Request(target.toString(), {
+      method: "GET",
+      headers: request.headers
+    });
+    return readQuotes(internalRequest, env, user, connection.row, origin);
+  }
+
+  return json({ error: "capability_not_allowlisted" }, 403, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -524,6 +593,13 @@ export default {
 
     if (origin && !allowedOrigins(env).has(origin)) {
       return json({ error: "origin_not_allowed" }, 403, origin, env);
+    }
+
+
+    if (url.pathname === "/v1/brain/intents" && request.method === "POST") {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      return handleBrainIntent(request, env, auth, origin);
     }
 
     if (url.pathname === "/v1/integrations" && request.method === "GET") {
