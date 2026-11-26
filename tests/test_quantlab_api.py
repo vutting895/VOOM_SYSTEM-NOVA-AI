@@ -116,6 +116,10 @@ def test_dispatcher_claim_heartbeat_and_finish_require_private_token(client):
     assert finished.status_code == 200
     assert finished.json()["job"]["state"] == "SUCCEEDED"
     assert finished.json()["job"]["result"] == {"ok": True, "metrics": {"trades": 0}}
+    listed = client.get("/v1/jobs", headers=headers)
+    assert "result" not in listed.json()["jobs"][0]
+    detail = client.get(f"/v1/jobs/{job_id}", headers=headers)
+    assert detail.json()["job"]["result"] == {"ok": True, "metrics": {"trades": 0}}
 
     events = client.get(f"/v1/jobs/{job_id}/events", headers=headers)
     assert [event["to_state"] for event in events.json()["events"]] == ["QUEUED", "RUNNING", "SUCCEEDED"]
