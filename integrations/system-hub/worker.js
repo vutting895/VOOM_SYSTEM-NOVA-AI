@@ -498,6 +498,139 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
+
+const QUANT_JOB_TYPES = new Set(["dataset.validate", "backtest", "train", "evaluate"]);
+const QUANT_JOB_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const QUANT_IDEMPOTENCY_KEY = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+const QUANT_STATES = new Set(["QUEUED", "VALIDATING", "RUNNING", "FINALIZING", "SUCCEEDED", "REJECTED", "FAILED", "CANCELLED", "TIMED_OUT"]);
+
+function quantWorkerBase(env) {
+  const raw = String(env.QUANTLAB_WORKER_URL || "").replace(/\\/+$/, "");
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.username || url.password ||
+        !url.hostname.endsWith(".workers.dev") || url.pathname !== "" || url.search || url.hash) return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+function quantJobPayloadValid(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return false;
+  const keys = Object.keys(body);
+  if (keys.some((key) => !["job_type", "resource_profile", "timeout_seconds", "experiment"].includes(key))) return false;
+  if (!QUANT_JOB_TYPES.has(body.job_type)) return false;
+  if (body.resource_profile !== undefined && body.resource_profile !== "free-cpu") return false;
+  if (body.timeout_seconds !== undefined &&
+      (!Number.isInteger(body.timeout_seconds) || body.timeout_seconds < 1 || body.timeout_seconds > 900)) return false;
+  if (!body.experiment || typeof body.experiment !== "object" || Array.isArray(body.experiment)) return false;
+  return true;
+}
+
+async function quantLabProxy(request, env, auth, path, origin, { body = undefined, idempotencyKey = "" } = {}) {
+  const base = quantWorkerBase(env);
+  if (!base) return json({ error: env.QUANTLAB_WORKER_URL ? "quantlab_worker_url_invalid" : "quantlab_worker_not_configured" }, 503, origin, env);
+  const target = new URL(path, base.origin);
+  const incoming = new URL(request.url);
+  for (const key of ["limit", "cursor", "state"]) {
+    if (incoming.searchParams.has(key)) target.searchParams.set(key, incoming.searchParams.get(key));
+  }
+  const headers = {
+    Authorization: "Bearer " + auth.token,
+    Accept: "application/json"
+  };
+  const init = {
+    method: request.method,
+    headers,
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(12000)
+  };
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    headers["Idempotency-Key"] = idempotencyKey;
+    init.body = JSON.stringify(body);
+  }
+  try {
+    const upstream = await fetch(target, init);
+    const contentType = upstream.headers.get("Content-Type") || "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+      return json({ error: "quantlab_worker_invalid_response" }, 502, origin, env);
+    }
+    const text = await upstream.text();
+    if (text.length > 262144) return json({ error: "quantlab_worker_response_too_large" }, 502, origin, env);
+    let payload;
+    try { payload = JSON.parse(text); } catch {
+      return json({ error: "quantlab_worker_invalid_response" }, 502, origin, env);
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return json({ error: "quantlab_worker_invalid_response" }, 502, origin, env);
+    }
+    return json(payload, upstream.status, origin, env);
+  } catch {
+    return json({ error: "quantlab_worker_unavailable" }, 502, origin, env);
+  }
+}
+
+async function handleQuantLab(request, env, auth, url, origin) {
+  if (url.pathname === "/v1/quantlab/capabilities" && request.method === "GET") {
+    return json({
+      service: "nova-quantlab-hub-gateway",
+      configured: Boolean(quantWorkerBase(env)),
+      workerStatus: "not_probed",
+      supportedJobTypes: [...QUANT_JOB_TYPES],
+      resourceProfiles: ["free-cpu"],
+      maxTimeoutSeconds: 900,
+      endpoints: {
+        jobs: "/v1/quantlab/jobs",
+        job: "/v1/quantlab/jobs/{job_id}",
+        events: "/v1/quantlab/jobs/{job_id}/events"
+      },
+      tenantIdentity: "revalidated_by_quant_worker_from_bearer_session",
+      ordersEnabled: false,
+      executionEnabled: false,
+      liveTradingEnabled: false
+    }, 200, origin, env);
+  }
+
+  if (url.pathname === "/v1/quantlab/jobs" && request.method === "GET") {
+    const limit = url.searchParams.has("limit") ? Number(url.searchParams.get("limit")) : 25;
+    const state = url.searchParams.get("state") || "";
+    const cursor = url.searchParams.get("cursor") || "";
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return json({ error: "limit_must_be_between_1_and_100" }, 400, origin, env);
+    if (state && !QUANT_STATES.has(state)) return json({ error: "invalid_job_state" }, 400, origin, env);
+    if (cursor.length > 256) return json({ error: "cursor_too_long" }, 400, origin, env);
+    return quantLabProxy(request, env, auth, "/v1/jobs", origin);
+  }
+
+  if (url.pathname === "/v1/quantlab/jobs" && request.method === "POST") {
+    const key = request.headers.get("Idempotency-Key") || "";
+    if (!QUANT_IDEMPOTENCY_KEY.test(key)) return json({ error: "valid_idempotency_key_required" }, 400, origin, env);
+    const length = Number(request.headers.get("Content-Length") || 0);
+    if (length > 65536) return json({ error: "request_body_too_large" }, 413, origin, env);
+    let body;
+    try {
+      const raw = await request.text();
+      if (raw.length > 65536) return json({ error: "request_body_too_large" }, 413, origin, env);
+      body = JSON.parse(raw);
+    } catch {
+      return json({ error: "invalid_json_body" }, 400, origin, env);
+    }
+    if (!quantJobPayloadValid(body)) return json({ error: "invalid_quant_job_request" }, 400, origin, env);
+    return quantLabProxy(request, env, auth, "/v1/jobs", origin, { body, idempotencyKey: key });
+  }
+
+  const match = /^\\/v1\\/quantlab\\/jobs\\/([^/]+)(?:\\/(events))?$/.exec(url.pathname);
+  if (match && request.method === "GET") {
+    if (!QUANT_JOB_ID.test(match[1])) return json({ error: "invalid_job_id" }, 400, origin, env);
+    const path = "/v1/jobs/" + encodeURIComponent(match[1]) + (match[2] ? "/events" : "");
+    return quantLabProxy(request, env, auth, path, origin);
+  }
+  return json({ error: "not_found" }, 404, origin, env);
+}
+
 export default {
   async fetch(request, env = {}) {
     const url = new URL(request.url);
@@ -577,6 +710,12 @@ export default {
         dataVerified: false,
         note: "Status reflects the user's connection record only. Use POST /v1/connections/{id}/check or GET /account to verify the live read-only account path.",
       }, 200, origin, env);
+    }
+
+    if (url.pathname.startsWith("/v1/quantlab/")) {
+      const auth = await authenticate(request, env);
+      if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      return handleQuantLab(request, env, auth, url, origin);
     }
 
     return json({ error: "not_found" }, 404, origin, env);
