@@ -430,6 +430,132 @@ test("account read does not reach proxy while a connection remains pending", asy
   }
 });
 
+
+test("QuantLab capabilities are authenticated and explicitly report unconfigured worker", async () => {
+  const denied = await worker.fetch(request("/v1/quantlab/capabilities"), env);
+  assert.equal(denied.status, 401);
+  mockAuthAndRest();
+  const response = await worker.fetch(request("/v1/quantlab/capabilities", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.configured, false);
+  assert.equal(body.workerStatus, "not_probed");
+  assert.equal(body.ordersEnabled, false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("QuantLab job creation validates bounded research-only payload before dispatch", async () => {
+  mockAuthAndRest();
+  const invalid = await worker.fetch(request("/v1/quantlab/jobs", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json", "Idempotency-Key": "idem-key-12345678" },
+    body: JSON.stringify({ job_type: "order", experiment: {} })
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error, "invalid_quant_job_request");
+});
+
+test("QuantLab job creation requires idempotency and never accepts client tenant identity", async () => {
+  mockAuthAndRest();
+  const missingKey = await worker.fetch(request("/v1/quantlab/jobs", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify({ job_type: "backtest", experiment: {} })
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  assert.equal(missingKey.status, 400);
+  assert.equal((await missingKey.json()).error, "valid_idempotency_key_required");
+
+  const tenantSpoof = await worker.fetch(request("/v1/quantlab/jobs", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json", "Idempotency-Key": "idem-key-12345678" },
+    body: JSON.stringify({ job_type: "backtest", experiment: {}, tenant_id: "victim" })
+  }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+  assert.equal(tenantSpoof.status, 400);
+  assert.equal((await tenantSpoof.json()).error, "invalid_quant_job_request");
+});
+
+test("QuantLab job creation forwards verified session and bounded payload to configured worker", async () => {
+  const original = globalThis.fetch;
+  let workerCall = null;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://quantlab-worker.workers.dev" && url.pathname === "/v1/jobs") {
+      workerCall = { url, init, payload: JSON.parse(init.body) };
+      return Response.json({ job: { job_id: "job-123", state: "QUEUED" }, ordersEnabled: false }, { status: 202 });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/quantlab/jobs", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + USER_TOKEN,
+        "Content-Type": "application/json",
+        "Idempotency-Key": "idem-key-12345678",
+        Origin: UI_ORIGIN
+      },
+      body: JSON.stringify({ job_type: "backtest", resource_profile: "free-cpu", timeout_seconds: 600, experiment: { spec: "nova.quant-experiment.v1" } })
+    }), { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" });
+    const body = await response.json();
+    assert.equal(response.status, 202);
+    assert.equal(body.job.job_id, "job-123");
+    assert.equal(workerCall.init.method, "POST");
+    assert.equal(workerCall.init.headers.Authorization, "Bearer " + USER_TOKEN);
+    assert.equal(workerCall.init.headers["Idempotency-Key"], "idem-key-12345678");
+    assert.equal(workerCall.payload.job_type, "backtest");
+    assert.equal(Object.hasOwn(workerCall.payload, "tenant_id"), false);
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("QuantLab list and event routes preserve tenant bearer token and bounded filters", async () => {
+  const original = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+    if (url.origin === "https://quantlab-worker.workers.dev") {
+      seen.push({ pathname: url.pathname, limit: url.searchParams.get("limit"), state: url.searchParams.get("state"), auth: init.headers.Authorization });
+      return Response.json({ jobs: [], events: [] });
+    }
+    throw new Error("Unexpected outbound request: " + url.origin + url.pathname);
+  };
+  try {
+    const config = { ...env, QUANTLAB_WORKER_URL: "https://quantlab-worker.workers.dev" };
+    const list = await worker.fetch(request("/v1/quantlab/jobs?limit=20&state=RUNNING", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), config);
+    assert.equal(list.status, 200);
+    const events = await worker.fetch(request("/v1/quantlab/jobs/job-123/events", {
+      headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), config);
+    assert.equal(events.status, 200);
+    assert.deepEqual(seen, [
+      { pathname: "/v1/jobs", limit: "20", state: "RUNNING", auth: "Bearer " + USER_TOKEN },
+      { pathname: "/v1/jobs/job-123/events", limit: null, state: null, auth: "Bearer " + USER_TOKEN }
+    ]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("QuantLab proxy rejects unsafe worker URLs and never follows redirects", async () => {
+  mockAuthAndRest();
+  const bad = await worker.fetch(request("/v1/quantlab/jobs", {
+    headers: { Authorization: "Bearer " + USER_TOKEN }
+  }), { ...env, QUANTLAB_WORKER_URL: "https://attacker.example" });
+  assert.equal(bad.status, 503);
+  assert.equal((await bad.json()).error, "quantlab_worker_url_invalid");
+});
+
 test("Cloudflare fallback frontend origin remains allowed during Netlify cutover", async () => {
   const response = await worker.fetch(request("/health", {
     headers: { Origin: FALLBACK_UI_ORIGIN }
