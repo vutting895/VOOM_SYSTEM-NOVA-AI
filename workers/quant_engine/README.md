@@ -43,3 +43,31 @@ worker dispatch/leases, cross-process authorization, artifact storage, or
 production backup/restore. The trusted Hub must resolve tenant identity before
 calling it, and production deployment requires a persistent volume and an
 operational backup/restore procedure.
+
+
+## QuantLab dispatcher (development only)
+
+The queue dispatcher is a separate process from the FastAPI HTTP service. Build
+the same worker image, mount the same persistent `/data` volume into both
+processes, and start the dispatcher with:
+
+~~~bash
+QUANTLAB_DB_PATH=/data/nova-quantlab/quantlab.sqlite3 \
+QUANTLAB_DATASET_ROOT=/data/nova-quantlab/datasets \
+QUANTLAB_WORKER_ID=quantlab-dispatcher-1 \
+python -m workers.quant_engine.dispatcher
+~~~
+
+The dispatcher polls the SQLite queue, claims one job, renews its lease while
+the synchronous executor runs, and commits a terminal result only while the
+lease remains valid. It executes `dataset.validate` only. Other accepted API
+job types are rejected with `executor_not_implemented`; no backtest or model
+training is simulated.
+
+This is a single-node development runner. Run exactly one dispatcher against
+the SQLite database and its persistent volume. Do not run multiple replicas,
+deploy it, or treat the local filesystem as shared storage. The dataset root
+must contain trusted, already-published artifacts; ingestion, atomic artifact
+publication, process-level hard timeouts, cancellation, backup/restore and
+production operations are not implemented by this dispatcher. Live trading
+and all broker-write paths remain disabled.
