@@ -97,3 +97,16 @@ The central registry defines approval and scope. This local file adds NOVA-speci
 - Preserve ordersEnabled=false, executionEnabled=false, and liveTradingEnabled=false. Production deployment remains paused; Datacenter remains the sole research/learning owner.
 - Cursor Skill discovery/selection is model-mediated. Do not claim automatic invocation from file presence alone; record an observed runtime invocation test before making that claim.
 - Initial scope is documentation and agent instructions only. Any runtime, CI, security, permission, deployment, cost, or trading scope requires a separate approved Work Order.
+
+
+## Approved NOVA Brain Core and Demo readiness — WO-2026-11-26-002
+
+- Central Work Order: https://github.com/vutting895/voom-shared-contracts/blob/main/work-orders/WO-2026-11-26-002-nova-brain-permission-demo-readiness.md
+- Local record: docs/governance/WO-2026-11-26-002-BRAIN-PERMISSION-DEMO-READINESS.md
+- User approved autonomous engineering and testing for Brain Core Runtime, Permission Engine, and an isolated Exness Demo Execution Adapter on NOVA main. This approval is limited to the exact Work Order.
+- Reuse and review existing PR candidates #334, #336, #276, #277, #278, #414, #426 and #429. Do not create duplicate Gateways/services, or merge/close/modify those PRs under this Work Order.
+- Preserve the existing read-only MT5 Bridge/Proxy/Relay. The new adapter must be isolated and non-dispatching in this Work Order.
+- Brain/model/MCP output is untrusted proposal input and never grants permission. Permission Engine enforcement must be deterministic and server-side.
+- Keep ordersEnabled=false, executionEnabled=false, liveTradingEnabled=false. No actual Demo broker write, Demo activation, Live trading, deployment, production DB/schema, secrets/permissions, paid service, or Datacenter mutation.
+- Issue #36 has a legacy PR-only statement that conflicts with the Main-only rule in this file and the user's explicit Main-only approval for WO-2026-11-26-002. This narrow owner-approved exception applies only to WO-2026-11-26-002; do not generalize it to unrelated work. Update Issue #36 to record the exception and retain the general policy outside this Work Order.
+- Continue through approved phases without repeated routine approval. Stop at BLOCKED_DECISION for broker execution/activation, production release, or security/authorization policy changes; stop at BLOCKED_DEPENDENCY for missing identity/schema/test evidence or unavailable test execution.
