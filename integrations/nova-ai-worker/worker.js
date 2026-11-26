@@ -155,6 +155,23 @@ export async function authenticateRequest(request, env) {
     return { ok: false, status: 503, error: "authentication_provider_unavailable" };
   }
 }
+async function enforceRateLimit(env, userId, route) {
+  if (!env.RATE_LIMITER || typeof env.RATE_LIMITER.limit !== "function") {
+    return { ok: false, status: 503, error: "rate_limit_not_configured" };
+  }
+  try {
+    const result = await env.RATE_LIMITER.limit({ key: route + ":" + userId });
+    if (!result || result.success !== true) {
+      return { ok: false, status: 429, error: "rate_limit_exceeded" };
+    }
+    return { ok: true };
+  } catch {
+    // Fail closed: AI usage must not proceed when the rate-limit service is unavailable.
+    console.warn("NOVA AI Worker rate limiter unavailable");
+    return { ok: false, status: 503, error: "rate_limit_unavailable" };
+  }
+}
+
 function fallback(input, reason = "AI binding unavailable") {
   const prompt = input.prompt.toLowerCase();
   const key = input.risk === "low" ? "conservative"
@@ -325,6 +342,10 @@ export default {
     }
     const auth = await authenticateRequest(request, env);
     if (!auth.ok) return fail(auth.error, auth.status, origin);
+    if (url.pathname === "/api/gen-ai/generate" || url.pathname === "/api/chat") {
+      const rateLimit = await enforceRateLimit(env, auth.userId, url.pathname);
+      if (!rateLimit.ok) return fail(rateLimit.error, rateLimit.status, origin);
+    }
     if (request.method === "GET" && url.pathname === "/api/marketplace") {
       return json({ items: catalog, count: catalog.length, source: "built-in-starter-catalog", liveTrading: false }, 200, origin);
     }

@@ -8,3 +8,9 @@ binding = "AI"
 
 [observability]
 enabled = true
+
+# Per-user AI request guard. Namespace ID must remain stable and unique in this Cloudflare account.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "2026112501"
+simple = { limit = 20, period = 60 }
