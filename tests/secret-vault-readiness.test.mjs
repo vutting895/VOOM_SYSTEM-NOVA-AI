@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 const sql = readFileSync(new URL("supabase/verification/secret-vault-readiness.sql", root), "utf8");
@@ -19,12 +18,12 @@ test("Vault readiness SQL is read-only and never selects credential values", () 
   assert.doesNotMatch(executableSql, /vault\.create_secret\s*\(/i);
 });
 
-test("local frontend Compose service does not receive provider or Bridge credentials", () => {
+test("frontend Compose service does not receive provider or Bridge credentials", () => {
   assert.doesNotMatch(compose, /BINANCE_API_(KEY|SECRET)/i);
   assert.doesNotMatch(compose, /BYBIT_API_(KEY|SECRET)/i);
   assert.doesNotMatch(compose, /MT5_BRIDGE_(TOKEN|HEALTH_URL)/i);
   assert.match(compose, /frontend:/);
-  assert.match(compose, /NODE_ENV: development/);
+  assert.match(compose, /NODE_ENV:\s*production/);
 });
 
 test("readiness document keeps credential operations disabled until every Vault gate passes", () => {
