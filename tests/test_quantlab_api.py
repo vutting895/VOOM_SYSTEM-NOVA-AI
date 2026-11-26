@@ -110,10 +110,10 @@ def test_dispatcher_claim_heartbeat_and_finish_require_private_token(client):
 
     finished = client.post(
         f"/v1/internal/leases/{job_id}/finish", headers=internal,
-        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED"},
+        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED",\n               "result": {"ok": True, "metrics": {"trades": 0}}},
     )
     assert finished.status_code == 200
-    assert finished.json()["job"]["state"] == "SUCCEEDED"
+    assert finished.json()["job"]["state"] == "SUCCEEDED"\n    assert finished.json()["job"]["result"] == {"ok": True, "metrics": {"trades": 0}}
 
     events = client.get(f"/v1/jobs/{job_id}/events", headers=headers)
     assert [event["to_state"] for event in events.json()["events"]] == ["QUEUED", "RUNNING", "SUCCEEDED"]
@@ -131,7 +131,7 @@ def test_invalid_payload_and_dispatcher_lease_cannot_be_reused(client):
     job_id = lease["job"]["job_id"]
     finish = client.post(
         f"/v1/internal/leases/{job_id}/finish", headers=internal,
-        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED"},
+        json={"worker_id": "worker-01", "lease_token": lease["lease_token"], "state": "SUCCEEDED",\n               "result": {"ok": True}},
     )
     assert finish.status_code == 200
     replay = client.post(
