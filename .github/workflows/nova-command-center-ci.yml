@@ -39,15 +39,58 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: TypeScript
-        run: bun run typecheck
+        shell: bash
+        run: |
+          set +e
+          bun run typecheck 2>&1 | tee "$RUNNER_TEMP/tsc-diagnostics.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            while IFS= read -r line; do
+              case "$line" in
+                *"error TS"*)
+                  escaped=${line//'%'/'%25'}
+                  echo "::error title=TypeScript::${escaped}"
+                  ;;
+              esac
+            done < "$RUNNER_TEMP/tsc-diagnostics.log"
+          fi
+          exit "$status"
 
       - name: ESLint
-        run: bun run lint
+        shell: bash
+        run: |
+          set +e
+          bun run lint --format json > "$RUNNER_TEMP/eslint-results.json"
+          status=$?
+          node <<'NODE'
+          const fs = require("node:fs");
+          const results = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + "/eslint-results.json", "utf8"));
+          for (const result of results) {
+            const file = result.filePath.replace(process.cwd() + "/", "");
+            for (const issue of result.messages) {
+              const message = `${issue.ruleId || "eslint"}: ${issue.message}`;
+              const escaped = message.replace(/%/g, "%25").replace(/\\r/g, "%0D").replace(/\\n/g, "%0A");
+              console.log(`::error file=${file},line=${issue.line || 1},col=${issue.column || 1},title=ESLint::${escaped}`);
+            }
+          }
+          NODE
+          exit "$status"
+
+      - name: Upload ESLint diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-command-center-eslint-diagnostics
+          path: ${{ runner.temp }}/eslint-results.json
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Unit tests
+        if: always()
         run: bun run test
 
       - name: Production build
+        if: always()
         run: bun run build
 
       - name: Upload app-local lockfile for review
