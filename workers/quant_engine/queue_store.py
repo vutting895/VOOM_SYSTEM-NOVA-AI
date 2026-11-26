@@ -129,13 +129,13 @@ class SQLiteQuantLabQueue:
                 db.execute("ALTER TABLE quantlab_jobs ADD COLUMN result_json TEXT")
 
     @staticmethod
-    def public_job(row: sqlite3.Row) -> dict[str, Any]:
+    def public_job(row: sqlite3.Row, *, include_result: bool = False) -> dict[str, Any]:
         return {
             "job_id": row["job_id"], "state": row["state"], "job_type": row["job_type"],
             "created_at": row["created_at"], "updated_at": row["updated_at"],
             "timeout_seconds": row["timeout_seconds"], "attempt_count": row["attempt_count"],
             "last_error_code": row["last_error_code"],
-            "result": json.loads(row["result_json"]) if row["result_json"] else None,
+            **({"result": json.loads(row["result_json"]) if row["result_json"] else None} if include_result else {}),
         }
 
     @staticmethod
@@ -188,7 +188,7 @@ class SQLiteQuantLabQueue:
                              (tenant_id, job_id)).fetchone()
         if not row:
             raise QueueNotFound("job_not_found")
-        return self.public_job(row)
+        return self.public_job(row, include_result=True)
 
     def list(self, *, tenant_id: str, limit: int, state: str = "", cursor: str = "") -> dict:
         params: list[Any] = [tenant_id]
@@ -323,4 +323,4 @@ class SQLiteQuantLabQueue:
             self._event(db, tenant=row["tenant_id"], job_id=job_id, sequence=seq,
                         previous="RUNNING", target=state, actor=worker_id, reason=error_code)
             updated = db.execute("SELECT * FROM quantlab_jobs WHERE job_id=?", (job_id,)).fetchone()
-            return self.public_job(updated)
+            return self.public_job(updated, include_result=True)
