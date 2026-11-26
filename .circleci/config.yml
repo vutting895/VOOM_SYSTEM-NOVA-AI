@@ -220,6 +220,7 @@ jobs:
           name: Create immutable SHA-bound release candidate marker
           environment:
             REVIEW_EVIDENCE_URL: "<< pipeline.parameters.review_evidence_url >>"
+            CIRCLE_PIPELINE_NUMBER: "<< pipeline.number >>"
           command: |
             set -euo pipefail
             test -n "$REVIEW_EVIDENCE_URL"
@@ -268,6 +269,8 @@ jobs:
           at: .
       - run:
           name: Confirm rollback handoff remains non-executing
+          environment:
+            CIRCLE_PIPELINE_NUMBER: "<< pipeline.number >>"
           command: |
             set -euo pipefail
             python - <<'PY'
