@@ -196,7 +196,7 @@ test("live read-only check drops account payload and reports verified only after
     if (url.origin === proxyUrl && url.pathname === "/api/account") {
       assert.equal(url.searchParams.get("connection_id"), CONNECTION_ID);
       assert.equal(init.headers.Authorization, "Bearer " + USER_TOKEN);
-      return Response.json({ balance: "999999", account_number: "private" });
+      return Response.json({ connected: true, balance: "999999", account_number: "private" });
     }
     throw new Error("Unexpected external request: " + url.origin + url.pathname);
   };
@@ -210,6 +210,40 @@ test("live read-only check drops account payload and reports verified only after
     assert.match(body, /"dataVerified":true/);
     assert.doesNotMatch(body, /999999|account_number|private/);
     assert.match(body, /"ordersEnabled":false/);
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+});
+
+test("check endpoint rejects an upstream account response without connected true", async () => {
+  const rows = [{
+    id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+    status: "connected", account_label: "Exness MT5 Demo", bridge_route_id: "tenant-a"
+  }];
+  const proxyUrl = env.MT5_READONLY_PROXY_URL;
+  const oldFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json(rows);
+    }
+    if (url.origin === proxyUrl && url.pathname === "/api/account") {
+      return Response.json({ balance: 1000 });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST", headers: { Authorization: "Bearer " + USER_TOKEN }
+    }), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "bridge_unavailable");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
   } finally {
     globalThis.fetch = oldFetch;
   }
@@ -388,6 +422,83 @@ test("quotes endpoint only forwards bounded read-only symbol/timeframe/count", a
   }
 });
 
+test("quotes reject malformed or mismatched upstream market data", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      return Response.json([{
+        id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+        status: "connected", bridge_route_id: "tenant-a"
+      }]);
+    }
+    if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+      return Response.json({ timeframe: "M1", bars: [] });
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+  try {
+    const response = await worker.fetch(request(
+      "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=3",
+      { headers: { Authorization: "Bearer " + USER_TOKEN } }
+    ), env);
+    const body = await response.json();
+    assert.equal(response.status, 502);
+    assert.equal(body.state, "bridge_unavailable");
+    assert.equal(body.dataVerified, false);
+    assert.equal(body.ordersEnabled, false);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("quotes reject invalid OHLC bars, duplicate timestamps, and inconsistent count metadata", async () => {
+  const original = globalThis.fetch;
+  const validBar = { time: "2026-10-29T04:55:00Z", open: 4038.8, high: 4039.2, low: 4038.7, close: 4039.0 };
+  const invalidPayloads = [
+    { name: "invalid timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, time: "not-a-time" }] } },
+    { name: "impossible calendar date", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, time: "2026-02-30T04:55:00Z" }] } },
+    { name: "impossible OHLC range", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [{ ...validBar, high: 4038.7 }] } },
+    { name: "duplicate bar timestamp", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, validBar] } },
+    { name: "inconsistent bar order", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar, { ...validBar, time: "2026-10-29T04:56:00Z" }, { ...validBar, time: "2026-10-29T04:54:00Z" }] } },
+    { name: "count does not match bars", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar], count: 2 } },
+    { name: "crossed tick", payload: { symbol: "XAUUSDm", timeframe: "M1", bars: [validBar], tick: { bid: 4039.2, ask: 4039.1 } } }
+  ];
+
+  try {
+    for (const item of invalidPayloads) {
+      globalThis.fetch = async (input) => {
+        const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+        if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") return Response.json({ id: "user-a" });
+        if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+          return Response.json([{
+            id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
+            status: "connected", bridge_route_id: "tenant-a"
+          }]);
+        }
+        if (url.origin === "https://voom-mt5-readonly-proxy.suwapat787.workers.dev" && url.pathname === "/api/quotes") {
+          return Response.json(item.payload);
+        }
+        throw new Error("Unexpected external request: " + url.origin + url.pathname);
+      };
+      const response = await worker.fetch(request(
+        "/v1/connections/" + CONNECTION_ID + "/quotes?symbol=XAUUSDm&timeframe=M1&count=5",
+        { headers: { Authorization: "Bearer " + USER_TOKEN } }
+      ), env);
+      const body = await response.json();
+      assert.equal(response.status, 502, item.name);
+      assert.equal(body.dataVerified, false, item.name);
+      assert.equal(body.ordersEnabled, false, item.name);
+      assert.equal(body.liveTradingEnabled, false, item.name);
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test("quotes with invalid bounds fail before making an upstream request", async () => {
   mockAuthAndRest({ rows: [{
     id: CONNECTION_ID, user_id: "user-a", provider: "exness_mt5", environment: "demo",
@@ -436,4 +547,85 @@ test("Cloudflare fallback frontend origin remains allowed during Netlify cutover
   }), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+
+test("every response receives a unique server-generated request ID", async () => {
+  const health = await worker.fetch(request("/health", {
+    headers: { Origin: UI_ORIGIN, "X-Request-ID": "client-controlled-value" }
+  }), env);
+  const healthId = health.headers.get("X-Request-ID");
+  assert.match(healthId || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.notEqual(healthId, "client-controlled-value");
+  assert.match(health.headers.get("Access-Control-Expose-Headers") || "", /X-Request-ID/);
+
+  const unauthorized = await worker.fetch(request("/v1/integrations"), env);
+  const unauthorizedId = unauthorized.headers.get("X-Request-ID");
+  assert.match(unauthorizedId || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.notEqual(healthId, unauthorizedId);
+  assert.equal(unauthorized.status, 401);
+});
+
+
+test("POST routes reject caller-supplied bodies before any connection database access", async () => {
+  const originalFetch = globalThis.fetch;
+  let connectionDatabaseCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? String(input) : input.url);
+    if (url.origin === "https://supabase.test" && url.pathname === "/auth/v1/user") {
+      return Response.json({ id: "user-a" });
+    }
+    if (url.origin === "https://supabase.test" && url.pathname === "/rest/v1/broker_connections") {
+      connectionDatabaseCalls += 1;
+      return Response.json([]);
+    }
+    throw new Error("Unexpected external request: " + url.origin + url.pathname);
+  };
+
+  try {
+    const forgedPayload = JSON.stringify({
+      provider: "untrusted-provider",
+      environment: "live",
+      status: "connected",
+      bridge_route_id: "attacker-controlled",
+      password: "must-never-be-accepted"
+    });
+    const createResponse = await worker.fetch(request("/v1/connections", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+      body: forgedPayload
+    }), env);
+    assert.equal(createResponse.status, 400);
+    assert.equal((await createResponse.json()).error, "request_body_not_supported");
+
+    const checkResponse = await worker.fetch(request("/v1/connections/" + CONNECTION_ID + "/check", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + USER_TOKEN, "Content-Type": "application/json" },
+      body: forgedPayload
+    }), env);
+    assert.equal(checkResponse.status, 400);
+    assert.equal((await checkResponse.json()).error, "request_body_not_supported");
+    assert.equal(connectionDatabaseCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("unexpected handler errors return a redacted 500 with a request ID", async () => {
+  const brokenEnv = new Proxy(env, {
+    get(target, property, receiver) {
+      if (property === "SUPABASE_URL") throw new Error("sensitive internal diagnostic");
+      return Reflect.get(target, property, receiver);
+    }
+  });
+  const response = await worker.fetch(request("/v1/integrations", {
+    headers: { Authorization: "Bearer " + USER_TOKEN, Origin: UI_ORIGIN }
+  }), brokenEnv);
+  const bodyText = await response.text();
+  assert.equal(response.status, 500);
+  assert.deepEqual(JSON.parse(bodyText), { error: "internal_error" });
+  assert.doesNotMatch(bodyText, /sensitive internal diagnostic/);
+  assert.match(response.headers.get("X-Request-ID") || "", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), UI_ORIGIN);
 });

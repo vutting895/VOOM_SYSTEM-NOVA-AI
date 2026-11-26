@@ -19,6 +19,7 @@ function corsHeaders(origin, env) {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept",
+    "Access-Control-Expose-Headers": "X-Request-ID",
     "Access-Control-Max-Age": "300",
     "Vary": "Origin"
   };
@@ -309,6 +310,56 @@ async function getConnection(request, env, user, id, origin) {
 const MT5_TIMEFRAMES = new Set(["M1", "M5", "M15", "M30", "H1", "H4", "D1"]);
 const MT5_SYMBOL = /^[A-Za-z0-9._-]{1,40}$/;
 
+function isIsoTimestamp(value) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText), month = Number(monthText), day = Number(dayText);
+  const hour = Number(hourText), minute = Number(minuteText), second = Number(secondText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+  if (offsetHourText !== undefined && (Number(offsetHourText) > 23 || Number(offsetMinuteText) > 59)) return false;
+  return Number.isFinite(Date.parse(value));
+}
+function validQuotePayload(data, requestedCount) {
+  if (!Array.isArray(data.bars) || data.bars.length < 1 || data.bars.length > requestedCount) return false;
+  if (data.count !== undefined && (!Number.isInteger(data.count) || data.count !== data.bars.length)) return false;
+  if (data.digits !== undefined && (!Number.isInteger(data.digits) || data.digits < 0 || data.digits > 10)) return false;
+
+  let direction = 0;
+  let previousTime = null;
+  for (const bar of data.bars) {
+    if (!bar || typeof bar !== "object" || Array.isArray(bar) || !isIsoTimestamp(bar.time)) return false;
+    const values = [bar.open, bar.high, bar.low, bar.close];
+    if (values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value <= 0)) return false;
+    const [open, high, low, close] = values;
+    if (high < low || high < open || high < close || low > open || low > close) return false;
+
+    const timestamp = Date.parse(bar.time);
+    if (previousTime !== null) {
+      const delta = timestamp - previousTime;
+      if (delta === 0) return false;
+      const currentDirection = Math.sign(delta);
+      if (direction !== 0 && currentDirection !== direction) return false;
+      direction = currentDirection;
+    }
+    previousTime = timestamp;
+  }
+
+  if (data.tick !== undefined && data.tick !== null) {
+    const tick = data.tick;
+    if (!tick || typeof tick !== "object" || Array.isArray(tick)) return false;
+    if (typeof tick.bid !== "number" || !Number.isFinite(tick.bid) || tick.bid <= 0) return false;
+    if (typeof tick.ask !== "number" || !Number.isFinite(tick.ask) || tick.ask < tick.bid) return false;
+    if (tick.last !== undefined && (typeof tick.last !== "number" || !Number.isFinite(tick.last) || tick.last < 0)) return false;
+    if (tick.time !== undefined && tick.time !== null && !isIsoTimestamp(tick.time)) return false;
+  }
+  return true;
+}
+
 function safeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -383,7 +434,7 @@ async function checkConnection(request, env, user, row, origin) {
       liveTradingEnabled: false
     }, result.status, origin, env);
   }
-  if (result.body.connected === false) {
+  if (result.body.connected !== true) {
     return json({
       connectionId: row.id,
       state: "bridge_unavailable",
@@ -473,13 +524,28 @@ async function readQuotes(request, env, user, row, origin) {
     }, result.status, origin, env);
   }
   const data = result.body;
+  // A successful HTTP response is not sufficient evidence of valid market data.
+  // Require the bridge to echo the requested instrument/timeframe and return a bounded bars array.
+  if (
+    typeof data.symbol !== "string" || data.symbol !== symbol ||
+    typeof data.timeframe !== "string" || data.timeframe.toUpperCase() !== timeframe ||
+    !validQuotePayload(data, count)
+  ) {
+    return json({
+      connectionId: row.id,
+      state: "bridge_unavailable",
+      dataVerified: false,
+      ordersEnabled: false,
+      liveTradingEnabled: false
+    }, 502, origin, env);
+  }
   return json({
     connectionId: row.id,
     state: "data_verified",
     dataVerified: true,
     quote: {
-      symbol: typeof data.symbol === "string" ? data.symbol : symbol,
-      timeframe: typeof data.timeframe === "string" ? data.timeframe : timeframe,
+      symbol: data.symbol,
+      timeframe: data.timeframe,
       digits: safeNumber(data.digits),
       tick: data.tick && typeof data.tick === "object" ? {
         bid: safeNumber(data.tick.bid),
@@ -498,8 +564,7 @@ async function readQuotes(request, env, user, row, origin) {
   }, 200, origin, env);
 }
 
-export default {
-  async fetch(request, env = {}) {
+async function handleRequest(request, env = {}) {
     const url = new URL(request.url);
     const origin = request.headers.get("Origin") || "";
 
@@ -541,6 +606,9 @@ export default {
     if (url.pathname === "/v1/connections" && (request.method === "GET" || request.method === "POST")) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (request.method === "POST" && request.body !== null) {
+        return json({ error: "request_body_not_supported" }, 400, origin, env);
+      }
       if (request.method === "POST") return createConnection(request, env, auth, origin);
       const result = await queryOwnConnections(env, auth);
       if (!result.ok) return json({ error: result.error }, result.status, origin, env);
@@ -559,6 +627,9 @@ export default {
     )) {
       const auth = await authenticate(request, env);
       if (!auth.ok) return json({ error: auth.error }, auth.status, origin, env);
+      if (request.method === "POST" && request.body !== null) {
+        return json({ error: "request_body_not_supported" }, 400, origin, env);
+      }
       const result = await getConnection(request, env, auth, match[1], origin);
       if (result.response) return result.response;
       if (match[2] === "check") return checkConnection(request, env, auth, result.row, origin);
@@ -580,5 +651,25 @@ export default {
     }
 
     return json({ error: "not_found" }, 404, origin, env);
+}
+
+export default {
+  async fetch(request, env = {}) {
+    const requestId = crypto.randomUUID();
+    let response;
+    try {
+      response = await handleRequest(request, env);
+    } catch {
+      // Return a redacted error response while preserving correlation and allowed CORS.
+      const origin = request.headers.get("Origin") || "";
+      response = json({ error: "internal_error" }, 500, origin, env);
+    }
+    const headers = new Headers(response.headers);
+    headers.set("X-Request-ID", requestId);
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers
+    });
   }
 };
