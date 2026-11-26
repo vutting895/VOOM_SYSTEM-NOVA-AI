@@ -7,7 +7,7 @@ import { describeApiError } from "@/lib/nova/api";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: pageHead("Settings", "Integration health."),
+  head: () => pageHead("Settings", "Integration health."),
   component: Settings,
 });
 

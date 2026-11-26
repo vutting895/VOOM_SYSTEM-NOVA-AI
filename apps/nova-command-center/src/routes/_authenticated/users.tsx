@@ -7,7 +7,7 @@ import { RoleGate } from "@/components/nova/RoleGate";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/users")({
-  head: pageHead("Users & Roles", "Profile and role management."),
+  head: () => pageHead("Users & Roles", "Profile and role management."),
   component: Users,
 });
 

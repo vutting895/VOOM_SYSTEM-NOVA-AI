@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   SAFETY,
   assertReadOnlyRequest,
+  assertQuantLabRequest,
   ALLOWED_API_PATHS,
   isForbiddenPath,
 } from "@/lib/nova/safety";
@@ -45,5 +46,18 @@ describe("emergency stop", () => {
     const r = emergencyStopAvailability();
     expect(r.connected).toBe(false);
     expect(r.message).toMatch(/not connected/i);
+  });
+});
+describe("QuantLab API safety boundary", () => {
+  it("allows only the explicit research job endpoints", () => {
+    expect(() => assertQuantLabRequest("GET", "/v1/quantlab/capabilities")).not.toThrow();
+    expect(() => assertQuantLabRequest("GET", "/v1/quantlab/jobs")).not.toThrow();
+    expect(() => assertQuantLabRequest("GET", "/v1/quantlab/jobs/job-123/events")).not.toThrow();
+    expect(() => assertQuantLabRequest("POST", "/v1/quantlab/jobs")).not.toThrow();
+  });
+  it("blocks unsupported methods and broker/funds paths", () => {
+    expect(() => assertQuantLabRequest("DELETE", "/v1/quantlab/jobs/job-123")).toThrow();
+    expect(() => assertQuantLabRequest("POST", "/v1/quantlab/jobs/job-123/cancel")).toThrow();
+    expect(() => assertQuantLabRequest("POST", "/v1/orders")).toThrow();
   });
 });

@@ -21,7 +21,7 @@ import { pageHead } from "@/lib/nova/head";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/trading")({
-  head: pageHead("Trading Terminal", "Read-only trading view."),
+  head: () => pageHead("Trading Terminal", "Read-only trading view."),
   component: Trading,
 });
 

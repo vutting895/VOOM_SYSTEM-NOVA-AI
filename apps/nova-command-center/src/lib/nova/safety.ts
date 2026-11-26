@@ -47,3 +47,15 @@ export function assertReadOnlyRequest(method: string, path: string): void {
     throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
   }
 }
+
+const QUANTLAB_GET_PATH = new RegExp("^/v1/quantlab/(capabilities|jobs(?:/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(?:/events)?)?)$");
+
+export function assertQuantLabRequest(method: string, path: string): void {
+  const normalized = method.toUpperCase();
+  if (isForbiddenPath(path)) {
+    throw new Error(`Blocked by safety policy: ${path} is a trading/funds endpoint`);
+  }
+  if (normalized === "GET" && QUANTLAB_GET_PATH.test(path.split("?")[0] ?? "")) return;
+  if (normalized === "POST" && path === "/v1/quantlab/jobs") return;
+  throw new Error(`Blocked by safety policy: ${normalized} ${path} is not an allowlisted QuantLab operation`);
+}

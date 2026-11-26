@@ -13,6 +13,9 @@ from integrations.notifications.approval_guard import ApprovalGuard
 
 app = FastAPI(title="VOOM NOVA Research Worker", version="0.3.0")
 
+from workers.quantlab_api import router as quantlab_router
+app.include_router(quantlab_router)
+
 
 class BacktestRequest(BaseModel):
     candles: list[dict[str, Any]] = Field(min_length=10)

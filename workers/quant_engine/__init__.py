@@ -5,6 +5,21 @@ or submit orders. Heavy backtests and model training belong in an isolated worke
 """
 
 from .identity import build_run_fingerprint
+from .job_lifecycle import (
+    JobEvent,
+    JobLifecycleError,
+    JobState,
+    JobType,
+    ResearchJob,
+    create_research_job,
+    transition_research_job,
+)
+from .job_store import (
+    JobConflictError,
+    JobNotFoundError,
+    JobStoreError,
+    SQLiteResearchJobStore,
+)
 from .experiment import ExperimentValidationError, validate_quant_experiment
 from .quality import DatasetQualityReport, DatasetValidationError, canonical_dataset_sha256, validate_ohlcv
 from .splits import (
@@ -21,12 +36,23 @@ __all__ = [
     "DatasetQualityReport",
     "DatasetValidationError",
     "ExperimentValidationError",
+    "JobConflictError",
+    "JobEvent",
+    "JobLifecycleError",
+    "JobNotFoundError",
+    "JobState",
+    "JobStoreError",
+    "JobType",
     "PurgePolicy",
+    "ResearchJob",
+    "SQLiteResearchJobStore",
     "WalkForwardWindow",
     "build_run_fingerprint",
     "canonical_dataset_sha256",
     "chronological_split",
+    "create_research_job",
     "derive_purge_policy",
+    "transition_research_job",
     "validate_ohlcv",
     "validate_quant_experiment",
     "walk_forward_windows",

@@ -1,6 +1,8 @@
 FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
+ENV QUANTLAB_DB_PATH=/data/nova-quantlab/quantlab.sqlite3
+VOLUME ["/data"]
 COPY workers/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY workers /app/workers

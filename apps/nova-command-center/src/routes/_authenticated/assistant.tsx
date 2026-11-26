@@ -8,7 +8,7 @@ import { isApiConfigured } from "@/lib/nova/config";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/assistant")({
-  head: pageHead("AI Assistant", "Operations assistant."),
+  head: () => pageHead("AI Assistant", "Operations assistant."),
   component: Assistant,
 });
 

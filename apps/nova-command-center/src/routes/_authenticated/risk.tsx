@@ -11,7 +11,7 @@ import { RoleGate } from "@/components/nova/RoleGate";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/risk")({
-  head: pageHead("Risk Center", "Risk policy and emergency stop."),
+  head: () => pageHead("Risk Center", "Risk policy and emergency stop."),
   component: Risk,
 });
 
