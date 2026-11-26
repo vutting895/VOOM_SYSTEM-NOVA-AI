@@ -710,3 +710,15 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Public CircleCI plan documentation currently states Free has 30,000 monthly credits and 5 active users; personal builds are blocked at zero credits. This is not evidence of NOVA's actual plan, active-user count, remaining credits, or paid-refill settings.
 - Status: local static validation and unit tests PASS; provider validation and acceptance remain NOT VERIFIED.
 - No Main edit, merge, deployment, production mutation, secret/permission change, billing change, or broker execution. Safety flags remain false.
+
+
+## 2026-11-26T04:14:26.287Z — WO-2026-11-26-008 — local acceptance checks on connected Windows host
+
+- Fetched the Development Branch into a separate temporary Git worktree. Exact tested SHA: `dbd6cbc52f16b17b01d215025b933e02820634ec`. The pre-existing working copy remained on `audit/ea-v183-phase1-2-20261125`; it was not switched or modified.
+- `python -m unittest discover -s tests -p test_release_control.py -v`: **PASS, 10 tests / 0 failures**, using the host's Python 3.14.
+- Node `js-yaml` parse of `.circleci/config.yml`: **PASS**, parsed top-level keys `version, parameters, jobs, workflows`, 10 jobs, 4 workflows.
+- CircleCI CLI: not installed on host. Official portable CLI retrieval was attempted into a temporary directory, but the host failed to establish the TLS/network connection; no machine-wide install was attempted. CircleCI's own schema/config validator remains NOT VERIFIED.
+- CircleCI public Free plan documentation currently states 30,000 credits/month, 5 active users, 1 GB network transfer, and 2 GB-months storage. This is the published plan allowance, not evidence of this account's remaining balance, active-user usage, or quota availability. When Free credits reach zero, personal builds are blocked until refill.
+- No CircleCI pipeline was triggered; no credits were consumed by a pipeline; no CircleCI account settings or billing were changed.
+- Acceptance status: local unit tests and YAML parse PASS; CircleCI CLI schema validation, account quota, exact-head provider execution, non-zero runner, provider logs/artifacts, review evidence, rollback known-good evidence, and independent reviews remain NOT VERIFIED / PENDING.
+- No merge, deployment, Main edit, production mutation, secrets/permissions change, billing change, broker action, or model training. Safety flags remain `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
