@@ -655,3 +655,24 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Safety remains: `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`; production deployment paused.
 - Status: REUSE IMPLEMENTED ON MAIN; static review complete; runtime invocation unverified.
 - Next action: observe the existing `nova-agent-engineering` Skill being selected in a supported Cursor session; do not infer runtime invocation from GitHub file presence.
+
+
+## 2026-11-26T04:03:18.476Z — WO-2026-11-26-008 — CircleCI unified validation and release-control implementation
+
+- Repository: `vutting895/VOOM_SYSTEM-NOVA-AI`; branch: `work/wo-2026-11-26-008-circleci-release-control`.
+- User authorization: explicitly approved implementation on a Development Branch and a Main-only exception scoped only to WO-2026-11-26-008. No merge/deploy authorization.
+- Main baseline before branch creation: `56bf51d2e719a4cc79d73421e135099175a1e300`. Development branch was created directly from this exact SHA.
+- Source PR reconciliation: #418 contributes the six NOVA validation jobs and PR event semantics; #429 contributes release-marker and rollback-handoff concepts only. PR #418's stale ancestry was not retained. PR #429's QuantLab job-store/runtime files were excluded as out of scope.
+- Changed paths:
+  - `.circleci/config.yml` — one consolidated configuration with separate PR, manual validation, marker, and rollback-request workflows.
+  - `scripts/release_control.py` — SHA-bound marker identity, SHA-256 artifact digests, exclusive/idempotent evidence writes, fail-closed validation, and non-executing rollback handoff.
+  - `tests/test_release_control.py` — contract tests for exact SHA, changed/missing artifacts, required checks, stable marker identity, immutable writes, and rollback handoff safety.
+  - `docs/release/WO-2026-11-26-008-CIRCLECI-RELEASE-CONTROL.md` — ownership, state machine, operator runbook, reconciliation, and explicit acceptance limitations.
+- Current implementation commit before this log append: `9d055aee29f4c24859987e5615dc3b425feff96b`.
+- Static readback: all four files exist on the Development Branch. Compare from Main reports the branch is ahead and not behind; no Main file was changed.
+- Source inspection: CircleCI config contains no production deploy credentials, contexts, or direct deploy command. GitHub Actions remains the only Production Deploy/Rollback executor. CircleCI rollback artifact is explicitly `PENDING_GITHUB_ACTIONS_OPERATOR_VERIFICATION` and `NOT_EXECUTED`.
+- Tests: authored only; no test suite was executed in this environment. CircleCI CLI validation, exact-head CircleCI pipeline, non-zero runner assignment, executed logs, and retained provider artifacts are NOT VERIFIED.
+- Acceptance blockers: GitHub review evidence is recorded but not machine-verified; known-good deployed rollback SHA requires independent GitHub Actions verification; CircleCI Free quota/account capacity is not evidenced; independent security and maintainer reviews are pending.
+- Status: IMPLEMENTATION IN PROGRESS / ACCEPTANCE NOT VERIFIED. No acceptance criterion is marked DONE.
+- Safety: no Main edits, merge, auto-merge, deployment, production mutation, secrets/permissions changes, billing changes, broker writes, or training. `ordersEnabled=false`, `executionEnabled=false`, `liveTradingEnabled=false`.
+- Next: validate the YAML with CircleCI CLI, run exact-head CircleCI jobs under existing Free quota, inspect runner/job logs/artifacts, close the review-evidence gaps, and obtain independent security/maintainer review before any release decision.
