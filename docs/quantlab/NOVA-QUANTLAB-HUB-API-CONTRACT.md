@@ -28,7 +28,7 @@ The Hub validates allowlisted job types (`dataset.validate`, `backtest`, `train`
 - `GET /v1/jobs/{job_id}` — tenant-scoped job detail.
 - `GET /v1/jobs/{job_id}/events` — tenant-scoped append-only event history.
 
-The queue stores the submitted experiment payload, job state, requester, idempotency key, and append-only state events in SQLite. Same-tenant replay with the same key and same request returns the original job; reuse with a different request returns 409. Cross-tenant lookup returns 404.
+The queue stores the submitted experiment payload, job state, requester, idempotency key, append-only state events, and a bounded JSON result (maximum 256 KiB) in SQLite. A worker cannot mark a job SUCCEEDED without supplying a JSON result. Same-tenant replay with the same key and same request returns the original job; reuse with a different request returns 409. Cross-tenant lookup returns 404.
 
 ## Internal dispatcher/lease API
 
