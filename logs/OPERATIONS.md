@@ -702,3 +702,12 @@ Append-only integration history. Timestamps are UTC. Never record bearer tokens,
 - Local rerun: Node unit tests 8/8 PASS; Python adapter tests 8/8 PASS; Python py_compile PASS; route integration test syntax check PASS.
 - System Hub route integration tests remain NOT EXECUTED. No full worker bundle check, exact-head hosted CI PASS, authenticated live MT5 read, risk decision, or broker test is claimed.
 - All trading flags remain false; no broker mutation or deployment occurred.
+
+
+## 2026-11-26 — WO-2026-11-26-002 — final status recheck
+
+- Verified `refs/heads/main` = `dc47fbe71bf2df3a479ecdffdec2a79e869597f3`.
+- Exact Main combined status recheck reports CircleCI Pipeline ERROR (#2533) and Vercel deployment-context failures; no GitHub Actions workflow run was returned. The available status record does not establish whether tests executed, so no source-test failure or pass is inferred from these provider statuses.
+- Issue #36 baseline was read back and matches this Main SHA. Central Work Order and local Work Order both remain IN_PROGRESS.
+- Netlify production is still published from older commit `03b71d01ce2ddedf7da1ee17d296f8880dde6e10`; the five latest production deploy records remain skipped for account credit usage exceeded. No active deploy and no deployment initiated.
+- Execution flags remain false; route integration tests not executed; no Demo activation or broker write.
