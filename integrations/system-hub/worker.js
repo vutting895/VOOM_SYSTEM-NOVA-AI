@@ -511,7 +511,7 @@ function quantWorkerBase(env) {
   try {
     const url = new URL(raw);
     if (url.protocol !== "https:" || url.username || url.password ||
-        !url.hostname.endsWith(".workers.dev") || url.pathname !== "" || url.search || url.hash) return null;
+        !url.hostname.endsWith(".workers.dev") || (url.pathname !== "" && url.pathname !== "/") || url.search || url.hash) return null;
     return url;
   } catch {
     return null;
