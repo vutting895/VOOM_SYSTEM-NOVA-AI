@@ -289,7 +289,7 @@ jobs:
                 "approver_timestamp_utc": None,
             }
             Path("rollback-evidence/approved-rollback-request.json").write_text(
-                json.dumps(payload, indent=2, sort_keys=True) + "\\n"
+                json.dumps(payload, indent=2, sort_keys=True) + "\n"
             )
             print("Rollback handoff validated; no deployment or rollback was executed.")
             PY
