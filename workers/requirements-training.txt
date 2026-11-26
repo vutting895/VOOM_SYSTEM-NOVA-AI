@@ -1,0 +1,2 @@
+# Optional CPU/GPU training dependency. Install separately from lightweight core workers.
+torch>=2.2,<3
