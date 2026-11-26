@@ -1,5 +1,10 @@
 # NOVA Worker API contract (Cloudflare Workers)
 
+> **Implementation status (verified against main@7a54b753ea250ab8bd98e36ca89c3a9b35a2e2b2, 2026-11-25): CONTRACT ONLY — NOT IMPLEMENTED / NOT DEPLOYED.** This file specifies a target read-only API; it is not evidence that a Core API Worker exists. The repository's [Command Center API data-source plan](../../../docs/governance/WO-004-COMMAND-CENTER-API-DATA-SOURCE-PLAN.md) records that no Core API Worker/deployment target was identified on main and that the frontend is disconnected by default while `VITE_NOVA_API_BASE_URL` is blank. Re-check main and deployment metadata before changing this status.
+>
+> **Service boundary:** this contract is for the NOVA Command Center REST API. It is not the [System Integration Hub](../../../integrations/system-hub/README.md), which implements owner-scoped connection lifecycle and read-only MT5 account/quote routes, and it is not the [Remote MCP Gateway](../../../integrations/remote-mcp-worker/README.md), which exposes authenticated research tools at `/mcp`. Do not point all Command Center API calls at either service as a substitute for the missing Core API.
+
+
 The browser is untrusted. All authorization happens in the Worker.
 
 ## Auth
