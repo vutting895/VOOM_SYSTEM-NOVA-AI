@@ -58,7 +58,7 @@ The config uses standard hosted Docker executors and does not request paid resou
 | Exact-head CircleCI run, non-zero runner, logs/artifacts | NOT VERIFIED | provider pipeline run on this exact branch SHA |
 | Independent security and maintainer reviews | PENDING | recorded reviews |
 
-No acceptance criterion is marked DONE based solely on source implementation. CircleCI CLI validation and provider execution have not been performed by this repository connector. No merge or deployment is permitted until all criteria pass.
+Local validation evidence on the connected Windows host: `python -m unittest discover -s tests -p test_release_control.py -v` passed 10/10 at exact SHA `dbd6cbc52f16b17b01d215025b933e02820634ec`; a Node `js-yaml` parse also passed and found 10 jobs / 4 workflows. These checks are syntax/unit checks only, not CircleCI's schema validator. The CircleCI CLI is not installed; a temporary portable CLI retrieval attempt was blocked by the host's TLS/network failure, and no system-wide installation was attempted. The account's actual remaining Free credits and active-user count are not available from the connected GitHub or desktop tools. No acceptance criterion is marked DONE solely from source implementation or local checks. No merge or deployment is permitted until all criteria pass.
 
 ## Operator runbook
 
