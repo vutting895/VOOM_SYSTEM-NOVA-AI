@@ -10,6 +10,10 @@ Output: `MQL5/Files/NOVA_BRAIN_EVENTS/events.jsonl` or the terminal Common Files
 
 The account HMAC field is a 64-zero placeholder. The host uploader replaces it using `NOVA_LOCAL_ACCOUNT_SCOPE` and `NOVA_ACCOUNT_SCOPE_HMAC_KEY` from the local environment before schema validation and transmission. The raw local account scope and HMAC key must never be added to the JSONL file, logs, source code, Git, or command line.
 
+## Host allowlist
+
+Before upload, configure `NOVA_INGESTION_ALLOWED_HOSTS` as a comma-separated list of exact DNS hostnames permitted to receive the Supabase bearer token (for example, the dedicated NOVA ingestion Worker hostname). Wildcards, arbitrary subdomains and non-standard HTTPS ports are not accepted. The uploader fails closed when the allowlist is empty or the endpoint hostname is not an exact match. Keep this allowlist separate from the endpoint URL and do not include credentials.
+
 ## Important limitations
 
 - This module currently exports market_snapshot only; signal, decision, risk_check, execution_audit and trade_outcome serializers are not implemented.
