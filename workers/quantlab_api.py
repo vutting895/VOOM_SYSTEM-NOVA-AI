@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from workers.quant_engine.queue_store import (
     QueueConflict, QueueNotFound, SQLiteQuantLabQueue,
@@ -74,12 +74,49 @@ def dispatcher_auth(value: str | None) -> None:
         raise HTTPException(status_code=401, detail="dispatcher_authentication_required")
 
 
+def _validate_experiment_tree(value: Any, *, depth: int = 0) -> None:
+    if depth > 8:
+        raise ValueError("experiment_nesting_too_deep")
+    if isinstance(value, dict):
+        if len(value) > 100:
+            raise ValueError("experiment_has_too_many_fields")
+        for key, child in value.items():
+            if not isinstance(key, str) or not key or len(key) > 128:
+                raise ValueError("experiment_has_invalid_key")
+            normalized = "".join(char for char in key.lower() if char.isalnum())
+            if any(part in normalized for part in ("tenantid", "requesterid", "actorid", "token",
+                                                    "password", "secret", "credential", "broker",
+                                                    "account", "connectionid", "order", "execution")):
+                raise ValueError("experiment_contains_forbidden_field")
+            _validate_experiment_tree(child, depth=depth + 1)
+    elif isinstance(value, list):
+        if len(value) > 100:
+            raise ValueError("experiment_has_too_many_items")
+        for child in value:
+            _validate_experiment_tree(child, depth=depth + 1)
+    elif isinstance(value, str):
+        if len(value) > 4096:
+            raise ValueError("experiment_string_too_large")
+    elif value is None or isinstance(value, (bool, int, float)):
+        if isinstance(value, float) and not __import__("math").isfinite(value):
+            raise ValueError("experiment_contains_non_finite_number")
+    else:
+        raise ValueError("experiment_contains_non_json_value")
+
+
 class CreateJob(BaseModel):
     model_config = ConfigDict(extra="forbid")
     job_type: str
     resource_profile: str = "free-cpu"
     timeout_seconds: int = Field(default=900, ge=1, le=900)
     experiment: dict[str, Any]
+
+    @model_validator(mode="after")
+    def validate_experiment(self):
+        _validate_experiment_tree(self.experiment)
+        if len(self.model_dump_json().encode("utf-8")) > 65_536:
+            raise ValueError("request_body_too_large")
+        return self
 
 
 class ClaimRequest(BaseModel):
