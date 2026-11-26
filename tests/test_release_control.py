@@ -78,6 +78,10 @@ class ReleaseControlTests(unittest.TestCase):
         payload = {"marker_id": "stable"}
         self.assertEqual(write_immutable_json(target, payload), "created")
         self.assertEqual(write_immutable_json(target, payload), "already_exists_identical")
+        self.assertEqual(
+            write_immutable_json(target, {"marker_id": "stable", "created_at": "later"}),
+            "already_exists_same_identity",
+        )
         with self.assertRaises(EvidenceError):
             write_immutable_json(target, {"marker_id": "different"})
 
