@@ -17,7 +17,7 @@ Store provider API keys only as Cloudflare Worker secrets. Never add them to Git
 | Worker secret | Non-secret confirmation variable | Model default |
 |---|---|---|
 | `GEMINI_API_KEY` | `GEMINI_FREE_TIER_CONFIRMED=true` | `GEMINI_MODEL=gemini-2.5-flash` |
-| Cloudflare AI binding `AI` | `CLOUDFLARE_AI_FREE_TIER_CONFIRMED=true` | `CLOUDFLARE_AI_MODEL=@cf/meta/llama-3.2-3b-instruct` |
+| Cloudflare AI binding `AI` | `CLOUDFLARE_AI_FREE_TIER_CONFIRMED=true` | `CLOUDFLARE_AI_MODEL=@cf/google/gemma-4-26b-a4b-it` |
 | `GROQ_API_KEY` | `GROQ_FREE_TIER_CONFIRMED=true` | `GROQ_MODEL=openai/gpt-oss-120b` |
 
 Do not set a confirmation variable until the actual account plan, region, model availability, and current quota have been checked. A provider may be disabled simply by omitting its key or leaving its confirmation flag unset.
