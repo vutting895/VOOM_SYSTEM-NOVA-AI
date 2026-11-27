@@ -181,7 +181,7 @@ function fallback(input, reason = "AI binding unavailable") {
   };
 }
 async function generate(env, input) {
-  if (!env.AI || typeof env.AI.run !== "function") {
+  if (!env.AI || typeof env.AI.run !== "function" || env.CLOUDFLARE_AI_FREE_TIER_CONFIRMED !== "true") {
     return { strategy: fallback(input), llm: { provider: "fallback", available: false } };
   }
   const model = "@cf/meta/llama-3.2-3b-instruct";
