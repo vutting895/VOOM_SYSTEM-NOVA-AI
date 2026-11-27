@@ -162,7 +162,9 @@ function Assistant() {
             </div>
             <div>
               <dt className="terminal-label">Gemini</dt>
-              <dd>{status?.providers.enabled.gemini ? "Enabled" : "Disabled"}</dd>
+              <dd>
+                {status?.providers.enabled.gemini ? "Enabled" : "Disabled"}
+              </dd>
             </div>
             <div>
               <dt className="terminal-label">Cloudflare AI</dt>
