@@ -65,7 +65,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       const code =
-        typeof body?.error === "string" ? body.error : `HTTP ${response.status}`;
+        typeof body?.error === "string"
+          ? body.error
+          : `HTTP ${response.status}`;
       throw new Error(code);
     }
     return body as T;
