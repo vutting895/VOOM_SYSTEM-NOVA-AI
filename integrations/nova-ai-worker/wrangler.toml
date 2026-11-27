@@ -8,3 +8,15 @@ binding = "AI"
 
 [observability]
 enabled = true
+
+# Isolated non-production deployment. Uses only GitHub Environment secrets
+# scoped to "nova-staging"; never inherit or reference production credentials.
+[env.staging]
+name = "voom-system-nova-ai-staging"
+workers_dev = true
+
+[env.staging.ai]
+binding = "AI"
+
+[env.staging.observability]
+enabled = true
