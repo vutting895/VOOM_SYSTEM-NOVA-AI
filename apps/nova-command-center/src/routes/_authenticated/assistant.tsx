@@ -32,7 +32,7 @@ function Assistant() {
     return () => { active = false; };
   }, []);
 
-  const ready = Boolean(config.aiWorkerUrl && status);
+  const ready = Boolean(config.aiWorkerUrl && status && Object.values(status.providers.enabled).some(Boolean));
   const providerLabel = status
     ? Object.entries(status.providers.enabled).filter(([, enabled]) => enabled).map(([name]) => name).join(" → ") || "No free-tier provider enabled"
     : statusError || "Checking provider status";
