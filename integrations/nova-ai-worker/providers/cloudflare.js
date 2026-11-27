@@ -30,8 +30,11 @@ export async function generateWithCloudflare(env, messages) {
       throw new ProviderError("cloudflare-workers-ai", "provider_request_rejected", status, false);
     }
     if (status === 429 || status >= 500) {
-      throw new ProviderError("cloudflare-workers-ai", status === 429 ? "provider_rate_limited" : "provider_server_error", status || 503, true);
+      throw new ProviderError("cloudflare-workers-ai", status === 429 ? "provider_rate_limited" : "provider_server_error", status, true);
     }
-    throw new ProviderError("cloudflare-workers-ai", "provider_unavailable", 503, true);
+    if (status) {
+      throw new ProviderError("cloudflare-workers-ai", "provider_request_failed", status, false);
+    }
+    throw new ProviderError("cloudflare-workers-ai", "provider_network_error", 503, true);
   }
 }
