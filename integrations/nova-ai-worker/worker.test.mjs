@@ -232,6 +232,46 @@ test("chat rejects system-role messages and oversized conversations", async () =
   assert.equal((await oversized.json()).error, "invalid_message_length");
 });
 
+test("strategy generation never calls Cloudflare AI without free-tier confirmation", async () => {
+  authFetch();
+  let aiCalled = false;
+  const guardedEnv = {
+    ...env,
+    AI: { run: async () => { aiCalled = true; return { response: "{}" }; } },
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/gen-ai/generate", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "EMA and RSI", market: "XAU/USD", timeframe: "1h", risk: "low" }),
+  }), guardedEnv);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(aiCalled, false);
+  assert.equal(body.strategy.source, "rule-based-fallback");
+  assert.equal(body.strategy.executionEnabled, false);
+});
+
+test("provider status requires authentication and never exposes secrets", async () => {
+  const unauthorized = await worker.fetch(new Request("https://worker.test/api/status"), {
+    ...env,
+    GEMINI_API_KEY: "never-return-this",
+  });
+  assert.equal(unauthorized.status, 401);
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/status", {
+    headers: { Authorization: "Bearer valid-token" },
+  }), {
+    ...env,
+    GEMINI_API_KEY: "never-return-this",
+    GEMINI_FREE_TIER_CONFIRMED: "true",
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.providers.enabled.gemini, true);
+  assert.equal(JSON.stringify(body).includes("never-return-this"), false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
 test("unknown order route cannot execute", async () => {
   const response = await worker.fetch(new Request("https://worker.test/api/orders", {
     method: "POST", headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
