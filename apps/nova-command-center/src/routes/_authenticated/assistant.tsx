@@ -46,8 +46,8 @@ function Assistant() {
 
   const ready = Boolean(
     config.aiWorkerUrl &&
-      status &&
-      Object.values(status.providers.enabled).some(Boolean),
+    status &&
+    Object.values(status.providers.enabled).some(Boolean),
   );
   const providerLabel = status
     ? Object.entries(status.providers.enabled)
