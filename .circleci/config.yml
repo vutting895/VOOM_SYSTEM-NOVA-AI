@@ -4,12 +4,12 @@ jobs:
   test-nova-ai-worker:
     docker:
       - image: cimg/node:22.0
-    working_directory: ~/project/integrations/nova-ai-worker
+    working_directory: ~/project
     steps:
       - checkout
       - run:
           name: Run NOVA AI Worker regression tests
-          command: npm test
+          command: cd integrations/nova-ai-worker && npm test
 
 workflows:
   validate-nova-ai-worker:
