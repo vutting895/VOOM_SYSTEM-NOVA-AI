@@ -1,0 +1,271 @@
+# Wave3 Positive-Edge Redesign — Research Architecture (Draft)
+
+**Status:** research design only; no strategy activation, broker orders, deployment, or change to the frozen v6.2.6.3 contract.  
+**Baseline source:** `main` at `a2acfd8ec9b598e6593413549bef760e8f596a72` (verified before branch creation).  
+**Existing benchmark:** PR #66 / `feature/wave3-hybrid-backtest-20261029`. This redesign is isolated on a new branch and does not alter PR #66.
+
+## 1. Objective and non-negotiable rules
+
+The objective is to discover whether any causally valid XAUUSDm M15 strategy has positive, repeatable net expectancy after spread, commission, slippage, and execution assumptions. Positive profit is an empirical acceptance criterion, not a promised outcome.
+
+Keep v6.2.6.3 as an immutable benchmark:
+- Wave3/Fib, SMC >=85, XGB BUY >=75%, LSTM BUY >=80%, ensemble >=85%, and all existing RSI/momentum/volume/trend/ATR/spread/news gates remain unchanged.
+- Existing simulator risk assumptions and final OOS boundary remain unchanged for benchmark reproduction.
+- Never weaken a gate, alter weights/lookbacks/thresholds to manufacture signals, or select a model based on final OOS.
+- No broker order code, no live trading, no deployment.
+
+A challenger may explore a genuinely distinct, preregistered setup definition (not a relaxed copy of the benchmark). It must be evaluated separately and cannot inherit a claim of success from benchmark metrics.
+
+## 2. What current evidence says
+
+The calendar-filtered benchmark artifact for run #2 (commit `817b0d328d49e2cd80de139fe08183ada8c7cd29`, artifact #12974688556) reports:
+- Final OOS 7,942 rows; accuracy 41.3246% versus 45.9708% majority baseline; balanced accuracy 39.1057%; macro-F1 37.6761%.
+- All five walk-forward folds are below their fold-specific majority baselines.
+- 7,421/7,942 OOS bars are news-safe; 521 are blocked.
+- Zero closed trades, $0 net profit, PF unavailable.
+- Direction labels: train short/hold/long = 23,193 / 43,363 / 26,459; OOS actual = 2,198 / 3,651 / 2,093; predictions = 3,567 / 3,239 / 1,136. Long recall is 16.5313%.
+- Raw direction probabilities are not calibrated trade-win probabilities; no Brier score, ECE, or reliability curve exists yet.
+
+SMC diagnostics show 34 Wave3 trigger rows and maximum score 75 on those rows. The SMC >=85 score requires all four unchanged components (BOS20 30, three confirmed higher lows + green candle 20, qualifying OB 25, FVG refill 25). Only 1/34 triggers had a valid bullish OB within $5 and none were inside the OB zone; FVG refill occurred on 7/34. These marginals do not establish which component causally prevents same-bar confluence. Structural CHoCH is distinct from the higher-lows-plus-green scoring rule.
+
+## 3. Redesign workstreams
+
+### A. Evidence and data integrity (P0 gate)
+1. Make every dataset immutable by content hash; record source, symbol, timeframe, UTC range, closed-bar policy, row count, schema version, and export provenance.
+2. Add independent SHA-256 preflight for candle and news CSV bytes; compare against metadata and exact run inputs before training.
+3. Bind every report and model manifest to commit SHA, workflow run ID, artifact ID/digest, dataset hashes, calendar hash, feature schema hash, code version, and random seeds.
+4. Fail closed on mismatch, missing news data, non-UTC/naive timestamps, duplicate bars/events, incomplete coverage, or unclosed bars.
+5. Preserve the verified Exness calendar scope 2022-07-21 through 2026-10-30 UTC and the existing +/-30-minute blackout. Never synthesize missing calendar rows.
+
+### B. Label redesign (P1 research, not a gate relaxation)
+The current 12-bar direction label does not represent the actual fixed-SL/TP trade outcome. Build a separate research target using a causal triple-barrier / first-hit event label:
+- Entry only at the next executable bar after a fully closed signal bar.
+- Record whether stop, target, or time barrier is hit first; include same-bar ambiguity with conservative stop-first handling.
+- Deduct spread, commission, slippage and financing where applicable; retain gross and net outcomes.
+- Avoid overlapping labels or explicitly model overlap; purge at least the maximum label horizon and apply embargo at fold boundaries.
+- Store realized R multiple, net expectancy, MAE/MFE, holding time, and outcome class.
+- Keep the existing 12-bar direction task as a diagnostic comparator, not a proxy for win probability.
+
+### C. Causal SMC audit (P1)
+Create candidate-level traces on closed signal bars with source candle indices and timestamps:
+- BOS20 versus structural BOS and structural CHoCH as separate fields.
+- Three-higher-lows-plus-green rule with pivot confirmation time (not future-known pivot data).
+- OB origin candle, interval, range %, distance, validity, close-through invalidation time, and whether price is inside/outside the zone.
+- FVG creation candle, interval, first refill, full mitigation, invalidation, and age under the existing 48-bar rule.
+- Same-bar availability matrix for all four scored components.
+- Add tests proving no component uses a pivot or candle not yet confirmed at signal time.
+Do not alter the scoring weights, lookbacks, or >=85 threshold in the frozen benchmark.
+
+### D. Predictive modeling and calibration (P2)
+1. Establish simple baselines first: always-hold, class prior, regularized logistic, and a small tree model.
+2. Compare XGBoost and LSTM against baselines using identical chronological folds and the same candidate universe.
+3. Fit any calibrator (Platt/isotonic/temperature scaling) only on inner chronological validation predictions; never calibrate on outer test or final OOS.
+4. Report Brier score, log loss, ECE, reliability bins, class-wise precision/recall, balanced accuracy, macro-F1, and confusion matrices.
+5. Use feature importance only as a diagnostic; add permutation/ablation tests within training/validation folds. Investigate time-of-day and volume dominance, regime drift, and long-class underprediction.
+6. Prefer a simpler model if it matches or exceeds the complex ensemble out of sample.
+
+### E. Strategy and execution research (P2)
+- Separate signal quality from execution quality. Replay entry timing, spread, slippage, commission, stop/target ordering, gaps, and one-position constraints.
+- Calculate expectancy in R, profit factor, win rate, average win/loss, max drawdown, exposure, turnover, and trade count per fold.
+- Require stability across chronological folds and market regimes; report uncertainty intervals and sensitivity to plausible cost increases.
+- A no-trade result is valid evidence. Do not force a minimum trade count by lowering gates.
+
+## 4. Validation protocol
+
+1. Use training data and inner chronological validation for all feature selection, hyperparameters, calibration, and challenger selection.
+2. Use nested walk-forward with a 12-bar purge at minimum; increase purge to cover the maximum outcome-label horizon if longer.
+3. Keep final OOS (starting 2026-07-01) untouched until the research design, feature set, thresholds, model, and execution assumptions are frozen and versioned.
+4. Run one final evaluation per frozen candidate. If it fails, do not tune against that final OOS; collect new future data or establish a newly preregistered holdout.
+5. Acceptance requires >=30 closed OOS trades, positive net profit after costs, PF >1.0 (development target >=1.2), accuracy above the appropriate baseline where classification accuracy is relevant, all benchmark gates intact, and no material fold/regime collapse. Also report confidence intervals; 30 trades is a minimum floor, not strong statistical proof.
+6. If the frozen benchmark cannot generate 30 trades, report insufficient evidence rather than relax its conditions.
+
+## 5. Phased implementation and deliverables
+
+- **P0 — Provenance:** independent byte-hash preflight, immutable run manifest, artifact/report binding, fail-closed tests.
+- **P1 — Causal diagnostics:** candidate-level SMC traces and no-lookahead tests; produce a diagnostic report without changing signal logic.
+- **P2 — Outcome labels and baselines:** build first-hit net-outcome labels and chronological baseline evaluation.
+- **P3 — Model comparison:** XGB/LSTM/simple models, inner-fold calibration, ablation and drift analysis.
+- **P4 — Execution validation:** realistic cost stress tests and fold-level expectancy analysis.
+- **P5 — Untouched OOS:** only after sign-off on methodology; one frozen evaluation, then report whether the edge exists.
+
+Each phase must land as a small reviewable commit with tests and an artifact. Do not merge this draft or PR #66, and do not deploy until the user separately approves after every performance gate passes.
+
+## 6. Required report schema
+
+Every run should include:
+- source commit, workflow run, artifact ID/digest;
+- candle/news SHA-256, coverage, schema, row counts, UTC and closed-bar validation;
+- label definition and horizon, purge/embargo, fold boundaries;
+- candidate counts and causal component traces;
+- baseline and model metrics per fold and aggregate;
+- calibration diagnostics and class distributions;
+- closed trades, gross/net P&L, costs, PF, expectancy in R, drawdown, win rate;
+- frozen-rule fingerprint and explicit confirmation that no benchmark gate changed;
+- final OOS access flag proving whether the holdout was untouched.
+
+## 7. Safety and release status
+
+Research-only. Order Submission OFF. Live Trading OFF. Deployment OFF. No secrets in repository or logs. No claim of positive performance until supported by a reproducible untouched OOS artifact. This document is a research architecture proposal, not evidence of profitability.
+
+
+## Implementation status update — 2026-10-31
+
+P0 has a first implementation on the separate benchmark branch in [Draft PR #66](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/66):
+- `tools/verify_wave3_news_calendar.py` independently hashes the raw bytes of the canonical Git-tracked news CSV and fails closed against the pinned 64-character SHA-256.
+- The Wave3 training workflow runs this check before schema, coverage, and model-training steps.
+- A focused regression test covers the canonical input, modified bytes, and malformed expected digest; SMC/Wave3 CI now includes it.
+- The downloaded run #3 artifact (#13028341403) confirms the same canonical CSV digest in both report and model manifest.
+
+This does **not** close terminal-source provenance: the old PR description's terminal digest is only 58 hex characters and the claimed terminal byte count differs from the canonical Git file. Raw MT5 Common Files CSV and Experts log verification remains required. P0 should be considered partially implemented until this terminal evidence is reconciled and exact-head CI passes.
+
+Run #3 remains a failed strategy-performance evaluation (41.3246% accuracy vs 45.9708% majority baseline, 0 closed trades, $0 net, PF unavailable). No benchmark gate or strategy parameter was changed. PR #147 remains design-only and Draft; P1 causal SMC traces, P2 outcome labels, P3 calibration/model comparison, P4 execution-cost robustness, and P5 untouched OOS are still pending.
+
+## Repository revalidation addendum — 2026-10-31
+
+The baseline SHA above is the historical `main` snapshot used when this research branch was created; it is not the current `main` head. On 2026-10-31, current `main` advanced to `8f72d7218d8c16e9a0444bfc7b04610540c9a307` after merge of PR #155 (OpenBao Staging integration design). This PR remains documentation-only and does not modify the OpenBao architecture document or runtime integration.
+
+At revalidation, this branch is 2 commits ahead and 3 commits behind current `main`. The only PR-specific changed path is this document. Do not treat the historical baseline SHA as current, and do not merge/update the branch until the intervening main commits and exact-head checks have been reviewed. The v6.2.6.3 benchmark remains immutable; no threshold, gate, weight, lookback, data, model, or execution behavior is changed by this addendum.
+
+
+## Revalidation and calendar provenance correction — 2026-11-01
+
+The current repository `main` is `99d474038e19a6eab884c5c891b21770c50fefa5`. This design branch was synced to that main using non-force merge commit `4e97920a783c6ad99a3a009114f565f0a565bed9`; comparison is 5 commits ahead / 0 behind, and its only PR-specific path remains this design document. PR #147 remains Draft/open/unmerged and design-only.
+
+The prior note describing the terminal digest as an invalid 58-character string is superseded by direct read-only verification on the connected Exness MT5 Windows device. The raw Common Files CSV is 388,313 bytes, CRLF-only, SHA-256 `6754d46f34e76fc171e64afec51297dbcd3caf0ac6cf4d4dd196bc1a993b526c`. The Experts log `MQL5/Logs/20261030.log` contains two `NEWS_EXPORT_SUCCESS` entries (2,166 high events, 15,853 queried values, zero unknown time modes). CRLF-to-LF normalization yields 386,146 bytes and SHA-256 `317c621775db0cf75d7375e9fcb6d4110ea08316e699c239f823d228fd199b37`, exactly matching the canonical Git CSV and pinned verifier. Schema/row validation confirms 2,166 unique high-impact USD/US events, all `datetime` mode, no missing/blank/extra/duplicate/out-of-range rows, and requested UTC coverage [2022-07-21T00:00:00Z, 2026-10-30T00:00:00Z). Calendar provenance P0 is now reconciled for these exact bytes; this does not imply the strategy passes performance.
+
+Latest completed benchmark training artifact #13036729349 (workflow #6, commit `5fda3b8eb502d5694639a3afef354de0876ff2de`, archive SHA-256 `bfc4bb6419eb4226ba90bea6ad940b036847d4d6be5522af023629d960003bd4`) still fails: Final OOS accuracy 41.0602% vs 45.9708% baseline, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 closed trades, net $0, PF unavailable; all five walk-forward folds are below baseline. The benchmark has 34 Wave3 triggers, max SMC 75, and no row at SMC >=85. Calibration remains absent. These are benchmark results only and do not constitute a result for a separately preregistered challenger.
+
+P0 provenance is reconciled. P1 candidate-level causal SMC traces/no-lookahead tests, P2 first-hit net-outcome labels, P3 inner-fold-only calibration and model comparison, P4 cost/regime robustness, and P5 one frozen untouched OOS evaluation remain pending. Do not rerun full training or access final OOS for tuning until the methodology and causal diagnostic work are complete. No benchmark gates were changed; no orders, live trading, merge or deployment.
+
+## P1 evidence update — 2026-11-01
+
+P1 is **partially complete** using the diagnostic-only evidence produced in the separate benchmark PR #66; no runtime implementation has been copied into this redesign branch.
+
+- Exact benchmark CI: [SMC/Wave3 CI #84](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41271885730), successful.
+- Candidate trace artifact #13070220119; archive SHA-256 `f67f6e0cbe0bd74657a83b8c828eb2f7120e3882a4c048c07c4c2cc549636a2e`.
+- Benchmark PR #66 report: `reports/wave3_smc_candidate_trace_audit_20261101.json`.
+- 34 Wave3 candidates were traced on the same closed signal bar. No row had all four frozen SMC components; maximum score was 75, and no row reached 85. OB within $5 appeared on one row and did not intersect with the other scored components.
+- Diagnostic-only FVG fields distinguish first overlap from first full mitigation. Five of seven FVG-positive candidates overlapped a gap that had already been fully mitigated on an earlier bar; the current benchmark code retains the gap within its 48-bar window. This requires a preregistered semantic decision before any signal-logic change.
+- No-lookahead tests for pivot confirmation, OB origin/confirmation/invalidation and FVG origin passed. The additional FVG regression test leaves the frozen overlap flag unchanged.
+
+P1 remains open until the intended FVG first-touch/full-mitigation/re-touch semantics are explicitly reviewed and documented. P2 first-hit/triple-barrier net-outcome labels, P3 baselines and inner-fold-only calibration, P4 execution-cost/regime robustness, and P5 a single frozen untouched OOS evaluation remain pending. The benchmark's latest run #6 remains negative (accuracy 41.0602% vs 45.9708% baseline, 0 closed trades, net $0, PF unavailable); this is not a challenger result. PR #147 remains Draft/open/unmerged and design-only.
+
+## P3 prework evidence from frozen benchmark run #6 — 2026-11-01
+
+This is a diagnostic baseline for designing P3; it is not a challenger result and does not close P3. The serialized run #6 artifact #13036729349 (training commit `5fda3b8eb502d5694639a3afef354de0876ff2de`) was inspected without retraining or using final OOS for tuning. PR #66 stores the reproducible summary at `reports/wave3_run6_model_diagnostics_20261101.json`.
+
+- Train class shares short/hold/long: 24.93/46.62/28.45%; OOS actual: 27.68/45.97/26.35%. The prediction shares are 41.37/40.81/17.82%; Long recall is 20.1147%. Thus the label priors are broadly similar, while model predictions over-allocate Short and under-allocate Long.
+- XGB gain importance is led by `hour_sin` (10.26%), `volume_gate` (6.47%), `hour_cos` (3.94%), `log_volume`, volatility and spread features. Grouped gain share: time 17.635%, volume/spread 16.889%, structural/Wave3/SMC/Fib 22.280%. Gain is descriptive, not causal.
+- LSTM training loss falls over four epochs, but no validation-loss curve, feature attribution, Brier score, ECE or reliability curve is present. Raw outputs remain uncalibrated direction probabilities, not trade-win probabilities.
+- All five walk-forward folds remain below their own majority baselines; final OOS accuracy 41.0602% vs 45.9708%, balanced accuracy 38.8382%, macro-F1 38.0253%, 0 trades, net $0, PF unavailable.
+
+P3 remains pending. Next work must use chronological inner-validation folds only for grouped permutation/ablation and XGB/LSTM calibration, with final OOS untouched. Do not change benchmark labels, class weights, frozen entry/risk/news gates or use final OOS to choose features/calibration.
+
+
+## 5. FVG semantics decision record (2026-11-01)
+
+### Frozen benchmark behavior — preserve exactly
+The v6.2.6.3 benchmark currently selects the most recently created bullish FVG and treats any candle-range overlap with that zone as `bull_fvg_fill` while its age is 1–48 bars. The current feature calculation does **not** deactivate that zone after full mitigation; full mitigation is separately diagnosed when the candle low trades through the lower boundary. Therefore a later overlap/re-touch can still satisfy the historical benchmark feature. This is a description of existing behavior, not an endorsement that it is the best market-structure definition.
+
+Do not change this behavior, the 48-bar lookback, SMC weights, score threshold, or any entry/risk/news gate in the frozen benchmark. Reproduction of the benchmark must retain this exact behavior and its historical artifacts.
+
+### Preregistered challenger-only research question
+On training and inner chronological validation only, compare separately named FVG event definitions without altering the benchmark feature:
+1. `first_touch_only`: count only the first overlap after FVG creation; no subsequent re-touch counts as a new fill.
+2. `first_full_mitigation_only`: record the first trade through the full-gap boundary as the terminal mitigation event; subsequent re-touches do not reactivate the original gap.
+3. `repeat_touch_within_48`: retain the existing overlap/re-touch semantics as the comparator.
+
+These are distinct event labels/features for a preregistered challenger, not a reason to change the frozen SMC scoring contract. Report event counts, candidate alignment, chronological fold stability, and net-cost trade outcomes. Do not select a definition from final OOS. A challenger must have its own feature schema/version and manifest so benchmark and challenger outputs cannot be mixed.
+
+### Required causal tests before implementation
+- An FVG cannot be visible before its third candle closes and its origin index is confirmed.
+- First-touch index is immutable after first overlap; later overlaps cannot rewrite it.
+- Full-mitigation index is immutable after the first lower-boundary trade-through.
+- A post-full-mitigation re-touch is marked as a retouch and never misreported as the first touch.
+- A newly created FVG supersedes the prior active FVG only from the creation bar close onward.
+- No feature at bar *t* reads high/low/close from bars later than *t*.
+- The frozen benchmark's `bull_fvg_fill` outputs remain byte-for-byte unchanged under diagnostic-only additions.
+
+**Gate:** P1 FVG semantics is considered documented, but implementation remains blocked until these tests pass on a separate challenger path. No training, merge, deployment, broker order, or live trading is authorized by this note.
+
+
+## 6. P2 first-hit / triple-barrier target contract (preregistered, isolated implementation added)
+
+The existing 12-bar direction label is not a trade-outcome label. The challenger target must be generated independently and must not replace the benchmark's existing label or feature matrix.
+
+### Entry and barriers copied from the frozen execution contract
+- Signal is evaluated only after the signal M15 bar closes.
+- Entry is eligible on the next M15 bar only, using the existing Wave3 breakout trigger: the next bar must reach the frozen entry level; fill at the greater of next-bar open and trigger level, plus that bar's recorded spread and one-side slippage.
+- Long stop distance is fixed at $5.00 from executable entry; target distance is $11.00 (2.2R); maximum holding period is 12 bars. Preserve one open position, no more than five entries per day, and the $500 daily realized-loss stop.
+- Exit scan starts on the entry bar. If stop and target are both touched in one OHLC bar, resolve conservatively as stop-first. Stop/target exits apply one-side exit slippage. MT5 OHLC is treated as Bid: charge recorded spread at BUY entry only; stop/target/time exits use Bid prices plus one-side exit slippage, without charging spread a second time at exit. On subsequent bars, a stop gap through the opening Bid fills at the worse open minus slippage; a target gap is conservatively capped at the target minus slippage. The entry-bar open predates the trigger fill and is excluded from gap handling; its intrabar sequence remains OHLC-ambiguous and stop-first.
+- Persist signal, entry and exit indices/timestamps; barrier prices; exit reason; gross P&L; spread; entry/exit slippage; commission; net P&L; R multiple; MAE/MFE; bars held; and ambiguity flags.
+
+### Cost and provenance blockers
+The current pipeline constants show slippage of $0.02 per side and commission of $0.00 per lot per side, with the comment that the account commission is unverified. Therefore **net expectancy cannot be called fully cost-validated** until the Exness Demo account's actual commission schedule is evidenced. Keep commission as an explicit configurable input with provenance; do not silently treat zero as a verified cost. Swap is not modeled. A 12-bar M15 position can still cross the broker rollover, so this horizon does not justify omitting financing. P2 net-outcome acceptance remains blocked until the Exness Demo rollover schedule and applicable swap charges are evidenced and modeled, or the eligibility rule proves that no candidate can cross rollover.
+
+### Label construction and leakage controls
+- Build outcomes only for eligible causal BUY setup events; do not invent SELL rules.
+- Triple-barrier classes are `stop_first`, `target_first`, and `time_exit`; keep same-bar dual-touch as a separate ambiguity flag while assigning stop-first for conservative realized outcome.
+- Store both gross and net realized outcomes. Do not use future OHLC to populate signal-time features.
+- A label is usable for training only after its exit timestamp is known. Purge training samples whose outcome interval intersects validation/test; purge at least the maximum 12-bar outcome horizon and apply chronological embargo at fold boundaries.
+- Do not allow overlapping active positions to create overlapping outcome labels unless a separate, explicitly tested overlap policy is preregistered. The baseline policy is one active position at a time, matching the existing simulator.
+- Keep this target in a challenger-only dataset/schema/manifest. Report class balance, eligible event count, censored/incomplete events, barrier ambiguity, fold-wise outcomes and net-cost metrics.
+
+**P2 implementation status (2026-11-02):** added the isolated challenger-only module `research/wave3_challenger/first_hit_labels.py`, package marker, and `tests/test_wave3_challenger_first_hit_labels.py`. Eleven local standard-library tests pass for next-bar-only entry, stop-first dual touch, target-first, complete-horizon time exit, spread/slippage/commission accounting, one-position overlap, daily risk limits, end-of-data censoring, UTC/order validation, and 12-bar purge/embargo. The module consumes precomputed causal signal indices; it does not generate signals, change v6.2.6.3, train models, or submit orders. It fails closed unless commission is marked verified and has a non-empty evidence source; the passing tests use an explicitly synthetic fixture, not broker evidence. The dedicated [Wave3 Challenger P2 CI #10](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41385492634) passed on the pre-fix PR #147 head `36ab64399503484b6a5f1343ae192096b1a36411`. A later review identified UTC-midnight daily-limit and inclusive holding-horizon defects; the 2026-11-02 follow-up fixes and regression tests are recorded below and require fresh exact-head CI. The builder additionally rejects non-boolean commission verification and malformed bar/signal inputs. No real Exness labels, model training, or final-OOS access is authorized until the account commission schedule is evidenced and integration review is complete.
+
+
+## 8. Independent review follow-up — 2026-11-02
+
+- PR #147 review found that daily limits were keyed to the signal date rather than the executable entry date. The implementation now checks and increments the entry UTC date, including a 23:45-to-00:00 rollover case.
+- The prior inclusive scan counted the entry candle plus 12 later candles. The horizon now ends at `entry_index + max_hold_bars - 1`, and `bars_held` reports the inclusive candle count. A regression test asserts exactly 12 bars.
+- MAE/MFE are explicitly marked as OHLC bar-range bounds; they are not tick-accurate intrabar excursions.
+- Current PR #147 documentation head at this note: `e1915d0885828f6f52265cbf8f0424b6547f6733`. P2 CI #16 on `55f845646a18ad29f582c8fcfd2cc30143375e56` failed: 7/12 tests raised NameError because the daily counter still used the old `day` variable. The counter was corrected in code commit `3248fbb97fe41fa3f7d3431e7fa9c5ae4b4a0f44`. Exact-head P2 CI #22 passed on `e1915d0885828f6f52265cbf8f0424b6547f6733`; all 12 tests passed. Run: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41386995026.
+- Remaining independent-review blockers include swap/rollover costs, gap-through fill modeling, and whether the historical 2026-07-01 holdout is still untouched for challenger selection. The known benchmark OOS has already been inspected and must not be presented as a never-seen challenger holdout; select and preregister a genuinely new future holdout before any challenger final acceptance.
+
+## 7. Repository revalidation and P2 implementation note — 2026-11-02
+
+- Repository default branch remains `main`; latest observed main SHA is `a9bb92c9d2642eff34be2ea68276a33b367ee793`.
+- Both research branches were safely advanced with non-force merge commits from that main SHA: PR #66 sync commit `c5f93321a9a2c88310ddd0113c07d6580bb93d89`; PR #147 sync commit `773c78137b9a7559f0d6f315f890457675a27fed`. Main-only changes were in remote-MCP/Cloudflare files and did not overlap the PR #66 Wave3 paths or PR #147 design document. Exact-head CI is being revalidated after the sync.
+- P2 first-hit code and tests are isolated to PR #147. They do not replace the v6.2.6.3 direction label or change benchmark scoring/entry/risk/news gates. Synthetic unit tests do not constitute Exness execution-cost evidence.
+- The Exness Demo commission schedule remains unverified; the P2 builder refuses unverified commission input. Gap-through fills remain a P4 limitation. No full training, final-OOS tuning, merge, deployment, broker order, or live trading was performed.
+
+
+### P2 CI revalidation — 2026-11-02
+
+- PR #147 remains a separate Draft/open/unmerged challenger branch. It is synced to current main `a9bb92c9d2642eff34be2ea68276a33b367ee793` via merge commit `773c78137b9a7559f0d6f315f890457675a27fed`; subsequent P2 implementation commits remain isolated to this branch.
+- Dedicated P2 CI run #10 passed on pre-fix head `36ab64399503484b6a5f1343ae192096b1a36411`; it is not evidence for subsequent changes. The 2026-11-02 follow-up fixes use the executable entry bar's UTC date for daily caps/loss checks and count the entry candle inside the 12-bar horizon. Regression coverage was added for a 23:45 signal entering at 00:00 and the inclusive 12-bar boundary. The follow-up code commit `3248fbb97fe41fa3f7d3431e7fa9c5ae4b4a0f44` fixes the stale daily_count increment discovered by exact-head P2 CI #16 (NameError from the old `day` variable). Exact PR-head P2 CI #20 then passed on `2ae408088d804f992b80a807b656b2c226967b89`; all 12 unit tests passed, including UTC-midnight and inclusive 12-bar regression cases. CI link: https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/actions/runs/41386826717.
+- This is unit-tested research code only. It does not create signal candidates, integrate into the benchmark feature matrix, consume the real Exness dataset, train a model, or access final OOS. The synthetic commission fixture is not broker evidence. Actual Exness Demo commission schedule and gap-through execution stress tests remain blockers.
+
+
+## P2 revalidation — 2026-11-03 (supersedes prior SELL and daily-loss blocker wording)
+
+- The agreed P2 label scope is BUY-only, with `stop_first`, `target_first`, and `time_exit` outcomes. SELL/short symmetry is not an acceptance blocker for this target and remains separate research.
+- Daily realized-loss accounting is keyed to the UTC exit date for closed PnL; a new entry checks realized PnL already booked on its executable entry UTC date. The one-position rule prevents a second entry before the earlier trade exits. A trade crossing midnight is therefore charged to the day it closes, and a later entry on that day sees the loss.
+- PR #147 adds `test_realized_loss_is_booked_on_exit_utc_day_after_midnight` to pin this behavior. The test is synthetic and does not constitute Exness execution-cost evidence.
+- The prior dedicated P2 CI #29 passed 12 tests on head `df2e2c92d97eccdb8f768b64a3facdc9c1e9118f`; it predates the new regression test. Exact-head CI after the 2026-11-03 test/documentation update is required before claiming the update is validated.
+- P2 remains blocked by unmodeled gap-through fills, missing swap/rollover charges, lack of independent Exness Demo commission evidence, no accepted real-data challenger labels/manifest, and the need for a genuinely new future final holdout. Do not train or tune on the already-inspected 2026-07-01 benchmark OOS.
+- This remains isolated to PR #147. It does not change PR #66, frozen v6.2.6.3 weights/lookbacks/thresholds/gates, or any broker/live-trading/deployment state.
+
+
+## P2 gap-through revalidation — 2026-11-04
+
+- The isolated PR #147 BUY label builder now handles subsequent-bar opening gaps explicitly. If a later bar opens below the stop, the stop fills at the worse opening Bid minus exit slippage. If it opens above target, the target is conservatively capped at target minus slippage rather than granting a favorable gap price.
+- The opening event determines order before that bar's later high/low extremes; adversarial tests cover a stop-gap bar that later reaches target and a target-gap bar that later reaches stop.
+- The entry candle's open is earlier than the trigger fill, so it is not used as a post-entry gap fill. Entry-bar OHLC sequencing remains ambiguous; the existing stop-first rule is retained and is not tick-level execution proof.
+- Added persisted gap_through_barrier, gap_through_side, and gap_open_price fields for closed outcomes. This remains challenger-only; no benchmark feature, label, weight, lookback, threshold, or gate is changed.
+- Exact-head P2 CI #35 passed all 16 tests on code/test commit efc950f49953c742a50f0925f3c778415edce438 (workflow run 41766967379); duplicate pull-request-triggered run #36 on the same SHA also passed. This confirms synthetic regression coverage only and does not resolve broker-cost or holdout blockers. Remaining acceptance blockers are independent Exness Demo commission evidence, account-specific swap/rollover charges, real-data challenger label/schema/manifest integration, and a genuinely new future untouched holdout. Synthetic tests do not resolve those broker/data blockers.
+- No benchmark training, final-OOS tuning, broker order, deployment, merge, or Live Trading was performed.
+
+
+## P1 FVG challenger prototype — 2026-11-05
+
+Added an isolated, pure-Python event trace in `research/wave3_challenger/fvg_events.py`; the frozen benchmark module `workers/strategy/wave3_ml_pipeline.py` is not imported or changed.
+
+The trace emits all three preregistered comparators side by side without choosing a winner:
+- `first_touch_only`: one event at the first OHLC overlap after the third candle has closed.
+- `first_full_mitigation_only`: one event at the first lower-boundary mitigation, with later touches marked separately as `post_full_mitigation_retouch`.
+- `repeat_touch_within_48`: every overlap for the latest active bullish FVG at ages 1–48, retained only as the existing-behavior comparator.
+
+The previous active gap is evaluated before a new gap is registered at the current candle close; the new gap becomes active from the next candle. The implementation exposes immutable first-touch and first-full-mitigation indices and reads no future bars.
+
+The isolated tests cover third-candle confirmation, immutable event indices, post-mitigation retouches, new-gap supersession timing, future-bar perturbation, and the inclusive 48-bar expiry. This is an event-definition prototype only: it does not change the benchmark feature matrix, train models, create signal candidates, or determine which comparator should be selected. Net-cost comparison remains blocked until Exness Demo commission and rollover evidence are available, and final challenger acceptance still requires a newly preregistered future holdout.
