@@ -29,14 +29,8 @@ jobs:
           name: Install NOVA AI Worker test dependencies
           command: npm ci --prefix integrations/nova-ai-worker
       - run:
-          name: Validate NOVA Smarter Testing configuration
-          command: circleci testsuite doctor "ci tests"
-      - run:
-          name: Run NOVA AI Worker regression tests
-          command: |
-            set -euo pipefail
-            cd integrations/nova-ai-worker
-            npm test
+          name: Run NOVA AI Worker tests with Smarter Testing
+          command: circleci testsuite run "ci tests"
 
 workflows:
   validate-nova-ai-worker:
