@@ -1,8 +1,15 @@
 ---
 name: ci tests
 discover: find integrations/nova-ai-worker -maxdepth 1 -type f -name '*.test.mjs' -print
-run: mkdir -p test-reports && node --test --test-reporter=junit --test-reporter-destination="<< outputs.junit >>" << test.atoms >>
+run: |
+  set -euo pipefail
+  mkdir -p "<< outputs.junit-directory >>"
+  for test_file in << test.atoms >>; do
+    report="<< outputs.junit-directory >>/$(basename "$test_file" .mjs).xml"
+    node --test --test-reporter=junit --test-reporter-destination="$report" "$test_file"
+    sed -i "s/<testcase /<testcase file=\"$test_file\" /g" "$report"
+  done
 outputs:
-  junit: test-reports/junit.xml
+  junit-directory: test-reports/junit
 options:
   store-test-results: true
