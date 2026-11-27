@@ -184,7 +184,7 @@ async function generate(env, input) {
   if (!env.AI || typeof env.AI.run !== "function" || env.CLOUDFLARE_AI_FREE_TIER_CONFIRMED !== "true") {
     return { strategy: fallback(input), llm: { provider: "fallback", available: false } };
   }
-  const model = "@cf/meta/llama-3.2-3b-instruct";
+  const model = "@cf/google/gemma-4-26b-a4b-it";
   const instruction = "Return JSON only with name, entryWorkers, exit:{takeProfitPct,stopLossPct}, rationale. Allowed entryWorkers: "
     + [...ALLOWED_WORKERS].join(", ")
     + ". TP > 0 and <= 20; SL > 0 and <= 10. Research draft only; no claims of tested performance and no trade instructions.";
