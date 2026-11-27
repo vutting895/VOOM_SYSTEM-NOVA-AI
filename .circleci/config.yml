@@ -3,13 +3,25 @@ version: 2.1
 jobs:
   test-nova-ai-worker:
     docker:
-      - image: cimg/node:22.0
+      - image: cimg/node:22
     working_directory: ~/project
     steps:
       - checkout
       - run:
+          name: Verify CircleCI checkout and Node runtime
+          command: |
+            set -euo pipefail
+            echo "Workspace: $(pwd)"
+            node --version
+            npm --version
+            test -f integrations/nova-ai-worker/package.json
+            test -f integrations/nova-ai-worker/src/index.js || test -f integrations/nova-ai-worker/index.js
+      - run:
           name: Run NOVA AI Worker regression tests
-          command: cd integrations/nova-ai-worker && npm test
+          command: |
+            set -euo pipefail
+            cd integrations/nova-ai-worker
+            npm test
 
 workflows:
   validate-nova-ai-worker:
