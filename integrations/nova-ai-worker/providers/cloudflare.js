@@ -4,7 +4,7 @@ export async function generateWithCloudflare(env, messages) {
   if (!env.AI || typeof env.AI.run !== "function") {
     throw new ProviderError("cloudflare-workers-ai", "provider_not_configured", 503, true);
   }
-  const model = String(env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.2-3b-instruct");
+  const model = String(env.CLOUDFLARE_AI_MODEL || "@cf/google/gemma-4-26b-a4b-it");
   try {
     const result = await env.AI.run(model, {
       messages,
