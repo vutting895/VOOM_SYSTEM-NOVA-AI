@@ -15,7 +15,8 @@ jobs:
             node --version
             npm --version
             test -f integrations/nova-ai-worker/package.json
-            test -f integrations/nova-ai-worker/src/index.js || test -f integrations/nova-ai-worker/index.js
+            test -f integrations/nova-ai-worker/worker.js
+            test -f integrations/nova-ai-worker/worker.test.mjs
       - run:
           name: Run NOVA AI Worker regression tests
           command: |
