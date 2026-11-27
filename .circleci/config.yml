@@ -26,6 +26,14 @@ jobs:
             test -f integrations/nova-ai-worker/worker.js
             test -f integrations/nova-ai-worker/worker.test.mjs
       - run:
+          name: Inspect Node JUnit reporter output
+          command: |
+            set -euo pipefail
+            mkdir -p test-reports/diagnostic
+            node --test --test-reporter=junit --test-reporter-destination=test-reports/diagnostic/junit.xml integrations/nova-ai-worker/intent-contract.test.mjs integrations/nova-ai-worker/worker.test.mjs
+            test -s test-reports/diagnostic/junit.xml
+            sed -n '1,12p' test-reports/diagnostic/junit.xml
+      - run:
           name: Validate NOVA Smarter Testing configuration
           command: circleci testsuite doctor "ci tests"
       - run:
