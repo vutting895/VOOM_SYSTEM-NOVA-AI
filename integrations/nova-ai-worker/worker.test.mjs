@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
 
-const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key", DIAGNOSTIC_RATE_LIMITER: { limit: async () => ({ success: true }) } };
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
@@ -21,6 +21,91 @@ test("health is public but explicitly reports execution disabled", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.executionEnabled, false);
   assert.equal(body.liveTradingEnabled, false);
+});
+
+test("Supabase Auth diagnostic fails closed when rate limiter is unavailable", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not call"); };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {
+    SUPABASE_URL: env.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: env.SUPABASE_PUBLISHABLE_KEY,
+  });
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, "diagnostic_rate_limiter_unavailable");
+  assert.equal(called, false);
+});
+
+test("Supabase Auth diagnostic rate limit rejects excess requests before calling Supabase", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not call"); };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {
+    ...env, DIAGNOSTIC_RATE_LIMITER: { limit: async ({ key }) => { assert.equal(key, "supabase-auth-diagnostic"); return { success: false }; } },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 429);
+  assert.equal(body.error, "rate_limit_exceeded");
+  assert.equal(body.retryAfterSeconds, 60);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(called, false);
+});
+
+test("Supabase Auth diagnostic probes settings with the publishable key and returns no provider body", async () => {
+  let called = 0;
+  globalThis.fetch = async (url, init) => {
+    called += 1;
+    assert.equal(String(url), "https://supabase.example/auth/v1/settings");
+    assert.equal(init.method, "GET");
+    assert.equal(init.headers.apikey, "public-test-key");
+    assert.equal(init.headers.Authorization, undefined);
+    return new Response(JSON.stringify({ secret: "must-not-leak", external: "provider-payload" }), {
+      status: 200, headers: { "Content-Type": "application/json" },
+    });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.deepEqual(body.supabaseAuth, { configured: true, reachable: true, httpStatus: 200, result: "ok" });
+  assert.equal(JSON.stringify(body).includes("must-not-leak"), false);
+  assert.equal(JSON.stringify(body).includes("provider-payload"), false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+  assert.equal(called, 1);
+});
+
+test("Supabase Auth diagnostic fails closed on rejected publishable key", async () => {
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init.headers.apikey, "public-test-key");
+    return new Response("provider detail must not leak", { status: 401 });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), env);
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.supabaseAuth.result, "apikey_rejected");
+  assert.equal(body.supabaseAuth.httpStatus, 401);
+  assert.equal(JSON.stringify(body).includes("provider detail"), false);
+});
+
+test("Supabase Auth diagnostic does not follow cross-origin redirects", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(null, { status: 302, headers: { Location: "https://attacker.example/collect" } });
+  };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), env);
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.supabaseAuth.result, "redirect_rejected");
+  assert.equal(calls, 1);
+});
+
+test("Supabase Auth diagnostic reports missing configuration without making a request", async () => {
+  let called = false;
+  globalThis.fetch = async () => { called = true; throw new Error("must not call"); };
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {});
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.supabaseAuth.result, "not_configured");
+  assert.equal(called, false);
 });
 
 test("direct generation without bearer token is rejected", async () => {
