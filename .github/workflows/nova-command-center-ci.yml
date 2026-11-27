@@ -46,14 +46,14 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
-      - name: ESLint
-        run: bun run lint
-
       - name: Unit tests
         run: bun run test
 
       - name: Production build
         run: bun run build
+
+      - name: ESLint
+        run: bun run lint
 
       - name: Upload app-local lockfile for review
         if: always() && hashFiles('apps/nova-command-center/bun.lock') != ''
