@@ -1,7 +1,7 @@
 ---
 name: ci tests
 discover: find integrations/nova-ai-worker -maxdepth 1 -type f -name '*.test.mjs' -print
-run: node --test --test-reporter=junit --test-reporter-destination="<< outputs.junit >>" << test.atoms >>
+run: mkdir -p test-reports && node --test --test-reporter=junit --test-reporter-destination="<< outputs.junit >>" << test.atoms >>
 outputs:
   junit: test-reports/junit.xml
 options:
