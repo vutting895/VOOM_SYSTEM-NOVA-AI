@@ -18,7 +18,7 @@ Store provider API keys only as Cloudflare Worker secrets. Never add them to Git
 |---|---|---|
 | `GEMINI_API_KEY` | `GEMINI_FREE_TIER_CONFIRMED=true` | `GEMINI_MODEL=gemini-2.5-flash` |
 | Cloudflare AI binding `AI` | `CLOUDFLARE_AI_FREE_TIER_CONFIRMED=true` | `CLOUDFLARE_AI_MODEL=@cf/meta/llama-3.2-3b-instruct` |
-| `GROQ_API_KEY` | `GROQ_FREE_TIER_CONFIRMED=true` | `GROQ_MODEL=llama-3.3-70b-versatile` |
+| `GROQ_API_KEY` | `GROQ_FREE_TIER_CONFIRMED=true` | `GROQ_MODEL=openai/gpt-oss-120b` |
 
 Do not set a confirmation variable until the actual account plan, region, model availability, and current quota have been checked. A provider may be disabled simply by omitting its key or leaving its confirmation flag unset.
 
@@ -54,3 +54,23 @@ node --test
 ```
 
 No production secrets, account settings, Supabase schema, or deployment configuration are changed by this implementation. Before production rollout, review the pull request, run tests, verify free-tier eligibility in each provider account, and use a separately approved deployment process.
+
+## Additional providers researched (not enabled in this router)
+
+| Provider | Current free access evidence | Decision |
+|---|---|---|
+| OpenRouter | Has rotating $0 models; free variants are rate-limited (currently 20 RPM / 50 RPD unless an account has purchased credits). Some $0 models may require a funded account. | Candidate only; model availability and data handling vary by upstream provider. |
+| Cohere | Evaluation/trial API keys are free but limited (trial keys are capped at 1,000 calls/month for covered chat models). | Candidate for classification/embeddings, not primary chat. |
+| Mistral | Current Admin docs state Free mode does not include API access; API use requires billing activation and pay-as-you-go. | Exclude from zero-billing API router. |
+| Cerebras | Developer access starts with a one-time $5 promotional credit requiring a valid payment method; it expires after 30 days and is not a permanent free tier. | Exclude from permanent-free provider list. |
+| SambaNova | Its Free plan asks users to add a payment method and purchase credits to run API requests. | Exclude from permanent-free provider list. |
+| Hugging Face Inference Providers | Current Free account includes no monthly inference credits; paid PRO/Team/Enterprise accounts include credits. | Exclude from zero-cost API router. |
+| GitHub Models | Fully retired on July 30, 2026. | Not available. |
+
+Free-model availability is volatile. OpenRouter is the most useful extra candidate for later testing, but it should not be treated as a guaranteed always-on provider. Its free variants can be exhausted at modest daily request volume. Cohere's trial is better for narrow auxiliary tasks than a user-facing general assistant.
+
+## Provider model maintenance
+
+- Gemini default is `gemini-2.5-flash`, which currently lists free input/output token pricing on the Gemini Developer API pricing page. Free-tier prompts may be used to improve Google's products.
+- Groq default is `openai/gpt-oss-120b`; do not use deprecated `llama-3.3-70b-versatile`.
+- Cloudflare AI's current Free plan allocation is 10,000 Neurons/day. If the account is on Workers Paid, usage above the included allocation is billable. The confirmation flag must only be set after verifying the actual account is on Workers Free and reviewing the Neuron dashboard.
