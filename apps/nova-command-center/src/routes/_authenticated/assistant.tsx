@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { Panel, PageHeader, NotConnected } from "@/components/nova/primitives";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { getNovaAiStatus, sendNovaAiChat, type NovaAiMessage, type NovaAiStatus } from "@/lib/nova/ai-client";
+import {
+  getNovaAiStatus,
+  sendNovaAiChat,
+  type NovaAiMessage,
+  type NovaAiStatus,
+} from "@/lib/nova/ai-client";
 import { config } from "@/lib/nova/config";
 import { pageHead } from "@/lib/nova/head";
 
@@ -18,7 +23,8 @@ function Assistant() {
   const [msgs, setMsgs] = useState<NovaAiMessage[]>([
     {
       role: "assistant",
-      content: "NOVA Research Assistant. Messages are sent only to the authenticated NOVA AI Worker.",
+      content:
+        "NOVA Research Assistant. Messages are sent only to the authenticated NOVA AI Worker.",
     },
   ]);
   const [text, setText] = useState("");
@@ -27,14 +33,27 @@ function Assistant() {
   useEffect(() => {
     let active = true;
     getNovaAiStatus()
-      .then((value) => { if (active) setStatus(value); })
-      .catch((error) => { if (active) setStatusError((error as Error).message); });
-    return () => { active = false; };
+      .then((value) => {
+        if (active) setStatus(value);
+      })
+      .catch((error) => {
+        if (active) setStatusError((error as Error).message);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const ready = Boolean(config.aiWorkerUrl && status && Object.values(status.providers.enabled).some(Boolean));
+  const ready = Boolean(
+    config.aiWorkerUrl &&
+      status &&
+      Object.values(status.providers.enabled).some(Boolean),
+  );
   const providerLabel = status
-    ? Object.entries(status.providers.enabled).filter(([, enabled]) => enabled).map(([name]) => name).join(" → ") || "No free-tier provider enabled"
+    ? Object.entries(status.providers.enabled)
+        .filter(([, enabled]) => enabled)
+        .map(([name]) => name)
+        .join(" → ") || "No free-tier provider enabled"
     : statusError || "Checking provider status";
 
   return (
@@ -46,7 +65,9 @@ function Assistant() {
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <Panel
           title="Conversation"
-          right={ready ? undefined : <NotConnected label="AI Worker not ready" />}
+          right={
+            ready ? undefined : <NotConnected label="AI Worker not ready" />
+          }
         >
           <div className="flex h-[55vh] flex-col">
             <div className="flex-1 space-y-3 overflow-y-auto pr-1">
@@ -69,21 +90,43 @@ function Assistant() {
                 e.preventDefault();
                 const prompt = text.trim();
                 if (!prompt || sending) return;
-                const nextMessages = [...msgs.filter((m) => m.role !== "assistant" || !m.content.startsWith("NOVA Research Assistant.")), { role: "user" as const, content: prompt }];
+                const nextMessages = [
+                  ...msgs.filter(
+                    (m) =>
+                      m.role !== "assistant" ||
+                      !m.content.startsWith("NOVA Research Assistant."),
+                  ),
+                  { role: "user" as const, content: prompt },
+                ];
                 setMsgs(nextMessages);
                 setText("");
                 setSending(true);
                 try {
                   const result = await sendNovaAiChat(nextMessages.slice(-8));
-                  setMsgs((previous) => [...previous, {
-                    role: "assistant",
-                    content: result.message + "\n\nProvider: " + result.provider + " / " + result.model + (result.fallbackUsed ? " (fallback)" : ""),
-                  }]);
+                  setMsgs((previous) => [
+                    ...previous,
+                    {
+                      role: "assistant",
+                      content:
+                        result.message +
+                        "\n\nProvider: " +
+                        result.provider +
+                        " / " +
+                        result.model +
+                        (result.fallbackUsed ? " (fallback)" : ""),
+                    },
+                  ]);
                 } catch (error) {
-                  setMsgs((previous) => [...previous, {
-                    role: "assistant",
-                    content: "Request failed: " + (error as Error).message + ". No trading action was performed.",
-                  }]);
+                  setMsgs((previous) => [
+                    ...previous,
+                    {
+                      role: "assistant",
+                      content:
+                        "Request failed: " +
+                        (error as Error).message +
+                        ". No trading action was performed.",
+                    },
+                  ]);
                 } finally {
                   setSending(false);
                 }
@@ -111,7 +154,11 @@ function Assistant() {
             </div>
             <div>
               <dt className="terminal-label">AI Worker</dt>
-              <dd>{config.aiWorkerUrl ? "Configured" : "VITE_NOVA_AI_WORKER_URL missing"}</dd>
+              <dd>
+                {config.aiWorkerUrl
+                  ? "Configured"
+                  : "VITE_NOVA_AI_WORKER_URL missing"}
+              </dd>
             </div>
             <div>
               <dt className="terminal-label">Gemini</dt>
@@ -119,7 +166,9 @@ function Assistant() {
             </div>
             <div>
               <dt className="terminal-label">Cloudflare AI</dt>
-              <dd>{status?.providers.enabled.cloudflare ? "Enabled" : "Disabled"}</dd>
+              <dd>
+                {status?.providers.enabled.cloudflare ? "Enabled" : "Disabled"}
+              </dd>
             </div>
             <div>
               <dt className="terminal-label">Groq</dt>
@@ -127,8 +176,9 @@ function Assistant() {
             </div>
           </dl>
           <p className="mt-3 text-xs text-muted-foreground">
-            Provider secrets remain in Worker secrets. Free-tier confirmation is required before any provider is enabled.
-            Live trading and order submission remain disabled.
+            Provider secrets remain in Worker secrets. Free-tier confirmation is
+            required before any provider is enabled. Live trading and order
+            submission remain disabled.
           </p>
         </Panel>
       </div>
