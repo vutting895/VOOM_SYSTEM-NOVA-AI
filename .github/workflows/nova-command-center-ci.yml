@@ -39,6 +39,10 @@ jobs:
       - name: Install from resolved lockfile
         run: bun install --frozen-lockfile
 
+      - name: Test NOVA AI Worker provider router and security contract
+        working-directory: ../..
+        run: node --test integrations/nova-ai-worker/*.test.mjs integrations/nova-ai-worker/providers/*.test.mjs
+
       - name: TypeScript
         run: bun run typecheck
 
@@ -50,10 +54,6 @@ jobs:
 
       - name: Production build
         run: bun run build
-
-      - name: Test NOVA AI Worker provider router and security contract
-        working-directory: ../..
-        run: node --test integrations/nova-ai-worker/*.test.mjs integrations/nova-ai-worker/providers/*.test.mjs
 
       - name: Upload app-local lockfile for review
         if: always() && hashFiles('apps/nova-command-center/bun.lock') != ''
