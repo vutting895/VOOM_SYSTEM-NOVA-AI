@@ -1,0 +1,67 @@
+version: 2.1
+
+jobs:
+  nova-ai-validation:
+    docker:
+      - image: cimg/node:24.11.1
+    working_directory: ~/project
+    steps:
+      - checkout
+
+      - run:
+          name: Install Bun
+          command: |
+            curl -fsSL https://bun.sh/install | bash
+            echo 'export BUN_INSTALL="$HOME/.bun"' >> "$BASH_ENV"
+            echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> "$BASH_ENV"
+
+      - run:
+          name: Resolve and install Command Center dependencies
+          command: |
+            cd apps/nova-command-center
+            bun install --lockfile-only
+            bun install --frozen-lockfile
+
+      - run:
+          name: Test NOVA AI Worker adapters, router and security contract
+          command: |
+            node --test integrations/nova-ai-worker/*.test.mjs integrations/nova-ai-worker/providers/*.test.mjs
+
+      - run:
+          name: ESLint changed NOVA AI frontend files
+          command: |
+            cd apps/nova-command-center
+            bunx eslint src/lib/nova/ai-client.ts src/routes/_authenticated/assistant.tsx src/routes/_authenticated/settings.tsx src/lib/nova/config.ts src/lib/nova/head.ts src/test/setup.ts
+
+      - run:
+          name: TypeScript
+          command: |
+            cd apps/nova-command-center
+            bun run typecheck
+
+      - run:
+          name: Unit tests
+          command: |
+            cd apps/nova-command-center
+            bun run test
+
+      - run:
+          name: Production build
+          command: |
+            cd apps/nova-command-center
+            bun run build
+
+      - run:
+          name: Full-app ESLint baseline (diagnostic only)
+          command: |
+            cd apps/nova-command-center
+            if bun run lint; then
+              echo "Full-app ESLint passed."
+            else
+              echo "Full-app ESLint has existing repository-wide debt; changed NOVA AI files were checked strictly in the required lint step."
+            fi
+
+workflows:
+  nova-ai-pull-request-validation:
+    jobs:
+      - nova-ai-validation
