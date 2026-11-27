@@ -9,10 +9,7 @@ import {
 import { SAFETY } from "@/lib/nova/safety";
 import { useHealth } from "@/components/nova/useApi";
 import { describeApiError } from "@/lib/nova/api";
-import {
-  getNovaAiStatus,
-  type NovaAiStatus,
-} from "@/lib/nova/ai-client";
+import { getNovaAiStatus, type NovaAiStatus } from "@/lib/nova/ai-client";
 import { pageHead } from "@/lib/nova/head";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -120,13 +117,13 @@ function Settings() {
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>
               Copy <code className="font-mono">.env.example</code> to{" "}
-              <code className="font-mono">.env</code> and set public values (URL,
-              publishable key, API base URL, and AI Worker URL).
+              <code className="font-mono">.env</code> and set public values
+              (URL, publishable key, API base URL, and AI Worker URL).
             </li>
             <li>
               Deploy the NOVA Worker per{" "}
-              <code className="font-mono">docs/worker-api-contract.md</code>; put
-              provider and bridge secrets in Worker secrets only.
+              <code className="font-mono">docs/worker-api-contract.md</code>;
+              put provider and bridge secrets in Worker secrets only.
             </li>
             <li>
               Review and manually apply{" "}
@@ -134,8 +131,8 @@ function Settings() {
             </li>
             <li>
               Assign roles via{" "}
-              <code className="font-mono">app_metadata.nova_role</code> using an
-              admin tool server-side.
+              <code className="font-mono">app_metadata.nova_role</code> using
+              an admin tool server-side.
             </li>
           </ol>
         </Panel>
