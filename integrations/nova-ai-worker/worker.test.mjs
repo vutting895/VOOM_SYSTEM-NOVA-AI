@@ -169,6 +169,7 @@ test("chat returns a model response only when the AI binding succeeds", async ()
   authFetch();
   const aiEnv = {
     ...env,
+    CLOUDFLARE_AI_FREE_TIER_CONFIRMED: "true",
     AI: {
       run: async (model, input) => {
         assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
@@ -250,4 +251,62 @@ test("Cloudflare rollback UI origin remains allowed", async () => {
   }), {});
   assert.equal(response.status, 204);
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), FALLBACK_UI_ORIGIN);
+});
+
+test("provider status requires auth and exposes no provider secrets", async () => {
+  const denied = await worker.fetch(new Request("https://worker.test/api/status"), {
+    ...env, GEMINI_API_KEY: "do-not-leak", GEMINI_FREE_TIER_CONFIRMED: "true",
+  });
+  assert.equal(denied.status, 401);
+
+  authFetch();
+  const response = await worker.fetch(new Request("https://worker.test/api/status", {
+    headers: { Authorization: "Bearer valid-token" },
+  }), {
+    ...env,
+    GEMINI_API_KEY: "do-not-leak",
+    GEMINI_FREE_TIER_CONFIRMED: "true",
+    GROQ_API_KEY: "also-secret",
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.providers.enabled.gemini, true);
+  assert.equal(body.providers.enabled.groq, false);
+  assert.equal(JSON.stringify(body).includes("do-not-leak"), false);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
+});
+
+test("Gemini 429 falls back to Cloudflare only after explicit free-tier confirmation", async () => {
+  let geminiCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "https://supabase.example/auth/v1/user") {
+      return new Response(JSON.stringify({ id: "user-test" }), { status: 200 });
+    }
+    if (String(url).includes("generativelanguage.googleapis.com")) {
+      geminiCalls += 1;
+      assert.equal(init.headers["x-goog-api-key"], "test-gemini-key");
+      return new Response(JSON.stringify({ error: { message: "rate limited" } }), { status: 429 });
+    }
+    throw new Error("unexpected outbound request");
+  };
+  const response = await worker.fetch(new Request("https://worker.test/api/chat", {
+    method: "POST",
+    headers: { Authorization: "Bearer valid-token", "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Explain EMA and RSI in Thai" }] }),
+  }), {
+    ...env,
+    GEMINI_API_KEY: "test-gemini-key",
+    GEMINI_FREE_TIER_CONFIRMED: "true",
+    CLOUDFLARE_AI_FREE_TIER_CONFIRMED: "true",
+    AI: { run: async () => ({ response: "Cloudflare fallback response" }) },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(geminiCalls, 1);
+  assert.equal(body.provider, "cloudflare-workers-ai");
+  assert.equal(body.fallbackUsed, true);
+  assert.equal(body.attempts, 2);
+  assert.equal(body.executionEnabled, false);
+  assert.equal(body.liveTradingEnabled, false);
 });

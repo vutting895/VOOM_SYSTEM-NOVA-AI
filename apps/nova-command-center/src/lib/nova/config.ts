@@ -2,6 +2,7 @@ export interface NovaConfig {
   supabaseUrl: string | null;
   supabaseAnonKey: string | null;
   apiBaseUrl: string | null;
+  aiWorkerUrl: string | null;
 }
 
 function clean(v: unknown): string | null {
@@ -13,6 +14,7 @@ export function readConfig(env: Record<string, unknown> = import.meta.env): Nova
     supabaseUrl: clean(env["VITE_SUPABASE_URL"]),
     supabaseAnonKey: clean(env["VITE_SUPABASE_ANON_KEY"]),
     apiBaseUrl: clean(env["VITE_NOVA_API_BASE_URL"]),
+    aiWorkerUrl: clean(env["VITE_NOVA_AI_WORKER_URL"]),
   };
 }
 
