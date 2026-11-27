@@ -172,7 +172,7 @@ test("chat returns a model response only when the AI binding succeeds", async ()
     CLOUDFLARE_AI_FREE_TIER_CONFIRMED: "true",
     AI: {
       run: async (model, input) => {
-        assert.equal(model, "@cf/meta/llama-3.2-3b-instruct");
+        assert.equal(model, "@cf/google/gemma-4-26b-a4b-it");
         assert.equal(input.messages[0].role, "system");
         assert.match(input.messages[0].content, /Live trading and order submission are disabled/);
         assert.equal(input.messages.at(-1).content, "Explain EMA and RSI in Thai");
