@@ -64,7 +64,7 @@ test("Cloudflare adapter uses existing AI binding and returns normalized respons
       },
     },
   }, [{ role: "user", content: "Hello" }]);
-  assert.equal(modelSeen, "@cf/meta/llama-3.2-3b-instruct");
+  assert.equal(modelSeen, "@cf/google/gemma-4-26b-a4b-it");
   assert.equal(result.message, "Cloudflare response");
   assert.equal(result.provider, "cloudflare-workers-ai");
 });
