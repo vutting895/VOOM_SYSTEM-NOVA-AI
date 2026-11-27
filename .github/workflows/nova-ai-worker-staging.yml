@@ -1,12 +1,6 @@
 name: Deploy NOVA AI Worker to isolated Staging
 
 on:
-  push:
-    branches:
-      - fix/staging-supabase-auth-diagnostic-20261127
-    paths:
-      - "integrations/nova-ai-worker/**"
-      - ".github/workflows/nova-ai-worker-staging.yml"
   workflow_dispatch:
 
 permissions:
