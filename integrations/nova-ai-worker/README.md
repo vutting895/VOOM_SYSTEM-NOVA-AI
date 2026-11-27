@@ -4,6 +4,7 @@ This folder is the source of truth for the deployed `voom-system-nova-ai` Cloudf
 
 ## Security contract
 - `GET /health` is public and exposes only service/binding readiness flags.
+- `GET /diagnostics/supabase-auth` is a public, read-only connectivity probe. It calls the fixed Supabase Auth `/auth/v1/settings` endpoint with the Worker-bound publishable key and returns only a sanitized status/result; it never returns provider response bodies, keys, tokens, or user data. This does not verify user login or JWT refresh.
 - Every other supported route requires a valid Supabase access token in `Authorization: Bearer …`; the Worker verifies it through Supabase Auth `/auth/v1/user`.
 - Browser CORS allows only the NOVA UI origin. CORS is not treated as authentication.
 - JSON requests are size-limited and validated. Unknown routes, including order routes, are rejected.
