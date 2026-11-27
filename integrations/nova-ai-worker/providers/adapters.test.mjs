@@ -54,6 +54,17 @@ test("Groq adapter stops on provider safety blocks", async () => {
   );
 });
 
+test("Cloudflare billing or model errors do not fall through as transient failures", async () => {
+  await assert.rejects(
+    generateWithCloudflare({ AI: { run: async () => { throw Object.assign(new Error("plan required"), { status: 403 }); } } }, [{ role: "user", content: "Hello" }]),
+    (error) => error.status === 403 && error.retryable === false,
+  );
+  await assert.rejects(
+    generateWithCloudflare({ AI: { run: async () => { throw Object.assign(new Error("model retired"), { status: 410 }); } } }, [{ role: "user", content: "Hello" }]),
+    (error) => error.status === 410 && error.retryable === false,
+  );
+});
+
 test("Cloudflare adapter uses existing AI binding and returns normalized response", async () => {
   let modelSeen;
   const result = await generateWithCloudflare({
