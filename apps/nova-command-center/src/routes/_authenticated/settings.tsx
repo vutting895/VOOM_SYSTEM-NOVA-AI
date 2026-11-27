@@ -131,8 +131,8 @@ function Settings() {
             </li>
             <li>
               Assign roles via{" "}
-              <code className="font-mono">app_metadata.nova_role</code> using
-              an admin tool server-side.
+              <code className="font-mono">app_metadata.nova_role</code> using an
+              admin tool server-side.
             </li>
           </ol>
         </Panel>
