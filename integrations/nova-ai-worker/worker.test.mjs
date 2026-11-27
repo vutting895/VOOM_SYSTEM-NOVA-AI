@@ -101,7 +101,7 @@ test("Supabase Auth diagnostic does not follow cross-origin redirects", async ()
 test("Supabase Auth diagnostic reports missing configuration without making a request", async () => {
   let called = false;
   globalThis.fetch = async () => { called = true; throw new Error("must not call"); };
-  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {});
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), { DIAGNOSTIC_RATE_LIMITER: env.DIAGNOSTIC_RATE_LIMITER });
   const body = await response.json();
   assert.equal(response.status, 503);
   assert.equal(body.supabaseAuth.result, "not_configured");
