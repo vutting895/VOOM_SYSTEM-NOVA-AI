@@ -18,6 +18,9 @@ jobs:
             test -f integrations/nova-ai-worker/worker.js
             test -f integrations/nova-ai-worker/worker.test.mjs
       - run:
+          name: Validate NOVA Smarter Testing configuration
+          command: circleci testsuite doctor "ci tests"
+      - run:
           name: Run NOVA AI Worker regression tests
           command: |
             set -euo pipefail
