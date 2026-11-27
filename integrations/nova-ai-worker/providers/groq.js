@@ -4,7 +4,7 @@ export async function generateWithGroq(env, messages, options = {}) {
   const apiKey = env.GROQ_API_KEY;
   if (!apiKey) throw new ProviderError("groq", "provider_not_configured", 503, true);
   const model = String(env.GROQ_MODEL || "openai/gpt-oss-120b").trim();
-  if (!/^[A-Za-z0-9._-]{1,100}$/.test(model)) {
+  if (!/^[A-Za-z0-9._/-]{1,100}$/.test(model)) {
     throw new ProviderError("groq", "provider_configuration_invalid", 503, false);
   }
   const controller = new AbortController();
