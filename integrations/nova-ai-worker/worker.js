@@ -345,7 +345,7 @@ export default {
       try {
         return json(await generateChat(env, messages), 200, origin);
       } catch (error) {
-        return fail(error.message === "ai_unavailable" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
+        return fail(error.message === "ai_unavailable" || error.message === "no_free_provider_confirmed" ? "ai_unavailable" : "ai_provider_unavailable", 503, origin);
       }
     }
     const result = backtest(body);
