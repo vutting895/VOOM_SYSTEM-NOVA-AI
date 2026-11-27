@@ -6,7 +6,15 @@ jobs:
       - image: cimg/node:22
     working_directory: ~/project
     steps:
-      - checkout
+      - run:
+          name: Checkout public repository over HTTPS
+          command: |
+            set -euo pipefail
+            git init .
+            git remote add origin https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git
+            git fetch --depth=1 origin "$CIRCLE_SHA1"
+            git checkout --detach FETCH_HEAD
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
       - run:
           name: Verify CircleCI checkout and Node runtime
           command: |
