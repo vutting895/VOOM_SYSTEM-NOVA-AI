@@ -20,3 +20,4 @@ binding = "AI"
 
 [env.staging.observability]
 enabled = true
+\n# Per-location approximate guard for the public Supabase Auth diagnostic.\n[[ratelimits]]\nname = "DIAGNOSTIC_RATE_LIMITER"\nnamespace_id = "43920261127"\n\n[ratelimits.simple]\nlimit = 30\nperiod = 60\n\n# Staging environments do not inherit top-level bindings.\n[[env.staging.ratelimits]]\nname = "DIAGNOSTIC_RATE_LIMITER"\nnamespace_id = "43920261128"\n\n[env.staging.ratelimits.simple]\nlimit = 30\nperiod = 60\n

@@ -4,7 +4,7 @@ This folder is the source of truth for the NOVA AI Worker.
 
 ## Security contract
 - `GET /health` is public and exposes only service/binding readiness flags.
-- `GET /diagnostics/supabase-auth` is a public, read-only connectivity probe. It calls the fixed Supabase Auth `/auth/v1/settings` endpoint with the Worker-bound publishable key and returns only a sanitized status/result; it never returns provider response bodies, keys, tokens, or user data. This does not verify user login or JWT refresh.
+- `GET /diagnostics/supabase-auth` is a public, read-only connectivity probe. It calls the fixed Supabase Auth `/auth/v1/settings` endpoint with the Worker-bound publishable key and returns only a sanitized status/result; it never returns provider response bodies, keys, tokens, or user data. It is protected by a Cloudflare Workers Rate Limiting binding (30 requests per 60 seconds per Cloudflare location); excess requests receive HTTP 429 and a missing/failing limiter fails closed with HTTP 503. Cloudflare documents this limiter as approximate and location-local, not a strict global quota. This endpoint does not verify user login or JWT refresh.
 - Every other supported route requires a valid Supabase access token in `Authorization: Bearer …`; the Worker verifies it through Supabase Auth `/auth/v1/user`.
 - Browser CORS allows only the explicitly configured NOVA UI origins. CORS is not treated as authentication.
 - JSON requests are size-limited and validated. Unknown routes, including order routes, are rejected.
@@ -19,9 +19,9 @@ Run `npm test` from this directory with Node.js 22+. Tests mock Supabase Auth; t
 ## Environments and deployment
 - Production Worker: `voom-system-nova-ai`. The existing production workflow remains restricted to pushes on `main`; do not use it for staging.
 - Staging Worker: `voom-system-nova-ai-staging`, configured under Wrangler `env.staging`. Its AI binding and observability are declared explicitly because Wrangler environments do not implicitly inherit all bindings.
-- The staging-only GitHub Actions workflow runs only for pushes to `fix/staging-supabase-auth-diagnostic-20261127` or manual dispatch. It deploys with `wrangler deploy --env staging --keep-vars`.
+- The staging-only GitHub Actions workflow is triggered only by `workflow_dispatch` (manual dispatch); it does not run automatically on branch pushes. It deploys with `wrangler deploy --env staging --keep-vars`.
 - GitHub Environment `nova-staging` requires only `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The workflow preserves the existing isolated Staging Worker's `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` bindings with `--keep-vars`; it does not read `SUPABASE_STAGING_URL` or `SUPABASE_STAGING_PUBLISHABLE_KEY` GitHub secrets and must never inject Production credentials.
-- The Staging Worker bindings must be provisioned and verified directly in the isolated Cloudflare Staging Worker before deployment. Use a non-production Supabase project and a publishable/anon key only.
+- The Staging Worker bindings must be provisioned and verified directly in the isolated Cloudflare Staging Worker before deployment. Use a non-production Supabase project and a publishable/anon key only. The `DIAGNOSTIC_RATE_LIMITER` binding is declared separately for Production and Staging with distinct account-unique namespace IDs.
 - GitHub Actions runs the full Node test suite before deployment, then checks Staging health, Supabase Auth diagnostic reachability, and unauthenticated API rejection.
 - CircleCI runs the same local Node test suite as a separate CI validation only; it does not deploy or access secrets.
 - No Production deployment, Main update, database migration, order submission, broker mutation, or trading execution is part of this Staging workflow.

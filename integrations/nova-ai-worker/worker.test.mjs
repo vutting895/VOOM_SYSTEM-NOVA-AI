@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./worker.js";
 
-const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key" };
+const env = { SUPABASE_URL: "https://supabase.example", SUPABASE_PUBLISHABLE_KEY: "public-test-key", DIAGNOSTIC_RATE_LIMITER: { limit: async () => ({ success: true }) } };
 const FALLBACK_UI_ORIGIN = "https://voom-system-nova-ui.suwapat787.workers.dev";
 const originalFetch = globalThis.fetch;
 function authFetch(status = 200, payload = { id: "user-test" }) {
@@ -23,7 +23,7 @@ test("health is public but explicitly reports execution disabled", async () => {
   assert.equal(body.liveTradingEnabled, false);
 });
 
-test("Supabase Auth diagnostic probes settings with the publishable key and returns no provider body", async () => {
+test("Supabase Auth diagnostic fails closed when rate limiter is unavailable", async () => {\n  let called = false;\n  globalThis.fetch = async () => { called = true; throw new Error("must not call"); };\n  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {\n    SUPABASE_URL: env.SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY: env.SUPABASE_PUBLISHABLE_KEY,\n  });\n  assert.equal(response.status, 503);\n  assert.equal((await response.json()).error, "diagnostic_rate_limiter_unavailable");\n  assert.equal(called, false);\n});\n\ntest("Supabase Auth diagnostic rate limit rejects excess requests before calling Supabase", async () => {\n  let called = false;\n  globalThis.fetch = async () => { called = true; throw new Error("must not call"); };\n  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {\n    ...env, DIAGNOSTIC_RATE_LIMITER: { limit: async ({ key }) => { assert.equal(key, "supabase-auth-diagnostic"); return { success: false }; } },\n  });\n  const body = await response.json();\n  assert.equal(response.status, 429);\n  assert.equal(body.error, "rate_limit_exceeded");\n  assert.equal(body.retryAfterSeconds, 60);\n  assert.equal(body.executionEnabled, false);\n  assert.equal(called, false);\n});\n\ntest("Supabase Auth diagnostic probes settings with the publishable key and returns no provider body", async () => {
   let called = 0;
   globalThis.fetch = async (url, init) => {
     called += 1;

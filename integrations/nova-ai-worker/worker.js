@@ -363,6 +363,18 @@ export default {
         : fail("origin_not_allowed", 403, "");
     }
     if (request.method === "GET" && url.pathname === "/diagnostics/supabase-auth") {
+      if (!env.DIAGNOSTIC_RATE_LIMITER || typeof env.DIAGNOSTIC_RATE_LIMITER.limit !== "function") {
+        return fail("diagnostic_rate_limiter_unavailable", 503, origin);
+      }
+      let rateLimit;
+      try {
+        rateLimit = await env.DIAGNOSTIC_RATE_LIMITER.limit({ key: "supabase-auth-diagnostic" });
+      } catch {
+        return fail("diagnostic_rate_limiter_unavailable", 503, origin);
+      }
+      if (!rateLimit?.success) {
+        return json({ error: "rate_limit_exceeded", retryAfterSeconds: 60, executionEnabled: false, liveTradingEnabled: false }, 429, origin);
+      }
       const supabaseAuth = await probeSupabaseAuth(env);
       return json({
         ok: supabaseAuth.reachable,
