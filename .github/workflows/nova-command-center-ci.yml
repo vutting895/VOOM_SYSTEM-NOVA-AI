@@ -39,9 +39,12 @@ jobs:
       - name: Install from resolved lockfile
         run: bun install --frozen-lockfile
 
-      - name: Test NOVA AI Worker provider router and security contract
+      - name: Test NOVA AI Worker adapters, provider router and security contract
         working-directory: .
         run: node --test integrations/nova-ai-worker/*.test.mjs integrations/nova-ai-worker/providers/*.test.mjs
+
+      - name: ESLint changed NOVA AI frontend files
+        run: bunx eslint src/lib/nova/ai-client.ts src/routes/_authenticated/assistant.tsx src/routes/_authenticated/settings.tsx src/lib/nova/config.ts src/lib/nova/head.ts src/test/setup.ts
 
       - name: TypeScript
         run: bun run typecheck
