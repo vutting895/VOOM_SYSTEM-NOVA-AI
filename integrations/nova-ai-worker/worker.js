@@ -368,7 +368,8 @@ export default {
       }
       let rateLimit;
       try {
-        rateLimit = await env.DIAGNOSTIC_RATE_LIMITER.limit({ key: "supabase-auth-diagnostic" });
+        const clientKey = request.headers.get("CF-Connecting-IP") || "unknown";
+        rateLimit = await env.DIAGNOSTIC_RATE_LIMITER.limit({ key: clientKey });
       } catch {
         return fail("diagnostic_rate_limiter_unavailable", 503, origin);
       }
