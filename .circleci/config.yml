@@ -1,0 +1,26 @@
+version: 2.1
+
+jobs:
+  system-hub-tests:
+    resource_class: medium
+    docker:
+      - image: cimg/node:22.11
+    working_directory: ~/project
+    steps:
+      - checkout
+      - run:
+          name: Report Node.js runtime
+          command: node --version
+      - run:
+          name: Run System Hub unit and contract tests
+          command: node --test integrations/system-hub/tests/*.test.mjs
+      - run:
+          name: Syntax-check System Hub Worker and catalog
+          command: |
+            node --check integrations/system-hub/worker.js
+            node --check integrations/system-hub/data-source-catalog.js
+
+workflows:
+  system-hub-ci:
+    jobs:
+      - system-hub-tests

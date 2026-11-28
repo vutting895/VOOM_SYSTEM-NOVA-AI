@@ -1,0 +1,42 @@
+name: System Hub CI
+
+on:
+  push:
+    branches:
+      - feat/nova-central-data-catalog-20261126
+    paths:
+      - "integrations/system-hub/**"
+      - ".github/workflows/system-hub-ci.yml"
+      - ".circleci/config.yml"
+  pull_request:
+    paths:
+      - "integrations/system-hub/**"
+      - ".github/workflows/system-hub-ci.yml"
+      - ".circleci/config.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: system-hub-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  system-hub-tests:
+    name: System Hub tests and syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Report Node.js runtime
+        run: node --version
+      - name: Run System Hub unit and contract tests
+        run: node --test integrations/system-hub/tests/*.test.mjs
+      - name: Syntax-check System Hub Worker and catalog
+        run: |
+          node --check integrations/system-hub/worker.js
+          node --check integrations/system-hub/data-source-catalog.js
