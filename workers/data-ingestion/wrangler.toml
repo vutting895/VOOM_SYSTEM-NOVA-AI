@@ -1,0 +1,9 @@
+name = "nova-data-ingestion"
+main = "src/index.js"
+compatibility_date = "2026-11-26"
+workers_dev = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nova-data-ingestion"
+database_id = "REPLACE_WITH_PROVISIONED_D1_DATABASE_ID"
