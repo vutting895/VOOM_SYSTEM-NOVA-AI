@@ -37,8 +37,8 @@ test("Supabase Auth diagnostic fails closed when rate limiter is unavailable", a
 test("Supabase Auth diagnostic rate limit rejects excess requests before calling Supabase", async () => {
   let called = false;
   globalThis.fetch = async () => { called = true; throw new Error("must not call"); };
-  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth"), {
-    ...env, DIAGNOSTIC_RATE_LIMITER: { limit: async ({ key }) => { assert.equal(key, "supabase-auth-diagnostic"); return { success: false }; } },
+  const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth", { headers: { "CF-Connecting-IP": "203.0.113.8" } }), {
+    ...env, DIAGNOSTIC_RATE_LIMITER: { limit: async ({ key }) => { assert.equal(key, "203.0.113.8"); return { success: false }; } },
   });
   const body = await response.json();
   assert.equal(response.status, 429);
@@ -46,6 +46,17 @@ test("Supabase Auth diagnostic rate limit rejects excess requests before calling
   assert.equal(body.retryAfterSeconds, 60);
   assert.equal(body.executionEnabled, false);
   assert.equal(called, false);
+});
+
+test("Supabase Auth diagnostic rate limit key is isolated per client IP", async () => {
+  const keys = [];
+  const limiterEnv = { ...env, DIAGNOSTIC_RATE_LIMITER: { limit: async ({ key }) => { keys.push(key); return { success: true }; } } };
+  globalThis.fetch = async () => new Response("{}", { status: 200 });
+  for (const ip of ["203.0.113.10", "203.0.113.11"]) {
+    const response = await worker.fetch(new Request("https://worker.test/diagnostics/supabase-auth", { headers: { "CF-Connecting-IP": ip } }), limiterEnv);
+    assert.equal(response.status, 200);
+  }
+  assert.deepEqual(keys, ["203.0.113.10", "203.0.113.11"]);
 });
 
 test("Supabase Auth diagnostic probes settings with the publishable key and returns no provider body", async () => {
