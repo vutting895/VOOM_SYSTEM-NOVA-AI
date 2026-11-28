@@ -25,12 +25,20 @@ jobs:
           name: Install Bun
           command: |
             curl -fsSL https://bun.sh/install | bash
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
+            test -x "$BUN_INSTALL/bin/bun"
+            "$BUN_INSTALL/bin/bun" --version
             echo 'export BUN_INSTALL="$HOME/.bun"' >> "$BASH_ENV"
             echo 'export PATH="$BUN_INSTALL/bin:$PATH"' >> "$BASH_ENV"
 
       - run:
           name: Resolve and install Command Center dependencies
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
+            command -v bun
+            bun --version
             cd apps/nova-command-center
             bun install --lockfile-only
             bun install --frozen-lockfile
@@ -43,30 +51,43 @@ jobs:
       - run:
           name: ESLint changed NOVA AI frontend files
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
+            command -v bun
+            bun --version
             cd apps/nova-command-center
-            bunx eslint src/lib/nova/ai-client.ts src/routes/_authenticated/assistant.tsx src/routes/_authenticated/settings.tsx src/lib/nova/config.ts src/lib/nova/head.ts src/test/setup.ts
+            # Use Bun's built-in x subcommand; this avoids a separate bunx PATH shim.
+            bun x eslint src/lib/nova/ai-client.ts src/routes/_authenticated/assistant.tsx src/routes/_authenticated/settings.tsx src/lib/nova/config.ts src/lib/nova/head.ts src/test/setup.ts
 
       - run:
           name: TypeScript
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
             cd apps/nova-command-center
             bun run typecheck
 
       - run:
           name: Unit tests
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
             cd apps/nova-command-center
             bun run test
 
       - run:
           name: Production build
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
             cd apps/nova-command-center
             bun run build
 
       - run:
           name: Full-app ESLint baseline (diagnostic only)
           command: |
+            export BUN_INSTALL="$HOME/.bun"
+            export PATH="$BUN_INSTALL/bin:$PATH"
             cd apps/nova-command-center
             if bun run lint; then
               echo "Full-app ESLint passed."
