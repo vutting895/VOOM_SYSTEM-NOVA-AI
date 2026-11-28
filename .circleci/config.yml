@@ -6,7 +6,20 @@ jobs:
       - image: cimg/node:24.11.1
     working_directory: ~/project
     steps:
-      - checkout
+      # This repository is public. Avoid CircleCI's broken/empty SSH checkout key
+      # by fetching the exact pipeline commit over HTTPS without credentials.
+      - run:
+          name: Checkout exact pipeline commit over public HTTPS
+          command: |
+            git init .
+            git remote add origin https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI.git
+            if [ -n "${CIRCLE_BRANCH:-}" ]; then
+              git fetch --no-tags --depth=1 origin "refs/heads/${CIRCLE_BRANCH}"
+            else
+              git fetch --no-tags --depth=1 origin "${CIRCLE_SHA1}"
+            fi
+            git checkout --detach "${CIRCLE_SHA1}"
+            test "$(git rev-parse HEAD)" = "${CIRCLE_SHA1}"
 
       - run:
           name: Install Bun
