@@ -6,6 +6,7 @@ This directory is reserved for reproducible NOVA AI Trading research notebooks.
 
 | Notebook | Purpose | Status |
 |---|---|---|
+| `NOVA_Unified_Intelligence_Research.ipynb` | XGBoost + genuine LSTM + SMC/Brain replay + OOF meta-decision and sealed OOS classification | New research branch; training disabled by default and blocked pending approved data/ledgers |
 | `NOVA_XAUUSD_H1_CPU_Research.ipynb` | Exness XAUUSDm H1 data validation, CPU research, and chronological model evaluation | Candidate in [PR #243](https://github.com/vutting895/VOOM_SYSTEM-NOVA-AI/pull/243); not yet integrated into current `main` |
 | `../colab/nova-auto-learning/NOVA_Colab_Runtime_Preflight.ipynb` | Colab runtime and environment preflight | Present on current `main`; not a model-training notebook |
 
@@ -20,4 +21,4 @@ This directory is reserved for reproducible NOVA AI Trading research notebooks.
 - Add deterministic tests for critical data and strategy contracts; CI must validate notebook structure and executable code cells.
 - Do not treat cached outputs, local-only test results, or a successful notebook parse as proof of hosted CI or data-source availability.
 
-See [NOVA Gold Lab governance](../docs/NOVA_GOLD_LAB.md) for data, model, security, and promotion gates.
+See [NOVA Gold Lab governance](../docs/NOVA_GOLD_LAB.md) and [NOVA Unified Intelligence](../docs/NOVA_UNIFIED_INTELLIGENCE.md) for data, model, security, evaluation, and promotion gates.
