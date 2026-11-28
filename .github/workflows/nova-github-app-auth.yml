@@ -1,0 +1,69 @@
+name: NOVA GitHub App Authentication
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-github-app-auth-main
+  cancel-in-progress: false
+
+jobs:
+  installation-auth-smoke:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    name: Verify scoped GitHub App installation token
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require GitHub App credentials
+        shell: bash
+        env:
+          APP_CLIENT_ID: ${{ vars.NOVA_GH_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.NOVA_GH_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${APP_CLIENT_ID}" || -z "${APP_PRIVATE_KEY}" ]]; then
+            echo "::error::Configure NOVA_GH_APP_CLIENT_ID as a repository Actions variable and NOVA_GH_APP_PRIVATE_KEY as a repository Actions secret."
+            exit 1
+          fi
+          echo "GitHub App credential presence check passed; values were not printed."
+
+      - name: Mint repository-scoped installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.NOVA_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.NOVA_GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name || github.repository }}
+          permission-contents: read
+          permission-pull-requests: read
+          permission-checks: read
+          permission-actions: read
+
+      - name: Verify installation token can read only the target repository
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          response="$(mktemp)"
+          trap 'rm -f "$response"' EXIT
+          status="$(curl --silent --show-error --output "$response" --write-out '%{http_code}' \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2026-03-10" \
+            "https://api.github.com/repos/${EXPECTED_REPOSITORY}")"
+          if [[ "$status" != "200" ]]; then
+            echo "::error::GitHub App installation token could not read ${EXPECTED_REPOSITORY} (HTTP ${status}). Check installation repository selection and permissions."
+            exit 1
+          fi
+          actual="$(node -e 'const fs=require("fs");const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(d.full_name||"")' "$response")"
+          if [[ "$actual" != "$EXPECTED_REPOSITORY" ]]; then
+            echo "::error::Token resolved an unexpected repository."
+            exit 1
+          fi
+          echo "GitHub App installation authentication verified for ${actual}; token and private key were not logged."

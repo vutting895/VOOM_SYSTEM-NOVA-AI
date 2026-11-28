@@ -1,0 +1,77 @@
+name: NOVA Pull Request Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-pr-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy-and-secret-scan:
+    name: NOVA PR Policy and Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR head without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Scan changed files for credentials and trading-safety regressions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          base = os.environ["BASE_SHA"]
+          head = os.environ["HEAD_SHA"]
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", f"{base}...{head}"],
+              text=True,
+          ).splitlines()
+
+          secret_patterns = [
+              re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+              re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+              re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
+          ]
+          forbidden_trading_enablement = [
+              re.compile(r"\bordersEnabled\s*[:=]\s*true\b", re.I),
+              re.compile(r"\bexecutionEnabled\s*[:=]\s*true\b", re.I),
+              re.compile(r"\bliveTradingEnabled\s*[:=]\s*true\b", re.I),
+          ]
+
+          failures = []
+          for path in changed:
+              if not os.path.isfile(path):
+                  continue
+              try:
+                  content = open(path, "r", encoding="utf-8").read()
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for pattern in secret_patterns:
+                  if pattern.search(content):
+                      failures.append(f"{path}: possible credential material detected")
+              for pattern in forbidden_trading_enablement:
+                  if pattern.search(content):
+                      failures.append(f"{path}: trading safety flag enabled")
+          if failures:
+              for failure in failures:
+                  print(f"::error::{failure}")
+              sys.exit(1)
+          print(f"Scanned {len(changed)} changed path(s); no credential patterns or trading-safety enablement found.")
+          PY
