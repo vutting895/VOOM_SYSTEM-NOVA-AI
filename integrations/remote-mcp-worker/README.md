@@ -42,7 +42,7 @@ MT5 tools require an authenticated Supabase session and an existing user-owned `
 The existing Remote MCP Gateway exposes the Datacenter Learning tool group without creating a second NOVA Gateway or per-worker MCP servers. The Gateway forwards the signed-in user's Supabase Bearer session to Datacenter; Datacenter independently verifies the same session with Supabase Auth and scopes all registry operations to that authenticated user.
 
 Learning tool groups:
-- Dataset: `dataset_list`, `dataset_get`, `dataset_validate`, `dataset_register`, `dataset_ingest`, `dataset_validate_ohlcv`, `dataset_approve`, `dataset_consolidate`.
+- Dataset: `dataset_list`, `dataset_get`, `dataset_export_chunk`, `dataset_validate`, `dataset_register`, `dataset_ingest`, `dataset_validate_ohlcv`, `dataset_approve`, `dataset_consolidate`. `dataset_export_chunk` returns at most 1,000 rows from an exact PASSED + approved owner-scoped version, with source-artifact and per-chunk SHA-256 receipts; it does not expose storage paths or public artifact URLs.
 - Universe: `universe_validate`, `universe_register`, `universe_list`, `universe_get`.
 - Analysis: `analysis_run`, `analysis_get`, `analysis_report`.
 - Training: `learning_submit`, `learning_status`, `learning_cancel`, `learning_logs`.

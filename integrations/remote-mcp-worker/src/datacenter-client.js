@@ -19,6 +19,7 @@ const marketCalendarSchema = {
 const definitions = [
   ["dataset_list", "List the signed-in user's Datacenter datasets.", {limit:{type:"integer",minimum:1,maximum:200},status:{type:"string",enum:["PENDING","PASSED","FAILED","QUARANTINED","REJECTED","SUPERSEDED"]}}],
   ["dataset_get", "Read one immutable dataset version and quality receipt.", {dataset_id:{type:"string"},version:{type:"integer",minimum:1}}],
+  ["dataset_export_chunk", "Export up to 1,000 rows from one exact PASSED and approved owner-scoped dataset version with integrity receipts.", {dataset_id:{type:"string"},version:{type:"integer",minimum:1},offset:{type:"integer",minimum:0,maximum:100000},limit:{type:"integer",minimum:1,maximum:1000}}],
   ["dataset_validate", "Validate dataset provenance or inspect its persisted quality receipt.", {manifest:{type:"object"},dataset_id:{type:"string"},version:{type:"integer",minimum:1}}],
   ["dataset_register", "Register a metadata-only dataset version; it is not approved for training.", {manifest:{type:"object"}}],
   ["dataset_ingest", "Validate and persist OHLCV rows in Parquet/Zstandard. Only 100% passing datasets can be approved.", {manifest:{type:"object"},rows:{type:"array",minItems:1,maxItems:100000,items:{type:"object"}}}],
@@ -78,6 +79,7 @@ const definitions = [
 
 const requiredArguments = {
   dataset_get: ["dataset_id"],
+  dataset_export_chunk: ["dataset_id", "version"],
   dataset_register: ["manifest"],
   dataset_ingest: ["manifest", "rows"],
   dataset_validate_ohlcv: ["rows", "expected_interval_seconds"],
