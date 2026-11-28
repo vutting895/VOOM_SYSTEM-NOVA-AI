@@ -31,6 +31,9 @@ jobs:
       - name: Test NOVA training status never reports simulated metrics
         run: node --test tests/nova-training-status-honesty.test.mjs
 
+      - name: Test isolated Cloudflare Workers AI provider adapter
+        run: node --import tsx --test tests/workers-ai-provider.test.mjs
+
       - name: Test Supabase Marketplace security migration contract
         working-directory: .
         run: node --test tests/supabase-marketplace-security-migration.test.mjs
@@ -69,6 +72,8 @@ jobs:
       - name: Validate NOVA System Integration Hub Worker bundle
         working-directory: .
         run: npx wrangler deploy --dry-run --config integrations/system-hub/wrangler.jsonc
+      - name: Type-check root TypeScript project
+        run: npm run lint
       - name: Build root Vite frontend
         run: npm run build
 
