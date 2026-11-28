@@ -25,6 +25,7 @@ export default function App() {
       <Route path="/chat" element={<QuickitMarketFleetView initialTab="trading" />} />
       <Route path="/pro" element={<QuickitMarketFleetView initialTab="portfolio" />} />
       <Route path="/settings" element={<QuickitMarketFleetView initialTab="settings" />} />
+      <Route path="/pull-requests" element={<QuickitMarketFleetView initialTab="pull-requests" />} />
       <Route path="/broker" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/profile" element={<QuickitMarketFleetView initialTab="settings" />} />
       <Route path="/login" element={<QuickitMarketFleetView initialTab="settings" />} />

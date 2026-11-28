@@ -37,6 +37,7 @@ import LearningUniverseView from './learning/LearningUniverseView';
 import DevDiagnosticOverlay from './common/DevDiagnosticOverlay';
 import MarketNewsTicker from './dashboard/MarketNewsTicker';
 import StrategyPerformanceView from './strategy/StrategyPerformanceView';
+import PullRequestsView from './PullRequestsView';
 
 export type TabId =
   | 'dashboard'
@@ -48,7 +49,8 @@ export type TabId =
   | 'trading'
   | 'portfolio'
   | 'settings'
-  | 'strategy-perf';
+  | 'strategy-perf'
+  | 'pull-requests';
 
 export type SubscriptionPlanId = 'free' | 'pro' | 'elite';
 
@@ -1344,6 +1346,7 @@ export default function QuickitMarketFleetView({
                     { id: 'learning', label: '5. Learning Universe' },
                     { id: 'market', label: 'Fleet Market', badge: `Fleet (${runningBotsCount}/${fleetBots.length})` },
                     { id: 'strategy-perf', label: 'MTRADERS 30 Modules' },
+                    { id: 'pull-requests', label: 'PR Center' },
                     { id: 'trading', label: 'Research Chat' },
                     { id: 'settings', label: 'Settings' },
                   ] as { id: TabId, label: string, badge?: string, indicators?: {status: 'online' | 'warning' | 'offline', label: string}[] }[]
@@ -3190,6 +3193,15 @@ export default function QuickitMarketFleetView({
           {activeTab === 'strategy-perf' && (
             <div>
               <StrategyPerformanceView />
+            </div>
+          )}
+
+          {/* =====================================================================
+              TAB: PULL REQUEST CENTER (Live GitHub PR inventory)
+             ===================================================================== */}
+          {activeTab === 'pull-requests' && (
+            <div>
+              <PullRequestsView />
             </div>
           )}
 
