@@ -80,6 +80,56 @@ function validateChatInput(value) {
   return messages.map(({ role, content }) => ({ role, content: content.trim() }));
 }
 
+async function probeSupabaseAuth(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) {
+    return { configured: false, reachable: false, httpStatus: null, result: "not_configured" };
+  }
+  let authUrl;
+  try {
+    const base = new URL(env.SUPABASE_URL);
+    if (base.protocol !== "https:" || base.username || base.password) {
+      return { configured: false, reachable: false, httpStatus: null, result: "invalid_supabase_url" };
+    }
+    authUrl = new URL("/auth/v1/settings", base);
+  } catch {
+    return { configured: false, reachable: false, httpStatus: null, result: "invalid_supabase_url" };
+  }
+  const init = {
+    method: "GET",
+    headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY, Accept: "application/json" },
+    redirect: "manual",
+    signal: AbortSignal.timeout(10000),
+  };
+  try {
+    let response = await fetch(authUrl, init);
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      if (!location) return { configured: true, reachable: false, httpStatus: response.status, result: "redirect_rejected" };
+      let next;
+      try { next = new URL(location, authUrl); } catch {
+        return { configured: true, reachable: false, httpStatus: response.status, result: "redirect_rejected" };
+      }
+      if (next.protocol !== "https:" || next.origin !== authUrl.origin) {
+        return { configured: true, reachable: false, httpStatus: response.status, result: "redirect_rejected" };
+      }
+      response = await fetch(next, init);
+      if (response.status >= 300 && response.status < 400) {
+        return { configured: true, reachable: false, httpStatus: response.status, result: "redirect_rejected" };
+      }
+    }
+    const status = response.status;
+    try { await response.body?.cancel(); } catch {}
+    return {
+      configured: true,
+      reachable: response.ok,
+      httpStatus: status,
+      result: response.ok ? "ok" : status === 401 || status === 403 ? "apikey_rejected" : "provider_error",
+    };
+  } catch {
+    return { configured: true, reachable: false, httpStatus: null, result: "network_error" };
+  }
+}
+
 function safeAuthDiagnostic(error) {
   const errorName = typeof error?.name === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(error.name)
     ? error.name
@@ -311,6 +361,30 @@ export default {
       return UI_ORIGINS.has(origin)
         ? new Response(null, { status: 204, headers: { ...BASE_HEADERS, ...corsHeaders(origin) } })
         : fail("origin_not_allowed", 403, "");
+    }
+    if (request.method === "GET" && url.pathname === "/diagnostics/supabase-auth") {
+      if (!env.DIAGNOSTIC_RATE_LIMITER || typeof env.DIAGNOSTIC_RATE_LIMITER.limit !== "function") {
+        return fail("diagnostic_rate_limiter_unavailable", 503, origin);
+      }
+      let rateLimit;
+      try {
+        const clientKey = request.headers.get("CF-Connecting-IP") || "unknown";
+        rateLimit = await env.DIAGNOSTIC_RATE_LIMITER.limit({ key: clientKey });
+      } catch {
+        return fail("diagnostic_rate_limiter_unavailable", 503, origin);
+      }
+      if (!rateLimit?.success) {
+        return json({ error: "rate_limit_exceeded", retryAfterSeconds: 60, executionEnabled: false, liveTradingEnabled: false }, 429, origin);
+      }
+      const supabaseAuth = await probeSupabaseAuth(env);
+      return json({
+        ok: supabaseAuth.reachable,
+        service: "voom-system-nova-ai",
+        dependency: "supabase-auth",
+        supabaseAuth,
+        executionEnabled: false,
+        liveTradingEnabled: false,
+      }, supabaseAuth.reachable ? 200 : 503, origin);
     }
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
